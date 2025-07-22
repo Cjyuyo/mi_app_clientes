@@ -1,81 +1,120 @@
-import sqlite3
+import os
+import psycopg2
+import psycopg2.extras
 from flask import Flask, render_template, request, g
 
 app = Flask(__name__)
-DATABASE = 'clientes.db'
 
-# --- Gestión de la conexión a la base de datos ---
+# Lee la URL de la base de datos desde las variables de entorno de Render
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
 def get_db():
+    """
+    Abre una conexión a la base de datos PostgreSQL.
+    """
     db = getattr(g, '_database', None)
     if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
-        db.row_factory = sqlite3.Row
+        if not DATABASE_URL:
+            raise ValueError("No se ha configurado la variable de entorno DATABASE_URL")
+        db = g._database = psycopg2.connect(DATABASE_URL)
     return db
 
 @app.teardown_appcontext
 def close_connection(exception):
+    """
+    Cierra la conexión al final de la petición.
+    """
     db = getattr(g, '_database', None)
     if db is not None:
         db.close()
 
-# --- Rutas de la aplicación ---
 @app.route('/', methods=['GET', 'POST'])
 def index():
+    """
+    Maneja el registro de nuevos clientes en la base de datos PostgreSQL.
+    """
     mensaje = None
     if request.method == 'POST':
         try:
             form_data = {k: v for k, v in request.form.items()}
-            if not form_data.get('cedula'):
-                mensaje = "Error: La cédula es un campo obligatorio."
+            if not form_data.get('nombre_apellido'):
+                mensaje = "Error: El nombre es un campo obligatorio."
                 return render_template('index.html', mensaje=mensaje)
+
             db = get_db()
-            db.execute("""
-                INSERT OR REPLACE INTO clientes (
-                    cedula, contrato_nro, nombre_apellido, telefono, fecha_ingreso, grupo, plan,
-                    moneda_pago, asesor, responsable, proceso, estatus, estatus_1,
-                    inscripcion_porcentaje, inscripcion_monto, cuotas_pagas, pagos_impuntuales,
-                    cuotas_mora, valor_cuota, fecha_pago_recurrente, estatus_cuota, valor_cancelado, observacion
-                ) VALUES (
-                    :cedula, :contrato_nro, :nombre_apellido, :telefono, :fecha_ingreso, :grupo, :plan,
-                    :moneda_pago, :asesor, :responsable, :proceso, :estatus, :estatus_1,
-                    :inscripcion_porcentaje, :inscripcion_monto, :cuotas_pagas, :pagos_impuntuales,
-                    :cuotas_mora, :valor_cuota, :fecha_pago_recurrente, :estatus_cuota, :valor_cancelado, :observacion
-                )
-            """, form_data)
+            cursor = db.cursor()
+            
+            # Si se proporciona una cédula, se intenta actualizar. Si no, se inserta.
+            query = """
+            INSERT INTO clientes (
+                cedula, contrato_nro, nombre_apellido, telefono, fecha_ingreso, grupo, plan,
+                moneda_pago, asesor, responsable, proceso, estatus, estatus_1,
+                inscripcion_porcentaje, inscripcion_monto, cuotas_pagas, pagos_impuntuales,
+                cuotas_mora, valor_cuota, fecha_pago_recurrente, estatus_cuota, valor_cancelado, observacion
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (cedula) WHERE cedula IS NOT NULL DO UPDATE SET
+                contrato_nro = EXCLUDED.contrato_nro,
+                nombre_apellido = EXCLUDED.nombre_apellido,
+                telefono = EXCLUDED.telefono;
+            """
+            
+            values = (
+                form_data.get('cedula') or None, form_data.get('contrato_nro'), form_data.get('nombre_apellido'), 
+                form_data.get('telefono'), form_data.get('fecha_ingreso'), form_data.get('grupo'), 
+                form_data.get('plan'), form_data.get('moneda_pago'), form_data.get('asesor'), 
+                form_data.get('responsable'), form_data.get('proceso'), form_data.get('estatus'), 
+                form_data.get('estatus_1'), form_data.get('inscripcion_porcentaje'), form_data.get('inscripcion_monto'), 
+                form_data.get('cuotas_pagas'), form_data.get('pagos_impuntuales'), form_data.get('cuotas_mora'), 
+                form_data.get('valor_cuota'), form_data.get('fecha_pago_recurrente'), form_data.get('estatus_cuota'), 
+                form_data.get('valor_cancelado'), form_data.get('observacion')
+            )
+            
+            cursor.execute(query, values)
             db.commit()
+            cursor.close()
             mensaje = "¡Cliente registrado/actualizado exitosamente!"
-        except sqlite3.Error as err:
-            mensaje = f"Error en la base de datos: {err}"
-        except Exception as err:
-            mensaje = f"Ha ocurrido un error inesperado: {err}"
+
+        except Exception as e:
+            mensaje = f"Ocurrió un error: {e}"
+    
     return render_template('index.html', mensaje=mensaje)
 
 @app.route('/consulta', methods=['GET', 'POST'])
 def consulta():
-    cliente = None
-    pagos = None
+    """
+    Maneja la búsqueda de clientes por cédula, nombre o teléfono.
+    """
+    clientes_encontrados = []
     mensaje_error = None
     if request.method == 'POST':
-        cedula = request.form.get('cedula')
-        if not cedula:
-            mensaje_error = "Por favor, ingrese una cédula para buscar."
+        termino_busqueda = request.form.get('busqueda', '').strip()
+        if not termino_busqueda:
+            mensaje_error = "Por favor, ingrese un término para buscar."
         else:
             db = get_db()
-            cliente = db.execute('SELECT * FROM clientes WHERE cedula = ?', (cedula,)).fetchone()
-            if not cliente:
-                mensaje_error = "🚫 Cliente no registrado. Verifique la cédula e intente de nuevo."
-    return render_template('consulta.html', cliente=cliente, pagos=pagos, mensaje_error=mensaje_error)
-
-# --- Función para inicializar la BD ---
-def init_db():
-    with app.app_context():
-        db = get_db()
-        with app.open_resource('schema.sql', mode='r') as f:
-            db.cursor().executescript(f.read())
-        db.commit()
-        print("Base de datos inicializada con el nuevo esquema.")
+            cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            
+            # Búsqueda flexible: ILIKE es insensible a mayúsculas/minúsculas
+            # Se buscan coincidencias parciales con %%
+            query = """
+                SELECT * FROM clientes 
+                WHERE cedula LIKE %s 
+                OR nombre_apellido ILIKE %s 
+                OR telefono LIKE %s
+                LIMIT 20;
+            """
+            # El patrón de búsqueda busca coincidencias en cualquier parte del texto
+            patron = f'%{termino_busqueda}%'
+            
+            cursor.execute(query, (patron, patron, patron))
+            clientes_encontrados = cursor.fetchall()
+            
+            if not clientes_encontrados:
+                mensaje_error = "🚫 No se encontraron clientes que coincidan con su búsqueda."
+            
+            cursor.close()
+    
+    return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error)
 
 if __name__ == '__main__':
-    # init_db() # Descomenta esta línea y ejecuta "python app.py" UNA SOLA VEZ para crear la BD
     app.run(debug=True)
-
