@@ -1,2 +1,110 @@
 <!DOCTYPE html>
-<html lang="es"><head><meta charset="UTF-8"><title>Registro de Clientes</title><style>body{font-family:Arial,sans-serif;padding:30px;background-color:#f9f9f9}.container{max-width:800px;margin:auto}h1{color:#333;text-align:center}nav{margin-bottom:20px;text-align:center}nav a{text-decoration:none;background-color:#555;color:white;padding:10px 15px;border-radius:5px;margin:0 10px}nav a.active{background-color:#4CAF50}form{background:white;padding:20px;border-radius:8px;box-shadow:0 0 10px rgba(0,0,0,.1)}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}label{display:block;margin-top:10px;font-weight:700}input,select,textarea{width:100%;padding:8px;margin-top:5px;box-sizing:border-box;border:1px solid #ccc;border-radius:4px}.full-width{grid-column:1 / -1}button{margin-top:20px;background-color:#4CAF50;color:white;padding:15px;border:none;cursor:pointer;width:100%;font-size:16px;border-radius:4px}.mensaje{margin-top:20px;font-weight:700;padding:15px;border-radius:5px;text-align:center}.exito{color:#4F8A10;background-color:#DFF2BF}.error{color:#D8000C;background-color:#FFD2D2}</style></head><body><div class="container"><nav><a href="/" class="active">Registrar Cliente</a><a href="/consulta">Consultar Cliente</a></nav><h1>Registrar Nuevo Cliente</h1><form method="POST"><div class="form-grid"><div><label>Nombre y Apellido:</label><input type="text" name="nombre_apellido"><label>Nº Cédula:</label><input type="text" name="cedula" required><label>Nº Contrato:</label><input type="text" name="contrato_nro"><label>Teléfono:</label><input type="text" name="telefono"><label>Fecha de Ingreso:</label><input type="date" name="fecha_ingreso"><label>Grupo:</label><input type="text" name="grupo"><label>Plan:</label><input type="text" name="plan"><label>Moneda:</label><input type="text" name="moneda_pago" value="USD"><label>Asesor:</label><input type="text" name="asesor"><label>Responsable:</label><input type="text" name="responsable"><label>Valor de Cuota:</label><input type="number" step="0.01" name="valor_cuota"><label>Fecha de Pago:</label><input type="text" name="fecha_pago_recurrente" placeholder="Ej: Día 15"></div><div><label>Proceso:</label><select name="proceso"><option>ADJUDICADO</option><option>AHORRADOR</option><option>COBRANZA DIFERIDA</option><option>COMPLETADO</option><option>DIFERIDO EN RESERVA</option><option>INACTIVO</option><option>PENDIENTE</option><option>RESERVA</option><option>RETIRO</option></select><label>Estatus:</label><select name="estatus"><option>ACTIVO</option><option>COBRANZA DIFERIDA</option><option>COMPLETADO</option><option>CONGELADO</option><option>DIFERIDO EN RESERVA</option><option>DIFERIDO RESERVA</option><option>INACTIVO</option><option>RESERVA</option><option>RETIRO</option></select><label>Estatus.1:</label><select name="estatus_1"><option>SOLVENTE</option><option>MORA</option><option>PAGO ADELANTADO</option><option>PAGO IMPUTUAL</option><option>CONGELADO</option></select><label>% Inscripción:</label><input type="number" step="0.01" name="inscripcion_porcentaje"><label>Inscripción (Monto):</label><input type="number" step="0.01" name="inscripcion_monto"><label>Cuotas Pagas:</label><input type="number" name="cuotas_pagas"><label>Pagos Impuntuales:</label><input type="number" name="pagos_impuntuales"><label>Cuotas en Mora:</label><input type="number" name="cuotas_mora"><label>Estatus Cuota:</label><input type="text" name="estatus_cuota"><label>Valor Cancelado:</label><input type="number" step="0.01" name="valor_cancelado"></div><div class="full-width"><label>Observación:</label><textarea name="observacion" rows="4"></textarea></div></div><button type="submit">Registrar Cliente</button></form>{% if mensaje %}<div class="mensaje {{ 'exito' if 'exitosamente' in mensaje else 'error' }}">{{ mensaje }}</div>{% endif %}</div></body></html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Registro de Nuevo Cliente</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 30px; background-color: #f0f2f5; }
+        .container { max-width: 800px; margin: auto; }
+        h1 { color: #1877f2; text-align: center; }
+        nav { margin-bottom: 20px; text-align: center; }
+        nav a { text-decoration: none; background-color: #e4e6eb; color: #050505; font-weight: 600; padding: 10px 15px; border-radius: 6px; margin: 0 10px; }
+        nav a.active { background-color: #4CAF50; color: white; }
+        form { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        label { display: block; margin-top: 15px; font-weight: 600; color: #606770; }
+        input, select { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #dddfe2; border-radius: 6px; }
+        button { margin-top: 25px; background-color: #4CAF50; color: white; padding: 15px; border: none; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; border-radius: 6px; grid-column: 1 / -1; }
+        .mensaje { margin-top: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
+        .exito { color: #4F8A10; background-color: #DFF2BF; }
+        .error { color: #D800C; background-color: #FFD2D2; }
+        #campos-reserva { display: none; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <nav>
+        <a href="/" class="active">Registrar Cliente</a>
+        <a href="/consulta">Consultar Cliente</a>
+    </nav>
+    <h1>Registrar Nuevo Cliente</h1>
+    <form method="POST">
+        <div class="form-grid">
+            <!-- Columna 1 -->
+            <div>
+                <label>Nombre y Apellido:</label><input type="text" name="nombre_apellido" required>
+                <label>Nº Cédula:</label><input type="text" name="cedula" required>
+                <label>Nº Contrato:</label><input type="text" name="contrato_nro" required>
+                <label>Teléfono:</label><input type="text" name="telefono" required>
+                <label>Asesor:</label><input type="text" name="asesor" required>
+                <label>Responsable:</label><input type="text" name="responsable" required>
+                <label>Fecha de Inscripción:</label><input type="date" name="fecha_inscripcion" required>
+            </div>
+            <!-- Columna 2 -->
+            <div>
+                <label>Grupo:</label><input type="text" name="grupo" required>
+                <label>Plan:</label><input type="text" name="plan" required>
+                <label>Plan Contratado:</label><input type="text" name="plan_contratado" required>
+                <label>Duración del Plan:</label><input type="text" name="duracion_plan" required>
+                <label>Moneda de Pago:</label>
+                <select name="moneda_pago" required>
+                    <option value="USD">USD</option>
+                    <option value="BsBCV">BsBCV</option>
+                    <option value="EuroBCV">EuroBCV</option>
+                    <option value="USDT">USDT</option>
+                </select>
+                <label>Cuota Mensual:</label><input type="number" step="0.01" name="valor_cuota" required>
+                <label>Porcentaje de Inscripción (%):</label><input type="number" step="0.01" name="inscripcion_porcentaje" required>
+                <label>Monto de Inscripción:</label><input type="number" step="0.01" name="inscripcion_monto" required>
+            </div>
+            <!-- Sección de Proceso y Reserva -->
+            <div style="grid-column: 1 / -1; border-top: 1px solid #eee; padding-top: 15px;">
+                <label>Proceso Inicial:</label>
+                <select id="proceso" name="proceso" required>
+                    <option value="INSCRITO">Inscrito</option>
+                    <option value="RESERVA">Reserva</option>
+                    <option value="AHORRADOR">Ahorrador</option>
+                </select>
+            </div>
+            <!-- Campos condicionales para la Reserva -->
+            <div id="campos-reserva" style="grid-column: 1 / -1; display: none;">
+                <div class="form-grid">
+                    <div>
+                        <label>Monto Total de la Reserva:</label>
+                        <input type="number" step="0.01" name="reserva_monto_total">
+                    </div>
+                    <div>
+                        <label>Monto Pagado de la Reserva:</label>
+                        <input type="number" step="0.01" name="reserva_monto_pagado">
+                    </div>
+                </div>
+            </div>
+            <button type="submit">Registrar Cliente</button>
+        </div>
+    </form>
+    {% if mensaje %}
+        <div class="mensaje {{ 'exito' if 'exitosamente' in mensaje else 'error' }}">{{ mensaje }}</div>
+    {% endif %}
+</div>
+
+<script>
+    const procesoSelect = document.getElementById('proceso');
+    const camposReserva = document.getElementById('campos-reserva');
+    const reservaTotalInput = document.querySelector('input[name="reserva_monto_total"]');
+    const reservaPagadoInput = document.querySelector('input[name="reserva_monto_pagado"]');
+
+    procesoSelect.addEventListener('change', function() {
+        if (this.value === 'RESERVA') {
+            camposReserva.style.display = 'block';
+            reservaTotalInput.required = true;
+            reservaPagadoInput.required = true;
+        } else {
+            camposReserva.style.display = 'none';
+            reservaTotalInput.required = false;
+            reservaPagadoInput.required = false;
+        }
+    });
+</script>
+
+</body>
+</html>
