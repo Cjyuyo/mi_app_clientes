@@ -1,9 +1,11 @@
 import os
 import psycopg2
 import psycopg2.extras
-from flask import Flask, render_template, request, g
+from flask import Flask, render_template, request, g, flash, redirect, url_for
 
 app = Flask(__name__)
+# Se necesita una clave secreta para los mensajes de confirmación (flash messages)
+app.secret_key = os.environ.get('SECRET_KEY', 'un-secreto-muy-seguro')
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
@@ -28,7 +30,6 @@ def index():
         try:
             form_data = {k: (v if v != '' else None) for k, v in request.form.items()}
 
-            # Validación estricta en el backend
             if not form_data.get('nombre_apellido') or not form_data.get('cedula'):
                 mensaje = "Error: El nombre y la cédula son campos obligatorios."
                 return render_template('index.html', mensaje=mensaje)
@@ -94,6 +95,28 @@ def consulta():
             cursor.close()
     
     return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error)
+
+# --- NUEVA RUTA PARA ELIMINAR CLIENTES ---
+@app.route('/delete/<int:client_id>', methods=['POST'])
+def delete_client(client_id):
+    """
+    Elimina un cliente de la base de datos usando su ID único.
+    """
+    try:
+        db = get_db()
+        cursor = db.cursor()
+        
+        # Por ahora, solo eliminamos el cliente. En el futuro, podríamos archivar o eliminar pagos.
+        cursor.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
+        
+        db.commit()
+        cursor.close()
+        flash('¡Cliente eliminado exitosamente!', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'Ocurrió un error al eliminar el cliente: {e}', 'error')
+        
+    return redirect(url_for('consulta'))
 
 if __name__ == '__main__':
     app.run(debug=True)
