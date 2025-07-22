@@ -1,0 +1,18 @@
+DROP TABLE IF EXISTS clientes;
+DROP TABLE IF EXISTS pagos;
+
+CREATE TABLE clientes (
+  cedula TEXT PRIMARY KEY, contrato_nro TEXT, nombre_apellido TEXT, telefono TEXT,
+  fecha_ingreso TEXT, grupo TEXT, plan TEXT, moneda_pago TEXT, asesor TEXT,
+  responsable TEXT, proceso TEXT, estatus TEXT, estatus_1 TEXT,
+  inscripcion_porcentaje REAL, inscripcion_monto REAL, cuotas_pagas INTEGER,
+  pagos_impuntuales INTEGER, cuotas_mora INTEGER, valor_cuota REAL,
+  fecha_pago_recurrente TEXT, estatus_cuota TEXT, valor_cancelado REAL, observacion TEXT
+);
+
+CREATE TABLE pagos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, cedula TEXT NOT NULL, monto REAL NOT NULL,
+  cuotas INTEGER NOT NULL, recibo TEXT NOT NULL, forma_pago TEXT NOT NULL,
+  fecha_pago TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (cedula) REFERENCES clientes (cedula)
+);
