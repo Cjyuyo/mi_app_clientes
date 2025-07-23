@@ -48,7 +48,7 @@
 
     {% if clientes %}{% for cliente in clientes %}
     <div class="cliente-card">
-        <!-- SECCIÓN DE ESTATUS RESTAURADA -->
+        <!-- SECCIÓN DE ESTATUS PRINCIPAL -->
         {% set proceso = cliente.proceso | lower if cliente.proceso else '' %}
         {% set status_class = 'status-default' %}
         {% if 'adjudicado' in proceso or 'completado' in proceso %}
@@ -83,10 +83,12 @@
                 <div class="data-point"><span>Fecha de Ingreso:</span><span>{{ cliente.fecha_ingreso or 'N/A' }}</span></div>
             </div>
             <div class="data-card">
-                <h3>Plan y Grupo</h3>
+                <h3>Plan y Estatus</h3>
                 <div class="data-point"><span>Grupo:</span><span>{{ cliente.grupo or 'N/A' }}</span></div>
                 <div class="data-point"><span>Plan:</span><span>{{ cliente.plan or 'N/A' }}</span></div>
-                <div class="data-point"><span>Moneda:</span><span>{{ cliente.moneda_pago or 'N/A' }}</span></div>
+                <!-- CAMPOS RESTAURADOS -->
+                <div class="data-point"><span>Estatus:</span><span>{{ cliente.estatus or 'N/A' }}</span></div>
+                <div class="data-point"><span>Estatus Detallado:</span><span>{{ cliente.estatus_1 or 'N/A' }}</span></div>
                 <div class="data-point"><span>Asesor:</span><span>{{ cliente.asesor or 'N/A' }}</span></div>
                 <div class="data-point"><span>Responsable:</span><span>{{ cliente.responsable or 'N/A' }}</span></div>
             </div>

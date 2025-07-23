@@ -34,15 +34,16 @@ def index():
                 return render_template('index.html', mensaje=mensaje)
             db = get_db()
             cursor = db.cursor()
+            # CORRECCIÓN: Se añaden estatus y estatus_1 a la consulta
             query = """
             INSERT INTO clientes (
                 nombre_apellido, cedula, contrato_nro, telefono, asesor, responsable, fecha_inscripcion,
                 grupo, plan, plan_contratado, duracion_plan, cuotas_totales, moneda_pago, valor_cuota,
-                inscripcion_monto, proceso
+                inscripcion_monto, proceso, estatus, estatus_1
             ) VALUES (
                 %(nombre_apellido)s, %(cedula)s, %(contrato_nro)s, %(telefono)s, %(asesor)s, %(responsable)s, %(fecha_inscripcion)s,
                 %(grupo)s, %(plan)s, %(plan_contratado)s, %(duracion_plan)s, %(cuotas_totales)s, %(moneda_pago)s, %(valor_cuota)s,
-                %(inscripcion_monto)s, %(proceso)s
+                %(inscripcion_monto)s, %(proceso)s, %(estatus)s, %(estatus_1)s
             )
             """
             cursor.execute(query, form_data)
@@ -92,6 +93,7 @@ def edit_client(client_id):
         try:
             form_data = {k: (v if v != '' else None) for k, v in request.form.items()}
             form_data['id'] = client_id
+            # CORRECCIÓN: Se añaden estatus y estatus_1 a la consulta de actualización
             update_query = """
             UPDATE clientes SET
                 nombre_apellido = %(nombre_apellido)s, cedula = %(cedula)s, contrato_nro = %(contrato_nro)s,
@@ -100,7 +102,7 @@ def edit_client(client_id):
                 plan_contratado = %(plan_contratado)s, duracion_plan = %(duracion_plan)s,
                 cuotas_totales = %(cuotas_totales)s, moneda_pago = %(moneda_pago)s,
                 valor_cuota = %(valor_cuota)s, inscripcion_monto = %(inscripcion_monto)s,
-                proceso = %(proceso)s
+                proceso = %(proceso)s, estatus = %(estatus)s, estatus_1 = %(estatus_1)s
             WHERE id = %(id)s;
             """
             cursor.execute(update_query, form_data)
