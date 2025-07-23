@@ -13,6 +13,7 @@
         label { display: block; margin-top: 15px; font-weight: 600; color: #606770; }
         input, select { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #dddfe2; border-radius: 6px; }
         button { margin-top: 25px; background-color: #ffc107; color: #212529; padding: 15px; border: none; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; border-radius: 6px; grid-column: 1 / -1; }
+        .full-width { grid-column: 1 / -1; }
         
         /* --- ESTILOS RESPONSIVE --- */
         @media (max-width: 768px) {
@@ -27,7 +28,73 @@
 <div class="container">
     <h1>Editar Cliente: {{ cliente.nombre_apellido }}</h1>
     <form method="POST">
-        <!-- ... (el contenido del formulario no cambia) ... -->
+        <div class="form-grid">
+            <!-- Columna 1 -->
+            <div>
+                <label>Nombre y Apellido:</label><input type="text" name="nombre_apellido" value="{{ cliente.nombre_apellido or '' }}" required>
+                <label>Nº Cédula:</label><input type="text" name="cedula" value="{{ cliente.cedula or '' }}" required>
+                <label>Nº Contrato:</label><input type="text" name="contrato_nro" value="{{ cliente.contrato_nro or '' }}">
+                <label>Teléfono:</label><input type="text" name="telefono" value="{{ cliente.telefono or '' }}">
+                <label>Asesor:</label><input type="text" name="asesor" value="{{ cliente.asesor or '' }}">
+                <label>Responsable:</label><input type="text" name="responsable" value="{{ cliente.responsable or '' }}">
+                <label>Fecha de Inscripción:</label><input type="date" name="fecha_inscripcion" value="{{ cliente.fecha_inscripcion or '' }}">
+            </div>
+            <!-- Columna 2 -->
+            <div>
+                <label>Grupo:</label><input type="text" name="grupo" value="{{ cliente.grupo or '' }}">
+                <label>Bien solicitado:</label><input type="text" name="bien_solicitado" value="{{ cliente.bien_solicitado or '' }}">
+                <label>Plan Contratado:</label><input type="text" name="plan_contratado" value="{{ cliente.plan_contratado or '' }}">
+                <label>Cuotas Totales del Plan:</label>
+                <select name="cuotas_totales" required>
+                    <option value="24" {% if cliente.cuotas_totales == 24 %}selected{% endif %}>24 Cuotas</option>
+                    <option value="36" {% if cliente.cuotas_totales == 36 %}selected{% endif %}>36 Cuotas</option>
+                    <option value="48" {% if cliente.cuotas_totales == 48 %}selected{% endif %}>48 Cuotas</option>
+                </select>
+                <label>Moneda de Pago:</label>
+                <select name="moneda_pago" required>
+                    <option value="USD" {% if cliente.moneda_pago == 'USD' %}selected{% endif %}>USD</option>
+                    <option value="BsBCV" {% if cliente.moneda_pago == 'BsBCV' %}selected{% endif %}>BsBCV</option>
+                    <option value="EuroBCV" {% if cliente.moneda_pago == 'EuroBCV' %}selected{% endif %}>EuroBCV</option>
+                    <option value="USDT" {% if cliente.moneda_pago == 'USDT' %}selected{% endif %}>USDT</option>
+                </select>
+                <label>Cuota Mensual:</label><input type="number" step="0.01" name="valor_cuota" value="{{ cliente.valor_cuota or '' }}">
+                <label>Monto de Inscripción:</label><input type="number" step="0.01" name="inscripcion_monto" value="{{ cliente.inscripcion_monto or '' }}">
+            </div>
+            <!-- Sección de Proceso y Estatus -->
+            <div class="full-width" style="border-top: 1px solid #eee; padding-top: 15px;">
+                <div class="form-grid">
+                    <div>
+                        <label>Proceso:</label>
+                        <select name="proceso">
+                            <option value="INSCRITO" {% if cliente.proceso == 'INSCRITO' %}selected{% endif %}>Inscrito</option>
+                            <option value="RESERVA" {% if cliente.proceso == 'RESERVA' %}selected{% endif %}>Reserva</option>
+                            <option value="AHORRADOR" {% if cliente.proceso == 'AHORRADOR' %}selected{% endif %}>Ahorrador</option>
+                            <option value="ADJUDICADO" {% if cliente.proceso == 'ADJUDICADO' %}selected{% endif %}>Adjudicado</option>
+                            <option value="COMPLETADO" {% if cliente.proceso == 'COMPLETADO' %}selected{% endif %}>Completado</option>
+                            <option value="RETIRO" {% if cliente.proceso == 'RETIRO' %}selected{% endif %}>Retiro</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Estatus:</label>
+                        <select name="estatus">
+                            <option value="ACTIVO" {% if cliente.estatus == 'ACTIVO' %}selected{% endif %}>Activo</option>
+                            <option value="INACTIVO" {% if cliente.estatus == 'INACTIVO' %}selected{% endif %}>Inactivo</option>
+                            <option value="CONGELADO" {% if cliente.estatus == 'CONGELADO' %}selected{% endif %}>Congelado</option>
+                        </select>
+                    </div>
+                    <div class="full-width">
+                        <label>Estatus Detallado (Estatus.1):</label>
+                        <select name="estatus_1">
+                            <option value="SOLVENTE" {% if cliente.estatus_1 == 'SOLVENTE' %}selected{% endif %}>Solvente</option>
+                            <option value="MORA" {% if cliente.estatus_1 == 'MORA' %}selected{% endif %}>Mora</option>
+                            <option value="PAGO ADELANTADO" {% if cliente.estatus_1 == 'PAGO ADELANTADO' %}selected{% endif %}>Pago Adelantado</option>
+                            <option value="PAGO IMPUNTUAL" {% if cliente.estatus_1 == 'PAGO IMPUNTUAL' %}selected{% endif %}>Pago Impuntual</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <button type="submit">Guardar Cambios</button>
+        </div>
     </form>
 </div>
 </body>
