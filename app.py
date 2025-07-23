@@ -3,13 +3,11 @@ import psycopg2
 import psycopg2.extras
 from flask import Flask, render_template, request, g, flash, redirect, url_for
 
-# --- PASO 1: Crear la aplicación ---
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'un-secreto-muy-seguro')
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
-# --- PASO 2: Definir funciones de la base de datos ---
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
@@ -24,7 +22,6 @@ def close_connection(exception):
     if db is not None:
         db.close()
 
-# --- PASO 3: Definir las rutas de la aplicación ---
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
