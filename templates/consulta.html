@@ -21,9 +21,10 @@
         .data-point span:first-child { font-weight: 600; color: #333; }
         .data-point span:last-child { color: #606770; text-align: right; }
         .cliente-card { margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 8px; }
-        .titulo-cliente { display: flex; justify-content: space-between; align-items: center; }
-        .btn-pago { background-color: #28a745; color: white; padding: 8px 12px; border-radius: 5px; text-decoration: none; font-size: .9em; margin-right: 10px; }
-        .btn-edit { background-color: #ffc107; color: #212529; padding: 8px 12px; border-radius: 5px; text-decoration: none; font-size: .9em; margin-right: 10px; }
+        .titulo-cliente { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .action-buttons { display: flex; gap: 10px; flex-shrink: 0; }
+        .btn-pago { background-color: #28a745; color: white; padding: 8px 12px; border-radius: 5px; text-decoration: none; font-size: .9em; }
+        .btn-edit { background-color: #ffc107; color: #212529; padding: 8px 12px; border-radius: 5px; text-decoration: none; font-size: .9em; }
         .delete-button { background-color: #dc3545; color: white; padding: 8px 12px; border: none; border-radius: 5px; cursor: pointer; font-size: .9em; }
         .progress-bar { background-color: #e9ecef; border-radius: .25rem; height: 1.5rem; display: flex; margin-top: 5px; }
         .progress-bar-fill { background-color: #28a745; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.9em; font-weight: bold; }
@@ -48,7 +49,6 @@
 
     {% if clientes %}{% for cliente in clientes %}
     <div class="cliente-card">
-        <!-- SECCIÓN DE ESTATUS PRINCIPAL -->
         {% set proceso = cliente.proceso | lower if cliente.proceso else '' %}
         {% set status_class = 'status-default' %}
         {% if 'adjudicado' in proceso or 'completado' in proceso %}
@@ -64,9 +64,9 @@
 
         <div class="titulo-cliente">
             <h2>Datos Generales del Cliente (ID: {{ cliente.id }})</h2>
-            <div>
+            <div class="action-buttons">
                 <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn-edit">Editar</a>
-                <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn-pago">+ Registrar Pago</a>
+                <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn-pago">+ Pago</a>
                 <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro?');" style="display: inline;">
                     <button type="submit" class="delete-button">Eliminar</button>
                 </form>
@@ -86,7 +86,6 @@
                 <h3>Plan y Estatus</h3>
                 <div class="data-point"><span>Grupo:</span><span>{{ cliente.grupo or 'N/A' }}</span></div>
                 <div class="data-point"><span>Plan:</span><span>{{ cliente.plan or 'N/A' }}</span></div>
-                <!-- CAMPOS RESTAURADOS -->
                 <div class="data-point"><span>Estatus:</span><span>{{ cliente.estatus or 'N/A' }}</span></div>
                 <div class="data-point"><span>Estatus Detallado:</span><span>{{ cliente.estatus_1 or 'N/A' }}</span></div>
                 <div class="data-point"><span>Asesor:</span><span>{{ cliente.asesor or 'N/A' }}</span></div>
