@@ -1,8 +1,12 @@
 -- Se usa CASCADE para borrar las tablas y sus dependencias si existen
 DROP TABLE IF EXISTS clientes CASCADE;
 DROP TABLE IF EXISTS pagos CASCADE;
+DROP SEQUENCE IF EXISTS recibo_numero_seq;
 
--- Crea la tabla de clientes
+-- Reemplazaré 10612 con el número que tú me indiques mañana.
+CREATE SEQUENCE recibo_numero_seq START WITH 10612;
+
+-- Crea la tabla de clientes con los nuevos campos para la gestión de cuotas
 CREATE TABLE clientes (
   id SERIAL PRIMARY KEY,
   cedula TEXT UNIQUE,
@@ -20,9 +24,6 @@ CREATE TABLE clientes (
   estatus_1 TEXT,
   inscripcion_porcentaje REAL,
   inscripcion_monto REAL,
-  cuotas_pagas TEXT,
-  pagos_impuntuales TEXT,
-  cuotas_mora TEXT,
   valor_cuota REAL,
   fecha_pago_recurrente TEXT,
   estatus_cuota TEXT,
@@ -32,18 +33,29 @@ CREATE TABLE clientes (
   plan_contratado TEXT,
   duracion_plan TEXT,
   reserva_monto_total REAL,
-  reserva_monto_pagado REAL
+  reserva_monto_pagado REAL,
+  
+  -- CORRECCIÓN FINAL: Se usa TEXT para máxima flexibilidad y evitar errores de rango.
+  cuotas_totales TEXT,
+  cuotas_pagadas_progresivas TEXT,
+  cuotas_pagadas_regresivas TEXT,
+  balance_regresivo REAL DEFAULT 0.0
 );
 
--- Crea la tabla de pagos, vinculada al ID del cliente
+-- Crea la tabla de pagos (sin cambios estructurales)
 CREATE TABLE pagos (
   id SERIAL PRIMARY KEY,
-  -- CORRECCIÓN: Se vincula el pago al ID único del cliente
   cliente_id INTEGER NOT NULL,
+  recibo INTEGER NOT NULL DEFAULT nextval('recibo_numero_seq'),
   monto REAL NOT NULL,
   cuotas INTEGER NOT NULL,
-  recibo TEXT NOT NULL,
   forma_pago TEXT NOT NULL,
   fecha_pago TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  pago_en TEXT,
+  cantidad_en_letras TEXT,
+  por_concepto_de TEXT,
+  referencia TEXT,
+  banco TEXT,
+  lugar_emision TEXT,
   FOREIGN KEY (cliente_id) REFERENCES clientes (id) ON DELETE CASCADE
 );

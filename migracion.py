@@ -5,11 +5,11 @@ import sys
 # --- CONFIGURACIÓN ---
 DATABASE_URL = "postgresql://lientes_db_prod_user:FzmjghqgD9UPN3I3Ex3Q8KpLlgFDvUDI@dpg-d1vomdadbo4c73fnv9sg-a.oregon-postgres.render.com/lientes_db_prod"
 CSV_FILE = 'MI APP CLIENTES - MOTO PLAN.csv'
-SCHEMA_FILE = 'schema.sql'
+SCHEMA_FILE = 'schema'
 
 def crear_tablas_si_no_existen(conn):
     """
-    Lee el archivo schema.sql y ejecuta los comandos para crear las tablas.
+    Lee el archivo schema y ejecuta los comandos para crear las tablas.
     """
     print("Verificando y creando tablas si es necesario...")
     try:
@@ -22,7 +22,7 @@ def crear_tablas_si_no_existen(conn):
         cursor.close()
         print("Tablas creadas o verificadas exitosamente.")
     except FileNotFoundError:
-        print(f"Error: No se encontró el archivo '{SCHEMA_FILE}'. No se pueden crear las tablas.")
+        print(f"Error: No se encontró el archivo '{SCHEMA_FILE}'. Asegúrate de que se llame exactamente así.")
         raise
     except Exception as e:
         print(f"Ocurrió un error al crear las tablas: {e}")
@@ -31,7 +31,6 @@ def crear_tablas_si_no_existen(conn):
 def migrar_datos():
     """
     Lee datos de un archivo CSV, los limpia y los inserta en la base de datos.
-    Ahora no necesita omitir filas, ya que la cédula es opcional.
     """
     if "postgresql://" not in DATABASE_URL:
         print("Error: La variable DATABASE_URL no parece correcta. Por favor, revísala.")
@@ -48,9 +47,7 @@ def migrar_datos():
                               'cuotas en mora', 'valor de cuota', 'valor cancelado']
         for col in columnas_numericas:
             if col in df.columns:
-                # Convierte la columna a string para poder usar .str.replace
                 df[col] = df[col].astype(str).str.replace(r'[^\d.]', '', regex=True)
-                # Convierte la columna limpia a tipo numérico, los errores se volverán NaN (nulos)
                 df[col] = pd.to_numeric(df[col], errors='coerce')
         
         df = df.where(pd.notna(df), None)
@@ -71,26 +68,32 @@ def migrar_datos():
         cursor = conn.cursor()
         print("Iniciando inserción de datos...")
         for index, row in df.iterrows():
-            # El script ahora es más simple, ya no necesita la validación de la cédula.
-            # Se usa ON CONFLICT (cedula) DO NOTHING para evitar duplicados si una cedula ya existe.
-            # Las filas sin cedula se insertarán sin problemas.
+            # CORRECCIÓN: La consulta ahora usa las nuevas columnas del schema
             query = """
             INSERT INTO clientes (
                 cedula, contrato_nro, nombre_apellido, telefono, fecha_ingreso, grupo, plan,
                 moneda_pago, asesor, responsable, proceso, estatus, estatus_1,
-                inscripcion_porcentaje, inscripcion_monto, cuotas_pagas, pagos_impuntuales,
-                cuotas_mora, valor_cuota, fecha_pago_recurrente, estatus_cuota, valor_cancelado, observacion
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                inscripcion_porcentaje, inscripcion_monto, valor_cuota, fecha_pago_recurrente, 
+                estatus_cuota, valor_cancelado, observacion, fecha_inscripcion, plan_contratado, 
+                duracion_plan, reserva_monto_total, reserva_monto_pagado,
+                cuotas_totales, cuotas_pagadas_progresivas, cuotas_pagadas_regresivas, balance_regresivo
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (cedula) DO NOTHING;
             """
             
+            # CORRECCIÓN: Los valores ahora coinciden con la nueva consulta
             values = (
                 row.get('n⁰ cedula'), row.get('n⁰ contrato'), row.get('nombre y apellido'), row.get('numero de tlf'), row.get('fecha de ingreso'),
                 row.get('grupo'), row.get('plan'), row.get('moneda de pago'), row.get('asesor'), row.get('responsable'),
                 row.get('proceso'), row.get('estatus'), row.get('estatus.1'), row.get('% inscripcion'),
-                row.get('inscripcion'), row.get('cuotas pagas'), row.get('pagos impuntuales'), row.get('cuotas en mora'),
-                row.get('valor de cuota'), row.get('fecha de pago'), row.get('estatus cuota'),
-                row.get('valor cancelado'), row.get('observación')
+                row.get('inscripcion'), row.get('valor de cuota'), row.get('fecha de pago'), 
+                row.get('estatus cuota'), row.get('valor cancelado'), row.get('observación'),
+                row.get('fecha de inscripcion'), row.get('plan contratado'), row.get('duracion del plan'),
+                row.get('reserva_monto_total'), row.get('reserva_monto_pagado'),
+                0, # cuotas_totales (default)
+                row.get('cuotas pagas'), # cuotas_pagadas_progresivas
+                0, # cuotas_pagadas_regresivas (default)
+                0.0 # balance_regresivo (default)
             )
             
             cursor.execute(query, values)

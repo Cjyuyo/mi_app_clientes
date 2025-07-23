@@ -46,6 +46,8 @@
                 <label>Plan:</label><input type="text" name="plan" required>
                 <label>Plan Contratado:</label><input type="text" name="plan_contratado" required>
                 <label>Duración del Plan:</label><input type="text" name="duracion_plan" required>
+                <!-- NUEVO CAMPO -->
+                <label>Cuotas Totales del Plan:</label><input type="number" name="cuotas_totales" required>
                 <label>Moneda de Pago:</label>
                 <select name="moneda_pago" required>
                     <option value="USD">USD</option>
@@ -54,7 +56,6 @@
                     <option value="USDT">USDT</option>
                 </select>
                 <label>Cuota Mensual:</label><input type="number" step="0.01" name="valor_cuota" required>
-                <label>Porcentaje de Inscripción (%):</label><input type="number" step="0.01" name="inscripcion_porcentaje" required>
                 <label>Monto de Inscripción:</label><input type="number" step="0.01" name="inscripcion_monto" required>
             </div>
             <!-- Sección de Proceso y Reserva -->
@@ -86,7 +87,6 @@
         <div class="mensaje {{ 'exito' if 'exitosamente' in mensaje else 'error' }}">{{ mensaje }}</div>
     {% endif %}
 </div>
-
 <script>
     const procesoSelect = document.getElementById('proceso');
     const camposReserva = document.getElementById('campos-reserva');
@@ -105,6 +105,5 @@
         }
     });
 </script>
-
 </body>
 </html>
