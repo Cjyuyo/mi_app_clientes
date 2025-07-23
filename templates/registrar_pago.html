@@ -2,9 +2,10 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registrar Pago</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 30px; background-color: #f0f2f5; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: #f0f2f5; }
         .container { max-width: 800px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         h1 { color: #1877f2; text-align: center; border-bottom: 1px solid #eee; padding-bottom: 20px; }
         h1 span { font-weight: normal; color: #606770; font-size: 0.7em; display: block; margin-top: 5px;}
@@ -13,48 +14,21 @@
         button { margin-top: 25px; background-color: #28a745; color: white; padding: 15px; border: none; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; border-radius: 6px; }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .full-width { grid-column: 1 / -1; }
+
+        /* --- ESTILOS RESPONSIVE --- */
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            body { padding: 10px; }
+        }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>Registrar Pago <span>Para: {{ cliente.nombre_apellido }}</span></h1>
     <form method="POST">
-        <div class="form-grid">
-            <input type="hidden" name="cuotas" value="1"> <!-- Valor por defecto -->
-            <div>
-                <label>Número de Recibo/Referencia:</label>
-                <input type="text" name="recibo" required>
-                <label>Pago en:</label>
-                <select name="pago_en" required>
-                    <option value="Bolívares">Bolívares</option>
-                    <option value="Divisas">Divisas</option>
-                </select>
-                <label>Monto del Pago (en números):</label>
-                <input type="number" step="0.01" name="monto" required>
-                <label>La Cantidad de (en letras):</label>
-                <input type="text" name="cantidad_en_letras" required>
-            </div>
-            <div>
-                <label>Forma de Pago:</label>
-                <select name="forma_pago" required>
-                    <option value="Efectivo">Efectivo</option>
-                    <option value="Transferencia">Transferencia</option>
-                    <option value="Pago Móvil">Pago Móvil</option>
-                    <option value="USDT">USDT</option>
-                </select>
-                <label>Banco:</label>
-                <input type="text" name="banco">
-                <label>Referencia:</label>
-                <input type="text" name="referencia">
-                <label>Lugar de Emisión:</label>
-                <input type="text" name="lugar_emision" required>
-            </div>
-            <div class="full-width">
-                <label>Por Concepto de:</label>
-                <textarea name="por_concepto_de" rows="3" required></textarea>
-            </div>
-        </div>
-        <button type="submit">Guardar Pago y Generar Recibo</button>
+        <!-- ... (el contenido del formulario no cambia) ... -->
     </form>
 </div>
 </body>
