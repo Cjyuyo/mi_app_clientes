@@ -19,6 +19,7 @@ CREATE TABLE clientes (
   moneda_pago TEXT,
   asesor TEXT,
   responsable TEXT,
+  -- CAMPOS RESTAURADOS
   proceso TEXT,
   estatus TEXT,
   estatus_1 TEXT,
@@ -34,7 +35,6 @@ CREATE TABLE clientes (
   duracion_plan TEXT,
   reserva_monto_total REAL,
   reserva_monto_pagado REAL,
-  -- CORRECCIÓN FINAL: Se usa TEXT para máxima flexibilidad y evitar errores de rango.
   cuotas_totales TEXT,
   cuotas_pagadas_progresivas TEXT,
   cuotas_pagadas_regresivas TEXT,
