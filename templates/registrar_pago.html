@@ -14,18 +14,28 @@
         button { margin-top: 25px; background-color: #28a745; color: white; padding: 15px; border: none; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; border-radius: 6px; }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .full-width { grid-column: 1 / -1; }
+        /* Estilos para los mensajes */
+        .mensaje { margin-bottom: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
+        .exito { color: #4F8A10; background-color: #DFF2BF; }
+        .error { color: #D8000C; background-color: #FFD2D2; }
 
-        /* --- ESTILOS RESPONSIVE --- */
         @media (max-width: 768px) {
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
+            .form-grid { grid-template-columns: 1fr; }
             body { padding: 10px; }
         }
     </style>
 </head>
 <body>
 <div class="container">
+    <!-- BLOQUE PARA MOSTRAR MENSAJES -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="mensaje {{ 'exito' if category == 'success' else 'error' }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
     <h1>Registrar Pago <span>Para: {{ cliente.nombre_apellido }}</span></h1>
     <form method="POST">
         <div class="form-grid">
@@ -66,3 +76,4 @@
 </div>
 </body>
 </html>
+

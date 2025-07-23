@@ -16,14 +16,13 @@
         label { display: block; margin-top: 15px; font-weight: 600; color: #606770; }
         input, select { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #dddfe2; border-radius: 6px; }
         button { margin-top: 25px; background-color: #4CAF50; color: white; padding: 15px; border: none; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; border-radius: 6px; grid-column: 1 / -1; }
-        .mensaje { margin-top: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
-        #campos-reserva { display: none; }
+        /* Estilos para los mensajes */
+        .mensaje { margin-bottom: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
+        .exito { color: #4F8A10; background-color: #DFF2BF; }
+        .error { color: #D8000C; background-color: #FFD2D2; }
         
-        /* --- ESTILOS RESPONSIVE --- */
         @media (max-width: 768px) {
-            .form-grid {
-                grid-template-columns: 1fr; /* Una sola columna en pantallas pequeñas */
-            }
+            .form-grid { grid-template-columns: 1fr; }
             body { padding: 10px; }
         }
     </style>
@@ -35,6 +34,16 @@
         <a href="/consulta">Consultar Cliente</a>
     </nav>
     <h1>Registrar Nuevo Cliente</h1>
+
+    <!-- BLOQUE PARA MOSTRAR MENSAJES -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="mensaje {{ 'exito' if category == 'success' else 'error' }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
     <form method="POST">
         <div class="form-grid">
             <!-- Columna 1 -->
@@ -64,25 +73,28 @@
                 <label>Cuota Mensual:</label><input type="number" step="0.01" name="valor_cuota" required>
                 <label>Monto de Inscripción:</label><input type="number" step="0.01" name="inscripcion_monto" required>
             </div>
-            <!-- Sección de Proceso y Reserva -->
+            <!-- Sección de Proceso y Estatus -->
             <div style="grid-column: 1 / -1; border-top: 1px solid #eee; padding-top: 15px;">
-                <label>Proceso Inicial:</label>
-                <select id="proceso" name="proceso" required>
-                    <option value="INSCRITO">Inscrito</option>
-                    <option value="RESERVA">Reserva</option>
-                    <option value="AHORRADOR">Ahorrador</option>
-                </select>
-            </div>
-            <!-- Campos condicionales para la Reserva -->
-            <div id="campos-reserva" style="grid-column: 1 / -1; display: none;">
                 <div class="form-grid">
                     <div>
-                        <label>Monto Total de la Reserva:</label>
-                        <input type="number" step="0.01" name="reserva_monto_total">
+                        <label>Proceso:</label>
+                        <select name="proceso" required>
+                            <option value="INSCRITO">Inscrito</option>
+                            <option value="RESERVA">Reserva</option>
+                            <option value="AHORRADOR">Ahorrador</option>
+                        </select>
                     </div>
                     <div>
-                        <label>Monto Pagado de la Reserva:</label>
-                        <input type="number" step="0.01" name="reserva_monto_pagado">
+                        <label>Estatus:</label>
+                        <select name="estatus" required>
+                            <option>ACTIVO</option> <option>RETIRO</option> <option>CONGELADO</option>
+                        </select>
+                    </div>
+                    <div class="full-width">
+                        <label>Estatus Detallado (Estatus.1):</label>
+                        <select name="estatus_1" required>
+                            <option>SOLVENTE</option> <option>MORA</option> <option>PAGO ADELANTADO</option> <option>PAGO IMPUNTUAL</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -90,8 +102,5 @@
         </div>
     </form>
 </div>
-<script>
-    // ... (el script de JavaScript no cambia) ...
-</script>
 </body>
 </html>
