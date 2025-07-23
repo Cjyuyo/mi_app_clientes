@@ -2,13 +2,10 @@
 DROP TABLE IF EXISTS clientes CASCADE;
 DROP TABLE IF EXISTS pagos CASCADE;
 
--- Crea la tabla de clientes con los nuevos campos
+-- Crea la tabla de clientes
 CREATE TABLE clientes (
   id SERIAL PRIMARY KEY,
-  
-  -- CORRECCIÓN: La cédula ahora es obligatoria y única
-  cedula TEXT NOT NULL UNIQUE,
-  
+  cedula TEXT UNIQUE,
   contrato_nro TEXT,
   nombre_apellido TEXT,
   telefono TEXT,
@@ -38,13 +35,15 @@ CREATE TABLE clientes (
   reserva_monto_pagado REAL
 );
 
--- Crea la tabla de pagos
+-- Crea la tabla de pagos, vinculada al ID del cliente
 CREATE TABLE pagos (
   id SERIAL PRIMARY KEY,
-  cedula TEXT,
+  -- NUEVO: Se vincula el pago al ID único del cliente
+  cliente_id INTEGER NOT NULL,
   monto REAL NOT NULL,
   cuotas INTEGER NOT NULL,
   recibo TEXT NOT NULL,
   forma_pago TEXT NOT NULL,
-  fecha_pago TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  fecha_pago TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (cliente_id) REFERENCES clientes (id) ON DELETE CASCADE
 );
