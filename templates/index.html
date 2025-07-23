@@ -6,25 +6,19 @@
     <title>Registro de Nuevo Cliente</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: #f0f2f5; }
-        .container { max-width: 800px; margin: auto; padding: 20px; }
+        .container { max-width: 600px; margin: auto; padding: 20px; }
         h1 { color: #1877f2; text-align: center; }
         nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px; text-align: center; padding-bottom: 20px; border-bottom: 1px solid #dddfe2; }
         nav a { text-decoration: none; background-color: #e4e6eb; color: #050505; font-weight: 600; padding: 10px 15px; border-radius: 6px; }
         nav a.active { background-color: #4CAF50; color: white; }
         form { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         label { display: block; margin-top: 15px; font-weight: 600; color: #606770; }
         input, select { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #dddfe2; border-radius: 6px; }
-        button { margin-top: 25px; background-color: #4CAF50; color: white; padding: 15px; border: none; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; border-radius: 6px; grid-column: 1 / -1; }
-        /* Estilos para los mensajes */
+        button { margin-top: 25px; background-color: #4CAF50; color: white; padding: 15px; border: none; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; border-radius: 6px; }
         .mensaje { margin-bottom: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
         .exito { color: #4F8A10; background-color: #DFF2BF; }
         .error { color: #D8000C; background-color: #FFD2D2; }
-        
-        @media (max-width: 768px) {
-            .form-grid { grid-template-columns: 1fr; }
-            body { padding: 10px; }
-        }
+        @media (max-width: 768px) { body { padding: 10px; } }
     </style>
 </head>
 <body>
@@ -35,7 +29,6 @@
     </nav>
     <h1>Registrar Nuevo Cliente</h1>
 
-    <!-- BLOQUE PARA MOSTRAR MENSAJES -->
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
@@ -45,61 +38,29 @@
     {% endwith %}
 
     <form method="POST">
-        <div class="form-grid">
-            <!-- Columna 1 -->
-            <div>
-                <label>Nombre y Apellido:</label><input type="text" name="nombre_apellido" required>
-                <label>Nº Cédula:</label><input type="text" name="cedula" required>
-                <label>Nº Contrato:</label><input type="text" name="contrato_nro" required>
-                <label>Teléfono:</label><input type="text" name="telefono" required>
-                <label>Asesor:</label><input type="text" name="asesor" required>
-                <label>Responsable:</label><input type="text" name="responsable" required>
-                <label>Fecha de Inscripción:</label><input type="date" name="fecha_inscripcion" required>
-            </div>
-            <!-- Columna 2 -->
-            <div>
-                <label>Grupo:</label><input type="text" name="grupo" required>
-                <label>Plan:</label><input type="text" name="plan" required>
-                <label>Plan Contratado:</label><input type="text" name="plan_contratado" required>
-                <label>Duración del Plan:</label><input type="text" name="duracion_plan" required>
-                <label>Cuotas Totales del Plan:</label><input type="number" name="cuotas_totales" required>
-                <label>Moneda de Pago:</label>
-                <select name="moneda_pago" required>
-                    <option value="USD">USD</option>
-                    <option value="BsBCV">BsBCV</option>
-                    <option value="EuroBCV">EuroBCV</option>
-                    <option value="USDT">USDT</option>
-                </select>
-                <label>Cuota Mensual:</label><input type="number" step="0.01" name="valor_cuota" required>
-                <label>Monto de Inscripción:</label><input type="number" step="0.01" name="inscripcion_monto" required>
-            </div>
-            <!-- Sección de Proceso y Estatus -->
-            <div style="grid-column: 1 / -1; border-top: 1px solid #eee; padding-top: 15px;">
-                <div class="form-grid">
-                    <div>
-                        <label>Proceso:</label>
-                        <select name="proceso" required>
-                            <option value="INSCRITO">Inscrito</option>
-                            <option value="RESERVA">Reserva</option>
-                            <option value="AHORRADOR">Ahorrador</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Estatus:</label>
-                        <select name="estatus" required>
-                            <option>ACTIVO</option> <option>RETIRO</option> <option>CONGELADO</option>
-                        </select>
-                    </div>
-                    <div class="full-width">
-                        <label>Estatus Detallado (Estatus.1):</label>
-                        <select name="estatus_1" required>
-                            <option>SOLVENTE</option> <option>MORA</option> <option>PAGO ADELANTADO</option> <option>PAGO IMPUNTUAL</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-            <button type="submit">Registrar Cliente</button>
-        </div>
+        <label>Nombre y Apellido:</label>
+        <input type="text" name="nombre_apellido" required>
+
+        <label>Nº Cédula:</label>
+        <input type="text" name="cedula" required>
+
+        <label>Teléfono:</label>
+        <input type="text" name="telefono">
+
+        <label>Asesor:</label>
+        <input type="text" name="asesor">
+        
+        <label>Responsable:</label>
+        <input type="text" name="responsable">
+
+        <label>Proceso Inicial:</label>
+        <select name="proceso">
+            <option value="RESERVA">Reserva</option>
+            <option value="INSCRITO">Inscrito</option>
+            <option value="AHORRADOR">Ahorrador</option>
+        </select>
+
+        <button type="submit">Registrar Cliente</button>
     </form>
 </div>
 </body>
