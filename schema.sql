@@ -38,7 +38,7 @@ CREATE TABLE clientes (
 -- Crea la tabla de pagos, vinculada al ID del cliente
 CREATE TABLE pagos (
   id SERIAL PRIMARY KEY,
-  -- NUEVO: Se vincula el pago al ID único del cliente
+  -- CORRECCIÓN: Se vincula el pago al ID único del cliente
   cliente_id INTEGER NOT NULL,
   monto REAL NOT NULL,
   cuotas INTEGER NOT NULL,
