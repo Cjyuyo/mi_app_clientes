@@ -61,7 +61,7 @@ def migrar_datos():
         for index, row in df.iterrows():
             query = """
             INSERT INTO clientes (
-                cedula, contrato_nro, nombre_apellido, telefono, fecha_ingreso, grupo, plan,
+                cedula, contrato_nro, nombre_apellido, telefono, fecha_ingreso, grupo, bien_solicitado,
                 moneda_pago, asesor, responsable, proceso, estatus, estatus_1,
                 inscripcion_porcentaje, inscripcion_monto, valor_cuota, fecha_pago_recurrente, 
                 estatus_cuota, valor_cancelado, observacion,
@@ -76,7 +76,8 @@ def migrar_datos():
             
             values = (
                 row.get('n⁰ cedula'), row.get('n⁰ contrato'), row.get('nombre y apellido'), row.get('numero de tlf'), row.get('fecha de ingreso'),
-                row.get('grupo'), row.get('plan'), row.get('moneda de pago'), row.get('asesor'), row.get('responsable'),
+                row.get('grupo'), row.get('plan'), # Mapea la columna 'plan' del CSV a 'bien_solicitado'
+                row.get('moneda de pago'), row.get('asesor'), row.get('responsable'),
                 row.get('proceso'), row.get('estatus'), row.get('estatus.1'),
                 row.get('% inscripcion'), row.get('inscripcion'), row.get('valor de cuota'), row.get('fecha de pago'), 
                 row.get('estatus cuota'), row.get('valor cancelado'), row.get('observación'),
@@ -102,4 +103,3 @@ def migrar_datos():
 
 if __name__ == '__main__':
     migrar_datos()
-
