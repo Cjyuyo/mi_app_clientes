@@ -49,12 +49,14 @@ def index():
             cursor.close()
             flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado exitosamente!", 'success')
             return redirect(url_for('index'))
+
         except psycopg2.IntegrityError:
             db.rollback()
             flash(f"Registro fallido: La cédula '{form_data.get('cedula')}' ya existe.", 'error')
         except Exception as e:
             db.rollback()
             flash(f"Registro fallido: Ocurrió un error inesperado: {e}", 'error')
+    
     return render_template('index.html')
 
 @app.route('/consulta', methods=['GET', 'POST'])
