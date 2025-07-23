@@ -49,16 +49,7 @@
 
     {% if clientes %}{% for cliente in clientes %}
     <div class="cliente-card">
-        {% set proceso = cliente.proceso | lower if cliente.proceso else '' %}
-        {% set status_class = 'status-default' %}
-        {% if 'adjudicado' in proceso or 'completado' in proceso %}
-            {% set status_class = 'status-success' %}
-        {% elif 'pendiente' in proceso or 'reserva' in proceso or 'cobranza' in proceso or 'ahorrador' in proceso %}
-            {% set status_class = 'status-warning' %}
-        {% elif 'inactivo' in proceso or 'retiro' in proceso %}
-            {% set status_class = 'status-danger' %}
-        {% endif %}
-        <div class="status-card-single {{ status_class }}">
+        <div class="status-card-single status-default">
             <p>{{ cliente.proceso or 'No definido' }}</p>
         </div>
 
