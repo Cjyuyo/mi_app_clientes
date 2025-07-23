@@ -6,7 +6,7 @@ DROP SEQUENCE IF EXISTS recibo_numero_seq;
 -- Reemplazaré 10612 con el número que tú me indiques mañana.
 CREATE SEQUENCE recibo_numero_seq START WITH 10612;
 
--- Crea la tabla de clientes con los nuevos campos para la gestión de cuotas
+-- Crea la tabla de clientes con la estructura final y completa
 CREATE TABLE clientes (
   id SERIAL PRIMARY KEY,
   cedula TEXT UNIQUE,
@@ -34,15 +34,16 @@ CREATE TABLE clientes (
   duracion_plan TEXT,
   reserva_monto_total REAL,
   reserva_monto_pagado REAL,
-  
   -- CORRECCIÓN FINAL: Se usa TEXT para máxima flexibilidad y evitar errores de rango.
   cuotas_totales TEXT,
   cuotas_pagadas_progresivas TEXT,
   cuotas_pagadas_regresivas TEXT,
-  balance_regresivo REAL DEFAULT 0.0
+  balance_regresivo REAL DEFAULT 0.0,
+  pagos_impuntuales TEXT,
+  cuotas_en_mora TEXT
 );
 
--- Crea la tabla de pagos (sin cambios estructurales)
+-- Crea la tabla de pagos
 CREATE TABLE pagos (
   id SERIAL PRIMARY KEY,
   cliente_id INTEGER NOT NULL,
