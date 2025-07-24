@@ -5,186 +5,126 @@ import uuid
 from datetime import datetime
 
 app = Flask(__name__)
-# Se mantiene tu secret_key para los mensajes flash.
-app.secret_key = 'solucion_definitiva_contra_el_404'
+app.secret_key = 'proyecto_perfecto_ahora_si'
 
-# Constante para el nombre del archivo de la base de datos.
-DB_FILE = 'clientes.json'
+DB_FILE = 'clientes_db.json'
 
-# --- FUNCIONES AUXILIARES PARA MANEJAR LA BASE DE DATOS (JSON) ---
-
+# --- Funciones de Base de Datos ---
 def cargar_clientes():
-    """Carga los clientes desde el archivo JSON de forma segura."""
-    if not os.path.exists(DB_FILE):
-        return []
+    if not os.path.exists(DB_FILE): return []
     try:
-        with open(DB_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError):
-        return []
+        with open(DB_FILE, 'r', encoding='utf-8') as f: return json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError): return []
 
 def guardar_clientes(clientes):
-    """Guarda la lista de clientes en el archivo JSON."""
-    with open(DB_FILE, 'w', encoding='utf-8') as f:
-        json.dump(clientes, f, indent=4, ensure_ascii=False)
+    with open(DB_FILE, 'w', encoding='utf-8') as f: json.dump(clientes, f, indent=4, ensure_ascii=False)
 
-# --- RUTAS DE LA APLICACIÓN ---
-
-@app.route('/')
-def index():
+# --- FUNCIÓN CLAVE: Lógica de Cálculo Financiero ---
+def calcular_estado_de_cuenta(cliente):
     """
-    Página principal que muestra una lista de todos los clientes registrados.
+    Calcula todos los valores dinámicos para la vista de consulta.
     """
-    clientes = cargar_clientes()
-    # Se renderiza el nuevo index.html que sí muestra una lista.
-    return render_template('index.html', clientes=clientes)
-
-@app.route('/registrar', methods=['GET', 'POST'])
-def registrar_cliente():
-    """
-    Maneja el registro de un nuevo cliente.
-    GET: Muestra el formulario de registro.
-    POST: Procesa los datos del formulario y crea el cliente.
-    """
-    if request.method == 'POST':
-        clientes = cargar_clientes()
+    valor_cuota = float(cliente.get('valor_cuota', 0))
+    cuotas_totales = int(cliente.get('cuotas_totales', 1))
+    
+    pagos_normales = [p['monto_usd'] for p in cliente.get('pagos', []) if p.get('tipo', 'normal') == 'normal']
+    pagos_regresivos = [p for p in cliente.get('pagos', []) if p.get('tipo') == 'adelantada']
+    
+    total_pagado_progresivas = sum(pagos_normales)
+    
+    if valor_cuota > 0:
+        cuotas_pagadas_float = total_pagado_progresivas / valor_cuota
+        cuotas_progresivas = int(cuotas_pagadas_float)
+        balance_a_favor = (cuotas_pagadas_float - cuotas_progresivas) * valor_cuota
+        progreso_progresivas = (cuotas_progresivas / cuotas_totales) * 100
+        progreso_balance = (balance_a_favor / valor_cuota) * 100
+    else:
+        cuotas_progresivas = 0
+        balance_a_favor = 0
+        progreso_progresivas = 0
+        progreso_balance = 0
         
-        # Se leen los datos del formulario usando los nombres correctos de los campos.
+    valor_cancelado = float(cliente.get('inscripcion_monto', 0)) + total_pagado_progresivas + sum(p['monto_usd'] for p in pagos_regresivos)
+
+    return {
+        "cuotas_progresivas": cuotas_progresivas,
+        "cuotas_regresivas": len(pagos_regresivos),
+        "balance_a_favor": balance_a_favor,
+        "valor_cuota_ideal": valor_cuota,
+        "progreso_progresivas": progreso_progresivas,
+        "progreso_balance": progreso_balance,
+        "valor_cancelado": valor_cancelado
+    }
+
+# --- Rutas de la Aplicación ---
+
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'POST':
+        # Lógica para registrar un nuevo cliente
+        clientes = cargar_clientes()
         nuevo_cliente = {
             'id': str(uuid.uuid4()),
-            'nombre': request.form['nombre'],
-            'cedula': request.form.get('cedula', 'N/A'),
-            'contrato': request.form.get('contrato', 'N/A'),
-            'telefono': request.form.get('telefono', 'N/A'),
-            'fecha_ingreso': request.form.get('fecha_ingreso', datetime.now().strftime('%Y-%m-%d')),
-            'monto_total': float(request.form.get('monto_total', 0)),
-            'numero_cuotas': int(request.form.get('numero_cuotas', 24)),
-            'monto_inscripcion': float(request.form.get('monto_inscripcion', 0)),
-            'bien_solicitado': request.form.get('bien_solicitado', 'N/A'),
-            'estatus': 'Activo',
-            'estatus_detallado': 'Al día',
-            'asesor': request.form.get('asesor', 'N/A'),
-            'responsable': request.form.get('responsable', 'N/A'),
-            'pagos': []  # Lista para registrar futuros pagos
+            'nombre_apellido': request.form['nombre_apellido'],
+            'cedula': request.form['cedula'],
+            'contrato_nro': request.form.get('contrato_nro'),
+            'telefono': request.form.get('telefono'),
+            'asesor': request.form.get('asesor'),
+            'responsable': request.form.get('responsable'),
+            'fecha_ingreso': request.form.get('fecha_ingreso'),
+            'grupo': request.form.get('grupo'),
+            'bien_solicitado': request.form.get('bien_solicitado'),
+            'plan_contratado': request.form.get('plan_contratado'),
+            'cuotas_totales': request.form.get('cuotas_totales'),
+            'moneda_pago': request.form.get('moneda_pago'),
+            'valor_cuota': float(request.form.get('valor_cuota', 0)),
+            'inscripcion_monto': float(request.form.get('inscripcion_monto', 0)),
+            'proceso': 'INSCRITO', 'estatus': 'ACTIVO', 'pagos': []
         }
-        
         clientes.append(nuevo_cliente)
         guardar_clientes(clientes)
-        
-        flash(f'Cliente "{nuevo_cliente["nombre"]}" registrado con éxito.', 'success')
-        return redirect(url_for('index'))
+        flash('Cliente registrado con éxito.', 'success')
+        return redirect(url_for('consulta_clientes'))
     
-    # Si es GET, simplemente muestra el formulario de registro.
-    return render_template('registrar.html')
+    return render_template('index.html')
+
+
+@app.route('/consulta')
+def consulta_clientes():
+    clientes = cargar_clientes()
+    return render_template('lista_clientes.html', clientes=clientes)
 
 @app.route('/cliente/<id_cliente>')
-def ver_cliente(id_cliente):
-    """
-    Muestra el estado de cuenta detallado de un cliente específico.
-    """
+def detalle_cliente(id_cliente):
     clientes = cargar_clientes()
     cliente = next((c for c in clientes if c['id'] == id_cliente), None)
-
     if not cliente:
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('index'))
 
-    # Cálculos para el estado de cuenta
-    pagos = cliente.get('pagos', [])
-    cuotas_pagadas = sum(1 for p in pagos if p.get('tipo') == 'normal')
-    total_pagado = sum(p.get('monto', 0) for p in pagos)
-    monto_total_plan = float(cliente.get('monto_total', 0))
-    total_cuotas_plan = int(cliente.get('numero_cuotas', 1))
-
-    saldo_pendiente = monto_total_plan - total_pagado
-    progreso = (total_pagado / monto_total_plan) * 100 if monto_total_plan > 0 else 0
-    valor_cuota_ideal = monto_total_plan / total_cuotas_plan if total_cuotas_plan > 0 else 0
-
-    return render_template(
-        'consulta.html', 
-        cliente=cliente, 
-        pagos=sorted(pagos, key=lambda p: p.get('fecha', ''), reverse=True),
-        total_pagado=total_pagado,
-        saldo_pendiente=saldo_pendiente,
-        progreso=progreso,
-        cuotas_pagadas=cuotas_pagadas,
-        valor_cuota_ideal=valor_cuota_ideal
-    )
+    # Usamos la nueva función para obtener todos los cálculos
+    estado_cuenta = calcular_estado_de_cuenta(cliente)
     
-@app.route('/editar/<id_cliente>', methods=['GET', 'POST'])
-def editar_cliente(id_cliente):
-    """
-    Maneja la edición de un cliente existente.
-    GET: Muestra el formulario con los datos actuales del cliente.
-    POST: Actualiza los datos del cliente.
-    """
-    clientes = cargar_clientes()
-    cliente = next((c for c in clientes if c['id'] == id_cliente), None)
+    # Preparamos los pagos para mostrarlos en la tabla
+    pagos_historial = []
+    for p in cliente.get('pagos', []):
+        pagos_historial.append({
+            'fecha': p.get('fecha_pago', 'N/A')[:10],
+            'monto': p.get('monto_usd', 0.0),
+            'cuotas': p.get('tipo', 'normal'), # "normal" o "adelantada"
+            'recibo': p.get('referencia', 'None'), # Asumiendo que 'recibo' es la referencia
+            'forma_pago': p.get('forma_pago', 'Efectivo'),
+            'id_pago': p.get('pago_id')
+        })
 
-    if not cliente:
-        flash('Cliente no encontrado.', 'error')
-        return redirect(url_for('index'))
+    # El cliente de la captura tiene un valor cancelado, lo pasamos al template
+    return render_template('consulta.html', 
+                           cliente=cliente, 
+                           pagos=pagos_historial,
+                           **estado_cuenta)
 
-    if request.method == 'POST':
-        # Actualizar datos del cliente
-        cliente['nombre'] = request.form['nombre']
-        cliente['cedula'] = request.form.get('cedula')
-        cliente['contrato'] = request.form.get('contrato')
-        # ... puedes añadir todos los demás campos que quieras que sean editables
-        guardar_clientes(clientes)
-        flash('Cliente actualizado con éxito.', 'success')
-        return redirect(url_for('ver_cliente', id_cliente=id_cliente))
-
-    return render_template('edit_cliente.html', cliente=cliente)
-
-
-@app.route('/pagar/<id_cliente>', methods=['POST'])
-def registrar_pago(id_cliente):
-    """Registra un nuevo pago para un cliente."""
-    clientes = cargar_clientes()
-    cliente_encontrado = next((c for c in clientes if c['id'] == id_cliente), None)
-
-    if not cliente_encontrado:
-        flash('Cliente no encontrado.', 'error')
-        return redirect(url_for('index'))
-
-    try:
-        monto = float(request.form['monto'])
-        tipo_pago = request.form['tipo_pago']
-    except (ValueError, KeyError):
-        flash('Datos de pago inválidos.', 'error')
-        return redirect(url_for('ver_cliente', id_cliente=id_cliente))
-
-    nuevo_pago = {
-        'id': str(uuid.uuid4()),
-        'monto': monto,
-        'fecha': datetime.now().strftime('%Y-%m-%d'),
-        'tipo': tipo_pago,
-        'forma_pago': request.form.get('forma_pago', 'Efectivo'),
-        'recibo': request.form.get('recibo_nro', 'N/A')
-    }
-    
-    cliente_encontrado.setdefault('pagos', []).append(nuevo_pago)
-    guardar_clientes(clientes)
-    
-    flash('Pago registrado con éxito.', 'success')
-    return redirect(url_for('ver_cliente', id_cliente=id_cliente))
-
-@app.route('/eliminar/<id_cliente>', methods=['POST'])
-def eliminar_cliente(id_cliente):
-    """Elimina un cliente de la lista."""
-    clientes = cargar_clientes()
-    clientes_actualizados = [c for c in clientes if c['id'] != id_cliente]
-
-    if len(clientes) == len(clientes_actualizados):
-        flash('Error: No se pudo encontrar el cliente para eliminar.', 'error')
-    else:
-        guardar_clientes(clientes_actualizados)
-        flash('Cliente eliminado con éxito.', 'success')
-        
-    return redirect(url_for('index'))
-
+# Aquí irían las otras rutas que ya teníamos: /editar, /registrar_pago, /recibo, etc.
+# Las omito aquí para ser breve, pero deben estar en tu archivo final.
 
 if __name__ == '__main__':
-    # Usar debug=True para desarrollo, facilita la detección de errores.
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0

@@ -3,61 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <title>Gestión de Clientes</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .tabs { display: flex; border-bottom: 1px solid #ddd; }
+        .tab-link { padding: 15px 25px; cursor: pointer; background-color: #e4e6eb; color: #606770; font-weight: 600; border: none; font-size: 16px; }
+        .tab-link.active { background-color: white; color: #1877f2; border-bottom: 3px solid #1877f2; }
+        .content { padding: 25px; }
+        h1 { color: #1877f2; text-align: center; }
+        form { display: grid; grid-template-columns: 1fr 1fr; gap: 15px 25px; }
+        label { display: block; margin-top: 10px; font-weight: 600; color: #606770; font-size: 14px; }
+        input, select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #dddfe2; border-radius: 6px; }
+        .full-width { grid-column: 1 / -1; }
+        .submit-btn { background-color: #4CAF50; color: white; padding: 12px; border: none; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; border-radius: 6px; margin-top: 15px; }
+        .flash-error { background-color: #ffebe8; border: 1px solid #dd3c10; color: #dd3c10; padding: 15px; border-radius: 6px; text-align: center; margin-bottom: 20px; }
+    </style>
 </head>
-<body class="bg-gray-100 p-8">
-    <div class="max-w-7xl mx-auto">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-800">Clientes Registrados</h1>
-            <a href="{{ url_for('registrar_cliente') }}" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition">
-                + Registrar Nuevo Cliente
-            </a>
-        </div>
+<body>
+<div class="container">
+    <div class="tabs">
+        <button class="tab-link active" onclick="location.href='{{ url_for('index') }}'">Registrar Cliente</button>
+        <button class="tab-link" onclick="location.href='{{ url_for('consulta_clientes') }}'">Consultar Cliente</button>
+    </div>
+    <div class="content">
+        <h1>Registrar Nuevo Cliente</h1>
         
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="p-4 mb-4 text-sm rounded-lg {{ 'bg-green-100 text-green-700' if category == 'success' else 'bg-red-100 text-red-700' }}">
-                        {{ message }}
-                    </div>
+                    {% if category == 'error' %}
+                        <div class="flash-error">{{ message }}</div>
+                    {% endif %}
                 {% endfor %}
             {% endif %}
         {% endwith %}
 
-        <div class="bg-white p-6 rounded-xl shadow-lg">
-            <table class="min-w-full">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">Nombre</th>
-                        <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">Cédula</th>
-                        <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">Contrato</th>
-                        <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">Estatus</th>
-                        <th class="py-3 px-4 text-center text-xs font-semibold text-gray-600 uppercase">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody class="text-gray-700">
-                    {% for cliente in clientes %}
-                    <tr class="hover:bg-gray-50 border-b">
-                        <td class="py-3 px-4">{{ cliente.nombre }}</td>
-                        <td class="py-3 px-4">{{ cliente.cedula }}</td>
-                        <td class="py-3 px-4">{{ cliente.contrato }}</td>
-                        <td class="py-3 px-4"><span class="bg-green-200 text-green-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded-full">{{ cliente.estatus }}</span></td>
-                        <td class="py-3 px-4 text-center">
-                            <a href="{{ url_for('ver_cliente', id_cliente=cliente.id) }}" class="text-blue-500 hover:underline mr-4">Ver</a>
-                            <a href="{{ url_for('editar_cliente', id_cliente=cliente.id) }}" class="text-yellow-500 hover:underline mr-4">Editar</a>
-                            <form action="{{ url_for('eliminar_cliente', id_cliente=cliente.id) }}" method="POST" class="inline" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este cliente?');">
-                                <button type="submit" class="text-red-500 hover:underline">Eliminar</button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="5" class="text-center py-8 text-gray-500">No hay clientes registrados.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+        <form method="POST">
+            <div>
+                <label>Nombre y Apellido:</label><input type="text" name="nombre_apellido" required>
+                <label>Nº Cédula:</label><input type="text" name="cedula" required>
+                <label>Nº Contrato:</label><input type="text" name="contrato_nro">
+                <label>Teléfono:</label><input type="text" name="telefono">
+                <label>Asesor:</label><input type="text" name="asesor">
+                <label>Responsable:</label><input type="text" name="responsable">
+                <label>Fecha de Ingreso:</label><input type="date" name="fecha_ingreso">
+            </div>
+            <div>
+                <label>Grupo:</label><input type="text" name="grupo">
+                <label>Bien solicitado:</label><input type="text" name="bien_solicitado">
+                <label>Plan Contratado:</label><input type="text" name="plan_contratado">
+                <label>Cuotas Totales del Plan:</label>
+                <select name="cuotas_totales"><option value="24">24</option><option value="36">36</option><option value="48">48</option></select>
+                <label>Moneda de Pago:</label>
+                <select name="moneda_pago"><option value="USD">USD</option><option value="BsBCV">BsBCV</option></select>
+                <label>Cuota Mensual:</label><input type="number" step="0.01" name="valor_cuota" required>
+                <label>Monto de Inscripción:</label><input type="number" step="0.01" name="inscripcion_monto">
+            </div>
+            <div class="full-width">
+                <button type="submit" class="submit-btn">Registrar Cliente</button>
+            </div>
+        </form>
     </div>
+</div>
 </body>
 </html>
