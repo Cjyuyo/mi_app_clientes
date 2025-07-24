@@ -45,7 +45,6 @@
         <a href="/consulta" class="active">Consultar Cliente</a>
     </nav>
     <h1>Consulta de Clientes</h1>
-
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
@@ -53,27 +52,12 @@
         {% endfor %}
       {% endif %}
     {% endwith %}
-
     <form method="POST" class="search-form">
         <input type="text" name="busqueda" placeholder="🔎 Buscar por Cédula, Nombre o Teléfono..." required value="{{ request.form.busqueda or '' }}">
         <button type="submit">Buscar</button>
     </form>
-
     {% if clientes %}{% for cliente in clientes %}
     <div class="cliente-card">
-        {% set proceso = cliente.proceso | lower if cliente.proceso else '' %}
-        {% set status_class = 'status-default' %}
-        {% if 'adjudicado' in proceso or 'completado' in proceso %}
-            {% set status_class = 'status-success' %}
-        {% elif 'pendiente' in proceso or 'reserva' in proceso or 'cobranza' in proceso or 'ahorrador' in proceso %}
-            {% set status_class = 'status-warning' %}
-        {% elif 'inactivo' in proceso or 'retiro' in proceso %}
-            {% set status_class = 'status-danger' %}
-        {% endif %}
-        <div class="status-card-single {{ status_class }}">
-            <p>{{ cliente.proceso or 'No definido' }}</p>
-        </div>
-
         <div class="titulo-cliente">
             <h2>Datos Generales del Cliente (ID: {{ cliente.id }})</h2>
             <div class="action-buttons">
@@ -84,7 +68,6 @@
                 </form>
             </div>
         </div>
-
         <div class="data-grid">
             <div class="data-card">
                 <h3>Identificación y Contacto</h3>
@@ -98,8 +81,6 @@
                 <h3>Plan y Estatus</h3>
                 <div class="data-point"><span>Grupo:</span><span>{{ cliente.grupo or 'N/A' }}</span></div>
                 <div class="data-point"><span>Bien solicitado:</span><span>{{ cliente.bien_solicitado or 'N/A' }}</span></div>
-                <div class="data-point"><span>Estatus:</span><span>{{ cliente.estatus or 'N/A' }}</span></div>
-                <div class="data-point"><span>Estatus Detallado:</span><span>{{ cliente.estatus_1 or 'N/A' }}</span></div>
                 <div class="data-point"><span>Asesor:</span><span>{{ cliente.asesor or 'N/A' }}</span></div>
                 <div class="data-point"><span>Responsable:</span><span>{{ cliente.responsable or 'N/A' }}</span></div>
             </div>
@@ -109,29 +90,23 @@
                 <div class="data-point"><span>Monto Inscripción:</span><span>${{ "%.2f"|format(cliente.inscripcion_monto|float) if cliente.inscripcion_monto else 'N/A' }}</span></div>
                 <div class="data-point"><span>Valor Cancelado:</span><span>${{ "%.2f"|format(cliente.valor_cancelado|float) if cliente.valor_cancelado else 'N/A' }}</span></div>
             </div>
-
             <div class="data-card" style="grid-column: 1 / -1;">
                 <h3>Estado de Cuotas</h3>
-                {% set cuotas_totales = cliente.cuotas_totales|int if cliente.cuotas_totales and cliente.cuotas_totales.isdigit() else 0 %}
+                {% set cuotas_totales = cliente.cuotas_totales|int if cliente.cuotas_totales is not none else 0 %}
                 {% if cuotas_totales > 0 %}
-                    {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int if cliente.cuotas_pagadas_progresivas and cliente.cuotas_pagadas_progresivas.isdigit() else 0 %}
+                    {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int if cliente.cuotas_pagadas_progresivas is not none else 0 %}
                     {% set porcentaje_progresivo = (cuotas_progresivas * 100) / cuotas_totales %}
-                    
                     <div class="data-point">
-                        <span>Cuotas Pagadas (Progresivas):</span>
+                        <span>Cuotas Pagadas:</span>
                         <span>{{ cuotas_progresivas }} de {{ cuotas_totales }}</span>
                     </div>
                     <div class="progress-bar">
                         <div class="progress-bar-fill" style="width: {{ porcentaje_progresivo }}%;">{{ "%.0f"|format(porcentaje_progresivo) }}%</div>
                     </div>
-                    
                     <hr style="margin: 15px 0;">
-                    
                     {% set valor_cuota = cliente.valor_cuota|float if cliente.valor_cuota else 0 %}
                     {% set balance = cliente.balance_regresivo|float if cliente.balance_regresivo else 0 %}
                     {% set porcentaje_regresivo = (balance * 100) / valor_cuota if valor_cuota > 0 else 0 %}
-
-                    <!-- CORRECCIÓN: Se ajusta la etiqueta para la cuota siguiente -->
                     <div class="data-point">
                         <span>Balance a Favor (para Cuota #{{ cuotas_progresivas + 1 }}):</span>
                         <span>${{ "%.2f"|format(balance) }} de ${{ "%.2f"|format(valor_cuota) }}</span>
@@ -139,32 +114,35 @@
                     <div class="progress-bar">
                         <div class="progress-bar-fill" style="width: {{ porcentaje_regresivo }}%; background-color: #17a2b8;">{{ "%.0f"|format(porcentaje_regresivo) }}%</div>
                     </div>
-                    
-                    <!-- CORRECCIÓN: Se cambia la etiqueta y el valor a mostrar -->
-                    {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas|int if cliente.cuotas_pagadas_regresivas and cliente.cuotas_pagadas_regresivas.isdigit() else cuotas_totales - cuotas_progresivas %}
+                    {% set cuotas_pendientes = cuotas_totales - cuotas_progresivas %}
                     <div class="data-point" style="margin-top: 10px;">
-                        <span>Cuotas Pendientes (Regresivas):</span>
-                        <span>{{ cuotas_regresivas }}</span>
+                        <span>Cuotas Pendientes:</span>
+                        <span>{{ cuotas_pendientes }}</span>
                     </div>
                 {% else %}
                     <p>No se ha definido el total de cuotas para este cliente. Haz clic en "Editar" para añadirlo.</p>
                 {% endif %}
             </div>
-
             <div class="data-card" style="grid-column: 1 / -1;">
                 <h3>Historial de Pagos</h3>
                 {% if cliente.pagos %}
                     <table>
-                        <thead><tr><th>Fecha</th><th>Monto</th><th>Cuotas</th><th>Recibo #</th><th>Forma de Pago</th><th>Acción</th></tr></thead>
+                        <thead><tr><th>Fecha</th><th>Monto</th><th>Estado</th><th>Recibo #</th><th>Forma de Pago</th><th>Acción</th></tr></thead>
                         <tbody>
                         {% for pago in cliente.pagos %}
                             <tr>
                                 <td>{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</td>
-                                <td>{{ "%.2f"|format(pago.monto) }}</td>
-                                <td>{{ pago.cuotas }}</td>
-                                <td>{{ pago.recibo }}</td>
+                                <td>${{ "%.2f"|format(pago.monto_usd|float) if pago.monto_usd else 'N/A' }}</td>
+                                <td>{{ pago.estado }}</td>
+                                <td>{{ pago.recibo or 'N/A' }}</td>
                                 <td>{{ pago.forma_pago }}</td>
-                                <td><a href="{{ url_for('ver_recibo', pago_id=pago.id) }}">Ver Recibo</a></td>
+                                <td>
+                                    {% if pago.recibo %}
+                                    <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}">Ver Recibo</a>
+                                    {% else %}
+                                    N/A
+                                    {% endif %}
+                                </td>
                             </tr>
                         {% endfor %}
                         </tbody>
@@ -176,7 +154,6 @@
         </div>
     </div>
     {% endfor %}{% endif %}
-
     {% if mensaje_error %}
         <div class="mensaje_error">{{ mensaje_error }}</div>
     {% endif %}
