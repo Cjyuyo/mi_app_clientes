@@ -1,271 +1,144 @@
+from flask import Flask, render_template, request, redirect, url_for, flash
+import json
 import os
-import psycopg2
-import psycopg2.extras
-from flask import Flask, render_template, request, g, flash, redirect, url_for
-from decimal import Decimal, getcontext
-
-getcontext().prec = 10
+from datetime import datetime
+import uuid
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'una-clave-secreta-muy-segura-y-dificil-de-adivinar')
-DATABASE_URL = os.environ.get('DATABASE_URL')
+app.secret_key = 'clave_super_secreta_para_flash_v2'
 
-def get_db():
-    db = getattr(g, '_database', None)
-    if db is None:
-        if not DATABASE_URL:
-            raise ValueError("La variable de entorno DATABASE_URL no está configurada.")
-        db = g._database = psycopg2.connect(DATABASE_URL)
-    return db
+DB_FILE = 'clientes.json'
 
-@app.teardown_appcontext
-def close_connection(exception):
-    db = getattr(g, '_database', None)
-    if db is not None:
-        db.close()
+def cargar_clientes():
+    """Carga los clientes desde el archivo JSON."""
+    if not os.path.exists(DB_FILE):
+        return []
+    with open(DB_FILE, 'r', encoding='utf-8') as f:
+        try:
+            return json.load(f)
+        except json.JSONDecodeError:
+            return []
 
-# ... (Las rutas /, /consulta y /edit no cambian, se omiten por brevedad) ...
-@app.route('/', methods=['GET', 'POST'])
+def guardar_clientes(clientes):
+    """Guarda la lista de clientes en el archivo JSON."""
+    with open(DB_FILE, 'w', encoding='utf-8') as f:
+        json.dump(clientes, f, indent=4, ensure_ascii=False)
+
+@app.route('/')
 def index():
-    if request.method == 'POST':
-        db = get_db()
-        cursor = db.cursor()
-        try:
-            form_data = {k: (v if v != '' else None) for k, v in request.form.items()}
-            if not form_data.get('nombre_apellido') or not form_data.get('cedula'):
-                flash("Error: El nombre y la cédula son campos obligatorios.", 'error')
-                return render_template('index.html')
-            query = """
-            INSERT INTO clientes (
-                nombre_apellido, cedula, contrato_nro, telefono, asesor, responsable, fecha_ingreso,
-                grupo, bien_solicitado, plan_contratado, cuotas_totales, moneda_pago, valor_cuota,
-                inscripcion_monto, proceso
-            ) VALUES (
-                %(nombre_apellido)s, %(cedula)s, %(contrato_nro)s, %(telefono)s, %(asesor)s, %(responsable)s, %(fecha_ingreso)s,
-                %(grupo)s, %(bien_solicitado)s, %(plan_contratado)s, %(cuotas_totales)s, %(moneda_pago)s, %(valor_cuota)s,
-                %(inscripcion_monto)s, %(proceso)s
-            )
-            """
-            cursor.execute(query, form_data)
-            db.commit()
-            flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado exitosamente!", 'success')
-            return redirect(url_for('index'))
-        except psycopg2.IntegrityError:
-            db.rollback()
-            flash(f"Registro fallido: La cédula '{form_data.get('cedula')}' ya existe.", 'error')
-        except Exception as e:
-            db.rollback()
-            flash(f"Registro fallido: Ocurrió un error inesperado: {e}", 'error')
-        finally:
-            cursor.close()
-    return render_template('index.html')
+    """Página principal que muestra la lista de clientes."""
+    clientes = cargar_clientes()
+    return render_template('index.html', clientes=clientes)
 
-@app.route('/consulta', methods=['GET', 'POST'])
-def consulta():
-    clientes_encontrados = []
-    mensaje_error = None
-    if request.method == 'POST':
-        termino_busqueda = request.form.get('busqueda', '').strip()
-        if not termino_busqueda:
-            mensaje_error = "Por favor, ingrese un término para buscar."
-        else:
-            db = get_db()
-            cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            if termino_busqueda.isdigit():
-                query_clientes = "SELECT * FROM clientes WHERE cedula = %s LIMIT 20;"
-                cursor.execute(query_clientes, (termino_busqueda,))
-            else:
-                query_clientes = "SELECT * FROM clientes WHERE nombre_apellido ILIKE %s OR telefono LIKE %s LIMIT 20;"
-                patron = f'%{termino_busqueda}%'
-                cursor.execute(query_clientes, (patron, patron))
-            clientes_encontrados_raw = cursor.fetchall()
-            for cliente_raw in clientes_encontrados_raw:
-                cliente_dict = dict(cliente_raw)
-                query_pagos = "SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC"
-                cursor.execute(query_pagos, (cliente_dict['id'],))
-                cliente_dict['pagos'] = cursor.fetchall()
-                clientes_encontrados.append(cliente_dict)
-            if not clientes_encontrados:
-                mensaje_error = "🚫 No se encontraron clientes que coincidan con su búsqueda."
-            cursor.close()
-    return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error)
+@app.route('/registrar', methods=['POST'])
+def registrar_cliente():
+    """Registra un nuevo cliente con todos los detalles."""
+    clientes = cargar_clientes()
+    
+    # Añadimos más campos al registro, con valores por defecto si no se proporcionan
+    nuevo_cliente = {
+        'id': str(uuid.uuid4()),
+        'nombre': request.form['nombre'],
+        'cedula': request.form.get('cedula', 'N/A'),
+        'contrato': request.form.get('contrato', 'N/A'),
+        'telefono': request.form.get('telefono', 'N/A'),
+        'fecha_ingreso': datetime.now().strftime('%Y-%m-%d'),
+        'monto_total': float(request.form['monto_total']),
+        'numero_cuotas': int(request.form.get('numero_cuotas', 24)), # Default a 24 cuotas
+        'monto_inscripcion': float(request.form.get('monto_inscripcion', 0)),
+        'bien_solicitado': 'N/A',
+        'estatus': 'Activo',
+        'estatus_detallado': 'Al día',
+        'asesor': 'N/A',
+        'responsable': 'N/A',
+        'pagos': []
+    }
+    
+    clientes.append(nuevo_cliente)
+    guardar_clientes(clientes)
+    
+    flash(f'Cliente "{nuevo_cliente["nombre"]}" registrado con éxito.', 'success')
+    return redirect(url_for('index'))
 
+@app.route('/consulta/<id_cliente>')
+def consulta(id_cliente):
+    """Muestra el estado de cuenta detallado de un cliente."""
+    clientes = cargar_clientes()
+    cliente = next((c for c in clientes if c['id'] == id_cliente), None)
 
-@app.route('/edit/<int:client_id>', methods=['GET', 'POST'])
-def edit_client(client_id):
-    db = get_db()
-    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    if request.method == 'POST':
-        try:
-            form_data = {k: (v if v != '' else None) for k, v in request.form.items()}
-            form_data['id'] = client_id
-            update_query = """
-            UPDATE clientes SET
-                nombre_apellido = %(nombre_apellido)s, cedula = %(cedula)s, contrato_nro = %(contrato_nro)s,
-                telefono = %(telefono)s, asesor = %(asesor)s, responsable = %(responsable)s,
-                fecha_ingreso = %(fecha_ingreso)s, grupo = %(grupo)s, bien_solicitado = %(bien_solicitado)s,
-                plan_contratado = %(plan_contratado)s, cuotas_totales = %(cuotas_totales)s, moneda_pago = %(moneda_pago)s,
-                valor_cuota = %(valor_cuota)s, inscripcion_monto = %(inscripcion_monto)s,
-                proceso = %(proceso)s, estatus = %(estatus)s, estatus_1 = %(estatus_1)s
-            WHERE id = %(id)s;
-            """
-            cursor.execute(update_query, form_data)
-            db.commit()
-            flash('¡Cliente actualizado exitosamente!', 'success')
-            return redirect(url_for('consulta'))
-        except Exception as e:
-            db.rollback()
-            flash(f'Ocurrió un error al actualizar el cliente: {e}', 'error')
-        finally:
-            cursor.close()
-    cursor.execute("SELECT * FROM clientes WHERE id = %s", (client_id,))
-    cliente = cursor.fetchone()
-    cursor.close()
     if not cliente:
         flash('Cliente no encontrado.', 'error')
-        return redirect(url_for('consulta'))
-    return render_template('edit_cliente.html', cliente=cliente)
+        return redirect(url_for('index'))
+
+    pagos = cliente.get('pagos', [])
+    
+    # --- LÓGICA DE CÁLCULO PARA EL NUEVO DISEÑO ---
+    cuotas_progresivas = sum(1 for p in pagos if p.get('tipo') == 'normal')
+    cuotas_regresivas = sum(1 for p in pagos if p.get('tipo') == 'adelantada')
+    
+    total_pagado = sum(p['monto'] for p in pagos)
+    valor_cancelado = cliente.get('monto_inscripcion', 0) + total_pagado
+    saldo_pendiente = cliente['monto_total'] - total_pagado
+
+    # Calcular porcentajes para las barras de progreso
+    total_cuotas = cliente.get('numero_cuotas', 1) # Evitar división por cero
+    progreso_progresivas = (cuotas_progresivas / total_cuotas) * 100 if total_cuotas > 0 else 0
+    
+    # Lógica para "Balance a favor" (simplificada por ahora)
+    # Esto requeriría una lógica más compleja, por ahora es un placeholder
+    valor_cuota_ideal = cliente['monto_total'] / total_cuotas
+    balance_a_favor = total_pagado % valor_cuota_ideal if valor_cuota_ideal > 0 else 0
+    progreso_balance = (balance_a_favor / valor_cuota_ideal) * 100 if valor_cuota_ideal > 0 else 0
 
 
-@app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
-def registrar_pago(client_id):
-    db = get_db()
-    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    cursor.execute("SELECT * FROM clientes WHERE id = %s", (client_id,))
-    cliente = cursor.fetchone()
-    if not cliente:
+    return render_template(
+        'consulta.html', 
+        cliente=cliente, 
+        pagos=sorted(pagos, key=lambda p: p.get('fecha', ''), reverse=True),
+        total_pagado=total_pagado,
+        valor_cancelado=valor_cancelado,
+        saldo_pendiente=saldo_pendiente,
+        cuotas_progresivas=cuotas_progresivas,
+        cuotas_regresivas=cuotas_regresivas,
+        progreso_progresivas=progreso_progresivas,
+        balance_a_favor=balance_a_favor,
+        progreso_balance=progreso_balance,
+        valor_cuota_ideal=valor_cuota_ideal
+    )
+
+@app.route('/pagar/<id_cliente>', methods=['POST'])
+def pagar(id_cliente):
+    """Registra un nuevo pago para un cliente."""
+    clientes = cargar_clientes()
+    cliente_encontrado = next((c for c in clientes if c['id'] == id_cliente), None)
+
+    if not cliente_encontrado:
         flash('Cliente no encontrado.', 'error')
-        cursor.close()
-        return redirect(url_for('consulta'))
-        
-    if request.method == 'POST':
-        try:
-            form_data = {k: (v if v != '' else None) for k, v in request.form.items()}
-            form_data['cliente_id'] = client_id
-            accion = form_data.get('accion')
-            estado = 'Conciliado' if accion == 'conciliar' else 'Pendiente'
-            form_data['estado'] = estado
+        return redirect(url_for('index'))
 
-            if accion == 'conciliar':
-                if (form_data.get('forma_pago') in ['Transferencia', 'Pago Móvil']) and not form_data.get('referencia'):
-                    flash('Error: La referencia es obligatoria para conciliar.', 'error')
-                    return render_template('registrar_pago.html', cliente=cliente, form_data=form_data)
-
-            recibo_nro = None
-            if accion == 'conciliar':
-                cursor.execute("SELECT nextval('recibo_numero_seq')")
-                recibo_nro = cursor.fetchone()[0]
-            
-            query_pago = """
-            INSERT INTO pagos (
-                cliente_id, monto_usd, monto_bs, tasa_dia, forma_pago, 
-                pago_en, cantidad_en_letras, por_concepto_de, referencia, banco, lugar_emision,
-                estado, recibo
-            ) VALUES (
-                %(cliente_id)s, %(monto_usd)s, %(monto_bs)s, %(tasa_dia)s, %(forma_pago)s,
-                %(pago_en)s, %(cantidad_en_letras)s, %(por_concepto_de)s, %(referencia)s, %(banco)s, %(lugar_emision)s,
-                %(estado)s, %(recibo)s
-            ) RETURNING id;
-            """
-            form_data['recibo'] = recibo_nro
-            cursor.execute(query_pago, form_data)
-            nuevo_pago_id = cursor.fetchone()['id']
-            
-            if accion == 'conciliar':
-                monto_pagado = Decimal(form_data.get('monto_usd', 0))
-                valor_cuota = Decimal(cliente['valor_cuota'] or 0)
-                
-                cuotas_progresivas_antes = int(cliente['cuotas_pagadas_progresivas'] or 0)
-                cuotas_regresivas_antes = int(cliente['cuotas_pagadas_regresivas'] or 0)
-                balance_regresivo_antes = Decimal(cliente['balance_regresivo'] or 0)
-                cuotas_totales = int(cliente['cuotas_totales'] or 0)
-
-                # --- LÓGICA DE ABONO A CAPITAL ---
-                if valor_cuota > 0 and cuotas_totales > 0:
-                    
-                    # 1. Se asume que el pago es para la siguiente cuota progresiva
-                    cuotas_progresivas_nuevas = cuotas_progresivas_antes + 1
-                    
-                    # 2. Se calcula el dinero sobrante (abono a capital)
-                    dinero_sobrante = monto_pagado - valor_cuota
-                    if dinero_sobrante < 0:
-                        dinero_sobrante = Decimal(0) # Si el pago es menor a la cuota, no hay abono
-                    
-                    # 3. El sobrante se suma al balance para abonos
-                    total_disponible_regresivo = dinero_sobrante + balance_regresivo_antes
-                    
-                    # 4. Se calculan cuántas cuotas regresivas se pueden pagar con ese balance
-                    cuotas_regresivas_pagadas_ahora = int(total_disponible_regresivo // valor_cuota)
-                    nuevo_balance_regresivo = total_disponible_regresivo % valor_cuota
-                    
-                    cuotas_regresivas_nuevas = cuotas_regresivas_antes + cuotas_regresivas_pagadas_ahora
-                    
-                    # 5. Se actualiza la base de datos
-                    update_cliente_query = """
-                    UPDATE clientes SET
-                        cuotas_pagadas_progresivas = %s,
-                        cuotas_pagadas_regresivas = %s,
-                        balance_regresivo = %s,
-                        valor_cancelado = COALESCE(valor_cancelado, 0) + %s
-                    WHERE id = %s;
-                    """
-                    cursor.execute(update_cliente_query, (
-                        cuotas_progresivas_nuevas,
-                        cuotas_regresivas_nuevas, 
-                        float(nuevo_balance_regresivo), 
-                        float(monto_pagado), 
-                        client_id
-                    ))
-                
-                db.commit()
-                flash('¡Pago conciliado y recibo generado exitosamente!', 'success')
-                return redirect(url_for('ver_recibo', pago_id=nuevo_pago_id))
-            else:
-                db.commit()
-                flash('Pago guardado como pendiente exitosamente.', 'success')
-                return redirect(url_for('consulta'))
-        except Exception as e:
-            db.rollback()
-            flash(f'Ocurrió un error al registrar el pago: {e}', 'error')
-            return render_template('registrar_pago.html', cliente=cliente, form_data=request.form)
-            
-    return render_template('registrar_pago.html', cliente=cliente)
-
-
-@app.route('/recibo/<int:pago_id>')
-def ver_recibo(pago_id):
-    db = get_db()
-    cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    query = """
-    SELECT p.*, c.nombre_apellido, c.cedula 
-    FROM pagos p 
-    JOIN clientes c ON p.cliente_id = c.id 
-    WHERE p.id = %s;
-    """
-    cursor.execute(query, (pago_id,))
-    pago = cursor.fetchone()
-    cursor.close()
-    if not pago:
-        flash('Recibo no encontrado.', 'error')
-        return redirect(url_for('consulta'))
-    return render_template('recibo.html', pago=pago)
-
-
-@app.route('/delete/<int:client_id>', methods=['POST'])
-def delete_client(client_id):
     try:
-        db = get_db()
-        cursor = db.cursor()
-        cursor.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
-        db.commit()
-        flash('¡Cliente eliminado exitosamente!', 'success')
-    except Exception as e:
-        db.rollback()
-        flash(f'Ocurrió un error al eliminar el cliente: {e}', 'error')
-    finally:
-        cursor.close()
-    return redirect(url_for('consulta'))
+        monto = float(request.form['monto'])
+        tipo_pago = request.form['tipo_pago']
+        forma_pago = request.form.get('forma_pago', 'Efectivo')
+        recibo_nro = request.form.get('recibo_nro', 'None')
+    except (ValueError, KeyError):
+        flash('Datos de pago inválidos.', 'error')
+        return redirect(url_for('consulta', id_cliente=id_cliente))
+
+    nuevo_pago = {
+        'monto': monto,
+        'fecha': datetime.now().strftime('%Y-%m-%d'),
+        'tipo': tipo_pago,
+        'forma_pago': forma_pago,
+        'recibo': recibo_nro
+    }
+    
+    cliente_encontrado.setdefault('pagos', []).append(nuevo_pago)
+    guardar_clientes(clientes)
+    
+    flash('Pago registrado con éxito.', 'success')
+    return redirect(url_for('consulta', id_cliente=id_cliente))
+
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(debug=True, port=5001)

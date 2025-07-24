@@ -1,181 +1,137 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Consulta de Clientes</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: #f0f2f5; color: #1c1e21; }
-        .container { max-width: 1000px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.1); }
-        nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px; text-align: center; padding-bottom: 20px; border-bottom: 1px solid #dddfe2; }
-        nav a { text-decoration: none; background-color: #e4e6eb; color: #050505; font-weight: 600; padding: 10px 15px; border-radius: 6px; }
-        nav a.active { background-color: #1877f2; color: white; }
-        h1, h2 { color: #1877f2; border-bottom: 2px solid #1877f2; padding-bottom: 10px; }
-        h2 { font-size: 1.2em; margin-top: 30px; }
-        h3 { margin-top: 0; color: #606770; border-bottom: 1px solid #e4e6eb; padding-bottom: 8px; }
-        .search-form { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; }
-        .search-form input { flex-grow: 1; padding: 10px; border: 1px solid #dddfe2; border-radius: 6px; }
-        .search-form button { padding: 10px 20px; background-color: #1877f2; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
-        .data-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-        .data-card { background-color: #f7f8fa; padding: 15px; border-radius: 8px; border: 1px solid #dddfe2; }
-        .data-point { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e9ebee; }
-        .data-point:last-child { border-bottom: none; }
-        .data-point span:first-child { font-weight: 600; color: #333; }
-        .data-point span:last-child { color: #606770; text-align: right; }
-        .cliente-card { margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 8px; }
-        .titulo-cliente { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .action-buttons { display: flex; gap: 10px; flex-shrink: 0; }
-        .btn-pago { background-color: #28a745; color: white; padding: 8px 12px; border-radius: 5px; text-decoration: none; font-size: .9em; }
-        .btn-edit { background-color: #ffc107; color: #212529; padding: 8px 12px; border-radius: 5px; text-decoration: none; font-size: .9em; }
-        .delete-button { background-color: #dc3545; color: white; padding: 8px 12px; border: none; border-radius: 5px; cursor: pointer; font-size: .9em; }
-        .progress-bar { background-color: #e9ecef; border-radius: .25rem; height: 1.5rem; display: flex; margin-top: 5px; }
-        .progress-bar-fill { background-color: #28a745; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.9em; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 8px; border: 1px solid #ddd; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .mensaje { margin-bottom: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
-        .exito { color: #4F8A10; background-color: #DFF2BF; }
-        .error { color: #D8000C; background-color: #FFD2D2; }
-        .mensaje_error { margin-top: 20px; font-weight: 700; padding: 15px; border-radius: 5px; color: #D8000C; background-color: #FFD2D2; text-align: center; }
-        .status-card-single{text-align:center;padding:25px;border-radius:8px;margin-bottom:20px}.status-card-single p{margin:0;font-size:1.8em;font-weight:bold;text-transform:uppercase}.status-success{background-color:#dff2bf;color:#4f8a10}.status-warning{background-color:#fff3cd;color:#856404}.status-danger{background-color:#f8d7da;color:#721c24}.status-default{background-color:#e2e3e5;color:#383d41}
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estado de Cuenta - {{ cliente.nombre }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-<div class="container">
-    <nav>
-        <a href="/">Registrar Cliente</a>
-        <a href="/consulta" class="active">Consultar Cliente</a>
-    </nav>
-    <h1>Consulta de Clientes</h1>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="mensaje {{ 'exito' if category == 'success' else 'error' }}">{{ message }}</div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
-    <form method="POST" class="search-form">
-        <input type="text" name="busqueda" placeholder="🔎 Buscar por Cédula, Nombre o Teléfono..." required value="{{ request.form.busqueda or '' }}">
-        <button type="submit">Buscar</button>
-    </form>
-    {% if clientes %}{% for cliente in clientes %}
-    <div class="cliente-card">
-        <div class="titulo-cliente">
-            <h2>Datos Generales del Cliente (ID: {{ cliente.id }})</h2>
-            <div class="action-buttons">
-                <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn-edit">Editar</a>
-                <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn-pago">Registrar Pago</a>
-                <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro?');" style="display: inline;">
-                    <button type="submit" class="delete-button">Eliminar</button>
-                </form>
+<body class="bg-gray-100 p-4 sm:p-6 md:p-8">
+
+    <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg">
+
+        <!-- SECCIÓN DE ENCABEZADO CON DATOS DEL CLIENTE -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-6 gap-y-4 border-b pb-6 mb-6">
+            <div class="col-span-2 sm:col-span-3 md:col-span-4 lg:col-span-6">
+                <h1 class="text-2xl font-bold text-gray-800">Estado de Cuenta de: {{ cliente.nombre }}</h1>
+            </div>
+            <div>
+                <p class="text-xs font-bold text-gray-500">N° Cédula:</p>
+                <p class="text-sm text-gray-900">{{ cliente.cedula }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-bold text-gray-500">N° Contrato:</p>
+                <p class="text-sm text-gray-900">{{ cliente.contrato }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-bold text-gray-500">Teléfono:</p>
+                <p class="text-sm text-gray-900">{{ cliente.telefono }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-bold text-gray-500">Fecha de Ingreso:</p>
+                <p class="text-sm text-gray-900">{{ cliente.fecha_ingreso }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-bold text-gray-500">Asesor:</p>
+                <p class="text-sm text-gray-900">{{ cliente.asesor }}</p>
+            </div>
+             <div>
+                <p class="text-xs font-bold text-gray-500">Responsable:</p>
+                <p class="text-sm text-gray-900">{{ cliente.responsable }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-bold text-gray-500">Estatus:</p>
+                <p class="text-sm font-semibold text-green-600">{{ cliente.estatus }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-bold text-gray-500">Bien Solicitado:</p>
+                <p class="text-sm text-gray-900">{{ cliente.bien_solicitado }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-bold text-gray-500">Monto Inscripción:</p>
+                <p class="text-sm font-bold text-gray-900">${{ "{:,.2f}".format(cliente.monto_inscripcion) }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-bold text-gray-500">Valor Cancelado:</p>
+                <p class="text-sm font-bold text-green-700">${{ "{:,.2f}".format(valor_cancelado) }}</p>
             </div>
         </div>
-        <div class="data-grid">
-            <div class="data-card">
-                <h3>Identificación y Contacto</h3>
-                <div class="data-point"><span>Nombre y Apellido:</span><span>{{ cliente.nombre_apellido or 'N/A' }}</span></div>
-                <div class="data-point"><span>Nº Cédula:</span><span>{{ cliente.cedula or 'N/A' }}</span></div>
-                <div class="data-point"><span>Nº Contrato:</span><span>{{ cliente.contrato_nro or 'N/A' }}</span></div>
-                <div class="data-point"><span>Teléfono:</span><span>{{ cliente.telefono or 'N/A' }}</span></div>
-                <div class="data-point"><span>Fecha de Ingreso:</span><span>{{ cliente.fecha_ingreso or 'N/A' }}</span></div>
-            </div>
-            <div class="data-card">
-                <h3>Plan y Estatus</h3>
-                <div class="data-point"><span>Grupo:</span><span>{{ cliente.grupo or 'N/A' }}</span></div>
-                <div class="data-point"><span>Bien solicitado:</span><span>{{ cliente.bien_solicitado or 'N/A' }}</span></div>
-                <div class="data-point"><span>Asesor:</span><span>{{ cliente.asesor or 'N/A' }}</span></div>
-                <div class="data-point"><span>Responsable:</span><span>{{ cliente.responsable or 'N/A' }}</span></div>
-            </div>
-            <div class="data-card">
-                <h3>Resumen Financiero</h3>
-                <div class="data-point"><span>Valor de Cuota:</span><span>${{ "%.2f"|format(cliente.valor_cuota|float) if cliente.valor_cuota else 'N/A' }}</span></div>
-                <div class="data-point"><span>Monto Inscripción:</span><span>${{ "%.2f"|format(cliente.inscripcion_monto|float) if cliente.inscripcion_monto else 'N/A' }}</span></div>
-                <div class="data-point"><span>Valor Cancelado:</span><span>${{ "%.2f"|format(cliente.valor_cancelado|float) if cliente.valor_cancelado else 'N/A' }}</span></div>
-            </div>
-            <div class="data-card" style="grid-column: 1 / -1;">
-                <h3>Estado de Cuotas</h3>
-                {% set cuotas_totales = cliente.cuotas_totales|int if cliente.cuotas_totales is not none else 0 %}
-                {% if cuotas_totales > 0 %}
-                    {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int if cliente.cuotas_pagadas_progresivas is not none else 0 %}
-                    {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas|int if cliente.cuotas_pagadas_regresivas is not none else 0 %}
-                    {% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}
-                    {% set porcentaje_progresivo = (cuotas_pagadas_total * 100) / cuotas_totales %}
-                    
-                    <div class="data-point">
-                        <span>Progreso General del Plan:</span>
-                        <span>{{ cuotas_pagadas_total }} de {{ cuotas_totales }}</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-bar-fill" style="width: {{ porcentaje_progresivo }}%;">{{ "%.0f"|format(porcentaje_progresivo) }}%</div>
-                    </div>
-                    <hr style="margin: 15px 0;">
 
-                    <div class="data-point">
-                        <span>Cuotas Pagadas (Normal):</span>
-                        <span>{{ cuotas_progresivas }}</span>
+        <!-- ESTADO DE CUOTAS -->
+        <div class="mb-8">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Estado de Cuotas</h2>
+            <div class="space-y-4">
+                <!-- Cuotas Progresivas -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <p class="text-sm font-semibold text-gray-700">Cuotas Pagadas (Progresivas):</p>
+                        <p class="text-sm font-bold">{{ cuotas_progresivas }} de {{ cliente.numero_cuotas }}</p>
                     </div>
-                    <div class="data-point">
-                        <span>Cuotas Adelantadas (Abono a Capital):</span>
-                        <span>{{ cuotas_regresivas }}</span>
+                    <div class="w-full bg-gray-200 rounded-full h-4">
+                        <div class="bg-green-500 h-4 rounded-full text-center text-white text-xs" style="width: {{ progreso_progresivas }}%;">
+                           {{ "{:,.0f}".format(progreso_progresivas) }}%
+                        </div>
                     </div>
-
-                    <hr style="margin: 15px 0;">
-
-                    {% set valor_cuota = cliente.valor_cuota|float if cliente.valor_cuota else 0 %}
-                    {% set balance = cliente.balance_regresivo|float if cliente.balance_regresivo else 0 %}
-                    {% set cuota_a_pagar = cuotas_totales - cuotas_regresivas %}
-                    {% set porcentaje_regresivo = (balance * 100) / valor_cuota if valor_cuota > 0 else 0 %}
-                    
-                    <div class="data-point">
-                        <span>Balance a Favor (para adelantar Cuota #{{ cuota_a_pagar }}):</span>
-                        <span>${{ "%.2f"|format(balance) }} de ${{ "%.2f"|format(valor_cuota) }}</span>
+                </div>
+                <!-- Balance a Favor -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <p class="text-sm font-semibold text-gray-700">Balance a Favor (para cuota #{{ cuotas_progresivas + 1 }}):</p>
+                        <p class="text-sm font-bold">${{ "{:,.2f}".format(balance_a_favor) }} de ${{ "{:,.2f}".format(valor_cuota_ideal) }}</p>
                     </div>
-                    <div class="progress-bar">
-                        <div class="progress-bar-fill" style="width: {{ porcentaje_regresivo }}%; background-color: #17a2b8;">{{ "%.0f"|format(porcentaje_regresivo) }}%</div>
+                    <div class="w-full bg-gray-200 rounded-full h-4">
+                        <div class="bg-blue-500 h-4 rounded-full text-center text-white text-xs" style="width: {{ progreso_balance }}%;">
+                           {{ "{:,.0f}".format(progreso_balance) }}%
+                        </div>
                     </div>
-
-                    {% set cuotas_pendientes = cuotas_totales - cuotas_pagadas_total %}
-                    <div class="data-point" style="margin-top: 10px; font-weight: bold;">
-                        <span>CUOTAS PENDIENTES:</span>
-                        <span>{{ cuotas_pendientes }}</span>
+                </div>
+                 <!-- Cuotas Regresivas -->
+                <div>
+                    <div class="flex justify-between items-center">
+                        <p class="text-sm font-semibold text-gray-700">Cuotas Pagadas (Regresivas):</p>
+                        <p class="text-sm font-bold">{{ cuotas_regresivas }}</p>
                     </div>
-                {% else %}
-                    <p>No se ha definido el total de cuotas para este cliente. Haz clic en "Editar" para añadirlo.</p>
-                {% endif %}
+                </div>
             </div>
-            <div class="data-card" style="grid-column: 1 / -1;">
-                <h3>Historial de Pagos</h3>
-                {% if cliente.pagos %}
-                    <table>
-                        <thead><tr><th>Fecha</th><th>Monto</th><th>Estado</th><th>Recibo #</th><th>Forma de Pago</th><th>Acción</th></tr></thead>
-                        <tbody>
-                        {% for pago in cliente.pagos %}
-                            <tr>
-                                <td>{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</td>
-                                <td>${{ "%.2f"|format(pago.monto_usd|float) if pago.monto_usd else 'N/A' }}</td>
-                                <td>{{ pago.estado }}</td>
-                                <td>{{ pago.recibo or 'N/A' }}</td>
-                                <td>{{ pago.forma_pago }}</td>
-                                <td>
-                                    {% if pago.recibo %}
-                                    <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}">Ver Recibo</a>
-                                    {% else %}
-                                    N/A
-                                    {% endif %}
-                                </td>
-                            </tr>
+        </div>
+
+        <!-- HISTORIAL DE PAGOS -->
+        <div>
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Historial de Pagos</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white border">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="py-2 px-4 border-b text-left text-xs font-semibold text-gray-600 uppercase">Fecha</th>
+                            <th class="py-2 px-4 border-b text-left text-xs font-semibold text-gray-600 uppercase">Monto</th>
+                            <th class="py-2 px-4 border-b text-left text-xs font-semibold text-gray-600 uppercase">Cuotas</th>
+                            <th class="py-2 px-4 border-b text-left text-xs font-semibold text-gray-600 uppercase">Recibo #</th>
+                            <th class="py-2 px-4 border-b text-left text-xs font-semibold text-gray-600 uppercase">Forma de Pago</th>
+                            <th class="py-2 px-4 border-b text-left text-xs font-semibold text-gray-600 uppercase">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-700">
+                        {% for pago in pagos %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="py-2 px-4 border-b text-sm">{{ pago.fecha }}</td>
+                            <td class="py-2 px-4 border-b text-sm">${{ "{:,.2f}".format(pago.monto) }}</td>
+                            <td class="py-2 px-4 border-b text-sm">
+                                {% if pago.tipo == 'normal' %} Progresiva {% else %} Regresiva {% endif %}
+                            </td>
+                            <td class="py-2 px-4 border-b text-sm">{{ pago.recibo }}</td>
+                            <td class="py-2 px-4 border-b text-sm">{{ pago.forma_pago }}</td>
+                            <td class="py-2 px-4 border-b text-sm">
+                                <a href="#" class="text-blue-500 hover:underline">Ver Recibo</a>
+                            </td>
+                        </tr>
                         {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                    <p>Este cliente no tiene pagos registrados.</p>
-                {% endif %}
+                    </tbody>
+                </table>
             </div>
+        </div>
+        <div class="mt-6 text-right">
+             <a href="/" class="text-blue-500 hover:text-blue-700 transition-colors">&larr; Volver al inicio</a>
         </div>
     </div>
-    {% endfor %}{% endif %}
-    {% if mensaje_error %}
-        <div class="mensaje_error">{{ mensaje_error }}</div>
-    {% endif %}
-</div>
 </body>
 </html>
-
