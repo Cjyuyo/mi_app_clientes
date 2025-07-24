@@ -43,7 +43,7 @@ def registrar_cliente():
         'contrato': request.form.get('contrato', 'N/A'),
         'telefono': request.form.get('telefono', 'N/A'),
         'fecha_ingreso': datetime.now().strftime('%Y-%m-%d'),
-        'monto_total': float(request.form['monto_total']),
+        'monto_total': float(request.form.get('monto_total', 0)),
         'numero_cuotas': int(request.form.get('numero_cuotas', 24)), # Default a 24 cuotas
         'monto_inscripcion': float(request.form.get('monto_inscripcion', 0)),
         'bien_solicitado': 'N/A',
@@ -72,7 +72,6 @@ def consulta(id_cliente):
 
     pagos = cliente.get('pagos', [])
     
-    # --- LÓGICA DE CÁLCULO PARA EL NUEVO DISEÑO ---
     cuotas_progresivas = sum(1 for p in pagos if p.get('tipo') == 'normal')
     cuotas_regresivas = sum(1 for p in pagos if p.get('tipo') == 'adelantada')
     
@@ -80,15 +79,12 @@ def consulta(id_cliente):
     valor_cancelado = cliente.get('monto_inscripcion', 0) + total_pagado
     saldo_pendiente = cliente['monto_total'] - total_pagado
 
-    # Calcular porcentajes para las barras de progreso
-    total_cuotas = cliente.get('numero_cuotas', 1) # Evitar división por cero
+    total_cuotas = cliente.get('numero_cuotas', 1)
     progreso_progresivas = (cuotas_progresivas / total_cuotas) * 100 if total_cuotas > 0 else 0
     
-    # Lógica para "Balance a favor"
     valor_cuota_ideal = cliente['monto_total'] / total_cuotas if total_cuotas > 0 else 0
-    balance_a_favor = total_pagado % valor_cuota_ideal if valor_cuota_ideal > 0 else 0
+    balance_a_favor = total_pagado % valor_cuota_ideal if valor_cuota_ideal > 0 and total_pagado > 0 else 0
     progreso_balance = (balance_a_favor / valor_cuota_ideal) * 100 if valor_cuota_ideal > 0 else 0
-
 
     return render_template(
         'consulta.html', 
@@ -107,7 +103,7 @@ def consulta(id_cliente):
 
 @app.route('/pagar/<id_cliente>', methods=['POST'])
 def pagar(id_cliente):
-    """Registra un nuevo pago para un cliente."""
+    """Registra un nuevo pago para un cliente con validación robusta."""
     clientes = cargar_clientes()
     cliente_encontrado = next((c for c in clientes if c['id'] == id_cliente), None)
 
@@ -115,15 +111,26 @@ def pagar(id_cliente):
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('index'))
 
-    try:
-        monto = float(request.form['monto'])
-        tipo_pago = request.form['tipo_pago']
-        forma_pago = request.form.get('forma_pago', 'Efectivo')
-        # CORRECCIÓN: Usar 'recibo_nro' para que coincida con el HTML
-        recibo_nro = request.form.get('recibo_nro', 'None') 
-    except (ValueError, KeyError):
-        flash('Datos de pago inválidos.', 'error')
+    # --- VALIDACIÓN ROBUSTA DE FORMULARIO ---
+    monto_str = request.form.get('monto')
+    tipo_pago = request.form.get('tipo_pago')
+
+    if not monto_str or not tipo_pago:
+        flash('Error: El monto y el tipo de pago son campos obligatorios.', 'error')
         return redirect(url_for('consulta', id_cliente=id_cliente))
+
+    try:
+        monto = float(monto_str)
+        if monto <= 0:
+            flash('El monto debe ser un número positivo.', 'error')
+            return redirect(url_for('consulta', id_cliente=id_cliente))
+    except (ValueError, TypeError):
+        flash('El valor del monto ingresado no es un número válido.', 'error')
+        return redirect(url_for('consulta', id_cliente=id_cliente))
+
+    # Obtener datos opcionales
+    forma_pago = request.form.get('forma_pago', 'Efectivo')
+    recibo_nro = request.form.get('recibo_nro', 'N/A')
 
     nuevo_pago = {
         'monto': monto,
