@@ -1,10 +1,82 @@
-<div class="flex justify-between items-center border-b pb-6 mb-6">
-    <h1 class="text-2xl font-bold text-gray-800">Estado de Cuenta de: {{ cliente.nombre }}</h1>
-    <a href="{{ url_for('editar_cliente', id_cliente=cliente.id) }}" class="bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600 transition">
-        Editar Cliente
-    </a>
-</div>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Estado de Cuenta - {{ cliente.nombre_apellido }}</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f0f2f5; padding: 20px; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .header, .section-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
+        .header h1 { font-size: 24px; font-weight: bold; color: #1877f2; }
+        .edit-btn { background-color: #f5a623; color: white; padding: 10px 15px; text-decoration: none; border-radius: 6px; font-weight: bold; }
+        .grid-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        .card { background-color: #f7f7f7; padding: 15px; border-radius: 6px; }
+        .card h3 { font-size: 14px; color: #606770; margin-bottom: 10px; }
+        .card p { font-size: 18px; font-weight: 600; color: #050505; }
+        .progress-bar { width: 100%; background-color: #e9ebee; border-radius: 5px; overflow: hidden; }
+        .progress-bar div { height: 10px; background-color: #42b72a; }
+        .table-container { margin-top: 30px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #f7f7f7; }
+        .back-link { display: inline-block; margin-top: 30px; color: #1877f2; text-decoration: none; font-weight: 600; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>{{ cliente.nombre_apellido }}</h1>
+        <a href="{{ url_for('editar_cliente', id_cliente=cliente.id) }}" class="edit-btn">Editar Cliente</a>
+    </div>
 
-<div class="mt-6 text-right">
-     <a href="{{ url_for('index') }}" class="text-blue-500 hover:text-blue-700 transition-colors">&larr; Volver a la lista</a>
-</div>
+    <div class="grid-container">
+        <div class="card">
+            <h3>Valor de Cuota</h3>
+            <p>${{ "%.2f"|format(cliente.valor_cuota|float) }}</p>
+        </div>
+        <div class="card">
+            <h3>Monto Inscripción</h3>
+            <p>${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</p>
+        </div>
+        <div class="card">
+            <h3>Valor Total Cancelado</h3>
+            <p>${{ "%.2f"|format(valor_cancelado) }}</p>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <h3>Estado de Cuotas</h3>
+        <p>Cuotas Pagadas (Progresivas): {{ cuotas_progresivas }} de {{ cliente.cuotas_totales }}</p>
+        <div class="progress-bar" style="margin-top: 5px;">
+            <div style="width: {{ progreso_progresivas }}%;"></div>
+        </div>
+        <p style="margin-top: 15px;">Balance a Favor (para cuota #{{ cuotas_progresivas + 1 }}): ${{ "%.2f"|format(balance_a_favor) }} de ${{ "%.2f"|format(valor_cuota_ideal) }}</p>
+        <div class="progress-bar" style="margin-top: 5px;">
+            <div style="width: {{ progreso_balance }}%;"></div>
+        </div>
+    </div>
+    
+    <div class="table-container">
+        <h3>Historial de Pagos</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Monto (USD)</th>
+                    <th>Forma de Pago</th>
+                    <th>Referencia/Recibo</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pago in pagos %}
+                <tr>
+                    <td>{{ pago.fecha }}</td>
+                    <td>${{ "%.2f"|format(pago.monto) }}</td>
+                    <td>{{ pago.forma_pago }}</td>
+                    <td>{{ pago.recibo }}</td>
+                    <td><a href="{{ url_for('ver_recibo', id_cliente=cliente.id, id_pago=pago.id_pago) }}">Ver Recibo</a></td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="
