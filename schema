@@ -3,13 +3,13 @@ DROP TABLE IF EXISTS clientes CASCADE;
 DROP TABLE IF EXISTS pagos CASCADE;
 DROP SEQUENCE IF EXISTS recibo_numero_seq;
 
--- Reemplazaré 10612 con el número que tú me indiques.
+-- Reemplazaré 10612 con el número que tú me indiques mañana.
 CREATE SEQUENCE recibo_numero_seq START WITH 10612;
 
--- La tabla de clientes no cambia en esta actualización
+-- Crea la tabla de clientes con la estructura final y completa
 CREATE TABLE clientes (
   id SERIAL PRIMARY KEY,
-  cedula TEXT NOT NULL UNIQUE,
+  cedula TEXT UNIQUE,
   contrato_nro TEXT,
   nombre_apellido TEXT,
   telefono TEXT,
@@ -33,24 +33,21 @@ CREATE TABLE clientes (
   plan_contratado TEXT,
   reserva_monto_total REAL,
   reserva_monto_pagado REAL,
-  cuotas_totales INTEGER,
-  cuotas_pagadas_progresivas INTEGER,
-  cuotas_pagadas_regresivas INTEGER DEFAULT 0,
+  -- CORRECCIÓN FINAL: Se usa TEXT para máxima flexibilidad y evitar errores de rango.
+  cuotas_totales TEXT,
+  cuotas_pagadas_progresivas TEXT,
+  cuotas_pagadas_regresivas TEXT,
   balance_regresivo REAL DEFAULT 0.0,
-  pagos_impuntuales INTEGER,
-  cuotas_en_mora INTEGER
+  pagos_impuntuales TEXT,
+  cuotas_en_mora TEXT
 );
 
--- Se actualiza la tabla de pagos con los nuevos campos
+-- Crea la tabla de pagos
 CREATE TABLE pagos (
   id SERIAL PRIMARY KEY,
   cliente_id INTEGER NOT NULL,
-  recibo INTEGER,
+  recibo INTEGER NOT NULL DEFAULT nextval('recibo_numero_seq'),
   monto REAL NOT NULL,
-  monto_usd REAL,
-  monto_bs REAL,
-  tasa_dia REAL,
-  estado TEXT,
   cuotas INTEGER NOT NULL,
   forma_pago TEXT NOT NULL,
   fecha_pago TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
