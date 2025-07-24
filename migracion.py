@@ -5,12 +5,9 @@ import sys
 # --- CONFIGURACIÓN ---
 DATABASE_URL = "postgresql://lientes_db_prod_user:FzmjghqgD9UPN3I3Ex3Q8KpLlgFDvUDI@dpg-d1vomdadbo4c73fnv9sg-a.oregon-postgres.render.com/lientes_db_prod"
 CSV_FILE = 'MI APP CLIENTES - MOTO PLAN.csv'
-SCHEMA_FILE = 'schema' # Buscamos el archivo sin la extensión .sql
+SCHEMA_FILE = 'schema'
 
 def crear_tablas_si_no_existen(conn):
-    """
-    Lee el archivo schema y ejecuta los comandos para crear las tablas.
-    """
     print("Verificando y creando tablas si es necesario...")
     try:
         with open(SCHEMA_FILE, 'r') as f:
@@ -20,17 +17,11 @@ def crear_tablas_si_no_existen(conn):
         conn.commit()
         cursor.close()
         print("Tablas creadas o verificadas exitosamente.")
-    except FileNotFoundError:
-        print(f"Error: No se encontró el archivo '{SCHEMA_FILE}'. Asegúrate de que se llame exactamente así.")
-        raise
     except Exception as e:
         print(f"Ocurrió un error al crear las tablas: {e}")
         raise
 
 def migrar_datos():
-    """
-    Lee datos de un archivo CSV, los limpia y los inserta en la base de datos.
-    """
     if "postgresql://" not in DATABASE_URL:
         print("Error: La variable DATABASE_URL no parece correcta.")
         sys.exit(1)
@@ -42,9 +33,9 @@ def migrar_datos():
         df.columns = [str(col).strip().lower() for col in df.columns]
         
         print("Limpiando datos...")
-        # Convertir columnas numéricas, manejando errores y valores vacíos
         columnas_numericas = [
-            '% inscripcion', 'inscripcion', 'valor de cuota', 'valor cancelado'
+            '% inscripcion', 'inscripcion', 'valor de cuota', 'valor cancelado',
+            'cuotas totales', 'cuotas pagas', 'pagos impuntuales', 'cuotas en mora'
         ]
         for col in columnas_numericas:
             if col in df.columns:
