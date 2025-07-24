@@ -18,6 +18,7 @@ app.secret_key = 'tu_llave_secreta_aqui_es_muy_importante'
 db = SQLAlchemy(app)
 
 # --- Modelos de la Base de Datos (El nuevo "schema") ---
+# Esto define la estructura de tus tablas directamente en el código.
 class Cliente(db.Model):
     __tablename__ = 'clientes'
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -50,6 +51,7 @@ class Pago(db.Model):
     estado = db.Column(db.String(50))
 
 # --- Creación de las tablas ---
+# Esto asegura que las tablas existan en tu base de datos.
 with app.app_context():
     db.create_all()
 
@@ -120,11 +122,16 @@ def detalle_cliente(id_cliente):
 def editar_cliente(id_cliente):
     cliente = Cliente.query.get_or_404(id_cliente)
     if request.method == 'POST':
-        cliente.nombre_apellido = request.form.get('nombre_apellido')
-        cliente.cedula = request.form.get('cedula')
-        cliente.contrato_nro = request.form.get('contrato_nro')
-        cliente.telefono = request.form.get('telefono')
-        # ... y así para todos los demás campos del formulario ...
+        # Actualiza todos los campos del cliente desde el formulario
+        for key, value in request.form.items():
+            if hasattr(cliente, key):
+                # Convierte a número si es necesario
+                if key in ['cuotas_totales']:
+                    setattr(cliente, key, int(value) if value else None)
+                elif key in ['valor_cuota', 'inscripcion_monto']:
+                    setattr(cliente, key, float(value) if value else None)
+                else:
+                    setattr(cliente, key, value)
         db.session.commit()
         flash('Cliente actualizado correctamente.', 'success')
         return redirect(url_for('detalle_cliente', id_cliente=cliente.id))
