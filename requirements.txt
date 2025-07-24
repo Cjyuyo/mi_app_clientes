@@ -1,4 +1,4 @@
-Flask
+Flask>=2.0
 gunicorn
+SQLAlchemy>=1.4
 psycopg2-binary
-pandas
