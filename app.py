@@ -224,15 +224,18 @@ def registrar_pago(client_id):
                 monto_pagado = Decimal(form_data.get('monto_usd', 0))
                 valor_cuota = Decimal(cliente['valor_cuota'] or 0)
                 balance_anterior = Decimal(cliente['balance_regresivo'] or 0)
+                
                 cuotas_pagadas_progresivas = int(cliente['cuotas_pagadas_progresivas'] or 0)
-                cuotas_pagadas_regresivas = int(cliente['cuotas_pagadas_regresivas'] or 0)
+                cuotas_totales = int(cliente['cuotas_totales'] or 0)
 
-                if valor_cuota > 0:
+                if valor_cuota > 0 and cuotas_totales > 0:
                     total_disponible = monto_pagado + balance_anterior
-                    cuotas_completas_pagadas = int(total_disponible // valor_cuota)
+                    cuotas_pagadas_en_transaccion = int(total_disponible // valor_cuota)
                     nuevo_balance = total_disponible % valor_cuota
-                    cuotas_pagadas_progresivas += cuotas_completas_pagadas
-                    cuotas_pagadas_regresivas += cuotas_completas_pagadas
+
+                    # CORRECCIÓN: Se actualizan los contadores con la nueva lógica
+                    nuevo_total_progresivas = cuotas_pagadas_progresivas + cuotas_pagadas_en_transaccion
+                    nuevo_total_regresivas = cuotas_totales - nuevo_total_progresivas
                     
                     update_cliente_query = """
                     UPDATE clientes SET
@@ -243,8 +246,11 @@ def registrar_pago(client_id):
                     WHERE id = %s;
                     """
                     cursor.execute(update_cliente_query, (
-                        str(cuotas_pagadas_progresivas), str(cuotas_pagadas_regresivas), 
-                        float(nuevo_balance), float(monto_pagado), client_id
+                        str(nuevo_total_progresivas), 
+                        str(nuevo_total_regresivas), 
+                        float(nuevo_balance), 
+                        float(monto_pagado), 
+                        client_id
                     ))
                 
                 db.commit()

@@ -46,7 +46,6 @@
     </nav>
     <h1>Consulta de Clientes</h1>
 
-    <!-- CORRECCIÓN: Se añade el bloque para mostrar mensajes flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
@@ -113,10 +112,9 @@
 
             <div class="data-card" style="grid-column: 1 / -1;">
                 <h3>Estado de Cuotas</h3>
-                {% set cuotas_totales = cliente.cuotas_totales|int if cliente.cuotas_totales else 0 %}
+                {% set cuotas_totales = cliente.cuotas_totales|int if cliente.cuotas_totales and cliente.cuotas_totales.isdigit() else 0 %}
                 {% if cuotas_totales > 0 %}
-                    {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int if cliente.cuotas_pagadas_progresivas else 0 %}
-                    {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas|int if cliente.cuotas_pagadas_regresivas else 0 %}
+                    {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int if cliente.cuotas_pagadas_progresivas and cliente.cuotas_pagadas_progresivas.isdigit() else 0 %}
                     {% set porcentaje_progresivo = (cuotas_progresivas * 100) / cuotas_totales %}
                     
                     <div class="data-point">
@@ -133,15 +131,19 @@
                     {% set balance = cliente.balance_regresivo|float if cliente.balance_regresivo else 0 %}
                     {% set porcentaje_regresivo = (balance * 100) / valor_cuota if valor_cuota > 0 else 0 %}
 
+                    <!-- CORRECCIÓN: Se ajusta la etiqueta para la cuota siguiente -->
                     <div class="data-point">
-                        <span>Balance a Favor (para Cuota #{{ cuotas_totales - cuotas_regresivas }}):</span>
+                        <span>Balance a Favor (para Cuota #{{ cuotas_progresivas + 1 }}):</span>
                         <span>${{ "%.2f"|format(balance) }} de ${{ "%.2f"|format(valor_cuota) }}</span>
                     </div>
                     <div class="progress-bar">
                         <div class="progress-bar-fill" style="width: {{ porcentaje_regresivo }}%; background-color: #17a2b8;">{{ "%.0f"|format(porcentaje_regresivo) }}%</div>
                     </div>
+                    
+                    <!-- CORRECCIÓN: Se cambia la etiqueta y el valor a mostrar -->
+                    {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas|int if cliente.cuotas_pagadas_regresivas and cliente.cuotas_pagadas_regresivas.isdigit() else cuotas_totales - cuotas_progresivas %}
                     <div class="data-point" style="margin-top: 10px;">
-                        <span>Cuotas Pagadas (Regresivas):</span>
+                        <span>Cuotas Pendientes (Regresivas):</span>
                         <span>{{ cuotas_regresivas }}</span>
                     </div>
                 {% else %}
