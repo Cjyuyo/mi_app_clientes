@@ -68,9 +68,18 @@ def consulta():
         else:
             db = get_db()
             cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            query_clientes = "SELECT * FROM clientes WHERE cedula LIKE %s OR nombre_apellido ILIKE %s OR telefono LIKE %s LIMIT 20;"
-            patron = f'%{termino_busqueda}%'
-            cursor.execute(query_clientes, (patron, patron, patron))
+            
+            # --- LÓGICA DE BÚSQUEDA MEJORADA ---
+            if termino_busqueda.isdigit():
+                # Si es un número, busca coincidencia exacta en cédula
+                query_clientes = "SELECT * FROM clientes WHERE cedula = %s LIMIT 20;"
+                cursor.execute(query_clientes, (termino_busqueda,))
+            else:
+                # Si es texto, busca coincidencia parcial en nombre y teléfono
+                query_clientes = "SELECT * FROM clientes WHERE nombre_apellido ILIKE %s OR telefono LIKE %s LIMIT 20;"
+                patron = f'%{termino_busqueda}%'
+                cursor.execute(query_clientes, (patron, patron))
+
             clientes_encontrados_raw = cursor.fetchall()
             for cliente in clientes_encontrados_raw:
                 cliente_dict = dict(cliente)
@@ -78,9 +87,12 @@ def consulta():
                 cursor.execute(query_pagos, (cliente_dict['id'],))
                 cliente_dict['pagos'] = cursor.fetchall()
                 clientes_encontrados.append(cliente_dict)
+            
             if not clientes_encontrados:
                 mensaje_error = "🚫 No se encontraron clientes que coincidan con su búsqueda."
+            
             cursor.close()
+    
     return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error)
 
 @app.route('/edit/<int:client_id>', methods=['GET', 'POST'])
