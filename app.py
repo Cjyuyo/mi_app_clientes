@@ -163,8 +163,19 @@ def registrar_pago(client_id):
                 monto_pagado = float(form_data['monto_usd'] or 0)
                 valor_cuota = float(cliente['valor_cuota'] or 0)
                 if valor_cuota > 0:
-                    # ... (lógica de cuotas)
-                    pass
+                    cuotas_progresivas = int(cliente['cuotas_pagadas_progresivas'] or 0)
+                    balance_regresivo_actual = float(cliente['balance_regresivo'] or 0)
+                    cuotas_regresivas = int(cliente['cuotas_pagadas_regresivas'] or 0)
+                    cuotas_enteras_pagadas = int(monto_pagado // valor_cuota)
+                    excedente = monto_pagado % valor_cuota
+                    nuevas_cuotas_progresivas = cuotas_progresivas + cuotas_enteras_pagadas
+                    nuevo_balance_regresivo = balance_regresivo_actual + excedente
+                    while nuevo_balance_regresivo >= valor_cuota:
+                        nuevo_balance_regresivo -= valor_cuota
+                        cuotas_regresivas += 1
+                    update_query = "UPDATE clientes SET cuotas_pagadas_progresivas = %s, balance_regresivo = %s, cuotas_pagadas_regresivas = %s WHERE id = %s;"
+                    cursor.execute(update_query, (nuevas_cuotas_progresivas, nuevo_balance_regresivo, cuotas_regresivas, client_id))
+                    db.commit()
             
             flash('Pago registrado exitosamente.', 'success')
             if form_data.get('estado') == 'Conciliado':
