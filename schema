@@ -29,9 +29,9 @@ CREATE TABLE clientes (
   plan_contratado TEXT,
   
   -- Campos para la nueva lógica de cuotas
-  cuotas_totales TEXT, -- CORREGIDO: BIGINT a TEXT
-  cuotas_pagadas_progresivas TEXT, -- CORREGIDO: BIGINT a TEXT
-  cuotas_pagadas_regresivas TEXT, -- CORREGIDO: BIGINT a TEXT
+  cuotas_totales TEXT,
+  cuotas_pagadas_progresivas TEXT,
+  cuotas_pagadas_regresivas TEXT,
   balance_regresivo REAL DEFAULT 0.0,
 
   -- Otros campos
@@ -44,7 +44,7 @@ CREATE TABLE clientes (
 CREATE TABLE pagos (
   id SERIAL PRIMARY KEY,
   cliente_id INTEGER NOT NULL,
-  recibo TEXT, -- CORREGIDO: BIGINT a TEXT para evitar desbordamiento
+  recibo TEXT,
   monto_usd REAL,
   monto_bs REAL,
   tasa_dia REAL,
