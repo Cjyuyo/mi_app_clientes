@@ -5,7 +5,7 @@ from datetime import datetime
 import uuid
 
 app = Flask(__name__)
-app.secret_key = 'clave_de_restauracion_total'
+app.secret_key = 'solucion_definitiva_contra_el_404'
 
 DB_FILE = 'clientes.json'
 
@@ -29,6 +29,13 @@ def index():
     """Página principal que muestra la lista de clientes."""
     clientes = cargar_clientes()
     return render_template('index.html', clientes=clientes)
+
+# RUTA DE BLINDAJE CONTRA EL ERROR 404
+@app.route('/consulta/')
+def consulta_redirect():
+    """Redirige si se intenta acceder a /consulta sin un ID."""
+    flash('Para ver los detalles, por favor seleccione un cliente de la lista.', 'error')
+    return redirect(url_for('index'))
 
 @app.route('/registrar', methods=['POST'])
 def registrar_cliente():
@@ -118,4 +125,4 @@ def pagar(id_cliente):
     return redirect(url_for('consulta', id_cliente=id_cliente))
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    app.run(host='0.0.0.0', port=10000)
