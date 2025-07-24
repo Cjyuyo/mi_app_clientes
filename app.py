@@ -63,6 +63,7 @@ def calcular_estado_de_cuenta(cliente):
         inscripcion_monto = 0.0
 
     valor_cancelado = inscripcion_monto + total_pagado
+    cuotas_pendientes = cuotas_totales - cuotas_progresivas
     
     return {
         "cuotas_progresivas": cuotas_progresivas,
@@ -70,10 +71,10 @@ def calcular_estado_de_cuenta(cliente):
         "progreso_progresivas": min(progreso_progresivas, 100),
         "progreso_balance": min(progreso_balance, 100),
         "valor_cancelado": valor_cancelado,
-        "cuotas_totales": cuotas_totales
+        "cuotas_totales": cuotas_totales,
+        "cuotas_pendientes": cuotas_pendientes # <-- DATO AÑADIDO
     }
 
-# --- CORRECCIÓN: Se restaura la lógica para registrar clientes ---
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -104,6 +105,7 @@ def index():
         return redirect(url_for('consulta_clientes'))
         
     return render_template('index.html')
+
 
 @app.route('/consulta', methods=['GET', 'POST'])
 def consulta_clientes():
