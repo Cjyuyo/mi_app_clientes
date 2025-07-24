@@ -156,7 +156,6 @@ def registrar_pago(client_id):
                 cursor.execute("SELECT nextval('recibo_numero_seq')")
                 recibo_nro = cursor.fetchone()[0]
             
-            # El campo 'cuotas' en la tabla pagos ya no es relevante para el cálculo, se puede dejar en 1
             query_pago = """
             INSERT INTO pagos (
                 cliente_id, monto_usd, monto_bs, tasa_dia, forma_pago, 
@@ -176,36 +175,44 @@ def registrar_pago(client_id):
                 monto_pagado = Decimal(form_data.get('monto_usd', 0))
                 valor_cuota = Decimal(cliente['valor_cuota'] or 0)
                 
-                # CORRECCIÓN: Se usa el balance regresivo, que es el correcto para los abonos
-                balance_anterior = Decimal(cliente['balance_regresivo'] or 0)
-                
                 cuotas_progresivas_antes = int(cliente['cuotas_pagadas_progresivas'] or 0)
                 cuotas_regresivas_antes = int(cliente['cuotas_pagadas_regresivas'] or 0)
+                balance_regresivo_antes = Decimal(cliente['balance_regresivo'] or 0)
                 cuotas_totales = int(cliente['cuotas_totales'] or 0)
 
+                # --- LÓGICA DE ABONO A CAPITAL ---
                 if valor_cuota > 0 and cuotas_totales > 0:
-                    # El dinero total disponible es la suma del pago actual y el balance anterior
-                    total_disponible = monto_pagado + balance_anterior
                     
-                    # Se calcula cuántas cuotas regresivas se pueden pagar con el total disponible
-                    cuotas_regresivas_pagadas_ahora = int(total_disponible // valor_cuota)
+                    # 1. Se asume que el pago es para la siguiente cuota progresiva
+                    cuotas_progresivas_nuevas = cuotas_progresivas_antes + 1
                     
-                    # El nuevo balance es lo que sobra
-                    nuevo_balance = total_disponible % valor_cuota
+                    # 2. Se calcula el dinero sobrante (abono a capital)
+                    dinero_sobrante = monto_pagado - valor_cuota
+                    if dinero_sobrante < 0:
+                        dinero_sobrante = Decimal(0) # Si el pago es menor a la cuota, no hay abono
                     
-                    # Se actualizan los contadores
-                    cuotas_regresivas_nuevas_total = cuotas_regresivas_antes + cuotas_regresivas_pagadas_ahora
+                    # 3. El sobrante se suma al balance para abonos
+                    total_disponible_regresivo = dinero_sobrante + balance_regresivo_antes
                     
+                    # 4. Se calculan cuántas cuotas regresivas se pueden pagar con ese balance
+                    cuotas_regresivas_pagadas_ahora = int(total_disponible_regresivo // valor_cuota)
+                    nuevo_balance_regresivo = total_disponible_regresivo % valor_cuota
+                    
+                    cuotas_regresivas_nuevas = cuotas_regresivas_antes + cuotas_regresivas_pagadas_ahora
+                    
+                    # 5. Se actualiza la base de datos
                     update_cliente_query = """
                     UPDATE clientes SET
+                        cuotas_pagadas_progresivas = %s,
                         cuotas_pagadas_regresivas = %s,
                         balance_regresivo = %s,
                         valor_cancelado = COALESCE(valor_cancelado, 0) + %s
                     WHERE id = %s;
                     """
                     cursor.execute(update_cliente_query, (
-                        cuotas_regresivas_nuevas_total, 
-                        float(nuevo_balance), 
+                        cuotas_progresivas_nuevas,
+                        cuotas_regresivas_nuevas, 
+                        float(nuevo_balance_regresivo), 
                         float(monto_pagado), 
                         client_id
                     ))
