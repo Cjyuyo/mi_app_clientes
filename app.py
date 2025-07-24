@@ -4,40 +4,27 @@ import psycopg2.extras
 from flask import Flask, render_template, request, g, flash, redirect, url_for
 from decimal import Decimal, getcontext
 
-# Configurar la precisión para los cálculos decimales
 getcontext().prec = 10
 
 app = Flask(__name__)
-# Es crucial configurar una clave secreta para que los mensajes flash funcionen
 app.secret_key = os.environ.get('SECRET_KEY', 'una-clave-secreta-muy-segura-y-dificil-de-adivinar')
-
-# Obtener la URL de la base de datos desde las variables de entorno
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 def get_db():
-    """
-    Función para obtener una conexión a la base de datos.
-    La conexión se reutiliza si ya existe en el contexto de la aplicación (g).
-    """
     db = getattr(g, '_database', None)
     if db is None:
         if not DATABASE_URL:
-            # Si no se encuentra la URL, la aplicación no puede funcionar.
             raise ValueError("La variable de entorno DATABASE_URL no está configurada.")
-        # Se conecta a la base de datos PostgreSQL
         db = g._database = psycopg2.connect(DATABASE_URL)
     return db
 
 @app.teardown_appcontext
 def close_connection(exception):
-    """
-    Cierra la conexión a la base de datos al final de cada petición
-    para liberar recursos.
-    """
     db = getattr(g, '_database', None)
     if db is not None:
         db.close()
 
+# ... (Las rutas /, /consulta y /edit no cambian, se omiten por brevedad) ...
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -52,11 +39,11 @@ def index():
             INSERT INTO clientes (
                 nombre_apellido, cedula, contrato_nro, telefono, asesor, responsable, fecha_ingreso,
                 grupo, bien_solicitado, plan_contratado, cuotas_totales, moneda_pago, valor_cuota,
-                inscripcion_monto, proceso, reserva_monto_total, reserva_monto_pagado
+                inscripcion_monto, proceso
             ) VALUES (
                 %(nombre_apellido)s, %(cedula)s, %(contrato_nro)s, %(telefono)s, %(asesor)s, %(responsable)s, %(fecha_ingreso)s,
                 %(grupo)s, %(bien_solicitado)s, %(plan_contratado)s, %(cuotas_totales)s, %(moneda_pago)s, %(valor_cuota)s,
-                %(inscripcion_monto)s, %(proceso)s, %(reserva_monto_total)s, %(reserva_monto_pagado)s
+                %(inscripcion_monto)s, %(proceso)s
             )
             """
             cursor.execute(query, form_data)
@@ -150,7 +137,7 @@ def registrar_pago(client_id):
         flash('Cliente no encontrado.', 'error')
         cursor.close()
         return redirect(url_for('consulta'))
-    form_data_for_template = {}
+        
     if request.method == 'POST':
         try:
             form_data = {k: (v if v != '' else None) for k, v in request.form.items()}
@@ -169,13 +156,14 @@ def registrar_pago(client_id):
                 cursor.execute("SELECT nextval('recibo_numero_seq')")
                 recibo_nro = cursor.fetchone()[0]
             
+            # El campo 'cuotas' en la tabla pagos ya no es relevante para el cálculo, se puede dejar en 1
             query_pago = """
             INSERT INTO pagos (
-                cliente_id, monto, monto_usd, monto_bs, tasa_dia, cuotas, forma_pago, 
+                cliente_id, monto_usd, monto_bs, tasa_dia, forma_pago, 
                 pago_en, cantidad_en_letras, por_concepto_de, referencia, banco, lugar_emision,
                 estado, recibo
             ) VALUES (
-                %(cliente_id)s, %(monto)s, %(monto_usd)s, %(monto_bs)s, %(tasa_dia)s, %(cuotas)s, %(forma_pago)s,
+                %(cliente_id)s, %(monto_usd)s, %(monto_bs)s, %(tasa_dia)s, %(forma_pago)s,
                 %(pago_en)s, %(cantidad_en_letras)s, %(por_concepto_de)s, %(referencia)s, %(banco)s, %(lugar_emision)s,
                 %(estado)s, %(recibo)s
             ) RETURNING id;
@@ -187,25 +175,36 @@ def registrar_pago(client_id):
             if accion == 'conciliar':
                 monto_pagado = Decimal(form_data.get('monto_usd', 0))
                 valor_cuota = Decimal(cliente['valor_cuota'] or 0)
+                
+                # CORRECCIÓN: Se usa el balance regresivo, que es el correcto para los abonos
                 balance_anterior = Decimal(cliente['balance_regresivo'] or 0)
-                cuotas_pagadas_antes = int(cliente['cuotas_pagadas_progresivas'] or 0)
+                
+                cuotas_progresivas_antes = int(cliente['cuotas_pagadas_progresivas'] or 0)
+                cuotas_regresivas_antes = int(cliente['cuotas_pagadas_regresivas'] or 0)
                 cuotas_totales = int(cliente['cuotas_totales'] or 0)
 
                 if valor_cuota > 0 and cuotas_totales > 0:
+                    # El dinero total disponible es la suma del pago actual y el balance anterior
                     total_disponible = monto_pagado + balance_anterior
-                    cuotas_pagadas_ahora = int(total_disponible // valor_cuota)
+                    
+                    # Se calcula cuántas cuotas regresivas se pueden pagar con el total disponible
+                    cuotas_regresivas_pagadas_ahora = int(total_disponible // valor_cuota)
+                    
+                    # El nuevo balance es lo que sobra
                     nuevo_balance = total_disponible % valor_cuota
-                    cuotas_pagadas_nuevas_total = cuotas_pagadas_antes + cuotas_pagadas_ahora
+                    
+                    # Se actualizan los contadores
+                    cuotas_regresivas_nuevas_total = cuotas_regresivas_antes + cuotas_regresivas_pagadas_ahora
                     
                     update_cliente_query = """
                     UPDATE clientes SET
-                        cuotas_pagadas_progresivas = %s,
+                        cuotas_pagadas_regresivas = %s,
                         balance_regresivo = %s,
                         valor_cancelado = COALESCE(valor_cancelado, 0) + %s
                     WHERE id = %s;
                     """
                     cursor.execute(update_cliente_query, (
-                        cuotas_pagadas_nuevas_total, 
+                        cuotas_regresivas_nuevas_total, 
                         float(nuevo_balance), 
                         float(monto_pagado), 
                         client_id
@@ -221,9 +220,9 @@ def registrar_pago(client_id):
         except Exception as e:
             db.rollback()
             flash(f'Ocurrió un error al registrar el pago: {e}', 'error')
-            form_data_for_template = request.form
-    cursor.close()
-    return render_template('registrar_pago.html', cliente=cliente, form_data=form_data_for_template)
+            return render_template('registrar_pago.html', cliente=cliente, form_data=request.form)
+            
+    return render_template('registrar_pago.html', cliente=cliente)
 
 
 @app.route('/recibo/<int:pago_id>')

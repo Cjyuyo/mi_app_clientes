@@ -3,13 +3,10 @@ DROP TABLE IF EXISTS clientes CASCADE;
 DROP TABLE IF EXISTS pagos CASCADE;
 DROP SEQUENCE IF EXISTS recibo_numero_seq;
 
--- Mañana configuraremos este número
 CREATE SEQUENCE recibo_numero_seq START WITH 10612;
 
--- Crea la tabla de clientes con la estructura final y completa
 CREATE TABLE clientes (
   id SERIAL PRIMARY KEY,
-  -- CORRECCIÓN: La cédula ya no es obligatoria (NOT NULL eliminado)
   cedula TEXT UNIQUE,
   contrato_nro TEXT,
   nombre_apellido TEXT,
@@ -23,21 +20,19 @@ CREATE TABLE clientes (
   proceso TEXT,
   estatus TEXT,
   estatus_1 TEXT,
-  inscripcion_porcentaje REAL,
   inscripcion_monto REAL,
   valor_cuota REAL,
-  fecha_pago_recurrente TEXT,
-  estatus_cuota TEXT,
   valor_cancelado REAL,
-  observacion TEXT,
-  fecha_inscripcion TEXT,
   plan_contratado TEXT,
-  reserva_monto_total REAL,
-  reserva_monto_pagado REAL,
-  cuotas_totales TEXT,
-  cuotas_pagadas_progresivas TEXT,
-  cuotas_pagadas_regresivas TEXT,
-  balance_regresivo REAL DEFAULT 0.0,
+  
+  -- Campos para la nueva lógica de cuotas
+  cuotas_totales INTEGER,
+  cuotas_pagadas_progresivas INTEGER DEFAULT 0,
+  cuotas_pagadas_regresivas INTEGER DEFAULT 0, -- Para las cuotas pagadas desde el final
+  balance_regresivo REAL DEFAULT 0.0, -- Dinero sobrante para pagar las cuotas regresivas
+
+  -- Otros campos
+  observacion TEXT,
   pagos_impuntuales TEXT,
   cuotas_en_mora TEXT
 );
@@ -47,12 +42,9 @@ CREATE TABLE pagos (
   id SERIAL PRIMARY KEY,
   cliente_id INTEGER NOT NULL,
   recibo INTEGER,
-  monto REAL NOT NULL,
   monto_usd REAL,
   monto_bs REAL,
   tasa_dia REAL,
-  estado TEXT,
-  cuotas INTEGER NOT NULL,
   forma_pago TEXT NOT NULL,
   fecha_pago TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   pago_en TEXT,
@@ -61,5 +53,6 @@ CREATE TABLE pagos (
   referencia TEXT,
   banco TEXT,
   lugar_emision TEXT,
+  estado TEXT,
   FOREIGN KEY (cliente_id) REFERENCES clientes (id) ON DELETE CASCADE
 );
