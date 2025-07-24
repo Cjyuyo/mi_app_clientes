@@ -73,8 +73,36 @@ def calcular_estado_de_cuenta(cliente):
         "cuotas_totales": cuotas_totales
     }
 
-@app.route('/')
+# --- CORRECCIÓN: Se restaura la lógica para registrar clientes ---
+@app.route('/', methods=['GET', 'POST'])
 def index():
+    if request.method == 'POST':
+        clientes = cargar_clientes()
+        nuevo_cliente = {
+            'id': str(uuid.uuid4()),
+            'nombre_apellido': request.form.get('nombre_apellido'),
+            'cedula': request.form.get('cedula'),
+            'contrato_nro': request.form.get('contrato_nro'),
+            'telefono': request.form.get('telefono'),
+            'asesor': request.form.get('asesor'),
+            'responsable': request.form.get('responsable'),
+            'fecha_ingreso': request.form.get('fecha_ingreso'),
+            'grupo': request.form.get('grupo'),
+            'bien_solicitado': request.form.get('bien_solicitado'),
+            'plan_contratado': request.form.get('plan_contratado'),
+            'cuotas_totales': request.form.get('cuotas_totales'),
+            'moneda_pago': request.form.get('moneda_pago'),
+            'valor_cuota': request.form.get('valor_cuota', 0),
+            'inscripcion_monto': request.form.get('inscripcion_monto', 0),
+            'proceso': request.form.get('proceso', 'INSCRITO'),
+            'estatus': 'ACTIVO',
+            'pagos': []
+        }
+        clientes.append(nuevo_cliente)
+        guardar_clientes(clientes)
+        flash('Cliente registrado con éxito.', 'success')
+        return redirect(url_for('consulta_clientes'))
+        
     return render_template('index.html')
 
 @app.route('/consulta', methods=['GET', 'POST'])
