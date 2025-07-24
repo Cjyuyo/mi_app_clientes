@@ -25,9 +25,6 @@ def guardar_clientes(clientes):
 
 # --- FUNCIÓN CLAVE: Lógica de Cálculo Financiero ---
 def calcular_estado_de_cuenta(cliente):
-    """
-    Calcula todos los valores dinámicos para la vista de consulta.
-    """
     valor_cuota = float(cliente.get('valor_cuota', 0))
     cuotas_totales = int(cliente.get('cuotas_totales', 1))
     
@@ -82,7 +79,10 @@ def index():
             'moneda_pago': request.form.get('moneda_pago'),
             'valor_cuota': float(request.form.get('valor_cuota', 0)),
             'inscripcion_monto': float(request.form.get('inscripcion_monto', 0)),
-            'proceso': 'INSCRITO', 'estatus': 'ACTIVO', 'pagos': []
+            # --- CAMBIO AQUÍ: Se lee el valor del nuevo campo ---
+            'proceso': request.form.get('proceso', 'INSCRITO'),
+            'estatus': 'ACTIVO',
+            'pagos': []
         }
         clientes.append(nuevo_cliente)
         guardar_clientes(clientes)

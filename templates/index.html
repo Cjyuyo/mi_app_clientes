@@ -28,16 +28,6 @@
     <div class="content">
         <h1>Registrar Nuevo Cliente</h1>
         
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    {% if category == 'error' %}
-                        <div class="flash-error">{{ message }}</div>
-                    {% endif %}
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
         <form method="POST">
             <div>
                 <label>Nombre y Apellido:</label><input type="text" name="nombre_apellido" required>
@@ -59,6 +49,16 @@
                 <label>Cuota Mensual:</label><input type="number" step="0.01" name="valor_cuota" required>
                 <label>Monto de Inscripción:</label><input type="number" step="0.01" name="inscripcion_monto">
             </div>
+            
+            <div class="full-width">
+                <label>Proceso Inicial:</label>
+                <select name="proceso">
+                    <option value="INSCRITO" selected>Inscrito</option>
+                    <option value="RESERVA">Reserva</option>
+                    <option value="AHORRADOR">Ahorrador</option>
+                </select>
+            </div>
+
             <div class="full-width">
                 <button type="submit" class="submit-btn">Registrar Cliente</button>
             </div>
