@@ -84,9 +84,8 @@ def consulta(id_cliente):
     total_cuotas = cliente.get('numero_cuotas', 1) # Evitar división por cero
     progreso_progresivas = (cuotas_progresivas / total_cuotas) * 100 if total_cuotas > 0 else 0
     
-    # Lógica para "Balance a favor" (simplificada por ahora)
-    # Esto requeriría una lógica más compleja, por ahora es un placeholder
-    valor_cuota_ideal = cliente['monto_total'] / total_cuotas
+    # Lógica para "Balance a favor"
+    valor_cuota_ideal = cliente['monto_total'] / total_cuotas if total_cuotas > 0 else 0
     balance_a_favor = total_pagado % valor_cuota_ideal if valor_cuota_ideal > 0 else 0
     progreso_balance = (balance_a_favor / valor_cuota_ideal) * 100 if valor_cuota_ideal > 0 else 0
 
@@ -120,7 +119,8 @@ def pagar(id_cliente):
         monto = float(request.form['monto'])
         tipo_pago = request.form['tipo_pago']
         forma_pago = request.form.get('forma_pago', 'Efectivo')
-        recibo_nro = request.form.get('recibo_nro', 'None')
+        # CORRECCIÓN: Usar 'recibo_nro' para que coincida con el HTML
+        recibo_nro = request.form.get('recibo_nro', 'None') 
     except (ValueError, KeyError):
         flash('Datos de pago inválidos.', 'error')
         return redirect(url_for('consulta', id_cliente=id_cliente))
