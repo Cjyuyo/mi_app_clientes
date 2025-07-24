@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrar y Conciliar Pago</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: #f0f2f5; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { color: #1877f2; text-align: center; border-bottom: 1px solid #eee; padding-bottom: 20px; }
+        h1 span { font-weight: normal; color: #606770; font-size: 0.7em; display: block; margin-top: 5px;}
+        label { display: block; margin-top: 15px; font-weight: 600; color: #606770; }
+        input, select, textarea { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #dddfe2; border-radius: 6px; }
+        .form-actions { grid-column: 1 / -1; display: flex; gap: 15px; margin-top: 20px; }
+        .form-actions button { flex-grow: 1; padding: 15px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; border-radius: 6px; }
+        #btn-conciliar { background-color: #28a745; color: white; }
+        #btn-conciliar:disabled { background-color: #a5d6a7; cursor: not-allowed; }
+        #btn-guardar { background-color: #ffc107; color: #212529; }
+        .back-link { display: block; text-align: center; margin-top: 15px; padding: 15px; background-color: #6c757d; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; grid-column: 1 / -1; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .full-width { grid-column: 1 / -1; }
+        .mensaje { margin-bottom: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
+        .exito { color: #4F8A10; background-color: #DFF2BF; }
+        .error { color: #D8000C; background-color: #FFD2D2; }
+        @media (max-width: 768px) {
+            .form-grid { grid-template-columns: 1fr; }
+            body { padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="mensaje {{ 'exito' if category == 'success' else 'error' }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <h1>Registrar y Conciliar Pago <span>Para: {{ cliente.nombre_apellido }}</span></h1>
+    <form method="POST" id="payment-form">
+        <div class="form-grid">
+            <input type="hidden" name="cuotas" value="1">
+            <input type="hidden" name="monto" value="0">
+            <!-- CORRECCIÓN: Se añade un campo oculto para saber qué botón se presionó -->
+            <input type="hidden" name="accion" id="accion">
+
+            <div>
+                <label>Monto del Pago (en USD):</label><input type="number" step="0.01" name="monto_usd" required value="{{ form_data.monto_usd or '' }}">
+                <label>Tasa del Día (BCV):</label><input type="number" step="0.01" name="tasa_dia" value="{{ form_data.tasa_dia or '' }}">
+                <label>Monto en Bs (Calculado):</label><input type="number" step="0.01" name="monto_bs" readonly value="{{ form_data.monto_bs or '' }}">
+                 <label>Pago en:</label>
+                <select name="pago_en" required>
+                    <option value="" {% if not form_data.pago_en %}selected{% endif %}>Seleccione...</option>
+                    <option value="Bolívares" {% if form_data.pago_en == 'Bolívares' %}selected{% endif %}>Bolívares</option>
+                    <option value="Divisas" {% if form_data.pago_en == 'Divisas' %}selected{% endif %}>Divisas</option>
+                </select>
+            </div>
+            <div>
+                <label>Forma de Pago:</label>
+                <select name="forma_pago" id="forma_pago" required>
+                    <option value="" {% if not form_data.forma_pago %}selected{% endif %}>Seleccione...</option>
+                    <option value="Efectivo" {% if form_data.forma_pago == 'Efectivo' %}selected{% endif %}>Efectivo</option>
+                    <option value="Transferencia" {% if form_data.forma_pago == 'Transferencia' %}selected{% endif %}>Transferencia</option>
+                    <option value="Pago Móvil" {% if form_data.forma_pago == 'Pago Móvil' %}selected{% endif %}>Pago Móvil</option>
+                    <option value="USDT" {% if form_data.forma_pago == 'USDT' %}selected{% endif %}>USDT</option>
+                </select>
+                <label>Banco:</label><input type="text" name="banco" value="{{ form_data.banco or '' }}">
+                <label>Referencia:</label><input type="text" name="referencia" id="referencia" value="{{ form_data.referencia or '' }}">
+                <label>Lugar de Emisión:</label><input type="text" name="lugar_emision" required value="{{ form_data.lugar_emision or '' }}">
+            </div>
+            <div class="full-width">
+                <label>La Cantidad de (en letras):</label><input type="text" name="cantidad_en_letras" required value="{{ form_data.cantidad_en_letras or '' }}">
+                <label>Por Concepto de:</label><textarea name="por_concepto_de" rows="2" required>{{ form_data.por_concepto_de or '' }}</textarea>
+            </div>
+            
+            <!-- CORRECCIÓN: Se reemplaza el select de estado por dos botones de acción -->
+            <div class="form-actions">
+                <button type="submit" id="btn-guardar">Guardar como Pendiente</button>
+                <button type="submit" id="btn-conciliar" disabled>Conciliar y Generar Recibo</button>
+            </div>
+            <a href="{{ url_for('consulta') }}" class="back-link">Cancelar y Regresar</a>
+        </div>
+    </form>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('payment-form');
+        const btnGuardar = document.getElementById('btn-guardar');
+        const btnConciliar = document.getElementById('btn-conciliar');
+        const accionInput = document.getElementById('accion');
+
+        const requiredInputs = form.querySelectorAll('[required]');
+        const formaPagoSelect = document.getElementById('forma_pago');
+        const referenciaInput = document.getElementById('referencia');
+
+        function checkConciliarValidity() {
+            let allRequiredFilled = true;
+            requiredInputs.forEach(input => {
+                if (!input.value.trim()) {
+                    allRequiredFilled = false;
+                }
+            });
+
+            let referenciaValida = true;
+            const formaPago = formaPagoSelect.value;
+            if (formaPago === 'Transferencia' || formaPago === 'Pago Móvil') {
+                if (!referenciaInput.value.trim()) {
+                    referenciaValida = false;
+                }
+            }
+            
+            btnConciliar.disabled = !(allRequiredFilled && referenciaValida);
+        }
+
+        form.addEventListener('input', checkConciliarValidity);
+        formaPagoSelect.addEventListener('change', checkConciliarValidity);
+
+        btnGuardar.addEventListener('click', function() {
+            accionInput.value = 'guardar';
+        });
+
+        btnConciliar.addEventListener('click', function(e) {
+            accionInput.value = 'conciliar';
+            // Doble verificación antes de enviar
+            if (btnConciliar.disabled) {
+                e.preventDefault();
+                alert('Por favor, complete todos los campos requeridos para conciliar.');
+            }
+        });
+
+        const montoUsd = document.querySelector('input[name="monto_usd"]');
+        const tasaDia = document.querySelector('input[name="tasa_dia"]');
+        const montoBs = document.querySelector('input[name="monto_bs"]');
+        const montoFinal = document.querySelector('input[name="monto"]');
+        
+        function calcular() {
+            const usd = parseFloat(montoUsd.value) || 0;
+            const tasa = parseFloat(tasaDia.value) || 0;
+            montoBs.value = (usd * tasa).toFixed(2);
+            montoFinal.value = usd.toFixed(2);
+        }
+        
+        montoUsd.addEventListener('input', calcular);
+        tasaDia.addEventListener('input', calcular);
+
+        // Llamada inicial para establecer el estado del botón al cargar la página
+        checkConciliarValidity();
+        calcular();
+    });
+</script>
+</body>
+</html>

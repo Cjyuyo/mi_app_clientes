@@ -16,6 +16,9 @@
         button { margin-top: 10px; background-color: #ffc107; color: #212529; padding: 15px; border: none; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; border-radius: 6px; }
         .back-link { display: block; text-align: center; margin-top: 15px; padding: 15px; background-color: #6c757d; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; }
         .full-width { grid-column: 1 / -1; }
+        .mensaje { margin-bottom: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
+        .exito { color: #4F8A10; background-color: #DFF2BF; }
+        .error { color: #D8000C; background-color: #FFD2D2; }
         
         @media (max-width: 768px) {
             .form-grid { grid-template-columns: 1fr; }
@@ -26,6 +29,16 @@
 <body>
 <div class="container">
     <h1>Editar Cliente: {{ cliente.nombre_apellido }}</h1>
+
+    <!-- CORRECCIÓN: Se añade el bloque para mostrar mensajes flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="mensaje {{ 'exito' if category == 'success' else 'error' }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
     <form method="POST">
         <div class="form-grid">
             <!-- Columna 1 -->
@@ -45,9 +58,9 @@
                 <label>Plan Contratado:</label><input type="text" name="plan_contratado" value="{{ cliente.plan_contratado or '' }}">
                 <label>Cuotas Totales del Plan:</label>
                 <select name="cuotas_totales" required>
-                    <option value="24" {% if cliente.cuotas_totales == 24 %}selected{% endif %}>24 Cuotas</option>
-                    <option value="36" {% if cliente.cuotas_totales == 36 %}selected{% endif %}>36 Cuotas</option>
-                    <option value="48" {% if cliente.cuotas_totales == 48 %}selected{% endif %}>48 Cuotas</option>
+                    <option value="24" {% if cliente.cuotas_totales == '24' %}selected{% endif %}>24 Cuotas</option>
+                    <option value="36" {% if cliente.cuotas_totales == '36' %}selected{% endif %}>36 Cuotas</option>
+                    <option value="48" {% if cliente.cuotas_totales == '48' %}selected{% endif %}>48 Cuotas</option>
                 </select>
                 <label>Moneda de Pago:</label>
                 <select name="moneda_pago" required>
@@ -94,7 +107,7 @@
             </div>
             <div class="form-actions">
                 <button type="submit">Guardar Cambios</button>
-                <a href="javascript:history.back()" class="back-link">Cancelar y Regresar</a>
+                <a href="{{ url_for('consulta') }}" class="back-link">Cancelar y Regresar</a>
             </div>
         </div>
     </form>

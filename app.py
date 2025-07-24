@@ -173,12 +173,11 @@ def edit_client(client_id):
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 def registrar_pago(client_id):
     """
-    Ruta para registrar un nuevo pago y, si se concilia, actualizar el estado financiero del cliente.
+    Ruta para registrar un nuevo pago. Ahora distingue entre 'guardar' y 'conciliar'.
     """
     db = get_db()
     cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     
-    # Primero, obtenemos los datos del cliente para mostrarlos en la página
     cursor.execute("SELECT * FROM clientes WHERE id = %s", (client_id,))
     cliente = cursor.fetchone()
     if not cliente:
@@ -186,17 +185,26 @@ def registrar_pago(client_id):
         cursor.close()
         return redirect(url_for('consulta'))
 
+    # Se inicializa form_data vacío para el caso GET
+    form_data_for_template = {}
+
     if request.method == 'POST':
         try:
             form_data = {k: (v if v != '' else None) for k, v in request.form.items()}
             form_data['cliente_id'] = client_id
-            
-            # Validación de campos obligatorios del pago
-            if (form_data.get('forma_pago') in ['Transferencia', 'Pago Móvil']) and not form_data.get('referencia'):
-                flash('Error: La referencia es obligatoria para transferencias o pago móvil.', 'error')
-                return render_template('registrar_pago.html', cliente=cliente)
+            accion = form_data.get('accion')
 
-            # Insertar el pago en la tabla de pagos
+            # --- VALIDACIÓN (Solo si se intenta conciliar) ---
+            if accion == 'conciliar':
+                if (form_data.get('forma_pago') in ['Transferencia', 'Pago Móvil']) and not form_data.get('referencia'):
+                    flash('Error: La referencia es obligatoria para conciliar transferencias o pago móvil.', 'error')
+                    # Se devuelve form_data para no perder lo que el usuario ya escribió
+                    return render_template('registrar_pago.html', cliente=cliente, form_data=form_data)
+
+            # --- INSERCIÓN DEL PAGO ---
+            estado = 'Conciliado' if accion == 'conciliar' else 'Pendiente'
+            form_data['estado'] = estado
+            
             query_pago = """
             INSERT INTO pagos (
                 cliente_id, monto, monto_usd, monto_bs, tasa_dia, cuotas, forma_pago, 
@@ -211,14 +219,11 @@ def registrar_pago(client_id):
             cursor.execute(query_pago, form_data)
             nuevo_pago_id = cursor.fetchone()['id']
             
-            # --- LÓGICA DE ACTUALIZACIÓN FINANCIERA ---
-            # Si el pago es 'Conciliado', actualizamos las cuotas del cliente
-            if form_data.get('estado') == 'Conciliado':
-                # Convertimos los valores a Decimal para cálculos precisos
+            # --- LÓGICA DE ACTUALIZACIÓN FINANCIERA (Solo si se concilia) ---
+            if accion == 'conciliar':
                 monto_pagado = Decimal(form_data.get('monto_usd', 0))
                 valor_cuota = Decimal(cliente['valor_cuota'] or 0)
                 balance_anterior = Decimal(cliente['balance_regresivo'] or 0)
-                
                 cuotas_pagadas_progresivas = int(cliente['cuotas_pagadas_progresivas'] or 0)
                 cuotas_pagadas_regresivas = int(cliente['cuotas_pagadas_regresivas'] or 0)
 
@@ -226,11 +231,9 @@ def registrar_pago(client_id):
                     total_disponible = monto_pagado + balance_anterior
                     cuotas_completas_pagadas = int(total_disponible // valor_cuota)
                     nuevo_balance = total_disponible % valor_cuota
-
                     cuotas_pagadas_progresivas += cuotas_completas_pagadas
                     cuotas_pagadas_regresivas += cuotas_completas_pagadas
                     
-                    # Actualizar los datos del cliente en la base de datos
                     update_cliente_query = """
                     UPDATE clientes SET
                         cuotas_pagadas_progresivas = %s,
@@ -240,28 +243,28 @@ def registrar_pago(client_id):
                     WHERE id = %s;
                     """
                     cursor.execute(update_cliente_query, (
-                        str(cuotas_pagadas_progresivas), 
-                        str(cuotas_pagadas_regresivas), 
-                        float(nuevo_balance),
-                        float(monto_pagado),
-                        client_id
+                        str(cuotas_pagadas_progresivas), str(cuotas_pagadas_regresivas), 
+                        float(nuevo_balance), float(monto_pagado), client_id
                     ))
-
-            db.commit()
-            flash('Pago registrado exitosamente.', 'success')
-            
-            # Si fue conciliado, redirige al recibo, si no, a la consulta
-            if form_data.get('estado') == 'Conciliado':
+                
+                db.commit()
+                flash('¡Pago conciliado y recibo generado exitosamente!', 'success')
                 return redirect(url_for('ver_recibo', pago_id=nuevo_pago_id))
-            else:
+
+            else: # Si la acción es 'guardar'
+                db.commit()
+                flash('Pago guardado como pendiente exitosamente.', 'success')
                 return redirect(url_for('consulta'))
 
         except Exception as e:
             db.rollback()
             flash(f'Ocurrió un error al registrar el pago: {e}', 'error')
+            # Se devuelve form_data para no perder lo que el usuario ya escribió
+            form_data_for_template = request.form
     
     cursor.close()
-    return render_template('registrar_pago.html', cliente=cliente)
+    return render_template('registrar_pago.html', cliente=cliente, form_data=form_data_for_template)
+
 
 @app.route('/recibo/<int:pago_id>')
 def ver_recibo(pago_id):
@@ -271,7 +274,6 @@ def ver_recibo(pago_id):
     db = get_db()
     cursor = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
     
-    # Une las tablas de pagos y clientes para obtener todos los datos necesarios
     query = """
     SELECT p.*, c.nombre_apellido, c.cedula 
     FROM pagos p 
@@ -296,8 +298,6 @@ def delete_client(client_id):
     try:
         db = get_db()
         cursor = db.cursor()
-        # Gracias a 'ON DELETE CASCADE' en la base de datos, al borrar un cliente,
-        # se borrarán automáticamente todos sus pagos asociados.
         cursor.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
         db.commit()
         flash('¡Cliente eliminado exitosamente!', 'success')
@@ -310,7 +310,5 @@ def delete_client(client_id):
     return redirect(url_for('consulta'))
 
 if __name__ == '__main__':
-    # El host '0.0.0.0' permite que la app sea accesible desde fuera del contenedor
-    # El puerto es definido por Render a través de la variable de entorno PORT
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)

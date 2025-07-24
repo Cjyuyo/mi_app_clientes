@@ -31,6 +31,9 @@
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 8px; border: 1px solid #ddd; text-align: left; }
         th { background-color: #f2f2f2; }
+        .mensaje { margin-bottom: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
+        .exito { color: #4F8A10; background-color: #DFF2BF; }
+        .error { color: #D8000C; background-color: #FFD2D2; }
         .mensaje_error { margin-top: 20px; font-weight: 700; padding: 15px; border-radius: 5px; color: #D8000C; background-color: #FFD2D2; text-align: center; }
         .status-card-single{text-align:center;padding:25px;border-radius:8px;margin-bottom:20px}.status-card-single p{margin:0;font-size:1.8em;font-weight:bold;text-transform:uppercase}.status-success{background-color:#dff2bf;color:#4f8a10}.status-warning{background-color:#fff3cd;color:#856404}.status-danger{background-color:#f8d7da;color:#721c24}.status-default{background-color:#e2e3e5;color:#383d41}
     </style>
@@ -42,6 +45,16 @@
         <a href="/consulta" class="active">Consultar Cliente</a>
     </nav>
     <h1>Consulta de Clientes</h1>
+
+    <!-- CORRECCIÓN: Se añade el bloque para mostrar mensajes flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="mensaje {{ 'exito' if category == 'success' else 'error' }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
     <form method="POST" class="search-form">
         <input type="text" name="busqueda" placeholder="🔎 Buscar por Cédula, Nombre o Teléfono..." required value="{{ request.form.busqueda or '' }}">
         <button type="submit">Buscar</button>
