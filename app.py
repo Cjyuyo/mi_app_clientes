@@ -9,11 +9,11 @@ app = Flask(__name__)
 
 # --- Configuración de la Base de Datos PostgreSQL ---
 # Usamos la URL que siempre ha funcionado.
-# La corrección .replace("://", "ql://", 1) es un arreglo común para Heroku/Render.
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://lientes_db_prod_user:FzmjghqgD9UPN3I3Ex3Q8KpLlgFDvUDI@dpg-d1vomdadbo4c73fnv9sg-a/lientes_db_prod')
-app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL.replace("://", "ql://", 1)
+# Esta corrección es necesaria para los servicios de hosting como Render
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL.replace("://", "ql://", 1) if "://" in DATABASE_URL else DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.secret_key = 'tu_llave_secreta_aqui_es_muy_importante'
+app.secret_key = 'una_llave_muy_segura_debe_ir_aqui'
 
 db = SQLAlchemy(app)
 
@@ -61,21 +61,15 @@ def calcular_estado_de_cuenta(cliente):
     total_pagado = sum(p.monto_usd for p in cliente.pagos if p.monto_usd)
     cuotas_progresivas = 0
     balance_a_favor = 0.0
-    progreso_progresivas = 0.0
-    progreso_balance = 0.0
-    if valor_cuota > 0 and cuotas_totales > 0:
+    if valor_cuota > 0:
         cuotas_pagadas_float = total_pagado / valor_cuota
         cuotas_progresivas = int(cuotas_pagadas_float)
         balance_a_favor = (cuotas_pagadas_float - cuotas_progresivas) * valor_cuota
-        progreso_progresivas = (cuotas_progresivas / cuotas_totales) * 100
-        progreso_balance = (balance_a_favor / valor_cuota) * 100 if valor_cuota > 0 else 0
     inscripcion_monto = cliente.inscripcion_monto or 0
     valor_cancelado = inscripcion_monto + total_pagado
-    cuotas_pendientes = cuotas_totales - cuotas_progresivas
     return {
         "cuotas_progresivas": cuotas_progresivas, "balance_a_favor": balance_a_favor,
-        "progreso_progresivas": min(progreso_progresivas, 100), "progreso_balance": min(progreso_balance, 100),
-        "valor_cancelado": valor_cancelado, "cuotas_totales": cuotas_totales, "cuotas_pendientes": cuotas_pendientes
+        "valor_cancelado": valor_cancelado, "cuotas_totales": cuotas_totales
     }
 
 # --- Rutas de la Aplicación ---
@@ -116,16 +110,20 @@ def consulta_clientes():
 def detalle_cliente(id_cliente):
     cliente = Cliente.query.get_or_404(id_cliente)
     estado_cuenta = calcular_estado_de_cuenta(cliente)
-    return render_template('consulta.html', cliente=cliente, **estado_cuenta)
+    # Re-calculamos el progreso para la plantilla
+    progreso_progresivas = 0
+    progreso_balance = 0
+    if cliente.valor_cuota and cliente.valor_cuota > 0 and cliente.cuotas_totales and cliente.cuotas_totales > 0:
+        progreso_progresivas = (estado_cuenta['cuotas_progresivas'] / cliente.cuotas_totales) * 100
+        progreso_balance = (estado_cuenta['balance_a_favor'] / cliente.valor_cuota) * 100
+    return render_template('consulta.html', cliente=cliente, **estado_cuenta, progreso_progresivas=progreso_progresivas, progreso_balance=progreso_balance)
 
 @app.route('/editar/<id_cliente>', methods=['GET', 'POST'])
 def editar_cliente(id_cliente):
     cliente = Cliente.query.get_or_404(id_cliente)
     if request.method == 'POST':
-        # Actualiza todos los campos del cliente desde el formulario
         for key, value in request.form.items():
             if hasattr(cliente, key):
-                # Convierte a número si es necesario
                 if key in ['cuotas_totales']:
                     setattr(cliente, key, int(value) if value else None)
                 elif key in ['valor_cuota', 'inscripcion_monto']:
