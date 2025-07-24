@@ -167,8 +167,10 @@ def registrar_pago(client_id):
             update_query = "UPDATE clientes SET cuotas_pagadas_progresivas = %s, balance_regresivo = %s, cuotas_pagadas_regresivas = %s WHERE id = %s;"
             cursor.execute(update_query, (nuevas_cuotas_progresivas, nuevo_balance_regresivo, cuotas_regresivas, client_id))
             
-            # --- NUEVA LÓGICA DE CAMBIO DE ESTATUS ---
-            if cliente['proceso'] == 'INSCRITO' and cuotas_progresivas_antes == 0 and cuotas_enteras_pagadas_ahora > 0:
+            # --- LÓGICA DE CAMBIO DE ESTATUS CORREGIDA ---
+            # Se verifica si el proceso es 'INSCRITO' y si este es el primer pago de cuota que se registra.
+            # La condición 'cuotas_progresivas_antes == 0' asegura que esto solo ocurra una vez.
+            if cliente['proceso'] == 'INSCRITO' and cuotas_progresivas_antes == 0 and monto_pagado > 0:
                 update_proceso_query = "UPDATE clientes SET proceso = 'AHORRADOR' WHERE id = %s;"
                 cursor.execute(update_proceso_query, (client_id,))
                 flash('El proceso del cliente ha sido actualizado a AHORRADOR.', 'info')
