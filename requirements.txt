@@ -1,4 +1,1 @@
 Flask>=2.0
-gunicorn
-psycopg2-binary
-pandas
