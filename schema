@@ -12,6 +12,7 @@ CREATE TABLE clientes (
   nombre_apellido TEXT,
   telefono TEXT,
   fecha_ingreso TEXT,
+  fecha_pago_recurrente TEXT,
   grupo TEXT,
   bien_solicitado TEXT,
   moneda_pago TEXT,
@@ -20,16 +21,18 @@ CREATE TABLE clientes (
   proceso TEXT,
   estatus TEXT,
   estatus_1 TEXT,
+  estatus_cuota TEXT,
   inscripcion_monto REAL,
+  inscripcion_porcentaje REAL,
   valor_cuota REAL,
   valor_cancelado REAL,
   plan_contratado TEXT,
   
   -- Campos para la nueva lógica de cuotas
-  cuotas_totales INTEGER,
-  cuotas_pagadas_progresivas INTEGER DEFAULT 0,
-  cuotas_pagadas_regresivas INTEGER DEFAULT 0, -- Para las cuotas pagadas desde el final
-  balance_regresivo REAL DEFAULT 0.0, -- Dinero sobrante para pagar las cuotas regresivas
+  cuotas_totales TEXT, -- CORREGIDO: BIGINT a TEXT
+  cuotas_pagadas_progresivas TEXT, -- CORREGIDO: BIGINT a TEXT
+  cuotas_pagadas_regresivas TEXT, -- CORREGIDO: BIGINT a TEXT
+  balance_regresivo REAL DEFAULT 0.0,
 
   -- Otros campos
   observacion TEXT,
@@ -41,7 +44,7 @@ CREATE TABLE clientes (
 CREATE TABLE pagos (
   id SERIAL PRIMARY KEY,
   cliente_id INTEGER NOT NULL,
-  recibo INTEGER,
+  recibo TEXT, -- CORREGIDO: BIGINT a TEXT para evitar desbordamiento
   monto_usd REAL,
   monto_bs REAL,
   tasa_dia REAL,
