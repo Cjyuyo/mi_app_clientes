@@ -62,8 +62,8 @@
     </div>
 </div>
 <div class="action-buttons">
-    <!-- CORRECCIÓN: Se cambia javascript:history.back() por un enlace directo a la consulta -->
-    <a href="{{ url_for('consulta') }}" class="back-link">Regresar a Consulta</a>
+    <!-- --- CORRECCIÓN: El nombre de la ruta es 'consulta_clientes' --- -->
+    <a href="{{ url_for('consulta_clientes') }}" class="back-link">Regresar a Consulta</a>
     <a href="javascript:window.print()" class="print-button">Imprimir / Guardar como PDF</a>
 </div>
 </body>

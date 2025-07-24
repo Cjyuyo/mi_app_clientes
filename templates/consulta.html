@@ -30,6 +30,10 @@
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
         .back-link { display: inline-block; margin-top: 30px; color: #1877f2; text-decoration: none; font-weight: 600; }
+        /* --- CORRECCIÓN: Estilos para mensajes flash --- */
+        .flash { padding: 15px; margin-bottom: 20px; border-radius: 6px; text-align: center; font-weight: bold; }
+        .flash.error { background-color: #ffdde0; color: #d8000c; border: 1px solid #d8000c; }
+        .flash.success { background-color: #dff2bf; color: #4f8a10; border: 1px solid #4f8a10; }
     </style>
 </head>
 <body>
@@ -40,6 +44,15 @@
     </div>
     <div class="content">
         
+        <!-- --- CORRECCIÓN: Bloque para mostrar mensajes --- -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
         {% if cliente %}
         <div class="header">
             <h1>{{ cliente.nombre_apellido }}</h1>
@@ -61,7 +74,7 @@
 
         {% else %}
         <h1>Consultar Cliente</h1>
-        <form method="POST" class="search-form">
+        <form method="POST" action="{{ url_for('consulta_clientes') }}" class="search-form">
             <input type="text" name="termino_busqueda" placeholder="Ingrese Cédula, Nombre o Teléfono" required>
             <button type="submit">Buscar</button>
         </form>

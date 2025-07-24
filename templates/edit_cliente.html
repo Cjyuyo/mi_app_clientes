@@ -30,7 +30,6 @@
 <div class="container">
     <h1>Editar Cliente: {{ cliente.nombre_apellido }}</h1>
 
-    <!-- CORRECCIÓN: Se añade el bloque para mostrar mensajes flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
@@ -107,7 +106,8 @@
             </div>
             <div class="form-actions">
                 <button type="submit">Guardar Cambios</button>
-                <a href="{{ url_for('consulta') }}" class="back-link">Cancelar y Regresar</a>
+                <!-- --- CORRECCIÓN: El nombre de la ruta es 'consulta_clientes' --- -->
+                <a href="{{ url_for('consulta_clientes') }}" class="back-link">Cancelar y Regresar</a>
             </div>
         </div>
     </form>

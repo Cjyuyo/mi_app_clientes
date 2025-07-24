@@ -75,14 +75,18 @@ def index():
 @app.route('/consulta', methods=['GET', 'POST'])
 def consulta_clientes():
     if request.method == 'POST':
-        termino = request.form['termino_busqueda'].lower().strip()
+        termino = request.form.get('termino_busqueda', '').lower().strip()
         clientes = cargar_clientes()
+        
+        # --- CORRECCIÓN ---
+        # Lógica de búsqueda más robusta para evitar errores y buscar correctamente.
         resultados = [
-            c for c in clientes if 
-            termino in c['cedula'].lower() or 
-            termino in c['nombre_apellido'].lower() or 
-            (c.get('telefono') and termino in c.get('telefono', ''))
+            c for c in clientes if
+            termino in str(c.get('cedula', '')).lower() or
+            termino in str(c.get('nombre_apellido', '')).lower() or
+            termino in str(c.get('telefono', '')).lower()
         ]
+        
         if len(resultados) == 1:
             return redirect(url_for('detalle_cliente', id_cliente=resultados[0]['id']))
         elif len(resultados) > 1:
@@ -90,6 +94,7 @@ def consulta_clientes():
         else:
             flash('No se encontró ningún cliente con ese término.', 'error')
             return render_template('consulta.html')
+            
     return render_template('consulta.html')
 
 @app.route('/cliente/<id_cliente>')
@@ -118,9 +123,33 @@ def editar_cliente(id_cliente):
 @app.route('/registrar_pago/<id_cliente>', methods=['GET', 'POST'])
 def registrar_pago(id_cliente):
     # (Lógica de registrar pago sin cambios)
+    clientes = cargar_clientes()
+    cliente = next((c for c in clientes if c.get('id') == id_cliente), None)
+    if not cliente:
+        flash('Cliente no encontrado.', 'error')
+        return redirect(url_for('consulta_clientes'))
     return render_template('registrar_pago.html', cliente=cliente)
 
 @app.route('/recibo/<id_cliente>/<id_pago>')
 def ver_recibo(id_cliente, id_pago):
     # (Lógica de ver recibo sin cambios)
+    # Esta es una implementación de ejemplo, debes adaptarla a tu lógica real
+    clientes = cargar_clientes()
+    cliente = next((c for c in clientes if c.get('id') == id_cliente), None)
+    if not cliente:
+        flash('Cliente no encontrado.', 'error')
+        return redirect(url_for('consulta_clientes'))
+    
+    pago = next((p for p in cliente.get('pagos', []) if p.get('id') == id_pago), None)
+    if not pago:
+        flash('Pago no encontrado.', 'error')
+        return redirect(url_for('detalle_cliente', id_cliente=id_cliente))
+
+    datos_recibo = pago.copy()
+    datos_recibo['nombre_apellido'] = cliente.get('nombre_apellido')
+    datos_recibo['cedula'] = cliente.get('cedula')
+
     return render_template('recibo.html', pago=datos_recibo)
+
+if __name__ == '__main__':
+    app.run(debug=True)
