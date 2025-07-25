@@ -6,7 +6,7 @@ DROP SEQUENCE IF EXISTS recibo_numero_seq;
 -- Secuencia para generar números de recibo únicos y consecutivos.
 CREATE SEQUENCE recibo_numero_seq START WITH 10612;
 
--- Tabla de clientes con los tipos de datos CORRECTOS para cálculos precisos.
+-- Tabla de clientes (sin cambios)
 CREATE TABLE clientes (
   id SERIAL PRIMARY KEY,
   cedula TEXT UNIQUE NOT NULL,
@@ -34,26 +34,24 @@ CREATE TABLE clientes (
   cuotas_en_mora INTEGER DEFAULT 0
 );
 
--- Tabla de pagos con tipos de datos corregidos y NUEVOS CAMPOS.
+-- Tabla de pagos con el campo 'cantidad_en_letras' eliminado.
 CREATE TABLE pagos (
   id SERIAL PRIMARY KEY,
   cliente_id INTEGER NOT NULL,
   recibo INTEGER NOT NULL DEFAULT nextval('recibo_numero_seq'),
-  monto NUMERIC(12, 2) NOT NULL,
+  monto NUMERIC(12, 2) NOT NULL, -- Este será el monto en USD
   cuotas_cubiertas INTEGER NOT NULL,
   forma_pago TEXT NOT NULL,
   fecha_pago DATE NOT NULL,
   pago_en TEXT,
-  cantidad_en_letras TEXT,
   por_concepto_de TEXT,
   referencia TEXT,
   banco TEXT,
   lugar_emision TEXT,
-  -- NUEVOS CAMPOS PARA CONCILIACIÓN
-  referencia_usd NUMERIC(12, 2),
+  -- Campos para Conciliación
   tasa_dia NUMERIC(12, 2),
   monto_bs NUMERIC(12, 2),
-  -- FIN DE NUEVOS CAMPOS
+  estado_pago TEXT,
   fecha_registro TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (cliente_id) REFERENCES clientes (id) ON DELETE CASCADE
 );

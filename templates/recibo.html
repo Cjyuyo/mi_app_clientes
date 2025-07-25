@@ -1,4 +1,4 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -33,7 +33,7 @@
         </div>
         <div class="comprobante-box">
             <h3>COMPROBANTE DE INGRESO</h3>
-            <p>Pago en: {{ pago.pago_en }}</p>
+            <p>Estado: {{ pago.estado_pago or 'N/A' }}</p>
             <p>Nº <span class="recibo-numero">{{ pago.recibo }}</span></p>
         </div>
     </div>
@@ -42,27 +42,22 @@
             <label>Hemos Recibido de:</label><span>{{ pago.nombre_apellido }}</span>
             <label style="min-width: 80px; text-align: right; margin-right: 10px;">C.I. o R.I.F.:</label><span>{{ pago.cedula or 'N/A' }}</span>
         </div>
-        <div class="linea">
-            <label>La Cantidad de:</label><span>{{ pago.cantidad_en_letras }}</span>
-        </div>
         
         <!-- Sección para mostrar datos de conciliación si existen -->
-        {% if pago.referencia_usd and pago.tasa_dia %}
         <div style="border: 1px solid #eee; padding: 10px; margin: 15px 0; border-radius: 5px;">
-            <h4 style="margin-top:0; color: #333;">Detalles de Conciliación</h4>
+            <h4 style="margin-top:0; color: #333;">Detalles del Pago</h4>
             <div class="linea">
-                <label>Monto Referencial:</label><span>${{ "%.2f"|format(pago.referencia_usd) }}</span>
+                <label>Monto Pagado:</label><span>${{ "%.2f"|format(pago.monto) }}</span>
             </div>
+            {% if pago.tasa_dia and pago.monto_bs %}
             <div class="linea">
                 <label>Tasa del Día:</label><span>Bs. {{ "%.2f"|format(pago.tasa_dia) }}</span>
             </div>
-            {% if pago.monto_bs %}
             <div class="linea">
-                <label>Monto Pagado:</label><span>Bs. {{ "%.2f"|format(pago.monto_bs) }}</span>
+                <label>Monto Equivalente:</label><span>Bs. {{ "%.2f"|format(pago.monto_bs) }}</span>
             </div>
             {% endif %}
         </div>
-        {% endif %}
 
         <div class="linea">
             <label>Por Concepto de:</label><span>{{ pago.por_concepto_de }}</span>

@@ -2,6 +2,7 @@ import os
 import sys
 import pandas as pd
 import psycopg2
+from tqdm import tqdm # Importar la librería para la barra de progreso
 
 def migrar_datos():
     """
@@ -10,8 +11,8 @@ def migrar_datos():
     desde tu computadora local.
     """
     # --- 1. Configuración ---
-    # URL Externa de la base de datos de Render.
-    DATABASE_URL = "postgresql://clientes_prod_user:hNVcU8ZAfgsJ0ngFvQdBKRlAEE8lV8HK@dpg-d21e2k63jp1c73fofr0g-a.oregon-postgres.render.com/clientes_prod"
+    # URL Externa de la nueva base de datos de Render.
+    DATABASE_URL = "postgresql://clientes_prod_86od_user:c9HerXPZBQRpjtmXNPmLqWoA8KQSFAye@dpg-d21foofgi27c73ds6oig-a.oregon-postgres.render.com/clientes_prod_86od"
     CSV_FILE = 'MI APP CLIENTES - MOTO PLAN.csv'
     SCHEMA_FILE = 'schema' # El archivo con la estructura de la BD
 
@@ -24,9 +25,7 @@ def migrar_datos():
         # Limpiar nombres de columnas
         df.columns = df.columns.str.strip().str.lower()
         
-        # **** ¡AQUÍ ESTÁ LA CORRECCIÓN FINAL! ****
         # Reemplazar celdas que solo contienen espacios en blanco por un valor nulo (NaN).
-        # Esto soluciona el error 'invalid input syntax for type integer: " "'.
         print("Limpiando datos y espacios en blanco...")
         df.replace(r'^\s*$', pd.NA, regex=True, inplace=True)
 
@@ -87,10 +86,11 @@ def migrar_datos():
 
             print("Iniciando inserción de datos...")
             registros_saltados = 0
-            for index, row in df.iterrows():
+            
+            # Usar tqdm para mostrar una barra de progreso
+            for index, row in tqdm(df.iterrows(), total=df.shape[0], desc="Insertando clientes"):
                 # Si la cédula está vacía, saltar esta fila y continuar con la siguiente.
                 if not row.get('cedula'):
-                    print(f"  -> ADVERTENCIA: Saltando fila #{index + 2} por falta de cédula. Cliente: {row.get('nombre_apellido')}")
                     registros_saltados += 1
                     continue
 
