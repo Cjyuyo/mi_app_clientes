@@ -3,184 +3,276 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comprobante de Ingreso N° {{ pago.id }}</title>
+    <title>Consulta de Clientes</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             margin: 0;
             padding: 20px;
-            background-color: #e9ecef;
+            background-color: #f8f9fa;
+            color: #212529;
+        }
+        .navbar {
+            background-color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .navbar a {
+            text-decoration: none;
+            color: #007bff;
+            margin-right: 15px;
+            font-weight: 500;
         }
         .container {
-            max-width: 800px;
+            max-width: 1400px;
             margin: auto;
             background: white;
-            padding: 40px;
-            border: 1px solid #dee2e6;
-            box-shadow: 0 0 15px rgba(0,0,0,0.05);
-            position: relative;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.07);
         }
-        .clearfix::after {
-            content: "";
-            clear: both;
-            display: table;
-        }
-        .header-info {
-            float: left;
-            width: 65%;
-        }
-        .header-info h1 {
-            margin: 0;
-            font-size: 22px;
-            font-weight: 600;
-        }
-        .header-info p {
-            margin: 4px 0;
-            font-size: 13px;
-            color: #495057;
-        }
-        .comprobante-box {
-            float: right;
-            width: 30%;
-            border: 2px solid #000;
-            padding: 10px;
-            text-align: center;
-        }
-        .comprobante-box h2 {
-            margin: 0;
-            font-size: 14px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-        .comprobante-box p {
-            margin: 5px 0;
-            font-size: 18px;
-            font-weight: bold;
-        }
-        .section {
-            margin-top: 25px;
-            padding-top: 15px;
-            border-top: 1px solid #dee2e6;
-        }
-        .section h3 {
-            font-size: 14px;
-            font-weight: 600;
-            text-transform: uppercase;
-            color: #495057;
-            margin-bottom: 15px;
-            border-bottom: 1px solid #dee2e6;
-            padding-bottom: 8px;
-        }
-        .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px 20px;
-        }
-        .info-grid p, .section p {
-            margin: 8px 0;
-            font-size: 15px;
-        }
-        .info-grid p span, .section p span {
-            font-weight: 600;
-            color: #343a40;
-        }
-        .anulado-watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-30deg);
-            z-index: 1000;
-            opacity: 0.2;
-            text-align: center;
-        }
-        .anulado-watermark h1 {
-            font-size: 8rem;
-            color: red;
-            border: 10px solid red;
-            padding: 20px;
-            border-radius: 10px;
-            font-weight: bold;
-        }
-        .anular-seccion {
-            text-align: center; 
-            margin-top: 30px; 
-            padding-top: 20px; 
-            border-top: 1px solid #ccc;
-        }
-        .anular-seccion button {
-            background-color: #dc3545; 
-            color: white; 
-            padding: 12px 25px; 
-            border: none; 
-            border-radius: 5px; 
-            cursor: pointer; 
+        h1 { margin-bottom: 20px; }
+        .search-form { display: flex; margin-bottom: 25px; }
+        .search-form input[type="text"] {
+            flex-grow: 1;
+            padding: 12px;
             font-size: 16px;
+            border: 1px solid #ced4da;
+            border-radius: 5px 0 0 5px;
+        }
+        .search-form input[type="submit"] {
+            padding: 12px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: 1px solid #007bff;
+            border-radius: 0 5px 5px 0;
+            cursor: pointer;
+        }
+        .cliente-card {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            overflow: hidden;
+        }
+        .cliente-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .cliente-card-header h2 { margin: 0; font-size: 20px; }
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            text-transform: uppercase;
+        }
+        .status-default { background-color: #6c757d; }
+        .status-success { background-color: #28a745; }
+        .status-warning { background-color: #ffc107; color: #212529; }
+        .status-danger { background-color: #dc3545; }
+        .cliente-card-body { padding: 20px; }
+        .cliente-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .info-section {
+            background: #fdfdfd;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+        }
+        .info-section h3 {
+            font-size: 16px;
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+        .info-section p { margin: 0 0 10px 0; }
+        .progress-bar {
+            background-color: #e9ecef;
+            border-radius: 5px;
+            overflow: hidden;
+            height: 20px;
+        }
+        .progress-bar-fill {
+            background-color: #007bff;
+            height: 100%;
+            text-align: center;
+            color: white;
+            font-size: 12px;
+            line-height: 20px;
+        }
+        .pagos-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .pagos-table th, .pagos-table td {
+            border: 1px solid #dee2e6;
+            padding: 12px;
+            text-align: left;
+        }
+        .pagos-table th { background-color: #f8f9fa; }
+        /* --- ESTILO AÑADIDO --- */
+        .anulado-row {
+            background-color: #f8d7da !important;
+            color: #721c24;
+            text-decoration: line-through;
+        }
+        .anulado-row a {
+            color: #721c24 !important;
             font-weight: bold;
         }
+        .btn {
+            text-decoration: none;
+            color: white !important;
+            padding: 8px 12px;
+            border-radius: 5px;
+            margin-left: 5px;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-edit { background-color: #ffc107; }
+        .btn-pago { background-color: #28a745; }
+        .btn-delete { background-color: #dc3545; }
+        .btn-ver-recibo { background-color: #17a2b8; }
     </style>
 </head>
 <body>
     <div class="container">
-        
-        {% if pago.estado_pago == 'Anulado' %}
-        <div class="anulado-watermark">
-            <h1>ANULADO</h1>
+        <div class="navbar">
+            <a href="{{ url_for('index') }}">Registrar Cliente</a>
+            <a href="{{ url_for('consulta') }}">Consultar Cliente</a>
         </div>
+
+        <h1>Consulta de Clientes</h1>
+        <form class="search-form" method="POST" action="{{ url_for('consulta') }}">
+            <input type="text" name="busqueda" placeholder="Buscar por Cédula o Nombre" value="{{ busqueda or '' }}" required>
+            <input type="submit" value="Buscar">
+        </form>
+
+        {% if mensaje_error %}
+            <p class="flash-error">{{ mensaje_error }}</p>
         {% endif %}
 
-        <div class="header clearfix">
-            <div class="comprobante-box">
-                <h2>Comprobante de Ingreso</h2>
-                <p>N° {{ pago.id }}</p>
-                <span>Estado: {{ pago.estado_pago or 'Conciliado' }}</span>
+        {% for cliente in clientes %}
+        <div class="cliente-card">
+            <div class="cliente-card-header">
+                <h2>{{ cliente.nombre_apellido }}</h2>
+                <div>
+                    {% set proceso = cliente.proceso | lower if cliente.proceso else '' %}
+                    {% set status_class = 'status-default' %}
+                    {% if 'adjudicado' in proceso or 'completado' in proceso %}
+                        {% set status_class = 'status-success' %}
+                    {% elif 'pendiente' in proceso or 'reserva' in proceso or 'cobranza' in proceso or 'ahorrador' in proceso %}
+                        {% set status_class = 'status-warning' %}
+                    {% elif 'inactivo' in proceso or 'retiro' in proceso %}
+                        {% set status_class = 'status-danger' %}
+                    {% endif %}
+                    <span class="status-badge {{ status_class }}">{{ cliente.proceso or 'NO DEFINIDO' }}</span>
+                </div>
             </div>
-            <div class="header-info">
-                <h1>MOTO PLAN MOTORS C.A</h1>
-                <p>(VIVE TUS SUEÑOS)</p>
-                <p>Calle 31 Con Avenida Libertador Edf Doña Tina Piso PA Of 7 Sector Centro</p>
-                <p>Acarigua Portuguesa - R.I.F.: J- 50408559-1 - 0426-215.26.82</p>
+            <div class="cliente-card-body">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h4>Datos Generales del Cliente (ID: {{ cliente.id }})</h4>
+                    <div>
+                        <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-edit">Editar</a>
+                        <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-pago">Registrar Pago</a>
+                        <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente?');">
+                            <button type="submit" class="btn btn-delete">Eliminar</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="cliente-grid">
+                    <div class="info-section">
+                        <h3>Identificación y Contacto</h3>
+                        <p><strong>Nombre y Apellido:</strong> {{ cliente.nombre_apellido or 'N/A' }}</p>
+                        <p><strong>Nº Cédula:</strong> {{ cliente.cedula or 'N/A' }}</p>
+                        <p><strong>Nº Contrato:</strong> {{ cliente.contrato_nro or 'N/A' }}</p>
+                        <p><strong>Teléfono:</strong> {{ cliente.telefono or 'N/A' }}</p>
+                        <p><strong>Fecha de Ingreso:</strong> {{ cliente.fecha_ingreso.strftime('%Y-%m-%d') if cliente.fecha_ingreso else 'N/A' }}</p>
+                    </div>
+                    <div class="info-section">
+                        <h3>Plan y Estatus</h3>
+                        <p><strong>Grupo:</strong> {{ cliente.grupo or 'N/A' }}</p>
+                        <p><strong>Bien solicitado:</strong> {{ cliente.bien_solicitado or 'N/A' }}</p>
+                        <p><strong>Estatus:</strong> {{ cliente.estatus or 'N/A' }}</p>
+                        <p><strong>Estatus Detallado:</strong> {{ cliente.estatus_1 or 'N/A' }}</p>
+                        <p><strong>Asesor:</strong> {{ cliente.asesor or 'N/A' }}</p>
+                        <p><strong>Responsable:</strong> {{ cliente.responsable or 'N/A' }}</p>
+                    </div>
+                    <div class="info-section">
+                        <h3>Resumen Financiero</h3>
+                        <p><strong>Valor de Cuota:</strong> ${{ "%.2f"|format(cliente.valor_cuota|float) if cliente.valor_cuota else 'N/A' }}</p>
+                        <p><strong>Monto Inscripción:</strong> ${{ "%.2f"|format(cliente.inscripcion_monto|float) if cliente.inscripcion_monto else 'N/A' }}</p>
+                        <p><strong>Valor Cancelado:</strong> ${{ "%.2f"|format(cliente.valor_cancelado|float) if cliente.valor_cancelado else '0.00' }}</p>
+                    </div>
+                    <div class="info-section">
+                        <h3>Estado de Cuotas</h3>
+                        {% set cuotas_totales = cliente.cuotas_totales|int if cliente.cuotas_totales else 0 %}
+                        {% if cuotas_totales > 0 %}
+                            {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int if cliente.cuotas_pagadas_progresivas else 0 %}
+                            {% set porcentaje_progresivo = (cuotas_progresivas * 100) / cuotas_totales %}
+                            <p><strong>Cuotas Pagadas:</strong> {{ cuotas_progresivas }} de {{ cuotas_totales }}</p>
+                            <div class="progress-bar">
+                                <div class="progress-bar-fill" style="width: {{ porcentaje_progresivo }}%;">{{ "%.0f"|format(porcentaje_progresivo) }}%</div>
+                            </div>
+                            <br>
+                            {% set valor_cuota = cliente.valor_cuota|float if cliente.valor_cuota else 0 %}
+                            {% set balance = cliente.balance_regresivo|float if cliente.balance_regresivo else 0 %}
+                            {% set porcentaje_regresivo = (balance * 100) / valor_cuota if valor_cuota > 0 else 0 %}
+                            <p><strong>Balance a Favor:</strong> ${{ "%.2f"|format(balance) }} de ${{ "%.2f"|format(valor_cuota) }}</p>
+                            <div class="progress-bar">
+                                <div class="progress-bar-fill" style="width: {{ porcentaje_regresivo }}%; background-color: #28a745;">{{ "%.0f"|format(porcentaje_regresivo) }}%</div>
+                            </div>
+                        {% else %}
+                            <p>No se ha definido el total de cuotas para este cliente.</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <h4>Historial de Pagos</h4>
+                {% if cliente.pagos %}
+                <table class="pagos-table">
+                    <thead>
+                        <tr>
+                            <th>Recibo #</th>
+                            <th>Fecha</th>
+                            <th>Monto (USD)</th>
+                            <th>Cuotas Cubiertas</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for pago in cliente.pagos %}
+                        <!-- --- LÍNEA MODIFICADA --- -->
+                        <tr class="{% if pago.estado_pago == 'Anulado' %}anulado-row{% endif %}">
+                            <td>{{ pago.id }}</td>
+                            <td>{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</td>
+                            <td>${{ "%.2f"|format(pago.monto) }}</td>
+                            <td>{{ pago.cuotas_cubiertas }}</td>
+                            <td>{{ pago.estado_pago }}</td>
+                            <td>
+                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Recibo</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p>Este cliente no tiene pagos registrados.</p>
+                {% endif %}
             </div>
         </div>
-
-        <div class="section">
-            <p><span>Hemos Recibido de:</span> {{ pago.nombre_apellido }} &nbsp;&nbsp;&nbsp;&nbsp; <span>C.I. o R.I.F.:</span> {{ pago.cedula }}</p>
-        </div>
-
-        <div class="section">
-            <h3>Detalles del Pago</h3>
-            <p><span>Monto Pagado (USD):</span> ${{ "%.2f"|format(pago.monto) }}</p>
-        </div>
-
-        <div class="section">
-            <h3>Estado de Cuenta Actualizado</h3>
-            <p><span>Cuotas Pagadas (Progresivas):</span> {{ pago.cuotas_pagadas_progresivas or 0 }} de {{ pago.cuotas_totales or 'N/A' }}</p>
-            <p><span>Cuotas Pagadas (Regresivas):</span> {{ pago.cuotas_pagadas_regresivas or 0 }}</p>
-            <p><span>Balance a Favor:</span> ${{ "%.2f"|format(pago.balance_regresivo) }} de ${{ "%.2f"|format(pago.valor_cuota) }}</p>
-        </div>
-
-        <div class="section">
-            <div class="info-grid">
-                <p><span>Por Concepto de:</span> {{ pago.por_concepto_de }}</p>
-                <p><span></span></p> <!-- Empty cell for alignment -->
-                <p><span>Forma de Pago:</span> {{ pago.forma_pago }}</p>
-                <p><span>Pago en:</span> {{ pago.pago_en }}</p>
-                <p><span>Referencia:</span> {{ pago.referencia or 'N/A' }}</p>
-                <p><span>Banco:</span> {{ pago.banco or 'N/A' }}</p>
-            </div>
-        </div>
-
-        <div class="section" style="text-align:center; border:none; padding-top:30px;">
-            <p>Fecha de Emisión: {{ pago.fecha_pago.strftime('%d/%m/%Y') }}</p>
-        </div>
-
-        {% if pago.estado_pago != 'Anulado' %}
-        <div class="anular-seccion">
-            <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo? Esta acción revertirá el pago y el estado de cuenta del cliente.');">
-                <button type="submit">Anular Recibo</button>
-            </form>
-        </div>
-        {% endif %}
-
+        {% endfor %}
     </div>
 </body>
 </html>
