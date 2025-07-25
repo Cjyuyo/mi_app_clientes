@@ -81,9 +81,18 @@ def consulta():
         else:
             try:
                 with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                    query_clientes = "SELECT * FROM clientes WHERE cedula LIKE %s OR nombre_apellido ILIKE %s ORDER BY nombre_apellido LIMIT 20;"
-                    patron = f'%{termino_busqueda}%'
-                    cur.execute(query_clientes, (patron, patron))
+                    # --- MODIFICACIÓN REALIZADA ---
+                    # Si el término de búsqueda contiene solo números, se asume que es una cédula
+                    # y se realiza una búsqueda por coincidencia exacta.
+                    if termino_busqueda.isdigit():
+                        query_clientes = "SELECT * FROM clientes WHERE cedula = %s ORDER BY nombre_apellido LIMIT 20;"
+                        cur.execute(query_clientes, (termino_busqueda,))
+                    else:
+                        # Si contiene letras, se asume que es un nombre y se busca parcialmente.
+                        query_clientes = "SELECT * FROM clientes WHERE nombre_apellido ILIKE %s ORDER BY nombre_apellido LIMIT 20;"
+                        patron = f'%{termino_busqueda}%'
+                        cur.execute(query_clientes, (patron,))
+                    
                     clientes_raw = cur.fetchall()
                     if not clientes_raw:
                         mensaje_error = "🚫 No se encontraron clientes que coincidan con su búsqueda."
