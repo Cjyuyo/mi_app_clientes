@@ -157,14 +157,25 @@ def registrar_pago(client_id):
                 cur.execute(update_query, (nuevas_cuotas_progresivas, nuevo_balance_regresivo, client_id))
 
                 pago_form = {k: v if v else None for k, v in request.form.items()}
+                
+                # Lógica para guardar los nuevos campos de conciliación
+                referencia_usd = pago_form.get('referencia_usd')
+                tasa_dia = pago_form.get('tasa_dia')
+                monto_bs = None
+                if pago_form.get('pago_en') == 'Bolívares' and referencia_usd and tasa_dia:
+                    monto_bs = pago_form.get('monto') # El monto principal es en Bs.
+
                 pago_query = """
-                    INSERT INTO pagos (cliente_id, monto, cuotas_cubiertas, forma_pago, fecha_pago, pago_en, cantidad_en_letras, por_concepto_de, referencia, banco, lugar_emision)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
+                    INSERT INTO pagos (cliente_id, monto, cuotas_cubiertas, forma_pago, fecha_pago, 
+                                       pago_en, cantidad_en_letras, por_concepto_de, referencia, banco, lugar_emision,
+                                       referencia_usd, tasa_dia, monto_bs)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
                 """
                 cur.execute(pago_query, (
                     client_id, pago_form['monto'], cuotas_cubiertas_con_pago, pago_form['forma_pago'], pago_form['fecha_pago'],
                     pago_form['pago_en'], pago_form['cantidad_en_letras'], pago_form['por_concepto_de'],
-                    pago_form['referencia'], pago_form['banco'], pago_form['lugar_emision']
+                    pago_form['referencia'], pago_form['banco'], pago_form['lugar_emision'],
+                    referencia_usd, tasa_dia, monto_bs # Nuevos valores
                 ))
                 nuevo_pago_id = cur.fetchone()[0]
                 conn.commit()
@@ -184,6 +195,7 @@ def ver_recibo(pago_id):
     conn = get_db()
     if not conn: return redirect(url_for('consulta'))
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        # Se actualiza la consulta para obtener todos los campos de la tabla pagos
         query = "SELECT p.*, c.nombre_apellido, c.cedula FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s;"
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()

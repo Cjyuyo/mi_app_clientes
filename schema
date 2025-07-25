@@ -13,7 +13,7 @@ CREATE TABLE clientes (
   contrato_nro TEXT,
   nombre_apellido TEXT NOT NULL,
   telefono TEXT,
-  fecha_ingreso DATE, -- Usar DATE para fechas.
+  fecha_ingreso DATE,
   grupo TEXT,
   bien_solicitado TEXT,
   plan_contratado TEXT,
@@ -24,19 +24,17 @@ CREATE TABLE clientes (
   estatus TEXT,
   estatus_1 TEXT,
   observacion TEXT,
-  -- Campos financieros corregidos a NUMERIC para precisión.
   inscripcion_monto NUMERIC(12, 2) DEFAULT 0.0,
   valor_cuota NUMERIC(12, 2) DEFAULT 0.0,
   valor_cancelado NUMERIC(12, 2) DEFAULT 0.0,
   balance_regresivo NUMERIC(12, 2) DEFAULT 0.0,
-  -- Campos de cuotas corregidos a INTEGER (números enteros).
   cuotas_totales INTEGER DEFAULT 0,
   cuotas_pagadas_progresivas INTEGER DEFAULT 0,
   cuotas_pagadas_regresivas INTEGER DEFAULT 0,
   cuotas_en_mora INTEGER DEFAULT 0
 );
 
--- Tabla de pagos con tipos de datos corregidos.
+-- Tabla de pagos con tipos de datos corregidos y NUEVOS CAMPOS.
 CREATE TABLE pagos (
   id SERIAL PRIMARY KEY,
   cliente_id INTEGER NOT NULL,
@@ -51,7 +49,11 @@ CREATE TABLE pagos (
   referencia TEXT,
   banco TEXT,
   lugar_emision TEXT,
+  -- NUEVOS CAMPOS PARA CONCILIACIÓN
+  referencia_usd NUMERIC(12, 2),
+  tasa_dia NUMERIC(12, 2),
+  monto_bs NUMERIC(12, 2),
+  -- FIN DE NUEVOS CAMPOS
   fecha_registro TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  -- Si se borra un cliente, se borran sus pagos en cascada.
   FOREIGN KEY (cliente_id) REFERENCES clientes (id) ON DELETE CASCADE
 );

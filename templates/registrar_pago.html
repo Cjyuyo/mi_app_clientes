@@ -38,7 +38,7 @@
                 <label>Pago en:</label>
                 <select name="pago_en" required><option value="Bolívares">Bolívares</option><option value="Divisas">Divisas</option></select>
                 <label>Monto del Pago:</label>
-                <input type="number" step="0.01" name="monto" required>
+                <input type="number" step="0.01" name="monto" id="monto_pago" required>
                 <label>Cantidad en letras:</label>
                 <input type="text" name="cantidad_en_letras" required>
             </div>
@@ -49,6 +49,23 @@
                 <label>Referencia:</label><input type="text" name="referencia">
                 <label>Fecha de Pago:</label><input type="date" name="fecha_pago" required>
             </div>
+            
+            <!-- Nueva sección para conciliación -->
+            <div class="full-width" style="border-top: 1px solid #eee; padding-top: 15px; margin-top: 15px;">
+                <h4 style="color: #606770; margin-top:0;">Conciliación (Opcional, si el pago es en Bolívares)</h4>
+                <div class="form-grid">
+                    <div>
+                        <label>Monto Referencial en USD:</label>
+                        <input type="number" step="0.01" id="referencia_usd" name="referencia_usd">
+                    </div>
+                    <div>
+                        <label>Tasa del Día (Bs.):</label>
+                        <input type="number" step="0.01" id="tasa_dia" name="tasa_dia">
+                    </div>
+                </div>
+                <button type="button" id="conciliarBtn" class="btn btn-secondary" style="width: 100%; margin-top: 10px; background-color: #5bc0de; color: white;">Calcular Monto en Bs. y Actualizar</button>
+            </div>
+
             <div class="full-width">
                 <label>Lugar de Emisión:</label><input type="text" name="lugar_emision" required>
                 <label>Por Concepto de:</label><textarea name="por_concepto_de" rows="3" required></textarea>
@@ -60,5 +77,25 @@
         </div>
     </form>
 </div>
+<script>
+    document.getElementById('conciliarBtn').addEventListener('click', function() {
+        const pagoEn = document.querySelector('select[name="pago_en"]').value;
+        if (pagoEn === 'Bolívares') {
+            const refUsd = parseFloat(document.getElementById('referencia_usd').value) || 0;
+            const tasaDia = parseFloat(document.getElementById('tasa_dia').value) || 0;
+            
+            if (refUsd > 0 && tasaDia > 0) {
+                const montoBs = refUsd * tasaDia;
+                document.getElementById('monto_pago').value = montoBs.toFixed(2);
+                // No usamos alert para no ser intrusivos
+                console.log('Cálculo realizado. El "Monto del Pago" ha sido actualizado a ' + montoBs.toFixed(2) + ' Bs.');
+            } else {
+                alert('Por favor, ingrese un monto referencial en USD y una tasa del día válidos.');
+            }
+        } else {
+            alert('La conciliación solo aplica si el "Pago en" es "Bolívares".');
+        }
+    });
+</script>
 </body>
 </html>
