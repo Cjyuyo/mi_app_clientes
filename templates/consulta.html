@@ -135,9 +135,6 @@
 </head>
 <body>
     <div class="container">
-        <div style="text-align: center; margin-bottom: 20px;">
-            <img src="http://googleusercontent.com/file_content/3" alt="Logo Moto Plan" style="max-width: 250px; height: auto;">
-        </div>
         <h1>Consulta de Clientes</h1>
         <form class="search-form" method="POST" action="{{ url_for('consulta') }}">
             <input type="text" name="busqueda" placeholder="Buscar por Cédula o Nombre" value="{{ busqueda or '' }}" required>
