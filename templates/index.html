@@ -19,23 +19,16 @@
         .mensaje { margin-bottom: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
         .exito { color: #4F8A10; background-color: #DFF2BF; }
         .error { color: #D8000C; background-color: #FFD2D2; }
-        
-        @media (max-width: 768px) {
-            .form-grid { grid-template-columns: 1fr; }
-            body { padding: 10px; }
-            .container { padding: 10px; }
-        }
+        @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } body { padding: 10px; } .container { padding: 10px; } }
     </style>
 </head>
 <body>
 <div class="container">
     <nav>
-        <!-- **** ¡CORRECCIÓN AQUÍ! **** -->
         <a href="{{ url_for('index') }}" class="active">Registrar Cliente</a>
         <a href="{{ url_for('consulta') }}">Consultar Cliente</a>
     </nav>
     <h1>Registrar Nuevo Cliente</h1>
-    
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
@@ -43,10 +36,8 @@
         {% endfor %}
       {% endif %}
     {% endwith %}
-
-    <form method="POST">
+    <form action="{{ url_for('registrar_cliente') }}" method="POST">
         <div class="form-grid">
-            <!-- Columna 1 -->
             <div>
                 <label>Nombre y Apellido:</label><input type="text" name="nombre_apellido" required>
                 <label>Nº Cédula:</label><input type="text" name="cedula" required>
@@ -56,35 +47,20 @@
                 <label>Responsable:</label><input type="text" name="responsable">
                 <label>Fecha de Ingreso:</label><input type="date" name="fecha_ingreso">
             </div>
-            <!-- Columna 2 -->
             <div>
                 <label>Grupo:</label><input type="text" name="grupo">
                 <label>Bien solicitado:</label><input type="text" name="bien_solicitado">
                 <label>Plan Contratado:</label><input type="text" name="plan_contratado">
-                <label>Cuotas Totales del Plan:</label>
-                <select name="cuotas_totales">
-                    <option value="24">24 Cuotas</option>
-                    <option value="36">36 Cuotas</option>
-                    <option value="48">48 Cuotas</option>
-                </select>
+                <label>Cuotas Totales:</label>
+                <select name="cuotas_totales"><option value="24">24</option><option value="36">36</option><option value="48">48</option></select>
                 <label>Moneda de Pago:</label>
-                <select name="moneda_pago">
-                    <option value="USD">USD</option>
-                    <option value="BsBCV">BsBCV</option>
-                    <option value="EuroBCV">EuroBCV</option>
-                    <option value="USDT">USDT</option>
-                </select>
+                <select name="moneda_pago"><option value="USD">USD</option><option value="BsBCV">BsBCV</option></select>
                 <label>Cuota Mensual:</label><input type="number" step="0.01" name="valor_cuota">
-                <label>Monto de Inscripción:</label><input type="number" step="0.01" name="inscripcion_monto">
+                <label>Monto Inscripción:</label><input type="number" step="0.01" name="inscripcion_monto">
             </div>
-            <!-- Sección de Proceso -->
             <div style="grid-column: 1 / -1; border-top: 1px solid #eee; padding-top: 15px;">
                 <label>Proceso Inicial:</label>
-                <select id="proceso" name="proceso">
-                    <option value="INSCRITO">Inscrito</option>
-                    <option value="RESERVA">Reserva</option>
-                    <option value="AHORRADOR">Ahorrador</option>
-                </select>
+                <select name="proceso"><option value="INSCRITO">Inscrito</option><option value="RESERVA">Reserva</option></select>
             </div>
             <button type="submit">Registrar Cliente</button>
         </div>

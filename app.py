@@ -37,48 +37,49 @@ def close_db(exception):
 
 # --- Rutas de la Aplicación ---
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/')
 def index():
     """Página principal para registrar un nuevo cliente."""
-    if request.method == 'POST':
-        form_data = {k: v if v else None for k, v in request.form.items()}
+    return render_template('index.html')
 
-        if not form_data.get('nombre_apellido') or not form_data.get('cedula'):
-            flash("Error: Nombre y Cédula son campos obligatorios.", 'error')
-            return render_template('index.html', data=form_data)
+@app.route('/registrar_cliente', methods=['POST'])
+def registrar_cliente():
+    """Procesa el formulario de registro de un nuevo cliente."""
+    form_data = {k: v if v else None for k, v in request.form.items()}
 
-        conn = get_db()
-        if not conn:
-            flash("Error de conexión a la base de datos. No se pudo registrar al cliente.", 'error')
-            return render_template('index.html', data=form_data)
+    if not form_data.get('nombre_apellido') or not form_data.get('cedula'):
+        flash("Error: Nombre y Cédula son campos obligatorios.", 'error')
+        return redirect(url_for('index'))
 
-        try:
-            with conn.cursor() as cur:
-                query = """
-                INSERT INTO clientes (
-                    nombre_apellido, cedula, contrato_nro, telefono, asesor, responsable, fecha_ingreso,
-                    grupo, bien_solicitado, plan_contratado, cuotas_totales, moneda_pago, valor_cuota,
-                    inscripcion_monto, proceso
-                ) VALUES (
-                    %(nombre_apellido)s, %(cedula)s, %(contrato_nro)s, %(telefono)s, %(asesor)s, %(responsable)s, %(fecha_ingreso)s,
-                    %(grupo)s, %(bien_solicitado)s, %(plan_contratado)s, %(cuotas_totales)s, %(moneda_pago)s, %(valor_cuota)s,
-                    %(inscripcion_monto)s, %(proceso)s
-                )
-                """
-                cur.execute(query, form_data)
-                conn.commit()
-                flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado exitosamente!", 'success')
-                return redirect(url_for('index'))
-        except psycopg2.IntegrityError:
-            conn.rollback()
-            flash(f"Registro fallido: La cédula '{form_data.get('cedula')}' ya existe.", 'error')
-        except (psycopg2.Error, ValueError) as e:
-            conn.rollback()
-            flash(f"Registro fallido: Ocurrió un error de base de datos: {e}", 'error')
-        
-        return render_template('index.html', data=form_data)
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos. No se pudo registrar al cliente.", 'error')
+        return redirect(url_for('index'))
 
-    return render_template('index.html', data={})
+    try:
+        with conn.cursor() as cur:
+            query = """
+            INSERT INTO clientes (
+                nombre_apellido, cedula, contrato_nro, telefono, asesor, responsable, fecha_ingreso,
+                grupo, bien_solicitado, plan_contratado, cuotas_totales, moneda_pago, valor_cuota,
+                inscripcion_monto, proceso
+            ) VALUES (
+                %(nombre_apellido)s, %(cedula)s, %(contrato_nro)s, %(telefono)s, %(asesor)s, %(responsable)s, %(fecha_ingreso)s,
+                %(grupo)s, %(bien_solicitado)s, %(plan_contratado)s, %(cuotas_totales)s, %(moneda_pago)s, %(valor_cuota)s,
+                %(inscripcion_monto)s, %(proceso)s
+            )
+            """
+            cur.execute(query, form_data)
+            conn.commit()
+            flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado exitosamente!", 'success')
+    except psycopg2.IntegrityError:
+        conn.rollback()
+        flash(f"Registro fallido: La cédula '{form_data.get('cedula')}' ya existe.", 'error')
+    except (psycopg2.Error, ValueError) as e:
+        conn.rollback()
+        flash(f"Registro fallido: Ocurrió un error de base de datos: {e}", 'error')
+    
+    return redirect(url_for('index'))
 
 
 @app.route('/consulta', methods=['GET', 'POST'])
@@ -120,7 +121,7 @@ def consulta():
 
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 def registrar_pago(client_id):
-    """Registra un pago y recalcula el estado de cuotas del cliente de forma segura."""
+    """Muestra el formulario para registrar un pago y procesa el envío."""
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')

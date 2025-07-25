@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registrar y Conciliar Pago</title>
+    <title>Registrar Pago</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: #f0f2f5; }
         .container { max-width: 800px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
@@ -11,19 +11,15 @@
         h1 span { font-weight: normal; color: #606770; font-size: 0.7em; display: block; margin-top: 5px;}
         label { display: block; margin-top: 15px; font-weight: 600; color: #606770; }
         input, select, textarea { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #dddfe2; border-radius: 6px; }
-        .form-actions { grid-column: 1 / -1; }
-        button { margin-top: 10px; background-color: #28a745; color: white; padding: 15px; border: none; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; border-radius: 6px; }
-        button:disabled { background-color: #a5d6a7; cursor: not-allowed; }
-        .back-link { display: block; text-align: center; margin-top: 15px; padding: 15px; background-color: #6c757d; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; }
+        .button-group { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
+        .btn { padding: 12px 20px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; border-radius: 6px; text-decoration: none; text-align: center; }
+        .btn-primary { background-color: #28a745; color: white; }
+        .btn-secondary { background-color: #6c757d; color: white; }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .full-width { grid-column: 1 / -1; }
         .mensaje { margin-bottom: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
-        .exito { color: #4F8A10; background-color: #DFF2BF; }
         .error { color: #D8000C; background-color: #FFD2D2; }
-        @media (max-width: 768px) {
-            .form-grid { grid-template-columns: 1fr; }
-            body { padding: 10px; }
-        }
+        @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } body { padding: 10px; } }
     </style>
 </head>
 <body>
@@ -31,83 +27,38 @@
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
-          <div class="mensaje {{ 'exito' if category == 'success' else 'error' }}">{{ message }}</div>
+          <div class="mensaje {{ category }}">{{ message }}</div>
         {% endfor %}
       {% endif %}
     {% endwith %}
-
-    <h1>Registrar y Conciliar Pago <span>Para: {{ cliente.nombre_apellido }}</span></h1>
-    <form method="POST" id="payment-form">
+    <h1>Registrar Pago <span>Para: {{ cliente.nombre_apellido }}</span></h1>
+    <form action="{{ url_for('registrar_pago', client_id=cliente.id) }}" method="POST">
         <div class="form-grid">
-            <input type="hidden" name="cuotas" value="1">
-            <input type="hidden" name="monto" value="0">
             <div>
-                <label>Monto del Pago (en USD):</label><input type="number" step="0.01" name="monto_usd" required>
-                <label>Tasa del Día (BCV):</label><input type="number" step="0.01" name="tasa_dia">
-                <label>Monto en Bs (Calculado):</label><input type="number" step="0.01" name="monto_bs" readonly>
-                 <label>Pago en:</label>
-                <select name="pago_en" required>
-                    <option value="">Seleccione...</option>
-                    <option value="Bolívares">Bolívares</option>
-                    <option value="Divisas">Divisas</option>
-                </select>
+                <label>Pago en:</label>
+                <select name="pago_en" required><option value="Bolívares">Bolívares</option><option value="Divisas">Divisas</option></select>
+                <label>Monto del Pago:</label>
+                <input type="number" step="0.01" name="monto" required>
+                <label>Cantidad en letras:</label>
+                <input type="text" name="cantidad_en_letras" required>
             </div>
             <div>
                 <label>Forma de Pago:</label>
-                <select name="forma_pago" required>
-                    <option value="">Seleccione...</option>
-                    <option value="Efectivo">Efectivo</option>
-                    <option value="Transferencia">Transferencia</option>
-                    <option value="Pago Móvil">Pago Móvil</option>
-                    <option value="USDT">USDT</option>
-                </select>
+                <select name="forma_pago" required><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option><option value="Pago Móvil">Pago Móvil</option></select>
                 <label>Banco:</label><input type="text" name="banco">
                 <label>Referencia:</label><input type="text" name="referencia">
-                <label>Lugar de Emisión:</label><input type="text" name="lugar_emision" required>
+                <label>Fecha de Pago:</label><input type="date" name="fecha_pago" required>
             </div>
             <div class="full-width">
-                <label>La Cantidad de (en letras):</label><input type="text" name="cantidad_en_letras" required>
-                <label>Por Concepto de:</label><textarea name="por_concepto_de" rows="2" required></textarea>
+                <label>Lugar de Emisión:</label><input type="text" name="lugar_emision" required>
+                <label>Por Concepto de:</label><textarea name="por_concepto_de" rows="3" required></textarea>
             </div>
-            <div class="full-width" style="border-top: 1px solid #eee; padding-top: 15px;">
-                <label>Estado del Pago:</label>
-                <select name="estado" id="estado-pago" required>
-                    <option value="Pendiente">Pendiente</option>
-                    <option value="Conciliado">Conciliado</option>
-                </select>
-            </div>
-            <div class="form-actions full-width">
-                <button type="submit" id="submit-button">Registrar Pago</button>
-            </div>
-             <!-- --- CORRECCIÓN: El nombre de la ruta es 'consulta_clientes' --- -->
-             <a href="{{ url_for('consulta_clientes') }}" class="back-link full-width">Cancelar y Regresar</a>
+        </div>
+        <div class="button-group">
+            <a href="{{ url_for('consulta') }}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary">Guardar Pago</button>
         </div>
     </form>
 </div>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('payment-form');
-        const submitButton = document.getElementById('submit-button');
-        const estadoSelect = document.getElementById('estado-pago');
-
-        const montoUsd = document.querySelector('input[name="monto_usd"]');
-        const tasaDia = document.querySelector('input[name="tasa_dia"]');
-        const montoBs = document.querySelector('input[name="monto_bs"]');
-        const montoFinal = document.querySelector('input[name="monto"]');
-        
-        function calcular() {
-            const usd = parseFloat(montoUsd.value) || 0;
-            const tasa = parseFloat(tasaDia.value) || 0;
-            montoBs.value = (usd * tasa).toFixed(2);
-            montoFinal.value = usd.toFixed(2);
-        }
-        
-        montoUsd.addEventListener('input', calcular);
-        tasaDia.addEventListener('input', calcular);
-        
-        // Llamada inicial para calcular si hay valores precargados
-        calcular();
-    });
-</script>
 </body>
 </html>
