@@ -76,9 +76,9 @@
                     <a href="{{ url_for('eliminar_cliente', id_cliente=cliente.id) }}" class="action-btn delete-btn" onclick="return confirm('¿Estás seguro de que deseas eliminar este cliente? Esta acción no se puede deshacer.');">Eliminar</a>
                 </div>
             </div>
-            <div class="details-container" style="margin-top: 20px;">
-                <div class="card" style="border: none; padding: 0;">
-                    <div class="card-header" style="font-size: 16px; padding-bottom: 10px; margin-bottom: 10px;">Identificación y Contacto</div>
+            <div class="details-container" style="margin-top: 20px; margin-bottom: 0;">
+                <div style="border: none; padding: 0;">
+                    <h3 style="font-size: 16px; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #eee;">Identificación y Contacto</h3>
                     <div class="details-grid">
                         <div class="item"><strong>Nº Cédula:</strong> {{ cliente.cedula or 'N/A' }}</div>
                         <div class="item"><strong>Nº Contrato:</strong> {{ cliente.contrato_nro or 'N/A' }}</div>
@@ -86,8 +86,8 @@
                         <div class="item"><strong>Fecha Ingreso:</strong> {{ cliente.fecha_ingreso or 'N/A' }}</div>
                     </div>
                 </div>
-                <div class="card" style="border: none; padding: 0;">
-                    <div class="card-header" style="font-size: 16px; padding-bottom: 10px; margin-bottom: 10px;">Plan y Estatus</div>
+                <div style="border: none; padding: 0;">
+                    <h3 style="font-size: 16px; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #eee;">Plan y Estatus</h3>
                     <div class="details-grid">
                         <div class="item"><strong>Grupo:</strong> {{ cliente.grupo or 'N/A' }}</div>
                         <div class="item"><strong>Bien Solicitado:</strong> {{ cliente.bien_solicitado or 'N/A' }}</div>
@@ -95,8 +95,8 @@
                         <div class="item"><strong>Responsable:</strong> {{ cliente.responsable or 'N/A' }}</div>
                     </div>
                 </div>
-                <div class="card" style="border: none; padding: 0;">
-                    <div class="card-header" style="font-size: 16px; padding-bottom: 10px; margin-bottom: 10px;">Resumen Financiero</div>
+                <div style="border: none; padding: 0;">
+                    <h3 style="font-size: 16px; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #eee;">Resumen Financiero</h3>
                     <div class="details-grid">
                         <div class="item"><strong>Valor de Cuota:</strong> ${{ "%.2f"|format(cliente.valor_cuota|float) }}</div>
                         <div class="item"><strong>Monto Inscripción:</strong> ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</div>
@@ -140,9 +140,9 @@
                 </thead>
                 <tbody>
                     {% if cliente.pagos %}
-                        {% for pago in cliente.pagos %}
+                        {% for pago in cliente.pagos|sort(attribute='fecha_pago', reverse=True) %}
                         <tr>
-                            <td>{{ pago.fecha_pago.split(' ')[0] if pago.fecha_pago else 'N/A' }}</td>
+                            <td>{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</td>
                             <td>${{ "%.2f"|format(pago.monto_usd|float) }}</td>
                             <td>{{ pago.estado or 'N/A' }}</td>
                             <td>{{ pago.recibo or 'N/A' }}</td>

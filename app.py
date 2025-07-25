@@ -8,9 +8,7 @@ from datetime import datetime
 app = Flask(__name__)
 
 # --- Configuración de la Base de Datos PostgreSQL ---
-# Usamos la URL que siempre ha funcionado.
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://lientes_db_prod_user:FzmjghqgD9UPN3I3Ex3Q8KpLlgFDvUDI@dpg-d1vomdadbo4c73fnv9sg-a/lientes_db_prod')
-# Esta corrección es necesaria para los servicios de hosting como Render
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL.replace("://", "ql://", 1) if "://" in DATABASE_URL else DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = 'una_llave_muy_segura_debe_ir_aqui'
@@ -18,7 +16,6 @@ app.secret_key = 'una_llave_muy_segura_debe_ir_aqui'
 db = SQLAlchemy(app)
 
 # --- Modelos de la Base de Datos (El nuevo "schema") ---
-# Esto define la estructura de tus tablas directamente en el código.
 class Cliente(db.Model):
     __tablename__ = 'clientes'
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -45,13 +42,19 @@ class Pago(db.Model):
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     cliente_id = db.Column(db.String(36), db.ForeignKey('clientes.id'), nullable=False)
     monto_usd = db.Column(db.Float)
+    tasa_dia = db.Column(db.Float)
+    monto_bs = db.Column(db.Float)
+    pago_en = db.Column(db.String(50))
     forma_pago = db.Column(db.String(50))
+    banco = db.Column(db.String(100))
+    referencia = db.Column(db.String(100))
+    lugar_emision = db.Column(db.String(100))
+    cantidad_en_letras = db.Column(db.String(255))
+    por_concepto_de = db.Column(db.String(255))
+    estado = db.Column(db.String(50))
     recibo = db.Column(db.String(50))
     fecha_pago = db.Column(db.DateTime, default=datetime.utcnow)
-    estado = db.Column(db.String(50))
 
-# --- Creación de las tablas ---
-# Esto asegura que las tablas existan en tu base de datos.
 with app.app_context():
     db.create_all()
 
@@ -61,26 +64,23 @@ def calcular_estado_de_cuenta(cliente):
     total_pagado = sum(p.monto_usd for p in cliente.pagos if p.monto_usd)
     cuotas_progresivas = 0
     balance_a_favor = 0.0
-    if valor_cuota > 0:
+    progreso_progresivas = 0.0
+    progreso_balance = 0.0
+    if valor_cuota > 0 and cuotas_totales > 0:
         cuotas_pagadas_float = total_pagado / valor_cuota
         cuotas_progresivas = int(cuotas_pagadas_float)
         balance_a_favor = (cuotas_pagadas_float - cuotas_progresivas) * valor_cuota
+        progreso_progresivas = (cuotas_progresivas / cuotas_totales) * 100
+        progreso_balance = (balance_a_favor / valor_cuota) * 100 if valor_cuota > 0 else 0
     inscripcion_monto = cliente.inscripcion_monto or 0
     valor_cancelado = inscripcion_monto + total_pagado
-    # Re-calculamos el progreso para la plantilla
-    progreso_progresivas = 0
-    progreso_balance = 0
-    if valor_cuota and valor_cuota > 0 and cuotas_totales and cuotas_totales > 0:
-        progreso_progresivas = (cuotas_progresivas / cuotas_totales) * 100
-        progreso_balance = (balance_a_favor / valor_cuota) * 100
-    
+    cuotas_pendientes = cuotas_totales - cuotas_progresivas
     return {
         "cuotas_progresivas": cuotas_progresivas, "balance_a_favor": balance_a_favor,
-        "valor_cancelado": valor_cancelado, "cuotas_totales": cuotas_totales,
-        "progreso_progresivas": progreso_progresivas, "progreso_balance": progreso_balance
+        "progreso_progresivas": min(progreso_progresivas, 100), "progreso_balance": min(progreso_balance, 100),
+        "valor_cancelado": valor_cancelado, "cuotas_totales": cuotas_totales, "cuotas_pendientes": cuotas_pendientes
     }
 
-# --- Rutas de la Aplicación ---
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -95,7 +95,7 @@ def index():
         )
         db.session.add(nuevo_cliente)
         db.session.commit()
-        flash('Cliente registrado con éxito en la base de datos.', 'success')
+        flash('Cliente registrado con éxito.', 'success')
         return redirect(url_for('consulta_clientes'))
     return render_template('index.html')
 
@@ -141,12 +141,21 @@ def editar_cliente(id_cliente):
 def registrar_pago(id_cliente):
     cliente = Cliente.query.get_or_404(id_cliente)
     if request.method == 'POST':
+        try:
+            monto_usd = float(request.form.get('monto_usd', 0))
+            tasa_dia = float(request.form.get('tasa_dia', 0) or 0)
+            monto_bs = float(request.form.get('monto_bs', 0) or 0)
+        except (ValueError, TypeError):
+            flash('Los montos y tasas deben ser números válidos.', 'error')
+            return render_template('registrar_pago.html', cliente=cliente)
+
         nuevo_pago = Pago(
-            cliente_id=cliente.id,
-            monto_usd=float(request.form.get('monto_usd', 0)),
-            forma_pago=request.form.get('forma_pago'),
-            recibo=request.form.get('recibo'),
-            estado=request.form.get('estado')
+            cliente_id=cliente.id, monto_usd=monto_usd, tasa_dia=tasa_dia, monto_bs=monto_bs,
+            pago_en=request.form.get('pago_en'), forma_pago=request.form.get('forma_pago'),
+            banco=request.form.get('banco'), referencia=request.form.get('referencia'),
+            lugar_emision=request.form.get('lugar_emision'), cantidad_en_letras=request.form.get('cantidad_en_letras'),
+            por_concepto_de=request.form.get('por_concepto_de'), estado=request.form.get('estado'),
+            recibo=request.form.get('recibo')
         )
         db.session.add(nuevo_pago)
         db.session.commit()
@@ -161,6 +170,15 @@ def eliminar_cliente(id_cliente):
     db.session.commit()
     flash('Cliente eliminado exitosamente.', 'success')
     return redirect(url_for('consulta_clientes'))
+
+@app.route('/recibo/<id_cliente>/<id_pago>')
+def ver_recibo(id_cliente, id_pago):
+    cliente = Cliente.query.get_or_404(id_cliente)
+    pago = Pago.query.get_or_404(id_pago)
+    if pago.cliente_id != cliente.id:
+        flash('Acceso no autorizado al recibo.', 'error')
+        return redirect(url_for('consulta_clientes'))
+    return render_template('recibo.html', pago=pago, cliente=cliente)
 
 if __name__ == '__main__':
     app.run(debug=True)
