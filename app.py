@@ -121,27 +121,40 @@ def registrar_pago(client_id):
 
             cuotas_progresivas_actuales = cliente['cuotas_pagadas_progresivas'] or 0
             balance_regresivo_actual = Decimal(cliente['balance_regresivo'] or 0)
+            cuotas_regresivas_actuales = cliente['cuotas_pagadas_regresivas'] or 0
 
             monto_total_disponible = monto_pagado_usd + balance_regresivo_actual
+            
+            # 1. Calcular cuotas progresivas
             cuotas_cubiertas_con_pago = int(monto_total_disponible // valor_cuota)
-            nuevo_balance_regresivo = monto_total_disponible % valor_cuota
             nuevas_cuotas_progresivas = cuotas_progresivas_actuales + cuotas_cubiertas_con_pago
+            
+            # 2. Calcular el nuevo balance (excedente)
+            nuevo_balance_regresivo = monto_total_disponible % valor_cuota
+            
+            # **** ¡LÓGICA DE CUOTAS REGRESIVAS AQUÍ! ****
+            # 3. Usar el excedente para pagar cuotas regresivas
+            nuevas_cuotas_regresivas = cuotas_regresivas_actuales
+            while nuevo_balance_regresivo >= valor_cuota:
+                nuevo_balance_regresivo -= valor_cuota
+                nuevas_cuotas_regresivas += 1
 
             with conn.cursor() as cur:
-                update_query = "UPDATE clientes SET cuotas_pagadas_progresivas = %s, balance_regresivo = %s WHERE id = %s;"
-                cur.execute(update_query, (nuevas_cuotas_progresivas, nuevo_balance_regresivo, client_id))
+                # 4. Actualizar todos los valores en la base de datos
+                update_query = "UPDATE clientes SET cuotas_pagadas_progresivas = %s, balance_regresivo = %s, cuotas_pagadas_regresivas = %s WHERE id = %s;"
+                cur.execute(update_query, (nuevas_cuotas_progresivas, nuevo_balance_regresivo, nuevas_cuotas_regresivas, client_id))
 
                 pago_form = {k: v if v else None for k, v in request.form.items()}
                 
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, cuotas_cubiertas, forma_pago, fecha_pago, 
-                                       por_concepto_de, referencia, banco, lugar_emision,
+                                       pago_en, por_concepto_de, referencia, banco, lugar_emision,
                                        tasa_dia, monto_bs, estado_pago)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
                 """
                 cur.execute(pago_query, (
                     client_id, pago_form['monto'], cuotas_cubiertas_con_pago, pago_form['forma_pago'], pago_form['fecha_pago'],
-                    pago_form['por_concepto_de'],
+                    pago_form.get('pago_en'), pago_form['por_concepto_de'],
                     pago_form['referencia'], pago_form['banco'], pago_form['lugar_emision'],
                     pago_form.get('tasa_dia'), pago_form.get('monto_bs'), pago_form.get('estado_pago')
                 ))
@@ -157,12 +170,18 @@ def registrar_pago(client_id):
 
     return render_template('registrar_pago.html', cliente=cliente)
 
+
 @app.route('/recibo/<int:pago_id>')
 def ver_recibo(pago_id):
     conn = get_db()
     if not conn: return redirect(url_for('consulta'))
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        query = "SELECT p.*, c.nombre_apellido, c.cedula FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s;"
+        query = """
+            SELECT p.*, c.nombre_apellido, c.cedula, c.balance_regresivo, 
+                   c.cuotas_pagadas_progresivas, c.cuotas_pagadas_regresivas, c.cuotas_totales 
+            FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
+            WHERE p.id = %s;
+        """
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
     if not pago:
