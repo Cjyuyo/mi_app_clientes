@@ -186,12 +186,15 @@ def ver_recibo(pago_id):
     conn = get_db()
     if not conn: return redirect(url_for('consulta'))
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        # --- MODIFICACIÓN REALIZADA ---
+        # Se utiliza COALESCE para mostrar los datos históricos del pago si existen.
+        # Si no existen (para recibos antiguos), se muestra el estado actual del cliente como respaldo.
         query = """
             SELECT p.*, 
                    c.nombre_apellido, c.cedula, c.cuotas_totales, c.valor_cuota,
-                   p.cuotas_progresivas_al_pagar AS cuotas_pagadas_progresivas, 
-                   p.cuotas_regresivas_al_pagar AS cuotas_pagadas_regresivas,
-                   p.balance_al_pagar AS balance_regresivo
+                   COALESCE(p.cuotas_progresivas_al_pagar, c.cuotas_pagadas_progresivas) AS cuotas_pagadas_progresivas, 
+                   COALESCE(p.cuotas_regresivas_al_pagar, c.cuotas_pagadas_regresivas) AS cuotas_pagadas_regresivas,
+                   COALESCE(p.balance_al_pagar, c.balance_regresivo) AS balance_regresivo
             FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
             WHERE p.id = %s;
         """
