@@ -2,3 +2,5 @@ Flask
 gunicorn
 psycopg2-binary
 pandas
+python-dotenv
+tqdm
