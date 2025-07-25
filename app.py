@@ -81,14 +81,10 @@ def consulta():
         else:
             try:
                 with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                    # --- MODIFICACIÓN REALIZADA ---
-                    # Si el término de búsqueda contiene solo números, se asume que es una cédula
-                    # y se realiza una búsqueda por coincidencia exacta.
                     if termino_busqueda.isdigit():
                         query_clientes = "SELECT * FROM clientes WHERE cedula = %s ORDER BY nombre_apellido LIMIT 20;"
                         cur.execute(query_clientes, (termino_busqueda,))
                     else:
-                        # Si contiene letras, se asume que es un nombre y se busca parcialmente.
                         query_clientes = "SELECT * FROM clientes WHERE nombre_apellido ILIKE %s ORDER BY nombre_apellido LIMIT 20;"
                         patron = f'%{termino_busqueda}%'
                         cur.execute(query_clientes, (patron,))
@@ -133,24 +129,20 @@ def registrar_pago(client_id):
             balance_regresivo_actual = Decimal(cliente['balance_regresivo'] or 0)
             cuotas_regresivas_actuales = cliente['cuotas_pagadas_regresivas'] or 0
             
-            # **** ¡NUEVA LÓGICA DE NEGOCIO! ****
             monto_necesario_progresiva = valor_cuota - balance_regresivo_actual
             nuevas_cuotas_progresivas = cuotas_progresivas_actuales
             nuevo_balance_regresivo = balance_regresivo_actual
             cuotas_cubiertas_este_pago = 0
 
             if monto_pagado_usd >= monto_necesario_progresiva:
-                # El pago es suficiente para cubrir al menos la cuota progresiva actual
                 nuevas_cuotas_progresivas += 1
                 excedente = monto_pagado_usd - monto_necesario_progresiva
                 nuevo_balance_regresivo = excedente
                 cuotas_cubiertas_este_pago = 1
             else:
-                # El pago no es suficiente, solo se suma al balance
                 nuevo_balance_regresivo += monto_pagado_usd
-                cuotas_cubiertas_este_pago = 0 # No se cubrió ninguna cuota completa
+                cuotas_cubiertas_este_pago = 0
 
-            # Lógica para cuotas regresivas con el excedente
             nuevas_cuotas_regresivas = cuotas_regresivas_actuales
             while nuevo_balance_regresivo >= valor_cuota:
                 nuevo_balance_regresivo -= valor_cuota
@@ -165,14 +157,16 @@ def registrar_pago(client_id):
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, cuotas_cubiertas, forma_pago, fecha_pago, 
                                         pago_en, por_concepto_de, referencia, banco, lugar_emision,
-                                        tasa_dia, monto_bs, estado_pago)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
+                                        tasa_dia, monto_bs, estado_pago,
+                                        cuotas_progresivas_al_pagar, cuotas_regresivas_al_pagar, balance_al_pagar)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
                 """
                 cur.execute(pago_query, (
                     client_id, pago_form['monto'], cuotas_cubiertas_este_pago, pago_form['forma_pago'], pago_form['fecha_pago'],
                     pago_form.get('pago_en'), pago_form['por_concepto_de'],
                     pago_form['referencia'], pago_form['banco'], pago_form['lugar_emision'],
-                    pago_form.get('tasa_dia'), pago_form.get('monto_bs'), pago_form.get('estado_pago')
+                    pago_form.get('tasa_dia'), pago_form.get('monto_bs'), pago_form.get('estado_pago'),
+                    nuevas_cuotas_progresivas, nuevas_cuotas_regresivas, nuevo_balance_regresivo
                 ))
                 nuevo_pago_id = cur.fetchone()[0]
                 conn.commit()
@@ -193,8 +187,11 @@ def ver_recibo(pago_id):
     if not conn: return redirect(url_for('consulta'))
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         query = """
-            SELECT p.*, c.nombre_apellido, c.cedula, c.balance_regresivo, 
-                   c.cuotas_pagadas_progresivas, c.cuotas_pagadas_regresivas, c.cuotas_totales, c.valor_cuota
+            SELECT p.*, 
+                   c.nombre_apellido, c.cedula, c.cuotas_totales, c.valor_cuota,
+                   p.cuotas_progresivas_al_pagar AS cuotas_pagadas_progresivas, 
+                   p.cuotas_regresivas_al_pagar AS cuotas_pagadas_regresivas,
+                   p.balance_al_pagar AS balance_regresivo
             FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
             WHERE p.id = %s;
         """
