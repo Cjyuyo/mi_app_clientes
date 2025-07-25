@@ -69,14 +69,11 @@ def registrar_cliente():
 def consulta():
     clientes_encontrados = []
     mensaje_error = None
-    
-    # CORRECCIÓN: Aceptar término de búsqueda desde el formulario (POST) o la URL (GET)
     if request.method == 'POST':
         termino_busqueda = request.form.get('busqueda', '').strip()
     else:
         termino_busqueda = request.args.get('busqueda', '').strip()
 
-    # Solo ejecutar la búsqueda si hay un término
     if termino_busqueda:
         conn = get_db()
         if not conn:
@@ -99,9 +96,7 @@ def consulta():
                             clientes_encontrados.append(cliente_dict)
             except psycopg2.Error as e:
                 mensaje_error = f"Error al consultar la base de datos: {e}"
-    
     return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda)
-
 
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 def registrar_pago(client_id):
@@ -130,16 +125,23 @@ def registrar_pago(client_id):
             cuotas_regresivas_actuales = cliente['cuotas_pagadas_regresivas'] or 0
 
             monto_total_disponible = monto_pagado_usd + balance_regresivo_actual
+            
+            # 1. Calcular cuotas progresivas
             cuotas_cubiertas_con_pago = int(monto_total_disponible // valor_cuota)
             nuevas_cuotas_progresivas = cuotas_progresivas_actuales + cuotas_cubiertas_con_pago
+            
+            # 2. Calcular el nuevo balance (excedente)
             nuevo_balance_regresivo = monto_total_disponible % valor_cuota
             
+            # **** ¡LÓGICA DE CUOTAS REGRESIVAS AQUÍ! ****
+            # 3. Usar el excedente para pagar cuotas regresivas
             nuevas_cuotas_regresivas = cuotas_regresivas_actuales
             while nuevo_balance_regresivo >= valor_cuota:
                 nuevo_balance_regresivo -= valor_cuota
                 nuevas_cuotas_regresivas += 1
 
             with conn.cursor() as cur:
+                # 4. Actualizar todos los valores en la base de datos
                 update_query = "UPDATE clientes SET cuotas_pagadas_progresivas = %s, balance_regresivo = %s, cuotas_pagadas_regresivas = %s WHERE id = %s;"
                 cur.execute(update_query, (nuevas_cuotas_progresivas, nuevo_balance_regresivo, nuevas_cuotas_regresivas, client_id))
 
@@ -175,9 +177,10 @@ def ver_recibo(pago_id):
     conn = get_db()
     if not conn: return redirect(url_for('consulta'))
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        # CORRECCIÓN: Se obtienen todos los datos del cliente para mostrar el estado de cuenta actualizado.
         query = """
             SELECT p.*, c.nombre_apellido, c.cedula, c.balance_regresivo, 
-                   c.cuotas_pagadas_progresivas, c.cuotas_pagadas_regresivas, c.cuotas_totales 
+                   c.cuotas_pagadas_progresivas, c.cuotas_pagadas_regresivas, c.cuotas_totales, c.valor_cuota
             FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
             WHERE p.id = %s;
         """
@@ -186,6 +189,7 @@ def ver_recibo(pago_id):
     if not pago:
         flash('Recibo no encontrado.', 'error')
         return redirect(url_for('consulta'))
+    # El objeto 'pago' ahora contiene los campos del cliente gracias al JOIN
     return render_template('recibo.html', pago=pago)
 
 @app.route('/edit/<int:client_id>', methods=['GET', 'POST'])
@@ -193,7 +197,6 @@ def edit_client(client_id):
     conn = get_db()
     if not conn: return redirect(url_for('consulta'))
     
-    # Obtener cliente para el formulario y para el botón de cancelar
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         cur.execute("SELECT * FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
@@ -218,7 +221,6 @@ def edit_client(client_id):
                 cur.execute(update_query, form_data)
                 conn.commit()
                 flash('¡Cliente actualizado exitosamente!', 'success')
-                # CORRECCIÓN: Redirigir de vuelta a la vista del cliente
                 return redirect(url_for('consulta', busqueda=cliente['cedula']))
         except (psycopg2.Error, ValueError) as e:
             conn.rollback()

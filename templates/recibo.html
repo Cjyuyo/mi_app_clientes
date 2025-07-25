@@ -14,7 +14,7 @@
         .comprobante-box .recibo-numero { color: red; font-size: 20px; font-weight: bold; }
         .cuerpo { margin-top: 20px; }
         .linea { display: flex; align-items: center; margin-bottom: 15px; }
-        .linea label { font-weight: bold; min-width: 150px; }
+        .linea label { font-weight: bold; min-width: 200px; } /* Aumentado para mejor alineación */
         .linea span { border-bottom: 1px dotted #333; flex-grow: 1; padding: 5px; }
         .footer { display: flex; justify-content: space-around; margin-top: 60px; }
         .firma { text-align: center; border-top: 1px solid #333; padding-top: 10px; width: 250px; }
@@ -67,7 +67,7 @@
                 <label>Cuotas Pagadas (Regresivas):</label><span>{{ pago.cuotas_pagadas_regresivas or 0 }}</span>
             </div>
             <div class="linea">
-                <label>Balance a Favor:</label><span>${{ "%.2f"|format(pago.balance_regresivo) if pago.balance_regresivo is not none else '0.00' }}</span>
+                <label>Balance a Favor:</label><span>${{ "%.2f"|format(pago.balance_regresivo) if pago.balance_regresivo is not none else '0.00' }} de ${{ "%.2f"|format(pago.valor_cuota) }}</span>
             </div>
         </div>
 
@@ -90,7 +90,6 @@
 </div>
 <div class="actions">
     <a href="javascript:window.print()" class="btn">Imprimir / Guardar</a>
-    <!-- CORRECCIÓN: El botón Volver ahora regresa a la vista del cliente -->
     <a href="{{ url_for('consulta', busqueda=pago.cedula) }}" class="btn">Volver a Consulta</a>
 </div>
 </body>

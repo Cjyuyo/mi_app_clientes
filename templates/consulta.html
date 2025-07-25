@@ -26,7 +26,7 @@
         .btn-pago { background-color: #28a745; color: white; padding: 8px 12px; border-radius: 5px; text-decoration: none; font-size: .9em; }
         .btn-edit { background-color: #ffc107; color: #212529; padding: 8px 12px; border-radius: 5px; text-decoration: none; font-size: .9em; }
         .delete-button { background-color: #dc3545; color: white; padding: 8px 12px; border: none; border-radius: 5px; cursor: pointer; font-size: .9em; }
-        .progress-bar { background-color: #e9ecef; border-radius: .25rem; height: 1.5rem; display: flex; margin-top: 5px; }
+        .progress-bar { background-color: #e9ecef; border-radius: .25rem; height: 1.5rem; display: flex; margin-top: 5px; overflow: hidden; }
         .progress-bar-fill { background-color: #28a745; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.9em; font-weight: bold; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 8px; border: 1px solid #ddd; text-align: left; }
@@ -104,7 +104,7 @@
                 <h3>Historial de Pagos</h3>
                 {% if cliente.pagos %}
                     <table>
-                        <thead><tr><th>Fecha</th><th>Monto</th><th>Cuotas Cubiertas</th><th>Recibo #</th><th>Forma de Pago</th><th>Acción</th></tr></thead>
+                        <thead><tr><th>Fecha</th><th>Monto (USD)</th><th>Cuotas Cubiertas</th><th>Recibo #</th><th>Estado</th><th>Acción</th></tr></thead>
                         <tbody>
                         {% for pago in cliente.pagos %}
                             <tr>
@@ -112,7 +112,7 @@
                                 <td>${{ "%.2f"|format(pago.monto) }}</td>
                                 <td>{{ pago.cuotas_cubiertas }}</td>
                                 <td>{{ pago.recibo }}</td>
-                                <td>{{ pago.forma_pago }}</td>
+                                <td>{{ pago.estado_pago }}</td>
                                 <td><a href="{{ url_for('ver_recibo', pago_id=pago.id) }}">Ver Recibo</a></td>
                             </tr>
                         {% endfor %}
