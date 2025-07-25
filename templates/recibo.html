@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -46,7 +46,7 @@
             <label>La Cantidad de:</label><span>{{ pago.cantidad_en_letras }}</span>
         </div>
         
-        <!-- Nueva sección para mostrar datos de conciliación si existen -->
+        <!-- Sección para mostrar datos de conciliación si existen -->
         {% if pago.referencia_usd and pago.tasa_dia %}
         <div style="border: 1px solid #eee; padding: 10px; margin: 15px 0; border-radius: 5px;">
             <h4 style="margin-top:0; color: #333;">Detalles de Conciliación</h4>
@@ -58,7 +58,7 @@
             </div>
             {% if pago.monto_bs %}
             <div class="linea">
-                <label>Monto Equivalente:</label><span>Bs. {{ "%.2f"|format(pago.monto_bs) }}</span>
+                <label>Monto Pagado:</label><span>Bs. {{ "%.2f"|format(pago.monto_bs) }}</span>
             </div>
             {% endif %}
         </div>
