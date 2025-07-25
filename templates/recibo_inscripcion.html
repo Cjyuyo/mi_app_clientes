@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recibo de Ingreso Inscripción N° {{ pago.recibo }}</title>
+    <style>
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 40px;
+            border: 1px solid #ccc;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+        }
+        .logo-info {
+            flex: 2;
+        }
+        .logo-info h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+            color: #0056b3;
+        }
+        .logo-info p {
+            margin: 2px 0;
+            font-size: 12px;
+        }
+        .recibo-box {
+            flex: 1;
+            border: 1px solid #333;
+            padding: 5px;
+            text-align: center;
+        }
+        .recibo-box h2 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            background-color: #eee;
+            padding: 5px;
+        }
+        .recibo-box p {
+            margin: 5px 0;
+            font-size: 20px;
+            font-weight: bold;
+            color: #d9534f;
+        }
+        .section {
+            margin-top: 25px;
+            font-size: 14px;
+        }
+        .info-line {
+            border-bottom: 1px dotted #999;
+            padding: 8px 0;
+            display: flex;
+        }
+        .info-line strong {
+            margin-right: 10px;
+        }
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 12px;
+            color: #777;
+        }
+        .actions-seccion {
+            text-align: center; 
+            margin-top: 30px; 
+            padding-top: 20px; 
+            border-top: 1px solid #ccc;
+        }
+        .actions-seccion button, .actions-seccion a {
+            display: inline-block;
+            text-decoration: none;
+            color: white !important; 
+            padding: 12px 25px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 16px;
+            font-weight: bold;
+            margin: 5px;
+        }
+        .btn-volver { background-color: #007bff; }
+        .btn-imprimir { background-color: #6c757d; }
+
+        @media print {
+            body { background-color: #fff; }
+            .container { box-shadow: none; border: none; }
+            .actions-seccion { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo-info">
+                <h1>MOTO PLAN <span style="font-weight:normal; color:#333;">MOTORS C.A</span></h1>
+                <p>¡VIVE TUS SUEÑOS!</p>
+                <p>Calle 31 Con Avenida Libertador Edf Doña Tina Piso PA Of 7 Sector Centro</p>
+                <p>Acarigua Portuguesa - R.I.F.: J-50408559-1 - 0426-215.26.82</p>
+            </div>
+            <div class="recibo-box">
+                <h2>Recibo de Ingreso Inscripción</h2>
+                <p>N° {{ pago.recibo }}</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="info-line">
+                <strong>Hemos Recibido de:</strong> {{ cliente.nombre_apellido }}
+            </div>
+            <div class="info-line">
+                <strong>C.I. o R.I.F.:</strong> {{ cliente.cedula }}
+            </div>
+            <div class="info-line">
+                <strong>La Cantidad de:</strong> ${{ "%.2f"|format(pago.monto) }}
+            </div>
+            <div class="info-line">
+                <strong>Por Concepto De:</strong> Gastos administrativos y operativos. Inscripción al plan: {{ cliente.plan_contratado or 'N/A' }}.
+            </div>
+        </div>
+        
+        <div class="section">
+             <div class="info-line">
+                <strong>Fecha de Pago:</strong> {{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }}
+            </div>
+             <div class="info-line">
+                <strong>Lugar de Emisión:</strong> {{ pago.lugar_emision or 'N/A' }}
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Monto cancelado no será devuelto bajo ningún concepto una vez preparado el contrato.</p>
+            <p style="margin-top: 50px;">_________________________<br>Firma Autorizada</p>
+        </div>
+
+        <div class="actions-seccion">
+            <button class="btn-imprimir" onclick="window.print()">Imprimir / Guardar</button>
+            <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="btn-volver">Volver a Consulta</a>
+        </div>
+    </div>
+</body>
+</html>

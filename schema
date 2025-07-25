@@ -6,7 +6,7 @@ DROP SEQUENCE IF EXISTS recibo_numero_seq;
 -- Secuencia para generar números de recibo únicos y consecutivos.
 CREATE SEQUENCE recibo_numero_seq START WITH 10612;
 
--- Tabla de clientes (sin cambios)
+-- Tabla de clientes con nuevo campo para el pago de la inscripción
 CREATE TABLE clientes (
   id SERIAL PRIMARY KEY,
   cedula TEXT UNIQUE NOT NULL,
@@ -25,6 +25,7 @@ CREATE TABLE clientes (
   estatus_1 TEXT,
   observacion TEXT,
   inscripcion_monto NUMERIC(12, 2) DEFAULT 0.0,
+  inscripcion_pagada NUMERIC(12, 2) DEFAULT 0.0, -- NUEVO CAMPO
   valor_cuota NUMERIC(12, 2) DEFAULT 0.0,
   valor_cancelado NUMERIC(12, 2) DEFAULT 0.0,
   balance_regresivo NUMERIC(12, 2) DEFAULT 0.0,
@@ -34,13 +35,14 @@ CREATE TABLE clientes (
   cuotas_en_mora INTEGER DEFAULT 0
 );
 
--- Tabla de pagos con el campo 'cantidad_en_letras' eliminado.
+-- Tabla de pagos con nuevo campo para el tipo de pago
 CREATE TABLE pagos (
   id SERIAL PRIMARY KEY,
   cliente_id INTEGER NOT NULL,
-  recibo INTEGER NOT NULL DEFAULT nextval('recibo_numero_seq'),
-  monto NUMERIC(12, 2) NOT NULL, -- Este será el monto en USD
-  cuotas_cubiertas INTEGER NOT NULL,
+  recibo INTEGER, -- Ya no es NOT NULL, se asigna en la conciliación
+  monto NUMERIC(12, 2) NOT NULL,
+  tipo_pago TEXT NOT NULL, -- NUEVO CAMPO: 'Inscripción' o 'Cuota'
+  cuotas_cubiertas INTEGER NOT NULL DEFAULT 0,
   forma_pago TEXT NOT NULL,
   fecha_pago DATE NOT NULL,
   pago_en TEXT,
@@ -48,10 +50,17 @@ CREATE TABLE pagos (
   referencia TEXT,
   banco TEXT,
   lugar_emision TEXT,
-  -- Campos para Conciliación
   tasa_dia NUMERIC(12, 2),
   monto_bs NUMERIC(12, 2),
   estado_pago TEXT,
   fecha_registro TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  -- Campos que se llenan al conciliar
+  cuotas_progresivas_al_pagar INTEGER,
+  cuotas_regresivas_al_pagar INTEGER,
+  balance_al_pagar NUMERIC(12, 2),
   FOREIGN KEY (cliente_id) REFERENCES clientes (id) ON DELETE CASCADE
 );
+
+-- Asignar la secuencia al campo recibo de la tabla pagos
+ALTER TABLE pagos ALTER COLUMN recibo SET NOT NULL;
+ALTER TABLE pagos ALTER COLUMN recibo SET DEFAULT nextval('recibo_numero_seq');

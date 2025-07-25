@@ -19,6 +19,7 @@
         .full-width { grid-column: 1 / -1; }
         .mensaje { margin-bottom: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
         .error { color: #D8000C; background-color: #FFD2D2; }
+        .info-box { background-color: #e7f3fe; border-left: 6px solid #2196F3; padding: 15px; margin-top: 10px; }
         @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } body { padding: 10px; } }
     </style>
 </head>
@@ -32,9 +33,20 @@
       {% endif %}
     {% endwith %}
     <h1>Registrar Pago <span>Para: {{ cliente.nombre_apellido }}</span></h1>
+
+    <div class="info-box">
+        <strong>Estado de Inscripción:</strong> 
+        Pagado ${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} de ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}.
+    </div>
+
     <form action="{{ url_for('registrar_pago', client_id=cliente.id) }}" method="POST">
         <div class="form-grid">
             <div>
+                <label>Tipo de Pago:</label>
+                <select name="tipo_pago" required>
+                    <option value="Inscripción">Inscripción</option>
+                    <option value="Cuota">Cuota</option>
+                </select>
                 <label>Monto del Pago (en USD):</label>
                 <input type="number" step="0.01" name="monto" id="monto_usd" required>
                 <label>Tasa del Día (BCV):</label>
