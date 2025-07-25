@@ -138,6 +138,7 @@
         .btn-pago { background-color: #28a745; }
         .btn-delete { background-color: #dc3545; }
         .btn-ver-recibo { background-color: #17a2b8; }
+        .btn-finalizar { background-color: #007bff; } /* Estilo para el botón restaurado */
         .flash-error, .flash-success, .flash-warning {
             padding: 15px;
             margin-bottom: 20px;
@@ -193,6 +194,8 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <h4>Datos Generales del Cliente (ID: {{ cliente.id }})</h4>
                     <div>
+                        <!-- BOTÓN RESTAURADO -->
+                        <a href="{{ url_for('consulta') }}" class="btn btn-finalizar">Finalizar Consulta</a>
                         <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-edit">Editar</a>
                         <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-pago">Registrar Pago</a>
                         <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente y todos sus pagos? Esta acción no se puede deshacer.');">
