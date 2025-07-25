@@ -43,7 +43,6 @@
             <label style="min-width: 80px; text-align: right; margin-right: 10px;">C.I. o R.I.F.:</label><span>{{ pago.cedula or 'N/A' }}</span>
         </div>
         
-        <!-- Sección para mostrar datos de conciliación si existen -->
         <div style="border: 1px solid #eee; padding: 10px; margin: 15px 0; border-radius: 5px;">
             <h4 style="margin-top:0; color: #333;">Detalles del Pago</h4>
             <div class="linea">
@@ -59,12 +58,24 @@
             {% endif %}
         </div>
 
+        <div style="border: 1px solid #eee; padding: 10px; margin: 15px 0; border-radius: 5px;">
+            <h4 style="margin-top:0; color: #333;">Estado de Cuenta Actualizado</h4>
+            <div class="linea">
+                <label>Cuotas Pagadas (Progresivas):</label><span>{{ pago.cuotas_pagadas_progresivas or 0 }} de {{ pago.cuotas_totales or 'N/A' }}</span>
+            </div>
+            <div class="linea">
+                <label>Cuotas Pagadas (Regresivas):</label><span>{{ pago.cuotas_pagadas_regresivas or 0 }}</span>
+            </div>
+            <div class="linea">
+                <label>Balance a Favor:</label><span>${{ "%.2f"|format(pago.balance_regresivo) if pago.balance_regresivo is not none else '0.00' }}</span>
+            </div>
+        </div>
+
         <div class="linea">
             <label>Por Concepto de:</label><span>{{ pago.por_concepto_de }}</span>
         </div>
         <div class="linea">
             <label>Forma de Pago:</label><span>{{ pago.forma_pago }}</span>
-            <!-- CAMPO "PAGO EN" RESTAURADO -->
             <label style="min-width: 80px; text-align: right; margin-right: 10px;">Pago en:</label><span>{{ pago.pago_en or 'N/A' }}</span>
         </div>
         <div class="linea">
@@ -79,7 +90,8 @@
 </div>
 <div class="actions">
     <a href="javascript:window.print()" class="btn">Imprimir / Guardar</a>
-    <a href="{{ url_for('consulta') }}" class="btn">Volver a Consulta</a>
+    <!-- CORRECCIÓN: El botón Volver ahora regresa a la vista del cliente -->
+    <a href="{{ url_for('consulta', busqueda=pago.cedula) }}" class="btn">Volver a Consulta</a>
 </div>
 </body>
 </html>

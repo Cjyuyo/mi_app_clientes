@@ -58,7 +58,8 @@
                 </div>
             </div>
             <div class="button-group">
-                <a href="{{ url_for('consulta') }}" class="btn btn-secondary">Cancelar</a>
+                <!-- CORRECCIÓN: El botón Cancelar ahora regresa a la vista del cliente -->
+                <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="btn btn-secondary">Cancelar</a>
                 <button type="submit" class="btn btn-primary">Guardar Cambios</button>
             </div>
         </div>

@@ -69,33 +69,39 @@ def registrar_cliente():
 def consulta():
     clientes_encontrados = []
     mensaje_error = None
-    termino_busqueda = request.form.get('busqueda', '').strip()
+    
+    # CORRECCIÓN: Aceptar término de búsqueda desde el formulario (POST) o la URL (GET)
     if request.method == 'POST':
-        if not termino_busqueda:
-            mensaje_error = "Por favor, ingrese un término para buscar."
+        termino_busqueda = request.form.get('busqueda', '').strip()
+    else:
+        termino_busqueda = request.args.get('busqueda', '').strip()
+
+    # Solo ejecutar la búsqueda si hay un término
+    if termino_busqueda:
+        conn = get_db()
+        if not conn:
+            mensaje_error = "Error de conexión a la base de datos."
         else:
-            conn = get_db()
-            if not conn:
-                mensaje_error = "Error de conexión a la base de datos."
-            else:
-                try:
-                    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                        query_clientes = "SELECT * FROM clientes WHERE cedula LIKE %s OR nombre_apellido ILIKE %s ORDER BY nombre_apellido LIMIT 20;"
-                        patron = f'%{termino_busqueda}%'
-                        cur.execute(query_clientes, (patron, patron))
-                        clientes_raw = cur.fetchall()
-                        if not clientes_raw:
-                            mensaje_error = "🚫 No se encontraron clientes que coincidan con su búsqueda."
-                        else:
-                            for cliente in clientes_raw:
-                                cliente_dict = dict(cliente)
-                                query_pagos = "SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC"
-                                cur.execute(query_pagos, (cliente_dict['id'],))
-                                cliente_dict['pagos'] = cur.fetchall()
-                                clientes_encontrados.append(cliente_dict)
-                except psycopg2.Error as e:
-                    mensaje_error = f"Error al consultar la base de datos: {e}"
+            try:
+                with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+                    query_clientes = "SELECT * FROM clientes WHERE cedula LIKE %s OR nombre_apellido ILIKE %s ORDER BY nombre_apellido LIMIT 20;"
+                    patron = f'%{termino_busqueda}%'
+                    cur.execute(query_clientes, (patron, patron))
+                    clientes_raw = cur.fetchall()
+                    if not clientes_raw:
+                        mensaje_error = "🚫 No se encontraron clientes que coincidan con su búsqueda."
+                    else:
+                        for cliente in clientes_raw:
+                            cliente_dict = dict(cliente)
+                            query_pagos = "SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC"
+                            cur.execute(query_pagos, (cliente_dict['id'],))
+                            cliente_dict['pagos'] = cur.fetchall()
+                            clientes_encontrados.append(cliente_dict)
+            except psycopg2.Error as e:
+                mensaje_error = f"Error al consultar la base de datos: {e}"
+    
     return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda)
+
 
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 def registrar_pago(client_id):
@@ -124,23 +130,16 @@ def registrar_pago(client_id):
             cuotas_regresivas_actuales = cliente['cuotas_pagadas_regresivas'] or 0
 
             monto_total_disponible = monto_pagado_usd + balance_regresivo_actual
-            
-            # 1. Calcular cuotas progresivas
             cuotas_cubiertas_con_pago = int(monto_total_disponible // valor_cuota)
             nuevas_cuotas_progresivas = cuotas_progresivas_actuales + cuotas_cubiertas_con_pago
-            
-            # 2. Calcular el nuevo balance (excedente)
             nuevo_balance_regresivo = monto_total_disponible % valor_cuota
             
-            # **** ¡LÓGICA DE CUOTAS REGRESIVAS AQUÍ! ****
-            # 3. Usar el excedente para pagar cuotas regresivas
             nuevas_cuotas_regresivas = cuotas_regresivas_actuales
             while nuevo_balance_regresivo >= valor_cuota:
                 nuevo_balance_regresivo -= valor_cuota
                 nuevas_cuotas_regresivas += 1
 
             with conn.cursor() as cur:
-                # 4. Actualizar todos los valores en la base de datos
                 update_query = "UPDATE clientes SET cuotas_pagadas_progresivas = %s, balance_regresivo = %s, cuotas_pagadas_regresivas = %s WHERE id = %s;"
                 cur.execute(update_query, (nuevas_cuotas_progresivas, nuevo_balance_regresivo, nuevas_cuotas_regresivas, client_id))
 
@@ -193,6 +192,15 @@ def ver_recibo(pago_id):
 def edit_client(client_id):
     conn = get_db()
     if not conn: return redirect(url_for('consulta'))
+    
+    # Obtener cliente para el formulario y para el botón de cancelar
+    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        cur.execute("SELECT * FROM clientes WHERE id = %s", (client_id,))
+        cliente = cur.fetchone()
+    if not cliente:
+        flash('Cliente no encontrado.', 'error')
+        return redirect(url_for('consulta'))
+
     if request.method == 'POST':
         form_data = {k: v if v else None for k, v in request.form.items()}
         form_data['id'] = client_id
@@ -210,16 +218,12 @@ def edit_client(client_id):
                 cur.execute(update_query, form_data)
                 conn.commit()
                 flash('¡Cliente actualizado exitosamente!', 'success')
-                return redirect(url_for('consulta'))
+                # CORRECCIÓN: Redirigir de vuelta a la vista del cliente
+                return redirect(url_for('consulta', busqueda=cliente['cedula']))
         except (psycopg2.Error, ValueError) as e:
             conn.rollback()
             flash(f'Ocurrió un error al actualizar: {e}', 'error')
-    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        cur.execute("SELECT * FROM clientes WHERE id = %s", (client_id,))
-        cliente = cur.fetchone()
-    if not cliente:
-        flash('Cliente no encontrado.', 'error')
-        return redirect(url_for('consulta'))
+    
     return render_template('edit_cliente.html', cliente=cliente)
 
 @app.route('/delete/<int:client_id>', methods=['POST'])
