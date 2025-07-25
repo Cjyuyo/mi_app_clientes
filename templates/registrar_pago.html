@@ -43,8 +43,15 @@
                 <input type="number" step="0.01" id="monto_bs_calculado" name="monto_bs" readonly style="background-color: #e9ecef;">
             </div>
             <div>
+                <!-- CAMPO "PAGO EN" RESTAURADO -->
+                <label>Pago en:</label>
+                <select name="pago_en" required>
+                    <option value="Divisas">Divisas</option>
+                    <option value="Bolívares">Bolívares</option>
+                    <option value="USDT">USDT</option>
+                </select>
                 <label>Forma de Pago:</label>
-                <select name="forma_pago" required><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option><option value="Pago Móvil">Pago Móvil</option></select>
+                <select name="forma_pago" required><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option><option value="Pago Móvil">Pago Móvil</option><option value="Zelle">Zelle</option></select>
                 <label>Banco:</label><input type="text" name="banco">
                 <label>Referencia:</label><input type="text" name="referencia">
             </div>
@@ -97,5 +104,93 @@
     montoUsdInput.addEventListener('input', calcularMontoBs);
     tasaDiaInput.addEventListener('input', calcularMontoBs);
 </script>
+</body>
+</html>
+
+---
+<!-- templates/recibo.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Comprobante de Ingreso</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f0f2f5; }
+        .recibo-container { width: 800px; margin: 40px auto; border: 1px solid #ccc; padding: 30px; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #333; padding-bottom: 15px; }
+        .logo-info { font-size: 12px; }
+        .logo-info h2 { margin: 0; font-size: 24px; }
+        .comprobante-box { border: 2px solid #333; padding: 10px; text-align: center; }
+        .comprobante-box h3 { margin: 0; font-weight: bold; }
+        .comprobante-box .recibo-numero { color: red; font-size: 20px; font-weight: bold; }
+        .cuerpo { margin-top: 20px; }
+        .linea { display: flex; align-items: center; margin-bottom: 15px; }
+        .linea label { font-weight: bold; min-width: 150px; }
+        .linea span { border-bottom: 1px dotted #333; flex-grow: 1; padding: 5px; }
+        .footer { display: flex; justify-content: space-around; margin-top: 60px; }
+        .firma { text-align: center; border-top: 1px solid #333; padding-top: 10px; width: 250px; }
+        .actions { text-align: center; margin-top: 30px; }
+        .btn { display: inline-block; padding: 12px 25px; background-color: #007bff; color: white; text-align: center; text-decoration: none; border-radius: 5px; margin: 0 10px; font-size: 1.1em; }
+        @media print { .actions { display: none; } .recibo-container { box-shadow: none; border: none; margin: 0; width: 100%; } }
+    </style>
+</head>
+<body>
+<div class="recibo-container">
+    <div class="header">
+        <div class="logo-info">
+            <h2>MOTO PLAN MOTORS C.A</h2>
+            <p>¡VIVE TUS SUEÑOS!</p>
+            <p>Calle 31 Con Avenida Libertador Edif Doña Tina Piso PA OF 7 Sector Centro<br>Acarigua Portuguesa - R.I.F.: J - 50408959-1 - 📞 0426-215.26.82</p>
+        </div>
+        <div class="comprobante-box">
+            <h3>COMPROBANTE DE INGRESO</h3>
+            <p>Estado: {{ pago.estado_pago or 'N/A' }}</p>
+            <p>Nº <span class="recibo-numero">{{ pago.recibo }}</span></p>
+        </div>
+    </div>
+    <div class="cuerpo">
+        <div class="linea">
+            <label>Hemos Recibido de:</label><span>{{ pago.nombre_apellido }}</span>
+            <label style="min-width: 80px; text-align: right; margin-right: 10px;">C.I. o R.I.F.:</label><span>{{ pago.cedula or 'N/A' }}</span>
+        </div>
+        
+        <!-- Sección para mostrar datos de conciliación si existen -->
+        <div style="border: 1px solid #eee; padding: 10px; margin: 15px 0; border-radius: 5px;">
+            <h4 style="margin-top:0; color: #333;">Detalles del Pago</h4>
+            <div class="linea">
+                <label>Monto Pagado (USD):</label><span>${{ "%.2f"|format(pago.monto) }}</span>
+            </div>
+            {% if pago.tasa_dia and pago.monto_bs %}
+            <div class="linea">
+                <label>Tasa del Día:</label><span>Bs. {{ "%.2f"|format(pago.tasa_dia) }}</span>
+            </div>
+            <div class="linea">
+                <label>Monto Equivalente:</label><span>Bs. {{ "%.2f"|format(pago.monto_bs) }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="linea">
+            <label>Por Concepto de:</label><span>{{ pago.por_concepto_de }}</span>
+        </div>
+        <div class="linea">
+            <label>Forma de Pago:</label><span>{{ pago.forma_pago }}</span>
+            <!-- CAMPO "PAGO EN" RESTAURADO -->
+            <label style="min-width: 80px; text-align: right; margin-right: 10px;">Pago en:</label><span>{{ pago.pago_en or 'N/A' }}</span>
+        </div>
+        <div class="linea">
+            <label>Referencia:</label><span>{{ pago.referencia or 'N/A' }}</span>
+            <label style="min-width: 80px; text-align: right; margin-right: 10px;">Banco:</label><span>{{ pago.banco or 'N/A' }}</span>
+        </div>
+    </div>
+    <div class="footer">
+        <div class="firma">Firma del Cliente</div>
+        <div class="firma">Firma Autorizada</div>
+    </div>
+</div>
+<div class="actions">
+    <a href="javascript:window.print()" class="btn">Imprimir / Guardar</a>
+    <a href="{{ url_for('consulta') }}" class="btn">Volver a Consulta</a>
+</div>
 </body>
 </html>
