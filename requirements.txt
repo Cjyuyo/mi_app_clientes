@@ -1,0 +1,8 @@
+Flask
+gunicorn
+psycopg2-binary
+Flask-SQLAlchemy
+Flask-Migrate
+python-dotenv
+pandas
+tqdm
