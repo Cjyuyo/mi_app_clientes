@@ -67,9 +67,17 @@ def calcular_estado_de_cuenta(cliente):
         balance_a_favor = (cuotas_pagadas_float - cuotas_progresivas) * valor_cuota
     inscripcion_monto = cliente.inscripcion_monto or 0
     valor_cancelado = inscripcion_monto + total_pagado
+    # Re-calculamos el progreso para la plantilla
+    progreso_progresivas = 0
+    progreso_balance = 0
+    if valor_cuota and valor_cuota > 0 and cuotas_totales and cuotas_totales > 0:
+        progreso_progresivas = (cuotas_progresivas / cuotas_totales) * 100
+        progreso_balance = (balance_a_favor / valor_cuota) * 100
+    
     return {
         "cuotas_progresivas": cuotas_progresivas, "balance_a_favor": balance_a_favor,
-        "valor_cancelado": valor_cancelado, "cuotas_totales": cuotas_totales
+        "valor_cancelado": valor_cancelado, "cuotas_totales": cuotas_totales,
+        "progreso_progresivas": progreso_progresivas, "progreso_balance": progreso_balance
     }
 
 # --- Rutas de la Aplicación ---
@@ -110,13 +118,7 @@ def consulta_clientes():
 def detalle_cliente(id_cliente):
     cliente = Cliente.query.get_or_404(id_cliente)
     estado_cuenta = calcular_estado_de_cuenta(cliente)
-    # Re-calculamos el progreso para la plantilla
-    progreso_progresivas = 0
-    progreso_balance = 0
-    if cliente.valor_cuota and cliente.valor_cuota > 0 and cliente.cuotas_totales and cliente.cuotas_totales > 0:
-        progreso_progresivas = (estado_cuenta['cuotas_progresivas'] / cliente.cuotas_totales) * 100
-        progreso_balance = (estado_cuenta['balance_a_favor'] / cliente.valor_cuota) * 100
-    return render_template('consulta.html', cliente=cliente, **estado_cuenta, progreso_progresivas=progreso_progresivas, progreso_balance=progreso_balance)
+    return render_template('consulta.html', cliente=cliente, **estado_cuenta)
 
 @app.route('/editar/<id_cliente>', methods=['GET', 'POST'])
 def editar_cliente(id_cliente):
