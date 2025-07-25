@@ -10,10 +10,14 @@
         h1, h2 { color: #333; }
         form { margin-bottom: 20px; }
         input[type="text"], input[type="submit"] {
-            padding: 10px;
+            padding: 12px;
+            font-size: 16px;
             margin-right: 10px;
             border-radius: 5px;
             border: 1px solid #ccc;
+        }
+        input[type="text"]{
+            width: 400px;
         }
         input[type="submit"] { background-color: #007bff; color: white; cursor: pointer; }
         .cliente-card { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 5px; }
@@ -29,21 +33,22 @@
         .btn-edit { background-color: #ffc107; }
         .btn-delete { background-color: #dc3545; border: none; font-size: 14px; cursor: pointer; }
         
-        /* Estilos para la nueva sección de detalles del cliente */
+        /* --- MODIFICACIÓN REALIZADA --- */
+        /* Se han ajustado los estilos para mejorar la legibilidad y el espaciado */
         .cliente-details {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 10px;
-            padding: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 15px; /* Aumentado el espacio entre elementos */
+            padding: 20px; /* Aumentado el padding */
             background-color: #fafafa;
             border-top: 1px solid #eee;
             border-bottom: 1px solid #eee;
             margin-top: 15px;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
         .cliente-details p {
-            margin: 5px 0;
-            font-size: 14px;
+            margin: 8px 0;
+            font-size: 16px; /* Aumentado el tamaño de la fuente */
         }
 
         .pagos-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
