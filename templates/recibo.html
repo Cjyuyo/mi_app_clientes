@@ -2,115 +2,155 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Comprobante de Ingreso</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprobante de Ingreso N° {{ pago.id }}</title>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f0f2f5; }
-        .container { max-width: 800px; margin: 40px auto; }
-        .recibo-container { width: 100%; border: 1px solid #ccc; padding: 30px; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1); box-sizing: border-box; }
-        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #333; padding-bottom: 15px; }
-        .logo-info { font-size: 12px; }
-        .logo-info h2 { margin: 0; font-size: 24px; }
-        .comprobante-box { border: 2px solid #333; padding: 10px; text-align: center; }
-        .comprobante-box h3 { margin: 0; font-weight: bold; }
-        .comprobante-box .recibo-numero { color: red; font-size: 20px; font-weight: bold; }
-        .cuerpo { margin-top: 20px; }
-        .linea { display: flex; align-items: center; margin-bottom: 15px; }
-        .linea label { font-weight: bold; min-width: 200px; }
-        .linea span { border-bottom: 1px dotted #333; flex-grow: 1; padding: 5px; }
-        .footer { display: flex; justify-content: space-around; margin-top: 60px; }
-        .firma { text-align: center; border-top: 1px solid #333; padding-top: 10px; width: 250px; }
-        .actions { text-align: center; margin-top: 30px; }
-        .btn { display: inline-block; padding: 12px 25px; background-color: #007bff; color: white; text-align: center; text-decoration: none; border-radius: 5px; margin: 0 10px; font-size: 1.1em; }
-        .mensaje { margin-bottom: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
-        .success { color: #4F8A10; background-color: #DFF2BF; }
-        @media print { .actions, .mensaje { display: none; } .recibo-container { box-shadow: none; border: none; margin: 0; width: 100%; } }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            position: relative;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border: 1px solid #ddd;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header, .footer {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .header p {
+            margin: 5px 0;
+        }
+        .comprobante-box {
+            border: 2px solid black;
+            padding: 10px;
+            text-align: center;
+            width: 200px;
+            float: right;
+        }
+        .comprobante-box h2 {
+            margin: 0;
+            font-size: 16px;
+        }
+        .comprobante-box p {
+            margin: 5px 0;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .details, .estado-cuenta, .pago-info {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .details p, .estado-cuenta p, .pago-info p {
+            margin: 8px 0;
+        }
+        .details span, .estado-cuenta span, .pago-info span {
+            font-weight: bold;
+        }
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+        .anulado-watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            z-index: 1000;
+            opacity: 0.2;
+            text-align: center;
+        }
+        .anulado-watermark h1 {
+            font-size: 10rem;
+            color: red;
+            border: 15px solid red;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .anular-seccion {
+            text-align: center; 
+            margin-top: 30px; 
+            padding-top: 20px; 
+            border-top: 1px solid #ccc;
+        }
+        .anular-seccion button {
+            background-color: #dc3545; 
+            color: white; 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
-<div class="container">
-    <!-- BLOQUE PARA MOSTRAR MENSAJES DE ÉXITO -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="mensaje {{ category }}">{{ message }}</div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+    <div class="container">
+        
+        {% if pago.estado_pago == 'Anulado' %}
+        <div class="anulado-watermark">
+            <h1>ANULADO</h1>
+        </div>
+        {% endif %}
 
-    <div class="recibo-container">
-        <div class="header">
-            <div class="logo-info">
-                <h2>MOTO PLAN MOTORS C.A</h2>
-                <p>¡VIVE TUS SUEÑOS!</p>
-                <p>Calle 31 Con Avenida Libertador Edif Doña Tina Piso PA OF 7 Sector Centro<br>Acarigua Portuguesa - R.I.F.: J - 50408959-1 - 📞 0426-215.26.82</p>
-            </div>
+        <div class="header clearfix">
             <div class="comprobante-box">
-                <h3>COMPROBANTE DE INGRESO</h3>
-                <p>Estado: {{ pago.estado_pago or 'N/A' }}</p>
-                <p>Nº <span class="recibo-numero">{{ pago.recibo }}</span></p>
+                <h2>COMPROBANTE DE INGRESO</h2>
+                <p>Estado: {{ pago.estado_pago or 'Conciliado' }}</p>
+                <p>N° {{ pago.id }}</p>
             </div>
+            <h1>MOTO PLAN MOTORS C.A</h1>
+            <p>(VIVE TUS SUEÑOS)</p>
+            <p>Calle 31 Con Avenida Libertador Edf Doña Tina Piso PA Of 7 Sector Centro</p>
+            <p>Acarigua Portuguesa - R.I.F.: J- 50408559-1 - 0426-215.26.82</p>
         </div>
-        <div class="cuerpo">
-            <div class="linea">
-                <label>Hemos Recibido de:</label><span>{{ pago.nombre_apellido }}</span>
-                <label style="min-width: 80px; text-align: right; margin-right: 10px;">C.I. o R.I.F.:</label><span>{{ pago.cedula or 'N/A' }}</span>
-            </div>
-            
-            <div style="border: 1px solid #eee; padding: 10px; margin: 15px 0; border-radius: 5px;">
-                <h4 style="margin-top:0; color: #333;">Detalles del Pago</h4>
-                <div class="linea">
-                    <label>Monto Pagado (USD):</label><span>${{ "%.2f"|format(pago.monto) }}</span>
-                </div>
-                {% if pago.tasa_dia and pago.monto_bs %}
-                <div class="linea">
-                    <label>Tasa del Día:</label><span>Bs. {{ "%.2f"|format(pago.tasa_dia) }}</span>
-                </div>
-                <div class="linea">
-                    <label>Monto Equivalente:</label><span>Bs. {{ "%.2f"|format(pago.monto_bs) }}</span>
-                </div>
-                {% endif %}
-            </div>
 
-            <div style="border: 1px solid #eee; padding: 10px; margin: 15px 0; border-radius: 5px;">
-                <h4 style="margin-top:0; color: #333;">Estado de Cuenta Actualizado</h4>
-                <!-- Lógica de visualización corregida -->
-                {% set cuotas_totales = pago.cuotas_totales|int if pago.cuotas_totales else 0 %}
-                {% set cuotas_progresivas = pago.cuotas_pagadas_progresivas|int if pago.cuotas_pagadas_progresivas else 0 %}
-                {% set cuotas_regresivas = pago.cuotas_pagadas_regresivas|int if pago.cuotas_pagadas_regresivas else 0 %}
-                {% set cuotas_progresivas_pendientes = cuotas_totales - cuotas_regresivas %}
-
-                <div class="linea">
-                    <label>Cuotas Pagadas (Progresivas):</label><span>{{ cuotas_progresivas }} de {{ cuotas_progresivas_pendientes }}</span>
-                </div>
-                <div class="linea">
-                    <label>Cuotas Pagadas (Regresivas):</label><span>{{ cuotas_regresivas }}</span>
-                </div>
-                <div class="linea">
-                    <label>Balance a Favor:</label><span>${{ "%.2f"|format(pago.balance_regresivo) if pago.balance_regresivo is not none else '0.00' }} de ${{ "%.2f"|format(pago.valor_cuota) }}</span>
-                </div>
-            </div>
-
-            <div class="linea">
-                <label>Por Concepto de:</label><span>{{ pago.por_concepto_de }}</span>
-            </div>
-            <div class="linea">
-                <label>Forma de Pago:</label><span>{{ pago.forma_pago }}</span>
-                <label style="min-width: 80px; text-align: right; margin-right: 10px;">Pago en:</label><span>{{ pago.pago_en or 'N/A' }}</span>
-            </div>
-            <div class="linea">
-                <label>Referencia:</label><span>{{ pago.referencia or 'N/A' }}</span>
-                <label style="min-width: 80px; text-align: right; margin-right: 10px;">Banco:</label><span>{{ pago.banco or 'N/A' }}</span>
-            </div>
+        <div class="details">
+            <p><span>Hemos Recibido de:</span> {{ pago.nombre_apellido }}</p>
+            <p><span>C.I. o R.I.F.:</span> {{ pago.cedula }}</p>
         </div>
+
+        <div class="pago-info">
+            <h3>Detalles del Pago</h3>
+            <p><span>Monto Pagado (USD):</span> ${{ "%.2f"|format(pago.monto) }}</p>
+            <p><span>Por Concepto de:</span> {{ pago.por_concepto_de }}</p>
+            <p><span>Forma de Pago:</span> {{ pago.forma_pago }}</p>
+            <p><span>Pago en:</span> {{ pago.pago_en }}</p>
+            <p><span>Referencia:</span> {{ pago.referencia or 'N/A' }}</p>
+            <p><span>Banco:</span> {{ pago.banco or 'N/A' }}</p>
+        </div>
+
+        <div class="estado-cuenta">
+            <h3>Estado de Cuenta Actualizado</h3>
+            <p><span>Cuotas Pagadas (Progresivas):</span> {{ pago.cuotas_pagadas_progresivas or 0 }} de {{ pago.cuotas_totales or 'N/A' }}</p>
+            <p><span>Cuotas Pagadas (Regresivas):</span> {{ pago.cuotas_pagadas_regresivas or 0 }}</p>
+            <p><span>Balance a Favor:</span> ${{ "%.2f"|format(pago.balance_regresivo) }} de ${{ "%.2f"|format(pago.valor_cuota) }}</p>
+        </div>
+
         <div class="footer">
-            <div class="firma">Firma del Cliente</div>
-            <div class="firma">Firma Autorizada</div>
+            <p>Fecha de Emisión: {{ pago.fecha_pago.strftime('%d/%m/%Y') }}</p>
         </div>
+
+        {% if pago.estado_pago != 'Anulado' %}
+        <div class="anular-seccion">
+            <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo? Esta acción revertirá el pago y el estado de cuenta del cliente.');">
+                <button type="submit">Anular Recibo</button>
+            </form>
+        </div>
+        {% endif %}
+
     </div>
-    <div class="actions">
-        <a href="javascript:window.print()" class="btn">Imprimir / Guardar</a>
-        <a href="{{ url_for('consulta', busqueda=pago.cedula) }}" class="btn">Volver a Consulta</a>
-    </div>
-</div>
 </body>
 </html>

@@ -95,7 +95,8 @@ def consulta():
                     else:
                         for cliente in clientes_raw:
                             cliente_dict = dict(cliente)
-                            query_pagos = "SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC"
+                            # Ordena los pagos para que los más recientes aparezcan primero
+                            query_pagos = "SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC"
                             cur.execute(query_pagos, (cliente_dict['id'],))
                             cliente_dict['pagos'] = cur.fetchall()
                             clientes_encontrados.append(cliente_dict)
@@ -186,9 +187,6 @@ def ver_recibo(pago_id):
     conn = get_db()
     if not conn: return redirect(url_for('consulta'))
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        # --- MODIFICACIÓN REALIZADA ---
-        # Se utiliza COALESCE para mostrar los datos históricos del pago si existen.
-        # Si no existen (para recibos antiguos), se muestra el estado actual del cliente como respaldo.
         query = """
             SELECT p.*, 
                    c.nombre_apellido, c.cedula, c.cuotas_totales, c.valor_cuota,
@@ -204,6 +202,78 @@ def ver_recibo(pago_id):
         flash('Recibo no encontrado.', 'error')
         return redirect(url_for('consulta'))
     return render_template('recibo.html', pago=pago)
+
+# --- NUEVA RUTA PARA ANULAR RECIBOS ---
+@app.route('/anular_recibo/<int:pago_id>', methods=['POST'])
+def anular_recibo(pago_id):
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('consulta'))
+    
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            # 1. Obtener el pago que se va a anular
+            cur.execute("SELECT * FROM pagos WHERE id = %s", (pago_id,))
+            pago_a_anular = cur.fetchone()
+
+            if not pago_a_anular:
+                flash("El recibo que intenta anular no existe.", "error")
+                return redirect(url_for('consulta'))
+
+            if pago_a_anular['estado_pago'] == 'Anulado':
+                flash("Este recibo ya ha sido anulado.", "warning")
+                return redirect(url_for('ver_recibo', pago_id=pago_id))
+
+            cliente_id = pago_a_anular['cliente_id']
+
+            # 2. Encontrar el estado del cliente ANTES de este pago
+            # Se busca el pago válido anterior a este.
+            query_pago_anterior = """
+                SELECT cuotas_progresivas_al_pagar, cuotas_regresivas_al_pagar, balance_al_pagar 
+                FROM pagos 
+                WHERE cliente_id = %s AND id != %s AND estado_pago != 'Anulado' AND fecha_pago <= %s
+                ORDER BY fecha_pago DESC, id DESC LIMIT 1
+            """
+            cur.execute(query_pago_anterior, (cliente_id, pago_id, pago_a_anular['fecha_pago']))
+            pago_anterior = cur.fetchone()
+
+            # 3. Determinar el estado al que se debe revertir la cuenta del cliente
+            if pago_anterior:
+                revertir_a_progresivas = pago_anterior['cuotas_progresivas_al_pagar']
+                revertir_a_regresivas = pago_anterior['cuotas_regresivas_al_pagar']
+                revertir_a_balance = pago_anterior['balance_al_pagar']
+            else:
+                # Si no hay pago anterior, es el primer pago, se revierte a cero.
+                revertir_a_progresivas = 0
+                revertir_a_regresivas = 0
+                revertir_a_balance = Decimal('0.00')
+
+            # 4. Actualizar el estado del cliente a los valores anteriores
+            update_cliente_query = """
+                UPDATE clientes 
+                SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s
+                WHERE id = %s
+            """
+            cur.execute(update_cliente_query, (revertir_a_progresivas, revertir_a_regresivas, revertir_a_balance, cliente_id))
+
+            # 5. Marcar el pago como Anulado
+            update_pago_query = "UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s"
+            cur.execute(update_pago_query, (pago_id,))
+
+            conn.commit()
+            flash(f"¡Recibo N° {pago_a_anular['id']} anulado exitosamente! El estado del cliente ha sido revertido.", "success")
+            
+            # Obtener la cédula para redirigir a la consulta
+            cur.execute("SELECT cedula FROM clientes WHERE id = %s", (cliente_id,))
+            cedula_cliente = cur.fetchone()['cedula']
+            return redirect(url_for('consulta', busqueda=cedula_cliente))
+
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Ocurrió un error al anular el recibo: {e}", 'error')
+        return redirect(url_for('consulta'))
+
 
 @app.route('/edit/<int:client_id>', methods=['GET', 'POST'])
 def edit_client(client_id):
