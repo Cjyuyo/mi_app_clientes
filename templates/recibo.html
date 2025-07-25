@@ -58,29 +58,16 @@
             padding-top: 15px;
             border-top: 1px solid #eee;
         }
-        .info-table {
-            width: 100%;
+        .section h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
         }
-        .info-table td {
-            padding: 8px 0;
+        .section p {
+            margin: 8px 0;
             font-size: 15px;
         }
-        .info-table td:first-child {
+        .section p span {
             font-weight: bold;
-            width: 180px;
-        }
-        .firmas-section {
-            margin-top: 50px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-            display: flex;
-            justify-content: space-around;
-            text-align: center;
-        }
-        .firma {
-            border-top: 1px solid #333;
-            padding-top: 10px;
-            width: 250px;
         }
         .anulado-watermark {
             position: absolute;
@@ -143,65 +130,32 @@
                 <span>Estado: {{ pago.estado_pago or 'Conciliado' }}</span>
             </div>
             <div class="header-info">
-                <h1>MOTO PLAN MOTORS C.A</h1>
-                <p>¡VIVE TUS SUEÑOS!</p>
-                <p>Calle 31 Con Avenida Libertador Edif Doña Tina Piso PA OF 7 Sector Centro</p>
-                <p>Acarigua Portuguesa - R.I.F.: J - 50408959-1 - 📞 0426-215.26.82</p>
+                <img src="http://googleusercontent.com/file_content/3" alt="Logo Moto Plan" style="max-width: 100%; height: auto;">
             </div>
         </div>
 
         <div class="section">
-            <table class="info-table">
-                <tr>
-                    <td>Hemos Recibido de:</td>
-                    <td>{{ pago.nombre_apellido }}</td>
-                </tr>
-                <tr>
-                    <td>C.I. o R.I.F.:</td>
-                    <td>{{ pago.cedula or 'N/A' }}</td>
-                </tr>
-            </table>
+            <p><span>Hemos Recibido de:</span> {{ pago.nombre_apellido }} &nbsp;&nbsp;&nbsp;&nbsp; <span>C.I. o R.I.F.:</span> {{ pago.cedula or 'N/A' }}</p>
         </div>
 
         <div class="section">
             <h3>Detalles del Pago</h3>
-            <table class="info-table">
-                <tr>
-                    <td>Monto Pagado:</td>
-                    <td>${{ "%.2f"|format(pago.monto) }}</td>
-                </tr>
-                {% if pago.tasa_dia and pago.monto_bs %}
-                <tr>
-                    <td>Tasa del Día:</td>
-                    <td>Bs. {{ "%.2f"|format(pago.tasa_dia) }}</td>
-                </tr>
-                <tr>
-                    <td>Monto Equivalente:</td>
-                    <td>Bs. {{ "%.2f"|format(pago.monto_bs) }}</td>
-                </tr>
-                {% endif %}
-                <tr>
-                    <td>Por Concepto de:</td>
-                    <td>{{ pago.por_concepto_de }}</td>
-                </tr>
-                <tr>
-                    <td>Forma de Pago:</td>
-                    <td>{{ pago.forma_pago }}</td>
-                </tr>
-                <tr>
-                    <td>Ref.:</td>
-                    <td>{{ pago.referencia or 'N/A' }}</td>
-                </tr>
-                <tr>
-                    <td>Banco:</td>
-                    <td>{{ pago.banco or 'N/A' }}</td>
-                </tr>
-            </table>
+            <p><span>Monto Pagado (USD):</span> ${{ "%.2f"|format(pago.monto) }}</p>
         </div>
-        
-        <div class="firmas-section">
-            <div class="firma">Firma Autorizada</div>
-            <div class="firma">Firma del Cliente</div>
+
+        <div class="section">
+            <h3>Estado de Cuenta Actualizado</h3>
+            <p><span>Cuotas Pagadas (Progresivas):</span> {{ pago.cuotas_pagadas_progresivas or 0 }} de {{ pago.cuotas_totales or 'N/A' }}</p>
+            <p><span>Cuotas Pagadas (Regresivas):</span> {{ pago.cuotas_pagadas_regresivas or 0 }}</p>
+            <p><span>Balance a Favor:</span> ${{ "%.2f"|format(pago.balance_regresivo) }} de ${{ "%.2f"|format(pago.valor_cuota) }}</p>
+        </div>
+
+        <div class="section">
+            <p><span>Por Concepto de:</span> {{ pago.por_concepto_de }}</p>
+            <p><span>Forma de Pago:</span> {{ pago.forma_pago }}</p>
+            <p><span>Pago en:</span> {{ pago.pago_en }}</p>
+            <p><span>Referencia:</span> {{ pago.referencia or 'N/A' }}</p>
+            <p><span>Banco:</span> {{ pago.banco or 'N/A' }}</p>
         </div>
 
         <div class="actions-seccion">
