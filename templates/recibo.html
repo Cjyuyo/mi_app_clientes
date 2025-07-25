@@ -6,62 +6,83 @@
     <title>Comprobante de Ingreso N° {{ pago.id }}</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             margin: 0;
             padding: 20px;
-            background-color: #f4f4f4;
-            position: relative;
+            background-color: #e9ecef;
         }
         .container {
             max-width: 800px;
             margin: auto;
             background: white;
-            padding: 30px;
-            border: 1px solid #ddd;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        .header, .footer {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-        }
-        .header p {
-            margin: 5px 0;
-        }
-        .comprobante-box {
-            border: 2px solid black;
-            padding: 10px;
-            text-align: center;
-            width: 200px;
-            float: right;
-        }
-        .comprobante-box h2 {
-            margin: 0;
-            font-size: 16px;
-        }
-        .comprobante-box p {
-            margin: 5px 0;
-            font-size: 20px;
-            font-weight: bold;
-        }
-        .details, .estado-cuenta, .pago-info {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-        }
-        .details p, .estado-cuenta p, .pago-info p {
-            margin: 8px 0;
-        }
-        .details span, .estado-cuenta span, .pago-info span {
-            font-weight: bold;
+            padding: 40px;
+            border: 1px solid #dee2e6;
+            box-shadow: 0 0 15px rgba(0,0,0,0.05);
+            position: relative;
         }
         .clearfix::after {
             content: "";
             clear: both;
             display: table;
+        }
+        .header-info {
+            float: left;
+            width: 65%;
+        }
+        .header-info h1 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 600;
+        }
+        .header-info p {
+            margin: 4px 0;
+            font-size: 13px;
+            color: #495057;
+        }
+        .comprobante-box {
+            float: right;
+            width: 30%;
+            border: 2px solid #000;
+            padding: 10px;
+            text-align: center;
+        }
+        .comprobante-box h2 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .comprobante-box p {
+            margin: 5px 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .section {
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 1px solid #dee2e6;
+        }
+        .section h3 {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #495057;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 8px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 20px;
+        }
+        .info-grid p, .section p {
+            margin: 8px 0;
+            font-size: 15px;
+        }
+        .info-grid p span, .section p span {
+            font-weight: 600;
+            color: #343a40;
         }
         .anulado-watermark {
             position: absolute;
@@ -73,11 +94,12 @@
             text-align: center;
         }
         .anulado-watermark h1 {
-            font-size: 10rem;
+            font-size: 8rem;
             color: red;
-            border: 15px solid red;
+            border: 10px solid red;
             padding: 20px;
             border-radius: 10px;
+            font-weight: bold;
         }
         .anular-seccion {
             text-align: center; 
@@ -88,11 +110,12 @@
         .anular-seccion button {
             background-color: #dc3545; 
             color: white; 
-            padding: 10px 20px; 
+            padding: 12px 25px; 
             border: none; 
             border-radius: 5px; 
             cursor: pointer; 
             font-size: 16px;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -107,39 +130,46 @@
 
         <div class="header clearfix">
             <div class="comprobante-box">
-                <h2>COMPROBANTE DE INGRESO</h2>
-                <p>Estado: {{ pago.estado_pago or 'Conciliado' }}</p>
+                <h2>Comprobante de Ingreso</h2>
                 <p>N° {{ pago.id }}</p>
+                <span>Estado: {{ pago.estado_pago or 'Conciliado' }}</span>
             </div>
-            <h1>MOTO PLAN MOTORS C.A</h1>
-            <p>(VIVE TUS SUEÑOS)</p>
-            <p>Calle 31 Con Avenida Libertador Edf Doña Tina Piso PA Of 7 Sector Centro</p>
-            <p>Acarigua Portuguesa - R.I.F.: J- 50408559-1 - 0426-215.26.82</p>
+            <div class="header-info">
+                <h1>MOTO PLAN MOTORS C.A</h1>
+                <p>(VIVE TUS SUEÑOS)</p>
+                <p>Calle 31 Con Avenida Libertador Edf Doña Tina Piso PA Of 7 Sector Centro</p>
+                <p>Acarigua Portuguesa - R.I.F.: J- 50408559-1 - 0426-215.26.82</p>
+            </div>
         </div>
 
-        <div class="details">
-            <p><span>Hemos Recibido de:</span> {{ pago.nombre_apellido }}</p>
-            <p><span>C.I. o R.I.F.:</span> {{ pago.cedula }}</p>
+        <div class="section">
+            <p><span>Hemos Recibido de:</span> {{ pago.nombre_apellido }} &nbsp;&nbsp;&nbsp;&nbsp; <span>C.I. o R.I.F.:</span> {{ pago.cedula }}</p>
         </div>
 
-        <div class="pago-info">
+        <div class="section">
             <h3>Detalles del Pago</h3>
             <p><span>Monto Pagado (USD):</span> ${{ "%.2f"|format(pago.monto) }}</p>
-            <p><span>Por Concepto de:</span> {{ pago.por_concepto_de }}</p>
-            <p><span>Forma de Pago:</span> {{ pago.forma_pago }}</p>
-            <p><span>Pago en:</span> {{ pago.pago_en }}</p>
-            <p><span>Referencia:</span> {{ pago.referencia or 'N/A' }}</p>
-            <p><span>Banco:</span> {{ pago.banco or 'N/A' }}</p>
         </div>
 
-        <div class="estado-cuenta">
+        <div class="section">
             <h3>Estado de Cuenta Actualizado</h3>
             <p><span>Cuotas Pagadas (Progresivas):</span> {{ pago.cuotas_pagadas_progresivas or 0 }} de {{ pago.cuotas_totales or 'N/A' }}</p>
             <p><span>Cuotas Pagadas (Regresivas):</span> {{ pago.cuotas_pagadas_regresivas or 0 }}</p>
             <p><span>Balance a Favor:</span> ${{ "%.2f"|format(pago.balance_regresivo) }} de ${{ "%.2f"|format(pago.valor_cuota) }}</p>
         </div>
 
-        <div class="footer">
+        <div class="section">
+            <div class="info-grid">
+                <p><span>Por Concepto de:</span> {{ pago.por_concepto_de }}</p>
+                <p><span></span></p> <!-- Empty cell for alignment -->
+                <p><span>Forma de Pago:</span> {{ pago.forma_pago }}</p>
+                <p><span>Pago en:</span> {{ pago.pago_en }}</p>
+                <p><span>Referencia:</span> {{ pago.referencia or 'N/A' }}</p>
+                <p><span>Banco:</span> {{ pago.banco or 'N/A' }}</p>
+            </div>
+        </div>
+
+        <div class="section" style="text-align:center; border:none; padding-top:30px;">
             <p>Fecha de Emisión: {{ pago.fecha_pago.strftime('%d/%m/%Y') }}</p>
         </div>
 
