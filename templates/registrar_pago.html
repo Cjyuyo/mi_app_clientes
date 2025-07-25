@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registrar y Conciliar Pago</title>
+    <title>Registrar Pago</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: #f0f2f5; }
         .container { max-width: 800px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
@@ -27,11 +27,11 @@
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
-          <div class="mensaje {{ category }}">{{ message }}</div>
+          <div class="mensaje {{ 'error' if category == 'error' else '' }}">{{ message }}</div>
         {% endfor %}
       {% endif %}
     {% endwith %}
-    <h1>Registrar y Conciliar Pago <span>Para: {{ cliente.nombre_apellido }}</span></h1>
+    <h1>Registrar Pago <span>Para: {{ cliente.nombre_apellido }}</span></h1>
     <form action="{{ url_for('registrar_pago', client_id=cliente.id) }}" method="POST">
         <div class="form-grid">
             <div>
@@ -53,13 +53,6 @@
                 <select name="forma_pago" required><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option><option value="Pago Móvil">Pago Móvil</option><option value="Zelle">Zelle</option></select>
                 <label>Banco:</label><input type="text" name="banco">
                 <label>Referencia:</label><input type="text" name="referencia">
-            </div>
-            <div class="full-width">
-                <label>Estado del Pago:</label>
-                <select name="estado_pago" required>
-                    <option value="Pendiente">Pendiente</option>
-                    <option value="Conciliado">Conciliado</option>
-                </select>
             </div>
         </div>
 

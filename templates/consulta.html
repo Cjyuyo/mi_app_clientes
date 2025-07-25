@@ -113,9 +113,12 @@
             color: #721c24;
             text-decoration: line-through;
         }
-        .anulado-row a {
+        .anulado-row a, .anulado-row button {
             color: #721c24 !important;
             font-weight: bold;
+        }
+        .pendiente-row {
+            background-color: #fff3cd;
         }
         .btn {
             text-decoration: none;
@@ -131,12 +134,32 @@
         .btn-pago { background-color: #28a745; }
         .btn-delete { background-color: #dc3545; }
         .btn-ver-recibo { background-color: #17a2b8; }
-        .btn-finalizar { background-color: #007bff; } /* Estilo para el nuevo botón */
+        .btn-finalizar { background-color: #007bff; }
+        .flash-error, .flash-success, .flash-warning {
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .flash-error { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
+        .flash-success { color: #155724; background-color: #d4edda; border-color: #c3e6cb; }
+        .flash-warning { color: #856404; background-color: #fff3cd; border-color: #ffeeba; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Consulta de Clientes</h1>
+        <a href="{{ url_for('index') }}" style="text-decoration: none; display: inline-block; margin-bottom: 20px;">← Volver al Registro</a>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
         <form class="search-form" method="POST" action="{{ url_for('consulta') }}">
             <input type="text" name="busqueda" placeholder="Buscar por Cédula o Nombre" value="{{ busqueda or '' }}" required>
             <input type="submit" value="Buscar">
@@ -167,16 +190,15 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <h4>Datos Generales del Cliente (ID: {{ cliente.id }})</h4>
                     <div>
-                        <!-- BOTÓN AÑADIDO -->
-                        <a href="{{ url_for('consulta') }}" class="btn btn-finalizar">Finalizar Consulta</a>
                         <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-edit">Editar</a>
                         <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-pago">Registrar Pago</a>
-                        <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente?');">
+                        <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente y todos sus pagos? Esta acción no se puede deshacer.');">
                             <button type="submit" class="btn btn-delete">Eliminar</button>
                         </form>
                     </div>
                 </div>
 
+                <!-- Contenido del cliente (sin cambios) -->
                 <div class="cliente-grid">
                     <div class="info-section">
                         <h3>Identificación y Contacto</h3>
@@ -230,24 +252,40 @@
                 <table class="pagos-table">
                     <thead>
                         <tr>
-                            <th>Recibo #</th>
+                            <th>Pago ID</th>
                             <th>Fecha</th>
                             <th>Monto (USD)</th>
-                            <th>Cuotas Cubiertas</th>
+                            <th>Forma de Pago</th>
+                            <th>Referencia</th>
                             <th>Estado</th>
-                            <th>Acción</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                     {% for pago in cliente.pagos %}
-                        <tr class="{% if pago.estado_pago == 'Anulado' %}anulado-row{% endif %}">
+                        {% set row_class = '' %}
+                        {% if pago.estado_pago == 'Anulado' %}
+                            {% set row_class = 'anulado-row' %}
+                        {% elif pago.estado_pago == 'Pendiente' %}
+                            {% set row_class = 'pendiente-row' %}
+                        {% endif %}
+                        <tr class="{{ row_class }}">
                             <td>{{ pago.id }}</td>
                             <td>{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</td>
                             <td>${{ "%.2f"|format(pago.monto) }}</td>
-                            <td>{{ pago.cuotas_cubiertas }}</td>
+                            <td>{{ pago.forma_pago }}</td>
+                            <td>{{ pago.referencia or 'N/A' }}</td>
                             <td>{{ pago.estado_pago }}</td>
                             <td>
-                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Recibo</a>
+                                {% if pago.estado_pago == 'Pendiente' %}
+                                    <form action="{{ url_for('conciliar_pago', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres conciliar este pago? Esta acción afectará el estado de cuenta del cliente.');">
+                                        <button type="submit" class="btn btn-pago">Conciliar</button>
+                                    </form>
+                                {% endif %}
+                                
+                                {% if pago.estado_pago == 'Conciliado' or pago.estado_pago == 'Anulado' %}
+                                    <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Recibo</a>
+                                {% endif %}
                             </td>
                         </tr>
                     {% endfor %}
