@@ -177,8 +177,8 @@
         {% set cuotas_totales = pago.cuotas_totales|int if pago.cuotas_totales else 0 %}
         {% set cuotas_progresivas = pago.cuotas_pagadas_progresivas|int if pago.cuotas_pagadas_progresivas else 0 %}
         {% set cuotas_regresivas = pago.cuotas_pagadas_regresivas|int if pago.cuotas_pagadas_regresivas else 0 %}
-        {% set cuotas_progresivas_pendientes = cuotas_totales - cuotas_regresivas %}
-        <p><span>Cuotas Pagadas (Progresivas):</span> {{ cuotas_progresivas }} de {{ cuotas_progresivas_pendientes }}</p>
+        
+        <p><span>Cuotas Pagadas (Progresivas):</span> {{ cuotas_progresivas }} de {{ cuotas_totales }}</p>
         <p><span>Cuotas Pagadas (Regresivas):</span> {{ cuotas_regresivas }}</p>
         <p><span>Balance a Favor:</span> ${{ "%.2f"|format(pago.balance_regresivo) if pago.balance_regresivo is not none else '0.00' }} de ${{ "%.2f"|format(pago.valor_cuota) }}</p>
     </div>
