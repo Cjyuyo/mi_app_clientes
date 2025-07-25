@@ -165,7 +165,7 @@ def registrar_pago(client_id):
 @app.route('/conciliar_pago/<int:pago_id>', methods=['POST'])
 def conciliar_pago(pago_id):
     conn = get_db()
-    cedula_cliente_fallback = request.args.get('cedula', '') # Obtener cédula para redirección en caso de error
+    cedula_cliente_fallback = request.args.get('cedula', '')
 
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
@@ -334,8 +334,6 @@ def anular_recibo(pago_id):
                             (revertir_a_progresivas, revertir_a_regresivas, revertir_a_balance, cliente_id))
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
             
-            # La anulación de un recibo de 'Inscripción Finalizada' es una operación compleja
-            # que se deja para una futura implementación.
             elif pago_a_anular['tipo_pago'] == 'Inscripción Finalizada':
                  flash("Error: La anulación de un recibo de inscripción finalizada no está permitida.", 'error')
                  return redirect(url_for('consulta', busqueda=cedula_cliente))
