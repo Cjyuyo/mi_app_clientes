@@ -123,25 +123,31 @@ def registrar_pago(client_id):
             cuotas_progresivas_actuales = cliente['cuotas_pagadas_progresivas'] or 0
             balance_regresivo_actual = Decimal(cliente['balance_regresivo'] or 0)
             cuotas_regresivas_actuales = cliente['cuotas_pagadas_regresivas'] or 0
+            
+            # **** ¡NUEVA LÓGICA DE NEGOCIO! ****
+            monto_necesario_progresiva = valor_cuota - balance_regresivo_actual
+            nuevas_cuotas_progresivas = cuotas_progresivas_actuales
+            nuevo_balance_regresivo = balance_regresivo_actual
+            cuotas_cubiertas_este_pago = 0
 
-            monto_total_disponible = monto_pagado_usd + balance_regresivo_actual
-            
-            # 1. Calcular cuotas progresivas
-            cuotas_cubiertas_con_pago = int(monto_total_disponible // valor_cuota)
-            nuevas_cuotas_progresivas = cuotas_progresivas_actuales + cuotas_cubiertas_con_pago
-            
-            # 2. Calcular el nuevo balance (excedente)
-            nuevo_balance_regresivo = monto_total_disponible % valor_cuota
-            
-            # **** ¡LÓGICA DE CUOTAS REGRESIVAS AQUÍ! ****
-            # 3. Usar el excedente para pagar cuotas regresivas
+            if monto_pagado_usd >= monto_necesario_progresiva:
+                # El pago es suficiente para cubrir al menos la cuota progresiva actual
+                nuevas_cuotas_progresivas += 1
+                excedente = monto_pagado_usd - monto_necesario_progresiva
+                nuevo_balance_regresivo = excedente
+                cuotas_cubiertas_este_pago = 1
+            else:
+                # El pago no es suficiente, solo se suma al balance
+                nuevo_balance_regresivo += monto_pagado_usd
+                cuotas_cubiertas_este_pago = 0 # No se cubrió ninguna cuota completa
+
+            # Lógica para cuotas regresivas con el excedente
             nuevas_cuotas_regresivas = cuotas_regresivas_actuales
             while nuevo_balance_regresivo >= valor_cuota:
                 nuevo_balance_regresivo -= valor_cuota
                 nuevas_cuotas_regresivas += 1
 
             with conn.cursor() as cur:
-                # 4. Actualizar todos los valores en la base de datos
                 update_query = "UPDATE clientes SET cuotas_pagadas_progresivas = %s, balance_regresivo = %s, cuotas_pagadas_regresivas = %s WHERE id = %s;"
                 cur.execute(update_query, (nuevas_cuotas_progresivas, nuevo_balance_regresivo, nuevas_cuotas_regresivas, client_id))
 
@@ -154,7 +160,7 @@ def registrar_pago(client_id):
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
                 """
                 cur.execute(pago_query, (
-                    client_id, pago_form['monto'], cuotas_cubiertas_con_pago, pago_form['forma_pago'], pago_form['fecha_pago'],
+                    client_id, pago_form['monto'], cuotas_cubiertas_este_pago, pago_form['forma_pago'], pago_form['fecha_pago'],
                     pago_form.get('pago_en'), pago_form['por_concepto_de'],
                     pago_form['referencia'], pago_form['banco'], pago_form['lugar_emision'],
                     pago_form.get('tasa_dia'), pago_form.get('monto_bs'), pago_form.get('estado_pago')
@@ -177,7 +183,6 @@ def ver_recibo(pago_id):
     conn = get_db()
     if not conn: return redirect(url_for('consulta'))
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        # CORRECCIÓN: Se obtienen todos los datos del cliente para mostrar el estado de cuenta actualizado.
         query = """
             SELECT p.*, c.nombre_apellido, c.cedula, c.balance_regresivo, 
                    c.cuotas_pagadas_progresivas, c.cuotas_pagadas_regresivas, c.cuotas_totales, c.valor_cuota
@@ -189,14 +194,12 @@ def ver_recibo(pago_id):
     if not pago:
         flash('Recibo no encontrado.', 'error')
         return redirect(url_for('consulta'))
-    # El objeto 'pago' ahora contiene los campos del cliente gracias al JOIN
     return render_template('recibo.html', pago=pago)
 
 @app.route('/edit/<int:client_id>', methods=['GET', 'POST'])
 def edit_client(client_id):
     conn = get_db()
     if not conn: return redirect(url_for('consulta'))
-    
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         cur.execute("SELECT * FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
@@ -225,7 +228,6 @@ def edit_client(client_id):
         except (psycopg2.Error, ValueError) as e:
             conn.rollback()
             flash(f'Ocurrió un error al actualizar: {e}', 'error')
-    
     return render_template('edit_cliente.html', cliente=cliente)
 
 @app.route('/delete/<int:client_id>', methods=['POST'])
