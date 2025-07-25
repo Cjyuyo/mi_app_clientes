@@ -47,7 +47,7 @@
         <div style="border: 1px solid #eee; padding: 10px; margin: 15px 0; border-radius: 5px;">
             <h4 style="margin-top:0; color: #333;">Detalles del Pago</h4>
             <div class="linea">
-                <label>Monto Pagado:</label><span>${{ "%.2f"|format(pago.monto) }}</span>
+                <label>Monto Pagado (USD):</label><span>${{ "%.2f"|format(pago.monto) }}</span>
             </div>
             {% if pago.tasa_dia and pago.monto_bs %}
             <div class="linea">
@@ -64,8 +64,12 @@
         </div>
         <div class="linea">
             <label>Forma de Pago:</label><span>{{ pago.forma_pago }}</span>
-            <label style="min-width: 40px; text-align: right; margin-right: 10px;">Ref.:</label><span>{{ pago.referencia or 'N/A' }}</span>
-            <label style="min-width: 50px; text-align: right; margin-right: 10px;">Banco:</label><span>{{ pago.banco or 'N/A' }}</span>
+            <!-- CAMPO "PAGO EN" RESTAURADO -->
+            <label style="min-width: 80px; text-align: right; margin-right: 10px;">Pago en:</label><span>{{ pago.pago_en or 'N/A' }}</span>
+        </div>
+        <div class="linea">
+            <label>Referencia:</label><span>{{ pago.referencia or 'N/A' }}</span>
+            <label style="min-width: 80px; text-align: right; margin-right: 10px;">Banco:</label><span>{{ pago.banco or 'N/A' }}</span>
         </div>
     </div>
     <div class="footer">
