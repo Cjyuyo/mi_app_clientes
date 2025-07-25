@@ -165,9 +165,11 @@ def registrar_pago(client_id):
 @app.route('/conciliar_pago/<int:pago_id>', methods=['POST'])
 def conciliar_pago(pago_id):
     conn = get_db()
+    cedula_cliente_fallback = request.args.get('cedula', '') # Obtener cédula para redirección en caso de error
+
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('consulta'))
+        return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
@@ -175,11 +177,14 @@ def conciliar_pago(pago_id):
             pago = cur.fetchone()
             if not pago or pago['estado_pago'] != 'Pendiente':
                 flash("El pago no se puede conciliar.", 'error')
-                return redirect(url_for('consulta'))
+                return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
             cur.execute("SELECT * FROM clientes WHERE id = %s FOR UPDATE", (pago['cliente_id'],))
             cliente = cur.fetchone()
-            
+            if not cliente:
+                flash("Error: No se encontró el cliente asociado a este pago.", 'error')
+                return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
+
             monto_pagado = Decimal(pago['monto'])
 
             if pago['tipo_pago'] == 'Inscripción':
@@ -187,27 +192,19 @@ def conciliar_pago(pago_id):
                 inscripcion_total = Decimal(cliente['inscripcion_monto'] or 0)
                 nueva_inscripcion_pagada = inscripcion_pagada_actual + monto_pagado
 
-                # Si con este pago se completa la inscripción
-                if nueva_inscripcion_pagada >= inscripcion_total:
-                    # Anular este y todos los abonos de inscripción anteriores
+                if inscripcion_total > 0 and nueva_inscripcion_pagada >= inscripcion_total:
                     cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción'", (cliente['id'],))
-                    
-                    # Crear el pago final y consolidado de inscripción
                     pago_final_query = """
                         INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, por_concepto_de, estado_pago)
                         VALUES (%s, %s, 'Inscripción Finalizada', %s, %s, %s, 'Conciliado') RETURNING id;
                     """
                     cur.execute(pago_final_query, (cliente['id'], inscripcion_total, pago['forma_pago'], pago['fecha_pago'], 'Pago total de inscripción'))
                     pago_final_id = cur.fetchone()[0]
-
-                    # Actualizar el estado del cliente
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (inscripcion_total, cliente['id']))
-                    
                     conn.commit()
                     flash("¡Inscripción completada! Se generó el recibo final y se anularon los abonos.", 'success')
                     return redirect(url_for('ver_recibo_inscripcion', pago_id=pago_final_id))
-
-                else: # Si es solo un abono más
+                else:
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
                     cur.execute("UPDATE pagos SET estado_pago = 'Conciliado' WHERE id = %s", (pago_id,))
                     flash(f"Abono de inscripción N° {pago_id} conciliado.", 'success')
@@ -216,8 +213,6 @@ def conciliar_pago(pago_id):
             elif pago['tipo_pago'] == 'Cuota':
                 valor_cuota = Decimal(cliente['valor_cuota'] or 0)
                 if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
-
-                # Lógica de cuotas (sin cambios)
                 cuotas_progresivas_actuales = cliente['cuotas_pagadas_progresivas'] or 0
                 balance_regresivo_actual = Decimal(cliente['balance_regresivo'] or 0)
                 cuotas_regresivas_actuales = cliente['cuotas_pagadas_regresivas'] or 0
@@ -235,7 +230,6 @@ def conciliar_pago(pago_id):
                 while nuevo_balance_regresivo >= valor_cuota:
                     nuevo_balance_regresivo -= valor_cuota
                     nuevas_cuotas_regresivas += 1
-                
                 update_cliente_query = "UPDATE clientes SET cuotas_pagadas_progresivas = %s, balance_regresivo = %s, cuotas_pagadas_regresivas = %s WHERE id = %s;"
                 cur.execute(update_cliente_query, (nuevas_cuotas_progresivas, nuevo_balance_regresivo, nuevas_cuotas_regresivas, cliente['id']))
                 update_pago_query = "UPDATE pagos SET estado_pago = 'Conciliado', cuotas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s WHERE id = %s;"
@@ -248,11 +242,8 @@ def conciliar_pago(pago_id):
     except (psycopg2.Error, ValueError, TypeError) as e:
         conn.rollback()
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
-        cedula_cliente = request.args.get('cedula', '')
-        return redirect(url_for('consulta', busqueda=cedula_cliente))
+        return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
-
-# --- RUTA PARA RECIBOS DE ABONOS Y CUOTAS ---
 @app.route('/recibo/<int:pago_id>')
 def ver_recibo(pago_id):
     conn = get_db()
@@ -279,20 +270,18 @@ def ver_recibo(pago_id):
     
     return render_template('recibo.html', pago=pago)
 
-# --- NUEVA RUTA PARA EL RECIBO FINAL DE INSCRIPCIÓN ---
 @app.route('/recibo_inscripcion/<int:pago_id>')
 def ver_recibo_inscripcion(pago_id):
     conn = get_db()
     if not conn: return redirect(url_for('consulta'))
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         query = """
-            SELECT p.*, c.*
+            SELECT p.*, c.nombre_apellido, c.cedula, c.plan_contratado
             FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
             WHERE p.id = %s AND p.tipo_pago = 'Inscripción Finalizada';
         """
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
-        # En este caso, 'pago' contiene también todos los datos del cliente
     if not pago:
         flash('Recibo de inscripción final no encontrado.', 'error')
         return redirect(url_for('consulta'))
@@ -301,14 +290,12 @@ def ver_recibo_inscripcion(pago_id):
 
 @app.route('/anular_recibo/<int:pago_id>', methods=['POST'])
 def anular_recibo(pago_id):
-    # Esta función necesitará una revisión futura para manejar la anulación
-    # de un recibo de "Inscripción Finalizada", que implicaría revertir la anulación
-    # de todos los abonos. Por ahora, se mantiene la lógica simple.
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta'))
     
+    cedula_cliente = ''
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("SELECT * FROM pagos WHERE id = %s FOR UPDATE", (pago_id,))
@@ -320,7 +307,9 @@ def anular_recibo(pago_id):
 
             cliente_id = pago_a_anular['cliente_id']
             cur.execute("SELECT cedula FROM clientes WHERE id = %s", (cliente_id,))
-            cedula_cliente = cur.fetchone()['cedula']
+            cliente_info = cur.fetchone()
+            if cliente_info:
+                cedula_cliente = cliente_info['cedula']
 
             if pago_a_anular['estado_pago'] == 'Pendiente':
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
@@ -331,8 +320,25 @@ def anular_recibo(pago_id):
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
             
             elif pago_a_anular['tipo_pago'] == 'Cuota':
-                # Lógica de reversión de cuotas...
-                pass # Mantener lógica existente
+                query_pago_anterior = """
+                    SELECT cuotas_progresivas_al_pagar, cuotas_regresivas_al_pagar, balance_al_pagar 
+                    FROM pagos WHERE cliente_id = %s AND id != %s AND estado_pago = 'Conciliado' AND tipo_pago = 'Cuota' AND fecha_pago <= %s
+                    ORDER BY fecha_pago DESC, id DESC LIMIT 1
+                """
+                cur.execute(query_pago_anterior, (cliente_id, pago_id, pago_a_anular['fecha_pago']))
+                pago_anterior = cur.fetchone()
+                revertir_a_progresivas = pago_anterior['cuotas_progresivas_al_pagar'] if pago_anterior else 0
+                revertir_a_regresivas = pago_anterior['cuotas_regresivas_al_pagar'] if pago_anterior else 0
+                revertir_a_balance = pago_anterior['balance_al_pagar'] if pago_anterior else Decimal('0.00')
+                cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s",
+                            (revertir_a_progresivas, revertir_a_regresivas, revertir_a_balance, cliente_id))
+                cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
+            
+            # La anulación de un recibo de 'Inscripción Finalizada' es una operación compleja
+            # que se deja para una futura implementación.
+            elif pago_a_anular['tipo_pago'] == 'Inscripción Finalizada':
+                 flash("Error: La anulación de un recibo de inscripción finalizada no está permitida.", 'error')
+                 return redirect(url_for('consulta', busqueda=cedula_cliente))
 
             conn.commit()
             flash(f"¡Recibo N° {pago_id} anulado exitosamente!", "success")
@@ -341,12 +347,10 @@ def anular_recibo(pago_id):
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"Ocurrió un error al anular el recibo: {e}", 'error')
-        return redirect(url_for('consulta'))
-
+        return redirect(url_for('consulta', busqueda=cedula_cliente))
 
 @app.route('/edit/<int:client_id>', methods=['GET', 'POST'])
 def edit_client(client_id):
-    # (Sin cambios en esta función)
     conn = get_db()
     if not conn: return redirect(url_for('consulta'))
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
@@ -355,7 +359,6 @@ def edit_client(client_id):
     if not cliente:
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('consulta'))
-
     if request.method == 'POST':
         form_data = {k: v if v else None for k, v in request.form.items()}
         form_data['id'] = client_id
@@ -381,7 +384,6 @@ def edit_client(client_id):
 
 @app.route('/delete/<int:client_id>', methods=['POST'])
 def delete_client(client_id):
-    # (Sin cambios en esta función)
     conn = get_db()
     if not conn: return redirect(url_for('consulta'))
     try:
