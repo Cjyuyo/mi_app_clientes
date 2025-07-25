@@ -1,102 +1,131 @@
+import os
+import sys
 import pandas as pd
 import psycopg2
-import sys
-
-# --- CONFIGURACIÓN ---
-DATABASE_URL = "postgresql://lientes_db_prod_user:FzmjghqgD9UPN3I3Ex3Q8KpLlgFDvUDI@dpg-d1vomdadbo4c73fnv9sg-a.oregon-postgres.render.com/lientes_db_prod"
-CSV_FILE = 'MI APP CLIENTES - MOTO PLAN.csv'
-SCHEMA_FILE = 'schema'
-
-def crear_tablas_si_no_existen(conn):
-    print("Verificando y creando tablas si es necesario...")
-    try:
-        with open(SCHEMA_FILE, 'r') as f:
-            schema_sql = f.read()
-        cursor = conn.cursor()
-        cursor.execute(schema_sql)
-        conn.commit()
-        cursor.close()
-        print("Tablas creadas o verificadas exitosamente.")
-    except Exception as e:
-        print(f"Ocurrió un error al crear las tablas: {e}")
-        raise
 
 def migrar_datos():
-    if "postgresql://" not in DATABASE_URL:
-        print("Error: La variable DATABASE_URL no parece correcta.")
-        sys.exit(1)
+    """
+    Se conecta a la BD de Render usando una URL externa y migra los datos
+    desde un archivo CSV. Este script está diseñado para ejecutarse una sola vez
+    desde tu computadora local.
+    """
+    # --- 1. Configuración ---
+    # URL Externa de la base de datos de Render.
+    DATABASE_URL = "postgresql://clientes_prod_user:hNVcU8ZAfgsJ0ngFvQdBKRlAEE8lV8HK@dpg-d21e2k63jp1c73fofr0g-a.oregon-postgres.render.com/clientes_prod"
+    CSV_FILE = 'MI APP CLIENTES - MOTO PLAN.csv'
+    SCHEMA_FILE = 'schema' # El archivo con la estructura de la BD
 
+    # --- 2. Leer y preparar datos del CSV ---
     try:
-        print(f"Leyendo datos desde {CSV_FILE}...")
-        tipos_de_datos = {'N⁰ CEDULA': str, 'N⁰ CONTRATO': str, 'NUMERO DE TLF': str}
+        print(f"Leyendo datos desde '{CSV_FILE}'...")
+        tipos_de_datos = {'cedula': str, 'contrato_nro': str, 'telefono': str}
         df = pd.read_csv(CSV_FILE, dtype=tipos_de_datos)
-        df.columns = [str(col).strip().lower() for col in df.columns]
         
-        print("Limpiando datos...")
-        columnas_numericas = [
-            '% inscripcion', 'inscripcion', 'valor de cuota', 'valor cancelado',
-            'cuotas totales', 'cuotas pagas', 'pagos impuntuales', 'cuotas en mora'
+        # Limpiar nombres de columnas
+        df.columns = df.columns.str.strip().str.lower()
+        
+        # **** ¡AQUÍ ESTÁ LA CORRECCIÓN FINAL! ****
+        # Reemplazar celdas que solo contienen espacios en blanco por un valor nulo (NaN).
+        # Esto soluciona el error 'invalid input syntax for type integer: " "'.
+        print("Limpiando datos y espacios en blanco...")
+        df.replace(r'^\s*$', pd.NA, regex=True, inplace=True)
+
+        # Renombrar columnas del CSV para que coincidan con la base de datos
+        df.rename(columns={
+            'n⁰ cedula': 'cedula', 'n⁰ contrato': 'contrato_nro',
+            'nombre y apellido': 'nombre_apellido', 'numero de tlf': 'telefono',
+            'fecha de ingreso': 'fecha_ingreso', 'plan': 'bien_solicitado',
+            'moneda de pago': 'moneda_pago', 'valor de cuota': 'valor_cuota',
+            'cuotas totales': 'cuotas_totales', 'cuotas pagas': 'cuotas_pagadas_progresivas',
+            'estatus.1': 'estatus_1', 'inscripcion': 'inscripcion_monto'
+        }, inplace=True)
+
+        # Asegurarse de que todas las columnas esperadas existan
+        columnas_esperadas = [
+            'cedula', 'contrato_nro', 'nombre_apellido', 'telefono', 'fecha_ingreso', 'grupo', 
+            'bien_solicitado', 'moneda_pago', 'asesor', 'responsable', 'proceso', 'estatus', 
+            'estatus_1', 'inscripcion_monto', 'valor_cuota', 'valor_cancelado', 'observacion', 
+            'cuotas_totales', 'cuotas_pagadas_progresivas'
         ]
+        for col in columnas_esperadas:
+            if col not in df.columns:
+                df[col] = None
+
+        # Convertir fechas y números, manejando errores
+        print("Convirtiendo formatos de fecha y números...")
+        if 'fecha_ingreso' in df.columns:
+            df['fecha_ingreso'] = pd.to_datetime(df['fecha_ingreso'], dayfirst=True, errors='coerce')
+        columnas_numericas = ['valor_cuota', 'inscripcion_monto', 'valor_cancelado', 'cuotas_totales']
         for col in columnas_numericas:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        # Limpieza final: convertir todos los valores inválidos (NaN, NaT) a None
+        df = df.astype(object).where(pd.notna(df), None)
         
-        df = df.where(pd.notna(df), None)
         print(f"Se encontraron {len(df)} filas para migrar.")
 
     except Exception as e:
-        print(f"Ocurrió un error leyendo o limpiando el archivo CSV: {e}")
-        return
+        print(f"\nERROR al leer o procesar el CSV: {e}")
+        sys.exit(1)
 
+    # --- 3. Conectar a la BD y migrar ---
     conn = None
     try:
-        print("Conectando a la base de datos...")
+        print("\nConectando a la base de datos en Render...")
         conn = psycopg2.connect(DATABASE_URL)
-        print("Conexión exitosa.")
-        crear_tablas_si_no_existen(conn)
+        print("¡Conexión exitosa!")
         
-        cursor = conn.cursor()
-        print("Iniciando inserción de datos...")
-        for index, row in df.iterrows():
-            query = """
-            INSERT INTO clientes (
-                cedula, contrato_nro, nombre_apellido, telefono, fecha_ingreso, grupo, bien_solicitado,
-                moneda_pago, asesor, responsable, proceso, estatus, estatus_1,
-                inscripcion_porcentaje, inscripcion_monto, valor_cuota, fecha_pago_recurrente, 
-                estatus_cuota, valor_cancelado, observacion,
-                cuotas_totales, cuotas_pagadas_progresivas, pagos_impuntuales, cuotas_en_mora
-            ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-            )
-            ON CONFLICT (cedula) DO NOTHING;
-            """
-            
-            values = (
-                row.get('n⁰ cedula'), row.get('n⁰ contrato'), row.get('nombre y apellido'), row.get('numero de tlf'), row.get('fecha de ingreso'),
-                row.get('grupo'), row.get('plan'), # Mapea la columna 'plan' del CSV a 'bien_solicitado'
-                row.get('moneda de pago'), row.get('asesor'), row.get('responsable'),
-                row.get('proceso'), row.get('estatus'), row.get('estatus.1'),
-                row.get('% inscripcion'), row.get('inscripcion'), row.get('valor de cuota'), row.get('fecha de pago'), 
-                row.get('estatus cuota'), row.get('valor cancelado'), row.get('observación'),
-                row.get('cuotas totales'), row.get('cuotas pagas'), 
-                row.get('pagos impuntuales'), row.get('cuotas en mora')
-            )
-            
-            cursor.execute(query, values)
-            if (index + 1) % 50 == 0:
-                print(f"Procesando fila {index + 1}/{len(df)}...")
+        with conn.cursor() as cursor:
+            print("Aplicando el schema (creando tablas)...")
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            schema_path = os.path.join(script_dir, SCHEMA_FILE)
+            with open(schema_path, 'r') as f:
+                schema_sql = f.read()
+            cursor.execute(schema_sql)
+            print("Tablas creadas/verificadas.")
 
-        conn.commit()
-        print(f"\n¡Migración completada exitosamente! Se procesaron todas las {len(df)} filas.")
+            print("Iniciando inserción de datos...")
+            registros_saltados = 0
+            for index, row in df.iterrows():
+                # Si la cédula está vacía, saltar esta fila y continuar con la siguiente.
+                if not row.get('cedula'):
+                    print(f"  -> ADVERTENCIA: Saltando fila #{index + 2} por falta de cédula. Cliente: {row.get('nombre_apellido')}")
+                    registros_saltados += 1
+                    continue
 
+                query = """
+                INSERT INTO clientes (
+                    cedula, contrato_nro, nombre_apellido, telefono, fecha_ingreso, grupo, bien_solicitado,
+                    moneda_pago, asesor, responsable, proceso, estatus, estatus_1,
+                    inscripcion_monto, valor_cuota, valor_cancelado, observacion,
+                    cuotas_totales, cuotas_pagadas_progresivas
+                ) VALUES (
+                    %(cedula)s, %(contrato_nro)s, %(nombre_apellido)s, %(telefono)s, %(fecha_ingreso)s, %(grupo)s, %(bien_solicitado)s,
+                    %(moneda_pago)s, %(asesor)s, %(responsable)s, %(proceso)s, %(estatus)s, %(estatus_1)s,
+                    %(inscripcion_monto)s, %(valor_cuota)s, %(valor_cancelado)s, %(observacion)s,
+                    %(cuotas_totales)s, %(cuotas_pagadas_progresivas)s
+                )
+                ON CONFLICT (cedula) DO UPDATE SET
+                    contrato_nro = EXCLUDED.contrato_nro, nombre_apellido = EXCLUDED.nombre_apellido,
+                    telefono = EXCLUDED.telefono, valor_cuota = EXCLUDED.valor_cuota, estatus = EXCLUDED.estatus;
+                """
+                cursor.execute(query, row.to_dict())
+            conn.commit()
+            print(f"\n¡Migración completada! Se procesaron {len(df) - registros_saltados} filas.")
+            if registros_saltados > 0:
+                print(f"Se saltaron {registros_saltados} registros por no tener cédula.")
+
+    except psycopg2.Error as e:
+        print(f"\nERROR de base de datos: {e}")
+        if conn: conn.rollback()
     except Exception as e:
-        print(f"\nOcurrió un error durante la migración: {e}")
-        if conn:
-            conn.rollback()
+        print(f"\nERROR inesperado: {e}")
+        if conn: conn.rollback()
     finally:
         if conn:
             conn.close()
-            print("Conexión cerrada.")
+            print("Conexión a la base de datos cerrada.")
 
 if __name__ == '__main__':
     migrar_datos()

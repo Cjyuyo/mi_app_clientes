@@ -1,61 +1,57 @@
--- Se usa CASCADE para borrar las tablas y sus dependencias si existen
-DROP TABLE IF EXISTS clientes CASCADE;
+-- Elimina las tablas si existen para asegurar una creación limpia.
 DROP TABLE IF EXISTS pagos CASCADE;
+DROP TABLE IF EXISTS clientes CASCADE;
 DROP SEQUENCE IF EXISTS recibo_numero_seq;
 
+-- Secuencia para generar números de recibo únicos y consecutivos.
 CREATE SEQUENCE recibo_numero_seq START WITH 10612;
 
+-- Tabla de clientes con los tipos de datos CORRECTOS para cálculos precisos.
 CREATE TABLE clientes (
   id SERIAL PRIMARY KEY,
-  cedula TEXT UNIQUE,
+  cedula TEXT UNIQUE NOT NULL,
   contrato_nro TEXT,
-  nombre_apellido TEXT,
+  nombre_apellido TEXT NOT NULL,
   telefono TEXT,
-  fecha_ingreso TEXT,
-  fecha_pago_recurrente TEXT,
+  fecha_ingreso DATE, -- Usar DATE para fechas.
   grupo TEXT,
   bien_solicitado TEXT,
+  plan_contratado TEXT,
   moneda_pago TEXT,
   asesor TEXT,
   responsable TEXT,
   proceso TEXT,
   estatus TEXT,
   estatus_1 TEXT,
-  estatus_cuota TEXT,
-  inscripcion_monto REAL,
-  inscripcion_porcentaje REAL,
-  valor_cuota REAL,
-  valor_cancelado REAL,
-  plan_contratado TEXT,
-  
-  -- Campos para la nueva lógica de cuotas
-  cuotas_totales TEXT,
-  cuotas_pagadas_progresivas TEXT,
-  cuotas_pagadas_regresivas TEXT,
-  balance_regresivo REAL DEFAULT 0.0,
-
-  -- Otros campos
   observacion TEXT,
-  pagos_impuntuales TEXT,
-  cuotas_en_mora TEXT
+  -- Campos financieros corregidos a NUMERIC para precisión.
+  inscripcion_monto NUMERIC(12, 2) DEFAULT 0.0,
+  valor_cuota NUMERIC(12, 2) DEFAULT 0.0,
+  valor_cancelado NUMERIC(12, 2) DEFAULT 0.0,
+  balance_regresivo NUMERIC(12, 2) DEFAULT 0.0,
+  -- Campos de cuotas corregidos a INTEGER (números enteros).
+  cuotas_totales INTEGER DEFAULT 0,
+  cuotas_pagadas_progresivas INTEGER DEFAULT 0,
+  cuotas_pagadas_regresivas INTEGER DEFAULT 0,
+  cuotas_en_mora INTEGER DEFAULT 0
 );
 
--- Crea la tabla de pagos
+-- Tabla de pagos con tipos de datos corregidos.
 CREATE TABLE pagos (
   id SERIAL PRIMARY KEY,
   cliente_id INTEGER NOT NULL,
-  recibo TEXT,
-  monto_usd REAL,
-  monto_bs REAL,
-  tasa_dia REAL,
+  recibo INTEGER NOT NULL DEFAULT nextval('recibo_numero_seq'),
+  monto NUMERIC(12, 2) NOT NULL,
+  cuotas_cubiertas INTEGER NOT NULL,
   forma_pago TEXT NOT NULL,
-  fecha_pago TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  fecha_pago DATE NOT NULL,
   pago_en TEXT,
   cantidad_en_letras TEXT,
   por_concepto_de TEXT,
   referencia TEXT,
   banco TEXT,
   lugar_emision TEXT,
-  estado TEXT,
+  fecha_registro TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  -- Si se borra un cliente, se borran sus pagos en cascada.
   FOREIGN KEY (cliente_id) REFERENCES clientes (id) ON DELETE CASCADE
 );

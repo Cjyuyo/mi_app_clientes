@@ -1,190 +1,173 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>
-        {% if cliente %}
-            Estado de Cuenta - {{ cliente.nombre_apellido }}
-        {% else %}
-            Consultar Cliente
-        {% endif %}
-    </title>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Consulta de Clientes</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
-        .container { max-width: 1000px; margin: auto; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .tabs { display: flex; border-bottom: 1px solid #ddd; }
-        .tab-link { padding: 15px 25px; text-decoration: none; background-color: #e4e6eb; color: #606770; font-weight: 600; font-size: 16px; border: none; cursor: pointer; }
-        .tab-link.active { background-color: white; color: #1877f2; border-bottom: 3px solid #1877f2; }
-        .content { padding: 25px; }
-        h1, h2, h3 { color: #1c2b33; }
-        h1 { text-align: center; }
-        .search-form { display: flex; gap: 10px; margin-bottom: 20px; }
-        .search-form input { flex-grow: 1; padding: 12px; border: 1px solid #dddfe2; border-radius: 6px; font-size: 16px; }
-        .search-form button { background-color: #1877f2; color: white; padding: 12px 20px; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
-        
-        .card { background-color: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
-        .card-header { border-bottom: 1px solid #e0e0e0; padding-bottom: 15px; margin-bottom: 15px; font-size: 18px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
-        
-        .header-actions { display: flex; gap: 10px; }
-        .action-btn { color: white; padding: 8px 12px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; }
-        .register-btn { background-color: #28a745; }
-        .edit-btn { background-color: #f5a623; }
-        .delete-btn { background-color: #dc3545; }
-
-        .details-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px; }
-        .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
-        .details-grid .item strong { color: #606770; }
-        
-        .estado-cuotas .item { margin-bottom: 20px; }
-        .progress-bar-container { width: 100%; background-color: #e9ecef; border-radius: .25rem; height: 20px; margin-top: 5px; overflow: hidden; }
-        .progress-bar { background-color: #28a745; height: 100%; border-radius: .25rem; text-align: center; color: white; font-weight: bold; line-height: 20px; transition: width 0.6s ease; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: #f0f2f5; color: #1c1e21; }
+        .container { max-width: 1000px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+        nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px; text-align: center; padding-bottom: 20px; border-bottom: 1px solid #dddfe2; }
+        nav a { text-decoration: none; background-color: #e4e6eb; color: #050505; font-weight: 600; padding: 10px 15px; border-radius: 6px; }
+        nav a.active { background-color: #1877f2; color: white; }
+        h1, h2 { color: #1877f2; border-bottom: 2px solid #1877f2; padding-bottom: 10px; }
+        h2 { font-size: 1.2em; margin-top: 30px; }
+        h3 { margin-top: 0; color: #606770; border-bottom: 1px solid #e4e6eb; padding-bottom: 8px; }
+        .search-form { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; }
+        .search-form input { flex-grow: 1; padding: 10px; border: 1px solid #dddfe2; border-radius: 6px; }
+        .search-form button { padding: 10px 20px; background-color: #1877f2; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .data-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .data-card { background-color: #f7f8fa; padding: 15px; border-radius: 8px; border: 1px solid #dddfe2; }
+        .data-point { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e9ebee; }
+        .data-point:last-child { border-bottom: none; }
+        .data-point span:first-child { font-weight: 600; color: #333; }
+        .data-point span:last-child { color: #606770; text-align: right; }
+        .cliente-card { margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 8px; }
+        .titulo-cliente { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .action-buttons { display: flex; gap: 10px; flex-shrink: 0; }
+        .btn-pago { background-color: #28a745; color: white; padding: 8px 12px; border-radius: 5px; text-decoration: none; font-size: .9em; }
+        .btn-edit { background-color: #ffc107; color: #212529; padding: 8px 12px; border-radius: 5px; text-decoration: none; font-size: .9em; }
+        .delete-button { background-color: #dc3545; color: white; padding: 8px 12px; border: none; border-radius: 5px; cursor: pointer; font-size: .9em; }
+        .progress-bar { background-color: #e9ecef; border-radius: .25rem; height: 1.5rem; display: flex; margin-top: 5px; }
+        .progress-bar-fill { background-color: #28a745; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.9em; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 8px; border: 1px solid #ddd; text-align: left; }
         th { background-color: #f2f2f2; }
-        
-        .back-link { display: inline-block; margin-top: 30px; color: #1877f2; text-decoration: none; font-weight: 600; }
-        .flash { padding: 15px; margin-bottom: 20px; border-radius: 6px; text-align: center; font-weight: bold; }
-        .flash.error { background-color: #ffdde0; color: #d8000c; border: 1px solid #d8000c; }
-        .flash.success { background-color: #dff2bf; color: #4f8a10; border: 1px solid #4f8a10; }
+        .mensaje_error { margin-top: 20px; font-weight: 700; padding: 15px; border-radius: 5px; color: #D8000C; background-color: #FFD2D2; text-align: center; }
+        .status-card-single{text-align:center;padding:25px;border-radius:8px;margin-bottom:20px}.status-card-single p{margin:0;font-size:1.8em;font-weight:bold;text-transform:uppercase}.status-success{background-color:#dff2bf;color:#4f8a10}.status-warning{background-color:#fff3cd;color:#856404}.status-danger{background-color:#f8d7da;color:#721c24}.status-default{background-color:#e2e3e5;color:#383d41}
     </style>
 </head>
 <body>
 <div class="container">
-    <div class="tabs">
-        <a href="{{ url_for('index') }}" class="tab-link">Registrar Cliente</a>
-        <a href="{{ url_for('consulta_clientes') }}" class="tab-link active">Consultar Cliente</a>
-    </div>
-    <div class="content">
-        
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="flash {{ category }}">{{ message }}</div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
+    <nav>
+        <!-- CORRECCIÓN: Usar url_for para los enlaces -->
+        <a href="{{ url_for('index') }}">Registrar Cliente</a>
+        <a href="{{ url_for('consulta') }}" class="active">Consultar Cliente</a>
+    </nav>
+    <h1>Consulta de Clientes</h1>
+    <!-- CORRECCIÓN: Usar url_for para la acción del formulario -->
+    <form method="POST" action="{{ url_for('consulta') }}" class="search-form">
+        <input type="text" name="busqueda" placeholder="🔎 Buscar por Cédula, Nombre o Teléfono..." required value="{{ busqueda or '' }}">
+        <button type="submit">Buscar</button>
+    </form>
 
-        {% if cliente %}
-        
-        <div class="card">
-            <div class="card-header">
-                <span>{{ cliente.nombre_apellido }}</span>
-                <div class="header-actions">
-                    <a href="{{ url_for('registrar_pago', id_cliente=cliente.id) }}" class="action-btn register-btn">Registrar Pago</a>
-                    <a href="{{ url_for('editar_cliente', id_cliente=cliente.id) }}" class="action-btn edit-btn">Editar</a>
-                    <a href="{{ url_for('eliminar_cliente', id_cliente=cliente.id) }}" class="action-btn delete-btn" onclick="return confirm('¿Estás seguro de que deseas eliminar este cliente? Esta acción no se puede deshacer.');">Eliminar</a>
-                </div>
-            </div>
-            <div class="details-container" style="margin-top: 20px; margin-bottom: 0;">
-                <div style="border: none; padding: 0;">
-                    <h3 style="font-size: 16px; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #eee;">Identificación y Contacto</h3>
-                    <div class="details-grid">
-                        <div class="item"><strong>Nº Cédula:</strong> {{ cliente.cedula or 'N/A' }}</div>
-                        <div class="item"><strong>Nº Contrato:</strong> {{ cliente.contrato_nro or 'N/A' }}</div>
-                        <div class="item"><strong>Teléfono:</strong> {{ cliente.telefono or 'N/A' }}</div>
-                        <div class="item"><strong>Fecha Ingreso:</strong> {{ cliente.fecha_ingreso or 'N/A' }}</div>
-                    </div>
-                </div>
-                <div style="border: none; padding: 0;">
-                    <h3 style="font-size: 16px; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #eee;">Plan y Estatus</h3>
-                    <div class="details-grid">
-                        <div class="item"><strong>Grupo:</strong> {{ cliente.grupo or 'N/A' }}</div>
-                        <div class="item"><strong>Bien Solicitado:</strong> {{ cliente.bien_solicitado or 'N/A' }}</div>
-                        <div class="item"><strong>Asesor:</strong> {{ cliente.asesor or 'N/A' }}</div>
-                        <div class="item"><strong>Responsable:</strong> {{ cliente.responsable or 'N/A' }}</div>
-                    </div>
-                </div>
-                <div style="border: none; padding: 0;">
-                    <h3 style="font-size: 16px; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #eee;">Resumen Financiero</h3>
-                    <div class="details-grid">
-                        <div class="item"><strong>Valor de Cuota:</strong> ${{ "%.2f"|format(cliente.valor_cuota|float) }}</div>
-                        <div class="item"><strong>Monto Inscripción:</strong> ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</div>
-                        <div class="item"><strong>Valor Cancelado:</strong> ${{ "%.2f"|format(valor_cancelado) }}</div>
-                    </div>
-                </div>
+    {% if clientes %}{% for cliente in clientes %}
+    <div class="cliente-card">
+        {% set proceso = cliente.proceso | lower if cliente.proceso else '' %}
+        {% set status_class = 'status-default' %}
+        {% if 'adjudicado' in proceso or 'completado' in proceso %}
+            {% set status_class = 'status-success' %}
+        {% elif 'pendiente' in proceso or 'reserva' in proceso or 'cobranza' in proceso or 'ahorrador' in proceso %}
+            {% set status_class = 'status-warning' %}
+        {% elif 'inactivo' in proceso or 'retiro' in proceso %}
+            {% set status_class = 'status-danger' %}
+        {% endif %}
+        <div class="status-card-single {{ status_class }}">
+            <p>{{ cliente.proceso or 'No definido' }}</p>
+        </div>
+
+        <div class="titulo-cliente">
+            <h2>Datos Generales del Cliente (ID: {{ cliente.id }})</h2>
+            <div class="action-buttons">
+                <!-- Estos enlaces ya estaban correctos -->
+                <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn-edit">Editar</a>
+                <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn-pago">Registrar Pago</a>
+                <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro?');" style="display: inline;">
+                    <button type="submit" class="delete-button">Eliminar</button>
+                </form>
             </div>
         </div>
 
-        <div class="card estado-cuotas">
-            <div class="card-header">Estado de Cuotas</div>
-            <div class="item">
-                <strong>Cuotas Pagadas: {{ cuotas_progresivas }} de {{ cuotas_totales }}</strong>
-                <div class="progress-bar-container">
-                    <div class="progress-bar" style="width: {{ progreso_progresivas }}%;">{{ "%.0f"|format(progreso_progresivas) }}%</div>
-                </div>
+        <div class="data-grid">
+            <div class="data-card">
+                <h3>Identificación y Contacto</h3>
+                <div class="data-point"><span>Nombre y Apellido:</span><span>{{ cliente.nombre_apellido or 'N/A' }}</span></div>
+                <div class="data-point"><span>Nº Cédula:</span><span>{{ cliente.cedula or 'N/A' }}</span></div>
+                <div class="data-point"><span>Nº Contrato:</span><span>{{ cliente.contrato_nro or 'N/A' }}</span></div>
+                <div class="data-point"><span>Teléfono:</span><span>{{ cliente.telefono or 'N/A' }}</span></div>
+                <div class="data-point"><span>Fecha de Ingreso:</span><span>{{ cliente.fecha_ingreso or 'N/A' }}</span></div>
             </div>
-            <div class="item">
-                <strong>Balance a Favor (p/ Cuota #{{ cuotas_progresivas + 1 }}): ${{ "%.2f"|format(balance_a_favor) }} de ${{ "%.2f"|format(cliente.valor_cuota|float) }}</strong>
-                <div class="progress-bar-container">
-                    <div class="progress-bar" style="width: {{ progreso_balance }}%;">{{ "%.0f"|format(progreso_balance) }}%</div>
-                </div>
+            <div class="data-card">
+                <h3>Plan y Estatus</h3>
+                <div class="data-point"><span>Grupo:</span><span>{{ cliente.grupo or 'N/A' }}</span></div>
+                <div class="data-point"><span>Bien solicitado:</span><span>{{ cliente.bien_solicitado or 'N/A' }}</span></div>
+                <div class="data-point"><span>Estatus:</span><span>{{ cliente.estatus or 'N/A' }}</span></div>
+                <div class="data-point"><span>Estatus Detallado:</span><span>{{ cliente.estatus_1 or 'N/A' }}</span></div>
+                <div class="data-point"><span>Asesor:</span><span>{{ cliente.asesor or 'N/A' }}</span></div>
+                <div class="data-point"><span>Responsable:</span><span>{{ cliente.responsable or 'N/A' }}</span></div>
             </div>
-            <div class="item">
-                <strong>Cuotas Pendientes: {{ cuotas_pendientes }}</strong>
+            <div class="data-card">
+                <h3>Resumen Financiero</h3>
+                <div class="data-point"><span>Valor de Cuota:</span><span>${{ "%.2f"|format(cliente.valor_cuota|float) if cliente.valor_cuota else 'N/A' }}</span></div>
+                <div class="data-point"><span>Monto Inscripción:</span><span>${{ "%.2f"|format(cliente.inscripcion_monto|float) if cliente.inscripcion_monto else 'N/A' }}</span></div>
+                <div class="data-point"><span>Valor Cancelado:</span><span>${{ "%.2f"|format(cliente.valor_cancelado|float) if cliente.valor_cancelado else 'N/A' }}</span></div>
             </div>
-        </div>
 
-        <div class="card table-container">
-            <div class="card-header">Historial de Pagos</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Monto</th>
-                        <th>Estado</th>
-                        <th>Recibo #</th>
-                        <th>Forma de Pago</th>
-                        <th>Acción</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% if cliente.pagos %}
-                        {% for pago in cliente.pagos|sort(attribute='fecha_pago', reverse=True) %}
-                        <tr>
-                            <td>{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</td>
-                            <td>${{ "%.2f"|format(pago.monto_usd|float) }}</td>
-                            <td>{{ pago.estado or 'N/A' }}</td>
-                            <td>{{ pago.recibo or 'N/A' }}</td>
-                            <td>{{ pago.forma_pago or 'N/A' }}</td>
-                            <td><a href="{{ url_for('ver_recibo', id_cliente=cliente.id, id_pago=pago.id) }}">Ver Recibo</a></td>
-                        </tr>
+            <div class="data-card" style="grid-column: 1 / -1;">
+                <h3>Estado de Cuotas</h3>
+                {% set cuotas_totales = cliente.cuotas_totales|int if cliente.cuotas_totales else 0 %}
+                {% if cuotas_totales > 0 %}
+                    {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int if cliente.cuotas_pagadas_progresivas else 0 %}
+                    {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas|int if cliente.cuotas_pagadas_regresivas else 0 %}
+                    {% set porcentaje_progresivo = (cuotas_progresivas * 100) / cuotas_totales %}
+                    
+                    <div class="data-point">
+                        <span>Cuotas Pagadas (Progresivas):</span>
+                        <span>{{ cuotas_progresivas }} de {{ cuotas_totales }}</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" style="width: {{ porcentaje_progresivo }}%;">{{ "%.0f"|format(porcentaje_progresivo) }}%</div>
+                    </div>
+                    
+                    <hr style="margin: 15px 0;">
+                    
+                    {% set valor_cuota = cliente.valor_cuota|float if cliente.valor_cuota else 0 %}
+                    {% set balance = cliente.balance_regresivo|float if cliente.balance_regresivo else 0 %}
+                    {% set porcentaje_regresivo = (balance * 100) / valor_cuota if valor_cuota > 0 else 0 %}
+
+                    <div class="data-point">
+                        <span>Balance a Favor (para Cuota #{{ cuotas_totales - cuotas_regresivas }}):</span>
+                        <span>${{ "%.2f"|format(balance) }} de ${{ "%.2f"|format(valor_cuota) }}</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" style="width: {{ porcentaje_regresivo }}%; background-color: #17a2b8;">{{ "%.0f"|format(porcentaje_regresivo) }}%</div>
+                    </div>
+                    <div class="data-point" style="margin-top: 10px;">
+                        <span>Cuotas Pagadas (Regresivas):</span>
+                        <span>{{ cuotas_regresivas }}</span>
+                    </div>
+                {% else %}
+                    <p>No se ha definido el total de cuotas para este cliente. Haz clic en "Editar" para añadirlo.</p>
+                {% endif %}
+            </div>
+
+            <div class="data-card" style="grid-column: 1 / -1;">
+                <h3>Historial de Pagos</h3>
+                {% if cliente.pagos %}
+                    <table>
+                        <thead><tr><th>Fecha</th><th>Monto</th><th>Cuotas</th><th>Recibo #</th><th>Forma de Pago</th><th>Acción</th></tr></thead>
+                        <tbody>
+                        {% for pago in cliente.pagos %}
+                            <tr>
+                                <td>{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</td>
+                                <td>{{ "%.2f"|format(pago.monto) }}</td>
+                                <td>{{ pago.cuotas_cubiertas }}</td>
+                                <td>{{ pago.recibo }}</td>
+                                <td>{{ pago.forma_pago }}</td>
+                                <td><a href="{{ url_for('ver_recibo', pago_id=pago.id) }}">Ver Recibo</a></td>
+                            </tr>
                         {% endfor %}
-                    {% else %}
-                        <tr>
-                            <td colspan="6" style="text-align: center;">No hay pagos registrados.</td>
-                        </tr>
-                    {% endif %}
-                </tbody>
-            </table>
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>Este cliente no tiene pagos registrados.</p>
+                {% endif %}
+            </div>
         </div>
-        <a href="{{ url_for('consulta_clientes') }}" class="back-link">&larr; Volver a la Búsqueda</a>
-
-        {% else %}
-        <h1>Consultar Cliente</h1>
-        <form method="POST" action="{{ url_for('consulta_clientes') }}" class="search-form">
-            <input type="text" name="termino_busqueda" placeholder="Ingrese Cédula, Nombre o Teléfono" required>
-            <button type="submit">Buscar</button>
-        </form>
-
-        {% if clientes_encontrados %}
-            <h2>Resultados de la Búsqueda:</h2>
-            <table>
-                <thead><tr><th>Nombre</th><th>Cédula</th><th>Acción</th></tr></thead>
-                <tbody>
-                {% for c in clientes_encontrados %}
-                    <tr>
-                        <td>{{ c.nombre_apellido }}</td>
-                        <td>{{ c.cedula }}</td>
-                        <td><a href="{{ url_for('detalle_cliente', id_cliente=c.id) }}">Ver Resumen</a></td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-        {% endif %}
-
-        {% endif %}
     </div>
+    {% endfor %}{% endif %}
+
+    {% if mensaje_error %}
+        <div class="mensaje_error">{{ mensaje_error }}</div>
+    {% endif %}
 </div>
 </body>
 </html>

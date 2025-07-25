@@ -118,7 +118,6 @@ def consulta():
     return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda)
 
 
-# **** ¡CORRECCIÓN AQUÍ! **** Se usa 'client_id' para coincidir con la plantilla HTML.
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 def registrar_pago(client_id):
     """Registra un pago y recalcula el estado de cuotas del cliente de forma segura."""
@@ -137,7 +136,6 @@ def registrar_pago(client_id):
 
     if request.method == 'POST':
         try:
-            # Usar Decimal para cálculos monetarios para evitar errores de punto flotante
             monto_pagado = Decimal(request.form['monto'])
             valor_cuota = Decimal(cliente['valor_cuota'] or 0)
 
@@ -145,22 +143,18 @@ def registrar_pago(client_id):
                 flash('Error: El cliente no tiene un valor de cuota válido. Edite el cliente para añadirlo.', 'error')
                 return render_template('registrar_pago.html', cliente=cliente)
 
-            # Obtener valores actuales de la base de datos
             cuotas_progresivas_actuales = cliente['cuotas_pagadas_progresivas'] or 0
             balance_regresivo_actual = Decimal(cliente['balance_regresivo'] or 0)
 
-            # Lógica de cálculo simplificada y robusta
             monto_total_disponible = monto_pagado + balance_regresivo_actual
             cuotas_cubiertas_con_pago = int(monto_total_disponible // valor_cuota)
             nuevo_balance_regresivo = monto_total_disponible % valor_cuota
             nuevas_cuotas_progresivas = cuotas_progresivas_actuales + cuotas_cubiertas_con_pago
 
             with conn.cursor() as cur:
-                # Actualizar el estado del cliente
                 update_query = "UPDATE clientes SET cuotas_pagadas_progresivas = %s, balance_regresivo = %s WHERE id = %s;"
                 cur.execute(update_query, (nuevas_cuotas_progresivas, nuevo_balance_regresivo, client_id))
 
-                # Insertar el registro del pago
                 pago_form = {k: v if v else None for k, v in request.form.items()}
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, cuotas_cubiertas, forma_pago, fecha_pago, pago_en, cantidad_en_letras, por_concepto_de, referencia, banco, lugar_emision)
@@ -197,7 +191,6 @@ def ver_recibo(pago_id):
         return redirect(url_for('consulta'))
     return render_template('recibo.html', pago=pago)
 
-# **** ¡CORRECCIÓN AQUÍ! **** Se usa 'client_id' para coincidir con la plantilla HTML.
 @app.route('/edit/<int:client_id>', methods=['GET', 'POST'])
 def edit_client(client_id):
     conn = get_db()
@@ -231,7 +224,6 @@ def edit_client(client_id):
         return redirect(url_for('consulta'))
     return render_template('edit_cliente.html', cliente=cliente)
 
-# **** ¡CORRECCIÓN AQUÍ! **** Se usa 'client_id' para coincidir con la plantilla HTML.
 @app.route('/delete/<int:client_id>', methods=['POST'])
 def delete_client(client_id):
     conn = get_db()
