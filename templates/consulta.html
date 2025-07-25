@@ -1,10 +1,17 @@
-{% extends "base.html" %}
-
-{% block title %}Consulta de Clientes{% endblock %}
-
-{% block head %}
-    {{ super() }}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta de Clientes</title>
     <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #212529;
+        }
         .container {
             max-width: 1400px;
             margin: auto;
@@ -12,6 +19,20 @@
             padding: 25px;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+        }
+        .navbar {
+            background-color: #fff;
+            padding: 10px 0; /* Ajustado para que encaje mejor */
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #dee2e6; /* Borde inferior para separar */
+        }
+        .navbar a {
+            text-decoration: none;
+            color: #007bff;
+            margin-right: 15px;
+            font-weight: 500;
+            font-size: 16px;
         }
         h1 { margin-bottom: 20px; }
         h4 { margin-top: 20px; margin-bottom: 10px; }
@@ -125,130 +146,135 @@
         .btn-delete { background-color: #dc3545; }
         .btn-ver-recibo { background-color: #17a2b8; }
     </style>
-{% endblock %}
-
-{% block content %}
-<div class="container">
-    <h1>Consulta de Clientes</h1>
-    <form class="search-form" method="POST" action="{{ url_for('consulta') }}">
-        <input type="text" name="busqueda" placeholder="Buscar por Cédula o Nombre" value="{{ busqueda or '' }}" required>
-        <input type="submit" value="Buscar">
-    </form>
-
-    {% if mensaje_error %}
-        <p class="flash-error">{{ mensaje_error }}</p>
-    {% endif %}
-
-    {% for cliente in clientes %}
-    <div class="cliente-card">
-        <div class="cliente-card-header">
-            <h2>{{ cliente.nombre_apellido }}</h2>
-            <div>
-                {% set proceso = cliente.proceso | lower if cliente.proceso else '' %}
-                {% set status_class = 'status-default' %}
-                {% if 'adjudicado' in proceso or 'completado' in proceso %}
-                    {% set status_class = 'status-success' %}
-                {% elif 'pendiente' in proceso or 'reserva' in proceso or 'cobranza' in proceso or 'ahorrador' in proceso %}
-                    {% set status_class = 'status-warning' %}
-                {% elif 'inactivo' in proceso or 'retiro' in proceso %}
-                    {% set status_class = 'status-danger' %}
-                {% endif %}
-                <span class="status-badge {{ status_class }}">{{ cliente.proceso or 'NO DEFINIDO' }}</span>
-            </div>
+</head>
+<body>
+    <div class="container">
+        <div class="navbar">
+            <a href="{{ url_for('index') }}">Registrar Cliente</a>
+            <a href="{{ url_for('consulta') }}">Consultar Cliente</a>
         </div>
-        <div class="cliente-card-body">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h4>Datos Generales del Cliente (ID: {{ cliente.id }})</h4>
+
+        <h1>Consulta de Clientes</h1>
+        <form class="search-form" method="POST" action="{{ url_for('consulta') }}">
+            <input type="text" name="busqueda" placeholder="Buscar por Cédula o Nombre" value="{{ busqueda or '' }}" required>
+            <input type="submit" value="Buscar">
+        </form>
+
+        {% if mensaje_error %}
+            <p class="flash-error">{{ mensaje_error }}</p>
+        {% endif %}
+
+        {% for cliente in clientes %}
+        <div class="cliente-card">
+            <div class="cliente-card-header">
+                <h2>{{ cliente.nombre_apellido }}</h2>
                 <div>
-                    <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-edit">Editar</a>
-                    <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-pago">Registrar Pago</a>
-                    <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente?');">
-                        <button type="submit" class="btn btn-delete">Eliminar</button>
-                    </form>
-                </div>
-            </div>
-
-            <div class="cliente-grid">
-                <div class="info-section">
-                    <h3>Identificación y Contacto</h3>
-                    <p><strong>Nombre y Apellido:</strong> {{ cliente.nombre_apellido or 'N/A' }}</p>
-                    <p><strong>Nº Cédula:</strong> {{ cliente.cedula or 'N/A' }}</p>
-                    <p><strong>Nº Contrato:</strong> {{ cliente.contrato_nro or 'N/A' }}</p>
-                    <p><strong>Teléfono:</strong> {{ cliente.telefono or 'N/A' }}</p>
-                    <p><strong>Fecha de Ingreso:</strong> {{ cliente.fecha_ingreso.strftime('%Y-%m-%d') if cliente.fecha_ingreso else 'N/A' }}</p>
-                </div>
-                <div class="info-section">
-                    <h3>Plan y Estatus</h3>
-                    <p><strong>Grupo:</strong> {{ cliente.grupo or 'N/A' }}</p>
-                    <p><strong>Bien solicitado:</strong> {{ cliente.bien_solicitado or 'N/A' }}</p>
-                    <p><strong>Estatus:</strong> {{ cliente.estatus or 'N/A' }}</p>
-                    <p><strong>Estatus Detallado:</strong> {{ cliente.estatus_1 or 'N/A' }}</p>
-                    <p><strong>Asesor:</strong> {{ cliente.asesor or 'N/A' }}</p>
-                    <p><strong>Responsable:</strong> {{ cliente.responsable or 'N/A' }}</p>
-                </div>
-                <div class="info-section">
-                    <h3>Resumen Financiero</h3>
-                    <p><strong>Valor de Cuota:</strong> ${{ "%.2f"|format(cliente.valor_cuota|float) if cliente.valor_cuota else 'N/A' }}</p>
-                    <p><strong>Monto Inscripción:</strong> ${{ "%.2f"|format(cliente.inscripcion_monto|float) if cliente.inscripcion_monto else 'N/A' }}</p>
-                    <p><strong>Valor Cancelado:</strong> ${{ "%.2f"|format(cliente.valor_cancelado|float) if cliente.valor_cancelado else '0.00' }}</p>
-                </div>
-                <div class="info-section">
-                    <h3>Estado de Cuotas</h3>
-                    {% set cuotas_totales = cliente.cuotas_totales|int if cliente.cuotas_totales else 0 %}
-                    {% if cuotas_totales > 0 %}
-                        {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int if cliente.cuotas_pagadas_progresivas else 0 %}
-                        {% set porcentaje_progresivo = (cuotas_progresivas * 100) / cuotas_totales %}
-                        <p><strong>Cuotas Pagadas:</strong> {{ cuotas_progresivas }} de {{ cuotas_totales }}</p>
-                        <div class="progress-bar">
-                            <div class="progress-bar-fill" style="width: {{ porcentaje_progresivo }}%;">{{ "%.0f"|format(porcentaje_progresivo) }}%</div>
-                        </div>
-                        <br>
-                        {% set valor_cuota = cliente.valor_cuota|float if cliente.valor_cuota else 0 %}
-                        {% set balance = cliente.balance_regresivo|float if cliente.balance_regresivo else 0 %}
-                        {% set porcentaje_regresivo = (balance * 100) / valor_cuota if valor_cuota > 0 else 0 %}
-                        <p><strong>Balance a Favor:</strong> ${{ "%.2f"|format(balance) }} de ${{ "%.2f"|format(valor_cuota) }}</p>
-                        <div class="progress-bar">
-                            <div class="progress-bar-fill" style="width: {{ porcentaje_regresivo }}%; background-color: #28a745;">{{ "%.0f"|format(porcentaje_regresivo) }}%</div>
-                        </div>
-                    {% else %}
-                        <p>No se ha definido el total de cuotas para este cliente.</p>
+                    {% set proceso = cliente.proceso | lower if cliente.proceso else '' %}
+                    {% set status_class = 'status-default' %}
+                    {% if 'adjudicado' in proceso or 'completado' in proceso %}
+                        {% set status_class = 'status-success' %}
+                    {% elif 'pendiente' in proceso or 'reserva' in proceso or 'cobranza' in proceso or 'ahorrador' in proceso %}
+                        {% set status_class = 'status-warning' %}
+                    {% elif 'inactivo' in proceso or 'retiro' in proceso %}
+                        {% set status_class = 'status-danger' %}
                     {% endif %}
+                    <span class="status-badge {{ status_class }}">{{ cliente.proceso or 'NO DEFINIDO' }}</span>
                 </div>
             </div>
+            <div class="cliente-card-body">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h4>Datos Generales del Cliente (ID: {{ cliente.id }})</h4>
+                    <div>
+                        <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-edit">Editar</a>
+                        <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-pago">Registrar Pago</a>
+                        <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente?');">
+                            <button type="submit" class="btn btn-delete">Eliminar</button>
+                        </form>
+                    </div>
+                </div>
 
-            <h4>Historial de Pagos</h4>
-            {% if cliente.pagos %}
-            <table class="pagos-table">
-                <thead>
-                    <tr>
-                        <th>Recibo #</th>
-                        <th>Fecha</th>
-                        <th>Monto (USD)</th>
-                        <th>Cuotas Cubiertas</th>
-                        <th>Estado</th>
-                        <th>Acción</th>
-                    </tr>
-                </thead>
-                <tbody>
-                {% for pago in cliente.pagos %}
-                    <tr class="{% if pago.estado_pago == 'Anulado' %}anulado-row{% endif %}">
-                        <td>{{ pago.id }}</td>
-                        <td>{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</td>
-                        <td>${{ "%.2f"|format(pago.monto) }}</td>
-                        <td>{{ pago.cuotas_cubiertas }}</td>
-                        <td>{{ pago.estado_pago }}</td>
-                        <td>
-                            <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Recibo</a>
-                        </td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <p>Este cliente no tiene pagos registrados.</p>
-            {% endif %}
+                <div class="cliente-grid">
+                    <div class="info-section">
+                        <h3>Identificación y Contacto</h3>
+                        <p><strong>Nombre y Apellido:</strong> {{ cliente.nombre_apellido or 'N/A' }}</p>
+                        <p><strong>Nº Cédula:</strong> {{ cliente.cedula or 'N/A' }}</p>
+                        <p><strong>Nº Contrato:</strong> {{ cliente.contrato_nro or 'N/A' }}</p>
+                        <p><strong>Teléfono:</strong> {{ cliente.telefono or 'N/A' }}</p>
+                        <p><strong>Fecha de Ingreso:</strong> {{ cliente.fecha_ingreso.strftime('%Y-%m-%d') if cliente.fecha_ingreso else 'N/A' }}</p>
+                    </div>
+                    <div class="info-section">
+                        <h3>Plan y Estatus</h3>
+                        <p><strong>Grupo:</strong> {{ cliente.grupo or 'N/A' }}</p>
+                        <p><strong>Bien solicitado:</strong> {{ cliente.bien_solicitado or 'N/A' }}</p>
+                        <p><strong>Estatus:</strong> {{ cliente.estatus or 'N/A' }}</p>
+                        <p><strong>Estatus Detallado:</strong> {{ cliente.estatus_1 or 'N/A' }}</p>
+                        <p><strong>Asesor:</strong> {{ cliente.asesor or 'N/A' }}</p>
+                        <p><strong>Responsable:</strong> {{ cliente.responsable or 'N/A' }}</p>
+                    </div>
+                    <div class="info-section">
+                        <h3>Resumen Financiero</h3>
+                        <p><strong>Valor de Cuota:</strong> ${{ "%.2f"|format(cliente.valor_cuota|float) if cliente.valor_cuota else 'N/A' }}</p>
+                        <p><strong>Monto Inscripción:</strong> ${{ "%.2f"|format(cliente.inscripcion_monto|float) if cliente.inscripcion_monto else 'N/A' }}</p>
+                        <p><strong>Valor Cancelado:</strong> ${{ "%.2f"|format(cliente.valor_cancelado|float) if cliente.valor_cancelado else '0.00' }}</p>
+                    </div>
+                    <div class="info-section">
+                        <h3>Estado de Cuotas</h3>
+                        {% set cuotas_totales = cliente.cuotas_totales|int if cliente.cuotas_totales else 0 %}
+                        {% if cuotas_totales > 0 %}
+                            {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int if cliente.cuotas_pagadas_progresivas else 0 %}
+                            {% set porcentaje_progresivo = (cuotas_progresivas * 100) / cuotas_totales %}
+                            <p><strong>Cuotas Pagadas:</strong> {{ cuotas_progresivas }} de {{ cuotas_totales }}</p>
+                            <div class="progress-bar">
+                                <div class="progress-bar-fill" style="width: {{ porcentaje_progresivo }}%;">{{ "%.0f"|format(porcentaje_progresivo) }}%</div>
+                            </div>
+                            <br>
+                            {% set valor_cuota = cliente.valor_cuota|float if cliente.valor_cuota else 0 %}
+                            {% set balance = cliente.balance_regresivo|float if cliente.balance_regresivo else 0 %}
+                            {% set porcentaje_regresivo = (balance * 100) / valor_cuota if valor_cuota > 0 else 0 %}
+                            <p><strong>Balance a Favor:</strong> ${{ "%.2f"|format(balance) }} de ${{ "%.2f"|format(valor_cuota) }}</p>
+                            <div class="progress-bar">
+                                <div class="progress-bar-fill" style="width: {{ porcentaje_regresivo }}%; background-color: #28a745;">{{ "%.0f"|format(porcentaje_regresivo) }}%</div>
+                            </div>
+                        {% else %}
+                            <p>No se ha definido el total de cuotas para este cliente.</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <h4>Historial de Pagos</h4>
+                {% if cliente.pagos %}
+                <table class="pagos-table">
+                    <thead>
+                        <tr>
+                            <th>Recibo #</th>
+                            <th>Fecha</th>
+                            <th>Monto (USD)</th>
+                            <th>Cuotas Cubiertas</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for pago in cliente.pagos %}
+                        <tr class="{% if pago.estado_pago == 'Anulado' %}anulado-row{% endif %}">
+                            <td>{{ pago.id }}</td>
+                            <td>{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</td>
+                            <td>${{ "%.2f"|format(pago.monto) }}</td>
+                            <td>{{ pago.cuotas_cubiertas }}</td>
+                            <td>{{ pago.estado_pago }}</td>
+                            <td>
+                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Recibo</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p>Este cliente no tiene pagos registrados.</p>
+                {% endif %}
+            </div>
         </div>
+        {% endfor %}
     </div>
-    {% endfor %}
-</div>
-{% endblock %}
+</body>
+</html>

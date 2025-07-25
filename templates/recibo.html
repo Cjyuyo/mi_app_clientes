@@ -1,11 +1,17 @@
-{% extends "base.html" %}
-
-{% block title %}Comprobante de Ingreso N° {{ pago.id }}{% endblock %}
-
-{% block head %}
-    {{ super() }}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprobante de Ingreso N° {{ pago.id }}</title>
     <style>
-        .recibo-container {
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #e9ecef;
+        }
+        .container {
             max-width: 800px;
             margin: auto;
             background: white;
@@ -121,95 +127,103 @@
             body {
                 background-color: #fff;
             }
-            .recibo-container {
+            .container {
                 box-shadow: none;
                 border: none;
-                margin: 0;
-                padding: 0;
             }
             .actions-seccion, .navbar {
                 display: none;
             }
         }
     </style>
-{% endblock %}
+</head>
+<body>
+    <div class="container">
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flash-messages">
+                {% for category, message in messages %}
+                    <li class="flash-{{ category }}">{{ message }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
 
-{% block content %}
-<div class="recibo-container">
-    
-    {% if pago.estado_pago == 'Anulado' %}
-    <div class="anulado-watermark">
-        <h1>ANULADO</h1>
-    </div>
-    {% endif %}
-
-    <div class="header clearfix">
-        <div class="comprobante-box">
-            <h2>Comprobante de Ingreso</h2>
-            <p>N° {{ pago.id }}</p>
-            <span>Estado: {{ pago.estado_pago or 'Conciliado' }}</span>
+        {% if pago.estado_pago == 'Anulado' %}
+        <div class="anulado-watermark">
+            <h1>ANULADO</h1>
         </div>
-        <div class="header-info">
-            <h1>MOTO PLAN MOTORS C.A</h1>
-            <p>(VIVE TUS SUEÑOS)</p>
-            <p>Calle 31 Con Avenida Libertador Edf Doña Tina Piso PA Of 7 Sector Centro</p>
-            <p>Acarigua Portuguesa - R.I.F.: J- 50408559-1 - 📞 0426-215.26.82</p>
+        {% endif %}
+
+        <div class="header clearfix">
+            <div class="comprobante-box">
+                <h2>Comprobante de Ingreso</h2>
+                <p>N° {{ pago.id }}</p>
+                <span>Estado: {{ pago.estado_pago or 'Conciliado' }}</span>
+            </div>
+            <div class="header-info">
+                <h1>MOTO PLAN MOTORS C.A</h1>
+                <p>(VIVE TUS SUEÑOS)</p>
+                <p>Calle 31 Con Avenida Libertador Edf Doña Tina Piso PA Of 7 Sector Centro</p>
+                <p>Acarigua Portuguesa - R.I.F.: J- 50408559-1 - 📞 0426-215.26.82</p>
+            </div>
         </div>
-    </div>
 
-    <div class="section">
-        <p><span>Hemos Recibido de:</span> {{ pago.nombre_apellido }} &nbsp;&nbsp;&nbsp;&nbsp; <span>C.I. o R.I.F.:</span> {{ pago.cedula or 'N/A' }}</p>
-    </div>
+        <div class="section">
+            <p><span>Hemos Recibido de:</span> {{ pago.nombre_apellido }} &nbsp;&nbsp;&nbsp;&nbsp; <span>C.I. o R.I.F.:</span> {{ pago.cedula or 'N/A' }}</p>
+        </div>
 
-    <div class="section">
-        <h3>Detalles del Pago</h3>
-        <div class="info-grid">
-            <p><span>Monto Pagado (USD):</span> ${{ "%.2f"|format(pago.monto) }}</p>
-            {% if pago.tasa_dia and pago.monto_bs %}
-                <p><span>Tasa del Día:</span> Bs. {{ "%.2f"|format(pago.tasa_dia) }}</p>
-                <p><span>Monto Equivalente:</span> Bs. {{ "%.2f"|format(pago.monto_bs) }}</p>
+        <div class="section">
+            <h3>Detalles del Pago</h3>
+            <div class="info-grid">
+                <p><span>Monto Pagado (USD):</span> ${{ "%.2f"|format(pago.monto) }}</p>
+                {% if pago.tasa_dia and pago.monto_bs %}
+                    <p><span>Tasa del Día:</span> Bs. {{ "%.2f"|format(pago.tasa_dia) }}</p>
+                    <p><span>Monto Equivalente:</span> Bs. {{ "%.2f"|format(pago.monto_bs) }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Estado de Cuenta Actualizado</h3>
+            {% set cuotas_totales = pago.cuotas_totales|int if pago.cuotas_totales else 0 %}
+            {% set cuotas_progresivas = pago.cuotas_pagadas_progresivas|int if pago.cuotas_pagadas_progresivas else 0 %}
+            {% set cuotas_regresivas = pago.cuotas_pagadas_regresivas|int if pago.cuotas_pagadas_regresivas else 0 %}
+            
+            <p><span>Cuotas Pagadas (Progresivas):</span> {{ cuotas_progresivas }} de {{ cuotas_totales }}</p>
+            <p><span>Cuotas Pagadas (Regresivas):</span> {{ cuotas_regresivas }}</p>
+            <p><span>Balance a Favor:</span> ${{ "%.2f"|format(pago.balance_regresivo) if pago.balance_regresivo is not none else '0.00' }} de ${{ "%.2f"|format(pago.valor_cuota) }}</p>
+        </div>
+
+        <div class="section">
+             <div class="info-grid">
+                <p><span>Por Concepto de:</span> {{ pago.por_concepto_de }}</p>
+                <p><span></span></p>
+                <p><span>Forma de Pago:</span> {{ pago.forma_pago }}</p>
+                <p><span>Pago en:</span> {{ pago.pago_en or 'N/A' }}</p>
+                <p><span>Referencia:</span> {{ pago.referencia or 'N/A' }}</p>
+                <p><span>Banco:</span> {{ pago.banco or 'N/A' }}</p>
+            </div>
+        </div>
+        
+        <div class="section" style="margin-top: 40px;">
+            <div class="info-grid">
+                <p style="border-top: 1px solid #333; padding-top: 10px; text-align:center;">Firma Autorizada</p>
+                <p style="border-top: 1px solid #333; padding-top: 10px; text-align:center;">Firma del Cliente</p>
+            </div>
+        </div>
+
+        <div class="actions-seccion">
+            <button class="btn-imprimir" onclick="window.print()">Imprimir / Guardar</button>
+            <a href="{{ url_for('consulta', busqueda=pago.cedula) }}" class="btn-volver">Volver a Consulta</a>
+            {% if pago.estado_pago != 'Anulado' %}
+            <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo? Esta acción revertirá el pago y el estado de cuenta del cliente.');">
+                <button type="submit" class="btn-anular">Anular Recibo</button>
+            </form>
             {% endif %}
         </div>
-    </div>
 
-    <div class="section">
-        <h3>Estado de Cuenta Actualizado</h3>
-        {% set cuotas_totales = pago.cuotas_totales|int if pago.cuotas_totales else 0 %}
-        {% set cuotas_progresivas = pago.cuotas_pagadas_progresivas|int if pago.cuotas_pagadas_progresivas else 0 %}
-        {% set cuotas_regresivas = pago.cuotas_pagadas_regresivas|int if pago.cuotas_pagadas_regresivas else 0 %}
-        
-        <p><span>Cuotas Pagadas (Progresivas):</span> {{ cuotas_progresivas }} de {{ cuotas_totales }}</p>
-        <p><span>Cuotas Pagadas (Regresivas):</span> {{ cuotas_regresivas }}</p>
-        <p><span>Balance a Favor:</span> ${{ "%.2f"|format(pago.balance_regresivo) if pago.balance_regresivo is not none else '0.00' }} de ${{ "%.2f"|format(pago.valor_cuota) }}</p>
     </div>
-
-    <div class="section">
-         <div class="info-grid">
-            <p><span>Por Concepto de:</span> {{ pago.por_concepto_de }}</p>
-            <p><span></span></p>
-            <p><span>Forma de Pago:</span> {{ pago.forma_pago }}</p>
-            <p><span>Pago en:</span> {{ pago.pago_en or 'N/A' }}</p>
-            <p><span>Referencia:</span> {{ pago.referencia or 'N/A' }}</p>
-            <p><span>Banco:</span> {{ pago.banco or 'N/A' }}</p>
-        </div>
-    </div>
-    
-    <div class="section" style="margin-top: 40px;">
-        <div class="info-grid">
-            <p style="border-top: 1px solid #333; padding-top: 10px; text-align:center;">Firma Autorizada</p>
-            <p style="border-top: 1px solid #333; padding-top: 10px; text-align:center;">Firma del Cliente</p>
-        </div>
-    </div>
-
-    <div class="actions-seccion">
-        <button class="btn-imprimir" onclick="window.print()">Imprimir / Guardar</button>
-        <a href="{{ url_for('consulta', busqueda=pago.cedula) }}" class="btn-volver">Volver a Consulta</a>
-        {% if pago.estado_pago != 'Anulado' %}
-        <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo? Esta acción revertirá el pago y el estado de cuenta del cliente.');">
-            <button type="submit" class="btn-anular">Anular Recibo</button>
-        </form>
-        {% endif %}
-    </div>
-
-</div>
-{% endblock %}
+</body>
+</html>
