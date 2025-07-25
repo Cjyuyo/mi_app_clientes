@@ -17,7 +17,7 @@
         }
         input[type="submit"] { background-color: #007bff; color: white; cursor: pointer; }
         .cliente-card { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 5px; }
-        .cliente-header { display: flex; justify-content: space-between; align-items: center; }
+        .cliente-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
         .cliente-actions a, .cliente-actions button {
             text-decoration: none;
             color: white;
@@ -28,6 +28,24 @@
         .btn-pago { background-color: #28a745; }
         .btn-edit { background-color: #ffc107; }
         .btn-delete { background-color: #dc3545; border: none; font-size: 14px; cursor: pointer; }
+        
+        /* Estilos para la nueva sección de detalles del cliente */
+        .cliente-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 10px;
+            padding: 15px;
+            background-color: #fafafa;
+            border-top: 1px solid #eee;
+            border-bottom: 1px solid #eee;
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+        .cliente-details p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
         .pagos-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         .pagos-table th, .pagos-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         .pagos-table th { background-color: #f2f2f2; }
@@ -80,6 +98,19 @@
                             <button type="submit" class="btn-delete">Eliminar</button>
                         </form>
                     </div>
+                </div>
+
+                <!-- SECCIÓN DE DETALLES DEL CLIENTE RESTAURADA -->
+                <div class="cliente-details">
+                    <p><strong>Teléfono:</strong> {{ cliente.telefono or 'N/A' }}</p>
+                    <p><strong>Asesor:</strong> {{ cliente.asesor or 'N/A' }}</p>
+                    <p><strong>Responsable:</strong> {{ cliente.responsable or 'N/A' }}</p>
+                    <p><strong>Fecha de Ingreso:</strong> {{ cliente.fecha_ingreso.strftime('%Y-%m-%d') if cliente.fecha_ingreso else 'N/A' }}</p>
+                    <p><strong>Plan Contratado:</strong> {{ cliente.plan_contratado or 'N/A' }}</p>
+                    <p><strong>Valor de Cuota:</strong> ${{ "%.2f"|format(cliente.valor_cuota) if cliente.valor_cuota else 'N/A' }}</p>
+                    <p><strong>Cuotas Totales:</strong> {{ cliente.cuotas_totales or 'N/A' }}</p>
+                    <p><strong>Estatus:</strong> {{ cliente.estatus or 'N/A' }}</p>
+                    <p><strong>Proceso:</strong> {{ cliente.proceso or 'N/A' }}</p>
                 </div>
                 
                 <h4>Historial de Pagos</h4>
