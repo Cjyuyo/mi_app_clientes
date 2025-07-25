@@ -20,20 +20,6 @@
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.07);
         }
-        .navbar {
-            background-color: #fff;
-            padding: 10px 0; /* Ajustado para que encaje mejor */
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #dee2e6; /* Borde inferior para separar */
-        }
-        .navbar a {
-            text-decoration: none;
-            color: #007bff;
-            margin-right: 15px;
-            font-weight: 500;
-            font-size: 16px;
-        }
         h1 { margin-bottom: 20px; }
         h4 { margin-top: 20px; margin-bottom: 10px; }
         .search-form { display: flex; margin-bottom: 25px; }
@@ -149,11 +135,6 @@
 </head>
 <body>
     <div class="container">
-        <div class="navbar">
-            <a href="{{ url_for('index') }}">Registrar Cliente</a>
-            <a href="{{ url_for('consulta') }}">Consultar Cliente</a>
-        </div>
-
         <h1>Consulta de Clientes</h1>
         <form class="search-form" method="POST" action="{{ url_for('consulta') }}">
             <input type="text" name="busqueda" placeholder="Buscar por Cédula o Nombre" value="{{ busqueda or '' }}" required>

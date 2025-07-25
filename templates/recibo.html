@@ -6,18 +6,16 @@
     <title>Comprobante de Ingreso N° {{ pago.id }}</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #e9ecef;
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
         }
         .container {
             max-width: 800px;
             margin: auto;
             background: white;
             padding: 40px;
-            border: 1px solid #dee2e6;
-            box-shadow: 0 0 15px rgba(0,0,0,0.05);
+            border: 1px solid #ccc;
             position: relative;
         }
         .clearfix::after {
@@ -27,21 +25,20 @@
         }
         .header-info {
             float: left;
-            width: 65%;
+            width: 60%;
+            text-align: left;
         }
         .header-info h1 {
             margin: 0;
-            font-size: 22px;
-            font-weight: 600;
+            font-size: 20px;
         }
         .header-info p {
             margin: 4px 0;
-            font-size: 13px;
-            color: #495057;
+            font-size: 14px;
         }
         .comprobante-box {
             float: right;
-            width: 30%;
+            width: 35%;
             border: 2px solid #000;
             padding: 10px;
             text-align: center;
@@ -49,7 +46,6 @@
         .comprobante-box h2 {
             margin: 0;
             font-size: 14px;
-            font-weight: 600;
             text-transform: uppercase;
         }
         .comprobante-box p {
@@ -58,31 +54,33 @@
             font-weight: bold;
         }
         .section {
-            margin-top: 25px;
+            margin-top: 20px;
             padding-top: 15px;
-            border-top: 1px solid #dee2e6;
+            border-top: 1px solid #eee;
         }
-        .section h3 {
-            font-size: 14px;
-            font-weight: 600;
-            text-transform: uppercase;
-            color: #495057;
-            margin-bottom: 15px;
-            border-bottom: 1px solid #dee2e6;
-            padding-bottom: 8px;
+        .info-table {
+            width: 100%;
         }
-        .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px 20px;
-        }
-        .info-grid p, .section p {
-            margin: 8px 0;
+        .info-table td {
+            padding: 8px 0;
             font-size: 15px;
         }
-        .info-grid p span, .section p span {
-            font-weight: 600;
-            color: #343a40;
+        .info-table td:first-child {
+            font-weight: bold;
+            width: 180px;
+        }
+        .firmas-section {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+        .firma {
+            border-top: 1px solid #333;
+            padding-top: 10px;
+            width: 250px;
         }
         .anulado-watermark {
             position: absolute;
@@ -91,7 +89,6 @@
             transform: translate(-50%, -50%) rotate(-30deg);
             z-index: 1000;
             opacity: 0.2;
-            text-align: center;
         }
         .anulado-watermark h1 {
             font-size: 8rem;
@@ -124,32 +121,15 @@
         .btn-imprimir { background-color: #6c757d; }
 
         @media print {
-            body {
-                background-color: #fff;
-            }
-            .container {
-                box-shadow: none;
-                border: none;
-            }
-            .actions-seccion, .navbar {
-                display: none;
-            }
+            body { background-color: #fff; }
+            .container { box-shadow: none; border: none; }
+            .actions-seccion { display: none; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <ul class="flash-messages">
-                {% for category, message in messages %}
-                    <li class="flash-{{ category }}">{{ message }}</li>
-                {% endfor %}
-                </ul>
-            {% endif %}
-        {% endwith %}
-
         {% if pago.estado_pago == 'Anulado' %}
         <div class="anulado-watermark">
             <h1>ANULADO</h1>
@@ -164,54 +144,64 @@
             </div>
             <div class="header-info">
                 <h1>MOTO PLAN MOTORS C.A</h1>
-                <p>(VIVE TUS SUEÑOS)</p>
-                <p>Calle 31 Con Avenida Libertador Edf Doña Tina Piso PA Of 7 Sector Centro</p>
-                <p>Acarigua Portuguesa - R.I.F.: J- 50408559-1 - 📞 0426-215.26.82</p>
+                <p>¡VIVE TUS SUEÑOS!</p>
+                <p>Calle 31 Con Avenida Libertador Edif Doña Tina Piso PA OF 7 Sector Centro</p>
+                <p>Acarigua Portuguesa - R.I.F.: J - 50408959-1 - 📞 0426-215.26.82</p>
             </div>
         </div>
 
         <div class="section">
-            <p><span>Hemos Recibido de:</span> {{ pago.nombre_apellido }} &nbsp;&nbsp;&nbsp;&nbsp; <span>C.I. o R.I.F.:</span> {{ pago.cedula or 'N/A' }}</p>
+            <table class="info-table">
+                <tr>
+                    <td>Hemos Recibido de:</td>
+                    <td>{{ pago.nombre_apellido }}</td>
+                </tr>
+                <tr>
+                    <td>C.I. o R.I.F.:</td>
+                    <td>{{ pago.cedula or 'N/A' }}</td>
+                </tr>
+            </table>
         </div>
 
         <div class="section">
             <h3>Detalles del Pago</h3>
-            <div class="info-grid">
-                <p><span>Monto Pagado (USD):</span> ${{ "%.2f"|format(pago.monto) }}</p>
+            <table class="info-table">
+                <tr>
+                    <td>Monto Pagado:</td>
+                    <td>${{ "%.2f"|format(pago.monto) }}</td>
+                </tr>
                 {% if pago.tasa_dia and pago.monto_bs %}
-                    <p><span>Tasa del Día:</span> Bs. {{ "%.2f"|format(pago.tasa_dia) }}</p>
-                    <p><span>Monto Equivalente:</span> Bs. {{ "%.2f"|format(pago.monto_bs) }}</p>
+                <tr>
+                    <td>Tasa del Día:</td>
+                    <td>Bs. {{ "%.2f"|format(pago.tasa_dia) }}</td>
+                </tr>
+                <tr>
+                    <td>Monto Equivalente:</td>
+                    <td>Bs. {{ "%.2f"|format(pago.monto_bs) }}</td>
+                </tr>
                 {% endif %}
-            </div>
-        </div>
-
-        <div class="section">
-            <h3>Estado de Cuenta Actualizado</h3>
-            {% set cuotas_totales = pago.cuotas_totales|int if pago.cuotas_totales else 0 %}
-            {% set cuotas_progresivas = pago.cuotas_pagadas_progresivas|int if pago.cuotas_pagadas_progresivas else 0 %}
-            {% set cuotas_regresivas = pago.cuotas_pagadas_regresivas|int if pago.cuotas_pagadas_regresivas else 0 %}
-            
-            <p><span>Cuotas Pagadas (Progresivas):</span> {{ cuotas_progresivas }} de {{ cuotas_totales }}</p>
-            <p><span>Cuotas Pagadas (Regresivas):</span> {{ cuotas_regresivas }}</p>
-            <p><span>Balance a Favor:</span> ${{ "%.2f"|format(pago.balance_regresivo) if pago.balance_regresivo is not none else '0.00' }} de ${{ "%.2f"|format(pago.valor_cuota) }}</p>
-        </div>
-
-        <div class="section">
-             <div class="info-grid">
-                <p><span>Por Concepto de:</span> {{ pago.por_concepto_de }}</p>
-                <p><span></span></p>
-                <p><span>Forma de Pago:</span> {{ pago.forma_pago }}</p>
-                <p><span>Pago en:</span> {{ pago.pago_en or 'N/A' }}</p>
-                <p><span>Referencia:</span> {{ pago.referencia or 'N/A' }}</p>
-                <p><span>Banco:</span> {{ pago.banco or 'N/A' }}</p>
-            </div>
+                <tr>
+                    <td>Por Concepto de:</td>
+                    <td>{{ pago.por_concepto_de }}</td>
+                </tr>
+                <tr>
+                    <td>Forma de Pago:</td>
+                    <td>{{ pago.forma_pago }}</td>
+                </tr>
+                <tr>
+                    <td>Ref.:</td>
+                    <td>{{ pago.referencia or 'N/A' }}</td>
+                </tr>
+                <tr>
+                    <td>Banco:</td>
+                    <td>{{ pago.banco or 'N/A' }}</td>
+                </tr>
+            </table>
         </div>
         
-        <div class="section" style="margin-top: 40px;">
-            <div class="info-grid">
-                <p style="border-top: 1px solid #333; padding-top: 10px; text-align:center;">Firma Autorizada</p>
-                <p style="border-top: 1px solid #333; padding-top: 10px; text-align:center;">Firma del Cliente</p>
-            </div>
+        <div class="firmas-section">
+            <div class="firma">Firma Autorizada</div>
+            <div class="firma">Firma del Cliente</div>
         </div>
 
         <div class="actions-seccion">
