@@ -104,7 +104,7 @@
         .btn {
             text-decoration: none;
             color: white !important;
-            padding: 10px 15px;
+            padding: 12px 10px; /* Ajuste de padding para mejor encaje */
             border-radius: 5px;
             border: none;
             cursor: pointer;
@@ -147,7 +147,9 @@
             margin-bottom: 10px;
         }
         .actions-top-row .btn {
-            /* Se elimina flex: 1 para que los botones se ajusten a su contenido */
+            flex-grow: 1; /* Permite que los botones crezcan para llenar el espacio */
+            flex-shrink: 1; /* Permite que se encojan si es necesario */
+            flex-basis: 0; /* Base de tamaño flexible */
         }
         .pago-card {
             border: 1px solid #e9ecef;
