@@ -111,6 +111,8 @@
             font-size: 14px;
             text-align: center;
             display: block;
+            width: 100%; /* Asegura que el botón llene su contenedor */
+            box-sizing: border-box;
         }
         .btn-edit { background-color: #ffc107; }
         .btn-pago { background-color: #28a745; }
@@ -141,8 +143,8 @@
             gap: 10px;
             width: 100%;
         }
-        .actions-grid .btn-delete {
-            grid-column: 1 / -1; /* El botón de eliminar ocupa todas las columnas */
+        .delete-form-container {
+            grid-column: 1 / -1; /* El formulario de eliminar ocupa todas las columnas */
             margin-top: 10px;
         }
         .pago-card {
@@ -179,11 +181,11 @@
                 gap: 10px;
                 width: auto;
             }
-            .actions-grid .btn-delete {
-                grid-column: auto; /* Restaura el comportamiento normal en pantallas grandes */
+            .delete-form-container {
+                grid-column: auto;
                 margin-top: 0;
             }
-            .actions-grid .btn, .actions-grid form {
+            .actions-grid .btn, .actions-grid .delete-form-container {
                 flex-grow: 1;
             }
         }
@@ -236,7 +238,7 @@
                         <a href="{{ url_for('consulta') }}" class="btn btn-finalizar">Finalizar</a>
                         <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-edit">Editar</a>
                         <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-pago">Registrar Pago</a>
-                        <form action="{{ url_for('delete_client', client_id=cliente.id) }}" class="btn-delete" method="POST" style="display: contents;" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente y todos sus pagos? Esta acción no se puede deshacer.');">
+                        <form action="{{ url_for('delete_client', client_id=cliente.id) }}" class="delete-form-container" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente y todos sus pagos? Esta acción no se puede deshacer.');">
                             <button type="submit" class="btn btn-delete">Eliminar</button>
                         </form>
                     </div>
