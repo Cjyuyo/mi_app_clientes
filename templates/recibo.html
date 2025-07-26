@@ -2,74 +2,85 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Recibo Anulado - Moto Plan</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recibo Anulado N° {{ pago.id }}</title>
     <style>
         body {
-            background-color: #f8f9fa; /* Un fondo suave para la vista previa */
-            color: #000;
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
         }
-        .receipt-container {
+        .container {
             max-width: 800px;
-            margin: 2rem auto;
-            border: 2px solid #000;
-            padding: 2rem;
-            background-color: white;
-            position: relative; /* Necesario para posicionar la marca de agua */
-            overflow: hidden; /* Evita que la marca de agua se desborde */
+            margin: auto;
+            background: white;
+            padding: 40px;
+            border: 1px solid #ccc;
+            position: relative; /* Clave para la marca de agua */
         }
-        
-        /* La magia de la marca de agua */
-        .receipt-container::after {
+        /* Marca de agua ANULADO */
+        .container::after {
             content: "ANULADO";
             font-size: 10rem;
-            font-weight: 900; /* Extra bold */
-            color: rgba(220, 53, 69, 0.15); /* Rojo de Bootstrap, semi-transparente */
+            font-weight: bold;
+            color: rgba(220, 53, 69, 0.15); /* Rojo semi-transparente */
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg); /* Centrado y rotado */
-            /* CAMBIO: z-index alto para que esté ENCIMA del contenido */
-            z-index: 3; 
-            pointer-events: none; /* Para no interferir con la selección de texto */
+            transform: translate(-50%, -50%) rotate(-45deg);
+            z-index: 1; /* Detrás del contenido */
+            pointer-events: none; /* No interfiere con el mouse */
         }
-
-        /* Contenido del recibo */
-        .receipt-content {
+        .content-wrapper {
             position: relative;
-            /* CAMBIO: z-index más bajo para que esté DEBAJO de la marca de agua */
-            z-index: 2; 
+            z-index: 2; /* Contenido por encima de la marca de agua */
         }
-        .header {
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+        .header-info {
+            float: left;
+            width: 60%;
+            text-align: left;
+        }
+        .header-info h1 { margin: 0; font-size: 20px; }
+        .header-info p { margin: 4px 0; font-size: 14px; }
+        .comprobante-box {
+            float: right;
+            width: 35%;
+            border: 2px solid #000;
+            padding: 10px;
             text-align: center;
-            margin-bottom: 2rem;
         }
-        .header h1 {
-            margin: 0;
-            font-size: 2rem;
+        .comprobante-box h2 { margin: 0; font-size: 14px; text-transform: uppercase; }
+        .comprobante-box p { margin: 5px 0; font-size: 18px; font-weight: bold; }
+        .section { margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; }
+        .section h3 { font-size: 16px; margin-bottom: 10px; }
+        .section p { margin: 8px 0; font-size: 15px; }
+        .section p span { font-weight: bold; }
+        .actions-seccion { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ccc; }
+        .actions-seccion button, .actions-seccion a {
+            display: inline-block;
+            text-decoration: none;
+            color: white !important;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
             font-weight: bold;
+            margin: 5px;
         }
-        .no-print {
-            margin-top: 2rem;
-            text-align: center;
-        }
+        .btn-volver { background-color: #007bff; }
+        .btn-imprimir { background-color: #6c757d; }
 
-        /* Estilos para impresión */
         @media print {
-            .no-print {
-                display: none; /* Oculta los botones al imprimir */
-            }
-            body {
-                background-color: #fff;
-            }
-            .receipt-container {
-                border: none;
-                margin: 0;
-                max-width: 100%;
-                box-shadow: none;
-            }
-            /* Asegura que la marca de agua se imprima */
-            .receipt-container::after {
+            body { background-color: #fff; }
+            .container { box-shadow: none; border: none; }
+            .actions-seccion { display: none; }
+            .container::after {
                 color: rgba(220, 53, 69, 0.15) !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
@@ -78,87 +89,44 @@
     </style>
 </head>
 <body>
-    <div class="receipt-container">
-        <div class="receipt-content">
-            <div class="header">
-                <h1>COMPROBANTE DE INGRESO</h1>
-                <p class="lead">Moto Plan C.A.</p>
+    <div class="container">
+        <div class="content-wrapper">
+            <div class="header clearfix">
+                <div class="comprobante-box">
+                    <h2>Comprobante de Ingreso</h2>
+                    <p>N° {{ pago.id }}</p>
+                    <span>Estado: {{ pago.estado_pago }}</span>
+                </div>
+                <div class="header-info">
+                    <h1>MOTO PLAN MOTORS C.A</h1>
+                    <p>(VIVE TUS SUEÑOS)</p>
+                    <p>Calle 31 Con Avenida Libertador Edf Doña Tina Piso PA Of 7 Sector Centro</p>
+                    <p>Acarigua Portuguesa - R.I.F.: J- 50408559-1 - 0426-215.26.82</p>
+                </div>
             </div>
 
-            <div class="row mb-4">
-                <div class="col">
-                    <strong>Recibo N°:</strong> {{ recibo.recibo_id_tabla_recibo }}
-                </div>
-                <div class="col text-end">
-                    <strong>Fecha de Emisión:</strong> {{ recibo.fecha_pago.strftime('%d/%m/%Y') }}
-                </div>
+            <div class="section">
+                <p><span>Hemos Recibido de:</span> {{ pago.nombre_apellido }} &nbsp;&nbsp;&nbsp;&nbsp; <span>C.I. o R.I.F.:</span> {{ pago.cedula or 'N/A' }}</p>
             </div>
 
-            <h5>Datos del Cliente</h5>
-            <table class="table table-sm table-bordered">
-                <tbody>
-                    <tr>
-                        <th style="width: 25%;">Nombre y Apellido</th>
-                        <td>{{ cliente.nombre_apellido }}</td>
-                    </tr>
-                    <tr>
-                        <th>C.I. / RIF</th>
-                        <td>{{ cliente.cedula }}</td>
-                    </tr>
-                    <tr>
-                        <th>N° de Contrato</th>
-                        <td>{{ cliente.n_contrato }}</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <h5>Detalles del Pago</h5>
-            <table class="table table-sm table-bordered">
-                <thead class="table-light">
-                    <tr>
-                        <th>Concepto</th>
-                        <th class="text-end">Monto (USD)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>
-                            Pago de {{ recibo.tipo_pago }}
-                            {% if recibo.referencia %}
-                                <br><small class="text-muted">Referencia: {{ recibo.referencia }} ({{ recibo.metodo_pago }})</small>
-                            {% endif %}
-                        </td>
-                        <td class="text-end">${{ "%.2f"|format(recibo.monto_usd) }}</td>
-                    </tr>
-                </tbody>
-                <tfoot>
-                    <tr class="fw-bold">
-                        <td class="text-end">TOTAL PAGADO:</td>
-                        <td class="text-end">${{ "%.2f"|format(recibo.monto_usd) }}</td>
-                    </tr>
-                </tfoot>
-            </table>
-
-            <div class="mt-4">
-                <p><strong>Son:</strong> {{ monto_en_letras }} DÓLARES CON {{ centavos_en_letras }} CENTAVOS.</p>
+            <div class="section">
+                <h3>Detalles del Pago</h3>
+                <p><span>Monto Pagado (USD):</span> ${{ "%.2f"|format(pago.monto) }}</p>
+                <p><span>Tipo de Pago:</span> {{ pago.tipo_pago }}</p>
+                <p><span>Fecha del Pago:</span> {{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }}</p>
             </div>
 
-            <div class="row mt-5 pt-4">
-                <div class="col text-center">
-                    <hr class="mx-auto" style="width: 80%;">
-                    <p>Firma Autorizada</p>
-                </div>
-                <div class="col text-center">
-                    <hr class="mx-auto" style="width: 80%;">
-                    <p>Firma del Cliente</p>
-                </div>
+            <div class="section">
+                <p><span>Por Concepto de:</span> {{ pago.por_concepto_de }}</p>
+                <p><span>Forma de Pago:</span> {{ pago.forma_pago }}</p>
+                <p><span>Referencia:</span> {{ pago.referencia or 'N/A' }}</p>
+            </div>
+
+            <div class="actions-seccion">
+                <button class="btn-imprimir" onclick="window.print()">Imprimir / Guardar</button>
+                <a href="{{ url_for('consulta', busqueda=pago.cedula) }}" class="btn-volver">Volver a Consulta</a>
             </div>
         </div>
-    </div>
-
-    <div class="no-print">
-        <button onclick="window.print()" class="btn btn-primary">Imprimir Recibo</button>
-        <button onclick="window.close()" class="btn btn-secondary">Cerrar Ventana</button>
     </div>
 </body>
 </html>
