@@ -20,6 +20,7 @@
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.07);
         }
+        h1, h2, h4 { margin: 0; }
         h1 { margin-bottom: 20px; }
         h4 { margin-top: 20px; margin-bottom: 10px; }
         .search-form { display: flex; margin-bottom: 25px; }
@@ -45,16 +46,15 @@
             margin-bottom: 25px;
             overflow: hidden;
         }
-        .cliente-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 20px;
-            background-color: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
+        .cliente-card-body { padding: 20px; }
+        .cliente-header {
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #e9ecef;
         }
-        .cliente-card-header h2 { margin: 0; font-size: 20px; }
         .status-badge {
+            display: inline-block;
+            margin-top: 8px;
             padding: 6px 12px;
             border-radius: 15px;
             font-size: 12px;
@@ -66,7 +66,7 @@
         .status-success { background-color: #28a745; }
         .status-warning { background-color: #ffc107; color: #212529; }
         .status-danger { background-color: #dc3545; }
-        .cliente-card-body { padding: 20px; }
+        
         .cliente-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -104,7 +104,7 @@
         .btn {
             text-decoration: none;
             color: white !important;
-            padding: 12px 10px; /* Ajuste de padding para mejor encaje */
+            padding: 12px 10px;
             border-radius: 5px;
             border: none;
             cursor: pointer;
@@ -113,7 +113,7 @@
             display: block;
             width: 100%;
             box-sizing: border-box;
-            white-space: nowrap; /* Evita que el texto del botón se parta */
+            white-space: nowrap;
         }
         .btn-edit { background-color: #ffc107; }
         .btn-pago { background-color: #28a745; }
@@ -121,25 +121,9 @@
         .btn-ver-recibo { background-color: #17a2b8; }
         .btn-ver-anulado { background-color: #6c757d; }
         .btn-finalizar { background-color: #007bff; }
-        .flash-error, .flash-success, .flash-warning {
-            padding: 15px;
-            margin-bottom: 20px;
-            border: 1px solid transparent;
-            border-radius: 4px;
-            text-align: center;
-        }
-        .flash-error { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
-        .flash-success { color: #155724; background-color: #d4edda; border-color: #c3e6cb; }
-        .flash-warning { color: #856404; background-color: #fff3cd; border-color: #ffeeba; }
         
-        /* --- INICIO DE CORRECCIONES RESPONSIVAS --- */
-        .card-header-mobile {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
         .actions-container {
-            width: 100%;
+            margin-top: 20px;
         }
         .actions-top-row {
             display: flex;
@@ -147,10 +131,9 @@
             margin-bottom: 10px;
         }
         .actions-top-row .btn {
-            flex-grow: 1; /* Permite que los botones crezcan para llenar el espacio */
-            flex-shrink: 1; /* Permite que se encojan si es necesario */
-            flex-basis: 0; /* Base de tamaño flexible */
+            flex: 1;
         }
+        
         .pago-card {
             border: 1px solid #e9ecef;
             border-radius: 6px;
@@ -171,27 +154,6 @@
         .anulado-row { background-color: #f8d7da !important; color: #721c24; }
         .pendiente-row { background-color: #fff3cd; }
         .finalizado-row { background-color: #d4edda; font-weight: bold; }
-
-        /* Media Query para pantallas grandes */
-        @media (min-width: 768px) {
-            .card-header-mobile {
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: center;
-            }
-            .actions-container {
-                display: flex;
-                gap: 10px;
-                width: auto;
-            }
-            .actions-top-row {
-                display: flex;
-                gap: 10px;
-                margin-bottom: 0;
-                flex-grow: 1;
-            }
-        }
-        /* --- FIN DE CORRECCIONES RESPONSIVAS --- */
     </style>
 </head>
 <body>
@@ -202,7 +164,7 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                <div class="flash-{{ category }}">{{ message }}</div>
+                <div class="flash-{{ 'error' if category == 'error' else 'success' }}">{{ message }}</div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
@@ -218,40 +180,37 @@
 
         {% for cliente in clientes %}
         <div class="cliente-card">
-            <div class="cliente-card-header">
-                <h2>{{ cliente.nombre_apellido }}</h2>
-                <div>
-                    {% set proceso = cliente.proceso | lower if cliente.proceso else '' %}
+            <div class="cliente-card-body">
+                <div class="cliente-header">
+                    <h2>{{ cliente.nombre_apellido }}</h2>
+                    {% set proceso = cliente.proceso | upper if cliente.proceso else '' %}
                     {% set status_class = 'status-default' %}
-                    {% if 'adjudicado' in proceso or 'completado' in proceso %}
+                    {% if 'ADJUDICADO' in proceso or 'COMPLETADO' in proceso %}
                         {% set status_class = 'status-success' %}
-                    {% elif 'pendiente' in proceso or 'reserva' in proceso or 'cobranza' in proceso or 'ahorrador' in proceso %}
+                    {% elif 'PENDIENTE' in proceso or 'RESERVA' in proceso or 'COBRANZA' in proceso or 'AHORRADOR' in proceso %}
                         {% set status_class = 'status-warning' %}
-                    {% elif 'inactivo' in proceso or 'retiro' in proceso %}
+                    {% elif 'INACTIVO' in proceso or 'RETIRO' in proceso %}
                         {% set status_class = 'status-danger' %}
                     {% endif %}
                     <span class="status-badge {{ status_class }}">{{ cliente.proceso or 'NO DEFINIDO' }}</span>
                 </div>
-            </div>
-            <div class="cliente-card-body">
-                <div class="card-header-mobile">
-                    <h4>Datos Generales del Cliente (ID: {{ cliente.id }})</h4>
-                    <div class="actions-container">
-                        <div class="actions-top-row">
-                            <a href="{{ url_for('consulta') }}" class="btn btn-finalizar">Finalizar Consulta</a>
-                            <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-edit">Editar</a>
-                            <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-pago">Registrar Pago</a>
-                        </div>
-                        <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente y todos sus pagos? Esta acción no se puede deshacer.');">
-                            <button type="submit" class="btn btn-delete">Eliminar</button>
-                        </form>
+
+                <h4>Datos Generales del Cliente (ID: {{ cliente.id }})</h4>
+                
+                <div class="actions-container">
+                    <div class="actions-top-row">
+                        <a href="{{ url_for('consulta') }}" class="btn btn-finalizar">Finalizar Consulta</a>
+                        <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-edit">Editar</a>
+                        <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-pago">Registrar Pago</a>
                     </div>
+                    <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente y todos sus pagos? Esta acción no se puede deshacer.');">
+                        <button type="submit" class="btn btn-delete">Eliminar</button>
+                    </form>
                 </div>
 
-                <div class="cliente-grid">
+                <div class="cliente-grid" style="margin-top: 20px;">
                     <div class="info-section">
                         <h3>Identificación y Contacto</h3>
-                        <p><strong>Nombre y Apellido:</strong> {{ cliente.nombre_apellido or 'N/A' }}</p>
                         <p><strong>Nº Cédula:</strong> {{ cliente.cedula or 'N/A' }}</p>
                         <p><strong>Nº Contrato:</strong> {{ cliente.contrato_nro or 'N/A' }}</p>
                         <p><strong>Teléfono:</strong> {{ cliente.telefono or 'N/A' }}</p>
