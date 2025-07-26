@@ -140,11 +140,12 @@ def registrar_pago(client_id):
         try:
             with conn.cursor() as cur:
                 # --- CORRECCIÓN AÑADIDA AQUÍ ---
+                # Se añade la columna 'cuotas_cubiertas' con un valor inicial de 0.
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, 
                                         pago_en, por_concepto_de, referencia, banco, lugar_emision,
-                                        tasa_dia, monto_bs, estado_pago)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente');
+                                        tasa_dia, monto_bs, estado_pago, cuotas_cubiertas)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0);
                 """
                 cur.execute(pago_query, (
                     client_id, pago_form['monto'], tipo_pago, pago_form['forma_pago'], pago_form['fecha_pago'],
@@ -196,8 +197,8 @@ def conciliar_pago(pago_id):
                 if inscripcion_total > 0 and nueva_inscripcion_pagada >= inscripcion_total:
                     cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción'", (cliente['id'],))
                     pago_final_query = """
-                        INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, por_concepto_de, estado_pago)
-                        VALUES (%s, %s, 'Inscripción Finalizada', %s, %s, %s, 'Conciliado') RETURNING id;
+                        INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, por_concepto_de, estado_pago, cuotas_cubiertas)
+                        VALUES (%s, %s, 'Inscripción Finalizada', %s, %s, %s, 'Conciliado', 0) RETURNING id;
                     """
                     cur.execute(pago_final_query, (cliente['id'], inscripcion_total, pago['forma_pago'], pago['fecha_pago'], 'Pago total de inscripción'))
                     pago_final_id = cur.fetchone()[0]

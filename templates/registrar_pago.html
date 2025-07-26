@@ -44,8 +44,14 @@
             <div>
                 <label>Tipo de Pago:</label>
                 <select name="tipo_pago" required>
-                    <option value="Inscripción">Inscripción</option>
-                    <option value="Cuota">Cuota</option>
+                    {% set inscripcion_total = cliente.inscripcion_monto|float if cliente.inscripcion_monto else 0 %}
+                    {% set inscripcion_pagada = cliente.inscripcion_pagada|float if cliente.inscripcion_pagada else 0 %}
+                    
+                    {% if inscripcion_pagada < inscripcion_total %}
+                        <option value="Inscripción">Inscripción</option>
+                    {% else %}
+                        <option value="Cuota">Cuota</option>
+                    {% endif %}
                 </select>
                 <label>Monto del Pago (en USD):</label>
                 <input type="number" step="0.01" name="monto" id="monto_usd" required>
