@@ -101,20 +101,30 @@
             font-size: 12px;
             line-height: 20px;
         }
+        /* --- INICIO DE CORRECCIONES RESPONSIVAS --- */
+        .card-actions {
+            display: flex;
+            flex-wrap: wrap; /* Permite que los botones pasen a la siguiente línea */
+            gap: 10px; /* Espacio entre botones */
+            justify-content: flex-end;
+        }
+        .pagos-table-container {
+            overflow-x: auto; /* Añade scroll horizontal en pantallas pequeñas */
+            -webkit-overflow-scrolling: touch; /* Mejora el scroll en iOS */
+        }
+        /* --- FIN DE CORRECCIONES RESPONSIVAS --- */
         .pagos-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         .pagos-table th, .pagos-table td {
             border: 1px solid #dee2e6;
             padding: 12px;
             text-align: left;
+            white-space: nowrap; /* Evita que el texto de las celdas se rompa */
         }
         .pagos-table th { background-color: #f8f9fa; }
-        /* --- INICIO DE LA CORRECCIÓN --- */
         .anulado-row {
             background-color: #f8d7da !important;
             color: #721c24;
-            /* Se elimina la decoración de tachado */
         }
-        /* --- FIN DE LA CORRECCIÓN --- */
         .pendiente-row {
             background-color: #fff3cd;
         }
@@ -127,7 +137,6 @@
             color: white !important;
             padding: 8px 12px;
             border-radius: 5px;
-            margin-left: 5px;
             border: none;
             cursor: pointer;
             font-size: 14px;
@@ -136,7 +145,7 @@
         .btn-pago { background-color: #28a745; }
         .btn-delete { background-color: #dc3545; }
         .btn-ver-recibo { background-color: #17a2b8; }
-        .btn-ver-anulado { background-color: #6c757d; } /* Estilo para el botón de ver anulado */
+        .btn-ver-anulado { background-color: #6c757d; }
         .btn-finalizar { background-color: #007bff; }
         .flash-error, .flash-success, .flash-warning {
             padding: 15px;
@@ -190,9 +199,10 @@
                 </div>
             </div>
             <div class="cliente-card-body">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
                     <h4>Datos Generales del Cliente (ID: {{ cliente.id }})</h4>
-                    <div>
+                    <!-- Contenedor de acciones corregido -->
+                    <div class="card-actions">
                         <a href="{{ url_for('consulta') }}" class="btn btn-finalizar">Finalizar Consulta</a>
                         <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-edit">Editar</a>
                         <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-pago">Registrar Pago</a>
@@ -203,7 +213,6 @@
                 </div>
 
                 <div class="cliente-grid">
-                    <!-- Las secciones de datos del cliente no cambian -->
                     <div class="info-section">
                         <h3>Identificación y Contacto</h3>
                         <p><strong>Nombre y Apellido:</strong> {{ cliente.nombre_apellido or 'N/A' }}</p>
@@ -258,57 +267,58 @@
 
                 <h4>Historial de Pagos</h4>
                 {% if cliente.pagos %}
-                <table class="pagos-table">
-                    <thead>
-                        <tr>
-                            <th>Recibo #</th>
-                            <th>Fecha</th>
-                            <th>Tipo</th>
-                            <th>Monto (USD)</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    {% for pago in cliente.pagos %}
-                        {% set row_class = '' %}
-                        {% if pago.estado_pago == 'Anulado' %}
-                            {% set row_class = 'anulado-row' %}
-                        {% elif pago.estado_pago == 'Pendiente' %}
-                            {% set row_class = 'pendiente-row' %}
-                        {% elif pago.tipo_pago == 'Inscripción Finalizada' %}
-                            {% set row_class = 'finalizado-row' %}
-                        {% endif %}
-                        <tr class="{{ row_class }}">
-                            <td>{{ pago.id }}</td>
-                            <td>{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</td>
-                            <td>{{ pago.tipo_pago }}</td>
-                            <td>${{ "%.2f"|format(pago.monto) }}</td>
-                            <td>{{ pago.estado_pago }}</td>
-                            <td>
-                                <!-- --- INICIO DE LA CORRECCIÓN DE BOTONES --- -->
-                                {% if pago.estado_pago == 'Pendiente' %}
-                                    <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres conciliar este pago?');">
-                                        <button type="submit" class="btn btn-pago">Conciliar</button>
-                                    </form>
-                                {% elif pago.estado_pago == 'Conciliado' %}
-                                    {% if pago.tipo_pago == 'Inscripción Finalizada' %}
-                                        <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Recibo Final</a>
-                                    {% else %}
-                                        <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Abono</a>
+                <!-- Contenedor de tabla corregido -->
+                <div class="pagos-table-container">
+                    <table class="pagos-table">
+                        <thead>
+                            <tr>
+                                <th>Recibo #</th>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Monto (USD)</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for pago in cliente.pagos %}
+                            {% set row_class = '' %}
+                            {% if pago.estado_pago == 'Anulado' %}
+                                {% set row_class = 'anulado-row' %}
+                            {% elif pago.estado_pago == 'Pendiente' %}
+                                {% set row_class = 'pendiente-row' %}
+                            {% elif pago.tipo_pago == 'Inscripción Finalizada' %}
+                                {% set row_class = 'finalizado-row' %}
+                            {% endif %}
+                            <tr class="{{ row_class }}">
+                                <td>{{ pago.id }}</td>
+                                <td>{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</td>
+                                <td>{{ pago.tipo_pago }}</td>
+                                <td>${{ "%.2f"|format(pago.monto) }}</td>
+                                <td>{{ pago.estado_pago }}</td>
+                                <td>
+                                    {% if pago.estado_pago == 'Pendiente' %}
+                                        <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres conciliar este pago?');">
+                                            <button type="submit" class="btn btn-pago">Conciliar</button>
+                                        </form>
+                                    {% elif pago.estado_pago == 'Conciliado' %}
+                                        {% if pago.tipo_pago == 'Inscripción Finalizada' %}
+                                            <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Recibo Final</a>
+                                        {% else %}
+                                            <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Abono</a>
+                                        {% endif %}
+                                        <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo?');">
+                                            <button type="submit" class="btn btn-delete">Anular</button>
+                                        </form>
+                                    {% elif pago.estado_pago == 'Anulado' %}
+                                        <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-ver-anulado">Ver Anulado</a>
                                     {% endif %}
-                                    <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo?');">
-                                        <button type="submit" class="btn btn-delete">Anular</button>
-                                    </form>
-                                {% elif pago.estado_pago == 'Anulado' %}
-                                    <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-ver-anulado">Ver Anulado</a>
-                                {% endif %}
-                                <!-- --- FIN DE LA CORRECCIÓN DE BOTONES --- -->
-                            </td>
-                        </tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
                 {% else %}
                 <p>Este cliente no tiene pagos registrados.</p>
                 {% endif %}
