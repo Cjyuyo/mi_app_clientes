@@ -1,0 +1,12 @@
+# Archivos de configuración local (¡No subir!)
+.env
+
+# Carpeta del entorno virtual de Python
+venv/
+
+# Archivos compilados de Python
+*.pyc
+__pycache__/
+
+# Archivo del sistema macOS
+.DS_Store
