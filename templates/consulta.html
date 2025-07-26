@@ -90,7 +90,7 @@
             background-color: #e9ecef;
             border-radius: 5px;
             overflow: hidden;
-            height: 12px;
+            height: 20px; /* Grosor original de la barra */
             margin-top: 5px;
         }
         .progress-bar-fill {
@@ -98,15 +98,13 @@
             height: 100%;
             text-align: center;
             color: white;
-            font-size: 10px;
-            line-height: 12px;
+            font-size: 12px; /* Tamaño de texto original */
+            line-height: 20px; /* Alineación vertical original */
         }
         .btn {
             text-decoration: none;
             color: white !important;
-            /* --- INICIO DE LA CORRECCIÓN --- */
             padding: 8px 12px; /* Botones menos gruesos */
-            /* --- FIN DE LA CORRECCIÓN --- */
             border-radius: 5px;
             border: none;
             cursor: pointer;
@@ -133,7 +131,7 @@
             margin-bottom: 10px;
         }
         .actions-top-row .btn {
-            flex: 1;
+            /* Se elimina flex: 1 para que los botones se ajusten a su contenido */
         }
         
         .pago-card {
