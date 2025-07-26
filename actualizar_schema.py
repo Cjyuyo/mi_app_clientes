@@ -4,54 +4,65 @@ from dotenv import load_dotenv
 
 def actualizar_base_de_datos():
     """
-    Se conecta a la base de datos de Render y añade las columnas necesarias
-    a las tablas si no existen. Este script es seguro para ejecutarse
-    múltiples veces sin causar problemas ni pérdida de datos.
+    Se conecta a la base de datos y añade las columnas y tablas necesarias
+    para las reglas de adjudicación y ciclo de pago.
+    Es seguro para ejecutarse múltiples veces.
     """
     load_dotenv()
     DATABASE_URL = os.getenv('DATABASE_URL')
     if not DATABASE_URL:
-        print("ERROR: Asegúrate de que tu archivo .env contiene la variable DATABASE_URL.")
+        print("ERROR: La variable de entorno DATABASE_URL no está configurada.")
         return
 
     conn = None
     try:
-        print("Conectando a la base de datos en Render...")
+        print("Conectando a la base de datos...")
         conn = psycopg2.connect(DATABASE_URL)
         print("¡Conexión exitosa!")
         
         with conn.cursor() as cur:
-            # --- 1. Verificar y añadir 'inscripcion_pagada' a la tabla 'clientes' ---
-            print("\nVerificando la tabla 'clientes'...")
-            cur.execute("""
-                SELECT 1 FROM information_schema.columns 
-                WHERE table_name='clientes' AND column_name='inscripcion_pagada';
-            """)
-            if not cur.fetchone():
-                print("La columna 'inscripcion_pagada' no existe. Añadiéndola...")
-                cur.execute("ALTER TABLE clientes ADD COLUMN inscripcion_pagada NUMERIC(12, 2) DEFAULT 0.0;")
-                print("¡Columna 'inscripcion_pagada' añadida exitosamente!")
-            else:
-                print("La columna 'inscripcion_pagada' ya existe. No se necesita ninguna acción.")
-
-            # --- 2. Verificar y añadir 'tipo_pago' a la tabla 'pagos' ---
+            # --- 1. Añadir columna 'puntualidad' a la tabla 'pagos' ---
             print("\nVerificando la tabla 'pagos'...")
             cur.execute("""
                 SELECT 1 FROM information_schema.columns 
-                WHERE table_name='pagos' AND column_name='tipo_pago';
+                WHERE table_name='pagos' AND column_name='puntualidad';
             """)
             if not cur.fetchone():
-                print("La columna 'tipo_pago' no existe. Añadiéndola...")
-                cur.execute("ALTER TABLE pagos ADD COLUMN tipo_pago TEXT;")
-                # Asignamos un valor por defecto a los pagos existentes para que la columna pueda ser NOT NULL
-                cur.execute("UPDATE pagos SET tipo_pago = 'Cuota' WHERE tipo_pago IS NULL;")
-                cur.execute("ALTER TABLE pagos ALTER COLUMN tipo_pago SET NOT NULL;")
-                print("¡Columna 'tipo_pago' añadida exitosamente!")
+                print("La columna 'puntualidad' no existe. Añadiéndola...")
+                # Almacenará 'Puntual' o 'Impuntual'
+                cur.execute("ALTER TABLE pagos ADD COLUMN puntualidad TEXT;")
+                print("¡Columna 'puntualidad' añadida exitosamente!")
             else:
-                print("La columna 'tipo_pago' ya existe. No se necesita ninguna acción.")
+                print("La columna 'puntualidad' ya existe.")
+
+            # --- 2. Añadir columna 'meses_retraso_entrega' a la tabla 'clientes' ---
+            print("\nVerificando la tabla 'clientes'...")
+            cur.execute("""
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name='clientes' AND column_name='meses_retraso_entrega';
+            """)
+            if not cur.fetchone():
+                print("La columna 'meses_retraso_entrega' no existe. Añadiéndola...")
+                cur.execute("ALTER TABLE clientes ADD COLUMN meses_retraso_entrega INTEGER DEFAULT 0;")
+                print("¡Columna 'meses_retraso_entrega' añadida exitosamente!")
+            else:
+                print("La columna 'meses_retraso_entrega' ya existe.")
+
+            # --- 3. Crear la tabla 'ofertas' si no existe ---
+            print("\nVerificando la tabla 'ofertas'...")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ofertas (
+                    id SERIAL PRIMARY KEY,
+                    cliente_id INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+                    fecha_oferta DATE NOT NULL DEFAULT CURRENT_DATE,
+                    cuotas_ofertadas INTEGER NOT NULL,
+                    estado_oferta TEXT NOT NULL DEFAULT 'activa' -- Ej: activa, ganadora, perdida
+                );
+            """)
+            print("Tabla 'ofertas' verificada/creada exitosamente.")
 
             conn.commit()
-            print("\n¡La base de datos está actualizada!")
+            print("\n¡La base de datos está actualizada y lista para las nuevas reglas de negocio!")
 
     except psycopg2.Error as e:
         print(f"\nERROR de base de datos: {e}")

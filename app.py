@@ -4,7 +4,7 @@ import psycopg2.extras
 from flask import Flask, render_template, request, g, flash, redirect, url_for
 from dotenv import load_dotenv
 from decimal import Decimal
-from datetime import datetime # <-- Se añade esta importación
+from datetime import datetime, timedelta
 
 load_dotenv()
 app = Flask(__name__)
@@ -28,11 +28,66 @@ def close_db(exception):
     if db is not None:
         db.close()
 
-# --- (Las rutas existentes no cambian) ---
+# --- LÓGICA DE CICLO DE PAGO Y FECHAS ---
+
+def get_feriados_venezuela(year):
+    """
+    Retorna una lista de fechas (objetos date) de feriados fijos en Venezuela.
+    NOTA: No incluye feriados movibles como Carnaval o Semana Santa para mantener la simplicidad.
+    Esta función puede ser expandida en el futuro.
+    """
+    return [
+        datetime(year, 1, 1).date(),   # Año Nuevo
+        datetime(year, 4, 19).date(),  # Declaración de la Independencia
+        datetime(year, 5, 1).date(),   # Día del Trabajador
+        datetime(year, 6, 24).date(),  # Batalla de Carabobo
+        datetime(year, 7, 5).date(),   # Día de la Independencia
+        datetime(year, 7, 24).date(),  # Natalicio del Libertador
+        datetime(year, 10, 12).date(), # Día de la Resistencia Indígena
+        datetime(year, 12, 24).date(), # Víspera de Navidad
+        datetime(year, 12, 25).date(), # Navidad
+        datetime(year, 12, 31).date(), # Fin de Año
+    ]
+
+def get_fecha_vencimiento_ajustada(fecha_pago):
+    """
+    Calcula la fecha de vencimiento para un pago y la ajusta si cae en fin de semana o feriado.
+    El ciclo de pago es del día 15 al día 2 del mes siguiente.
+    La fecha de vencimiento es el día 2.
+    """
+    # Determinar el mes de vencimiento. Si el pago es antes del día 15, vence en el mes actual.
+    # Si es el 15 o después, vence en el mes siguiente.
+    if fecha_pago.day < 15:
+        mes_vencimiento = fecha_pago.month
+        ano_vencimiento = fecha_pago.year
+    else:
+        if fecha_pago.month == 12:
+            mes_vencimiento = 1
+            ano_vencimiento = fecha_pago.year + 1
+        else:
+            mes_vencimiento = fecha_pago.month + 1
+            ano_vencimiento = fecha_pago.year
+    
+    # La fecha de vencimiento teórica es el día 2 del mes de vencimiento.
+    vencimiento = datetime(ano_vencimiento, mes_vencimiento, 2).date()
+    
+    # Ajustar por fines de semana y feriados
+    feriados = get_feriados_venezuela(vencimiento.year)
+    while vencimiento.weekday() >= 5 or vencimiento in feriados: # 5=Sábado, 6=Domingo
+        vencimiento += timedelta(days=1)
+        # Si el ajuste cambia el año, recargar los feriados
+        if vencimiento.year != ano_vencimiento:
+            feriados = get_feriados_venezuela(vencimiento.year)
+
+    return vencimiento
+
+# --- RUTAS DE LA APLICACIÓN ---
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
+# (Las rutas /registrar_cliente y /consulta no cambian)
 @app.route('/registrar_cliente', methods=['POST'])
 def registrar_cliente():
     form_data = {k: v if v else None for k, v in request.form.items()}
@@ -164,11 +219,11 @@ def registrar_pago(client_id):
 
     return render_template('registrar_pago.html', cliente=cliente)
 
+
 @app.route('/conciliar_pago/<int:pago_id>', methods=['POST'])
 def conciliar_pago(pago_id):
     conn = get_db()
     cedula_cliente_fallback = request.args.get('cedula', '')
-
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
@@ -188,8 +243,19 @@ def conciliar_pago(pago_id):
                 return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
             monto_pagado = Decimal(pago['monto'])
+            
+            # Determinar la puntualidad del pago
+            puntualidad = 'Puntual' # Por defecto
+            if pago['tipo_pago'] == 'Cuota':
+                fecha_vencimiento = get_fecha_vencimiento_ajustada(pago['fecha_pago'])
+                if pago['fecha_pago'] > fecha_vencimiento:
+                    puntualidad = 'Impuntual'
+            
+            # Actualizar la puntualidad en la tabla de pagos
+            cur.execute("UPDATE pagos SET puntualidad = %s WHERE id = %s", (puntualidad, pago_id))
 
             if pago['tipo_pago'] == 'Inscripción':
+                # (La lógica de inscripción no cambia)
                 inscripcion_pagada_actual = Decimal(cliente['inscripcion_pagada'] or 0)
                 inscripcion_total = Decimal(cliente['inscripcion_monto'] or 0)
                 nueva_inscripcion_pagada = inscripcion_pagada_actual + monto_pagado
@@ -214,6 +280,14 @@ def conciliar_pago(pago_id):
                     return redirect(url_for('ver_recibo', pago_id=pago_id))
 
             elif pago['tipo_pago'] == 'Cuota':
+                # --- INICIO DE LÓGICA DE ADJUDICACIÓN (AHORRO) ---
+                # Si es la primera cuota, cambiar proceso a "Ahorrador"
+                if cliente['cuotas_pagadas_progresivas'] == 0 and cliente['balance_regresivo'] == 0:
+                    cur.execute("UPDATE clientes SET proceso = 'Ahorrador' WHERE id = %s", (cliente['id'],))
+                    flash("Primer pago de cuota registrado. Cliente ahora es 'Ahorrador'.", "info")
+                # --- FIN DE LÓGICA DE ADJUDICACIÓN ---
+
+                # (La lógica de cálculo de cuotas y balance no cambia)
                 valor_cuota = Decimal(cliente['valor_cuota'] or 0)
                 if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
                 cuotas_progresivas_actuales = cliente['cuotas_pagadas_progresivas'] or 0
@@ -238,7 +312,7 @@ def conciliar_pago(pago_id):
                 update_pago_query = "UPDATE pagos SET estado_pago = 'Conciliado', cuotas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s WHERE id = %s;"
                 cur.execute(update_pago_query, (cuotas_cubiertas_este_pago, nuevas_cuotas_progresivas, nuevas_cuotas_regresivas, nuevo_balance_regresivo, pago_id))
                 conn.commit()
-                flash(f"¡Pago de cuota N° {pago_id} conciliado exitosamente!", 'success')
+                flash(f"¡Pago de cuota N° {pago_id} conciliado como '{puntualidad}'!", 'success')
                 return redirect(url_for('ver_recibo', pago_id=pago_id))
 
     except (psycopg2.Error, ValueError, TypeError) as e:
@@ -246,6 +320,7 @@ def conciliar_pago(pago_id):
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
+# (El resto de las rutas: ver_recibo, anular_recibo, etc., permanecen sin cambios por ahora)
 @app.route('/recibo/<int:pago_id>')
 def ver_recibo(pago_id):
     conn = get_db()
@@ -362,12 +437,8 @@ def anular_recibo(pago_id):
         flash(f"Ocurrió un error al anular el recibo: {e}", 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente))
 
-# --- RUTA DE VERIFICACIÓN (MODIFICADA) ---
 @app.route('/verificar_recibo/<int:pago_id>')
 def verificar_recibo(pago_id):
-    """
-    Página pública para verificar la autenticidad de un recibo escaneando el QR.
-    """
     conn = get_db()
     if not conn:
         return "Error de conexión a la base de datos.", 500
@@ -383,7 +454,6 @@ def verificar_recibo(pago_id):
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
     
-    # Se obtiene el año actual y se pasa a la plantilla
     current_year = datetime.now().year
     return render_template('verificacion_recibo.html', pago=pago, current_year=current_year)
 
