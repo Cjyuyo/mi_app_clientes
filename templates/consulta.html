@@ -108,15 +108,13 @@
             text-align: left;
         }
         .pagos-table th { background-color: #f8f9fa; }
+        /* --- INICIO DE LA CORRECCIÓN --- */
         .anulado-row {
             background-color: #f8d7da !important;
             color: #721c24;
-            text-decoration: line-through;
+            /* Se elimina la decoración de tachado */
         }
-        .anulado-row a, .anulado-row button {
-            color: #721c24 !important;
-            font-weight: bold;
-        }
+        /* --- FIN DE LA CORRECCIÓN --- */
         .pendiente-row {
             background-color: #fff3cd;
         }
@@ -138,7 +136,8 @@
         .btn-pago { background-color: #28a745; }
         .btn-delete { background-color: #dc3545; }
         .btn-ver-recibo { background-color: #17a2b8; }
-        .btn-finalizar { background-color: #007bff; } /* Estilo para el botón restaurado */
+        .btn-ver-anulado { background-color: #6c757d; } /* Estilo para el botón de ver anulado */
+        .btn-finalizar { background-color: #007bff; }
         .flash-error, .flash-success, .flash-warning {
             padding: 15px;
             margin-bottom: 20px;
@@ -194,7 +193,6 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <h4>Datos Generales del Cliente (ID: {{ cliente.id }})</h4>
                     <div>
-                        <!-- BOTÓN RESTAURADO -->
                         <a href="{{ url_for('consulta') }}" class="btn btn-finalizar">Finalizar Consulta</a>
                         <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-edit">Editar</a>
                         <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-pago">Registrar Pago</a>
@@ -205,6 +203,7 @@
                 </div>
 
                 <div class="cliente-grid">
+                    <!-- Las secciones de datos del cliente no cambian -->
                     <div class="info-section">
                         <h3>Identificación y Contacto</h3>
                         <p><strong>Nombre y Apellido:</strong> {{ cliente.nombre_apellido or 'N/A' }}</p>
@@ -281,26 +280,30 @@
                             {% set row_class = 'finalizado-row' %}
                         {% endif %}
                         <tr class="{{ row_class }}">
-                            <!-- CORRECCIÓN: Se usa únicamente pago.id para garantizar consistencia -->
                             <td>{{ pago.id }}</td>
                             <td>{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</td>
                             <td>{{ pago.tipo_pago }}</td>
                             <td>${{ "%.2f"|format(pago.monto) }}</td>
                             <td>{{ pago.estado_pago }}</td>
                             <td>
+                                <!-- --- INICIO DE LA CORRECCIÓN DE BOTONES --- -->
                                 {% if pago.estado_pago == 'Pendiente' %}
                                     <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres conciliar este pago?');">
                                         <button type="submit" class="btn btn-pago">Conciliar</button>
                                     </form>
-                                {% endif %}
-                                
-                                {% if pago.estado_pago == 'Conciliado' %}
+                                {% elif pago.estado_pago == 'Conciliado' %}
                                     {% if pago.tipo_pago == 'Inscripción Finalizada' %}
                                         <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Recibo Final</a>
                                     {% else %}
                                         <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Abono</a>
                                     {% endif %}
+                                    <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo?');">
+                                        <button type="submit" class="btn btn-delete">Anular</button>
+                                    </form>
+                                {% elif pago.estado_pago == 'Anulado' %}
+                                    <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-ver-anulado">Ver Anulado</a>
                                 {% endif %}
+                                <!-- --- FIN DE LA CORRECCIÓN DE BOTONES --- -->
                             </td>
                         </tr>
                     {% endfor %}
