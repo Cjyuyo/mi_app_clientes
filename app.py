@@ -27,7 +27,7 @@ def close_db(exception):
     if db is not None:
         db.close()
 
-# --- (Otras rutas como index, registrar_cliente, etc. permanecen sin cambios) ---
+# --- Las rutas / y /registrar_cliente no cambian ---
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -208,7 +208,7 @@ def conciliar_pago(pago_id):
                 else:
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
                     cur.execute("UPDATE pagos SET estado_pago = 'Conciliado' WHERE id = %s", (pago_id,))
-                    conn.commit() # --- CORRECCIÓN AÑADIDA AQUÍ ---
+                    conn.commit()
                     flash(f"Abono de inscripción N° {pago_id} conciliado.", 'success')
                     return redirect(url_for('ver_recibo', pago_id=pago_id))
 
@@ -236,7 +236,7 @@ def conciliar_pago(pago_id):
                 cur.execute(update_cliente_query, (nuevas_cuotas_progresivas, nuevo_balance_regresivo, nuevas_cuotas_regresivas, cliente['id']))
                 update_pago_query = "UPDATE pagos SET estado_pago = 'Conciliado', cuotas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s WHERE id = %s;"
                 cur.execute(update_pago_query, (cuotas_cubiertas_este_pago, nuevas_cuotas_progresivas, nuevas_cuotas_regresivas, nuevo_balance_regresivo, pago_id))
-                conn.commit() # --- CORRECCIÓN AÑADIDA AQUÍ ---
+                conn.commit()
                 flash(f"¡Pago de cuota N° {pago_id} conciliado exitosamente!", 'success')
                 return redirect(url_for('ver_recibo', pago_id=pago_id))
 
@@ -286,6 +286,7 @@ def ver_recibo_inscripcion(pago_id):
     
     return render_template('recibo_inscripcion.html', pago=pago, cliente=pago)
 
+# --- RUTA ANULAR RECIBO (MODIFICADA) ---
 @app.route('/anular_recibo/<int:pago_id>', methods=['POST'])
 def anular_recibo(pago_id):
     conn = get_db()
@@ -300,7 +301,7 @@ def anular_recibo(pago_id):
             pago_a_anular = cur.fetchone()
 
             if not pago_a_anular or pago_a_anular['estado_pago'] == 'Anulado':
-                flash("Este recibo no se puede anular.", "warning")
+                flash("Este recibo ya está anulado o no se puede anular.", "warning")
                 return redirect(url_for('consulta'))
 
             cliente_id = pago_a_anular['cliente_id']
@@ -317,47 +318,70 @@ def anular_recibo(pago_id):
                 cur.execute("UPDATE clientes SET inscripcion_pagada = inscripcion_pagada - %s WHERE id = %s", (monto_pago, cliente_id))
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
             
+            # --- INICIO DE LA LÓGICA CORREGIDA PARA ANULAR CUOTAS ---
             elif pago_a_anular['tipo_pago'] == 'Cuota':
-                query_pago_anterior = """
-                    SELECT cuotas_progresivas_al_pagar, cuotas_regresivas_al_pagar, balance_al_pagar 
-                    FROM pagos WHERE cliente_id = %s AND id != %s AND estado_pago = 'Conciliado' AND tipo_pago = 'Cuota' AND fecha_pago <= %s
-                    ORDER BY fecha_pago DESC, id DESC LIMIT 1
-                """
-                cur.execute(query_pago_anterior, (cliente_id, pago_id, pago_a_anular['fecha_pago']))
-                pago_anterior = cur.fetchone()
-                revertir_a_progresivas = pago_anterior['cuotas_progresivas_al_pagar'] if pago_anterior else 0
-                revertir_a_regresivas = pago_anterior['cuotas_regresivas_al_pagar'] if pago_anterior else 0
-                revertir_a_balance = pago_anterior['balance_al_pagar'] if pago_anterior else Decimal('0.00')
-                cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s",
-                            (revertir_a_progresivas, revertir_a_regresivas, revertir_a_balance, cliente_id))
+                # Este nuevo método recalcula el estado financiero completo del cliente para evitar errores.
+                
+                # 1. Obtener el estado financiero actual del cliente y el monto a revertir.
+                cur.execute("SELECT cuotas_pagadas_progresivas, cuotas_pagadas_regresivas, balance_regresivo, valor_cuota FROM clientes WHERE id = %s FOR UPDATE", (cliente_id,))
+                cliente = cur.fetchone()
+                
+                cuotas_p = Decimal(cliente['cuotas_pagadas_progresivas'] or 0)
+                cuotas_r = Decimal(cliente['cuotas_pagadas_regresivas'] or 0)
+                balance = Decimal(cliente['balance_regresivo'] or 0)
+                valor_cuota = Decimal(cliente['valor_cuota'] or 0)
+                monto_a_revertir = Decimal(pago_a_anular['monto'])
+                
+                if valor_cuota <= 0:
+                    raise ValueError("El cliente no tiene un valor de cuota válido para recalcular.")
+                    
+                # 2. Convertir el estado actual a un valor monetario total.
+                valor_total_actual = (cuotas_p * valor_cuota) + (cuotas_r * valor_cuota) + balance
+                
+                # 3. Restar el monto del pago que se está anulando.
+                nuevo_valor_total = valor_total_actual - monto_a_revertir
+                
+                if nuevo_valor_total < 0:
+                    flash("Advertencia: La anulación resultó en un saldo negativo, se ha ajustado a cero.", "warning")
+                    nuevo_valor_total = Decimal('0.00')
+
+                # 4. Convertir el nuevo valor monetario de vuelta al estado de cuotas y balance.
+                #    Para simplificar y asegurar consistencia, consolidamos todo en cuotas progresivas.
+                nuevas_cuotas_pagadas = int(nuevo_valor_total // valor_cuota)
+                nuevo_balance = nuevo_valor_total % valor_cuota
+                
+                # 5. Actualizar el estado del cliente en la base de datos.
+                cur.execute("""
+                    UPDATE clientes 
+                    SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = 0, balance_regresivo = %s 
+                    WHERE id = %s
+                """, (nuevas_cuotas_pagadas, nuevo_balance, cliente_id))
+                
+                # 6. Marcar el pago como 'Anulado'.
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
+            # --- FIN DE LA LÓGICA CORREGIDA ---
             
             elif pago_a_anular['tipo_pago'] == 'Inscripción Finalizada':
                  flash("Error: La anulación de un recibo de inscripción finalizada no está permitida.", 'error')
                  return redirect(url_for('consulta', busqueda=cedula_cliente))
 
             conn.commit()
-            flash(f"¡Recibo N° {pago_id} anulado exitosamente!", "success")
+            flash(f"¡Recibo N° {pago_id} anulado y saldo corregido exitosamente!", "success")
             return redirect(url_for('consulta', busqueda=cedula_cliente))
 
-    except psycopg2.Error as e:
+    except (psycopg2.Error, ValueError) as e:
         conn.rollback()
         flash(f"Ocurrió un error al anular el recibo: {e}", 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente))
 
-# --- NUEVA RUTA PARA VER RECIBO ANULADO ---
+# --- El resto de las rutas no cambian ---
 @app.route('/recibo_anulado/<int:pago_id>')
 def ver_recibo_anulado(pago_id):
-    """
-    Muestra un recibo que ha sido previamente anulado, con una marca de agua.
-    """
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta'))
-    
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        # Busca el pago anulado y une la información del cliente.
         query = """
             SELECT p.*, c.nombre_apellido, c.cedula
             FROM pagos p 
@@ -366,14 +390,10 @@ def ver_recibo_anulado(pago_id):
         """
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
-
     if not pago:
         flash('Recibo anulado no encontrado.', 'error')
         return redirect(url_for('consulta'))
-    
-    # Renderiza la nueva plantilla específica para recibos anulados.
     return render_template('recibo_anulado.html', pago=pago)
-
 
 @app.route('/edit/<int:client_id>', methods=['GET', 'POST'])
 def edit_client(client_id):
