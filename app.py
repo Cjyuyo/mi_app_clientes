@@ -121,7 +121,6 @@ def consulta():
                 mensaje_error = f"Error al consultar la base de datos: {e}"
     return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda)
 
-# (Otras rutas como registrar_pago, conciliar_pago, etc. no cambian)
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 def registrar_pago(client_id):
     conn = get_db()
@@ -460,8 +459,15 @@ def edit_client(client_id):
 
     if request.method == 'POST':
         try:
+            # 1. Cargar los datos existentes del cliente en un diccionario mutable.
+            update_data = dict(cliente)
+            
+            # 2. Obtener los datos del formulario.
             form_data = {k: v if v else None for k, v in request.form.items()}
-            form_data['id'] = client_id
+            
+            # 3. Actualizar los datos existentes con los nuevos datos del formulario.
+            #    Esto asegura que si un campo no viene en el formulario, se conserva su valor original.
+            update_data.update(form_data)
 
             with conn.cursor() as cur:
                 update_query = """
@@ -473,12 +479,15 @@ def edit_client(client_id):
                     inscripcion_monto = %(inscripcion_monto)s, proceso = %(proceso)s, estatus = %(estatus)s, estatus_1 = %(estatus_1)s
                 WHERE id = %(id)s;
                 """
-                cur.execute(update_query, form_data)
+                # 4. Ejecutar la consulta con el diccionario fusionado.
+                cur.execute(update_query, update_data)
                 conn.commit()
                 flash('¡Cliente actualizado exitosamente!', 'success')
-                cedula_actualizada = form_data.get('cedula') or cliente['cedula']
+                
+                # 5. Redirigir usando la cédula actualizada para encontrar al cliente.
+                cedula_actualizada = update_data.get('cedula')
                 return redirect(url_for('consulta', busqueda=cedula_actualizada))
-        except (psycopg2.Error, ValueError, KeyError) as e:
+        except (psycopg2.Error, ValueError) as e: # Ya no se necesita capturar KeyError
             conn.rollback()
             flash(f'Ocurrió un error al actualizar: {e}', 'error')
     
