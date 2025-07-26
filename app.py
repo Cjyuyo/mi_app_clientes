@@ -233,9 +233,9 @@ def conciliar_pago(pago_id):
 
             monto_pagado = Decimal(pago['monto'])
             
+            puntualidad = 'Puntual' # Valor por defecto
             if pago['tipo_pago'] == 'Cuota':
                 fecha_vencimiento = get_fecha_vencimiento_ajustada(pago['fecha_pago'])
-                puntualidad = 'Puntual'
                 if pago['fecha_pago'] > fecha_vencimiento:
                     puntualidad = 'Impuntual'
                 cur.execute("UPDATE pagos SET puntualidad = %s WHERE id = %s", (puntualidad, pago_id))
@@ -278,6 +278,11 @@ def conciliar_pago(pago_id):
                 cuotas_progresivas_actuales = cliente['cuotas_pagadas_progresivas'] or 0
                 balance_regresivo_actual = Decimal(cliente['balance_regresivo'] or 0)
                 cuotas_regresivas_actuales = cliente['cuotas_pagadas_regresivas'] or 0
+                
+                # --- INICIO DE LA CORRECCIÓN ---
+                nuevas_cuotas_regresivas = cuotas_regresivas_actuales # Se inicializa la variable aquí
+                # --- FIN DE LA CORRECCIÓN ---
+
                 monto_necesario_progresiva = valor_cuota - balance_regresivo_actual
                 nuevas_cuotas_progresivas = cuotas_progresivas_actuales
                 nuevo_balance_regresivo = balance_regresivo_actual
@@ -409,29 +414,13 @@ def anular_recibo(pago_id):
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
             
             elif pago_a_anular['tipo_pago'] == 'Inscripción Finalizada':
-                # Marcar el recibo final como anulado
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
                 
-                # Reactivar todos los abonos de inscripción anteriores
-                cur.execute("""
-                    UPDATE pagos SET estado_pago = 'Conciliado' 
-                    WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Anulado'
-                """, (cliente_id,))
+                cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción'", (cliente_id,))
                 
-                # Recalcular el total de la inscripción pagada a partir de los abonos reactivados
-                cur.execute("""
-                    SELECT COALESCE(SUM(monto), 0) FROM pagos 
-                    WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'
-                """, (cliente_id,))
-                total_abonos_reactivados = cur.fetchone()[0]
+                cur.execute("UPDATE clientes SET inscripcion_pagada = 0, proceso = 'RESERVA' WHERE id = %s", (cliente_id,))
                 
-                # Revertir el estado del cliente
-                cur.execute("""
-                    UPDATE clientes SET inscripcion_pagada = %s, proceso = 'RESERVA' 
-                    WHERE id = %s
-                """, (total_abonos_reactivados, cliente_id))
-                
-                flash("¡Recibo de inscripción final anulado! Los abonos han sido restaurados y el proceso del cliente ha vuelto a 'RESERVA'.", 'success')
+                flash("¡Reinicio de inscripción completado! El cliente ha vuelto a 'RESERVA' con saldo de inscripción en cero.", 'success')
 
             conn.commit()
             flash(f"¡Recibo N° {pago_id} anulado y saldo corregido exitosamente!", "success")
