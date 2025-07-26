@@ -113,6 +113,7 @@
             display: block;
             width: 100%;
             box-sizing: border-box;
+            white-space: nowrap; /* Evita que el texto del botón se parta */
         }
         .btn-edit { background-color: #ffc107; }
         .btn-pago { background-color: #28a745; }
@@ -146,7 +147,7 @@
             margin-bottom: 10px;
         }
         .actions-top-row .btn {
-            flex: 1; /* Hace que los 3 botones compartan el espacio */
+            /* Se elimina flex: 1 para que los botones se ajusten a su contenido */
         }
         .pago-card {
             border: 1px solid #e9ecef;
@@ -235,7 +236,7 @@
                     <h4>Datos Generales del Cliente (ID: {{ cliente.id }})</h4>
                     <div class="actions-container">
                         <div class="actions-top-row">
-                            <a href="{{ url_for('consulta') }}" class="btn btn-finalizar">Finalizar</a>
+                            <a href="{{ url_for('consulta') }}" class="btn btn-finalizar">Finalizar Consulta</a>
                             <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-edit">Editar</a>
                             <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-pago">Registrar Pago</a>
                         </div>
