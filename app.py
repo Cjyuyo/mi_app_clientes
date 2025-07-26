@@ -29,51 +29,30 @@ def close_db(exception):
         db.close()
 
 # --- LÓGICA DE CICLO DE PAGO Y FECHAS ---
-
 def get_feriados_venezuela(year):
-    """
-    Retorna una lista de fechas (objetos date) de feriados fijos en Venezuela.
-    """
     return [
-        datetime(year, 1, 1).date(),   # Año Nuevo
-        datetime(year, 4, 19).date(),  # Declaración de la Independencia
-        datetime(year, 5, 1).date(),   # Día del Trabajador
-        datetime(year, 6, 24).date(),  # Batalla de Carabobo
-        datetime(year, 7, 5).date(),   # Día de la Independencia
-        datetime(year, 7, 24).date(),  # Natalicio del Libertador
-        datetime(year, 10, 12).date(), # Día de la Resistencia Indígena
-        datetime(year, 12, 24).date(), # Víspera de Navidad
-        datetime(year, 12, 25).date(), # Navidad
-        datetime(year, 12, 31).date(), # Fin de Año
+        datetime(year, 1, 1).date(), datetime(year, 4, 19).date(), datetime(year, 5, 1).date(),
+        datetime(year, 6, 24).date(), datetime(year, 7, 5).date(), datetime(year, 7, 24).date(),
+        datetime(year, 10, 12).date(), datetime(year, 12, 24).date(), datetime(year, 12, 25).date(),
+        datetime(year, 12, 31).date(),
     ]
 
 def get_fecha_vencimiento_ajustada(fecha_pago):
-    """
-    Calcula la fecha de vencimiento para un pago y la ajusta si cae en fin de semana o feriado.
-    """
     if fecha_pago.day < 15:
-        mes_vencimiento = fecha_pago.month
-        ano_vencimiento = fecha_pago.year
+        mes_vencimiento, ano_vencimiento = fecha_pago.month, fecha_pago.year
     else:
-        if fecha_pago.month == 12:
-            mes_vencimiento = 1
-            ano_vencimiento = fecha_pago.year + 1
-        else:
-            mes_vencimiento = fecha_pago.month + 1
-            ano_vencimiento = fecha_pago.year
+        mes_vencimiento = fecha_pago.month + 1 if fecha_pago.month < 12 else 1
+        ano_vencimiento = fecha_pago.year if fecha_pago.month < 12 else fecha_pago.year + 1
     
     vencimiento = datetime(ano_vencimiento, mes_vencimiento, 2).date()
-    
     feriados = get_feriados_venezuela(vencimiento.year)
-    while vencimiento.weekday() >= 5 or vencimiento in feriados: # 5=Sábado, 6=Domingo
+    while vencimiento.weekday() >= 5 or vencimiento in feriados:
         vencimiento += timedelta(days=1)
         if vencimiento.year != ano_vencimiento:
             feriados = get_feriados_venezuela(vencimiento.year)
-
     return vencimiento
 
 # --- RUTAS DE LA APLICACIÓN ---
-
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -116,10 +95,7 @@ def registrar_cliente():
 def consulta():
     clientes_encontrados = []
     mensaje_error = None
-    if request.method == 'POST':
-        termino_busqueda = request.form.get('busqueda', '').strip()
-    else:
-        termino_busqueda = request.args.get('busqueda', '').strip()
+    termino_busqueda = request.form.get('busqueda', request.args.get('busqueda', '')).strip()
 
     if termino_busqueda:
         conn = get_db()
@@ -128,13 +104,9 @@ def consulta():
         else:
             try:
                 with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                    if termino_busqueda.isdigit():
-                        query_clientes = "SELECT * FROM clientes WHERE cedula = %s ORDER BY nombre_apellido LIMIT 20;"
-                        cur.execute(query_clientes, (termino_busqueda,))
-                    else:
-                        query_clientes = "SELECT * FROM clientes WHERE nombre_apellido ILIKE %s ORDER BY nombre_apellido LIMIT 20;"
-                        patron = f'%{termino_busqueda}%'
-                        cur.execute(query_clientes, (patron,))
+                    query_clientes = "SELECT * FROM clientes WHERE cedula = %s OR nombre_apellido ILIKE %s ORDER BY nombre_apellido LIMIT 20;"
+                    patron = f'%{termino_busqueda}%'
+                    cur.execute(query_clientes, (termino_busqueda, patron))
                     
                     clientes_raw = cur.fetchall()
                     if not clientes_raw:
@@ -142,14 +114,14 @@ def consulta():
                     else:
                         for cliente in clientes_raw:
                             cliente_dict = dict(cliente)
-                            query_pagos = "SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC"
-                            cur.execute(query_pagos, (cliente_dict['id'],))
+                            cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC", (cliente_dict['id'],))
                             cliente_dict['pagos'] = cur.fetchall()
                             clientes_encontrados.append(cliente_dict)
             except psycopg2.Error as e:
                 mensaje_error = f"Error al consultar la base de datos: {e}"
     return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda)
 
+# (Otras rutas como registrar_pago, conciliar_pago, etc. no cambian)
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 def registrar_pago(client_id):
     conn = get_db()
@@ -470,20 +442,27 @@ def ver_recibo_anulado(pago_id):
         return redirect(url_for('consulta'))
     return render_template('recibo_anulado.html', pago=pago)
 
+# --- RUTA EDIT_CLIENT (CORREGIDA) ---
 @app.route('/edit/<int:client_id>', methods=['GET', 'POST'])
 def edit_client(client_id):
     conn = get_db()
-    if not conn: return redirect(url_for('consulta'))
+    if not conn: 
+        flash('Error de conexión a la base de datos.', 'error')
+        return redirect(url_for('consulta'))
+
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         cur.execute("SELECT * FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
+
     if not cliente:
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('consulta'))
+
     if request.method == 'POST':
-        form_data = {k: v if v else None for k, v in request.form.items()}
-        form_data['id'] = client_id
         try:
+            form_data = {k: v if v else None for k, v in request.form.items()}
+            form_data['id'] = client_id
+
             with conn.cursor() as cur:
                 update_query = """
                 UPDATE clientes SET
@@ -497,10 +476,12 @@ def edit_client(client_id):
                 cur.execute(update_query, form_data)
                 conn.commit()
                 flash('¡Cliente actualizado exitosamente!', 'success')
-                return redirect(url_for('consulta', busqueda=cliente['cedula']))
-        except (psycopg2.Error, ValueError) as e:
+                cedula_actualizada = form_data.get('cedula') or cliente['cedula']
+                return redirect(url_for('consulta', busqueda=cedula_actualizada))
+        except (psycopg2.Error, ValueError, KeyError) as e:
             conn.rollback()
             flash(f'Ocurrió un error al actualizar: {e}', 'error')
+    
     return render_template('edit_cliente.html', cliente=cliente)
 
 @app.route('/delete/<int:client_id>', methods=['POST'])
