@@ -52,8 +52,9 @@
             padding: 15px 20px;
             background-color: #f8f9fa;
             border-bottom: 1px solid #dee2e6;
+            flex-wrap: wrap; 
         }
-        .cliente-card-header h2 { margin: 0; font-size: 20px; }
+        .cliente-card-header h2 { margin: 0; font-size: 20px; margin-bottom: 10px; }
         .status-badge {
             padding: 6px 12px;
             border-radius: 15px;
@@ -129,16 +130,17 @@
             color: white !important;
             padding: 8px 12px;
             border-radius: 5px;
-            margin-left: 5px;
+            margin: 4px;
             border: none;
             cursor: pointer;
             font-size: 14px;
+            text-align: center;
         }
         .btn-edit { background-color: #ffc107; }
         .btn-pago { background-color: #28a745; }
         .btn-delete { background-color: #dc3545; }
         .btn-ver-recibo { background-color: #17a2b8; }
-        .btn-finalizar { background-color: #007bff; } /* Estilo para el botón restaurado */
+        .btn-finalizar { background-color: #007bff; }
         .flash-error, .flash-success, .flash-warning {
             padding: 15px;
             margin-bottom: 20px;
@@ -149,6 +151,89 @@
         .flash-error { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
         .flash-success { color: #155724; background-color: #d4edda; border-color: #c3e6cb; }
         .flash-warning { color: #856404; background-color: #fff3cd; border-color: #ffeeba; }
+        
+        .card-top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 5px;
+        }
+
+        /* --- ESTILOS RESPONSIVOS MEJORADOS --- */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 15px;
+            }
+            .cliente-card-header, .card-top-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .action-buttons {
+                width: 100%;
+            }
+            .action-buttons a, .action-buttons form, .action-buttons button {
+                flex-grow: 1;
+                margin: 5px 0;
+            }
+            .action-buttons form {
+                display: block !important;
+                width: 100%;
+            }
+            .action-buttons button {
+                width: 100%;
+            }
+            
+            /* --- NUEVO: Transformar tabla de pagos en tarjetas --- */
+            .pagos-table thead {
+                display: none; /* Ocultar encabezados en móvil */
+            }
+            .pagos-table, .pagos-table tbody, .pagos-table tr, .pagos-table td {
+                display: block;
+                width: 100%;
+            }
+            .pagos-table tr {
+                margin-bottom: 15px;
+                border: 1px solid #dee2e6;
+                border-radius: 5px;
+            }
+            .pagos-table td {
+                text-align: right;
+                padding-left: 50%;
+                position: relative;
+                border: none;
+                border-bottom: 1px solid #eee;
+            }
+            .pagos-table td:before {
+                content: attr(data-label);
+                position: absolute;
+                left: 10px;
+                width: 45%;
+                padding-right: 10px;
+                white-space: nowrap;
+                text-align: left;
+                font-weight: bold;
+            }
+            .pagos-table td:last-child {
+                border-bottom: none;
+            }
+            .pagos-table td .btn, .pagos-table td form {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            .pagos-table td button {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -191,14 +276,13 @@
                 </div>
             </div>
             <div class="cliente-card-body">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div class="card-top-header">
                     <h4>Datos Generales del Cliente (ID: {{ cliente.id }})</h4>
-                    <div>
-                        <!-- BOTÓN RESTAURADO -->
+                    <div class="action-buttons">
                         <a href="{{ url_for('consulta') }}" class="btn btn-finalizar">Finalizar Consulta</a>
                         <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-edit">Editar</a>
                         <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-pago">Registrar Pago</a>
-                        <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente y todos sus pagos? Esta acción no se puede deshacer.');">
+                        <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente y todos sus pagos? Esta acción no se puede deshacer.');">
                             <button type="submit" class="btn btn-delete">Eliminar</button>
                         </form>
                     </div>
@@ -281,14 +365,14 @@
                             {% set row_class = 'finalizado-row' %}
                         {% endif %}
                         <tr class="{{ row_class }}">
-                            <td>{{ pago.recibo or pago.id }}</td>
-                            <td>{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</td>
-                            <td>{{ pago.tipo_pago }}</td>
-                            <td>${{ "%.2f"|format(pago.monto) }}</td>
-                            <td>{{ pago.estado_pago }}</td>
-                            <td>
+                            <td data-label="Recibo #:">{{ pago.recibo or pago.id }}</td>
+                            <td data-label="Fecha:">{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</td>
+                            <td data-label="Tipo:">{{ pago.tipo_pago }}</td>
+                            <td data-label="Monto (USD):">${{ "%.2f"|format(pago.monto) }}</td>
+                            <td data-label="Estado:">{{ pago.estado_pago }}</td>
+                            <td data-label="Acciones:">
                                 {% if pago.estado_pago == 'Pendiente' %}
-                                    <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres conciliar este pago?');">
+                                    <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres conciliar este pago?');">
                                         <button type="submit" class="btn btn-pago">Conciliar</button>
                                     </form>
                                 {% endif %}
