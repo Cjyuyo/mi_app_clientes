@@ -101,24 +101,6 @@
             font-size: 12px;
             line-height: 20px;
         }
-        .pagos-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .pagos-table th, .pagos-table td {
-            border: 1px solid #dee2e6;
-            padding: 12px;
-            text-align: left;
-        }
-        .pagos-table th { background-color: #f8f9fa; }
-        .anulado-row-clean {
-            background-color: #f8d7da !important;
-            color: #721c24;
-        }
-        .pendiente-row {
-            background-color: #fff3cd;
-        }
-        .finalizado-row {
-            background-color: #d4edda;
-            font-weight: bold;
-        }
         .btn {
             text-decoration: none;
             color: white !important;
@@ -128,7 +110,7 @@
             border: none;
             cursor: pointer;
             font-size: 14px;
-            text-align: center; /* Asegura que el texto esté centrado */
+            text-align: center;
         }
         .btn-edit { background-color: #ffc107; }
         .btn-pago { background-color: #28a745; }
@@ -146,6 +128,74 @@
         .flash-error { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
         .flash-success { color: #155724; background-color: #d4edda; border-color: #c3e6cb; }
         .flash-warning { color: #856404; background-color: #fff3cd; border-color: #ffeeba; }
+
+        /* --- ESTILOS PARA EL ACORDEÓN DE PAGOS --- */
+        .accordion-trigger {
+            background-color: #f1f1f1;
+            color: #444;
+            cursor: pointer;
+            padding: 18px;
+            width: 100%;
+            border: none;
+            text-align: left;
+            outline: none;
+            font-size: 15px;
+            transition: background-color 0.3s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid #ddd;
+        }
+        .pago-item:first-child .accordion-trigger {
+            border-top-left-radius: 5px;
+            border-top-right-radius: 5px;
+            border-top: none;
+        }
+        .pago-item:last-child .accordion-trigger:not(.active) {
+             border-bottom-left-radius: 5px;
+             border-bottom-right-radius: 5px;
+        }
+        .accordion-trigger:hover, .accordion-trigger.active {
+            background-color: #e9ecef;
+        }
+        .accordion-trigger::after {
+            content: '\\002B'; /* Signo '+' */
+            color: #777;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .accordion-trigger.active::after {
+            content: "\\2212"; /* Signo '-' */
+        }
+        .accordion-panel {
+            padding: 0 18px;
+            background-color: white;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            border-left: 1px solid #ddd;
+            border-right: 1px solid #ddd;
+        }
+         .pago-item:last-child .accordion-panel {
+            border-bottom: 1px solid #ddd;
+            border-bottom-left-radius: 5px;
+            border-bottom-right-radius: 5px;
+        }
+        .panel-content {
+            padding: 15px 0;
+        }
+        .panel-content p {
+            margin-bottom: 12px;
+        }
+        .panel-actions {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #ccc;
+        }
+        /* Colores de estado para los items de pago */
+        .pago-item.anulado-row-clean .accordion-trigger { background-color: #f8d7da; }
+        .pago-item.pendiente-row .accordion-trigger { background-color: #fff3cd; }
+        .pago-item.finalizado-row .accordion-trigger { background-color: #d4edda; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -199,6 +249,7 @@
                         </form>
                     </div>
                 </div>
+
                 <div class="cliente-grid">
                     <div class="info-section">
                         <h3>Identificación y Contacto</h3>
@@ -253,62 +304,77 @@
                 </div>
 
                 <h4>Historial de Pagos</h4>
-                {% if cliente.pagos %}
-                <table class="pagos-table">
-                    <thead>
-                        <tr>
-                            <th>Recibo #</th>
-                            <th>Fecha</th>
-                            <th>Tipo</th>
-                            <th>Monto (USD)</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    {% for pago in cliente.pagos %}
-                        {% set row_class = '' %}
-                        {% if pago.estado_pago == 'Anulado' %}
-                            {% set row_class = 'anulado-row-clean' %}
-                        {% elif pago.estado_pago == 'Pendiente' %}
-                            {% set row_class = 'pendiente-row' %}
-                        {% elif pago.tipo_pago == 'Inscripción Finalizada' %}
-                            {% set row_class = 'finalizado-row' %}
-                        {% endif %}
-                        <tr class="{{ row_class }}">
-                            <td>{{ pago.recibo or pago.id }}</td>
-                            <td>{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</td>
-                            <td>{{ pago.tipo_pago }}</td>
-                            <td>${{ "%.2f"|format(pago.monto) }}</td>
-                            <td>{{ pago.estado_pago }}</td>
-                            <td>
-                                {% if pago.estado_pago == 'Pendiente' %}
-                                    <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres conciliar este pago?');">
-                                        <button type="submit" class="btn btn-pago">Conciliar</button>
-                                    </form>
-                                {% elif pago.estado_pago == 'Conciliado' %}
-                                    {% if pago.tipo_pago == 'Inscripción Finalizada' %}
-                                        <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Recibo Final</a>
-                                    {% else %}
-                                        <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Abono</a>
-                                    {% endif %}
-                                    <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo?');">
-                                        <button type="submit" class="btn btn-delete">Anular</button>
-                                    </form>
-                                {% elif pago.estado_pago == 'Anulado' %}
-                                    <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-ver-anulado">Ver Anulado</a>
-                                {% endif %}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <p>Este cliente no tiene pagos registrados.</p>
-                {% endif %}
-            </div>
+                <div class="pagos-accordion-container">
+                    {% if cliente.pagos %}
+                        {% for pago in cliente.pagos %}
+                            {% set row_class = '' %}
+                            {% if pago.estado_pago == 'Anulado' %}
+                                {% set row_class = 'anulado-row-clean' %}
+                            {% elif pago.estado_pago == 'Pendiente' %}
+                                {% set row_class = 'pendiente-row' %}
+                            {% elif pago.tipo_pago == 'Inscripción Finalizada' %}
+                                {% set row_class = 'finalizado-row' %}
+                            {% endif %}
+
+                            <div class="pago-item {{ row_class }}">
+                                <button class="accordion-trigger">
+                                    <span>Recibo #{{ pago.recibo or pago.id }} ∙ {{ pago.tipo_pago }}</span>
+                                    <strong>${{ "%.2f"|format(pago.monto) }}</strong>
+                                </button>
+                                <div class="accordion-panel">
+                                    <div class="panel-content">
+                                        <p><strong>Fecha de Pago:</strong> {{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</p>
+                                        <p><strong>Tipo de Pago:</strong> {{ pago.tipo_pago }}</p>
+                                        <p><strong>Monto:</strong> ${{ "%.2f"|format(pago.monto) }}</p>
+                                        <p><strong>Estado:</strong> {{ pago.estado_pago }}</p>
+
+                                        <div class="panel-actions">
+                                            {% if pago.estado_pago == 'Pendiente' %}
+                                                <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres conciliar este pago?');">
+                                                    <button type="submit" class="btn btn-pago">Conciliar</button>
+                                                </form>
+                                            {% elif pago.estado_pago == 'Conciliado' %}
+                                                {% if pago.tipo_pago == 'Inscripción Finalizada' %}
+                                                    <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Recibo Final</a>
+                                                {% else %}
+                                                    <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Abono</a>
+                                                {% endif %}
+                                                <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo?');">
+                                                    <button type="submit" class="btn btn-delete">Anular</button>
+                                                </form>
+                                            {% elif pago.estado_pago == 'Anulado' %}
+                                                <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-ver-anulado">Ver Anulado</a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p>Este cliente no tiene pagos registrados.</p>
+                    {% endif %}
+                </div>
+                </div>
         </div>
         {% endfor %}
     </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const accordions = document.querySelectorAll(".accordion-trigger");
+
+            accordions.forEach(accordion => {
+                accordion.addEventListener("click", function() {
+                    this.classList.toggle("active");
+                    const panel = this.nextElementSibling;
+                    if (panel.style.maxHeight) {
+                        panel.style.maxHeight = null;
+                    } else {
+                        panel.style.maxHeight = panel.scrollHeight + "px";
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>
