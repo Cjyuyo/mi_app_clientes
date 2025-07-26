@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificación de Recibo - Moto Plan</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        .container { background: white; padding: 30px 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; max-width: 500px; width: 100%; }
+        h1 { color: #1c1e21; margin-bottom: 10px; }
+        h2 { margin: 0; font-size: 24px; }
+        .status-box { padding: 20px; border-radius: 6px; margin: 20px 0; }
+        .status-success { background-color: #d4edda; color: #155724; }
+        .status-error { background-color: #f8d7da; color: #721c24; }
+        .status-anulado { background-color: #e2e3e5; color: #383d41; }
+        .details p { text-align: left; margin: 12px 0; font-size: 16px; border-bottom: 1px solid #dddfe2; padding-bottom: 12px; }
+        .details p:last-child { border-bottom: none; }
+        .details strong { color: #606770; min-width: 120px; display: inline-block; }
+        .footer { margin-top: 30px; font-size: 14px; color: #606770; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Verificación de Comprobante</h1>
+        <p>Moto Plan Motors C.A.</p>
+        
+        {% if pago %}
+            {% set status_class = 'status-success' %}
+            {% set status_text = 'RECIBO VÁLIDO' %}
+            {% if pago.estado_pago == 'Anulado' %}
+                {% set status_class = 'status-anulado' %}
+                {% set status_text = 'RECIBO ANULADO' %}
+            {% elif pago.estado_pago == 'Pendiente' %}
+                 {% set status_class = 'status-warning' %}
+                 {% set status_text = 'RECIBO PENDIENTE' %}
+            {% endif %}
+
+            <div class="status-box {{ status_class }}">
+                <h2>{{ status_text }}</h2>
+            </div>
+            <div class="details">
+                <p><strong>Recibo N°:</strong> {{ pago.id }}</p>
+                <p><strong>Cliente:</strong> {{ pago.nombre_apellido }}</p>
+                <p><strong>Monto:</strong> ${{ "%.2f"|format(pago.monto) }}</p>
+                <p><strong>Fecha:</strong> {{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }}</p>
+                <p><strong>Tipo:</strong> {{ pago.tipo_pago }}</p>
+            </div>
+        {% else %}
+            <div class="status-box status-error">
+                <h2>RECIBO NO ENCONTRADO</h2>
+            </div>
+            <div class="details">
+                <p>El número de recibo que intentas verificar no existe en nuestros registros o ha sido eliminado.</p>
+            </div>
+        {% endif %}
+
+        <div class="footer">
+            <p>&copy; {{ "now"|date("Y") }} Moto Plan Motors C.A. Todos los derechos reservados.</p>
+        </div>
+    </div>
+</body>
+</html>
