@@ -408,7 +408,6 @@ def anular_recibo(pago_id):
                 
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
             
-            # --- INICIO DE LA CORRECCIÓN ---
             elif pago_a_anular['tipo_pago'] == 'Inscripción Finalizada':
                 # Marcar el recibo final como anulado
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
@@ -433,7 +432,6 @@ def anular_recibo(pago_id):
                 """, (total_abonos_reactivados, cliente_id))
                 
                 flash("¡Recibo de inscripción final anulado! Los abonos han sido restaurados y el proceso del cliente ha vuelto a 'RESERVA'.", 'success')
-            # --- FIN DE LA CORRECCIÓN ---
 
             conn.commit()
             flash(f"¡Recibo N° {pago_id} anulado y saldo corregido exitosamente!", "success")
@@ -535,4 +533,4 @@ def delete_client(client_id):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=Tr
