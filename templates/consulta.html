@@ -129,12 +129,26 @@
         .flash-success { color: #155724; background-color: #d4edda; border-color: #c3e6cb; }
         .flash-warning { color: #856404; background-color: #fff3cd; border-color: #ffeeba; }
 
-        /* --- ESTILOS PARA EL ACORDEÓN DE PAGOS --- */
+        /* --- ESTILOS MEJORADOS PARA EL ACORDEÓN DE PAGOS --- */
+
+        /* Contenedor de cada item de pago individual */
+        .pago-item {
+            margin-bottom: 10px;  /* <-- AÑADIDO: Espacio entre cada recibo */
+            border-radius: 5px;   /* <-- AÑADIDO: Esquinas redondeadas para todo el bloque */
+            overflow: hidden;     /* <-- AÑADIDO: Asegura que el contenido respete el borde redondeado */
+            border: 1px solid #ddd; /* MODIFICADO: Un borde sutil para todo el item */
+        }
+        
+        .pago-item:last-child {
+            margin-bottom: 0; /* Evita doble margen al final */
+        }
+
+        /* Botón que abre y cierra el acordeón */
         .accordion-trigger {
-            background-color: #f1f1f1;
+            background-color: #f8f9fa;
             color: #444;
             cursor: pointer;
-            padding: 18px;
+            padding: 15px;
             width: 100%;
             border: none;
             text-align: left;
@@ -144,55 +158,48 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-top: 1px solid #ddd;
         }
-        .pago-item:first-child .accordion-trigger {
-            border-top-left-radius: 5px;
-            border-top-right-radius: 5px;
-            border-top: none;
-        }
-        .pago-item:last-child .accordion-trigger:not(.active) {
-             border-bottom-left-radius: 5px;
-             border-bottom-right-radius: 5px;
-        }
+
         .accordion-trigger:hover, .accordion-trigger.active {
             background-color: #e9ecef;
         }
+
+        /* Icono de '+' y '-' */
         .accordion-trigger::after {
             content: '\\002B'; /* Signo '+' */
             color: #777;
             font-weight: bold;
             font-size: 18px;
         }
+
         .accordion-trigger.active::after {
             content: "\\2212"; /* Signo '-' */
         }
+
+        /* Panel con la información detallada */
         .accordion-panel {
-            padding: 0 18px;
+            padding: 0 15px;
             background-color: white;
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.3s ease-out;
-            border-left: 1px solid #ddd;
-            border-right: 1px solid #ddd;
         }
-         .pago-item:last-child .accordion-panel {
-            border-bottom: 1px solid #ddd;
-            border-bottom-left-radius: 5px;
-            border-bottom-right-radius: 5px;
-        }
+
         .panel-content {
             padding: 15px 0;
         }
+
         .panel-content p {
             margin-bottom: 12px;
         }
+
         .panel-actions {
             margin-top: 15px;
             padding-top: 15px;
             border-top: 1px dashed #ccc;
         }
-        /* Colores de estado para los items de pago */
+
+        /* Colores de estado para los botones del acordeón */
         .pago-item.anulado-row-clean .accordion-trigger { background-color: #f8d7da; }
         .pago-item.pendiente-row .accordion-trigger { background-color: #fff3cd; }
         .pago-item.finalizado-row .accordion-trigger { background-color: #d4edda; font-weight: bold; }
@@ -354,7 +361,7 @@
                         <p>Este cliente no tiene pagos registrados.</p>
                     {% endif %}
                 </div>
-                </div>
+            </div>
         </div>
         {% endfor %}
     </div>
