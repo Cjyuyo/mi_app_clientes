@@ -246,11 +246,9 @@ def conciliar_pago(pago_id):
                 nueva_inscripcion_pagada = inscripcion_pagada_actual + monto_pagado
 
                 if inscripcion_total > 0 and nueva_inscripcion_pagada >= inscripcion_total:
-                    # --- INICIO LÓGICA DE CAMBIO DE PROCESO (RESERVA -> INSCRITO) ---
                     if cliente['proceso'] == 'RESERVA':
                         cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],))
                         flash("Cliente ha completado la inscripción y su proceso ha cambiado a 'INSCRITO'.", "info")
-                    # --- FIN LÓGICA DE CAMBIO DE PROCESO ---
 
                     cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción'", (cliente['id'],))
                     pago_final_query = """
@@ -271,11 +269,9 @@ def conciliar_pago(pago_id):
                     return redirect(url_for('ver_recibo', pago_id=pago_id))
 
             elif pago['tipo_pago'] == 'Cuota':
-                # --- INICIO LÓGICA DE CAMBIO DE PROCESO (INSCRITO -> AHORRADOR) ---
                 if cliente['proceso'] == 'INSCRITO' and cliente['cuotas_pagadas_progresivas'] == 0 and cliente['balance_regresivo'] == 0:
                     cur.execute("UPDATE clientes SET proceso = 'Ahorrador' WHERE id = %s", (cliente['id'],))
                     flash("Primer pago de cuota registrado. El proceso del cliente ha cambiado a 'Ahorrador'.", "info")
-                # --- FIN LÓGICA DE CAMBIO DE PROCESO ---
 
                 valor_cuota = Decimal(cliente['valor_cuota'] or 0)
                 if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
@@ -309,7 +305,6 @@ def conciliar_pago(pago_id):
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
-# (El resto de las rutas no cambian)
 @app.route('/recibo/<int:pago_id>')
 def ver_recibo(pago_id):
     conn = get_db()
@@ -413,9 +408,32 @@ def anular_recibo(pago_id):
                 
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
             
+            # --- INICIO DE LA CORRECCIÓN ---
             elif pago_a_anular['tipo_pago'] == 'Inscripción Finalizada':
-                 flash("Error: La anulación de un recibo de inscripción finalizada no está permitida.", 'error')
-                 return redirect(url_for('consulta', busqueda=cedula_cliente))
+                # Marcar el recibo final como anulado
+                cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
+                
+                # Reactivar todos los abonos de inscripción anteriores
+                cur.execute("""
+                    UPDATE pagos SET estado_pago = 'Conciliado' 
+                    WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Anulado'
+                """, (cliente_id,))
+                
+                # Recalcular el total de la inscripción pagada a partir de los abonos reactivados
+                cur.execute("""
+                    SELECT COALESCE(SUM(monto), 0) FROM pagos 
+                    WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'
+                """, (cliente_id,))
+                total_abonos_reactivados = cur.fetchone()[0]
+                
+                # Revertir el estado del cliente
+                cur.execute("""
+                    UPDATE clientes SET inscripcion_pagada = %s, proceso = 'RESERVA' 
+                    WHERE id = %s
+                """, (total_abonos_reactivados, cliente_id))
+                
+                flash("¡Recibo de inscripción final anulado! Los abonos han sido restaurados y el proceso del cliente ha vuelto a 'RESERVA'.", 'success')
+            # --- FIN DE LA CORRECCIÓN ---
 
             conn.commit()
             flash(f"¡Recibo N° {pago_id} anulado y saldo corregido exitosamente!", "success")
