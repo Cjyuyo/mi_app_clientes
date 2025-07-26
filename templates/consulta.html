@@ -111,7 +111,7 @@
             font-size: 14px;
             text-align: center;
             display: block;
-            width: 100%; /* Asegura que el botón llene su contenedor */
+            width: 100%;
             box-sizing: border-box;
         }
         .btn-edit { background-color: #ffc107; }
@@ -137,15 +137,16 @@
             flex-direction: column;
             gap: 15px;
         }
-        .actions-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr; /* Tres columnas para los botones principales */
-            gap: 10px;
+        .actions-container {
             width: 100%;
         }
-        .delete-form-container {
-            grid-column: 1 / -1; /* El formulario de eliminar ocupa todas las columnas */
-            margin-top: 10px;
+        .actions-top-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .actions-top-row .btn {
+            flex: 1; /* Hace que los 3 botones compartan el espacio */
         }
         .pago-card {
             border: 1px solid #e9ecef;
@@ -175,17 +176,15 @@
                 justify-content: space-between;
                 align-items: center;
             }
-            .actions-grid {
+            .actions-container {
                 display: flex;
-                flex-wrap: wrap;
                 gap: 10px;
                 width: auto;
             }
-            .delete-form-container {
-                grid-column: auto;
-                margin-top: 0;
-            }
-            .actions-grid .btn, .actions-grid .delete-form-container {
+            .actions-top-row {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 0;
                 flex-grow: 1;
             }
         }
@@ -234,11 +233,13 @@
             <div class="cliente-card-body">
                 <div class="card-header-mobile">
                     <h4>Datos Generales del Cliente (ID: {{ cliente.id }})</h4>
-                    <div class="actions-grid">
-                        <a href="{{ url_for('consulta') }}" class="btn btn-finalizar">Finalizar</a>
-                        <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-edit">Editar</a>
-                        <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-pago">Registrar Pago</a>
-                        <form action="{{ url_for('delete_client', client_id=cliente.id) }}" class="delete-form-container" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente y todos sus pagos? Esta acción no se puede deshacer.');">
+                    <div class="actions-container">
+                        <div class="actions-top-row">
+                            <a href="{{ url_for('consulta') }}" class="btn btn-finalizar">Finalizar</a>
+                            <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-edit">Editar</a>
+                            <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-pago">Registrar Pago</a>
+                        </div>
+                        <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente y todos sus pagos? Esta acción no se puede deshacer.');">
                             <button type="submit" class="btn btn-delete">Eliminar</button>
                         </form>
                     </div>
