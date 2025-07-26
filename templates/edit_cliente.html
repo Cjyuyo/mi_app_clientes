@@ -31,6 +31,9 @@
                 <label>Teléfono:</label><input type="text" name="telefono" value="{{ cliente.telefono or '' }}">
                 <label>Asesor:</label><input type="text" name="asesor" value="{{ cliente.asesor or '' }}">
                 <label>Responsable:</label><input type="text" name="responsable" value="{{ cliente.responsable or '' }}">
+                <!-- --- INICIO DE LA CORRECCIÓN --- -->
+                <label>Fecha de Ingreso:</label><input type="date" name="fecha_ingreso" value="{{ cliente.fecha_ingreso.strftime('%Y-%m-%d') if cliente.fecha_ingreso else '' }}">
+                <!-- --- FIN DE LA CORRECCIÓN --- -->
             </div>
             <div>
                 <label>Grupo:</label><input type="text" name="grupo" value="{{ cliente.grupo or '' }}">
@@ -58,7 +61,6 @@
                 </div>
             </div>
             <div class="button-group">
-                <!-- CORRECCIÓN: El botón Cancelar ahora regresa a la vista del cliente -->
                 <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="btn btn-secondary">Cancelar</a>
                 <button type="submit" class="btn btn-primary">Guardar Cambios</button>
             </div>

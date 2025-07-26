@@ -279,9 +279,7 @@ def conciliar_pago(pago_id):
                 balance_regresivo_actual = Decimal(cliente['balance_regresivo'] or 0)
                 cuotas_regresivas_actuales = cliente['cuotas_pagadas_regresivas'] or 0
                 
-                # --- INICIO DE LA CORRECCIÓN ---
-                nuevas_cuotas_regresivas = cuotas_regresivas_actuales # Se inicializa la variable aquí
-                # --- FIN DE LA CORRECCIÓN ---
+                nuevas_cuotas_regresivas = cuotas_regresivas_actuales
 
                 monto_necesario_progresiva = valor_cuota - balance_regresivo_actual
                 nuevas_cuotas_progresivas = cuotas_progresivas_actuales
