@@ -101,45 +101,16 @@
             font-size: 12px;
             line-height: 20px;
         }
-        /* --- INICIO DE CORRECCIONES RESPONSIVAS --- */
-        .card-actions {
-            display: flex;
-            flex-wrap: wrap; /* Permite que los botones pasen a la siguiente línea */
-            gap: 10px; /* Espacio entre botones */
-            justify-content: flex-end;
-        }
-        .pagos-table-container {
-            overflow-x: auto; /* Añade scroll horizontal en pantallas pequeñas */
-            -webkit-overflow-scrolling: touch; /* Mejora el scroll en iOS */
-        }
-        /* --- FIN DE CORRECCIONES RESPONSIVAS --- */
-        .pagos-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .pagos-table th, .pagos-table td {
-            border: 1px solid #dee2e6;
-            padding: 12px;
-            text-align: left;
-            white-space: nowrap; /* Evita que el texto de las celdas se rompa */
-        }
-        .pagos-table th { background-color: #f8f9fa; }
-        .anulado-row {
-            background-color: #f8d7da !important;
-            color: #721c24;
-        }
-        .pendiente-row {
-            background-color: #fff3cd;
-        }
-        .finalizado-row {
-            background-color: #d4edda;
-            font-weight: bold;
-        }
         .btn {
             text-decoration: none;
             color: white !important;
-            padding: 8px 12px;
+            padding: 10px 15px;
             border-radius: 5px;
             border: none;
             cursor: pointer;
             font-size: 14px;
+            text-align: center;
+            display: block; /* Para que ocupen todo el ancho en la cuadrícula */
         }
         .btn-edit { background-color: #ffc107; }
         .btn-pago { background-color: #28a745; }
@@ -157,6 +128,58 @@
         .flash-error { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
         .flash-success { color: #155724; background-color: #d4edda; border-color: #c3e6cb; }
         .flash-warning { color: #856404; background-color: #fff3cd; border-color: #ffeeba; }
+        
+        /* --- INICIO DE CORRECCIONES RESPONSIVAS --- */
+        .card-header-mobile {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .actions-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            width: 100%;
+        }
+        .pago-card {
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        .pago-card p {
+            margin: 0 0 8px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+        .pago-card strong {
+            color: #495057;
+        }
+        .pago-actions .btn {
+            margin-top: 10px;
+        }
+        .anulado-row { background-color: #f8d7da !important; color: #721c24; }
+        .pendiente-row { background-color: #fff3cd; }
+        .finalizado-row { background-color: #d4edda; font-weight: bold; }
+
+        /* Media Query para pantallas grandes */
+        @media (min-width: 768px) {
+            .card-header-mobile {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .actions-grid {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+                width: auto;
+            }
+            .actions-grid .btn, .actions-grid form {
+                flex-grow: 1;
+            }
+        }
+        /* --- FIN DE CORRECCIONES RESPONSIVAS --- */
     </style>
 </head>
 <body>
@@ -199,14 +222,13 @@
                 </div>
             </div>
             <div class="cliente-card-body">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                <div class="card-header-mobile">
                     <h4>Datos Generales del Cliente (ID: {{ cliente.id }})</h4>
-                    <!-- Contenedor de acciones corregido -->
-                    <div class="card-actions">
-                        <a href="{{ url_for('consulta') }}" class="btn btn-finalizar">Finalizar Consulta</a>
+                    <div class="actions-grid">
+                        <a href="{{ url_for('consulta') }}" class="btn btn-finalizar">Finalizar</a>
                         <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-edit">Editar</a>
                         <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-pago">Registrar Pago</a>
-                        <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente y todos sus pagos? Esta acción no se puede deshacer.');">
+                        <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" style="display: contents;" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente y todos sus pagos? Esta acción no se puede deshacer.');">
                             <button type="submit" class="btn btn-delete">Eliminar</button>
                         </form>
                     </div>
@@ -267,57 +289,42 @@
 
                 <h4>Historial de Pagos</h4>
                 {% if cliente.pagos %}
-                <!-- Contenedor de tabla corregido -->
-                <div class="pagos-table-container">
-                    <table class="pagos-table">
-                        <thead>
-                            <tr>
-                                <th>Recibo #</th>
-                                <th>Fecha</th>
-                                <th>Tipo</th>
-                                <th>Monto (USD)</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        {% for pago in cliente.pagos %}
-                            {% set row_class = '' %}
-                            {% if pago.estado_pago == 'Anulado' %}
-                                {% set row_class = 'anulado-row' %}
-                            {% elif pago.estado_pago == 'Pendiente' %}
-                                {% set row_class = 'pendiente-row' %}
-                            {% elif pago.tipo_pago == 'Inscripción Finalizada' %}
-                                {% set row_class = 'finalizado-row' %}
+                <div>
+                {% for pago in cliente.pagos %}
+                    {% set row_class = '' %}
+                    {% if pago.estado_pago == 'Anulado' %}
+                        {% set row_class = 'anulado-row' %}
+                    {% elif pago.estado_pago == 'Pendiente' %}
+                        {% set row_class = 'pendiente-row' %}
+                    {% elif pago.tipo_pago == 'Inscripción Finalizada' %}
+                        {% set row_class = 'finalizado-row' %}
+                    {% endif %}
+                    <div class="pago-card {{ row_class }}">
+                        <p><strong>Recibo #:</strong> <span>{{ pago.id }}</span></p>
+                        <p><strong>Fecha:</strong> <span>{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</span></p>
+                        <p><strong>Tipo:</strong> <span>{{ pago.tipo_pago }}</span></p>
+                        <p><strong>Monto (USD):</strong> <span>${{ "%.2f"|format(pago.monto) }}</span></p>
+                        <p><strong>Estado:</strong> <span>{{ pago.estado_pago }}</span></p>
+                        <div class="pago-actions">
+                            {% if pago.estado_pago == 'Pendiente' %}
+                                <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display: contents;" onsubmit="return confirm('¿Estás seguro de que quieres conciliar este pago?');">
+                                    <button type="submit" class="btn btn-pago">Conciliar</button>
+                                </form>
+                            {% elif pago.estado_pago == 'Conciliado' %}
+                                {% if pago.tipo_pago == 'Inscripción Finalizada' %}
+                                    <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Recibo Final</a>
+                                {% else %}
+                                    <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Abono</a>
+                                {% endif %}
+                                <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display: contents;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo?');">
+                                    <button type="submit" class="btn btn-delete">Anular</button>
+                                </form>
+                            {% elif pago.estado_pago == 'Anulado' %}
+                                <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-ver-anulado">Ver Anulado</a>
                             {% endif %}
-                            <tr class="{{ row_class }}">
-                                <td>{{ pago.id }}</td>
-                                <td>{{ pago.fecha_pago.strftime('%Y-%m-%d') if pago.fecha_pago else 'N/A' }}</td>
-                                <td>{{ pago.tipo_pago }}</td>
-                                <td>${{ "%.2f"|format(pago.monto) }}</td>
-                                <td>{{ pago.estado_pago }}</td>
-                                <td>
-                                    {% if pago.estado_pago == 'Pendiente' %}
-                                        <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres conciliar este pago?');">
-                                            <button type="submit" class="btn btn-pago">Conciliar</button>
-                                        </form>
-                                    {% elif pago.estado_pago == 'Conciliado' %}
-                                        {% if pago.tipo_pago == 'Inscripción Finalizada' %}
-                                            <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Recibo Final</a>
-                                        {% else %}
-                                            <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-ver-recibo">Ver Abono</a>
-                                        {% endif %}
-                                        <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo?');">
-                                            <button type="submit" class="btn btn-delete">Anular</button>
-                                        </form>
-                                    {% elif pago.estado_pago == 'Anulado' %}
-                                        <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-ver-anulado">Ver Anulado</a>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                        </tbody>
-                    </table>
+                        </div>
+                    </div>
+                {% endfor %}
                 </div>
                 {% else %}
                 <p>Este cliente no tiene pagos registrados.</p>
