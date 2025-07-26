@@ -4,6 +4,7 @@ import psycopg2.extras
 from flask import Flask, render_template, request, g, flash, redirect, url_for
 from dotenv import load_dotenv
 from decimal import Decimal
+from datetime import datetime # <-- Se añade esta importación
 
 load_dotenv()
 app = Flask(__name__)
@@ -27,7 +28,7 @@ def close_db(exception):
     if db is not None:
         db.close()
 
-# --- (Las rutas existentes como index, consulta, etc., no cambian) ---
+# --- (Las rutas existentes no cambian) ---
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -361,7 +362,7 @@ def anular_recibo(pago_id):
         flash(f"Ocurrió un error al anular el recibo: {e}", 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente))
 
-# --- NUEVA RUTA PARA VERIFICACIÓN PÚBLICA DE RECIBOS ---
+# --- RUTA DE VERIFICACIÓN (MODIFICADA) ---
 @app.route('/verificar_recibo/<int:pago_id>')
 def verificar_recibo(pago_id):
     """
@@ -369,7 +370,6 @@ def verificar_recibo(pago_id):
     """
     conn = get_db()
     if not conn:
-        # No se puede flashear un mensaje aquí ya que es una página pública sin sesión
         return "Error de conexión a la base de datos.", 500
     
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
@@ -383,7 +383,9 @@ def verificar_recibo(pago_id):
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
     
-    return render_template('verificacion_recibo.html', pago=pago)
+    # Se obtiene el año actual y se pasa a la plantilla
+    current_year = datetime.now().year
+    return render_template('verificacion_recibo.html', pago=pago, current_year=current_year)
 
 
 @app.route('/recibo_anulado/<int:pago_id>')
