@@ -139,8 +139,6 @@ def registrar_pago(client_id):
         
         try:
             with conn.cursor() as cur:
-                # --- CORRECCIÓN AÑADIDA AQUÍ ---
-                # Se añade la columna 'cuotas_cubiertas' con un valor inicial de 0.
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, 
                                         pago_en, por_concepto_de, referencia, banco, lugar_emision,
@@ -209,6 +207,7 @@ def conciliar_pago(pago_id):
                 else:
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
                     cur.execute("UPDATE pagos SET estado_pago = 'Conciliado' WHERE id = %s", (pago_id,))
+                    conn.commit() # --- CORRECCIÓN AÑADIDA AQUÍ ---
                     flash(f"Abono de inscripción N° {pago_id} conciliado.", 'success')
                     return redirect(url_for('ver_recibo', pago_id=pago_id))
 
@@ -236,10 +235,9 @@ def conciliar_pago(pago_id):
                 cur.execute(update_cliente_query, (nuevas_cuotas_progresivas, nuevo_balance_regresivo, nuevas_cuotas_regresivas, cliente['id']))
                 update_pago_query = "UPDATE pagos SET estado_pago = 'Conciliado', cuotas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s WHERE id = %s;"
                 cur.execute(update_pago_query, (cuotas_cubiertas_este_pago, nuevas_cuotas_progresivas, nuevas_cuotas_regresivas, nuevo_balance_regresivo, pago_id))
+                conn.commit() # --- CORRECCIÓN AÑADIDA AQUÍ ---
                 flash(f"¡Pago de cuota N° {pago_id} conciliado exitosamente!", 'success')
                 return redirect(url_for('ver_recibo', pago_id=pago_id))
-            
-            conn.commit()
 
     except (psycopg2.Error, ValueError, TypeError) as e:
         conn.rollback()
@@ -266,9 +264,6 @@ def ver_recibo(pago_id):
     if not pago:
         flash('Recibo no encontrado.', 'error')
         return redirect(url_for('consulta'))
-    
-    if pago['estado_pago'] == 'Pendiente':
-        flash('Este pago está pendiente de conciliación y no se puede generar un recibo final.', 'warning')
     
     return render_template('recibo.html', pago=pago)
 
