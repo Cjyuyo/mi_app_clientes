@@ -90,7 +90,7 @@
             background-color: #e9ecef;
             border-radius: 5px;
             overflow: hidden;
-            height: 12px; /* <-- CORRECCIÓN: Barra más delgada */
+            height: 12px;
             margin-top: 5px;
         }
         .progress-bar-fill {
@@ -98,13 +98,15 @@
             height: 100%;
             text-align: center;
             color: white;
-            font-size: 10px; /* <-- CORRECCIÓN: Texto más pequeño */
-            line-height: 12px; /* <-- CORRECCIÓN: Alineación vertical */
+            font-size: 10px;
+            line-height: 12px;
         }
         .btn {
             text-decoration: none;
             color: white !important;
-            padding: 12px 10px;
+            /* --- INICIO DE LA CORRECCIÓN --- */
+            padding: 8px 12px; /* Botones menos gruesos */
+            /* --- FIN DE LA CORRECCIÓN --- */
             border-radius: 5px;
             border: none;
             cursor: pointer;
