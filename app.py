@@ -79,7 +79,8 @@ def consultar_clientes():
     conn = get_db_connection()
     if conn is None:
         flash('No se pudo conectar a la base de datos.', 'danger')
-        return render_template('consultar_clientes.html', clientes=[])
+        # CORRECCIÓN: Apuntar al nombre de archivo correcto
+        return render_template('consulta.html', clientes=[])
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     if request.method == 'POST':
         cedula_busqueda = request.form.get('cedula')
@@ -96,7 +97,8 @@ def consultar_clientes():
     clientes = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template('consultar_clientes.html', clientes=clientes)
+    # CORRECCIÓN: Apuntar al nombre de archivo correcto
+    return render_template('consulta.html', clientes=clientes)
 
 
 @app.route('/cliente/<int:cliente_id>')
