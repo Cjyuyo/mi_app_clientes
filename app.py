@@ -246,17 +246,18 @@ def conciliar_pago(pago_id):
                 nueva_inscripcion_pagada = inscripcion_pagada_actual + monto_pagado
 
                 if inscripcion_total > 0 and nueva_inscripcion_pagada >= inscripcion_total:
+                    # --- INICIO LÓGICA DE CAMBIO DE PROCESO (RESERVA -> INSCRITO) ---
+                    if cliente['proceso'] == 'RESERVA':
+                        cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],))
+                        flash("Cliente ha completado la inscripción y su proceso ha cambiado a 'INSCRITO'.", "info")
+                    # --- FIN LÓGICA DE CAMBIO DE PROCESO ---
+
                     cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción'", (cliente['id'],))
-                    
-                    # --- INICIO DE LA CORRECCIÓN ---
                     pago_final_query = """
                         INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, por_concepto_de, estado_pago, cuotas_cubiertas, lugar_emision)
                         VALUES (%s, %s, 'Inscripción Finalizada', %s, %s, %s, 'Conciliado', 0, %s) RETURNING id;
                     """
-                    # Se añade pago['lugar_emision'] para que el recibo final lo herede del último abono
                     cur.execute(pago_final_query, (cliente['id'], inscripcion_total, pago['forma_pago'], pago['fecha_pago'], 'Pago total de inscripción', pago['lugar_emision']))
-                    # --- FIN DE LA CORRECCIÓN ---
-
                     pago_final_id = cur.fetchone()[0]
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (inscripcion_total, cliente['id']))
                     conn.commit()
@@ -270,9 +271,11 @@ def conciliar_pago(pago_id):
                     return redirect(url_for('ver_recibo', pago_id=pago_id))
 
             elif pago['tipo_pago'] == 'Cuota':
-                if cliente['cuotas_pagadas_progresivas'] == 0 and cliente['balance_regresivo'] == 0:
+                # --- INICIO LÓGICA DE CAMBIO DE PROCESO (INSCRITO -> AHORRADOR) ---
+                if cliente['proceso'] == 'INSCRITO' and cliente['cuotas_pagadas_progresivas'] == 0 and cliente['balance_regresivo'] == 0:
                     cur.execute("UPDATE clientes SET proceso = 'Ahorrador' WHERE id = %s", (cliente['id'],))
-                    flash("Primer pago de cuota registrado. Cliente ahora es 'Ahorrador'.", "info")
+                    flash("Primer pago de cuota registrado. El proceso del cliente ha cambiado a 'Ahorrador'.", "info")
+                # --- FIN LÓGICA DE CAMBIO DE PROCESO ---
 
                 valor_cuota = Decimal(cliente['valor_cuota'] or 0)
                 if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
