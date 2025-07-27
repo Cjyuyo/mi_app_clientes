@@ -61,128 +61,148 @@
         .progress-label { display: flex; justify-content: space-between; font-size: 0.9em; margin-top: 5px; }
         .payment-history { padding: 0 20px 20px; }
         .payment-history h3 { margin-top: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .payment-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f2f5; }
+        
+        /* --- AJUSTES PARA LA VISTA MÓVIL --- */
+        .payment-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f2f5;
+            gap: 1rem; /* Añade espacio entre elementos */
+        }
         .payment-info { flex-grow: 1; }
         .payment-info .payment-concept { font-weight: 600; }
         .payment-info .payment-meta { font-size: 0.85em; color: #606770; }
-        .payment-amount { font-size: 1.1em; font-weight: bold; }
-        .payment-row .btn-recibo { text-decoration: none; color: white !important; background-color: #6c757d; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; }
+        .payment-amount {
+            font-size: 1.1em;
+            font-weight: bold;
+            flex-shrink: 0; /* Evita que el monto se encoja */
+        }
+        .payment-row .btn-recibo {
+            text-decoration: none;
+            color: white !important;
+            background-color: #6c757d;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            white-space: nowrap; /* LA MAGIA: Evita que el texto se parta */
+            flex-shrink: 0; /* Evita que el botón se encoja */
+        }
     </style>
 </head>
 <body>
-<div class="container">
-    <div class="portal-header">
-        <h1>Mi Portal de Cliente</h1>
-        <div class="header-actions">
-            <!-- ========= CORRECCIÓN: Enlace funcional que abre en una nueva pestaña ========= -->
-            <a href="{{ url_for('portal_estado_cuenta') }}" class="btn-estado-cuenta" target="_blank">Ver Estado de Cuenta</a>
-            <a href="{{ url_for('portal_logout') }}" class="btn-logout">Cerrar Sesión</a>
-        </div>
-    </div>
-
-    <div class="payment-status-card {{ cuota_status.estado | lower }}">
-        <div class="status-header">
-            <h3>Próxima Cuota ({{ cuota_status.mes }})</h3>
-            <span class="status-label {{ cuota_status.estado | lower }}">{{ cuota_status.estado }}</span>
-        </div>
-        <div class="status-body">
-            <p>{{ cuota_status.get('mensaje', 'Fecha de vencimiento: ' + cuota_status.get('fecha_vencimiento', 'N/A') + '. Realiza tu pago y repórtalo para mantenerte al día.') }}</p>
-        </div>
-        {% if cuota_status.estado != 'Pagada' %}
-        <div class="status-actions">
-            <a href="{{ url_for('portal_reportar_pago') }}" class="btn-reportar">Reportar Pago</a>
-        </div>
-        {% endif %}
-    </div>
-
-    <div class="client-card">
-        <div class="client-header">
-            <h2>{{ cliente.nombre_apellido }}</h2>
-            <p>Aquí puedes consultar el estado de tu plan y tu historial de pagos.</p>
-        </div>
-        
-        <div class="client-details">
-            <div class="detail-item">
-                <span class="label">Cédula</span>
-                <span class="value">{{ cliente.cedula }}</span>
+    <div class="container">
+        <div class="portal-header">
+            <h1>Mi Portal de Cliente</h1>
+            <div class="header-actions">
+                <a href="{{ url_for('portal_estado_cuenta') }}" class="btn-estado-cuenta" target="_blank">Ver Estado de Cuenta</a>
+                <a href="{{ url_for('portal_logout') }}" class="btn-logout">Cerrar Sesión</a>
             </div>
-            <div class="detail-item">
-                <span class="label">Contrato</span>
-                <span class="value">{{ cliente.contrato_nro or 'N/A' }}</span>
-            </div>
-            <div class="detail-item">
-                <span class="label">Retraso de Entrega</span>
-                <span class="value">{{ cliente.meses_retraso_entrega or 0 }} mes(es)</span>
-            </div>
+        </div>
 
-            {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}
-            {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}
-            {% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}
-            {% set cuotas_totales = cliente.cuotas_totales or 0 %}
-            {% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+        <div class="payment-status-card {{ cuota_status.estado | lower }}">
+            <div class="status-header">
+                <h3>Próxima Cuota ({{ cuota_status.mes }})</h3>
+                <span class="status-label {{ cuota_status.estado | lower }}">{{ cuota_status.estado }}</span>
+            </div>
+            <div class="status-body">
+                <p>{{ cuota_status.get('mensaje', 'Fecha de vencimiento: ' + cuota_status.get('fecha_vencimiento', 'N/A') + '. Realiza tu pago y repórtalo para mantenerte al día.') }}</p>
+            </div>
+            {% if cuota_status.estado != 'Pagada' %}
+            <div class="status-actions">
+                <a href="{{ url_for('portal_reportar_pago') }}" class="btn-reportar">Reportar Pago</a>
+            </div>
+            {% endif %}
+        </div>
 
-            <div class="detail-item progress-item">
-                <span class="label">Progreso Total del Plan</span>
-                <div class="progress-bar-container">
-                    <div class="progress-bar" style="width: {{ progreso_total }}%;">
-                        {{ "%.0f"|format(progreso_total) }}%
+        <div class="client-card">
+            <div class="client-header">
+                <h2>{{ cliente.nombre_apellido }}</h2>
+                <p>Aquí puedes consultar el estado de tu plan y tu historial de pagos.</p>
+            </div>
+            <div class="client-details">
+                <div class="detail-item">
+                    <span class="label">Cédula</span>
+                    <span class="value">{{ cliente.cedula }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Contrato</span>
+                    <span class="value">{{ cliente.contrato_nro or 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Retraso de Entrega</span>
+                    <span class="value">{{ cliente.meses_retraso_entrega or 0 }} mes(es)</span>
+                </div>
+
+                {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}
+                {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}
+                {% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}
+                {% set cuotas_totales = cliente.cuotas_totales or 0 %}
+                {% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+
+                <div class="detail-item progress-item">
+                    <span class="label">Progreso Total del Plan</span>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" style="width: {{ progreso_total }}%;">
+                            {{ "%.0f"|format(progreso_total) }}%
+                        </div>
+                    </div>
+                    <div class="progress-label">
+                        <span>Pagadas: {{ cuotas_pagadas_total }} de {{ cuotas_totales }}</span>
+                        <span>Valor Cuota: ${{ "%.2f"|format(cliente.valor_cuota|float) }}</span>
                     </div>
                 </div>
-                <div class="progress-label">
-                    <span>Pagadas: {{ cuotas_pagadas_total }} de {{ cuotas_totales }}</span>
-                    <span>Valor Cuota: ${{ "%.2f"|format(cliente.valor_cuota|float) }}</span>
+
+                {% set balance = cliente.balance_regresivo|float or 0.0 %}
+                {% set valor_cuota = cliente.valor_cuota|float or 0.0 %}
+                {% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
+
+                <div class="detail-item progress-item">
+                    <span class="label">Saldo a Favor (Abono a próxima cuota)</span>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar progress-bar-secondary" style="width: {{ progreso_cuota_actual }}%;">
+                            {{ "%.0f"|format(progreso_cuota_actual) }}%
+                        </div>
+                    </div>
+                    <div class="progress-label">
+                        <span>Abonado: ${{ "%.2f"|format(balance) }}</span>
+                        <span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}</span>
+                    </div>
                 </div>
             </div>
 
-            {% set balance = cliente.balance_regresivo|float or 0.0 %}
-            {% set valor_cuota = cliente.valor_cuota|float or 0.0 %}
-            {% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
-
-            <div class="detail-item progress-item">
-                <span class="label">Saldo a Favor (Abono a próxima cuota)</span>
-                 <div class="progress-bar-container">
-                    <div class="progress-bar progress-bar-secondary" style="width: {{ progreso_cuota_actual }}%;">
-                        {{ "%.0f"|format(progreso_cuota_actual) }}%
-                    </div>
-                </div>
-                <div class="progress-label">
-                    <span>Abonado: ${{ "%.2f"|format(balance) }}</span>
-                    <span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}</span>
-                </div>
-            </div>
-        </div>
-
-        {% if cliente.pagos %}
-        <div class="payment-history">
-            <h3>Historial de Pagos</h3>
-            {% for pago in cliente.pagos %}
-                {% if pago.estado_pago != 'Anulado' %}
-                <div class="payment-row">
-                    <div class="payment-info">
-                        <span class="payment-concept">{{ pago.tipo_pago }}</span>
-                        <span class="payment-meta">{{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }}</span>
-                    </div>
-                    <div class="payment-amount">
-                        ${{ "%.2f"|format(pago.monto) }}
-                    </div>
-                    <div>
-                        {% if pago.estado_pago == 'Conciliado' %}
-                            {% if pago.tipo_pago == 'Inscripción Finalizada' %}
-                                <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" target="_blank" class="btn-recibo">Ver Recibo</a>
-                            {% else %}
-                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" target="_blank" class="btn-recibo">Ver Recibo</a>
+            {% if cliente.pagos %}
+            <div class="payment-history">
+                <h3>Historial de Pagos</h3>
+                {% for pago in cliente.pagos %}
+                    {% if pago.estado_pago != 'Anulado' %}
+                    <div class="payment-row">
+                        <div class="payment-info">
+                            <span class="payment-concept">{{ pago.tipo_pago }}</span>
+                            <span class="payment-meta">{{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }}</span>
+                        </div>
+                        <div class="payment-amount">
+                            ${{ "%.2f"|format(pago.monto) }}
+                        </div>
+                        <div>
+                            {% if pago.estado_pago == 'Conciliado' %}
+                                {% if pago.tipo_pago == 'Inscripción Finalizada' %}
+                                    <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" target="_blank" class="btn-recibo">Ver Recibo</a>
+                                {% else %}
+                                    <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" target="_blank" class="btn-recibo">Ver Recibo</a>
+                                {% endif %}
+                            {% elif pago.estado_pago == 'Pendiente' %}
+                                <span style="font-size: 12px; color: #856404; font-weight: bold;">Pendiente</span>
                             {% endif %}
-                        {% elif pago.estado_pago == 'Pendiente' %}
-                            <span style="font-size: 12px; color: #856404; font-weight: bold;">Pendiente</span>
-                        {% endif %}
+                        </div>
                     </div>
-                </div>
-                {% endif %}
-            {% endfor %}
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
-
     </div>
-</div>
 </body>
 </html>

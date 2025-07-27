@@ -62,7 +62,6 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
     return vencimiento
 
 # --- RUTAS DE LA APLICACIÓN (PANEL DE ADMINISTRACIÓN) ---
-# ... (El resto de las rutas del panel de administración permanecen sin cambios) ...
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -289,10 +288,16 @@ def conciliar_pago(pago_id):
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
+# --- FUNCIÓN ver_recibo ACTUALIZADA ---
 @app.route('/recibo/<int:pago_id>')
 def ver_recibo(pago_id):
     conn = get_db()
-    if not conn: return redirect(url_for('consulta'))
+    if not conn: 
+        # Si no hay conexión, redirige a la consulta (para admin) o al login (para cliente)
+        if 'cliente_id' in session:
+            return redirect(url_for('portal_login'))
+        return redirect(url_for('consulta'))
+
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         query = """
             SELECT p.*, 
@@ -306,11 +311,20 @@ def ver_recibo(pago_id):
         """
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
+
     if not pago:
         flash('Recibo no encontrado.', 'error')
+        if 'cliente_id' in session:
+            return redirect(url_for('portal_dashboard'))
         return redirect(url_for('consulta'))
     
-    return render_template('recibo.html', pago=pago)
+    # --- LÍNEA CLAVE ---
+    # Determinamos si la vista es de un administrador. 
+    # Si 'cliente_id' NO está en la sesión, asumimos que es un admin.
+    is_admin_view = 'cliente_id' not in session
+    
+    return render_template('recibo.html', pago=pago, is_admin_view=is_admin_view)
+
 
 @app.route('/recibo_inscripcion/<int:pago_id>')
 def ver_recibo_inscripcion(pago_id):
