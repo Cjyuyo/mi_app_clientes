@@ -23,38 +23,19 @@
         .proceso.ahorrador { background-color: #d4edda; color: #155724; }
         .proceso.adjudicado { background-color: #cce5ff; color: #004085; }
         
-        /* --- INICIO DE LA MEJORA VISUAL --- */
-        .client-details {
-            background-color: #e7f3ff; /* Fondo azul claro para la sección */
-            padding: 20px;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-        }
-        .detail-item {
-            background-color: #ffffff; /* Fondo blanco para cada ficha */
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-            border: 1px solid #dcebfc;
-        }
-        .detail-item .label {
-            display: block;
-            font-size: 0.8em;
-            font-weight: 600;
-            color: #606770;
-            margin-bottom: 5px;
-            text-transform: uppercase;
-        }
-        .detail-item .value {
-            font-size: 1.1em;
-            font-weight: bold;
-            color: #0056b3; /* Azul más oscuro para el valor */
-        }
-        .detail-item .value.currency {
-             color: #155724; /* Color verde para valores monetarios */
-        }
-        /* --- FIN DE LA MEJORA VISUAL --- */
+        .client-details { background-color: #e7f3ff; padding: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
+        .detail-item { background-color: #ffffff; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #dcebfc; }
+        .detail-item .label { display: block; font-size: 0.8em; font-weight: 600; color: #606770; margin-bottom: 5px; text-transform: uppercase; }
+        .detail-item .value { font-size: 1.1em; font-weight: bold; color: #0056b3; }
+        .detail-item .value.currency { color: #155724; }
+
+        /* --- INICIO DE ESTILOS PARA BARRAS DE PROGRESO --- */
+        .progress-item { grid-column: 1 / -1; } /* Hacer que ocupe todo el ancho */
+        .progress-bar-container { background-color: #e9ecef; border-radius: .375rem; height: 1.25rem; overflow: hidden; width: 100%; margin-top: 5px; }
+        .progress-bar { background-color: #28a745; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold; }
+        .progress-bar-secondary { background-color: #17a2b8; }
+        .progress-label { display: flex; justify-content: space-between; font-size: 0.9em; margin-top: 5px; }
+        /* --- FIN DE ESTILOS PARA BARRAS DE PROGRESO --- */
 
         .payment-history { padding: 0 20px 20px; }
         .payment-history h3 { margin-top: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
@@ -120,7 +101,6 @@
                 <span class="proceso {{ cliente.proceso.lower() if cliente.proceso else '' }}">{{ cliente.proceso or 'N/A' }}</span>
             </div>
             
-            <!-- --- INICIO DE LA ESTRUCTURA HTML MEJORADA --- -->
             <div class="client-details">
                 <div class="detail-item">
                     <span class="label">Cédula</span>
@@ -143,23 +123,48 @@
                     <span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span>
                 </div>
                 <div class="detail-item">
-                    <span class="label">Valor de Cuota</span>
-                    <span class="value currency">${{ "%.2f"|format(cliente.valor_cuota|float) }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Cuotas Pagadas</span>
-                    <span class="value">{{ cliente.cuotas_pagadas_progresivas or 0 }} de {{ cliente.cuotas_totales }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Balance a Favor</span>
-                    <span class="value currency">${{ "%.2f"|format(cliente.balance_regresivo|float) }}</span>
-                </div>
-                <div class="detail-item">
                     <span class="label">Retraso Entrega</span>
                     <span class="value">{{ cliente.meses_retraso_entrega or 0 }} mes(es)</span>
                 </div>
+
+                <!-- INICIO DE LA NUEVA ESTRUCTURA CON BARRAS DE PROGRESO -->
+                {% set cuotas_pagadas = cliente.cuotas_pagadas_progresivas or 0 %}
+                {% set cuotas_totales = cliente.cuotas_totales or 0 %}
+                {% set progreso_total = (cuotas_pagadas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+
+                <div class="detail-item progress-item">
+                    <span class="label">Progreso Total del Plan</span>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" style="width: {{ progreso_total }}%;">
+                            {{ "%.0f"|format(progreso_total) }}%
+                        </div>
+                    </div>
+                    <div class="progress-label">
+                        <span>Pagadas: {{ cuotas_pagadas }}</span>
+                        <span>Restantes: {{ cuotas_totales - cuotas_pagadas }}</span>
+                        <span>Total: {{ cuotas_totales }}</span>
+                    </div>
+                </div>
+
+                {% set balance = cliente.balance_regresivo|float or 0.0 %}
+                {% set valor_cuota = cliente.valor_cuota|float or 0.0 %}
+                {% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
+                
+                <div class="detail-item progress-item">
+                    <span class="label">Abono a la Cuota N° {{ cuotas_pagadas + 1 }}</span>
+                     <div class="progress-bar-container">
+                        <div class="progress-bar progress-bar-secondary" style="width: {{ progreso_cuota_actual }}%;">
+                            {{ "%.0f"|format(progreso_cuota_actual) }}%
+                        </div>
+                    </div>
+                    <div class="progress-label">
+                        <span>Abonado: ${{ "%.2f"|format(balance) }}</span>
+                        <span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}</span>
+                        <span>Valor Cuota: ${{ "%.2f"|format(valor_cuota) }}</span>
+                    </div>
+                </div>
+                <!-- FIN DE LA NUEVA ESTRUCTURA -->
             </div>
-            <!-- --- FIN DE LA ESTRUCTURA HTML MEJORADA --- -->
 
             {% if cliente.pagos %}
             <div class="payment-history">
