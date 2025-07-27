@@ -508,6 +508,85 @@ def delete_client(client_id):
         flash(f'Ocurrió un error al eliminar: {e}', 'error')
     return redirect(url_for('consulta'))
 
+# --- RUTAS PARA GESTIÓN DE OFERTAS ---
+
+@app.route('/registrar_oferta/<int:client_id>', methods=['GET'])
+def registrar_oferta(client_id):
+    """Muestra el formulario para registrar una nueva oferta para un cliente."""
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('consulta'))
+    
+    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        cur.execute("SELECT id, nombre_apellido, cedula FROM clientes WHERE id = %s", (client_id,))
+        cliente = cur.fetchone()
+    
+    if not cliente:
+        flash('Cliente no encontrado.', 'error')
+        return redirect(url_for('consulta'))
+
+    return render_template('registrar_oferta.html', cliente=cliente)
+
+
+@app.route('/guardar_oferta/<int:client_id>', methods=['POST'])
+def guardar_oferta(client_id):
+    """Guarda una nueva oferta en la base de datos tras validar la puntualidad del cliente."""
+    conn = get_db()
+    cuotas_ofertadas = request.form.get('cuotas_ofertadas')
+    cedula_cliente = ''
+
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('consulta'))
+    
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            # Primero, obtenemos la cédula para poder redirigir correctamente
+            cur.execute("SELECT cedula FROM clientes WHERE id = %s", (client_id,))
+            cliente_info = cur.fetchone()
+            if cliente_info:
+                cedula_cliente = cliente_info['cedula']
+
+            # --- VALIDACIÓN CRÍTICA: VERIFICAR PUNTUALIDAD EN EL MES ACTUAL ---
+            hoy = datetime.now().date()
+            inicio_mes = hoy.replace(day=1)
+            
+            cur.execute("""
+                SELECT 1 FROM pagos 
+                WHERE cliente_id = %s 
+                  AND tipo_pago = 'Cuota' 
+                  AND puntualidad = 'Impuntual'
+                  AND fecha_pago >= %s
+            """, (client_id, inicio_mes))
+            
+            pago_impuntual_reciente = cur.fetchone()
+
+            if pago_impuntual_reciente:
+                flash("No se puede registrar la oferta: El cliente tiene un pago impuntual registrado en el mes actual.", 'error')
+                return redirect(url_for('consulta', busqueda=cedula_cliente))
+            
+            # --- FIN DE LA VALIDACIÓN ---
+
+            if not cuotas_ofertadas or not cuotas_ofertadas.isdigit() or int(cuotas_ofertadas) <= 0:
+                flash("Debe ingresar un número válido de cuotas para la oferta.", 'error')
+                return redirect(url_for('registrar_oferta', client_id=client_id))
+
+            # Si pasa la validación, insertamos la oferta
+            cur.execute("""
+                INSERT INTO ofertas (cliente_id, cuotas_ofertadas, fecha_oferta, estado_oferta)
+                VALUES (%s, %s, %s, 'activa')
+            """, (client_id, int(cuotas_ofertadas), hoy))
+            
+            conn.commit()
+            flash(f"¡Oferta de {cuotas_ofertadas} cuotas registrada exitosamente!", 'success')
+
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Ocurrió un error al registrar la oferta: {e}", 'error')
+
+    return redirect(url_for('consulta', busqueda=cedula_cliente))
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)

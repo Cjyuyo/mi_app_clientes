@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrar Oferta</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: #f0f2f5; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { color: #1877f2; text-align: center; border-bottom: 1px solid #eee; padding-bottom: 20px; }
+        h1 span { font-weight: normal; color: #606770; font-size: 0.7em; display: block; margin-top: 5px;}
+        label { display: block; margin-top: 15px; font-weight: 600; color: #606770; }
+        input { width: 100%; padding: 12px; margin-top: 5px; box-sizing: border-box; border: 1px solid #dddfe2; border-radius: 6px; font-size: 16px; }
+        .button-group { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
+        .btn { padding: 12px 20px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; border-radius: 6px; text-decoration: none; text-align: center; }
+        .btn-primary { background-color: #17a2b8; color: white; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Registrar Oferta<span>Para: {{ cliente.nombre_apellido }}</span></h1>
+    <form action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" method="POST">
+        <div>
+            <label for="cuotas_ofertadas">Cantidad de Cuotas a Ofertar:</label>
+            <input type="number" id="cuotas_ofertadas" name="cuotas_ofertadas" min="1" required>
+        </div>
+        <div class="button-group">
+            <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary">Guardar Oferta</button>
+        </div>
+    </form>
+</div>
+</body>
+</html>
