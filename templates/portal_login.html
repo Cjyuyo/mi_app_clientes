@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal del Cliente - Iniciar Sesión</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .login-container {
+            max-width: 400px;
+            width: 100%;
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .login-header h1 {
+            font-size: 28px;
+            color: #1c1e21;
+            margin: 0;
+        }
+        .login-header p {
+            font-size: 16px;
+            color: #606770;
+        }
+        .login-card {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #606770;
+            display: block;
+            margin-bottom: 8px;
+        }
+        input {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            border: 1px solid #dddfe2;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            text-decoration: none;
+            text-align: center;
+            color: white;
+            background-color: #1877f2;
+        }
+        .mensaje {
+            margin-bottom: 20px;
+            font-weight: bold;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .error {
+            color: #D8000C;
+            background-color: #FFD2D2;
+        }
+        .footer-note {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #606770;
+        }
+    </style>
+</head>
+<body>
+<div class="login-container">
+    <div class="login-header">
+        <h1>Portal del Cliente</h1>
+        <p>Moto Plan Motors C.A.</p>
+    </div>
+    <div class="login-card">
+        <form action="{{ url_for('portal_login') }}" method="POST">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  {% if category == 'error' %}
+                    <div class="mensaje error">{{ message }}</div>
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <div class="form-group">
+                <label for="cedula">Número de Cédula</label>
+                <input type="text" id="cedula" name="cedula" required>
+            </div>
+            <div class="form-group">
+                <label for="contrato_nro">Número de Contrato</label>
+                <input type="password" id="contrato_nro" name="contrato_nro" required>
+            </div>
+            <button type="submit" class="btn">Ingresar</button>
+        </form>
+    </div>
+    <div class="footer-note">
+        <p>&copy; {{ anio_actual }} Moto Plan Motors C.A. Todos los derechos reservados.</p>
+    </div>
+</div>
+</body>
+</html>

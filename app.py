@@ -1,7 +1,7 @@
 import os
 import psycopg2
 import psycopg2.extras
-from flask import Flask, render_template, request, g, flash, redirect, url_for
+from flask import Flask, render_template, request, g, flash, redirect, url_for, session
 from dotenv import load_dotenv
 from decimal import Decimal
 from datetime import datetime, timedelta
@@ -52,7 +52,7 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
             feriados = get_feriados_venezuela(vencimiento.year)
     return vencimiento
 
-# --- RUTAS DE LA APLICACIÓN ---
+# --- RUTAS DE LA APLICACIÓN (PANEL DE ADMINISTRACIÓN) ---
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -459,14 +459,8 @@ def edit_client(client_id):
 
     if request.method == 'POST':
         try:
-            # 1. Cargar los datos existentes del cliente en un diccionario mutable.
             update_data = dict(cliente)
-            
-            # 2. Obtener los datos del formulario.
             form_data = {k: v if v else None for k, v in request.form.items()}
-            
-            # 3. Actualizar los datos existentes con los nuevos datos del formulario.
-            #    Esto asegura que si un campo no viene en el formulario, se conserva su valor original.
             update_data.update(form_data)
 
             with conn.cursor() as cur:
@@ -479,15 +473,13 @@ def edit_client(client_id):
                     inscripcion_monto = %(inscripcion_monto)s, proceso = %(proceso)s, estatus = %(estatus)s, estatus_1 = %(estatus_1)s
                 WHERE id = %(id)s;
                 """
-                # 4. Ejecutar la consulta con el diccionario fusionado.
                 cur.execute(update_query, update_data)
                 conn.commit()
                 flash('¡Cliente actualizado exitosamente!', 'success')
                 
-                # 5. Redirigir usando la cédula actualizada para encontrar al cliente.
                 cedula_actualizada = update_data.get('cedula')
                 return redirect(url_for('consulta', busqueda=cedula_actualizada))
-        except (psycopg2.Error, ValueError) as e: # Ya no se necesita capturar KeyError
+        except (psycopg2.Error, ValueError) as e: 
             conn.rollback()
             flash(f'Ocurrió un error al actualizar: {e}', 'error')
     
@@ -509,7 +501,6 @@ def delete_client(client_id):
     return redirect(url_for('consulta'))
 
 # --- RUTAS PARA GESTIÓN DE OFERTAS ---
-
 @app.route('/registrar_oferta/<int:client_id>', methods=['GET'])
 def registrar_oferta(client_id):
     """Muestra el formulario para registrar una nueva oferta para un cliente."""
@@ -542,13 +533,11 @@ def guardar_oferta(client_id):
     
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            # Primero, obtenemos la cédula para poder redirigir correctamente
             cur.execute("SELECT cedula FROM clientes WHERE id = %s", (client_id,))
             cliente_info = cur.fetchone()
             if cliente_info:
                 cedula_cliente = cliente_info['cedula']
 
-            # --- VALIDACIÓN CRÍTICA: VERIFICAR PUNTUALIDAD EN EL MES ACTUAL ---
             hoy = datetime.now().date()
             inicio_mes = hoy.replace(day=1)
             
@@ -565,14 +554,11 @@ def guardar_oferta(client_id):
             if pago_impuntual_reciente:
                 flash("No se puede registrar la oferta: El cliente tiene un pago impuntual registrado en el mes actual.", 'error')
                 return redirect(url_for('consulta', busqueda=cedula_cliente))
-            
-            # --- FIN DE LA VALIDACIÓN ---
 
             if not cuotas_ofertadas or not cuotas_ofertadas.isdigit() or int(cuotas_ofertadas) <= 0:
                 flash("Debe ingresar un número válido de cuotas para la oferta.", 'error')
                 return redirect(url_for('registrar_oferta', client_id=client_id))
 
-            # Si pasa la validación, insertamos la oferta
             cur.execute("""
                 INSERT INTO ofertas (cliente_id, cuotas_ofertadas, fecha_oferta, estado_oferta)
                 VALUES (%s, %s, %s, 'activa')
@@ -586,6 +572,95 @@ def guardar_oferta(client_id):
         flash(f"Ocurrió un error al registrar la oferta: {e}", 'error')
 
     return redirect(url_for('consulta', busqueda=cedula_cliente))
+
+# --- RUTAS DEL PORTAL DEL CLIENTE ---
+@app.route('/portal', methods=['GET'])
+def portal_index():
+    return redirect(url_for('portal_login'))
+
+@app.route('/portal/login', methods=['GET', 'POST'])
+def portal_login():
+    if 'cliente_id' in session:
+        return redirect(url_for('portal_dashboard'))
+
+    if request.method == 'POST':
+        cedula = request.form.get('cedula')
+        contrato_nro = request.form.get('contrato_nro')
+
+        if not cedula or not contrato_nro:
+            flash('La cédula y el número de contrato son obligatorios.', 'error')
+            return render_template('portal_login.html', anio_actual=datetime.now().year)
+
+        conn = get_db()
+        if not conn:
+            flash('Error de conexión con el servidor. Intente más tarde.', 'error')
+            return render_template('portal_login.html', anio_actual=datetime.now().year)
+        
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+                cur.execute(
+                    "SELECT id, nombre_apellido FROM clientes WHERE cedula = %s AND contrato_nro = %s;",
+                    (cedula, contrato_nro)
+                )
+                cliente = cur.fetchone()
+
+            if cliente:
+                session['cliente_id'] = cliente['id']
+                session['cliente_nombre'] = cliente['nombre_apellido']
+                return redirect(url_for('portal_dashboard'))
+            else:
+                flash('Credenciales incorrectas. Verifique sus datos e intente de nuevo.', 'error')
+
+        except psycopg2.Error as e:
+            flash(f'Error de base de datos: {e}', 'error')
+            
+    return render_template('portal_login.html', anio_actual=datetime.now().year)
+
+@app.route('/portal/dashboard')
+def portal_dashboard():
+    if 'cliente_id' not in session:
+        flash('Debe iniciar sesión para acceder a su portal.', 'error')
+        return redirect(url_for('portal_login'))
+    
+    conn = get_db()
+    if not conn:
+        flash('No se pudo conectar con la base de datos.', 'error')
+        return redirect(url_for('portal_login'))
+        
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            # Obtener todos los datos del cliente
+            cur.execute("SELECT * FROM clientes WHERE id = %s;", (session['cliente_id'],))
+            cliente = cur.fetchone()
+            
+            if not cliente:
+                session.clear()
+                flash('No se encontró su información de cliente.', 'error')
+                return redirect(url_for('portal_login'))
+
+            # Convertir a un diccionario mutable
+            cliente_dict = dict(cliente)
+
+            # Obtener el historial de pagos del cliente
+            cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC;", (session['cliente_id'],))
+            pagos = cur.fetchall()
+            
+            # Añadir los pagos al diccionario del cliente
+            cliente_dict['pagos'] = pagos
+            
+            return render_template('portal_dashboard.html', cliente=cliente_dict)
+
+    except psycopg2.Error as e:
+        flash(f'Ocurrió un error al cargar su información: {e}', 'error')
+        return redirect(url_for('portal_login'))
+
+
+@app.route('/portal/logout')
+def portal_logout():
+    session.clear()
+    flash('Has cerrado sesión exitosamente.', 'success')
+    return redirect(url_for('portal_login'))
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

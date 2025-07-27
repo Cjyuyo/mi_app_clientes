@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Portal - Moto Plan</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+        }
+        .portal-header {
+            background: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .portal-header h1 {
+            margin: 0;
+            font-size: 22px;
+            color: #1c1e21;
+        }
+        .portal-header a {
+            text-decoration: none;
+            color: white;
+            background-color: #dc3545;
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .client-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .client-header {
+            background-color: #0056b3;
+            color: white;
+            padding: 20px;
+        }
+        .client-header h2 {
+            margin: 0;
+            font-size: 1.3em;
+        }
+        .client-header p {
+            margin: 5px 0 0;
+            opacity: 0.9;
+        }
+        .client-details {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .detail-item {
+            background-color: #f7f8fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .detail-item .label {
+            display: block;
+            font-size: 0.8em;
+            font-weight: 600;
+            color: #606770;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        .detail-item .value {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #1c1e21;
+        }
+        .progress-item {
+            grid-column: 1 / -1;
+        }
+        .progress-bar-container {
+            background-color: #e9ecef;
+            border-radius: .375rem;
+            height: 1.25rem;
+            overflow: hidden;
+            width: 100%;
+            margin-top: 5px;
+        }
+        .progress-bar {
+            background-color: #28a745;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .progress-bar-secondary {
+            background-color: #17a2b8;
+        }
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        .payment-history {
+            padding: 0 20px 20px;
+        }
+        .payment-history h3 {
+            margin-top: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .payment-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f2f5;
+        }
+        .payment-info {
+            flex-grow: 1;
+        }
+        .payment-info .payment-concept {
+            font-weight: 600;
+        }
+        .payment-info .payment-meta {
+            font-size: 0.85em;
+            color: #606770;
+        }
+        .payment-amount {
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        .payment-row .btn-recibo {
+            text-decoration: none;
+            color: white !important;
+            background-color: #6c757d;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="portal-header">
+        <h1>Mi Portal de Cliente</h1>
+        <a href="{{ url_for('portal_logout') }}">Cerrar Sesión</a>
+    </div>
+
+    <div class="client-card">
+        <div class="client-header">
+            <h2>{{ cliente.nombre_apellido }}</h2>
+            <p>Aquí puedes consultar el estado de tu plan y tu historial de pagos.</p>
+        </div>
+
+        <div class="client-details">
+            <div class="detail-item">
+                <span class="label">Cédula</span>
+                <span class="value">{{ cliente.cedula }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="label">Contrato</span>
+                <span class="value">{{ cliente.contrato_nro or 'N/A' }}</span>
+            </div>
+
+            {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}
+            {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}
+            {% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}
+            {% set cuotas_totales = cliente.cuotas_totales or 0 %}
+            {% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+
+            <div class="detail-item progress-item">
+                <span class="label">Progreso Total del Plan</span>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" style="width: {{ progreso_total }}%;">
+                        {{ "%.0f"|format(progreso_total) }}%
+                    </div>
+                </div>
+                <div class="progress-label">
+                    <span>Pagadas: {{ cuotas_pagadas_total }}</span>
+                    <span>Total: {{ cuotas_totales }}</span>
+                </div>
+            </div>
+
+            {% set balance = cliente.balance_regresivo|float or 0.0 %}
+            {% set valor_cuota = cliente.valor_cuota|float or 0.0 %}
+            {% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
+
+            <div class="detail-item progress-item">
+                <span class="label">Saldo a Favor (Abono a próxima cuota)</span>
+                 <div class="progress-bar-container">
+                    <div class="progress-bar progress-bar-secondary" style="width: {{ progreso_cuota_actual }}%;">
+                        {{ "%.0f"|format(progreso_cuota_actual) }}%
+                    </div>
+                </div>
+                <div class="progress-label">
+                    <span>Abonado: ${{ "%.2f"|format(balance) }}</span>
+                    <span>Valor Cuota: ${{ "%.2f"|format(valor_cuota) }}</span>
+                </div>
+            </div>
+        </div>
+
+        {% if cliente.pagos %}
+        <div class="payment-history">
+            <h3>Historial de Pagos</h3>
+            {% for pago in cliente.pagos %}
+                {% if pago.estado_pago != 'Anulado' %}
+                <div class="payment-row">
+                    <div class="payment-info">
+                        <span class="payment-concept">{{ pago.tipo_pago }}</span>
+                        <span class="payment-meta">{{ pago.fecha_pago.strftime('%d/%m/%Y') }}</span>
+                    </div>
+                    <div class="payment-amount">
+                        ${{ "%.2f"|format(pago.monto) }}
+                    </div>
+                    <div>
+                        {% if pago.tipo_pago == 'Inscripción Finalizada' %}
+                            <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn-recibo">Ver Recibo</a>
+                        {% elif pago.estado_pago == 'Conciliado' %}
+                            <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn-recibo">Ver Recibo</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+</body>
+</html>
