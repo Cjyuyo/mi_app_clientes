@@ -3,102 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- CORRECCIÓN: El título ahora usa pago.id -->
     <title>Recibo de Ingreso Inscripción N° {{ pago.id }}</title>
     <style>
-        body {
-            font-family: 'Helvetica', 'Arial', sans-serif;
-            margin: 20px;
-            background-color: #f4f4f4;
-            color: #333;
-        }
-        .container {
-            max-width: 800px;
-            margin: auto;
-            background: white;
-            padding: 40px;
-            border: 1px solid #ccc;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            border-bottom: 2px solid #333;
-            padding-bottom: 15px;
-        }
-        .logo-info {
-            flex: 2;
-        }
-        .logo-info h1 {
-            margin: 0;
-            font-size: 28px;
-            font-weight: bold;
-            color: #0056b3;
-        }
-        .logo-info p {
-            margin: 2px 0;
-            font-size: 12px;
-        }
-        .recibo-box {
-            flex: 1;
-            border: 1px solid #333;
-            padding: 5px;
-            text-align: center;
-        }
-        .recibo-box h2 {
-            margin: 0;
-            font-size: 14px;
-            font-weight: bold;
-            text-transform: uppercase;
-            background-color: #eee;
-            padding: 5px;
-        }
-        .recibo-box p {
-            margin: 5px 0;
-            font-size: 20px;
-            font-weight: bold;
-            color: #d9534f;
-        }
-        .section {
-            margin-top: 25px;
-            font-size: 14px;
-        }
-        .info-line {
-            border-bottom: 1px dotted #999;
-            padding: 8px 0;
-            display: flex;
-        }
-        .info-line strong {
-            margin-right: 10px;
-        }
-        .footer {
-            margin-top: 40px;
-            text-align: center;
-            font-size: 12px;
-            color: #777;
-        }
-        .actions-seccion {
-            text-align: center; 
-            margin-top: 30px; 
-            padding-top: 20px; 
-            border-top: 1px solid #ccc;
-        }
-        .actions-seccion button, .actions-seccion a {
-            display: inline-block;
-            text-decoration: none;
-            color: white !important; 
-            padding: 12px 25px; 
-            border: none; 
-            border-radius: 5px; 
-            cursor: pointer; 
-            font-size: 16px;
-            font-weight: bold;
-            margin: 5px;
-        }
+        body { font-family: 'Helvetica', 'Arial', sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 40px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #333; padding-bottom: 15px; }
+        .logo-info { flex-grow: 1; }
+        .logo-info h1 { margin: 0; font-size: 28px; font-weight: bold; color: #0056b3; }
+        .logo-info p { margin: 2px 0; font-size: 12px; }
+        .recibo-box { border: 1px solid #333; padding: 5px; text-align: center; margin-left: 20px; }
+        .recibo-box h2 { margin: 0; font-size: 14px; font-weight: bold; text-transform: uppercase; background-color: #eee; padding: 5px; }
+        .recibo-box p { margin: 5px 0; font-size: 20px; font-weight: bold; color: #d9534f; }
+        /* --- INICIO DE ESTILOS PARA QR --- */
+        .qr-code-box { text-align: center; margin-left: 20px; }
+        .qr-code-box img { width: 110px; height: 110px; }
+        .qr-code-box p { font-size: 10px; margin: 5px 0 0 0; color: #555; }
+        /* --- FIN DE ESTILOS PARA QR --- */
+        .section { margin-top: 25px; font-size: 14px; }
+        .info-line { border-bottom: 1px dotted #999; padding: 8px 0; display: flex; }
+        .info-line strong { margin-right: 10px; }
+        .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #777; }
+        .actions-seccion { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ccc; }
+        .actions-seccion button, .actions-seccion a { display: inline-block; text-decoration: none; color: white !important; padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin: 5px; }
         .btn-volver { background-color: #007bff; }
         .btn-imprimir { background-color: #6c757d; }
-
         @media print {
             body { background-color: #fff; }
             .container { box-shadow: none; border: none; }
@@ -117,11 +45,15 @@
             </div>
             <div class="recibo-box">
                 <h2>Recibo de Ingreso Inscripción</h2>
-                <!-- CORRECCIÓN: El número de recibo ahora usa pago.id para ser consistente -->
                 <p>N° {{ pago.id }}</p>
             </div>
+             <!-- --- INICIO DE CÓDIGO QR --- -->
+             <div class="qr-code-box">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('verificar_recibo', pago_id=pago.id, _external=True) }}&size=110x110&q=L" alt="Código QR de Verificación">
+                <p>Verificar Recibo</p>
+            </div>
+            <!-- --- FIN DE CÓDIGO QR --- -->
         </div>
-
         <div class="section">
             <div class="info-line">
                 <strong>Hemos Recibido de:</strong> {{ cliente.nombre_apellido }}
@@ -136,7 +68,6 @@
                 <strong>Por Concepto De:</strong> Gastos administrativos y operativos. Inscripción al plan: {{ cliente.plan_contratado or 'N/A' }}.
             </div>
         </div>
-        
         <div class="section">
              <div class="info-line">
                 <strong>Fecha de Pago:</strong> {{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }}
@@ -145,12 +76,10 @@
                 <strong>Lugar de Emisión:</strong> {{ pago.lugar_emision or 'N/A' }}
             </div>
         </div>
-
         <div class="footer">
             <p>Monto cancelado no será devuelto bajo ningún concepto una vez preparado el contrato.</p>
             <p style="margin-top: 50px;">_________________________<br>Firma Autorizada</p>
         </div>
-
         <div class="actions-seccion">
             <button class="btn-imprimir" onclick="window.print()">Imprimir / Guardar</button>
             <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="btn-volver">Volver a Consulta</a>
