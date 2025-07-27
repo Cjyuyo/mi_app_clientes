@@ -75,10 +75,12 @@ def hub():
     return render_template('hub.html', anio_actual=datetime.now().year)
 
 # --- RUTA CORREGIDA PARA EL FORMULARIO DE REGISTRO ---
+# La URL sigue siendo /registrar para no romper los enlaces existentes como el del hub.
 @app.route('/registrar')
 def registrar():
     """Muestra el formulario para registrar un nuevo cliente."""
-    return render_template('registrar.html')
+    # CAMBIO: Apunta al nuevo nombre del archivo HTML.
+    return render_template('registrar_cliente_nuevo.html')
 
 
 # --- RUTAS DE LA APLICACIÓN (PANEL DE ADMINISTRACIÓN) ---
@@ -816,4 +818,3 @@ def portal_logout():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
-    
