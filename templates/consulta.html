@@ -1,4 +1,4 @@
-DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -63,18 +63,39 @@ DOCTYPE html>
         .warning { color: #9F6000; background-color: #FEEFB3; }
         .info { color: #00529B; background-color: #BDE5F8; }
         
-        /* --- INICIO DE AJUSTES PARA MÓVILES --- */
         @media (max-width: 600px) {
             body { padding: 10px; }
             .search-container form { flex-direction: column; align-items: stretch; }
-            .payment-row { flex-direction: column; align-items: flex-start; } 
             .payment-amount, .client-actions { text-align: left; }
-            /* --- INICIO DE LA CORRECCIÓN --- */
-            .client-details { grid-template-columns: 1fr 1fr; } /* Fichas en dos columnas */
-            .progress-item { grid-column: 1 / -1; } /* Las barras de progreso ocupan todo el ancho */
-            /* --- FIN DE LA CORRECCIÓN --- */
+            .client-details { grid-template-columns: 1fr 1fr; } 
+            .progress-item { grid-column: 1 / -1; }
+            
+            /* --- INICIO DE ESTILOS PARA ACORDEÓN EN MÓVILES --- */
+            .payment-history h3 {
+                cursor: pointer;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .payment-history h3::after {
+                content: '\\25BC'; /* Flecha hacia abajo */
+                font-size: 0.8em;
+                transition: transform 0.3s ease;
+            }
+            .payment-history h3.active::after {
+                transform: rotate(180deg); /* Flecha hacia arriba */
+            }
+            .payment-list {
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.4s ease-out;
+            }
+            .payment-row { 
+                flex-direction: column; 
+                align-items: flex-start; 
+            }
+            /* --- FIN DE ESTILOS PARA ACORDEÓN EN MÓVILES --- */
         }
-        /* --- FIN DE AJUSTES PARA MÓVILES --- */
     </style>
 </head>
 <body>
@@ -176,40 +197,42 @@ DOCTYPE html>
             {% if cliente.pagos %}
             <div class="payment-history">
                 <h3>Historial de Pagos</h3>
-                {% for pago in cliente.pagos %}
-                <div class="payment-row">
-                    <div class="payment-info">
-                        <span class="payment-concept">{{ pago.tipo_pago }} - {{ pago.por_concepto_de }}</span>
-                        <span class="payment-meta">
-                            {{ pago.fecha_pago.strftime('%d/%m/%Y') }} | Ref: {{ pago.referencia or 'N/A' }}
-                        </span>
-                    </div>
-                    <div class="payment-amount">
-                        ${{ "%.2f"|format(pago.monto) }}
-                    </div>
-                    <div class="payment-status">
-                        <span class="payment-status-badge status-{{ pago.estado_pago.lower() }}">{{ pago.estado_pago }}</span>
-                        {% if pago.puntualidad %}
-                        <span class="status-puntualidad puntualidad-{{ pago.puntualidad }}">{{ pago.puntualidad }}</span>
-                        {% endif %}
-                    </div>
-                    <div class="payment-actions">
-                        {% if pago.estado_pago == 'Pendiente' %}
-                        <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;">
-                            <button type="submit" class="btn btn-primary">Conciliar</button>
-                        </form>
-                        {% elif pago.estado_pago == 'Conciliado' %}
-                            {% if pago.tipo_pago == 'Inscripción Finalizada' %}
-                                <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
-                            {% else %}
-                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
+                <div class="payment-list"> <!-- Div contenedor para el acordeón -->
+                    {% for pago in cliente.pagos %}
+                    <div class="payment-row">
+                        <div class="payment-info">
+                            <span class="payment-concept">{{ pago.tipo_pago }} - {{ pago.por_concepto_de }}</span>
+                            <span class="payment-meta">
+                                {{ pago.fecha_pago.strftime('%d/%m/%Y') }} | Ref: {{ pago.referencia or 'N/A' }}
+                            </span>
+                        </div>
+                        <div class="payment-amount">
+                            ${{ "%.2f"|format(pago.monto) }}
+                        </div>
+                        <div class="payment-status">
+                            <span class="payment-status-badge status-{{ pago.estado_pago.lower() }}">{{ pago.estado_pago }}</span>
+                            {% if pago.puntualidad %}
+                            <span class="status-puntualidad puntualidad-{{ pago.puntualidad }}">{{ pago.puntualidad }}</span>
                             {% endif %}
-                        {% elif pago.estado_pago == 'Anulado' %}
-                            <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-danger">Ver Anulado</a>
-                        {% endif %}
+                        </div>
+                        <div class="payment-actions">
+                            {% if pago.estado_pago == 'Pendiente' %}
+                            <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;">
+                                <button type="submit" class="btn btn-primary">Conciliar</button>
+                            </form>
+                            {% elif pago.estado_pago == 'Conciliado' %}
+                                {% if pago.tipo_pago == 'Inscripción Finalizada' %}
+                                    <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
+                                {% else %}
+                                    <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
+                                {% endif %}
+                            {% elif pago.estado_pago == 'Anulado' %}
+                                <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-danger">Ver Anulado</a>
+                            {% endif %}
+                        </div>
                     </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
             {% endif %}
 
@@ -225,5 +248,27 @@ DOCTYPE html>
         {% endfor %}
     </div>
 </div>
+<!-- INICIO DEL SCRIPT PARA EL ACORDEÓN -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Solo ejecutar el script del acordeón si estamos en una vista de celular
+        if (window.innerWidth <= 600) {
+            const paymentHeaders = document.querySelectorAll('.payment-history h3');
+            paymentHeaders.forEach(header => {
+                header.addEventListener('click', function() {
+                    this.classList.toggle('active');
+                    const content = this.nextElementSibling; // El div .payment-list
+                    if (content.style.maxHeight) {
+                        content.style.maxHeight = null;
+                    } else {
+                        // Se añade un poco de espacio extra para evitar que se corte el contenido
+                        content.style.maxHeight = (content.scrollHeight + 20) + "px";
+                    }
+                });
+            });
+        }
+    });
+</script>
+<!-- FIN DEL SCRIPT PARA EL ACORDEÓN -->
 </body>
 </html>
