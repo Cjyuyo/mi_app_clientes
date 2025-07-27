@@ -29,14 +29,6 @@
             margin: 5px 0 0;
             opacity: 0.9;
         }
-        .info-box {
-            background-color: #e7f3fe;
-            border-left: 5px solid #0056b3;
-            padding: 15px 20px;
-            margin: 0;
-            border-radius: 0;
-            color: #004085;
-        }
         form {
             background: white;
             padding: 30px;
@@ -126,22 +118,15 @@
         <p>Para: {{ cliente.nombre_apellido }}</p>
     </div>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div style="padding: 0 30px; background-color: white;">
-        {% for category, message in messages %}
-          <div class="mensaje {{ 'error' if category == 'error' else '' }}">{{ message }}</div>
-        {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
-
-    <div class="info-box">
-        <strong>Estado de Inscripción:</strong> 
-        Pagado ${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} de ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}.
-    </div>
-
     <form action="{{ url_for('registrar_pago', client_id=cliente.id) }}" method="POST">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="mensaje {{ 'error' if category == 'error' else '' }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
         <div class="section">
             <h3>Detalles del Monto</h3>
             <div class="form-grid">
