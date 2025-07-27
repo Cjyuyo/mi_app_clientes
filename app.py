@@ -65,7 +65,6 @@ def home():
 
 @app.route('/hub')
 def hub():
-    """Muestra el nuevo menú principal de administración."""
     return render_template('hub.html', anio_actual=datetime.now().year)
 
 @app.route('/registrar')
@@ -613,6 +612,7 @@ def portal_index():
 @app.route('/portal/login', methods=['GET', 'POST'])
 def portal_login():
     if 'cliente_id' in session:
+        flash('Ya tienes una sesión activa. Redirigiendo a tu portal.', 'info')
         return redirect(url_for('portal_dashboard'))
 
     if request.method == 'POST':
@@ -799,7 +799,8 @@ def portal_estado_cuenta():
 
 @app.route('/portal/logout')
 def portal_logout():
-    session.clear()
+    session.pop('cliente_id', None)
+    session.pop('cliente_nombre', None)
     flash('Has cerrado sesión exitosamente.', 'success')
     return redirect(url_for('portal_login'))
 
