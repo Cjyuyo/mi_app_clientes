@@ -22,11 +22,42 @@
         .proceso.inscrito { background-color: #d1ecf1; color: #0c5460; }
         .proceso.ahorrador { background-color: #d4edda; color: #155724; }
         .proceso.adjudicado { background-color: #cce5ff; color: #004085; }
-        .client-details { padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
-        .client-details p { margin: 0; font-size: 14px; color: #606770; }
-        .client-details p strong { color: #1c1e21; }
+        
+        /* --- INICIO DE LA MEJORA VISUAL --- */
+        .client-details {
+            background-color: #e7f3ff; /* Fondo azul claro para la sección */
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .detail-item {
+            background-color: #ffffff; /* Fondo blanco para cada ficha */
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border: 1px solid #dcebfc;
+        }
+        .detail-item .label {
+            display: block;
+            font-size: 0.8em;
+            font-weight: 600;
+            color: #606770;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        .detail-item .value {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #0056b3; /* Azul más oscuro para el valor */
+        }
+        .detail-item .value.currency {
+             color: #155724; /* Color verde para valores monetarios */
+        }
+        /* --- FIN DE LA MEJORA VISUAL --- */
+
         .payment-history { padding: 0 20px 20px; }
-        .payment-history h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .payment-history h3 { margin-top: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         .payment-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 10px; border-bottom: 1px solid #f0f2f5; gap: 15px; }
         .payment-info { flex-grow: 1; }
         .payment-info span { display: block; }
@@ -46,7 +77,7 @@
         .btn-secondary { background-color: #007bff; }
         .btn-warning { background-color: #ffc107; color: #212529 !important; }
         .btn-danger { background-color: #dc3545; }
-        .btn-info { background-color: #17a2b8; } /* Estilo para el nuevo botón */
+        .btn-info { background-color: #17a2b8; }
         .mensaje { margin: 0 0 20px 0; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
         .error { color: #D8000C; background-color: #FFD2D2; }
         .success { color: #4F8A10; background-color: #DFF2BF; }
@@ -88,17 +119,47 @@
                 <h2>{{ cliente.nombre_apellido }}</h2>
                 <span class="proceso {{ cliente.proceso.lower() if cliente.proceso else '' }}">{{ cliente.proceso or 'N/A' }}</span>
             </div>
+            
+            <!-- --- INICIO DE LA ESTRUCTURA HTML MEJORADA --- -->
             <div class="client-details">
-                <p><strong>Cédula:</strong> {{ cliente.cedula }}</p>
-                <p><strong>Contrato:</strong> {{ cliente.contrato_nro or 'N/A' }}</p>
-                <p><strong>Teléfono:</strong> {{ cliente.telefono or 'N/A' }}</p>
-                <p><strong>Asesor:</strong> {{ cliente.asesor or 'N/A' }}</p>
-                <p><strong>Inscripción:</strong> ${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</p>
-                <p><strong>Valor de Cuota:</strong> ${{ "%.2f"|format(cliente.valor_cuota|float) }}</p>
-                <p><strong>Cuotas Pagadas:</strong> {{ cliente.cuotas_pagadas_progresivas or 0 }} de {{ cliente.cuotas_totales }}</p>
-                <p><strong>Balance a Favor:</strong> ${{ "%.2f"|format(cliente.balance_regresivo|float) }}</p>
-                <p><strong>Retraso Entrega:</strong> {{ cliente.meses_retraso_entrega or 0 }} mes(es)</p>
+                <div class="detail-item">
+                    <span class="label">Cédula</span>
+                    <span class="value">{{ cliente.cedula }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Contrato</span>
+                    <span class="value">{{ cliente.contrato_nro or 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Teléfono</span>
+                    <span class="value">{{ cliente.telefono or 'N/A' }}</span>
+                </div>
+                 <div class="detail-item">
+                    <span class="label">Asesor</span>
+                    <span class="value">{{ cliente.asesor or 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Inscripción</span>
+                    <span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Valor de Cuota</span>
+                    <span class="value currency">${{ "%.2f"|format(cliente.valor_cuota|float) }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Cuotas Pagadas</span>
+                    <span class="value">{{ cliente.cuotas_pagadas_progresivas or 0 }} de {{ cliente.cuotas_totales }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Balance a Favor</span>
+                    <span class="value currency">${{ "%.2f"|format(cliente.balance_regresivo|float) }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Retraso Entrega</span>
+                    <span class="value">{{ cliente.meses_retraso_entrega or 0 }} mes(es)</span>
+                </div>
             </div>
+            <!-- --- FIN DE LA ESTRUCTURA HTML MEJORADA --- -->
 
             {% if cliente.pagos %}
             <div class="payment-history">
@@ -142,9 +203,7 @@
 
             <div class="client-actions">
                 <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-primary">Registrar Pago</a>
-                <!-- INICIO DEL NUEVO BOTÓN -->
                 <a href="{{ url_for('registrar_oferta', client_id=cliente.id) }}" class="btn btn-info">Registrar Oferta</a>
-                <!-- FIN DEL NUEVO BOTÓN -->
                 <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-warning">Editar</a>
                 <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres eliminar a este cliente? Se borrarán todos sus pagos asociados.');">
                     <button type="submit" class="btn btn-danger">Eliminar</button>
