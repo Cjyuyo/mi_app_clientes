@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro de Nuevo Cliente</title>
+    <title>Registrar Nuevo Cliente</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -35,6 +35,7 @@
             border-bottom: 1px solid #dddfe2;
             display: flex;
             gap: 15px;
+            align-items: center;
         }
         .nav-bar a {
             text-decoration: none;
@@ -42,9 +43,15 @@
             font-weight: 600;
             padding: 8px 12px;
             border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+        .nav-bar a:hover {
+            background-color: #e7f3ff;
         }
         .nav-bar a.active {
+            color: #0d6efd;
             background-color: #e7f3ff;
+            font-weight: 700;
         }
         form {
             background: white;
@@ -120,8 +127,10 @@
         <p>Moto Plan Motors C.A.</p>
     </div>
 
+    <!-- BARRA DE NAVEGACIÓN CORREGIDA -->
     <div class="nav-bar">
-        <a href="{{ url_for('index') }}" class="active">Registrar Cliente</a>
+        <a href="{{ url_for('hub') }}">Hub Principal</a>
+        <a href="{{ url_for('registrar') }}" class="active">Registrar Cliente</a>
         <a href="{{ url_for('consulta') }}">Consultar Cliente</a>
     </div>
 
