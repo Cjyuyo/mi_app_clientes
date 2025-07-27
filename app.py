@@ -10,6 +10,13 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-desarrollo')
 
+# --- CONFIGURACIÓN DE LA SESIÓN (EXPIRACIÓN AUTOMÁTICA) ---
+@app.before_request
+def make_session_permanent():
+    session.permanent = True
+    # La sesión del cliente expirará después de 5 minutos de inactividad.
+    app.permanent_session_lifetime = timedelta(minutes=5)
+
 def get_db():
     if 'db' not in g:
         DATABASE_URL = os.getenv('DATABASE_URL')
@@ -65,13 +72,13 @@ def home():
 
 @app.route('/hub')
 def hub():
-    """Muestra el nuevo menú principal de administración."""
     return render_template('hub.html', anio_actual=datetime.now().year)
 
+# --- RUTA CORREGIDA PARA EL FORMULARIO DE REGISTRO ---
 @app.route('/registrar')
 def registrar():
     """Muestra el formulario para registrar un nuevo cliente."""
-    return render_template('index.html')
+    return render_template('registrar.html')
 
 
 # --- RUTAS DE LA APLICACIÓN (PANEL DE ADMINISTRACIÓN) ---
@@ -808,4 +815,4 @@ def portal_logout():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=Tr
