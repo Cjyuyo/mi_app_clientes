@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -8,7 +8,7 @@
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
         .container { max-width: 900px; margin: auto; }
         .search-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .search-container form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; } /* Allow wrapping */
+        .search-container form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .search-container input[type="text"] { flex-grow: 1; padding: 12px; font-size: 16px; border: 1px solid #dddfe2; border-radius: 6px; min-width: 150px; }
         .search-container button, .search-container .btn { padding: 12px 20px; font-size: 16px; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .search-container button { background-color: #1877f2; color: white; }
@@ -69,7 +69,10 @@
             .search-container form { flex-direction: column; align-items: stretch; }
             .payment-row { flex-direction: column; align-items: flex-start; } 
             .payment-amount, .client-actions { text-align: left; }
-            .client-details { grid-template-columns: 1fr; } /* Fichas en una sola columna */
+            /* --- INICIO DE LA CORRECCIÓN --- */
+            .client-details { grid-template-columns: 1fr 1fr; } /* Fichas en dos columnas */
+            .progress-item { grid-column: 1 / -1; } /* Las barras de progreso ocupan todo el ancho */
+            /* --- FIN DE LA CORRECCIÓN --- */
         }
         /* --- FIN DE AJUSTES PARA MÓVILES --- */
     </style>
