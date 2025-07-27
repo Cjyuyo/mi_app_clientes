@@ -66,11 +66,11 @@ def home():
 @app.route('/hub')
 def hub():
     """Muestra el nuevo menú principal de administración."""
-    # CORRECCIÓN: Pasamos el año actual a la plantilla
     return render_template('hub.html', anio_actual=datetime.now().year)
 
 @app.route('/registrar')
 def registrar():
+    """Muestra el formulario para registrar un nuevo cliente."""
     return render_template('index.html')
 
 
