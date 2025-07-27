@@ -636,7 +636,6 @@ def portal_dashboard():
         
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            # 1. Obtener todos los datos del cliente
             cur.execute("SELECT * FROM clientes WHERE id = %s;", (session['cliente_id'],))
             cliente = cur.fetchone()
             
@@ -647,16 +646,13 @@ def portal_dashboard():
 
             cliente_dict = dict(cliente)
 
-            # 2. Obtener el historial de pagos del cliente
             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC;", (session['cliente_id'],))
             pagos = cur.fetchall()
             cliente_dict['pagos'] = pagos
 
-            # 3. Calcular el estado de la cuota actual
             hoy = datetime.now().date()
             dia_de_vencimiento = 3
             
-            # Lógica para determinar si el cliente ya pagó este mes
             pago_del_mes_realizado = False
             for pago in pagos:
                 if pago['tipo_pago'] == 'Cuota' and pago['fecha_pago'].year == hoy.year and pago['fecha_pago'].month == hoy.month:
@@ -682,6 +678,98 @@ def portal_dashboard():
     except psycopg2.Error as e:
         flash(f'Ocurrió un error al cargar su información: {e}', 'error')
         return redirect(url_for('portal_login'))
+
+@app.route('/portal/reportar_pago', methods=['GET', 'POST'])
+def portal_reportar_pago():
+    if 'cliente_id' not in session:
+        flash('Debe iniciar sesión para acceder a su portal.', 'error')
+        return redirect(url_for('portal_login'))
+    
+    conn = get_db()
+    if not conn:
+        flash('No se pudo conectar con la base de datos.', 'error')
+        return redirect(url_for('portal_dashboard'))
+
+    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        cur.execute("SELECT * FROM clientes WHERE id = %s;", (session['cliente_id'],))
+        cliente = cur.fetchone()
+
+    if not cliente:
+        session.clear()
+        flash('No se encontró su información de cliente.', 'error')
+        return redirect(url_for('portal_login'))
+
+    mes_actual = datetime.now().date().strftime('%B').capitalize()
+
+    if request.method == 'POST':
+        pago_form = {k: v if v else None for k, v in request.form.items()}
+        
+        if not pago_form.get('monto') or not pago_form.get('fecha_pago') or not pago_form.get('forma_pago'):
+            flash('Error: Monto, fecha y forma de pago son campos obligatorios.', 'error')
+            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual)
+
+        if pago_form.get('forma_pago') != 'Efectivo' and not pago_form.get('referencia'):
+            flash('Error: La referencia es obligatoria para pagos por transferencia, pago móvil o Zelle.', 'error')
+            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual)
+            
+        try:
+            with conn.cursor() as cur:
+                pago_query = """
+                    INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, 
+                                        pago_en, por_concepto_de, referencia, banco, lugar_emision,
+                                        tasa_dia, monto_bs, estado_pago, cuotas_cubiertas)
+                    VALUES (%s, %s, 'Cuota', %s, %s, %s, %s, %s, %s, 'Acarigua', %s, %s, 'Pendiente', 0);
+                """
+                cur.execute(pago_query, (
+                    session['cliente_id'], pago_form['monto'], pago_form['forma_pago'], pago_form['fecha_pago'],
+                    pago_form.get('pago_en'), pago_form['por_concepto_de'],
+                    pago_form.get('referencia'), pago_form.get('banco'),
+                    pago_form.get('tasa_dia'), pago_form.get('monto_bs')
+                ))
+                conn.commit()
+                flash('¡Pago reportado exitosamente! Será verificado por un administrador a la brevedad.', 'success')
+                return redirect(url_for('portal_dashboard'))
+
+        except (psycopg2.Error, ValueError, TypeError) as e:
+            conn.rollback()
+            flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
+    
+    return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual)
+
+@app.route('/portal/estado_cuenta')
+def portal_estado_cuenta():
+    if 'cliente_id' not in session:
+        flash('Debe iniciar sesión para acceder a su portal.', 'error')
+        return redirect(url_for('portal_login'))
+
+    conn = get_db()
+    if not conn:
+        flash('No se pudo conectar con la base de datos.', 'error')
+        return redirect(url_for('portal_dashboard'))
+
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM clientes WHERE id = %s;", (session['cliente_id'],))
+            cliente = cur.fetchone()
+
+            if not cliente:
+                session.clear()
+                flash('No se encontró su información de cliente.', 'error')
+                return redirect(url_for('portal_login'))
+
+            cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago ASC, id ASC;", (session['cliente_id'],))
+            pagos = cur.fetchall()
+
+            fecha_generacion = datetime.now().strftime('%d/%m/%Y')
+
+            return render_template('estado_cuenta.html',
+                                   cliente=cliente,
+                                   pagos=pagos,
+                                   fecha_generacion=fecha_generacion)
+
+    except psycopg2.Error as e:
+        flash(f'Ocurrió un error al generar el estado de cuenta: {e}', 'error')
+        return redirect(url_for('portal_dashboard'))
 
 
 @app.route('/portal/logout')
