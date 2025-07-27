@@ -63,6 +63,7 @@
         .warning { color: #9F6000; background-color: #FEEFB3; }
         .info { color: #00529B; background-color: #BDE5F8; }
         
+        /* --- INICIO DE AJUSTES PARA MÓVILES --- */
         @media (max-width: 600px) {
             body { padding: 10px; }
             .search-container form { flex-direction: column; align-items: stretch; }
@@ -72,20 +73,24 @@
             .payment-history h3 { cursor: pointer; }
             .payment-list { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; }
             
-            .payment-accordion-item { border-bottom: 1px solid #f0f2f5; }
+            .payment-accordion-item { border-bottom: 1px solid #e9ecef; }
+            .payment-accordion-item:last-child { border-bottom: none; }
             .payment-summary {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 padding: 12px 10px;
                 cursor: pointer;
+                background-color: #f7f8fa;
+                margin-top: 5px;
+                border-radius: 6px;
             }
-            .payment-summary::after {
-                content: '\\25BC';
+            .payment-summary .accordion-arrow {
                 font-size: 0.8em;
                 transition: transform 0.3s ease;
+                color: #606770;
             }
-            .payment-summary.active::after {
+            .payment-summary.active .accordion-arrow {
                 transform: rotate(180deg);
             }
             .payment-details-content {
@@ -93,6 +98,7 @@
                 overflow: hidden;
                 transition: max-height 0.4s ease-out;
                 padding: 0 10px;
+                background-color: #fff;
             }
             .payment-row { 
                 flex-direction: column; 
@@ -105,7 +111,10 @@
                 justify-content: flex-start;
                 padding: 10px 0 0 0;
             }
+            /* Ocultar la lista de pagos por defecto en escritorio para evitar conflictos */
+            .desktop-payment-list { display: none; }
         }
+        /* --- FIN DE AJUSTES PARA MÓVILES --- */
     </style>
 </head>
 <body>
@@ -207,48 +216,89 @@
             {% if cliente.pagos %}
             <div class="payment-history">
                 <h3>Historial de Pagos</h3>
-                <div class="payment-list">
+                <!-- INICIO DE LA LÓGICA CORREGIDA -->
+                <div class="desktop-payment-list">
                     {% for pago in cliente.pagos %}
-                    <div class="payment-accordion-item">
-                        <div class="payment-summary">
-                             <div class="payment-info">
-                                <span class="payment-concept">Recibo N° {{ pago.id }} - {{ pago.tipo_pago }}</span>
-                                <span class="payment-meta">{{ pago.fecha_pago.strftime('%d/%m/%Y') }}</span>
-                            </div>
-                            <div class="payment-amount">${{ "%.2f"|format(pago.monto) }}</div>
+                    <div class="payment-row">
+                        <div class="payment-info">
+                            <span class="payment-concept">{{ pago.tipo_pago }} - {{ pago.por_concepto_de }}</span>
+                            <span class="payment-meta">
+                                {{ pago.fecha_pago.strftime('%d/%m/%Y') }} | Ref: {{ pago.referencia or 'N/A' }}
+                            </span>
                         </div>
-                        <div class="payment-details-content">
-                            <div class="payment-row">
-                                <div class="payment-info">
-                                    <span class="payment-concept">{{ pago.por_concepto_de }}</span>
-                                    <span class="payment-meta">Ref: {{ pago.referencia or 'N/A' }}</span>
-                                </div>
-                                <div class="payment-status">
-                                    <span class="payment-status-badge status-{{ pago.estado_pago.lower() }}">{{ pago.estado_pago }}</span>
-                                    {% if pago.puntualidad %}
-                                    <span class="status-puntualidad puntualidad-{{ pago.puntualidad }}">{{ pago.puntualidad }}</span>
-                                    {% endif %}
-                                </div>
-                                <div class="payment-actions">
-                                    {% if pago.estado_pago == 'Pendiente' %}
-                                    <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;">
-                                        <button type="submit" class="btn btn-primary">Conciliar</button>
-                                    </form>
-                                    {% elif pago.estado_pago == 'Conciliado' %}
-                                        {% if pago.tipo_pago == 'Inscripción Finalizada' %}
-                                            <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
-                                        {% else %}
-                                            <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
-                                        {% endif %}
-                                    {% elif pago.estado_pago == 'Anulado' %}
-                                        <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-danger">Ver Anulado</a>
-                                    {% endif %}
-                                </div>
-                            </div>
+                        <div class="payment-amount">
+                            ${{ "%.2f"|format(pago.monto) }}
+                        </div>
+                        <div class="payment-status">
+                            <span class="payment-status-badge status-{{ pago.estado_pago.lower() }}">{{ pago.estado_pago }}</span>
+                            {% if pago.puntualidad %}
+                            <span class="status-puntualidad puntualidad-{{ pago.puntualidad }}">{{ pago.puntualidad }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="payment-actions">
+                             {% if pago.estado_pago == 'Pendiente' %}
+                            <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;">
+                                <button type="submit" class="btn btn-primary">Conciliar</button>
+                            </form>
+                            {% elif pago.estado_pago == 'Conciliado' %}
+                                {% if pago.tipo_pago == 'Inscripción Finalizada' %}
+                                    <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
+                                {% else %}
+                                    <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
+                                {% endif %}
+                            {% elif pago.estado_pago == 'Anulado' %}
+                                <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-danger">Ver Anulado</a>
+                            {% endif %}
                         </div>
                     </div>
                     {% endfor %}
                 </div>
+                <div class="mobile-payment-list">
+                    <div class="payment-list">
+                        {% for pago in cliente.pagos %}
+                        <div class="payment-accordion-item">
+                            <div class="payment-summary">
+                                 <div class="payment-info">
+                                    <span class="payment-concept">Recibo N° {{ pago.id }} - {{ pago.tipo_pago }}</span>
+                                    <span class="payment-meta">{{ pago.fecha_pago.strftime('%d/%m/%Y') }}</span>
+                                </div>
+                                <div class="payment-amount">${{ "%.2f"|format(pago.monto) }}</div>
+                                <span class="accordion-arrow">&#9660;</span>
+                            </div>
+                            <div class="payment-details-content">
+                                <div class="payment-row">
+                                    <div class="payment-info">
+                                        <span class="payment-concept">{{ pago.por_concepto_de }}</span>
+                                        <span class="payment-meta">Ref: {{ pago.referencia or 'N/A' }}</span>
+                                    </div>
+                                    <div class="payment-status">
+                                        <span class="payment-status-badge status-{{ pago.estado_pago.lower() }}">{{ pago.estado_pago }}</span>
+                                        {% if pago.puntualidad %}
+                                        <span class="status-puntualidad puntualidad-{{ pago.puntualidad }}">{{ pago.puntualidad }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="payment-actions">
+                                        {% if pago.estado_pago == 'Pendiente' %}
+                                        <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;">
+                                            <button type="submit" class="btn btn-primary">Conciliar</button>
+                                        </form>
+                                        {% elif pago.estado_pago == 'Conciliado' %}
+                                            {% if pago.tipo_pago == 'Inscripción Finalizada' %}
+                                                <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
+                                            {% else %}
+                                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
+                                            {% endif %}
+                                        {% elif pago.estado_pago == 'Anulado' %}
+                                            <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-danger">Ver Anulado</a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <!-- FIN DE LA LÓGICA CORREGIDA -->
             </div>
             {% endif %}
 
@@ -266,7 +316,16 @@
 </div>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        if (window.innerWidth <= 600) {
+        // --- INICIO DE LA LÓGICA MEJORADA ---
+        function isMobileView() {
+            return window.innerWidth <= 600;
+        }
+
+        if (isMobileView()) {
+            // Ocultar la lista de escritorio y mostrar la de móvil
+            document.querySelectorAll('.desktop-payment-list').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.mobile-payment-list').forEach(el => el.style.display = 'block');
+
             const mainAccordionHeader = document.querySelector('.payment-history h3');
             const mainAccordionContent = document.querySelector('.payment-list');
 
@@ -284,17 +343,40 @@
             paymentItems.forEach(item => {
                 item.addEventListener('click', function() {
                     this.classList.toggle('active');
+                    const arrow = this.querySelector('.accordion-arrow');
+                    if (arrow) {
+                        arrow.style.transform = this.classList.contains('active') ? 'rotate(180deg)' : 'rotate(0deg)';
+                    }
+
                     const detailContent = this.nextElementSibling;
+                    const mainContent = this.closest('.payment-list');
+                    
                     if (detailContent.style.maxHeight) {
                         detailContent.style.maxHeight = null;
-                        mainAccordionContent.style.maxHeight = (mainAccordionContent.scrollHeight - detailContent.scrollHeight) + "px";
+                        mainContent.style.maxHeight = (mainContent.scrollHeight - detailContent.scrollHeight) + "px";
                     } else {
+                        const openItems = mainContent.querySelectorAll('.payment-details-content');
+                        openItems.forEach(openItem => {
+                             if(openItem.style.maxHeight){
+                                openItem.style.maxHeight = null;
+                                const openSummary = openItem.previousElementSibling;
+                                openSummary.classList.remove('active');
+                                const openArrow = openSummary.querySelector('.accordion-arrow');
+                                if(openArrow) openArrow.style.transform = 'rotate(0deg)';
+                             }
+                        });
+
                         detailContent.style.maxHeight = detailContent.scrollHeight + "px";
-                        mainAccordionContent.style.maxHeight = (mainAccordionContent.scrollHeight + detailContent.scrollHeight) + "px";
+                        mainContent.style.maxHeight = (mainContent.scrollHeight + detailContent.scrollHeight) + "px";
                     }
                 });
             });
+        } else {
+            // Ocultar la lista de móvil y mostrar la de escritorio
+            document.querySelectorAll('.desktop-payment-list').forEach(el => el.style.display = 'block');
+            document.querySelectorAll('.mobile-payment-list').forEach(el => el.style.display = 'none');
         }
+        // --- FIN DE LA LÓGICA MEJORADA ---
     });
 </script>
 </body>
