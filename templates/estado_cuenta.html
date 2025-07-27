@@ -35,11 +35,61 @@
             padding-bottom: 10px; margin-bottom: 15px;
         }
         .info-grid {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* 2 columnas por defecto */
+            gap: 10px 20px;
         }
-        .info-item { display: flex; justify-content: space-between; font-size: 14px; padding: 5px 0; }
-        .info-item .label { font-weight: 600; color: #606770; }
-        .info-item .value { font-weight: bold; color: #1c1e21; }
+        .info-item {
+            background-color: #f7f8fa;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .info-item .label {
+            display: block;
+            font-size: 0.8em;
+            font-weight: 600;
+            color: #606770;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+        .info-item .value {
+            font-weight: bold;
+            color: #1c1e21;
+            font-size: 1.1em;
+        }
+        /* Estilos para las barras de progreso */
+        .progress-item {
+            grid-column: 1 / -1; /* Ocupa todo el ancho */
+        }
+        .progress-bar-container {
+            background-color: #e9ecef;
+            border-radius: .375rem;
+            height: 20px;
+            overflow: hidden;
+            width: 100%;
+            margin-top: 5px;
+        }
+        .progress-bar {
+            background-color: #28a745;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: bold;
+            transition: width 0.6s ease;
+        }
+        .progress-bar-secondary {
+            background-color: #17a2b8;
+        }
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -69,6 +119,7 @@
             .container { box-shadow: none; border: 1px solid #ccc; border-radius: 0; }
             .actions-section { display: none; }
             .report-header { background-color: #0056b3 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .progress-bar { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
         }
     </style>
 </head>
@@ -98,8 +149,55 @@
                         <span class="label">Fecha de Emisión:</span>
                         <span class="value">{{ fecha_generacion }}</span>
                     </div>
+                     <div class="info-item">
+                        <span class="label">Retraso de Entrega:</span>
+                        <span class="value">{{ cliente.meses_retraso_entrega or 0 }} mes(es)</span>
+                    </div>
                 </div>
             </div>
+            
+            <!-- =========== NUEVA SECCIÓN: RESUMEN DEL PLAN =========== -->
+            <div class="section">
+                <h3>Resumen del Plan</h3>
+                <div class="info-grid">
+                    {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}
+                    {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}
+                    {% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}
+                    {% set cuotas_totales = cliente.cuotas_totales or 0 %}
+                    {% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+
+                    <div class="info-item progress-item">
+                        <span class="label">Progreso Total del Plan</span>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" style="width: {{ progreso_total }}%;">
+                                {{ "%.0f"|format(progreso_total) }}%
+                            </div>
+                        </div>
+                        <div class="progress-label">
+                            <span>Pagadas: {{ cuotas_pagadas_total }} de {{ cuotas_totales }}</span>
+                            <span>Valor Cuota: ${{ "%.2f"|format(cliente.valor_cuota|float) }}</span>
+                        </div>
+                    </div>
+
+                    {% set balance = cliente.balance_regresivo|float or 0.0 %}
+                    {% set valor_cuota = cliente.valor_cuota|float or 0.0 %}
+                    {% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
+
+                    <div class="info-item progress-item">
+                        <span class="label">Saldo a Favor (Abono a próxima cuota)</span>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar progress-bar-secondary" style="width: {{ progreso_cuota_actual }}%;">
+                                {{ "%.0f"|format(progreso_cuota_actual) }}%
+                            </div>
+                        </div>
+                        <div class="progress-label">
+                            <span>Abonado: ${{ "%.2f"|format(balance) }}</span>
+                            <span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) if valor_cuota > balance else "0.00" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <div class="section">
                 <h3>Historial de Transacciones</h3>
                 <table>
