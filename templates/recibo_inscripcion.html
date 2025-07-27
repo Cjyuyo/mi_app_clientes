@@ -3,86 +3,206 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recibo de Ingreso Inscripción N° {{ pago.id }}</title>
+    <title>Recibo de Inscripción N° {{ pago.id }}</title>
     <style>
-        body { font-family: 'Helvetica', 'Arial', sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 40px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #333; padding-bottom: 15px; }
-        .logo-info { flex-grow: 1; }
-        .logo-info h1 { margin: 0; font-size: 28px; font-weight: bold; color: #0056b3; }
-        .logo-info p { margin: 2px 0; font-size: 12px; }
-        .recibo-box { border: 1px solid #333; padding: 5px; text-align: center; margin-left: 20px; }
-        .recibo-box h2 { margin: 0; font-size: 14px; font-weight: bold; text-transform: uppercase; background-color: #eee; padding: 5px; }
-        .recibo-box p { margin: 5px 0; font-size: 20px; font-weight: bold; color: #d9534f; }
-        /* --- INICIO DE ESTILOS PARA QR --- */
-        .qr-code-box { text-align: center; margin-left: 20px; }
-        .qr-code-box img { width: 110px; height: 110px; }
-        .qr-code-box p { font-size: 10px; margin: 5px 0 0 0; color: #555; }
-        /* --- FIN DE ESTILOS PARA QR --- */
-        .section { margin-top: 25px; font-size: 14px; }
-        .info-line { border-bottom: 1px dotted #999; padding: 8px 0; display: flex; }
-        .info-line strong { margin-right: 10px; }
-        .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #777; }
-        .actions-seccion { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ccc; }
-        .actions-seccion button, .actions-seccion a { display: inline-block; text-decoration: none; color: white !important; padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin: 5px; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .receipt-header {
+            background-color: #28a745; /* Color verde para diferenciarlo */
+            color: white;
+            padding: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header-info h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .header-info p {
+            margin: 5px 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .receipt-id {
+            text-align: right;
+        }
+        .receipt-id h2 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .receipt-id p {
+            margin: 5px 0 0;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .receipt-body {
+            padding: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section:last-child {
+            margin-bottom: 0;
+        }
+        .section h3 {
+            font-size: 16px;
+            color: #606770;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #dddfe2;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        .info-item {
+            background-color: #f7f8fa;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .info-item .label {
+            font-size: 13px;
+            color: #606770;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .info-item .value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1c1e21;
+        }
+        .info-item .value.amount {
+            font-size: 20px;
+            font-weight: 700;
+            color: #28a745;
+        }
+        .qr-section {
+            text-align: center;
+            padding: 20px;
+            background-color: #f7f8fa;
+        }
+        .footer-note {
+            padding: 20px 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #606770;
+            background-color: #f5f6f7;
+        }
+        .actions-section {
+            text-align: center;
+            padding: 20px;
+            background-color: #f5f6f7;
+            border-top: 1px solid #dddfe2;
+        }
+        .actions-section button, .actions-section a {
+            display: inline-block;
+            text-decoration: none;
+            color: white !important;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 5px;
+        }
+        .btn-anular { background-color: #dc3545; }
         .btn-volver { background-color: #007bff; }
         .btn-imprimir { background-color: #6c757d; }
         @media print {
-            body { background-color: #fff; }
-            .container { box-shadow: none; border: none; }
-            .actions-seccion { display: none; }
+            body { background-color: #fff; padding: 0; }
+            .container { box-shadow: none; border: none; border-radius: 0; }
+            .actions-section { display: none; }
+            .receipt-header { background-color: #28a745 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <div class="logo-info">
-                <h1>MOTO PLAN <span style="font-weight:normal; color:#333;">MOTORS C.A</span></h1>
-                <p>¡VIVE TUS SUEÑOS!</p>
-                <p>Calle 31 Con Avenida Libertador Edf Doña Tina Piso PA Of 7 Sector Centro</p>
-                <p>Acarigua Portuguesa - R.I.F.: J-50408559-1 - 0426-215.26.82</p>
+        <div class="receipt-header">
+            <div class="header-info">
+                <h1>MOTO PLAN MOTORS C.A</h1>
+                <p>R.I.F.: J-50408559-1</p>
             </div>
-            <div class="recibo-box">
-                <h2>Recibo de Ingreso Inscripción</h2>
+            <div class="receipt-id">
+                <h2>Recibo de Inscripción</h2>
                 <p>N° {{ pago.id }}</p>
             </div>
-             <!-- --- INICIO DE CÓDIGO QR --- -->
-             <div class="qr-code-box">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('verificar_recibo', pago_id=pago.id, _external=True) }}&size=110x110&q=L" alt="Código QR de Verificación">
-                <p>Verificar Recibo</p>
-            </div>
-            <!-- --- FIN DE CÓDIGO QR --- -->
         </div>
-        <div class="section">
-            <div class="info-line">
-                <strong>Hemos Recibido de:</strong> {{ cliente.nombre_apellido }}
+
+        <div class="receipt-body">
+            <div class="section">
+                <h3>Cliente</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="label">Hemos Recibido de</span>
+                        <span class="value">{{ cliente.nombre_apellido }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">C.I. o R.I.F.</span>
+                        <span class="value">{{ cliente.cedula }}</span>
+                    </div>
+                </div>
             </div>
-            <div class="info-line">
-                <strong>C.I. o R.I.F.:</strong> {{ cliente.cedula }}
-            </div>
-            <div class="info-line">
-                <strong>La Cantidad de:</strong> ${{ "%.2f"|format(pago.monto) }}
-            </div>
-            <div class="info-line">
-                <strong>Por Concepto De:</strong> Gastos administrativos y operativos. Inscripción al plan: {{ cliente.plan_contratado or 'N/A' }}.
+
+            <div class="section">
+                <h3>Detalles de la Inscripción</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="label">Monto Total de Inscripción (USD)</span>
+                        <span class="value amount">${{ "%.2f"|format(pago.monto) }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Plan Contratado</span>
+                        <span class="value">{{ cliente.plan_contratado or 'N/A' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Fecha de Pago</span>
+                        <span class="value">{{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }}</span>
+                    </div>
+                     <div class="info-item">
+                        <span class="label">Por Concepto De</span>
+                        <span class="value">Gastos administrativos y operativos.</span>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="section">
-             <div class="info-line">
-                <strong>Fecha de Pago:</strong> {{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }}
-            </div>
-             <div class="info-line">
-                <strong>Lugar de Emisión:</strong> {{ pago.lugar_emision or 'N/A' }}
-            </div>
+
+        <div class="qr-section">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('verificar_recibo', pago_id=pago.id, _external=True) }}&size=120x120&q=M" alt="Código QR de Verificación">
+            <p style="font-size: 12px; color: #606770; margin-top: 10px;">Escanee para verificar la validez de este recibo</p>
         </div>
-        <div class="footer">
+        
+        <div class="footer-note">
             <p>Monto cancelado no será devuelto bajo ningún concepto una vez preparado el contrato.</p>
-            <p style="margin-top: 50px;">_________________________<br>Firma Autorizada</p>
         </div>
-        <div class="actions-seccion">
-            <button class="btn-imprimir" onclick="window.print()">Imprimir / Guardar</button>
+
+        <div class="actions-section">
+            <button class="btn-imprimir" onclick="window.print()">Imprimir / Guardar PDF</button>
             <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="btn-volver">Volver a Consulta</a>
+            <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo? Esta acción revertirá el proceso de inscripción del cliente.');">
+                <button type="submit" class="btn-anular">Anular Inscripción</button>
+            </form>
         </div>
     </div>
 </body>
