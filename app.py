@@ -5,17 +5,6 @@ from flask import Flask, render_template, request, g, flash, redirect, url_for, 
 from dotenv import load_dotenv
 from decimal import Decimal
 from datetime import datetime, timedelta
-import locale
-
-# --- Configuración Regional para Fechas en Español ---
-try:
-    locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
-except locale.Error:
-    try:
-        locale.setlocale(locale.LC_TIME, 'Spanish_Spain.1252')
-    except locale.Error:
-        print("Advertencia: No se pudo configurar el locale a español. Los meses podrían aparecer en inglés.")
-
 
 load_dotenv()
 app = Flask(__name__)
@@ -38,6 +27,15 @@ def close_db(exception):
     db = g.pop('db', None)
     if db is not None:
         db.close()
+
+# --- FUNCIÓN PARA OBTENER MESES EN ESPAÑOL (SOLUCIÓN DEFINITIVA) ---
+def get_nombre_mes(month_number):
+    """Devuelve el nombre del mes en español a partir de su número."""
+    meses = {
+        1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
+        7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+    }
+    return meses.get(month_number, "")
 
 # --- LÓGICA DE CICLO DE PAGO Y FECHAS ---
 def get_feriados_venezuela(year):
@@ -64,6 +62,7 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
     return vencimiento
 
 # --- RUTAS DE LA APLICACIÓN (PANEL DE ADMINISTRACIÓN) ---
+# ... (El resto de las rutas del panel de administración permanecen sin cambios) ...
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -662,15 +661,15 @@ def portal_dashboard():
             estado_cuota = {}
             if pago_del_mes_realizado:
                 estado_cuota['estado'] = 'Pagada'
-                estado_cuota['mes'] = hoy.strftime('%B').capitalize()
+                estado_cuota['mes'] = get_nombre_mes(hoy.month)
                 estado_cuota['mensaje'] = 'Tu cuota de este mes ya fue procesada.'
             elif hoy.day <= dia_de_vencimiento:
                 estado_cuota['estado'] = 'Vigente'
-                estado_cuota['mes'] = hoy.strftime('%B').capitalize()
+                estado_cuota['mes'] = get_nombre_mes(hoy.month)
                 estado_cuota['fecha_vencimiento'] = f"{dia_de_vencimiento:02d}/{hoy.month:02d}/{hoy.year}"
             else:
                 estado_cuota['estado'] = 'En Mora'
-                estado_cuota['mes'] = hoy.strftime('%B').capitalize()
+                estado_cuota['mes'] = get_nombre_mes(hoy.month)
                 estado_cuota['fecha_vencimiento'] = f"{dia_de_vencimiento:02d}/{hoy.month:02d}/{hoy.year}"
 
             return render_template('portal_dashboard.html', cliente=cliente_dict, cuota_status=estado_cuota)
@@ -699,7 +698,7 @@ def portal_reportar_pago():
         flash('No se encontró su información de cliente.', 'error')
         return redirect(url_for('portal_login'))
 
-    mes_actual = datetime.now().date().strftime('%B').capitalize()
+    mes_actual = get_nombre_mes(datetime.now().date().month)
 
     if request.method == 'POST':
         pago_form = {k: v if v else None for k, v in request.form.items()}

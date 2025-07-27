@@ -74,13 +74,12 @@
     <div class="portal-header">
         <h1>Mi Portal de Cliente</h1>
         <div class="header-actions">
-            <!-- ========= NUEVO BOTÓN: ESTADO DE CUENTA ========= -->
-            <a href="#" class="btn-estado-cuenta">Descargar Estado de Cuenta</a>
+            <!-- ========= CORRECCIÓN: Enlace funcional que abre en una nueva pestaña ========= -->
+            <a href="{{ url_for('portal_estado_cuenta') }}" class="btn-estado-cuenta" target="_blank">Ver Estado de Cuenta</a>
             <a href="{{ url_for('portal_logout') }}" class="btn-logout">Cerrar Sesión</a>
         </div>
     </div>
 
-    <!-- ========= SECCIÓN DE ESTADO DE CUOTA (YA EXISTENTE) ========= -->
     <div class="payment-status-card {{ cuota_status.estado | lower }}">
         <div class="status-header">
             <h3>Próxima Cuota ({{ cuota_status.mes }})</h3>
@@ -91,7 +90,7 @@
         </div>
         {% if cuota_status.estado != 'Pagada' %}
         <div class="status-actions">
-            <a href="#" class="btn-reportar">Reportar Pago</a>
+            <a href="{{ url_for('portal_reportar_pago') }}" class="btn-reportar">Reportar Pago</a>
         </div>
         {% endif %}
     </div>
@@ -103,7 +102,6 @@
         </div>
         
         <div class="client-details">
-            <!-- ========= CORRECCIÓN: DATOS REALES DEL CLIENTE ========= -->
             <div class="detail-item">
                 <span class="label">Cédula</span>
                 <span class="value">{{ cliente.cedula }}</span>
@@ -112,7 +110,6 @@
                 <span class="label">Contrato</span>
                 <span class="value">{{ cliente.contrato_nro or 'N/A' }}</span>
             </div>
-            <!-- ========= NUEVO CAMPO: RETRASO ENTREGA ========= -->
             <div class="detail-item">
                 <span class="label">Retraso de Entrega</span>
                 <span class="value">{{ cliente.meses_retraso_entrega or 0 }} mes(es)</span>
