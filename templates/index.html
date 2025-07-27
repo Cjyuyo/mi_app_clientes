@@ -5,64 +5,217 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registro de Nuevo Cliente</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: #f0f2f5; }
-        .container { max-width: 800px; margin: auto; padding: 20px; }
-        h1 { color: #1877f2; text-align: center; }
-        nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px; text-align: center; padding-bottom: 20px; border-bottom: 1px solid #dddfe2; }
-        nav a { text-decoration: none; background-color: #e4e6eb; color: #050505; font-weight: 600; padding: 10px 15px; border-radius: 6px; }
-        nav a.active { background-color: #1877f2; color: white; }
-        form { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        label { display: block; margin-top: 15px; font-weight: 600; color: #606770; }
-        input, select { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #dddfe2; border-radius: 6px; }
-        button { margin-top: 25px; background-color: #28a745; color: white; padding: 15px; border: none; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; border-radius: 6px; grid-column: 1 / -1; }
-        .mensaje { margin-bottom: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
-        .exito { color: #4F8A10; background-color: #DFF2BF; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+        }
+        .form-header {
+            background-color: #0056b3;
+            color: white;
+            padding: 20px 30px;
+            border-radius: 8px 8px 0 0;
+        }
+        .form-header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .form-header p {
+            margin: 5px 0 0;
+            opacity: 0.9;
+        }
+        .nav-bar {
+            background-color: white;
+            padding: 15px 30px;
+            border-bottom: 1px solid #dddfe2;
+            display: flex;
+            gap: 15px;
+        }
+        .nav-bar a {
+            text-decoration: none;
+            color: #0056b3;
+            font-weight: 600;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+        .nav-bar a.active {
+            background-color: #e7f3ff;
+        }
+        form {
+            background: white;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section h3 {
+            font-size: 16px;
+            color: #606770;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #dddfe2;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #606770;
+            margin-bottom: 8px;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #dddfe2;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        .button-group {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #dddfe2;
+        }
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            text-decoration: none;
+            text-align: center;
+        }
+        .btn-primary {
+            background-color: #28a745;
+            color: white;
+        }
+        .mensaje { margin: 20px 0 0; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
+        .success { color: #4F8A10; background-color: #DFF2BF; }
         .error { color: #D8000C; background-color: #FFD2D2; }
-        @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } body { padding: 10px; } .container { padding: 10px; } }
     </style>
 </head>
 <body>
 <div class="container">
-    <nav>
+    <div class="form-header">
+        <h1>Sistema de Gestión de Clientes</h1>
+        <p>Moto Plan Motors C.A.</p>
+    </div>
+
+    <div class="nav-bar">
         <a href="{{ url_for('index') }}" class="active">Registrar Cliente</a>
         <a href="{{ url_for('consulta') }}">Consultar Cliente</a>
-    </nav>
-    <h1>Registrar Nuevo Cliente</h1>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="mensaje {{ 'exito' if category == 'success' else 'error' }}">{{ message }}</div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+    </div>
+
     <form action="{{ url_for('registrar_cliente') }}" method="POST">
-        <div class="form-grid">
-            <div>
-                <label>Nombre y Apellido:</label><input type="text" name="nombre_apellido" required>
-                <label>Nº Cédula:</label><input type="text" name="cedula" required>
-                <label>Nº Contrato:</label><input type="text" name="contrato_nro">
-                <label>Teléfono:</label><input type="text" name="telefono">
-                <label>Asesor:</label><input type="text" name="asesor">
-                <label>Responsable:</label><input type="text" name="responsable">
-                <label>Fecha de Ingreso:</label><input type="date" name="fecha_ingreso">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="mensaje {{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <div class="section">
+            <h3>Información Personal y de Contacto</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="nombre_apellido">Nombre y Apellido</label>
+                    <input type="text" id="nombre_apellido" name="nombre_apellido" required>
+                </div>
+                <div class="form-group">
+                    <label for="cedula">Nº Cédula</label>
+                    <input type="text" id="cedula" name="cedula" required>
+                </div>
+                <div class="form-group">
+                    <label for="telefono">Teléfono</label>
+                    <input type="text" id="telefono" name="telefono">
+                </div>
+                <div class="form-group">
+                    <label for="fecha_ingreso">Fecha de Ingreso</label>
+                    <input type="date" id="fecha_ingreso" name="fecha_ingreso">
+                </div>
             </div>
-            <div>
-                <label>Grupo:</label><input type="text" name="grupo">
-                <label>Bien solicitado:</label><input type="text" name="bien_solicitado">
-                <label>Plan Contratado:</label><input type="text" name="plan_contratado">
-                <label>Cuotas Totales:</label>
-                <select name="cuotas_totales"><option value="24">24</option><option value="36">36</option><option value="48">48</option></select>
-                <label>Moneda de Pago:</label>
-                <select name="moneda_pago"><option value="USD">USD</option><option value="BsBCV">BsBCV</option></select>
-                <label>Cuota Mensual:</label><input type="number" step="0.01" name="valor_cuota">
-                <label>Monto Inscripción:</label><input type="number" step="0.01" name="inscripcion_monto">
+        </div>
+
+        <div class="section">
+            <h3>Detalles del Plan y Contrato</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="contrato_nro">Nº Contrato</label>
+                    <input type="text" id="contrato_nro" name="contrato_nro">
+                </div>
+                <div class="form-group">
+                    <label for="plan_contratado">Plan Contratado</label>
+                    <input type="text" id="plan_contratado" name="plan_contratado">
+                </div>
+                <div class="form-group">
+                    <label for="cuotas_totales">Cuotas Totales</label>
+                    <select id="cuotas_totales" name="cuotas_totales">
+                        <option value="24">24</option>
+                        <option value="36">36</option>
+                        <option value="48">48</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="valor_cuota">Cuota Mensual (USD)</label>
+                    <input type="number" id="valor_cuota" step="0.01" name="valor_cuota">
+                </div>
+                <div class="form-group">
+                    <label for="inscripcion_monto">Monto Inscripción (USD)</label>
+                    <input type="number" id="inscripcion_monto" step="0.01" name="inscripcion_monto">
+                </div>
+                 <div class="form-group">
+                    <label for="moneda_pago">Moneda de Pago</label>
+                    <select id="moneda_pago" name="moneda_pago">
+                        <option value="USD">USD</option>
+                        <option value="BsBCV">BsBCV</option>
+                    </select>
+                </div>
             </div>
-            <div style="grid-column: 1 / -1; border-top: 1px solid #eee; padding-top: 15px;">
-                <label>Proceso Inicial:</label>
-                <select name="proceso"><option value="INSCRITO">Inscrito</option><option value="RESERVA">Reserva</option></select>
+        </div>
+
+        <div class="section">
+            <h3>Información Administrativa</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="asesor">Asesor</label>
+                    <input type="text" id="asesor" name="asesor">
+                </div>
+                <div class="form-group">
+                    <label for="responsable">Responsable</label>
+                    <input type="text" id="responsable" name="responsable">
+                </div>
+                <div class="form-group">
+                    <label for="proceso">Proceso Inicial</label>
+                    <select id="proceso" name="proceso">
+                        <option value="RESERVA">Reserva</option>
+                        <option value="INSCRITO">Inscrito</option>
+                    </select>
+                </div>
             </div>
-            <button type="submit">Registrar Cliente</button>
+        </div>
+        
+        <div class="button-group">
+            <button type="submit" class="btn btn-primary">Registrar Cliente</button>
         </div>
     </form>
 </div>

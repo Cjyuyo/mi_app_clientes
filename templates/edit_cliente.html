@@ -3,67 +3,201 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Editar Cliente</title>
+    <title>Editar Cliente - {{ cliente.nombre_apellido }}</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: #f0f2f5; }
-        .container { max-width: 800px; margin: auto; padding: 20px; }
-        h1 { color: #1877f2; text-align: center; }
-        form { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        label { display: block; margin-top: 15px; font-weight: 600; color: #606770; }
-        input, select { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #dddfe2; border-radius: 6px; }
-        .button-group { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
-        .btn { padding: 12px 20px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; border-radius: 6px; text-decoration: none; text-align: center; }
-        .btn-primary { background-color: #ffc107; color: #212529; }
-        .btn-secondary { background-color: #6c757d; color: white; }
-        @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } body { padding: 10px; } }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+        }
+        .form-header {
+            background-color: #0056b3;
+            color: white;
+            padding: 20px 30px;
+            border-radius: 8px 8px 0 0;
+        }
+        .form-header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .form-header p {
+            margin: 5px 0 0;
+            opacity: 0.9;
+        }
+        form {
+            background: white;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section h3 {
+            font-size: 16px;
+            color: #606770;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #dddfe2;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #606770;
+            margin-bottom: 8px;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #dddfe2;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        .button-group {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #dddfe2;
+        }
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            text-decoration: none;
+            text-align: center;
+        }
+        .btn-primary {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>Editar Cliente: {{ cliente.nombre_apellido }}</h1>
+    <div class="form-header">
+        <h1>Editar Cliente</h1>
+        <p>{{ cliente.nombre_apellido }}</p>
+    </div>
     <form action="{{ url_for('edit_client', client_id=cliente.id) }}" method="POST">
-        <div class="form-grid">
-            <div>
-                <label>Nombre y Apellido:</label><input type="text" name="nombre_apellido" value="{{ cliente.nombre_apellido or '' }}" required>
-                <label>Nº Cédula:</label><input type="text" name="cedula" value="{{ cliente.cedula or '' }}" required>
-                <label>Nº Contrato:</label><input type="text" name="contrato_nro" value="{{ cliente.contrato_nro or '' }}">
-                <label>Teléfono:</label><input type="text" name="telefono" value="{{ cliente.telefono or '' }}">
-                <label>Asesor:</label><input type="text" name="asesor" value="{{ cliente.asesor or '' }}">
-                <label>Responsable:</label><input type="text" name="responsable" value="{{ cliente.responsable or '' }}">
-                <!-- --- INICIO DE LA CORRECCIÓN --- -->
-                <label>Fecha de Ingreso:</label><input type="date" name="fecha_ingreso" value="{{ cliente.fecha_ingreso.strftime('%Y-%m-%d') if cliente.fecha_ingreso else '' }}">
-                <!-- --- FIN DE LA CORRECCIÓN --- -->
-            </div>
-            <div>
-                <label>Grupo:</label><input type="text" name="grupo" value="{{ cliente.grupo or '' }}">
-                <label>Bien solicitado:</label><input type="text" name="bien_solicitado" value="{{ cliente.bien_solicitado or '' }}">
-                <label>Plan Contratado:</label><input type="text" name="plan_contratado" value="{{ cliente.plan_contratado or '' }}">
-                <label>Cuotas Totales:</label>
-                <select name="cuotas_totales"><option value="24" {% if cliente.cuotas_totales == 24 %}selected{% endif %}>24</option><option value="36" {% if cliente.cuotas_totales == 36 %}selected{% endif %}>36</option><option value="48" {% if cliente.cuotas_totales == 48 %}selected{% endif %}>48</option></select>
-                <label>Cuota Mensual:</label><input type="number" step="0.01" name="valor_cuota" value="{{ cliente.valor_cuota or '' }}">
-                <label>Monto Inscripción:</label><input type="number" step="0.01" name="inscripcion_monto" value="{{ cliente.inscripcion_monto or '' }}">
-            </div>
-            <div style="grid-column: 1 / -1; border-top: 1px solid #eee; padding-top: 15px;">
-                <div class="form-grid">
-                    <div>
-                        <label>Proceso:</label>
-                        <select name="proceso"><option value="INSCRITO" {% if cliente.proceso == 'INSCRITO' %}selected{% endif %}>Inscrito</option><option value="RESERVA" {% if cliente.proceso == 'RESERVA' %}selected{% endif %}>Reserva</option><option value="ADJUDICADO" {% if cliente.proceso == 'ADJUDICADO' %}selected{% endif %}>Adjudicado</option></select>
-                    </div>
-                    <div>
-                        <label>Estatus:</label>
-                        <select name="estatus"><option value="ACTIVO" {% if cliente.estatus == 'ACTIVO' %}selected{% endif %}>Activo</option><option value="INACTIVO" {% if cliente.estatus == 'INACTIVO' %}selected{% endif %}>Inactivo</option></select>
-                    </div>
-                    <div style="grid-column: 1 / -1;">
-                        <label>Estatus Detallado:</label>
-                        <select name="estatus_1"><option value="SOLVENTE" {% if cliente.estatus_1 == 'SOLVENTE' %}selected{% endif %}>Solvente</option><option value="MORA" {% if cliente.estatus_1 == 'MORA' %}selected{% endif %}>Mora</option></select>
-                    </div>
+        <div class="section">
+            <h3>Información Personal</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="nombre_apellido">Nombre y Apellido</label>
+                    <input type="text" id="nombre_apellido" name="nombre_apellido" value="{{ cliente.nombre_apellido or '' }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="cedula">Nº Cédula</label>
+                    <input type="text" id="cedula" name="cedula" value="{{ cliente.cedula or '' }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="telefono">Teléfono</label>
+                    <input type="text" id="telefono" name="telefono" value="{{ cliente.telefono or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="fecha_ingreso">Fecha de Ingreso</label>
+                    <input type="date" id="fecha_ingreso" name="fecha_ingreso" value="{{ cliente.fecha_ingreso.strftime('%Y-%m-%d') if cliente.fecha_ingreso else '' }}">
                 </div>
             </div>
-            <div class="button-group">
-                <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="btn btn-secondary">Cancelar</a>
-                <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+        </div>
+
+        <div class="section">
+            <h3>Detalles del Plan</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="contrato_nro">Nº Contrato</label>
+                    <input type="text" id="contrato_nro" name="contrato_nro" value="{{ cliente.contrato_nro or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="plan_contratado">Plan Contratado</label>
+                    <input type="text" id="plan_contratado" name="plan_contratado" value="{{ cliente.plan_contratado or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="cuotas_totales">Cuotas Totales</label>
+                    <select id="cuotas_totales" name="cuotas_totales">
+                        <option value="24" {% if cliente.cuotas_totales == 24 %}selected{% endif %}>24</option>
+                        <option value="36" {% if cliente.cuotas_totales == 36 %}selected{% endif %}>36</option>
+                        <option value="48" {% if cliente.cuotas_totales == 48 %}selected{% endif %}>48</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="valor_cuota">Cuota Mensual (USD)</label>
+                    <input type="number" id="valor_cuota" step="0.01" name="valor_cuota" value="{{ cliente.valor_cuota or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="inscripcion_monto">Monto Inscripción (USD)</label>
+                    <input type="number" id="inscripcion_monto" step="0.01" name="inscripcion_monto" value="{{ cliente.inscripcion_monto or '' }}">
+                </div>
             </div>
+        </div>
+
+        <div class="section">
+            <h3>Estado del Cliente</h3>
+            <div class="form-grid">
+                 <div class="form-group">
+                    <label for="asesor">Asesor</label>
+                    <input type="text" id="asesor" name="asesor" value="{{ cliente.asesor or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="proceso">Proceso</label>
+                    <select id="proceso" name="proceso">
+                        <option value="RESERVA" {% if cliente.proceso == 'RESERVA' %}selected{% endif %}>Reserva</option>
+                        <option value="INSCRITO" {% if cliente.proceso == 'INSCRITO' %}selected{% endif %}>Inscrito</option>
+                        <option value="AHORRADOR" {% if cliente.proceso == 'AHORRADOR' %}selected{% endif %}>Ahorrador</option>
+                        <option value="ADJUDICADO" {% if cliente.proceso == 'ADJUDICADO' %}selected{% endif %}>Adjudicado</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="estatus">Estatus</label>
+                    <select id="estatus" name="estatus">
+                        <option value="ACTIVO" {% if cliente.estatus == 'ACTIVO' %}selected{% endif %}>Activo</option>
+                        <option value="INACTIVO" {% if cliente.estatus == 'INACTIVO' %}selected{% endif %}>Inactivo</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="estatus_1">Estatus Detallado</label>
+                    <select id="estatus_1" name="estatus_1">
+                        <option value="SOLVENTE" {% if cliente.estatus_1 == 'SOLVENTE' %}selected{% endif %}>Solvente</option>
+                        <option value="MORA" {% if cliente.estatus_1 == 'MORA' %}selected{% endif %}>Mora</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="button-group">
+            <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
         </div>
     </form>
 </div>

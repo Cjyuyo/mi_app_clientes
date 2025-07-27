@@ -3,36 +3,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registrar Pago</title>
+    <title>Registrar Pago - {{ cliente.nombre_apellido }}</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: #f0f2f5; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        h1 { color: #1877f2; text-align: center; border-bottom: 1px solid #eee; padding-bottom: 20px; }
-        h1 span { font-weight: normal; color: #606770; font-size: 0.7em; display: block; margin-top: 5px;}
-        label { display: block; margin-top: 15px; font-weight: 600; color: #606770; }
-        input, select, textarea { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #dddfe2; border-radius: 6px; }
-        .button-group { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
-        .btn { padding: 12px 20px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; border-radius: 6px; text-decoration: none; text-align: center; }
-        .btn-primary { background-color: #28a745; color: white; }
-        .btn-secondary { background-color: #6c757d; color: white; }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .full-width { grid-column: 1 / -1; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+        }
+        .form-header {
+            background-color: #0056b3;
+            color: white;
+            padding: 20px 30px;
+            border-radius: 8px 8px 0 0;
+        }
+        .form-header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .form-header p {
+            margin: 5px 0 0;
+            opacity: 0.9;
+        }
+        .info-box {
+            background-color: #e7f3fe;
+            border-left: 5px solid #0056b3;
+            padding: 15px 20px;
+            margin: 0;
+            border-radius: 0;
+            color: #004085;
+        }
+        form {
+            background: white;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section h3 {
+            font-size: 16px;
+            color: #606770;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #dddfe2;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #606770;
+            margin-bottom: 8px;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #dddfe2;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        input[readonly] {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+        }
+        .button-group {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #dddfe2;
+        }
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            text-decoration: none;
+            text-align: center;
+        }
+        .btn-primary {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
         .mensaje { margin-bottom: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
         .error { color: #D8000C; background-color: #FFD2D2; }
-        .info-box { background-color: #e7f3fe; border-left: 6px solid #2196F3; padding: 15px; margin-top: 10px; }
-        @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } body { padding: 10px; } }
     </style>
 </head>
 <body>
 <div class="container">
+    <div class="form-header">
+        <h1>Registrar Pago</h1>
+        <p>Para: {{ cliente.nombre_apellido }}</p>
+    </div>
+
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
+        <div style="padding: 0 30px; background-color: white;">
         {% for category, message in messages %}
           <div class="mensaje {{ 'error' if category == 'error' else '' }}">{{ message }}</div>
         {% endfor %}
+        </div>
       {% endif %}
     {% endwith %}
-    <h1>Registrar Pago <span>Para: {{ cliente.nombre_apellido }}</span></h1>
 
     <div class="info-box">
         <strong>Estado de Inscripción:</strong> 
@@ -40,55 +142,80 @@
     </div>
 
     <form action="{{ url_for('registrar_pago', client_id=cliente.id) }}" method="POST">
-        <div class="form-grid">
-            <div>
-                <label>Tipo de Pago:</label>
-                <select name="tipo_pago" required>
-                    {% set inscripcion_total = cliente.inscripcion_monto|float if cliente.inscripcion_monto else 0 %}
-                    {% set inscripcion_pagada = cliente.inscripcion_pagada|float if cliente.inscripcion_pagada else 0 %}
-                    
-                    {% if inscripcion_pagada < inscripcion_total %}
-                        <option value="Inscripción">Inscripción</option>
-                    {% else %}
-                        <option value="Cuota">Cuota</option>
-                    {% endif %}
-                </select>
-                <label>Monto del Pago (en USD):</label>
-                <input type="number" step="0.01" name="monto" id="monto_usd" required>
-                <label>Tasa del Día (BCV):</label>
-                <input type="number" step="0.01" id="tasa_dia" name="tasa_dia">
-                <label>Monto en Bs (Calculado):</label>
-                <input type="number" step="0.01" id="monto_bs_calculado" name="monto_bs" readonly style="background-color: #e9ecef;">
-            </div>
-            <div>
-                <label>Pago en:</label>
-                <select name="pago_en" required>
-                    <option value="Divisas">Divisas</option>
-                    <option value="Bolívares">Bolívares</option>
-                    <option value="USDT">USDT</option>
-                </select>
-                <label>Forma de Pago:</label>
-                <select name="forma_pago" required><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option><option value="Pago Móvil">Pago Móvil</option><option value="Zelle">Zelle</option></select>
-                <label>Banco:</label><input type="text" name="banco">
-                <label>Referencia:</label><input type="text" name="referencia">
+        <div class="section">
+            <h3>Detalles del Monto</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="tipo_pago">Tipo de Pago</label>
+                    <select id="tipo_pago" name="tipo_pago" required>
+                        {% set inscripcion_total = cliente.inscripcion_monto|float if cliente.inscripcion_monto else 0 %}
+                        {% set inscripcion_pagada = cliente.inscripcion_pagada|float if cliente.inscripcion_pagada else 0 %}
+                        
+                        {% if inscripcion_pagada < inscripcion_total %}
+                            <option value="Inscripción">Inscripción</option>
+                        {% else %}
+                            <option value="Cuota">Cuota</option>
+                        {% endif %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="monto_usd">Monto del Pago (USD)</label>
+                    <input type="number" id="monto_usd" step="0.01" name="monto" required>
+                </div>
+                <div class="form-group">
+                    <label for="tasa_dia">Tasa del Día (BCV)</label>
+                    <input type="number" id="tasa_dia" step="0.01" name="tasa_dia">
+                </div>
+                <div class="form-group">
+                    <label for="monto_bs_calculado">Monto en Bs (Calculado)</label>
+                    <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" readonly>
+                </div>
             </div>
         </div>
 
-        <div class="form-grid" style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">
-             <div class="full-width">
-                <label>Por Concepto de:</label>
-                <textarea name="por_concepto_de" rows="3" required></textarea>
-            </div>
-            <div>
-                <label>Fecha de Pago:</label>
-                <input type="date" name="fecha_pago" required>
-            </div>
-            <div>
-                 <label>Lugar de Emisión:</label>
-                 <select name="lugar_emision" required>
-                    <option value="Acarigua">Acarigua</option>
-                    <option value="Barquisimeto">Barquisimeto</option>
-                 </select>
+        <div class="section">
+            <h3>Información del Pago</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="forma_pago">Forma de Pago</label>
+                    <select id="forma_pago" name="forma_pago" required>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Pago Móvil">Pago Móvil</option>
+                        <option value="Zelle">Zelle</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="pago_en">Pago en</label>
+                    <select id="pago_en" name="pago_en" required>
+                        <option value="Divisas">Divisas</option>
+                        <option value="Bolívares">Bolívares</option>
+                        <option value="USDT">USDT</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="banco">Banco</label>
+                    <input type="text" id="banco" name="banco">
+                </div>
+                <div class="form-group">
+                    <label for="referencia">Referencia</label>
+                    <input type="text" id="referencia" name="referencia">
+                </div>
+                <div class="form-group">
+                    <label for="fecha_pago">Fecha de Pago</label>
+                    <input type="date" id="fecha_pago" name="fecha_pago" required>
+                </div>
+                <div class="form-group">
+                     <label for="lugar_emision">Lugar de Emisión</label>
+                     <select id="lugar_emision" name="lugar_emision" required>
+                        <option value="Acarigua">Acarigua</option>
+                        <option value="Barquisimeto">Barquisimeto</option>
+                     </select>
+                </div>
+                <div class="form-group full-width">
+                    <label for="por_concepto_de">Por Concepto de</label>
+                    <textarea id="por_concepto_de" name="por_concepto_de" rows="3" required></textarea>
+                </div>
             </div>
         </div>
 
