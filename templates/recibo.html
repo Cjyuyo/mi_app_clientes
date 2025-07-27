@@ -119,12 +119,28 @@
         .btn-anular { background-color: #dc3545; }
         .btn-volver { background-color: #007bff; }
         .btn-imprimir { background-color: #6c757d; }
+
+        /* --- INICIO DE AJUSTES PARA IMPRESIÓN --- */
         @media print {
-            body { background-color: #fff; padding: 0; }
-            .container { box-shadow: none; border: none; border-radius: 0; }
+            body { background-color: #fff; padding: 0; margin: 0; font-size: 12px; }
+            .container { box-shadow: none; border: none; border-radius: 0; width: 100%; max-width: 100%; }
             .actions-section { display: none; }
-            .receipt-header { background-color: #0056b3 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .receipt-header { background-color: #0056b3 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 20px; }
+            .header-info h1 { font-size: 22px; }
+            .receipt-id p { font-size: 18px; }
+            .receipt-body { padding: 20px; }
+            .section { margin-bottom: 15px; }
+            .section h3 { font-size: 13px; padding-bottom: 5px; margin-bottom: 10px; }
+            .info-grid { gap: 10px; }
+            .info-item { padding: 10px; }
+            .info-item .label { font-size: 11px; }
+            .info-item .value { font-size: 13px; }
+            .info-item .value.amount { font-size: 15px; }
+            .qr-section { padding: 15px; }
+            .qr-section img { width: 90px; height: 90px; }
+            .qr-section p { font-size: 10px; margin-top: 5px; }
         }
+        /* --- FIN DE AJUSTES PARA IMPRESIÓN --- */
     </style>
 </head>
 <body>
