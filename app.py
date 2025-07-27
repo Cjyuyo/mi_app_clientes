@@ -28,16 +28,13 @@ def close_db(exception):
     if db is not None:
         db.close()
 
-# --- FUNCIÓN PARA OBTENER MESES EN ESPAÑOL (SOLUCIÓN DEFINITIVA) ---
 def get_nombre_mes(month_number):
-    """Devuelve el nombre del mes en español a partir de su número."""
     meses = {
         1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
         7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
     }
     return meses.get(month_number, "")
 
-# --- LÓGICA DE CICLO DE PAGO Y FECHAS ---
 def get_feriados_venezuela(year):
     return [
         datetime(year, 1, 1).date(), datetime(year, 4, 19).date(), datetime(year, 5, 1).date(),
@@ -61,21 +58,34 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
             feriados = get_feriados_venezuela(vencimiento.year)
     return vencimiento
 
-# --- RUTAS DE LA APLICACIÓN (PANEL DE ADMINISTRACIÓN) ---
+# --- RUTAS DE NAVEGACIÓN PRINCIPAL ---
 @app.route('/')
-def index():
+def home():
+    """La ruta raíz ahora redirige al nuevo menú principal."""
+    return redirect(url_for('hub'))
+
+@app.route('/hub')
+def hub():
+    """Muestra el nuevo menú principal de administración."""
+    return render_template('hub.html')
+
+@app.route('/registrar')
+def registrar():
+    """Muestra el formulario para registrar un nuevo cliente."""
     return render_template('index.html')
 
+
+# --- RUTAS DE LA APLICACIÓN (PANEL DE ADMINISTRACIÓN) ---
 @app.route('/registrar_cliente', methods=['POST'])
 def registrar_cliente():
     form_data = {k: v if v else None for k, v in request.form.items()}
     if not form_data.get('nombre_apellido') or not form_data.get('cedula'):
         flash("Error: Nombre y Cédula son campos obligatorios.", 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('registrar'))
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('registrar'))
     try:
         with conn.cursor() as cur:
             query = """
@@ -98,7 +108,7 @@ def registrar_cliente():
     except (psycopg2.Error, ValueError) as e:
         conn.rollback()
         flash(f"Registro fallido: Ocurrió un error de base de datos: {e}", 'error')
-    return redirect(url_for('index'))
+    return redirect(url_for('registrar'))
 
 @app.route('/consulta', methods=['GET', 'POST'])
 def consulta():
@@ -213,7 +223,7 @@ def conciliar_pago(pago_id):
 
             monto_pagado = Decimal(pago['monto'])
             
-            puntualidad = 'Puntual' # Valor por defecto
+            puntualidad = 'Puntual'
             if pago['tipo_pago'] == 'Cuota':
                 fecha_vencimiento = get_fecha_vencimiento_ajustada(pago['fecha_pago'])
                 if pago['fecha_pago'] > fecha_vencimiento:
@@ -260,7 +270,6 @@ def conciliar_pago(pago_id):
                 cuotas_regresivas_actuales = cliente['cuotas_pagadas_regresivas'] or 0
                 
                 nuevas_cuotas_regresivas = cuotas_regresivas_actuales
-
                 monto_necesario_progresiva = valor_cuota - balance_regresivo_actual
                 nuevas_cuotas_progresivas = cuotas_progresivas_actuales
                 nuevo_balance_regresivo = balance_regresivo_actual
@@ -288,12 +297,10 @@ def conciliar_pago(pago_id):
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
-# --- FUNCIÓN ver_recibo ACTUALIZADA ---
 @app.route('/recibo/<int:pago_id>')
 def ver_recibo(pago_id):
     conn = get_db()
     if not conn: 
-        # Si no hay conexión, redirige a la consulta (para admin) o al login (para cliente)
         if 'cliente_id' in session:
             return redirect(url_for('portal_login'))
         return redirect(url_for('consulta'))
@@ -318,9 +325,6 @@ def ver_recibo(pago_id):
             return redirect(url_for('portal_dashboard'))
         return redirect(url_for('consulta'))
     
-    # --- LÍNEA CLAVE ---
-    # Determinamos si la vista es de un administrador. 
-    # Si 'cliente_id' NO está en la sesión, asumimos que es un admin.
     is_admin_view = 'cliente_id' not in session
     
     return render_template('recibo.html', pago=pago, is_admin_view=is_admin_view)
@@ -329,7 +333,11 @@ def ver_recibo(pago_id):
 @app.route('/recibo_inscripcion/<int:pago_id>')
 def ver_recibo_inscripcion(pago_id):
     conn = get_db()
-    if not conn: return redirect(url_for('consulta'))
+    if not conn:
+        if 'cliente_id' in session:
+            return redirect(url_for('portal_login'))
+        return redirect(url_for('consulta'))
+
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         query = """
             SELECT p.*, c.nombre_apellido, c.cedula, c.plan_contratado
@@ -338,11 +346,16 @@ def ver_recibo_inscripcion(pago_id):
         """
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
+
     if not pago:
         flash('Recibo de inscripción final no encontrado.', 'error')
+        if 'cliente_id' in session:
+            return redirect(url_for('portal_dashboard'))
         return redirect(url_for('consulta'))
     
-    return render_template('recibo_inscripcion.html', pago=pago, cliente=pago)
+    is_admin_view = 'cliente_id' not in session
+    
+    return render_template('recibo_inscripcion.html', pago=pago, cliente=pago, is_admin_view=is_admin_view)
 
 @app.route('/anular_recibo/<int:pago_id>', methods=['POST'])
 def anular_recibo(pago_id):
@@ -794,4 +807,4 @@ def portal_logout():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=Tr
