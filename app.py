@@ -78,7 +78,7 @@ def hub():
 @app.route('/registrar')
 def registrar():
     """Muestra el formulario para registrar un nuevo cliente."""
-    # CAMBIO: Volvemos a usar el nombre original 'registrar.html'
+    # Apunta al nombre de archivo correcto y estable.
     return render_template('registrar.html')
 
 
