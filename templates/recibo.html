@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comprobante de Ingreso N° {{ pago.id }}</title>
+    <title>Recibo de Pago N° {{ pago.id }}</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -15,96 +15,67 @@
             max-width: 800px;
             margin: auto;
             background: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            overflow: hidden;
+            border: 1px solid #ddd;
         }
         .receipt-header {
             background-color: #0056b3;
             color: white;
-            padding: 30px;
+            padding: 20px 40px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .header-info h1 {
-            margin: 0;
-            font-size: 28px;
-            font-weight: 700;
+        .receipt-header h1 { margin: 0; font-size: 28px; }
+        .receipt-header .company-info p { margin: 0; text-align: right; font-size: 14px; }
+        .receipt-body { padding: 30px 40px; }
+        .receipt-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
         }
-        .header-info p {
-            margin: 5px 0 0;
-            font-size: 14px;
-            opacity: 0.9;
+        .receipt-info div { font-size: 14px; }
+        .receipt-info .label { color: #606770; }
+        .receipt-info .value { font-weight: bold; }
+        .payment-details {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
         }
-        .receipt-id {
+        .payment-details th, .payment-details td {
+            padding: 12px;
+            border-bottom: 1px solid #dddfe2;
+            text-align: left;
+        }
+        .payment-details thead th {
+            background-color: #f7f8fa;
+            font-weight: 600;
+            color: #606770;
+        }
+        .total-section {
+            margin-top: 20px;
             text-align: right;
         }
-        .receipt-id h2 {
-            margin: 0;
-            font-size: 16px;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .receipt-id p {
-            margin: 5px 0 0;
-            font-size: 24px;
-            font-weight: 700;
-        }
-        .receipt-body {
-            padding: 30px;
-        }
-        .section {
-            margin-bottom: 30px;
-        }
-        .section h3 {
-            font-size: 16px;
+        .total-section .total-amount { font-size: 24px; font-weight: bold; color: #0056b3; }
+        .total-section .total-label { font-size: 16px; color: #606770; }
+        .footer-notes {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #dddfe2;
+            font-size: 12px;
             color: #606770;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid #dddfe2;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-        }
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
-        }
-        .info-item {
-            background-color: #f7f8fa;
-            padding: 15px;
-            border-radius: 6px;
-        }
-        .info-item .label {
-            font-size: 13px;
-            color: #606770;
-            display: block;
-            margin-bottom: 5px;
-        }
-        .info-item .value {
-            font-size: 16px;
-            font-weight: 600;
-            color: #1c1e21;
-        }
-        .info-item .value.amount {
-            font-size: 20px;
-            font-weight: 700;
-            color: #28a745;
-        }
-        .qr-section {
             text-align: center;
-            padding: 20px;
-            background-color: #f7f8fa;
         }
         .actions-section {
             text-align: center;
             padding: 20px;
             background-color: #f5f6f7;
             border-top: 1px solid #dddfe2;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
         }
-        .actions-section button, .actions-section a {
+        .btn {
             display: inline-block;
             text-decoration: none;
             color: white !important;
@@ -114,115 +85,90 @@
             cursor: pointer;
             font-size: 16px;
             font-weight: bold;
-            margin: 5px;
         }
+        .btn-imprimir { background-color: #007bff; }
+        .btn-volver { background-color: #6c757d; }
         .btn-anular { background-color: #dc3545; }
-        .btn-volver { background-color: #007bff; }
-        .btn-imprimir { background-color: #6c757d; }
-
-        /* --- INICIO DE AJUSTES PARA IMPRESIÓN --- */
+        
         @media print {
-            body { background-color: #fff; padding: 0; margin: 0; font-size: 12px; }
-            .container { box-shadow: none; border: none; border-radius: 0; width: 100%; max-width: 100%; }
+            body { background-color: #fff; padding: 0; }
+            .container { box-shadow: none; border: none; }
             .actions-section { display: none; }
-            .receipt-header { background-color: #0056b3 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 20px; }
-            .header-info h1 { font-size: 22px; }
-            .receipt-id p { font-size: 18px; }
-            .receipt-body { padding: 20px; }
-            .section { margin-bottom: 15px; }
-            .section h3 { font-size: 13px; padding-bottom: 5px; margin-bottom: 10px; }
-            .info-grid { gap: 10px; }
-            .info-item { padding: 10px; }
-            .info-item .label { font-size: 11px; }
-            .info-item .value { font-size: 13px; }
-            .info-item .value.amount { font-size: 15px; }
-            .qr-section { padding: 15px; }
-            .qr-section img { width: 90px; height: 90px; }
-            .qr-section p { font-size: 10px; margin-top: 5px; }
+            .receipt-header { background-color: #0056b3 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
-        /* --- FIN DE AJUSTES PARA IMPRESIÓN --- */
     </style>
 </head>
 <body>
     <div class="container">
         <div class="receipt-header">
-            <div class="header-info">
-                <h1>MOTO PLAN MOTORS C.A</h1>
-                <p>R.I.F.: J-50408559-1</p>
-            </div>
-            <div class="receipt-id">
-                <h2>Comprobante de Ingreso</h2>
-                <p>N° {{ pago.id }}</p>
+            <h1>Recibo de Pago</h1>
+            <div class="company-info">
+                <p><strong>Moto Plan Motors C.A.</strong></p>
+                <p>RIF: J-XXXXXXX-X</p>
             </div>
         </div>
-
         <div class="receipt-body">
-            <div class="section">
-                <h3>Cliente</h3>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <span class="label">Hemos Recibido de</span>
-                        <span class="value">{{ pago.nombre_apellido }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="label">C.I. o R.I.F.</span>
-                        <span class="value">{{ pago.cedula or 'N/A' }}</span>
-                    </div>
+            <div class="receipt-info">
+                <div>
+                    <p class="label">Cliente:</p>
+                    <p class="value">{{ pago.nombre_apellido }}</p>
+                </div>
+                <div>
+                    <p class="label">Cédula:</p>
+                    <p class="value">{{ pago.cedula }}</p>
+                </div>
+                <div>
+                    <p class="label">Fecha de Pago:</p>
+                    <p class="value">{{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }}</p>
+                </div>
+                <div>
+                    <p class="label">Recibo N°:</p>
+                    <p class="value">{{ pago.id }}</p>
                 </div>
             </div>
 
-            <div class="section">
-                <h3>Detalles del Pago</h3>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <span class="label">Monto Pagado (USD)</span>
-                        <span class="value amount">${{ "%.2f"|format(pago.monto) }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="label">Forma de Pago</span>
-                        <span class="value">{{ pago.forma_pago }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="label">Referencia / Banco</span>
-                        <span class="value">{{ pago.referencia or 'N/A' }} / {{ pago.banco or 'N/A' }}</span>
-                    </div>
-                     <div class="info-item">
-                        <span class="label">Por Concepto de</span>
-                        <span class="value">{{ pago.por_concepto_de }}</span>
-                    </div>
-                </div>
+            <table class="payment-details">
+                <thead>
+                    <tr>
+                        <th>Concepto</th>
+                        <th>Forma de Pago</th>
+                        <th>Referencia</th>
+                        <th>Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ pago.por_concepto_de or pago.tipo_pago }}</td>
+                        <td>{{ pago.forma_pago }}</td>
+                        <td>{{ pago.referencia or 'N/A' }}</td>
+                        <td style="font-weight: bold;">${{ "%.2f"|format(pago.monto) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="total-section">
+                <p class="total-label">Total Pagado:</p>
+                <p class="total-amount">${{ "%.2f"|format(pago.monto) }}</p>
             </div>
 
-            <div class="section">
-                <h3>Estado de Cuenta Actualizado</h3>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <span class="label">Cuotas Pagadas (Progresivas)</span>
-                        <span class="value">{{ pago.cuotas_pagadas_progresivas or 0 }} de {{ pago.cuotas_totales or 'N/A' }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="label">Cuotas Pagadas (Regresivas)</span>
-                        <span class="value">{{ pago.cuotas_pagadas_regresivas or 0 }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="label">Balance a Favor</span>
-                        <span class="value">${{ "%.2f"|format(pago.balance_regresivo) }} de ${{ "%.2f"|format(pago.valor_cuota) }}</span>
-                    </div>
-                </div>
+            <div class="footer-notes">
+                <p>Este es un comprobante de pago generado por el sistema. Para cualquier consulta, por favor contacte a nuestro departamento de atención al cliente.</p>
+                <p><strong>Moto Plan Motors C.A.</strong></p>
             </div>
-        </div>
-
-        <div class="qr-section">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('verificar_recibo', pago_id=pago.id, _external=True) }}&size=120x120&q=M" alt="Código QR de Verificación">
-            <p style="font-size: 12px; color: #606770; margin-top: 10px;">Escanee para verificar la validez de este recibo</p>
         </div>
 
         <div class="actions-section">
-            <button class="btn-imprimir" onclick="window.print()">Imprimir / Guardar PDF</button>
-            <a href="{{ url_for('consulta', busqueda=pago.cedula) }}" class="btn-volver">Volver a Consulta</a>
-            {% if pago.estado_pago != 'Anulado' %}
-            <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo? Esta acción revertirá el pago y el estado de cuenta del cliente.');">
-                <button type="submit" class="btn-anular">Anular Recibo</button>
+            <button class="btn btn-imprimir" onclick="window.print()">Imprimir / Guardar PDF</button>
+
+            {% if is_admin_view %}
+                <a href="{{ url_for('consulta') }}" class="btn btn-volver">Volver a Consulta</a>
+            {% else %}
+                <a href="{{ url_for('portal_dashboard') }}" class="btn btn-volver">Volver al Portal</a>
+            {% endif %}
+
+            {% if is_admin_view %}
+            <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Está seguro de que desea anular este recibo? Esta acción es irreversible.');">
+                <button type="submit" class="btn btn-anular">Anular Recibo</button>
             </form>
             {% endif %}
         </div>
