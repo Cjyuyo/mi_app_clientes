@@ -5,6 +5,17 @@ from flask import Flask, render_template, request, g, flash, redirect, url_for, 
 from dotenv import load_dotenv
 from decimal import Decimal
 from datetime import datetime, timedelta
+import locale
+
+# --- Configuración Regional para Fechas en Español ---
+try:
+    locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
+except locale.Error:
+    try:
+        locale.setlocale(locale.LC_TIME, 'Spanish_Spain.1252')
+    except locale.Error:
+        print("Advertencia: No se pudo configurar el locale a español. Los meses podrían aparecer en inglés.")
+
 
 load_dotenv()
 app = Flask(__name__)
@@ -441,7 +452,6 @@ def ver_recibo_anulado(pago_id):
         return redirect(url_for('consulta'))
     return render_template('recibo_anulado.html', pago=pago)
 
-# --- RUTA EDIT_CLIENT (CORREGIDA) ---
 @app.route('/edit/<int:client_id>', methods=['GET', 'POST'])
 def edit_client(client_id):
     conn = get_db()
@@ -500,10 +510,8 @@ def delete_client(client_id):
         flash(f'Ocurrió un error al eliminar: {e}', 'error')
     return redirect(url_for('consulta'))
 
-# --- RUTAS PARA GESTIÓN DE OFERTAS ---
 @app.route('/registrar_oferta/<int:client_id>', methods=['GET'])
 def registrar_oferta(client_id):
-    """Muestra el formulario para registrar una nueva oferta para un cliente."""
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
@@ -522,7 +530,6 @@ def registrar_oferta(client_id):
 
 @app.route('/guardar_oferta/<int:client_id>', methods=['POST'])
 def guardar_oferta(client_id):
-    """Guarda una nueva oferta en la base de datos tras validar la puntualidad del cliente."""
     conn = get_db()
     cuotas_ofertadas = request.form.get('cuotas_ofertadas')
     cedula_cliente = ''
@@ -629,7 +636,7 @@ def portal_dashboard():
         
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            # Obtener todos los datos del cliente
+            # 1. Obtener todos los datos del cliente
             cur.execute("SELECT * FROM clientes WHERE id = %s;", (session['cliente_id'],))
             cliente = cur.fetchone()
             
@@ -638,17 +645,39 @@ def portal_dashboard():
                 flash('No se encontró su información de cliente.', 'error')
                 return redirect(url_for('portal_login'))
 
-            # Convertir a un diccionario mutable
             cliente_dict = dict(cliente)
 
-            # Obtener el historial de pagos del cliente
+            # 2. Obtener el historial de pagos del cliente
             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC;", (session['cliente_id'],))
             pagos = cur.fetchall()
-            
-            # Añadir los pagos al diccionario del cliente
             cliente_dict['pagos'] = pagos
+
+            # 3. Calcular el estado de la cuota actual
+            hoy = datetime.now().date()
+            dia_de_vencimiento = 3
             
-            return render_template('portal_dashboard.html', cliente=cliente_dict)
+            # Lógica para determinar si el cliente ya pagó este mes
+            pago_del_mes_realizado = False
+            for pago in pagos:
+                if pago['tipo_pago'] == 'Cuota' and pago['fecha_pago'].year == hoy.year and pago['fecha_pago'].month == hoy.month:
+                    pago_del_mes_realizado = True
+                    break
+
+            estado_cuota = {}
+            if pago_del_mes_realizado:
+                estado_cuota['estado'] = 'Pagada'
+                estado_cuota['mes'] = hoy.strftime('%B').capitalize()
+                estado_cuota['mensaje'] = 'Tu cuota de este mes ya fue procesada.'
+            elif hoy.day <= dia_de_vencimiento:
+                estado_cuota['estado'] = 'Vigente'
+                estado_cuota['mes'] = hoy.strftime('%B').capitalize()
+                estado_cuota['fecha_vencimiento'] = f"{dia_de_vencimiento:02d}/{hoy.month:02d}/{hoy.year}"
+            else:
+                estado_cuota['estado'] = 'En Mora'
+                estado_cuota['mes'] = hoy.strftime('%B').capitalize()
+                estado_cuota['fecha_vencimiento'] = f"{dia_de_vencimiento:02d}/{hoy.month:02d}/{hoy.year}"
+
+            return render_template('portal_dashboard.html', cliente=cliente_dict, cuota_status=estado_cuota)
 
     except psycopg2.Error as e:
         flash(f'Ocurrió un error al cargar su información: {e}', 'error')
