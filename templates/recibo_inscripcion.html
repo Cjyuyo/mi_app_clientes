@@ -21,9 +21,12 @@
             background-color: #28a745; /* Color verde para inscripción */
             color: white;
             padding: 20px 40px;
-            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .receipt-header h1 { margin: 0; font-size: 28px; }
+        .receipt-header .company-info p { margin: 0; text-align: right; font-size: 14px; }
         .receipt-body { padding: 30px 40px; }
         .receipt-info {
             display: flex;
@@ -84,6 +87,10 @@
     <div class="container">
         <div class="receipt-header">
             <h1>¡Inscripción Completada!</h1>
+            <div class="company-info">
+                <p><strong>Moto Plan Motors C.A.</strong></p>
+                <p>RIF: J-50162441-5</p>
+            </div>
         </div>
         <div class="receipt-body">
             <div class="receipt-info">
@@ -118,14 +125,12 @@
         <div class="actions-section">
             <button class="btn btn-imprimir" onclick="window.print()">Imprimir / Guardar PDF</button>
 
-            <!-- Lógica Condicional para el botón "Volver" -->
             {% if is_admin_view %}
                 <a href="{{ url_for('consulta') }}" class="btn btn-volver">Volver a Consulta</a>
             {% else %}
                 <a href="{{ url_for('portal_dashboard') }}" class="btn btn-volver">Volver al Portal</a>
             {% endif %}
 
-            <!-- Lógica Condicional para el botón "Anular" (Solo para Admin) -->
             {% if is_admin_view %}
             <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Está seguro de que desea anular este recibo? Esta acción es irreversible y reiniciará el proceso de inscripción del cliente.');">
                 <button type="submit" class="btn btn-anular">Anular Recibo</button>
