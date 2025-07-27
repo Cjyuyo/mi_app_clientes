@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -51,7 +52,7 @@
         .puntualidad-Puntual { background-color: #d4edda; color: #155724; }
         .puntualidad-Impuntual { background-color: #f8d7da; color: #721c24; }
         .client-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 15px 20px; background-color: #f5f6f7; border-top: 1px solid #dddfe2; }
-        .btn { text-decoration: none; color: white !important; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: bold; }
+        .btn { text-decoration: none; color: white !important; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; }
         .btn-primary { background-color: #28a745; }
         .btn-warning { background-color: #ffc107; color: #212529 !important; }
         .btn-danger { background-color: #dc3545; }
@@ -138,9 +139,6 @@
                         <span class="progress-label-detail">Restantes: {{ cuotas_totales - cuotas_pagadas_total }}</span>
                         <span class="progress-label-detail">Total: {{ cuotas_totales }}</span>
                     </div>
-                     <div class="progress-label" style="justify-content: center;">
-                        <span class="progress-label-detail">({{ cuotas_progresivas }} prog. + {{ cuotas_regresivas }} regr.)</span>
-                    </div>
                 </div>
 
                 {% set balance = cliente.balance_regresivo|float or 0.0 %}
@@ -148,8 +146,8 @@
                 {% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
                 
                 <div class="detail-item progress-item">
-                    {% set cuota_objetivo = cuotas_totales - cuotas_regresivas %}
-                    <span class="label">Saldo a Favor (Abono a la cuota regresiva N° {{ cuota_objetivo }})</span>
+                    {% set cuota_objetivo = cuotas_progresivas + 1 %}
+                    <span class="label">Saldo a Favor (Abono a la cuota progresiva N° {{ cuota_objetivo }})</span>
                      <div class="progress-bar-container">
                         <div class="progress-bar progress-bar-secondary" style="width: {{ progreso_cuota_actual }}%;">
                             {{ "%.0f"|format(progreso_cuota_actual) }}%
