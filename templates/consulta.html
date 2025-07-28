@@ -108,7 +108,7 @@
         {% for cliente in clientes %}
         <div class="client-card">
             <div class="client-header">
-                <h2>{{ cliente.nombre_apellido }}</h2>
+                <h2>{{ cliente.nombre }} {{ cliente.apellido }}</h2>
                 <span class="proceso {{ cliente.proceso.lower() if cliente.proceso else '' }}">{{ cliente.proceso or 'N/A' }}</span>
             </div>
             
@@ -119,11 +119,11 @@
                 </div>
                 <div class="detail-item">
                     <span class="label">Contrato</span>
-                    <span class="value">{{ cliente.contrato_nro or 'N/A' }}</span>
+                    <span class="value">{{ cliente.numero_contrato or 'N/A' }}</span>
                 </div>
                 <div class="detail-item">
                     <span class="label">Teléfono</span>
-                    <span class="value">{{ cliente.telefono or 'N/A' }}</span>
+                    <span class="value">{{ cliente.numero_telefono or 'N/A' }}</span>
                 </div>
                  <div class="detail-item">
                     <span class="label">Asesor</span>
@@ -131,19 +131,16 @@
                 </div>
                 <div class="detail-item">
                     <span class="label">Inscripción</span>
-                    <span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span>
+                    <span class="value currency">${{ "%.2f"|format(cliente.inscripcion|float) if cliente.inscripcion is not none else '0.00' }}</span>
                 </div>
                 <div class="detail-item">
                     <span class="label">Retraso Entrega</span>
-                    <span class="value">{{ cliente.meses_retraso_entrega or 0 }} mes(es)</span>
+                    <span class="value">{{ cliente.cuotas_mora or 0 }} mes(es)</span>
                 </div>
 
-                <!-- INICIO: Bloque de progreso unificado -->
-                {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}
-                {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}
-                {% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}
+                {% set cuotas_pagadas = cliente.cuotas_pagas or 0 %}
                 {% set cuotas_totales = cliente.cuotas_totales or 0 %}
-                {% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                {% set progreso_total = (cuotas_pagadas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
 
                 <div class="detail-item progress-item">
                     <span class="label">Progreso Total del Plan</span>
@@ -153,32 +150,15 @@
                         </div>
                     </div>
                     <div class="progress-label">
-                        <span class="progress-label-detail">Pagadas: {{ cuotas_pagadas_total }}</span>
-                        <span class="progress-label-detail">Restantes: {{ cuotas_totales - cuotas_pagadas_total }}</span>
+                        <span class="progress-label-detail">Pagadas: {{ cuotas_pagadas }}</span>
+                        <span class="progress-label-detail">Restantes: {{ cuotas_totales - cuotas_pagadas }}</span>
                         <span class="progress-label-detail">Total: {{ cuotas_totales }}</span>
                     </div>
                 </div>
 
-                {% set balance = cliente.balance_regresivo|float or 0.0 %}
                 {% set valor_cuota = cliente.valor_cuota|float or 0.0 %}
-                {% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
                 
-                <div class="detail-item progress-item">
-                    {% set cuota_regresiva_objetivo = cuotas_totales - cuotas_regresivas %}
-                    <span class="label">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span>
-                     <div class="progress-bar-container">
-                        <div class="progress-bar progress-bar-secondary" style="width: {{ progreso_cuota_actual }}%;">
-                            {{ "%.0f"|format(progreso_cuota_actual) }}%
-                        </div>
-                    </div>
-                    <div class="progress-label">
-                        <span>Abonado: ${{ "%.2f"|format(balance) }}</span>
-                        <span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}</span>
-                        <span>Valor Cuota: ${{ "%.2f"|format(valor_cuota) }}</span>
-                    </div>
                 </div>
-                <!-- FIN: Bloque de progreso unificado -->
-            </div>
 
             {% if cliente.pagos %}
             <div class="payment-history">
