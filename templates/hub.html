@@ -78,6 +78,7 @@
     </div>
 
     <div class="container my-5">
+        <!-- CAMBIO: Se ajusta la clase de la fila para un mejor espaciado -->
         <div class="row g-4 justify-content-center">
             <!-- Tarjeta para Registrar Cliente -->
             <div class="col-lg-4 col-md-6">
@@ -103,7 +104,7 @@
                 </div>
             </div>
 
-            <!-- CAMBIO: Nueva tarjeta para el Sistema de Adjudicación -->
+            <!-- Tarjeta para el Sistema de Adjudicación -->
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
                     <div>
@@ -112,6 +113,18 @@
                         <p>Inicia el proceso de adjudicación mensual y consulta el historial de ganadores.</p>
                     </div>
                     <a href="{{ url_for('adjudicacion') }}" class="btn btn-success">Adjudicar</a>
+                </div>
+            </div>
+            
+            <!-- CAMBIO: Se reincorpora la tarjeta del Portal de Clientes -->
+            <div class="col-lg-4 col-md-6">
+                <div class="hub-card">
+                    <div>
+                        <div class="icon"><i class="bi bi-box-arrow-in-right"></i></div>
+                        <h3>Portal de Clientes</h3>
+                        <p>Accede a la página de inicio de sesión del portal del cliente.</p>
+                    </div>
+                    <a href="{{ url_for('portal_login') }}" class="btn btn-secondary">Ir al Portal</a>
                 </div>
             </div>
         </div>
