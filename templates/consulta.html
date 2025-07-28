@@ -108,22 +108,34 @@
         {% for cliente in clientes %}
         <div class="client-card">
             <div class="client-header">
-                <h2>{{ cliente.nombre }} {{ cliente.apellido }}</h2>
+                <h2>{{ cliente.nombre_apellido }}</h2>
                 <span class="proceso {{ cliente.proceso.lower() if cliente.proceso else '' }}">{{ cliente.proceso or 'N/A' }}</span>
             </div>
             
             <div class="client-details">
+                <div class="detail-item">
+                    <span class="label">Grupo</span>
+                    <span class="value">{{ cliente.grupo or 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Plan</span>
+                    <span class="value">{{ cliente.plan_contratado or 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Cuotas Pagadas</span>
+                    <span class="value">{{ cliente.cuotas_pagadas_progresivas or 0 }} de {{ cliente.cuotas_totales or 0 }}</span>
+                </div>
                 <div class="detail-item">
                     <span class="label">Cédula</span>
                     <span class="value">{{ cliente.cedula }}</span>
                 </div>
                 <div class="detail-item">
                     <span class="label">Contrato</span>
-                    <span class="value">{{ cliente.numero_contrato or 'N/A' }}</span>
+                    <span class="value">{{ cliente.contrato_nro or 'N/A' }}</span>
                 </div>
                 <div class="detail-item">
                     <span class="label">Teléfono</span>
-                    <span class="value">{{ cliente.numero_telefono or 'N/A' }}</span>
+                    <span class="value">{{ cliente.telefono or 'N/A' }}</span>
                 </div>
                  <div class="detail-item">
                     <span class="label">Asesor</span>
@@ -131,19 +143,14 @@
                 </div>
                 <div class="detail-item">
                     <span class="label">Inscripción</span>
-                    <span class="value currency">${{ "%.2f"|format(cliente.inscripcion|float) if cliente.inscripcion is not none else '0.00' }}</span>
+                    <span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span>
                 </div>
-                <div class="detail-item">
-                    <span class="label">Retraso Entrega</span>
-                    <span class="value">{{ cliente.cuotas_mora or 0 }} mes(es)</span>
-                </div>
-
-                {% set cuotas_pagadas = cliente.cuotas_pagas or 0 %}
+                {% set cuotas_pagadas = cliente.cuotas_pagadas_progresivas or 0 %}
                 {% set cuotas_totales = cliente.cuotas_totales or 0 %}
                 {% set progreso_total = (cuotas_pagadas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
 
                 <div class="detail-item progress-item">
-                    <span class="label">Progreso Total del Plan</span>
+                    <span class="label">Progreso del Plan</span>
                     <div class="progress-bar-container">
                         <div class="progress-bar" style="width: {{ progreso_total }}%;">
                             {{ "%.0f"|format(progreso_total) }}%
@@ -155,9 +162,6 @@
                         <span class="progress-label-detail">Total: {{ cuotas_totales }}</span>
                     </div>
                 </div>
-
-                {% set valor_cuota = cliente.valor_cuota|float or 0.0 %}
-                
                 </div>
 
             {% if cliente.pagos %}
