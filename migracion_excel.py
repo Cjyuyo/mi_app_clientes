@@ -117,19 +117,24 @@ def run_migration():
         """
         
         data_to_insert = []
-        # Helper functions for data conversion
-        def to_date(date_str):
-            try: return pd.to_datetime(date_str, dayfirst=True, errors='coerce').date() if pd.notna(date_str) else None
-            except Exception: return None
+        
+        # FIX: More robust date conversion function
+        def to_date(date_val):
+            if pd.isna(date_val): return None
+            # Convert to datetime, coercing errors to NaT
+            dt = pd.to_datetime(date_val, errors='coerce')
+            # If conversion results in NaT, return None for SQL NULL
+            if pd.isna(dt): return None
+            return dt.date()
 
         def to_numeric(val):
-            try: return pd.to_numeric(val, errors='coerce') if pd.notna(val) else None
-            except Exception: return None
+            if pd.isna(val): return None
+            try: return pd.to_numeric(val)
+            except (ValueError, TypeError): return None
 
-        # FIX: New function to safely convert to Integer
         def to_integer(val):
             if pd.isna(val): return None
-            try: return int(pd.to_numeric(val, errors='coerce'))
+            try: return int(pd.to_numeric(val))
             except (ValueError, TypeError): return None
 
         for _, row in df.iterrows():
@@ -142,18 +147,17 @@ def run_migration():
                 str(row.get('n⁰ cedula', '')).split('.')[0], nombre, apellido,
                 row.get('grupo'), row.get('plan'), row.get('moneda de pago'),
                 row.get('asesor'), row.get('responsable'), str(row.get('n⁰ contrato')),
-                row.get('proceso'), row.get('estatus'), to_date(row.get('fecha de ingreso')),
+                row.get('proceso'), row.get('estatus'), 
+                # Apply date fix here
+                to_date(row.get('fecha de ingreso')),
                 str(row.get('numero de tlf')), to_numeric(row.get('% inscripcion')),
-                to_numeric(row.get('inscripcion')), 
-                # Apply the integer conversion fix
-                to_integer(row.get('cuotas totales')), 
-                to_integer(row.get('cuotas pagas')),
-                row.get('estatus_pago'),
-                to_integer(row.get('pagos impuntuales')),
-                to_integer(row.get('cuotas en mora')),
+                to_numeric(row.get('inscripcion')), to_integer(row.get('cuotas totales')), 
+                to_integer(row.get('cuotas pagas')), row.get('estatus_pago'),
+                to_integer(row.get('pagos impuntuales')), to_integer(row.get('cuotas en mora')),
                 row.get('observación'), to_numeric(row.get('valor de cuota')),
-                to_date(row.get('fecha de pago')), row.get('estatus cuota'),
-                to_numeric(row.get('valor cancelado'))
+                # And apply date fix here
+                to_date(row.get('fecha de pago')), 
+                row.get('estatus cuota'), to_numeric(row.get('valor cancelado'))
             )
             data_to_insert.append(data_tuple)
 
