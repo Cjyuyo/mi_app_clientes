@@ -83,9 +83,15 @@ def registrar():
 def registrar_cliente():
     form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
     form_data = {k: v if v else None for k, v in form_data.items()}
-    if not form_data.get('nombre_apellido') or not form_data.get('cedula'):
+    
+    cedula = form_data.get('cedula')
+    if not form_data.get('nombre_apellido') or not cedula:
         flash("Error: Nombre y Cédula son campos obligatorios.", 'error')
         return redirect(url_for('registrar'))
+    
+    # Limpia la cédula antes de usarla
+    form_data['cedula'] = cedula.replace(' ', '')
+    
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
@@ -128,13 +134,13 @@ def consulta():
         else:
             try:
                 with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                    # CORRECCIÓN DEFINITIVA: Limpia espacios antes, después y dentro de la cédula.
-                    query_clientes = "SELECT * FROM clientes WHERE REPLACE(TRIM(cedula), ' ', '') = %s OR nombre_apellido ILIKE %s ORDER BY nombre_apellido LIMIT 20;"
+                    # CONSULTA CORREGIDA: Busca directamente en la columna 'cedula' (que ya está limpia)
+                    query_clientes = "SELECT * FROM clientes WHERE cedula = %s OR nombre_apellido ILIKE %s ORDER BY nombre_apellido LIMIT 20;"
                     
-                    cedula_limpia = termino_busqueda.replace(' ', '')
                     patron_nombre = f'%{termino_busqueda}%'
                     
-                    cur.execute(query_clientes, (cedula_limpia, patron_nombre))
+                    # Pasamos el término de búsqueda directamente para la cédula
+                    cur.execute(query_clientes, (termino_busqueda, patron_nombre))
                     
                     clientes_raw = cur.fetchall()
                     if not clientes_raw:
@@ -927,4 +933,3 @@ def portal_logout():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
-    

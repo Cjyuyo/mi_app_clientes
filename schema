@@ -2,67 +2,52 @@ import os
 import psycopg2
 from dotenv import load_dotenv
 
-def actualizar_base_de_datos():
+def crear_tablas():
     """
-    Se conecta a la base de datos de Render y añade las columnas necesarias
-    a las tablas si no existen. Este script es seguro para ejecutarse
-    múltiples veces sin causar problemas ni pérdida de datos.
+    Se conecta a la base de datos y crea todas las tablas necesarias
+    si no existen.
     """
     load_dotenv()
     DATABASE_URL = os.getenv('DATABASE_URL')
     if not DATABASE_URL:
-        print("ERROR: Asegúrate de que tu archivo .env contiene la variable DATABASE_URL.")
+        print("FATAL: La variable de entorno DATABASE_URL no está configurada en tu archivo .env")
         return
 
-    conn = None
-    try:
-        print("Conectando a la base de datos en Render...")
-        conn = psycopg2.connect(DATABASE_URL)
-        print("¡Conexión exitosa!")
-        
-        with conn.cursor() as cur:
-            # --- 1. Verificar y añadir 'inscripcion_pagada' a la tabla 'clientes' ---
-            print("\nVerificando la tabla 'clientes'...")
-            cur.execute("""
-                SELECT 1 FROM information_schema.columns 
-                WHERE table_name='clientes' AND column_name='inscripcion_pagada';
-            """)
-            if not cur.fetchone():
-                print("La columna 'inscripcion_pagada' no existe. Añadiéndola...")
-                cur.execute("ALTER TABLE clientes ADD COLUMN inscripcion_pagada NUMERIC(12, 2) DEFAULT 0.0;")
-                print("¡Columna 'inscripcion_pagada' añadida exitosamente!")
-            else:
-                print("La columna 'inscripcion_pagada' ya existe. No se necesita ninguna acción.")
+    # Comandos SQL para crear todas las tablas
+    SQL_COMMANDS = """
+    CREATE TABLE IF NOT EXISTS clientes (
+        id SERIAL PRIMARY KEY,
+        nombre_apellido TEXT NOT NULL,
+        cedula TEXT UNIQUE NOT NULL,
+        contrato_nro TEXT,
+        telefono TEXT,
+        asesor TEXT,
+        responsable TEXT,
+        fecha_ingreso DATE,
+        grupo TEXT,
+        bien_solicitado TEXT,
+        plan_contratado TEXT,
+        cuotas_totales INTEGER DEFAULT 0,
+        moneda_pago TEXT,
+        valor_cuota NUMERIC(12, 2) DEFAULT 0.00,
+        inscripcion_monto NUMERIC(12, 2) DEFAULT 0.00,
+        inscripcion_pagada NUMERIC(12, 2) DEFAULT 0.00,
+        proceso TEXT,
+        estatus TEXT,
+        estatus_1 TEXT,
+        valor_cancelado NUMERIC(12, 2),
+        observacion TEXT,
+        cuotas_pagadas_progresivas INTEGER DEFAULT 0,
+        cuotas_pagadas_regresivas INTEGER DEFAULT 0,
+        balance_regresivo NUMERIC(12, 2) DEFAULT 0.00,
+        meses_retraso_entrega INTEGER DEFAULT 0,
+        ignorar_penalidad_puntualidad BOOLEAN DEFAULT FALSE
+    );
 
-            # --- 2. Verificar y añadir 'tipo_pago' a la tabla 'pagos' ---
-            print("\nVerificando la tabla 'pagos'...")
-            cur.execute("""
-                SELECT 1 FROM information_schema.columns 
-                WHERE table_name='pagos' AND column_name='tipo_pago';
-            """)
-            if not cur.fetchone():
-                print("La columna 'tipo_pago' no existe. Añadiéndola...")
-                cur.execute("ALTER TABLE pagos ADD COLUMN tipo_pago TEXT;")
-                # Asignamos un valor por defecto a los pagos existentes para que la columna pueda ser NOT NULL
-                cur.execute("UPDATE pagos SET tipo_pago = 'Cuota' WHERE tipo_pago IS NULL;")
-                cur.execute("ALTER TABLE pagos ALTER COLUMN tipo_pago SET NOT NULL;")
-                print("¡Columna 'tipo_pago' añadida exitosamente!")
-            else:
-                print("La columna 'tipo_pago' ya existe. No se necesita ninguna acción.")
-
-            conn.commit()
-            print("\n¡La base de datos está actualizada!")
-
-    except psycopg2.Error as e:
-        print(f"\nERROR de base de datos: {e}")
-        if conn: conn.rollback()
-    except Exception as e:
-        print(f"\nERROR inesperado: {e}")
-        if conn: conn.rollback()
-    finally:
-        if conn:
-            conn.close()
-            print("Conexión a la base de datos cerrada.")
-
-if __name__ == '__main__':
-    actualizar_base_de_datos()
+    CREATE TABLE IF NOT EXISTS pagos (
+        id SERIAL PRIMARY KEY,
+        cliente_id INTEGER REFERENCES clientes(id) ON DELETE CASCADE,
+        monto NUMERIC(12, 2) NOT NULL,
+        tipo_pago TEXT NOT NULL,
+        forma_pago TEXT,
+        fecha
