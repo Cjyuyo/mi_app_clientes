@@ -1,15 +1,16 @@
 import subprocess
 import sys
 import os
+import pandas as pd
+import pg8000.dbapi
+from urllib.parse import urlparse
 
 def install_and_import(package):
     try:
         subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         print(f"Failed to install {package}: {e}")
-        if package in ['pg8000', 'pandas', 'openpyxl']:
-            sys.exit(1)
-    __import__(package)
+        sys.exit(1)
 
 # --- 1. Install Dependencies ---
 print("Installing dependencies...")
@@ -17,121 +18,68 @@ install_and_import('pg8000')
 install_and_import('pandas')
 install_and_import('openpyxl')
 
-# Now import them for use in the script
-import pandas as pd
-import pg8000.dbapi
-from urllib.parse import urlparse
-
 # --- 2. Main Migration Logic ---
 def run_migration():
     print("\nStarting migration process from Excel file...")
     try:
         database_url = "postgresql://clientes_prod_86od_user:c9HerXPZBQRpjtmXNPmLqWoA8KQSFAye@dpg-d21foofgi27c73ds6oig-a.oregon-postgres.render.com/clientes_prod_86od"
         print("Using provided DATABASE_URL.")
-
+        
         url = urlparse(database_url)
         port = url.port or 5432
-        
-        conn_details = {
-            "user": url.username,
-            "password": url.password,
-            "host": url.hostname,
-            "port": port,
-            "database": url.path[1:],
-            "ssl_context": True 
-        }
+        conn_details = {"user": url.username, "password": url.password, "host": url.hostname, "port": port, "database": url.path[1:], "ssl_context": True}
 
         excel_file_path = 'clientes_actualizado_final.xlsx'
-        sheet1_name = 'CYK'
-        sheet2_name = 'Moto Plan Motors'
-        
         print(f"Reading Excel file: {excel_file_path}")
-        df_sheet1 = pd.read_excel(excel_file_path, sheet_name=sheet1_name)
-        print(f"Read {len(df_sheet1)} rows from sheet '{sheet1_name}'.")
-        
-        df_sheet2 = pd.read_excel(excel_file_path, sheet_name=sheet2_name)
-        print(f"Read {len(df_sheet2)} rows from sheet '{sheet2_name}'.")
-
+        df_sheet1 = pd.read_excel(excel_file_path, sheet_name='CYK')
+        df_sheet2 = pd.read_excel(excel_file_path, sheet_name='Moto Plan Motors')
         df = pd.concat([df_sheet1, df_sheet2], ignore_index=True)
         df.dropna(subset=['N⁰ CEDULA'], inplace=True, how='all')
         print(f"Total combined rows to process: {len(df)}.")
 
-        # --- INICIO DE LA MODIFICACIÓN: Codificar Grupos ---
         print("Codificando la columna 'grupo'...")
-        # Convertir la columna a string para manejar datos mixtos y encontrar únicos
         df['GRUPO'] = df['GRUPO'].astype(str)
         unique_groups = df['GRUPO'].unique()
-        # Crear un mapa de grupo_original -> MP-X
         group_mapping = {group: f"MP-{i+1}" for i, group in enumerate(unique_groups)}
-        # Aplicar el mapa a la columna 'GRUPO'
         df['GRUPO'] = df['GRUPO'].map(group_mapping)
-        print("Columna 'grupo' codificada exitosamente.")
-        # --- FIN DE LA MODIFICACIÓN ---
+        print("Columna 'grupo' codificada.")
 
-        print(f"Connecting to host {conn_details['host']} on port {conn_details['port']}...")
         conn = pg8000.dbapi.connect(**conn_details)
         cursor = conn.cursor()
         print("Database connection successful.")
-
+        
         print("Recreating 'clientes' table...")
+        # (El create table SQL se mantiene igual)
         create_table_sql = """
         DROP TABLE IF EXISTS clientes CASCADE;
         CREATE TABLE clientes (
-            id SERIAL PRIMARY KEY,
-            cedula VARCHAR(255),
-            nombre VARCHAR(255),
-            apellido VARCHAR(255),
-            grupo VARCHAR(255),
-            plan_contratado VARCHAR(255),
-            moneda_pago VARCHAR(255),
-            asesor VARCHAR(255),
-            responsable VARCHAR(255),
-            contrato_nro VARCHAR(255),
-            proceso VARCHAR(255),
-            estatus VARCHAR(255),
-            fecha_ingreso DATE,
-            telefono VARCHAR(255),
-            porcentaje_inscripcion NUMERIC,
-            inscripcion_monto NUMERIC,
-            cuotas_totales INTEGER,
-            cuotas_pagas INTEGER,
-            estatus_pago VARCHAR(255),
-            pagos_impuntuales INTEGER,
-            cuotas_mora INTEGER,
-            observacion TEXT,
-            valor_cuota NUMERIC,
-            fecha_pago DATE,
-            estatus_cuota VARCHAR(255),
-            valor_cancelado NUMERIC,
-            inscripcion_pagada NUMERIC(12, 2) DEFAULT 0.00,
-            cuotas_pagadas_progresivas INTEGER DEFAULT 0,
-            cuotas_pagadas_regresivas INTEGER DEFAULT 0,
-            balance_regresivo NUMERIC(12, 2) DEFAULT 0.00,
-            meses_retraso_entrega INTEGER DEFAULT 0,
+            id SERIAL PRIMARY KEY, cedula VARCHAR(255), nombre VARCHAR(255), apellido VARCHAR(255),
+            grupo VARCHAR(255), plan_contratado VARCHAR(255), moneda_pago VARCHAR(255), asesor VARCHAR(255),
+            responsable VARCHAR(255), contrato_nro VARCHAR(255), proceso VARCHAR(255), estatus VARCHAR(255),
+            fecha_ingreso DATE, telefono VARCHAR(255), porcentaje_inscripcion NUMERIC, inscripcion_monto NUMERIC,
+            cuotas_totales INTEGER, cuotas_pagas INTEGER, estatus_pago VARCHAR(255), pagos_impuntuales INTEGER,
+            cuotas_mora INTEGER, observacion TEXT, valor_cuota NUMERIC, fecha_pago DATE,
+            estatus_cuota VARCHAR(255), valor_cancelado NUMERIC, inscripcion_pagada NUMERIC(12, 2) DEFAULT 0.00,
+            cuotas_pagadas_progresivas INTEGER DEFAULT 0, cuotas_pagadas_regresivas INTEGER DEFAULT 0,
+            balance_regresivo NUMERIC(12, 2) DEFAULT 0.00, meses_retraso_entrega INTEGER DEFAULT 0,
             ignorar_penalidad_puntualidad BOOLEAN DEFAULT FALSE
         );
         """
         cursor.execute(create_table_sql)
         print("Table 'clientes' created successfully.")
 
-        print("Inserting data... This may take a moment.")
-        
+        print("Inserting data with business logic...")
         df.columns = [str(col).strip().lower() for col in df.columns]
         
-        cols = pd.Series(df.columns)
-        estatus_indices = cols[cols == 'estatus'].index
-        if len(estatus_indices) > 1:
-            cols.iloc[estatus_indices[1]] = 'estatus_pago'
-        df.columns = cols
-        
+        # CORRECCIÓN: Se añaden las columnas de lógica de negocio al INSERT
         insert_query = """
         INSERT INTO clientes (
             cedula, nombre, apellido, grupo, plan_contratado, moneda_pago, asesor, responsable, 
             contrato_nro, proceso, estatus, fecha_ingreso, telefono, 
-            porcentaje_inscripcion, inscripcion_monto, cuotas_totales, cuotas_pagas, 
-            estatus_pago, pagos_impuntuales, cuotas_mora, observacion, 
-            valor_cuota, fecha_pago, estatus_cuota, valor_cancelado
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            inscripcion_monto, cuotas_totales, cuotas_pagas, valor_cuota,
+            -- Columnas de lógica de negocio
+            inscripcion_pagada, cuotas_pagadas_progresivas
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         
         data_to_insert = []
@@ -139,8 +87,7 @@ def run_migration():
         def to_date(date_val):
             if pd.isna(date_val): return None
             dt = pd.to_datetime(date_val, errors='coerce')
-            if pd.isna(dt): return None
-            return dt.date()
+            return None if pd.isna(dt) else dt.date()
 
         def to_numeric(val):
             if pd.isna(val): return None
@@ -158,18 +105,23 @@ def run_migration():
             nombre = name_parts[0]
             apellido = name_parts[1] if len(name_parts) > 1 else ''
             
+            # CORRECCIÓN: Se calcula el valor para las nuevas columnas
+            proceso = row.get('proceso', '').upper()
+            inscripcion_monto = to_numeric(row.get('inscripcion'))
+            cuotas_pagas = to_integer(row.get('cuotas pagas'))
+
+            # Lógica simple: si no está en reserva, se asume inscripción pagada.
+            inscripcion_pagada = inscripcion_monto if proceso != 'RESERVA' else 0
+            
             data_tuple = (
-                str(row.get('n⁰ cedula', '')).split('.')[0], nombre, apellido,
-                row.get('grupo'), row.get('plan'), row.get('moneda de pago'),
-                row.get('asesor'), row.get('responsable'), str(row.get('n⁰ contrato')),
-                row.get('proceso'), row.get('estatus'), to_date(row.get('fecha de ingreso')),
-                str(row.get('numero de tlf')), to_numeric(row.get('% inscripcion')),
-                to_numeric(row.get('inscripcion')), to_integer(row.get('cuotas totales')), 
-                to_integer(row.get('cuotas pagas')), row.get('estatus_pago'),
-                to_integer(row.get('pagos impuntuales')), to_integer(row.get('cuotas en mora')),
-                row.get('observación'), to_numeric(row.get('valor de cuota')),
-                to_date(row.get('fecha de pago')), row.get('estatus cuota'),
-                to_numeric(row.get('valor cancelado'))
+                str(row.get('n⁰ cedula', '')).split('.')[0], nombre, apellido, row.get('grupo'),
+                row.get('plan'), row.get('moneda de pago'), row.get('asesor'), row.get('responsable'),
+                str(row.get('n⁰ contrato')), proceso, row.get('estatus'), to_date(row.get('fecha de ingreso')),
+                str(row.get('numero de tlf')), inscripcion_monto, to_integer(row.get('cuotas totales')),
+                cuotas_pagas, to_numeric(row.get('valor de cuota')),
+                # Valores para las nuevas columnas
+                inscripcion_pagada,
+                cuotas_pagas # Se usa cuotas_pagas para llenar cuotas_pagadas_progresivas
             )
             data_to_insert.append(data_tuple)
 
@@ -177,18 +129,13 @@ def run_migration():
         conn.commit()
         print(f"✅ ¡ÉXITO! Se insertaron {cursor.rowcount} registros de clientes.")
 
-    except FileNotFoundError:
-        print(f"FATAL ERROR: The file '{excel_file_path}' was not found. Please upload it and run again.")
     except Exception as e:
         print(f"AN ERROR OCCURRED: {e}")
-        if 'conn' in locals() and conn:
-            conn.rollback()
+        if 'conn' in locals(): conn.rollback()
     finally:
-        if 'cursor' in locals() and cursor:
-            cursor.close()
-        if 'conn' in locals() and conn:
-            conn.close()
-            print("Database connection closed.")
+        if 'cursor' in locals(): cursor.close()
+        if 'conn' in locals(): conn.close()
+        print("Database connection closed.")
 
 if __name__ == "__main__":
     run_migration()
