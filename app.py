@@ -149,7 +149,6 @@ def consulta():
                 mensaje_error = f"Error al consultar la base de datos: {e}"
     return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda_raw)
 
-# ... (El resto del código hasta el portal_login permanece igual)
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 def registrar_pago(client_id):
     conn = get_db()
@@ -928,3 +927,4 @@ def portal_logout():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+    
