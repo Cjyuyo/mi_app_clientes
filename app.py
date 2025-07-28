@@ -137,14 +137,11 @@ def consulta():
         else:
             try:
                 with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                    # CORRECCIÓN FINAL: Seleccionamos la columna renombrada como 'inscripcion' para que la plantilla funcione
                     query_clientes = "SELECT *, inscripcion_monto AS inscripcion FROM clientes WHERE cedula ILIKE %s OR nombre ILIKE %s OR apellido ILIKE %s ORDER BY nombre, apellido LIMIT 20;"
-                    
                     patron_busqueda = f'%{termino_busqueda}%'
-                    
                     cur.execute(query_clientes, (patron_busqueda, patron_busqueda, patron_busqueda))
-                    
                     clientes_raw = cur.fetchall()
+                    
                     if not clientes_raw:
                         mensaje_error = "🚫 No se encontraron clientes que coincidan con su búsqueda."
                     else:
@@ -652,12 +649,13 @@ def adjudicacion():
                 ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;
             """)
             ofertas_activas = cur.fetchall()
+            
+            # CORRECCIÓN: Se elimina la columna 'ganadores_ahorro_ids' que no existe
             cur.execute("""
                 SELECT 
                     a.id, a.fecha_adjudicacion, 
                     (gs.nombre || ' ' || gs.apellido) as nombre_ganador_sorteo,
-                    (go.nombre || ' ' || go.apellido) as nombre_ganador_oferta,
-                    (SELECT array_agg((c.nombre || ' ' || c.apellido)) FROM unnest(a.ganadores_ahorro_ids) AS id_ahorro JOIN clientes c ON c.id = id_ahorro) as nombres_ganadores_ahorro
+                    (go.nombre || ' ' || go.apellido) as nombre_ganador_oferta
                 FROM adjudicaciones a
                 LEFT JOIN clientes gs ON a.ganador_sorteo_id = gs.id
                 LEFT JOIN clientes go ON a.ganador_oferta_id = go.id
@@ -727,10 +725,12 @@ def realizar_adjudicacion():
             cur.execute("UPDATE ofertas SET estado_oferta = 'perdida' WHERE estado_oferta = 'activa';")
             ganador_sorteo_id = None
             ganador_oferta_id = ganador_oferta['id'] if ganador_oferta else None
+            
+            # CORRECCIÓN: Se elimina 'ganadores_ahorro_ids' del INSERT
             cur.execute("""
-                INSERT INTO adjudicaciones (ganadores_ahorro_ids, ganador_oferta_id, ganador_sorteo_id)
-                VALUES (%s, %s, %s);
-            """, (ids_ganadores_ahorro, ganador_oferta_id, ganador_sorteo_id))
+                INSERT INTO adjudicaciones (ganador_oferta_id, ganador_sorteo_id)
+                VALUES (%s, %s);
+            """, (ganador_oferta_id, ganador_sorteo_id))
             conn.commit()
             for g in ganadores_ahorro: flash(f"🏆 ¡Ganador por Ahorro: {g['nombre_apellido']}!", 'success')
             if ganador_oferta: flash(f"🏆 ¡Ganador por Oferta: {ganador_oferta['nombre_apellido']}!", 'success')
