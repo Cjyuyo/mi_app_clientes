@@ -35,7 +35,6 @@ def close_db(exception):
     if db is not None:
         db.close()
 
-# ... (El resto de las funciones auxiliares como get_nombre_mes, etc., permanecen igual)
 def get_nombre_mes(month_number):
     meses = {
         1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
@@ -79,7 +78,7 @@ def hub():
 def registrar():
     return render_template('registrar.html')
 
-# ... (Las rutas de registrar_cliente, consulta, registrar_pago, etc., permanecen igual)
+# --- RUTAS DE LA APLICACIÓN (PANEL DE ADMINISTRACIÓN) ---
 @app.route('/registrar_cliente', methods=['POST'])
 def registrar_cliente():
     form_data = {k: v if v else None for k, v in request.form.items()}
@@ -127,7 +126,8 @@ def consulta():
         else:
             try:
                 with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                    query_clientes = "SELECT * FROM clientes WHERE cedula = %s OR nombre_apellido ILIKE %s ORDER BY nombre_apellido LIMIT 20;"
+                    # CORRECCIÓN: Se añade TRIM() a la columna 'cedula' para limpiar espacios en blanco durante la búsqueda.
+                    query_clientes = "SELECT * FROM clientes WHERE TRIM(cedula) = %s OR nombre_apellido ILIKE %s ORDER BY nombre_apellido LIMIT 20;"
                     patron = f'%{termino_busqueda}%'
                     cur.execute(query_clientes, (termino_busqueda, patron))
                     
@@ -300,153 +300,6 @@ def conciliar_pago(pago_id):
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
-# --- RUTAS DE ADJUDICACIÓN (MODIFICADAS) ---
-@app.route('/adjudicacion', methods=['GET'])
-def adjudicacion():
-    conn = get_db()
-    if not conn:
-        flash("Error de conexión a la base de datos.", 'error')
-        return render_template('adjudicacion.html', clientes_elegibles_ahorro=[], clientes_elegibles_sorteo=[], ofertas_activas=[], historial=[])
-
-    try:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            # Clientes elegibles para Ahorro
-            cur.execute("""
-                SELECT id, nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega
-                FROM clientes 
-                WHERE proceso = 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega)
-                ORDER BY nombre_apellido;
-            """)
-            clientes_elegibles_ahorro = cur.fetchall()
-
-            # CAMBIO: Sorteo deshabilitado, se pasa una lista vacía.
-            clientes_elegibles_sorteo = []
-
-            # Ofertas activas
-            cur.execute("""
-                SELECT o.cuotas_ofertadas, c.id, c.nombre_apellido, c.cedula
-                FROM ofertas o JOIN clientes c ON o.cliente_id = c.id
-                WHERE o.estado_oferta = 'activa' AND c.proceso = 'Ahorrador'
-                ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;
-            """)
-            ofertas_activas = cur.fetchall()
-            
-            # Historial de adjudicaciones
-            cur.execute("""
-                SELECT 
-                    a.id, a.fecha_adjudicacion, 
-                    gs.nombre_apellido as nombre_ganador_sorteo,
-                    go.nombre_apellido as nombre_ganador_oferta,
-                    (SELECT array_agg(c.nombre_apellido) FROM unnest(a.ganadores_ahorro_ids) AS id_ahorro JOIN clientes c ON c.id = id_ahorro) as nombres_ganadores_ahorro
-                FROM adjudicaciones a
-                LEFT JOIN clientes gs ON a.ganador_sorteo_id = gs.id
-                LEFT JOIN clientes go ON a.ganador_oferta_id = go.id
-                ORDER BY a.fecha_adjudicacion DESC;
-            """)
-            historial = cur.fetchall()
-
-    except psycopg2.Error as e:
-        flash(f"Error al cargar datos para la adjudicación: {e}", 'error')
-        clientes_elegibles_ahorro, clientes_elegibles_sorteo, ofertas_activas, historial = [], [], [], []
-
-    return render_template('adjudicacion.html', 
-                           clientes_elegibles_ahorro=clientes_elegibles_ahorro,
-                           clientes_elegibles_sorteo=clientes_elegibles_sorteo, 
-                           ofertas_activas=ofertas_activas,
-                           historial=historial)
-
-@app.route('/realizar_adjudicacion', methods=['POST'])
-def realizar_adjudicacion():
-    conn = get_db()
-    if not conn:
-        flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('adjudicacion'))
-
-    try:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("UPDATE clientes SET ignorar_penalidad_puntualidad = FALSE;")
-            ids_ya_ganadores = set()
-            
-            cur.execute("""
-                SELECT id, nombre_apellido FROM clientes 
-                WHERE proceso = 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega);
-            """)
-            ganadores_ahorro = cur.fetchall()
-            ids_ganadores_ahorro = [g['id'] for g in ganadores_ahorro]
-            ids_ya_ganadores.update(ids_ganadores_ahorro)
-
-            ganador_oferta = None
-            cur.execute("""
-                SELECT c.id, c.nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas
-                FROM ofertas o JOIN clientes c ON o.cliente_id = c.id
-                WHERE o.estado_oferta = 'activa' AND c.proceso = 'Ahorrador' AND c.id NOT IN %s;
-            """, (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
-            candidatos_oferta_raw = cur.fetchall()
-
-            candidatos_oferta = []
-            for c in candidatos_oferta_raw:
-                cur.execute("SELECT COUNT(*) FROM ofertas WHERE cliente_id = %s;", (c['id'],))
-                frecuencia = cur.fetchone()[0]
-                cur.execute("SELECT COUNT(*) FROM pagos WHERE cliente_id = %s AND puntualidad = 'Impuntual';", (c['id'],))
-                impuntualidades = cur.fetchone()[0]
-                candidatos_oferta.append({**c, 'frecuencia': frecuencia, 'impuntualidades': impuntualidades})
-
-            if candidatos_oferta:
-                candidatos_oferta.sort(key=lambda x: (
-                    -x['cuotas_ofertadas'], 
-                    -x['frecuencia'], 
-                    x['impuntualidades'] if not x['ignorar_penalidad_puntualidad'] else 0
-                ))
-                ganador_oferta = candidatos_oferta[0]
-                ids_ya_ganadores.add(ganador_oferta['id'])
-
-                for perdedor in candidatos_oferta[1:]:
-                    if (perdedor['cuotas_ofertadas'] == ganador_oferta['cuotas_ofertadas'] and
-                        perdedor['frecuencia'] == ganador_oferta['frecuencia'] and
-                        perdedor['impuntualidades'] > ganador_oferta['impuntualidades']):
-                        cur.execute("UPDATE clientes SET ignorar_penalidad_puntualidad = TRUE WHERE id = %s;", (perdedor['id'],))
-
-            # CAMBIO: Lógica de sorteo completamente comentada y deshabilitada.
-            ganador_sorteo = None
-            # cur.execute("""
-            #     SELECT id, nombre_apellido FROM clientes
-            #     WHERE proceso = 'Ahorrador' AND estatus_1 = 'SOLVENTE' AND id NOT IN %s;
-            # """, (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
-            # candidatos_sorteo = cur.fetchall()
-            # if candidatos_sorteo:
-            #     ganador_sorteo = random.choice(candidatos_sorteo)
-            #     ids_ya_ganadores.add(ganador_sorteo['id'])
-            
-            if not ids_ya_ganadores:
-                flash("No hay clientes que cumplan los criterios para ser adjudicados este ciclo.", "warning")
-                return redirect(url_for('adjudicacion'))
-
-            cur.execute("UPDATE clientes SET proceso = 'ADJUDICADO' WHERE id = ANY(%s);", (list(ids_ya_ganadores),))
-            if ganador_oferta:
-                cur.execute("UPDATE ofertas SET estado_oferta = 'ganadora' WHERE cliente_id = %s AND estado_oferta = 'activa';", (ganador_oferta['id'],))
-            cur.execute("UPDATE ofertas SET estado_oferta = 'perdida' WHERE estado_oferta = 'activa';")
-
-            ganador_sorteo_id = None # CAMBIO: Siempre será None.
-            ganador_oferta_id = ganador_oferta['id'] if ganador_oferta else None
-            cur.execute("""
-                INSERT INTO adjudicaciones (ganadores_ahorro_ids, ganador_oferta_id, ganador_sorteo_id)
-                VALUES (%s, %s, %s);
-            """, (ids_ganadores_ahorro, ganador_oferta_id, ganador_sorteo_id))
-
-            conn.commit()
-
-            for g in ganadores_ahorro: flash(f"🏆 ¡Ganador por Ahorro: {g['nombre_apellido']}!", 'success')
-            if ganador_oferta: flash(f"🏆 ¡Ganador por Oferta: {ganador_oferta['nombre_apellido']}!", 'success')
-            # if ganador_sorteo: flash(f"🎉 ¡Ganador por Sorteo: {ganador_sorteo['nombre_apellido']}!", 'success')
-
-    except (psycopg2.Error, IndexError, KeyError) as e:
-        conn.rollback()
-        flash(f"Ocurrió un error durante el proceso de adjudicación: {e}", 'error')
-    
-    return redirect(url_for('adjudicacion'))
-
-# ... (El resto del código, incluyendo las rutas del portal, permanece igual)
-# ...
 @app.route('/recibo/<int:pago_id>')
 def ver_recibo(pago_id):
     conn = get_db()
@@ -756,10 +609,118 @@ def guardar_oferta(client_id):
 
     return redirect(url_for('consulta', busqueda=cedula_cliente))
 
-@app.route('/portal', methods=['GET'])
-def portal_index():
-    return redirect(url_for('portal_login'))
+@app.route('/adjudicacion', methods=['GET'])
+def adjudicacion():
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return render_template('adjudicacion.html', clientes_elegibles_ahorro=[], clientes_elegibles_sorteo=[], ofertas_activas=[], historial=[])
 
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("""
+                SELECT id, nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega
+                FROM clientes 
+                WHERE proceso = 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega)
+                ORDER BY nombre_apellido;
+            """)
+            clientes_elegibles_ahorro = cur.fetchall()
+            clientes_elegibles_sorteo = []
+            cur.execute("""
+                SELECT o.cuotas_ofertadas, c.id, c.nombre_apellido, c.cedula
+                FROM ofertas o JOIN clientes c ON o.cliente_id = c.id
+                WHERE o.estado_oferta = 'activa' AND c.proceso = 'Ahorrador'
+                ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;
+            """)
+            ofertas_activas = cur.fetchall()
+            cur.execute("""
+                SELECT 
+                    a.id, a.fecha_adjudicacion, 
+                    gs.nombre_apellido as nombre_ganador_sorteo,
+                    go.nombre_apellido as nombre_ganador_oferta,
+                    (SELECT array_agg(c.nombre_apellido) FROM unnest(a.ganadores_ahorro_ids) AS id_ahorro JOIN clientes c ON c.id = id_ahorro) as nombres_ganadores_ahorro
+                FROM adjudicaciones a
+                LEFT JOIN clientes gs ON a.ganador_sorteo_id = gs.id
+                LEFT JOIN clientes go ON a.ganador_oferta_id = go.id
+                ORDER BY a.fecha_adjudicacion DESC;
+            """)
+            historial = cur.fetchall()
+    except psycopg2.Error as e:
+        flash(f"Error al cargar datos para la adjudicación: {e}", 'error')
+        clientes_elegibles_ahorro, clientes_elegibles_sorteo, ofertas_activas, historial = [], [], [], []
+    return render_template('adjudicacion.html', 
+                           clientes_elegibles_ahorro=clientes_elegibles_ahorro,
+                           clientes_elegibles_sorteo=clientes_elegibles_sorteo, 
+                           ofertas_activas=ofertas_activas,
+                           historial=historial)
+
+@app.route('/realizar_adjudicacion', methods=['POST'])
+def realizar_adjudicacion():
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('adjudicacion'))
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("UPDATE clientes SET ignorar_penalidad_puntualidad = FALSE;")
+            ids_ya_ganadores = set()
+            cur.execute("""
+                SELECT id, nombre_apellido FROM clientes 
+                WHERE proceso = 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega);
+            """)
+            ganadores_ahorro = cur.fetchall()
+            ids_ganadores_ahorro = [g['id'] for g in ganadores_ahorro]
+            ids_ya_ganadores.update(ids_ganadores_ahorro)
+            ganador_oferta = None
+            cur.execute("""
+                SELECT c.id, c.nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas
+                FROM ofertas o JOIN clientes c ON o.cliente_id = c.id
+                WHERE o.estado_oferta = 'activa' AND c.proceso = 'Ahorrador' AND c.id NOT IN %s;
+            """, (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
+            candidatos_oferta_raw = cur.fetchall()
+            candidatos_oferta = []
+            for c in candidatos_oferta_raw:
+                cur.execute("SELECT COUNT(*) FROM ofertas WHERE cliente_id = %s;", (c['id'],))
+                frecuencia = cur.fetchone()[0]
+                cur.execute("SELECT COUNT(*) FROM pagos WHERE cliente_id = %s AND puntualidad = 'Impuntual';", (c['id'],))
+                impuntualidades = cur.fetchone()[0]
+                candidatos_oferta.append({**c, 'frecuencia': frecuencia, 'impuntualidades': impuntualidades})
+            if candidatos_oferta:
+                candidatos_oferta.sort(key=lambda x: (
+                    -x['cuotas_ofertadas'], 
+                    -x['frecuencia'], 
+                    x['impuntualidades'] if not x['ignorar_penalidad_puntualidad'] else 0
+                ))
+                ganador_oferta = candidatos_oferta[0]
+                ids_ya_ganadores.add(ganador_oferta['id'])
+                for perdedor in candidatos_oferta[1:]:
+                    if (perdedor['cuotas_ofertadas'] == ganador_oferta['cuotas_ofertadas'] and
+                        perdedor['frecuencia'] == ganador_oferta['frecuencia'] and
+                        perdedor['impuntualidades'] > ganador_oferta['impuntualidades']):
+                        cur.execute("UPDATE clientes SET ignorar_penalidad_puntualidad = TRUE WHERE id = %s;", (perdedor['id'],))
+            ganador_sorteo = None
+            if not ids_ya_ganadores:
+                flash("No hay clientes que cumplan los criterios para ser adjudicados este ciclo.", "warning")
+                return redirect(url_for('adjudicacion'))
+            cur.execute("UPDATE clientes SET proceso = 'ADJUDICADO' WHERE id = ANY(%s);", (list(ids_ya_ganadores),))
+            if ganador_oferta:
+                cur.execute("UPDATE ofertas SET estado_oferta = 'ganadora' WHERE cliente_id = %s AND estado_oferta = 'activa';", (ganador_oferta['id'],))
+            cur.execute("UPDATE ofertas SET estado_oferta = 'perdida' WHERE estado_oferta = 'activa';")
+            ganador_sorteo_id = None
+            ganador_oferta_id = ganador_oferta['id'] if ganador_oferta else None
+            cur.execute("""
+                INSERT INTO adjudicaciones (ganadores_ahorro_ids, ganador_oferta_id, ganador_sorteo_id)
+                VALUES (%s, %s, %s);
+            """, (ids_ganadores_ahorro, ganador_oferta_id, ganador_sorteo_id))
+            conn.commit()
+            for g in ganadores_ahorro: flash(f"🏆 ¡Ganador por Ahorro: {g['nombre_apellido']}!", 'success')
+            if ganador_oferta: flash(f"🏆 ¡Ganador por Oferta: {ganador_oferta['nombre_apellido']}!", 'success')
+    except (psycopg2.Error, IndexError, KeyError) as e:
+        conn.rollback()
+        flash(f"Ocurrió un error durante el proceso de adjudicación: {e}", 'error')
+    return redirect(url_for('adjudicacion'))
+
+# --- RUTAS DEL PORTAL DEL CLIENTE ---
 @app.route('/portal/login', methods=['GET', 'POST'])
 def portal_login():
     if 'cliente_id' in session:
@@ -781,8 +742,10 @@ def portal_login():
         
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+                # CORRECCIÓN: Se añade TRIM() a la columna 'cedula' para el login.
+                # También se añade TRIM a contrato_nro para mayor robustez.
                 cur.execute(
-                    "SELECT id, nombre_apellido FROM clientes WHERE cedula = %s AND (contrato_nro = %s OR contrato_nro = %s);",
+                    "SELECT id, nombre_apellido FROM clientes WHERE TRIM(cedula) = %s AND (TRIM(contrato_nro) = %s OR TRIM(contrato_nro) = %s);",
                     (cedula, contrato_nro, f"MP-{contrato_nro}")
                 )
                 cliente = cur.fetchone()
