@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, g, flash, redirect, url_for, 
 from dotenv import load_dotenv
 from decimal import Decimal
 from datetime import datetime, timedelta
+import random # Importar la librería random
 
 load_dotenv()
 app = Flask(__name__)
@@ -78,7 +79,6 @@ def hub():
 @app.route('/registrar')
 def registrar():
     """Muestra el formulario para registrar un nuevo cliente."""
-    # Apunta al nombre de archivo correcto y estable.
     return render_template('registrar.html')
 
 
@@ -613,6 +613,147 @@ def guardar_oferta(client_id):
 
     return redirect(url_for('consulta', busqueda=cedula_cliente))
 
+# --- INICIO: NUEVAS RUTAS PARA ADJUDICACIÓN ---
+
+@app.route('/adjudicacion', methods=['GET'])
+def adjudicacion():
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return render_template('adjudicacion.html', clientes_elegibles_sorteo=[], ofertas_activas=[])
+
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            # Clientes elegibles para el sorteo (Ahorradores y Solventes)
+            cur.execute("""
+                SELECT id, nombre_apellido, cedula, contrato_nro 
+                FROM clientes 
+                WHERE proceso = 'Ahorrador' AND estatus_1 = 'SOLVENTE'
+                ORDER BY nombre_apellido;
+            """)
+            clientes_elegibles_sorteo = cur.fetchall()
+
+            # Ofertas activas para la licitación
+            cur.execute("""
+                SELECT o.cuotas_ofertadas, c.id, c.nombre_apellido, c.cedula
+                FROM ofertas o
+                JOIN clientes c ON o.cliente_id = c.id
+                WHERE o.estado_oferta = 'activa'
+                ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;
+            """)
+            ofertas_activas = cur.fetchall()
+            
+            # Historial de adjudicaciones
+            cur.execute("""
+                SELECT a.id, a.fecha_adjudicacion, 
+                       gs.nombre_apellido as nombre_ganador_sorteo,
+                       go.nombre_apellido as nombre_ganador_oferta
+                FROM adjudicaciones a
+                LEFT JOIN clientes gs ON a.ganador_sorteo_id = gs.id
+                LEFT JOIN clientes go ON a.ganador_oferta_id = go.id
+                ORDER BY a.fecha_adjudicacion DESC;
+            """)
+            historial = cur.fetchall()
+
+    except psycopg2.Error as e:
+        flash(f"Error al cargar datos para la adjudicación: {e}", 'error')
+        clientes_elegibles_sorteo = []
+        ofertas_activas = []
+        historial = []
+
+    return render_template('adjudicacion.html', 
+                           clientes_elegibles_sorteo=clientes_elegibles_sorteo, 
+                           ofertas_activas=ofertas_activas,
+                           historial=historial)
+
+
+@app.route('/realizar_adjudicacion', methods=['POST'])
+def realizar_adjudicacion():
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('adjudicacion'))
+
+    ganador_oferta = None
+    ganador_sorteo = None
+
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            # --- 1. Determinar ganador por OFERTA ---
+            cur.execute("""
+                SELECT c.id, c.nombre_apellido, o.cuotas_ofertadas
+                FROM ofertas o
+                JOIN clientes c ON o.cliente_id = c.id
+                WHERE o.estado_oferta = 'activa' AND c.proceso = 'Ahorrador'
+                ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;
+            """)
+            posibles_ganadores_oferta = cur.fetchall()
+            
+            if posibles_ganadores_oferta:
+                max_oferta = posibles_ganadores_oferta[0]['cuotas_ofertadas']
+                empatados_oferta = [p for p in posibles_ganadores_oferta if p['cuotas_ofertadas'] == max_oferta]
+                ganador_oferta = random.choice(empatados_oferta)
+
+            # --- 2. Determinar ganador por SORTEO ---
+            cur.execute("""
+                SELECT id, nombre_apellido 
+                FROM clientes 
+                WHERE proceso = 'Ahorrador' AND estatus_1 = 'SOLVENTE'
+            """)
+            candidatos_sorteo = cur.fetchall()
+
+            if ganador_oferta:
+                # Excluir al ganador de la oferta de la lista de candidatos para el sorteo
+                candidatos_sorteo = [c for c in candidatos_sorteo if c['id'] != ganador_oferta['id']]
+
+            if candidatos_sorteo:
+                ganador_sorteo = random.choice(candidatos_sorteo)
+
+            # --- 3. Actualizar la base de datos si hay ganadores ---
+            if not ganador_oferta and not ganador_sorteo:
+                flash("No hay clientes elegibles ni ofertas activas para realizar la adjudicación.", "warning")
+                return redirect(url_for('adjudicacion'))
+
+            # Actualizar estado de los ganadores
+            ids_ganadores = []
+            if ganador_oferta: ids_ganadores.append(ganador_oferta['id'])
+            if ganador_sorteo: ids_ganadores.append(ganador_sorteo['id'])
+            
+            if ids_ganadores:
+                cur.execute("UPDATE clientes SET proceso = 'ADJUDICADO' WHERE id = ANY(%s);", (ids_ganadores,))
+
+            # Actualizar estado de las ofertas
+            if ganador_oferta:
+                cur.execute("UPDATE ofertas SET estado_oferta = 'ganadora' WHERE cliente_id = %s AND estado_oferta = 'activa';", (ganador_oferta['id'],))
+            cur.execute("UPDATE ofertas SET estado_oferta = 'perdida' WHERE estado_oferta = 'activa';")
+
+            # --- 4. Guardar en el historial ---
+            ganador_sorteo_id = ganador_sorteo['id'] if ganador_sorteo else None
+            ganador_oferta_id = ganador_oferta['id'] if ganador_oferta else None
+            
+            cur.execute("""
+                INSERT INTO adjudicaciones (ganador_sorteo_id, ganador_oferta_id)
+                VALUES (%s, %s);
+            """, (ganador_sorteo_id, ganador_oferta_id))
+
+            conn.commit()
+
+            # Mensajes de éxito
+            if ganador_sorteo:
+                flash(f"🎉 ¡Ganador por Sorteo: {ganador_sorteo['nombre_apellido']}!", 'success')
+            if ganador_oferta:
+                flash(f"🏆 ¡Ganador por Oferta: {ganador_oferta['nombre_apellido']} con {ganador_oferta['cuotas_ofertadas']} cuotas!", 'success')
+
+    except (psycopg2.Error, IndexError) as e:
+        conn.rollback()
+        flash(f"Ocurrió un error durante el proceso de adjudicación: {e}", 'error')
+    
+    return redirect(url_for('adjudicacion'))
+
+
+# --- FIN: NUEVAS RUTAS PARA ADJUDICACIÓN ---
+
+
 # --- RUTAS DEL PORTAL DEL CLIENTE ---
 @app.route('/portal', methods=['GET'])
 def portal_index():
@@ -625,8 +766,8 @@ def portal_login():
         return redirect(url_for('portal_dashboard'))
 
     if request.method == 'POST':
-        cedula = request.form.get('cedula')
-        contrato_nro = request.form.get('contrato_nro')
+        cedula = request.form.get('cedula', '').strip().replace('V-', '').replace('v-', '')
+        contrato_nro = request.form.get('contrato_nro', '').strip().upper().replace('MP-', '')
 
         if not cedula or not contrato_nro:
             flash('La cédula y el número de contrato son obligatorios.', 'error')
@@ -639,9 +780,10 @@ def portal_login():
         
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+                # Búsqueda más flexible para el número de contrato
                 cur.execute(
-                    "SELECT id, nombre_apellido FROM clientes WHERE cedula = %s AND contrato_nro = %s;",
-                    (cedula, contrato_nro)
+                    "SELECT id, nombre_apellido FROM clientes WHERE cedula = %s AND (contrato_nro = %s OR contrato_nro = %s);",
+                    (cedula, contrato_nro, f"MP-{contrato_nro}")
                 )
                 cliente = cur.fetchone()
 
