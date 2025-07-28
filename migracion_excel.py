@@ -56,6 +56,18 @@ def run_migration():
         df.dropna(subset=['N⁰ CEDULA'], inplace=True, how='all')
         print(f"Total combined rows to process: {len(df)}.")
 
+        # --- INICIO DE LA MODIFICACIÓN: Codificar Grupos ---
+        print("Codificando la columna 'grupo'...")
+        # Convertir la columna a string para manejar datos mixtos y encontrar únicos
+        df['GRUPO'] = df['GRUPO'].astype(str)
+        unique_groups = df['GRUPO'].unique()
+        # Crear un mapa de grupo_original -> MP-X
+        group_mapping = {group: f"MP-{i+1}" for i, group in enumerate(unique_groups)}
+        # Aplicar el mapa a la columna 'GRUPO'
+        df['GRUPO'] = df['GRUPO'].map(group_mapping)
+        print("Columna 'grupo' codificada exitosamente.")
+        # --- FIN DE LA MODIFICACIÓN ---
+
         print(f"Connecting to host {conn_details['host']} on port {conn_details['port']}...")
         conn = pg8000.dbapi.connect(**conn_details)
         cursor = conn.cursor()
@@ -70,17 +82,17 @@ def run_migration():
             nombre VARCHAR(255),
             apellido VARCHAR(255),
             grupo VARCHAR(255),
-            plan VARCHAR(255),
+            plan_contratado VARCHAR(255),
             moneda_pago VARCHAR(255),
             asesor VARCHAR(255),
             responsable VARCHAR(255),
-            numero_contrato VARCHAR(255),
+            contrato_nro VARCHAR(255),
             proceso VARCHAR(255),
             estatus VARCHAR(255),
             fecha_ingreso DATE,
-            numero_telefono VARCHAR(255),
+            telefono VARCHAR(255),
             porcentaje_inscripcion NUMERIC,
-            inscripcion NUMERIC,
+            inscripcion_monto NUMERIC,
             cuotas_totales INTEGER,
             cuotas_pagas INTEGER,
             estatus_pago VARCHAR(255),
@@ -90,7 +102,13 @@ def run_migration():
             valor_cuota NUMERIC,
             fecha_pago DATE,
             estatus_cuota VARCHAR(255),
-            valor_cancelado NUMERIC
+            valor_cancelado NUMERIC,
+            inscripcion_pagada NUMERIC(12, 2) DEFAULT 0.00,
+            cuotas_pagadas_progresivas INTEGER DEFAULT 0,
+            cuotas_pagadas_regresivas INTEGER DEFAULT 0,
+            balance_regresivo NUMERIC(12, 2) DEFAULT 0.00,
+            meses_retraso_entrega INTEGER DEFAULT 0,
+            ignorar_penalidad_puntualidad BOOLEAN DEFAULT FALSE
         );
         """
         cursor.execute(create_table_sql)
@@ -108,9 +126,9 @@ def run_migration():
         
         insert_query = """
         INSERT INTO clientes (
-            cedula, nombre, apellido, grupo, plan, moneda_pago, asesor, responsable, 
-            numero_contrato, proceso, estatus, fecha_ingreso, numero_telefono, 
-            porcentaje_inscripcion, inscripcion, cuotas_totales, cuotas_pagas, 
+            cedula, nombre, apellido, grupo, plan_contratado, moneda_pago, asesor, responsable, 
+            contrato_nro, proceso, estatus, fecha_ingreso, telefono, 
+            porcentaje_inscripcion, inscripcion_monto, cuotas_totales, cuotas_pagas, 
             estatus_pago, pagos_impuntuales, cuotas_mora, observacion, 
             valor_cuota, fecha_pago, estatus_cuota, valor_cancelado
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -118,12 +136,9 @@ def run_migration():
         
         data_to_insert = []
         
-        # FIX: More robust date conversion function
         def to_date(date_val):
             if pd.isna(date_val): return None
-            # Convert to datetime, coercing errors to NaT
             dt = pd.to_datetime(date_val, errors='coerce')
-            # If conversion results in NaT, return None for SQL NULL
             if pd.isna(dt): return None
             return dt.date()
 
@@ -147,17 +162,14 @@ def run_migration():
                 str(row.get('n⁰ cedula', '')).split('.')[0], nombre, apellido,
                 row.get('grupo'), row.get('plan'), row.get('moneda de pago'),
                 row.get('asesor'), row.get('responsable'), str(row.get('n⁰ contrato')),
-                row.get('proceso'), row.get('estatus'), 
-                # Apply date fix here
-                to_date(row.get('fecha de ingreso')),
+                row.get('proceso'), row.get('estatus'), to_date(row.get('fecha de ingreso')),
                 str(row.get('numero de tlf')), to_numeric(row.get('% inscripcion')),
                 to_numeric(row.get('inscripcion')), to_integer(row.get('cuotas totales')), 
                 to_integer(row.get('cuotas pagas')), row.get('estatus_pago'),
                 to_integer(row.get('pagos impuntuales')), to_integer(row.get('cuotas en mora')),
                 row.get('observación'), to_numeric(row.get('valor de cuota')),
-                # And apply date fix here
-                to_date(row.get('fecha de pago')), 
-                row.get('estatus cuota'), to_numeric(row.get('valor cancelado'))
+                to_date(row.get('fecha de pago')), row.get('estatus cuota'),
+                to_numeric(row.get('valor cancelado'))
             )
             data_to_insert.append(data_tuple)
 
