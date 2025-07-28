@@ -96,7 +96,6 @@ def registrar_cliente():
         return redirect(url_for('registrar'))
     try:
         with conn.cursor() as cur:
-            
             nombre_completo = nombre_apellido.split(' ', 1)
             nombre = nombre_completo[0]
             apellido = nombre_completo[1] if len(nombre_completo) > 1 else ''
