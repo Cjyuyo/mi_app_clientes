@@ -96,7 +96,6 @@ def registrar_cliente():
         return redirect(url_for('registrar'))
     try:
         with conn.cursor() as cur:
-            # CORRECCIÓN: Se construye la consulta dinámicamente para manejar campos opcionales
             
             # Dividir nombre y apellido
             nombre_completo = nombre_apellido.split(' ', 1)
@@ -118,7 +117,7 @@ def registrar_cliente():
             ]
             
             for field in optional_fields:
-                if form_data.get(field):
+                if form_data.get(field) and form_data.get(field) != '':
                     insert_dict[field] = form_data[field]
 
             # Construir la consulta SQL
@@ -165,6 +164,11 @@ def consulta():
                         for cliente in clientes_raw:
                             cliente_dict = dict(cliente)
                             cliente_dict['nombre_apellido'] = f"{cliente.get('nombre', '')} {cliente.get('apellido', '')}".strip()
+                            
+                            # CAMBIO: Mapea 'cuotas_pagas' a 'cuotas_pagadas_progresivas' para compatibilidad
+                            if 'cuotas_pagas' in cliente_dict:
+                                cliente_dict['cuotas_pagadas_progresivas'] = cliente_dict['cuotas_pagas']
+
                             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC", (cliente_dict['id'],))
                             cliente_dict['pagos'] = cur.fetchall()
                             clientes_encontrados.append(cliente_dict)
@@ -743,7 +747,6 @@ def realizar_adjudicacion():
             ganador_sorteo_id = None
             ganador_oferta_id = ganador_oferta['id'] if ganador_oferta else None
             
-            # El INSERT aquí debería ser compatible con la tabla 'adjudicaciones'
             cur.execute("""
                 INSERT INTO adjudicaciones (ganador_oferta_id, ganador_sorteo_id)
                 VALUES (%s, %s);
