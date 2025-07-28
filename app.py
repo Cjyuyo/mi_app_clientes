@@ -98,17 +98,25 @@ def registrar_cliente():
         return redirect(url_for('registrar'))
     try:
         with conn.cursor() as cur:
+            # NOTA: Esta inserción asume que la tabla clientes aún usa 'nombre_apellido'.
+            # La migración de datos la cambió a 'nombre' y 'apellido'.
+            # Esta ruta podría necesitar ajuste si se registran nuevos clientes por aquí.
             query = """
             INSERT INTO clientes (
-                nombre_apellido, cedula, contrato_nro, telefono, asesor, responsable, fecha_ingreso,
+                nombre, apellido, cedula, contrato_nro, telefono, asesor, responsable, fecha_ingreso,
                 grupo, bien_solicitado, plan_contratado, cuotas_totales, moneda_pago, valor_cuota,
                 inscripcion_monto, proceso
             ) VALUES (
-                %(nombre_apellido)s, %(cedula)s, %(contrato_nro)s, %(telefono)s, %(asesor)s, %(responsable)s, %(fecha_ingreso)s,
+                %(nombre)s, %(apellido)s, %(cedula)s, %(contrato_nro)s, %(telefono)s, %(asesor)s, %(responsable)s, %(fecha_ingreso)s,
                 %(grupo)s, %(bien_solicitado)s, %(plan_contratado)s, %(cuotas_totales)s, %(moneda_pago)s, %(valor_cuota)s,
                 %(inscripcion_monto)s, %(proceso)s
             )
             """
+            # Dividimos nombre_apellido para la nueva estructura
+            nombre_completo = form_data.get('nombre_apellido', '').split(' ', 1)
+            form_data['nombre'] = nombre_completo[0]
+            form_data['apellido'] = nombre_completo[1] if len(nombre_completo) > 1 else ''
+
             cur.execute(query, form_data)
             conn.commit()
             flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado exitosamente!", 'success')
@@ -120,6 +128,7 @@ def registrar_cliente():
         flash(f"Registro fallido: Ocurrió un error de base de datos: {e}", 'error')
     return redirect(url_for('registrar'))
 
+# ------------------- RUTA MODIFICADA Y CORREGIDA -------------------
 @app.route('/consulta', methods=['GET', 'POST'])
 def consulta():
     clientes_encontrados = []
@@ -134,13 +143,13 @@ def consulta():
         else:
             try:
                 with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                    # CONSULTA CORREGIDA: Busca directamente en la columna 'cedula' (que ya está limpia)
-                    query_clientes = "SELECT * FROM clientes WHERE cedula = %s OR nombre_apellido ILIKE %s ORDER BY nombre_apellido LIMIT 20;"
+                    # CONSULTA CORREGIDA: Busca en las columnas 'nombre' y 'apellido' por separado.
+                    query_clientes = "SELECT * FROM clientes WHERE cedula ILIKE %s OR nombre ILIKE %s OR apellido ILIKE %s ORDER BY nombre, apellido LIMIT 20;"
                     
-                    patron_nombre = f'%{termino_busqueda}%'
+                    patron_busqueda = f'%{termino_busqueda}%'
                     
-                    # Pasamos el término de búsqueda directamente para la cédula
-                    cur.execute(query_clientes, (termino_busqueda, patron_nombre))
+                    # Pasamos el término de búsqueda 3 veces, uno para cada campo (cedula, nombre, apellido)
+                    cur.execute(query_clientes, (patron_busqueda, patron_busqueda, patron_busqueda))
                     
                     clientes_raw = cur.fetchall()
                     if not clientes_raw:
@@ -148,12 +157,15 @@ def consulta():
                     else:
                         for cliente in clientes_raw:
                             cliente_dict = dict(cliente)
+                            # Se combina nombre y apellido para mostrar en la vista si es necesario
+                            cliente_dict['nombre_apellido'] = f"{cliente.get('nombre', '')} {cliente.get('apellido', '')}".strip()
                             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC", (cliente_dict['id'],))
                             cliente_dict['pagos'] = cur.fetchall()
                             clientes_encontrados.append(cliente_dict)
             except psycopg2.Error as e:
                 mensaje_error = f"Error al consultar la base de datos: {e}"
     return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda_raw)
+# ----------------- FIN DE LA MODIFICACIÓN -----------------
 
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 def registrar_pago(client_id):
@@ -163,7 +175,7 @@ def registrar_pago(client_id):
         return redirect(url_for('consulta'))
     
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        cur.execute("SELECT * FROM clientes WHERE id = %s", (client_id,))
+        cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
     
     if not cliente:
@@ -174,8 +186,8 @@ def registrar_pago(client_id):
         pago_form = {k: v if v else None for k, v in request.form.items()}
         tipo_pago = pago_form.get('tipo_pago')
         
-        inscripcion_total = Decimal(cliente['inscripcion_monto'] or 0)
-        inscripcion_pagada = Decimal(cliente['inscripcion_pagada'] or 0)
+        inscripcion_total = Decimal(cliente.get('inscripcion_monto') or 0)
+        inscripcion_pagada = Decimal(cliente.get('inscripcion_pagada') or 0)
         
         if tipo_pago == 'Cuota' and inscripcion_pagada < inscripcion_total:
             flash('Error: No se puede registrar un pago de cuota hasta que la inscripción esté 100% pagada.', 'error')
@@ -230,7 +242,7 @@ def conciliar_pago(pago_id):
                 flash("El pago no se puede conciliar.", 'error')
                 return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
-            cur.execute("SELECT * FROM clientes WHERE id = %s FOR UPDATE", (pago['cliente_id'],))
+            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s FOR UPDATE", (pago['cliente_id'],))
             cliente = cur.fetchone()
             if not cliente:
                 flash("Error: No se encontró el cliente asociado a este pago.", 'error')
@@ -247,8 +259,8 @@ def conciliar_pago(pago_id):
                 cur.execute("UPDATE pagos SET puntualidad = %s WHERE id = %s", (puntualidad, pago_id))
 
             if pago['tipo_pago'] == 'Inscripción':
-                inscripcion_pagada_actual = Decimal(cliente['inscripcion_pagada'] or 0)
-                inscripcion_total = Decimal(cliente['inscripcion_monto'] or 0)
+                inscripcion_pagada_actual = Decimal(cliente.get('inscripcion_pagada') or 0)
+                inscripcion_total = Decimal(cliente.get('inscripcion_monto') or 0)
                 nueva_inscripcion_pagada = inscripcion_pagada_actual + monto_pagado
 
                 if inscripcion_total > 0 and nueva_inscripcion_pagada >= inscripcion_total:
@@ -279,12 +291,12 @@ def conciliar_pago(pago_id):
                     cur.execute("UPDATE clientes SET proceso = 'Ahorrador' WHERE id = %s", (cliente['id'],))
                     flash("Primer pago de cuota registrado. El proceso del cliente ha cambiado a 'Ahorrador'.", "info")
 
-                valor_cuota = Decimal(cliente['valor_cuota'] or 0)
+                valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
                 if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
                 
-                cuotas_progresivas_actuales = cliente['cuotas_pagadas_progresivas'] or 0
-                cuotas_regresivas_actuales = cliente['cuotas_pagadas_regresivas'] or 0
-                balance_actual = Decimal(cliente['balance_regresivo'] or 0)
+                cuotas_progresivas_actuales = cliente.get('cuotas_pagadas_progresivas') or 0
+                cuotas_regresivas_actuales = cliente.get('cuotas_pagadas_regresivas') or 0
+                balance_actual = Decimal(cliente.get('balance_regresivo') or 0)
                 monto_total_disponible = monto_pagado + balance_actual
                 cuotas_completas_adicionales = int(monto_total_disponible // valor_cuota)
                 
@@ -322,7 +334,7 @@ def ver_recibo(pago_id):
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         query = """
             SELECT p.*, 
-                   c.nombre_apellido, c.cedula, c.cuotas_totales, c.valor_cuota,
+                   (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.cuotas_totales, c.valor_cuota,
                    c.inscripcion_monto, c.inscripcion_pagada,
                    COALESCE(p.cuotas_progresivas_al_pagar, c.cuotas_pagadas_progresivas) AS cuotas_pagadas_progresivas, 
                    COALESCE(p.cuotas_regresivas_al_pagar, c.cuotas_pagadas_regresivas) AS cuotas_pagadas_regresivas,
@@ -354,7 +366,7 @@ def ver_recibo_inscripcion(pago_id):
 
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         query = """
-            SELECT p.*, c.nombre_apellido, c.cedula, c.plan_contratado
+            SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.plan_contratado
             FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
             WHERE p.id = %s AND p.tipo_pago = 'Inscripción Finalizada';
         """
@@ -406,10 +418,10 @@ def anular_recibo(pago_id):
                 cur.execute("SELECT cuotas_pagadas_progresivas, cuotas_pagadas_regresivas, balance_regresivo, valor_cuota FROM clientes WHERE id = %s FOR UPDATE", (cliente_id,))
                 cliente = cur.fetchone()
                 
-                cuotas_p = Decimal(cliente['cuotas_pagadas_progresivas'] or 0)
-                cuotas_r = Decimal(cliente['cuotas_pagadas_regresivas'] or 0)
-                balance = Decimal(cliente['balance_regresivo'] or 0)
-                valor_cuota = Decimal(cliente['valor_cuota'] or 0)
+                cuotas_p = Decimal(cliente.get('cuotas_pagadas_progresivas') or 0)
+                cuotas_r = Decimal(cliente.get('cuotas_pagadas_regresivas') or 0)
+                balance = Decimal(cliente.get('balance_regresivo') or 0)
+                valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
                 monto_a_revertir = Decimal(pago_a_anular['monto'])
                 
                 if valor_cuota <= 0:
@@ -460,7 +472,7 @@ def verificar_recibo(pago_id):
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         query = """
             SELECT p.id, p.monto, p.fecha_pago, p.estado_pago, p.tipo_pago,
-                   c.nombre_apellido
+                   (c.nombre || ' ' || c.apellido) as nombre_apellido
             FROM pagos p 
             JOIN clientes c ON p.cliente_id = c.id 
             WHERE p.id = %s;
@@ -480,7 +492,7 @@ def ver_recibo_anulado(pago_id):
         return redirect(url_for('consulta'))
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         query = """
-            SELECT p.*, c.nombre_apellido, c.cedula
+            SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula
             FROM pagos p 
             JOIN clientes c ON p.cliente_id = c.id 
             WHERE p.id = %s AND p.estado_pago = 'Anulado';
@@ -500,7 +512,7 @@ def edit_client(client_id):
         return redirect(url_for('consulta'))
 
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        cur.execute("SELECT * FROM clientes WHERE id = %s", (client_id,))
+        cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
 
     if not cliente:
@@ -511,12 +523,19 @@ def edit_client(client_id):
         try:
             update_data = dict(cliente)
             form_data = {k: v if v else None for k, v in request.form.items()}
+            
+            # Dividir nombre_apellido del formulario
+            if 'nombre_apellido' in form_data:
+                nombre_completo = form_data['nombre_apellido'].split(' ', 1)
+                form_data['nombre'] = nombre_completo[0]
+                form_data['apellido'] = nombre_completo[1] if len(nombre_completo) > 1 else ''
+            
             update_data.update(form_data)
 
             with conn.cursor() as cur:
                 update_query = """
                 UPDATE clientes SET
-                    nombre_apellido = %(nombre_apellido)s, cedula = %(cedula)s, contrato_nro = %(contrato_nro)s,
+                    nombre = %(nombre)s, apellido = %(apellido)s, cedula = %(cedula)s, contrato_nro = %(contrato_nro)s,
                     telefono = %(telefono)s, asesor = %(asesor)s, responsable = %(responsable)s, fecha_ingreso = %(fecha_ingreso)s,
                     grupo = %(grupo)s, bien_solicitado = %(bien_solicitado)s, plan_contratado = %(plan_contratado)s,
                     cuotas_totales = %(cuotas_totales)s, moneda_pago = %(moneda_pago)s, valor_cuota = %(valor_cuota)s,
@@ -541,10 +560,10 @@ def delete_client(client_id):
     if not conn: return redirect(url_for('consulta'))
     try:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM pagos WHERE cliente_id = %s", (client_id,))
+            # Borrado en cascada configurado en la DB debería manejar esto
             cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
             conn.commit()
-            flash('¡Cliente y sus pagos han sido eliminados exitosamente!', 'success')
+            flash('¡Cliente y sus registros asociados han sido eliminados exitosamente!', 'success')
     except psycopg2.Error as e:
         conn.rollback()
         flash(f'Ocurrió un error al eliminar: {e}', 'error')
@@ -558,7 +577,7 @@ def registrar_oferta(client_id):
         return redirect(url_for('consulta'))
     
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        cur.execute("SELECT id, nombre_apellido, cedula FROM clientes WHERE id = %s", (client_id,))
+        cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
     
     if not cliente:
@@ -630,7 +649,7 @@ def adjudicacion():
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("""
-                SELECT id, nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega
+                SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega
                 FROM clientes 
                 WHERE proceso = 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega)
                 ORDER BY nombre_apellido;
@@ -638,7 +657,7 @@ def adjudicacion():
             clientes_elegibles_ahorro = cur.fetchall()
             clientes_elegibles_sorteo = []
             cur.execute("""
-                SELECT o.cuotas_ofertadas, c.id, c.nombre_apellido, c.cedula
+                SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula
                 FROM ofertas o JOIN clientes c ON o.cliente_id = c.id
                 WHERE o.estado_oferta = 'activa' AND c.proceso = 'Ahorrador'
                 ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;
@@ -647,9 +666,9 @@ def adjudicacion():
             cur.execute("""
                 SELECT 
                     a.id, a.fecha_adjudicacion, 
-                    gs.nombre_apellido as nombre_ganador_sorteo,
-                    go.nombre_apellido as nombre_ganador_oferta,
-                    (SELECT array_agg(c.nombre_apellido) FROM unnest(a.ganadores_ahorro_ids) AS id_ahorro JOIN clientes c ON c.id = id_ahorro) as nombres_ganadores_ahorro
+                    (gs.nombre || ' ' || gs.apellido) as nombre_ganador_sorteo,
+                    (go.nombre || ' ' || go.apellido) as nombre_ganador_oferta,
+                    (SELECT array_agg((c.nombre || ' ' || c.apellido)) FROM unnest(a.ganadores_ahorro_ids) AS id_ahorro JOIN clientes c ON c.id = id_ahorro) as nombres_ganadores_ahorro
                 FROM adjudicaciones a
                 LEFT JOIN clientes gs ON a.ganador_sorteo_id = gs.id
                 LEFT JOIN clientes go ON a.ganador_oferta_id = go.id
@@ -676,7 +695,7 @@ def realizar_adjudicacion():
             cur.execute("UPDATE clientes SET ignorar_penalidad_puntualidad = FALSE;")
             ids_ya_ganadores = set()
             cur.execute("""
-                SELECT id, nombre_apellido FROM clientes 
+                SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes 
                 WHERE proceso = 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega);
             """)
             ganadores_ahorro = cur.fetchall()
@@ -684,7 +703,7 @@ def realizar_adjudicacion():
             ids_ya_ganadores.update(ids_ganadores_ahorro)
             ganador_oferta = None
             cur.execute("""
-                SELECT c.id, c.nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas
+                SELECT c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas
                 FROM ofertas o JOIN clientes c ON o.cliente_id = c.id
                 WHERE o.estado_oferta = 'activa' AND c.proceso = 'Ahorrador' AND c.id NOT IN %s;
             """, (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
@@ -756,7 +775,7 @@ def portal_login():
                 # CORRECCIÓN: Se añade TRIM() a la columna 'cedula' para el login.
                 # También se añade TRIM a contrato_nro para mayor robustez.
                 cur.execute(
-                    "SELECT id, nombre_apellido FROM clientes WHERE TRIM(cedula) = %s AND (TRIM(contrato_nro) = %s OR TRIM(contrato_nro) = %s);",
+                    "SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE TRIM(cedula) = %s AND (TRIM(contrato_nro) = %s OR TRIM(contrato_nro) = %s);",
                     (cedula, contrato_nro, f"MP-{contrato_nro}")
                 )
                 cliente = cur.fetchone()
@@ -786,7 +805,7 @@ def portal_dashboard():
         
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT * FROM clientes WHERE id = %s;", (session['cliente_id'],))
+            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
             cliente = cur.fetchone()
             
             if not cliente:
@@ -841,7 +860,7 @@ def portal_reportar_pago():
         return redirect(url_for('portal_dashboard'))
 
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        cur.execute("SELECT * FROM clientes WHERE id = %s;", (session['cliente_id'],))
+        cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
         cliente = cur.fetchone()
 
     if not cliente:
@@ -899,7 +918,7 @@ def portal_estado_cuenta():
 
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT * FROM clientes WHERE id = %s;", (session['cliente_id'],))
+            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
             cliente = cur.fetchone()
 
             if not cliente:
