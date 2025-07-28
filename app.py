@@ -15,7 +15,7 @@ app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-des
 @app.before_request
 def make_session_permanent():
     session.permanent = True
-    app.permanent_session_lifetime = timedelta(minutes=5)
+    app.permanent_session_lifetime = timedelta(minutes=30)
 
 def get_db():
     if 'db' not in g:
@@ -89,7 +89,6 @@ def registrar_cliente():
         flash("Error: Nombre y Cédula son campos obligatorios.", 'error')
         return redirect(url_for('registrar'))
     
-    # Limpia la cédula antes de usarla
     form_data['cedula'] = cedula.replace(' ', '')
     
     conn = get_db()
@@ -98,21 +97,18 @@ def registrar_cliente():
         return redirect(url_for('registrar'))
     try:
         with conn.cursor() as cur:
-            # NOTA: Esta inserción asume que la tabla clientes aún usa 'nombre_apellido'.
-            # La migración de datos la cambió a 'nombre' y 'apellido'.
-            # Esta ruta podría necesitar ajuste si se registran nuevos clientes por aquí.
+            # CORRECCIÓN: El INSERT ahora usa las columnas correctas 'nombre' y 'apellido' y es compatible con la nueva tabla
             query = """
             INSERT INTO clientes (
                 nombre, apellido, cedula, contrato_nro, telefono, asesor, responsable, fecha_ingreso,
-                grupo, bien_solicitado, plan_contratado, cuotas_totales, moneda_pago, valor_cuota,
+                grupo, plan_contratado, cuotas_totales, moneda_pago, valor_cuota,
                 inscripcion_monto, proceso
             ) VALUES (
                 %(nombre)s, %(apellido)s, %(cedula)s, %(contrato_nro)s, %(telefono)s, %(asesor)s, %(responsable)s, %(fecha_ingreso)s,
-                %(grupo)s, %(bien_solicitado)s, %(plan_contratado)s, %(cuotas_totales)s, %(moneda_pago)s, %(valor_cuota)s,
+                %(grupo)s, %(plan_contratado)s, %(cuotas_totales)s, %(moneda_pago)s, %(valor_cuota)s,
                 %(inscripcion_monto)s, %(proceso)s
             )
             """
-            # Dividimos nombre_apellido para la nueva estructura
             nombre_completo = form_data.get('nombre_apellido', '').split(' ', 1)
             form_data['nombre'] = nombre_completo[0]
             form_data['apellido'] = nombre_completo[1] if len(nombre_completo) > 1 else ''
@@ -128,7 +124,6 @@ def registrar_cliente():
         flash(f"Registro fallido: Ocurrió un error de base de datos: {e}", 'error')
     return redirect(url_for('registrar'))
 
-# ------------------- RUTA MODIFICADA Y CORREGIDA -------------------
 @app.route('/consulta', methods=['GET', 'POST'])
 def consulta():
     clientes_encontrados = []
@@ -143,21 +138,18 @@ def consulta():
         else:
             try:
                 with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                    # CONSULTA CORREGIDA: Busca en las columnas 'nombre' y 'apellido' por separado.
+                    # CORRECCIÓN: Busca en las columnas 'nombre' y 'apellido' por separado.
                     query_clientes = "SELECT * FROM clientes WHERE cedula ILIKE %s OR nombre ILIKE %s OR apellido ILIKE %s ORDER BY nombre, apellido LIMIT 20;"
-                    
                     patron_busqueda = f'%{termino_busqueda}%'
-                    
-                    # Pasamos el término de búsqueda 3 veces, uno para cada campo (cedula, nombre, apellido)
                     cur.execute(query_clientes, (patron_busqueda, patron_busqueda, patron_busqueda))
-                    
                     clientes_raw = cur.fetchall()
+                    
                     if not clientes_raw:
                         mensaje_error = "🚫 No se encontraron clientes que coincidan con su búsqueda."
                     else:
                         for cliente in clientes_raw:
                             cliente_dict = dict(cliente)
-                            # Se combina nombre y apellido para mostrar en la vista si es necesario
+                            # Creamos 'nombre_apellido' para que las plantillas no fallen
                             cliente_dict['nombre_apellido'] = f"{cliente.get('nombre', '')} {cliente.get('apellido', '')}".strip()
                             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC", (cliente_dict['id'],))
                             cliente_dict['pagos'] = cur.fetchall()
@@ -165,7 +157,6 @@ def consulta():
             except psycopg2.Error as e:
                 mensaje_error = f"Error al consultar la base de datos: {e}"
     return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda_raw)
-# ----------------- FIN DE LA MODIFICACIÓN -----------------
 
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 def registrar_pago(client_id):
@@ -512,6 +503,7 @@ def edit_client(client_id):
         return redirect(url_for('consulta'))
 
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        # CORRECCIÓN: Concatenamos para crear 'nombre_apellido' para la plantilla
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
 
@@ -524,7 +516,7 @@ def edit_client(client_id):
             update_data = dict(cliente)
             form_data = {k: v if v else None for k, v in request.form.items()}
             
-            # Dividir nombre_apellido del formulario
+            # CORRECCIÓN: Dividir nombre_apellido del formulario para guardarlo por separado
             if 'nombre_apellido' in form_data:
                 nombre_completo = form_data['nombre_apellido'].split(' ', 1)
                 form_data['nombre'] = nombre_completo[0]
@@ -533,11 +525,12 @@ def edit_client(client_id):
             update_data.update(form_data)
 
             with conn.cursor() as cur:
+                # CORRECCIÓN: El UPDATE ahora usa las columnas correctas de la nueva tabla
                 update_query = """
                 UPDATE clientes SET
                     nombre = %(nombre)s, apellido = %(apellido)s, cedula = %(cedula)s, contrato_nro = %(contrato_nro)s,
                     telefono = %(telefono)s, asesor = %(asesor)s, responsable = %(responsable)s, fecha_ingreso = %(fecha_ingreso)s,
-                    grupo = %(grupo)s, bien_solicitado = %(bien_solicitado)s, plan_contratado = %(plan_contratado)s,
+                    grupo = %(grupo)s, plan_contratado = %(plan_contratado)s,
                     cuotas_totales = %(cuotas_totales)s, moneda_pago = %(moneda_pago)s, valor_cuota = %(valor_cuota)s,
                     inscripcion_monto = %(inscripcion_monto)s, proceso = %(proceso)s, estatus = %(estatus)s, estatus_1 = %(estatus_1)s
                 WHERE id = %(id)s;
@@ -560,7 +553,7 @@ def delete_client(client_id):
     if not conn: return redirect(url_for('consulta'))
     try:
         with conn.cursor() as cur:
-            # Borrado en cascada configurado en la DB debería manejar esto
+            # Asumiendo que la base de datos tiene borrado en cascada
             cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
             conn.commit()
             flash('¡Cliente y sus registros asociados han sido eliminados exitosamente!', 'success')
@@ -652,7 +645,7 @@ def adjudicacion():
                 SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega
                 FROM clientes 
                 WHERE proceso = 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega)
-                ORDER BY nombre_apellido;
+                ORDER BY nombre, apellido;
             """)
             clientes_elegibles_ahorro = cur.fetchall()
             clientes_elegibles_sorteo = []
@@ -772,8 +765,6 @@ def portal_login():
         
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                # CORRECCIÓN: Se añade TRIM() a la columna 'cedula' para el login.
-                # También se añade TRIM a contrato_nro para mayor robustez.
                 cur.execute(
                     "SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE TRIM(cedula) = %s AND (TRIM(contrato_nro) = %s OR TRIM(contrato_nro) = %s);",
                     (cedula, contrato_nro, f"MP-{contrato_nro}")
