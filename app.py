@@ -97,7 +97,6 @@ def registrar_cliente():
         return redirect(url_for('registrar'))
     try:
         with conn.cursor() as cur:
-            # CORRECCIÓN: El INSERT ahora usa las columnas correctas 'nombre' y 'apellido' y es compatible con la nueva tabla
             query = """
             INSERT INTO clientes (
                 nombre, apellido, cedula, contrato_nro, telefono, asesor, responsable, fecha_ingreso,
@@ -138,18 +137,19 @@ def consulta():
         else:
             try:
                 with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                    # CORRECCIÓN: Busca en las columnas 'nombre' y 'apellido' por separado.
-                    query_clientes = "SELECT * FROM clientes WHERE cedula ILIKE %s OR nombre ILIKE %s OR apellido ILIKE %s ORDER BY nombre, apellido LIMIT 20;"
-                    patron_busqueda = f'%{termino_busqueda}%'
-                    cur.execute(query_clientes, (patron_busqueda, patron_busqueda, patron_busqueda))
-                    clientes_raw = cur.fetchall()
+                    # CORRECCIÓN FINAL: Seleccionamos la columna renombrada como 'inscripcion' para que la plantilla funcione
+                    query_clientes = "SELECT *, inscripcion_monto AS inscripcion FROM clientes WHERE cedula ILIKE %s OR nombre ILIKE %s OR apellido ILIKE %s ORDER BY nombre, apellido LIMIT 20;"
                     
+                    patron_busqueda = f'%{termino_busqueda}%'
+                    
+                    cur.execute(query_clientes, (patron_busqueda, patron_busqueda, patron_busqueda))
+                    
+                    clientes_raw = cur.fetchall()
                     if not clientes_raw:
                         mensaje_error = "🚫 No se encontraron clientes que coincidan con su búsqueda."
                     else:
                         for cliente in clientes_raw:
                             cliente_dict = dict(cliente)
-                            # Creamos 'nombre_apellido' para que las plantillas no fallen
                             cliente_dict['nombre_apellido'] = f"{cliente.get('nombre', '')} {cliente.get('apellido', '')}".strip()
                             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC", (cliente_dict['id'],))
                             cliente_dict['pagos'] = cur.fetchall()
@@ -503,7 +503,6 @@ def edit_client(client_id):
         return redirect(url_for('consulta'))
 
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        # CORRECCIÓN: Concatenamos para crear 'nombre_apellido' para la plantilla
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
 
@@ -516,7 +515,6 @@ def edit_client(client_id):
             update_data = dict(cliente)
             form_data = {k: v if v else None for k, v in request.form.items()}
             
-            # CORRECCIÓN: Dividir nombre_apellido del formulario para guardarlo por separado
             if 'nombre_apellido' in form_data:
                 nombre_completo = form_data['nombre_apellido'].split(' ', 1)
                 form_data['nombre'] = nombre_completo[0]
@@ -525,7 +523,6 @@ def edit_client(client_id):
             update_data.update(form_data)
 
             with conn.cursor() as cur:
-                # CORRECCIÓN: El UPDATE ahora usa las columnas correctas de la nueva tabla
                 update_query = """
                 UPDATE clientes SET
                     nombre = %(nombre)s, apellido = %(apellido)s, cedula = %(cedula)s, contrato_nro = %(contrato_nro)s,
@@ -553,7 +550,6 @@ def delete_client(client_id):
     if not conn: return redirect(url_for('consulta'))
     try:
         with conn.cursor() as cur:
-            # Asumiendo que la base de datos tiene borrado en cascada
             cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
             conn.commit()
             flash('¡Cliente y sus registros asociados han sido eliminados exitosamente!', 'success')
