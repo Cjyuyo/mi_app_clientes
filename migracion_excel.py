@@ -48,7 +48,8 @@ def run_migration():
         # --- Read Excel File ---
         excel_file_path = 'clientes_actualizado_final.xlsx'
         sheet1_name = 'CYK'
-        sheet2_name = 'moto plan motors'
+        # CORRECTED SHEET NAME:
+        sheet2_name = 'Moto Plan Motors'
         
         print(f"Reading Excel file: {excel_file_path}")
         df_sheet1 = pd.read_excel(excel_file_path, sheet_name=sheet1_name)
@@ -59,7 +60,7 @@ def run_migration():
 
         # --- Combine DataFrames ---
         df = pd.concat([df_sheet1, df_sheet2], ignore_index=True)
-        df.dropna(subset=['N⁰ CEDULA'], inplace=True) # Clean empty rows
+        df.dropna(subset=['N⁰ CEDULA'], inplace=True, how='all') # Clean empty rows
         print(f"Total combined rows to process: {len(df)}.")
 
 
@@ -146,9 +147,9 @@ def run_migration():
             data_tuple = (
                 str(row.get('n⁰ cedula', '')).split('.')[0], nombre, apellido,
                 row.get('grupo'), row.get('plan'), row.get('moneda de pago'),
-                row.get('asesor'), row.get('responsable'), row.get('n⁰ contrato'),
+                row.get('asesor'), row.get('responsable'), str(row.get('n⁰ contrato')),
                 row.get('proceso'), row.get('estatus'), to_date(row.get('fecha de ingreso')),
-                row.get('numero de tlf'), to_numeric(row.get('% inscripcion')),
+                str(row.get('numero de tlf')), to_numeric(row.get('% inscripcion')),
                 to_numeric(row.get('inscripcion')), to_numeric(row.get('cuotas totales')),
                 to_numeric(row.get('cuotas pagas')), row.get('estatus_pago'),
                 to_numeric(row.get('pagos impuntuales')), to_numeric(row.get('cuotas en mora')),
