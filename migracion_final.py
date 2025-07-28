@@ -45,13 +45,9 @@ def run_migration():
         # --- Read CSV File ---
         csv_file_path = 'clientes_actualizado.csv'
         print(f"Reading CSV file: {csv_file_path}")
-        try:
-            df = pd.read_csv(csv_file_path)
-            df.dropna(subset=['N⁰ CEDULA'], inplace=True) # Clean empty rows
-            print(f"Successfully loaded {len(df)} rows from CSV.")
-        except FileNotFoundError:
-            print(f"FATAL ERROR: The file '{csv_file_path}' was not found. Please upload it and run again.")
-            return
+        df = pd.read_csv(csv_file_path)
+        df.dropna(subset=['N⁰ CEDULA'], inplace=True) # Clean empty rows
+        print(f"Successfully loaded {len(df)} rows from CSV.")
 
         # --- Connect and Execute ---
         print("Connecting to the database...")
@@ -99,16 +95,13 @@ def run_migration():
         print("Inserting data... This may take a moment.")
         
         # Normalize column names from CSV
-        original_columns = df.columns.tolist()
         df.columns = [str(col).strip().lower() for col in df.columns]
-        
-        column_map = dict(zip(df.columns, original_columns))
 
         # Handle duplicated 'estatus' column
         cols = pd.Series(df.columns)
         estatus_indices = cols[cols == 'estatus'].index
         if len(estatus_indices) > 1:
-            cols[estatus_indices[1]] = 'estatus_pago'
+            cols.iloc[estatus_indices[1]] = 'estatus_pago'
         df.columns = cols
         
         insert_query = """
@@ -154,7 +147,7 @@ def run_migration():
                 to_numeric(row.get('inscripcion')),
                 to_numeric(row.get('cuotas totales')),
                 to_numeric(row.get('cuotas pagas')),
-                row.get('estatus_pago'), # Use the renamed column
+                row.get('estatus_pago'),
                 to_numeric(row.get('pagos impuntuales')),
                 to_numeric(row.get('cuotas en mora')),
                 row.get('observación'),
@@ -182,4 +175,5 @@ def run_migration():
             conn.close()
             print("Database connection closed.")
 
-if __name__ == "__
+if __name__ == "__main__":
+    run_migration()
