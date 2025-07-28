@@ -97,19 +97,16 @@ def registrar_cliente():
     try:
         with conn.cursor() as cur:
             
-            # Dividir nombre y apellido
             nombre_completo = nombre_apellido.split(' ', 1)
             nombre = nombre_completo[0]
             apellido = nombre_completo[1] if len(nombre_completo) > 1 else ''
 
-            # Datos base obligatorios
             insert_dict = {
                 'nombre': nombre,
                 'apellido': apellido,
                 'cedula': cedula.replace(' ', '')
             }
             
-            # Campos opcionales que vienen del formulario
             optional_fields = [
                 'contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso',
                 'grupo', 'plan_contratado', 'cuotas_totales', 'moneda_pago', 'valor_cuota',
@@ -120,7 +117,6 @@ def registrar_cliente():
                 if form_data.get(field) and form_data.get(field) != '':
                     insert_dict[field] = form_data[field]
 
-            # Construir la consulta SQL
             columns = insert_dict.keys()
             values = [insert_dict[col] for col in columns]
             
@@ -165,7 +161,6 @@ def consulta():
                             cliente_dict = dict(cliente)
                             cliente_dict['nombre_apellido'] = f"{cliente.get('nombre', '')} {cliente.get('apellido', '')}".strip()
                             
-                            # CAMBIO: Mapea 'cuotas_pagas' a 'cuotas_pagadas_progresivas' para compatibilidad
                             if 'cuotas_pagas' in cliente_dict:
                                 cliente_dict['cuotas_pagadas_progresivas'] = cliente_dict['cuotas_pagas']
 
@@ -656,10 +651,11 @@ def adjudicacion():
 
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            # CORRECCIÓN: Se usa ILIKE para ignorar mayúsculas/minúsculas en 'proceso'
             cur.execute("""
                 SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega
                 FROM clientes 
-                WHERE proceso = 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega)
+                WHERE proceso ILIKE 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega)
                 ORDER BY nombre, apellido;
             """)
             clientes_elegibles_ahorro = cur.fetchall()
@@ -667,7 +663,7 @@ def adjudicacion():
             cur.execute("""
                 SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula
                 FROM ofertas o JOIN clientes c ON o.cliente_id = c.id
-                WHERE o.estado_oferta = 'activa' AND c.proceso = 'Ahorrador'
+                WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador'
                 ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;
             """)
             ofertas_activas = cur.fetchall()
@@ -704,7 +700,7 @@ def realizar_adjudicacion():
             ids_ya_ganadores = set()
             cur.execute("""
                 SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes 
-                WHERE proceso = 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega);
+                WHERE proceso ILIKE 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega);
             """)
             ganadores_ahorro = cur.fetchall()
             ids_ganadores_ahorro = [g['id'] for g in ganadores_ahorro]
@@ -713,7 +709,7 @@ def realizar_adjudicacion():
             cur.execute("""
                 SELECT c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas
                 FROM ofertas o JOIN clientes c ON o.cliente_id = c.id
-                WHERE o.estado_oferta = 'activa' AND c.proceso = 'Ahorrador' AND c.id NOT IN %s;
+                WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador' AND c.id NOT IN %s;
             """, (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
             candidatos_oferta_raw = cur.fetchall()
             candidatos_oferta = []
