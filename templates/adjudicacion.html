@@ -66,7 +66,7 @@
     <div class="container py-4">
         <div class="header">
             <h1><i class="bi bi-trophy-fill"></i> Sistema de Adjudicación</h1>
-            <p>Realiza la adjudicación mensual por sorteo y oferta.</p>
+            <p>Realiza la adjudicación mensual por ahorro, sorteo y oferta.</p>
         </div>
 
         <div class="nav-bar">
@@ -74,7 +74,6 @@
             <a href="{{ url_for('adjudicacion') }}" class="active">Adjudicación</a>
         </div>
 
-        <!-- Alertas de Flash -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -87,31 +86,38 @@
         {% endwith %}
 
         <div class="row g-4">
-            <!-- Columna de Participantes -->
             <div class="col-lg-8">
                 <div class="card card-custom mb-4">
                     <div class="card-header card-header-custom">
                         <i class="bi bi-people-fill"></i> Participantes del Mes
                     </div>
                     <div class="card-body">
-                        <!-- Pestañas de Navegación -->
                         <ul class="nav nav-tabs" id="myTab" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="sorteo-tab" data-bs-toggle="tab" data-bs-target="#sorteo" type="button" role="tab">Elegibles para Sorteo ({{ clientes_elegibles_sorteo|length }})</button>
+                                <button class="nav-link active" id="ahorro-tab" data-bs-toggle="tab" data-bs-target="#ahorro" type="button" role="tab">Elegibles por Ahorro ({{ clientes_elegibles_ahorro|length }})</button>
+                            </li>
+                            <!-- CAMBIO: Se deshabilita la pestaña de Sorteo -->
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="sorteo-tab" data-bs-toggle="tab" data-bs-target="#sorteo" type="button" role="tab" disabled title="Funcionalidad temporalmente deshabilitada">Elegibles para Sorteo (0)</button>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="ofertas-tab" data-bs-toggle="tab" data-bs-target="#ofertas" type="button" role="tab">Ofertas Activas ({{ ofertas_activas|length }})</button>
                             </li>
                         </ul>
-                        <!-- Contenido de las Pestañas -->
                         <div class="tab-content" id="myTabContent">
-                            <div class="tab-pane fade show active" id="sorteo" role="tabpanel">
+                            <div class="tab-pane fade show active" id="ahorro" role="tabpanel">
                                 <ul class="list-group list-group-flush">
-                                    {% for cliente in clientes_elegibles_sorteo %}
-                                        <li class="list-group-item list-group-item-custom">{{ cliente.nombre_apellido }} <span class="badge bg-secondary">{{ cliente.cedula }}</span></li>
+                                    {% for cliente in clientes_elegibles_ahorro %}
+                                        <li class="list-group-item list-group-item-custom">{{ cliente.nombre_apellido }} <span class="badge bg-info">Cuota {{ cliente.cuotas_pagadas_progresivas }} (Retraso: {{ cliente.meses_retraso_entrega }})</span></li>
                                     {% else %}
-                                        <li class="list-group-item">No hay clientes elegibles para el sorteo.</li>
+                                        <li class="list-group-item">No hay clientes elegibles por ahorro este ciclo.</li>
                                     {% endfor %}
+                                </ul>
+                            </div>
+                            <div class="tab-pane fade" id="sorteo" role="tabpanel">
+                                <ul class="list-group list-group-flush">
+                                    <!-- CAMBIO: Mensaje indicando que está deshabilitado -->
+                                    <li class="list-group-item">La adjudicación por sorteo está temporalmente deshabilitada.</li>
                                 </ul>
                             </div>
                             <div class="tab-pane fade" id="ofertas" role="tabpanel">
@@ -136,20 +142,23 @@
                             <thead>
                                 <tr>
                                     <th>Fecha</th>
-                                    <th>Ganador Sorteo</th>
+                                    <th>Ganador(es) por Ahorro</th>
                                     <th>Ganador Oferta</th>
+                                    <!-- CAMBIO: Se indica que el sorteo está deshabilitado -->
+                                    <th>Ganador Sorteo <small class="text-muted">(Deshabilitado)</small></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for item in historial %}
                                 <tr>
                                     <td>{{ item.fecha_adjudicacion.strftime('%d/%m/%Y') }}</td>
-                                    <td>{{ item.nombre_ganador_sorteo or 'N/A' }}</td>
+                                    <td>{{ item.nombres_ganadores_ahorro|join(', ') if item.nombres_ganadores_ahorro else 'N/A' }}</td>
                                     <td>{{ item.nombre_ganador_oferta or 'N/A' }}</td>
+                                    <td>{{ item.nombre_ganador_sorteo or 'N/A' }}</td>
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="3" class="text-center">No hay registros de adjudicaciones.</td>
+                                    <td colspan="4" class="text-center">No hay registros de adjudicaciones.</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -158,12 +167,11 @@
                 </div>
             </div>
 
-            <!-- Columna de Acción -->
             <div class="col-lg-4">
                 <div class="card card-custom">
                     <div class="card-body text-center">
                         <h5 class="card-title">Iniciar Proceso</h5>
-                        <p class="card-text">Al hacer clic, el sistema seleccionará a los ganadores de forma aleatoria e irreversible para este ciclo.</p>
+                        <p class="card-text">Al hacer clic, el sistema seleccionará a los ganadores de forma irreversible para este ciclo.</p>
                         <form action="{{ url_for('realizar_adjudicacion') }}" method="POST" onsubmit="return confirm('¿Está seguro de que desea iniciar el proceso de adjudicación? Esta acción es final y no se puede deshacer.');">
                             <button type="submit" class="btn btn-success btn-adjudicar">
                                 <i class="bi bi-play-circle-fill"></i> Iniciar Adjudicación
