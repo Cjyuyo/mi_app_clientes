@@ -2,19 +2,28 @@ import os
 import sys
 import pandas as pd
 import psycopg2
-from tqdm import tqdm # Importar la librería para la barra de progreso
+from tqdm import tqdm
+from dotenv import load_dotenv
 
 def migrar_datos():
     """
-    Se conecta a la BD de Render usando una URL externa y migra los datos
-    desde un archivo CSV. Este script está diseñado para ejecutarse una sola vez
-    desde tu computadora local.
+    Se conecta a la BD usando la variable de entorno y migra los datos
+    desde un archivo CSV. Es seguro ejecutarlo múltiples veces gracias a
+    la cláusula ON CONFLICT.
     """
     # --- 1. Configuración ---
-    # URL Externa de la nueva base de datos de Render.
-    DATABASE_URL = "postgresql://clientes_prod_86od_user:c9HerXPZBQRpjtmXNPmLqWoA8KQSFAye@dpg-d21foofgi27c73ds6oig-a.oregon-postgres.render.com/clientes_prod_86od"
+    load_dotenv()
+    DATABASE_URL = os.getenv('DATABASE_URL')
+    if not DATABASE_URL:
+        print("FATAL: La variable de entorno DATABASE_URL no está configurada en tu archivo .env")
+        sys.exit(1)
+
     CSV_FILE = 'MI APP CLIENTES - MOTO PLAN.csv'
-    SCHEMA_FILE = 'schema' # El archivo con la estructura de la BD
+    
+    # Verificar si el archivo CSV existe
+    if not os.path.exists(CSV_FILE):
+        print(f"FATAL: No se encontró el archivo '{CSV_FILE}'. Asegúrate de que esté en la misma carpeta.")
+        sys.exit(1)
 
     # --- 2. Leer y preparar datos del CSV ---
     try:
@@ -22,14 +31,15 @@ def migrar_datos():
         tipos_de_datos = {'cedula': str, 'contrato_nro': str, 'telefono': str}
         df = pd.read_csv(CSV_FILE, dtype=tipos_de_datos)
         
-        # Limpiar nombres de columnas
+        print("Limpiando nombres de columnas...")
         df.columns = df.columns.str.strip().str.lower()
         
-        # Reemplazar celdas que solo contienen espacios en blanco por un valor nulo (NaN).
-        print("Limpiando datos y espacios en blanco...")
+        print("Limpiando datos y espacios en blanco en todas las celdas...")
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                df[col] = df[col].str.strip()
         df.replace(r'^\s*$', pd.NA, regex=True, inplace=True)
 
-        # Renombrar columnas del CSV para que coincidan con la base de datos
         df.rename(columns={
             'n⁰ cedula': 'cedula', 'n⁰ contrato': 'contrato_nro',
             'nombre y apellido': 'nombre_apellido', 'numero de tlf': 'telefono',
@@ -39,7 +49,6 @@ def migrar_datos():
             'estatus.1': 'estatus_1', 'inscripcion': 'inscripcion_monto'
         }, inplace=True)
 
-        # Asegurarse de que todas las columnas esperadas existan
         columnas_esperadas = [
             'cedula', 'contrato_nro', 'nombre_apellido', 'telefono', 'fecha_ingreso', 'grupo', 
             'bien_solicitado', 'moneda_pago', 'asesor', 'responsable', 'proceso', 'estatus', 
@@ -50,7 +59,6 @@ def migrar_datos():
             if col not in df.columns:
                 df[col] = None
 
-        # Convertir fechas y números, manejando errores
         print("Convirtiendo formatos de fecha y números...")
         if 'fecha_ingreso' in df.columns:
             df['fecha_ingreso'] = pd.to_datetime(df['fecha_ingreso'], dayfirst=True, errors='coerce')
@@ -59,10 +67,9 @@ def migrar_datos():
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
 
-        # Limpieza final: convertir todos los valores inválidos (NaN, NaT) a None
         df = df.astype(object).where(pd.notna(df), None)
         
-        print(f"Se encontraron {len(df)} filas para migrar.")
+        print(f"Se encontraron {len(df)} filas para procesar.")
 
     except Exception as e:
         print(f"\nERROR al leer o procesar el CSV: {e}")
@@ -71,25 +78,15 @@ def migrar_datos():
     # --- 3. Conectar a la BD y migrar ---
     conn = None
     try:
-        print("\nConectando a la base de datos en Render...")
+        print("\nConectando a la base de datos...")
         conn = psycopg2.connect(DATABASE_URL)
         print("¡Conexión exitosa!")
         
         with conn.cursor() as cursor:
-            print("Aplicando el schema (creando tablas)...")
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            schema_path = os.path.join(script_dir, SCHEMA_FILE)
-            with open(schema_path, 'r') as f:
-                schema_sql = f.read()
-            cursor.execute(schema_sql)
-            print("Tablas creadas/verificadas.")
-
-            print("Iniciando inserción de datos...")
+            print("Iniciando inserción de datos. Esto puede tardar unos minutos...")
             registros_saltados = 0
             
-            # Usar tqdm para mostrar una barra de progreso
             for index, row in tqdm(df.iterrows(), total=df.shape[0], desc="Insertando clientes"):
-                # Si la cédula está vacía, saltar esta fila y continuar con la siguiente.
                 if not row.get('cedula'):
                     registros_saltados += 1
                     continue
