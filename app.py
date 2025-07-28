@@ -650,10 +650,14 @@ def adjudicacion():
 
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            # --- CORRECCIÓN APLICADA ---
+            # Se añade la condición "AND estatus ILIKE 'activo'" para filtrar solo clientes activos.
             cur.execute("""
                 SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega
                 FROM clientes 
-                WHERE proceso ILIKE 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega)
+                WHERE proceso ILIKE 'Ahorrador' 
+                  AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega)
+                  AND estatus ILIKE 'activo'
                 ORDER BY nombre, apellido;
             """)
             clientes_elegibles_ahorro = cur.fetchall()
@@ -696,9 +700,14 @@ def realizar_adjudicacion():
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("UPDATE clientes SET ignorar_penalidad_puntualidad = FALSE;")
             ids_ya_ganadores = set()
+            
+            # --- CORRECCIÓN APLICADA ---
+            # Se añade la condición "AND estatus ILIKE 'activo'" para seleccionar solo clientes activos para la adjudicación por ahorro.
             cur.execute("""
                 SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes 
-                WHERE proceso ILIKE 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega);
+                WHERE proceso ILIKE 'Ahorrador' 
+                  AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega)
+                  AND estatus ILIKE 'activo';
             """)
             ganadores_ahorro = cur.fetchall()
             ids_ganadores_ahorro = [g['id'] for g in ganadores_ahorro]
@@ -775,12 +784,6 @@ def portal_login():
         
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                # --- CORRECCIÓN APLICADA ---
-                # La consulta ahora normaliza el campo `contrato_nro` de la base de datos para que coincida con el formato del input.
-                # 1. TRIM(): Elimina espacios en blanco al inicio y al final.
-                # 2. REPLACE(..., 'MP-', ''): Elimina el prefijo 'MP-' si existe.
-                # 3. SPLIT_PART(..., '.', 1): Obtiene solo la parte entera del número de contrato, ignorando los decimales.
-                # Esto hace que la comparación sea robusta contra '779', '779.0', 'MP-779', y 'MP-779.0'.
                 sql_query = """
                     SELECT id, (nombre || ' ' || apellido) as nombre_apellido 
                     FROM clientes 
