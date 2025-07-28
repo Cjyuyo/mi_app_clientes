@@ -81,7 +81,8 @@ def registrar():
 # --- RUTAS DE LA APLICACIÓN (PANEL DE ADMINISTRACIÓN) ---
 @app.route('/registrar_cliente', methods=['POST'])
 def registrar_cliente():
-    form_data = {k: v if v else None for k, v in request.form.items()}
+    form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
+    form_data = {k: v if v else None for k, v in form_data.items()}
     if not form_data.get('nombre_apellido') or not form_data.get('cedula'):
         flash("Error: Nombre y Cédula son campos obligatorios.", 'error')
         return redirect(url_for('registrar'))
@@ -117,7 +118,8 @@ def registrar_cliente():
 def consulta():
     clientes_encontrados = []
     mensaje_error = None
-    termino_busqueda = request.form.get('busqueda', request.args.get('busqueda', '')).strip()
+    termino_busqueda_raw = request.form.get('busqueda', request.args.get('busqueda', ''))
+    termino_busqueda = termino_busqueda_raw.strip()
 
     if termino_busqueda:
         conn = get_db()
@@ -126,10 +128,13 @@ def consulta():
         else:
             try:
                 with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                    # CORRECCIÓN: Se añade TRIM() a la columna 'cedula' para limpiar espacios en blanco durante la búsqueda.
-                    query_clientes = "SELECT * FROM clientes WHERE TRIM(cedula) = %s OR nombre_apellido ILIKE %s ORDER BY nombre_apellido LIMIT 20;"
-                    patron = f'%{termino_busqueda}%'
-                    cur.execute(query_clientes, (termino_busqueda, patron))
+                    # CORRECCIÓN DEFINITIVA: Limpia espacios antes, después y dentro de la cédula.
+                    query_clientes = "SELECT * FROM clientes WHERE REPLACE(TRIM(cedula), ' ', '') = %s OR nombre_apellido ILIKE %s ORDER BY nombre_apellido LIMIT 20;"
+                    
+                    cedula_limpia = termino_busqueda.replace(' ', '')
+                    patron_nombre = f'%{termino_busqueda}%'
+                    
+                    cur.execute(query_clientes, (cedula_limpia, patron_nombre))
                     
                     clientes_raw = cur.fetchall()
                     if not clientes_raw:
@@ -142,8 +147,9 @@ def consulta():
                             clientes_encontrados.append(cliente_dict)
             except psycopg2.Error as e:
                 mensaje_error = f"Error al consultar la base de datos: {e}"
-    return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda)
+    return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda_raw)
 
+# ... (El resto del código hasta el portal_login permanece igual)
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 def registrar_pago(client_id):
     conn = get_db()
