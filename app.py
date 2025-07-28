@@ -82,14 +82,13 @@ def registrar():
 @app.route('/registrar_cliente', methods=['POST'])
 def registrar_cliente():
     form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
-    form_data = {k: v if v else None for k, v in form_data.items()}
     
     cedula = form_data.get('cedula')
-    if not form_data.get('nombre_apellido') or not cedula:
+    nombre_apellido = form_data.get('nombre_apellido')
+
+    if not nombre_apellido or not cedula:
         flash("Error: Nombre y Cédula son campos obligatorios.", 'error')
         return redirect(url_for('registrar'))
-    
-    form_data['cedula'] = cedula.replace(' ', '')
     
     conn = get_db()
     if not conn:
@@ -97,31 +96,49 @@ def registrar_cliente():
         return redirect(url_for('registrar'))
     try:
         with conn.cursor() as cur:
-            query = """
-            INSERT INTO clientes (
-                nombre, apellido, cedula, contrato_nro, telefono, asesor, responsable, fecha_ingreso,
-                grupo, plan_contratado, cuotas_totales, moneda_pago, valor_cuota,
-                inscripcion_monto, proceso
-            ) VALUES (
-                %(nombre)s, %(apellido)s, %(cedula)s, %(contrato_nro)s, %(telefono)s, %(asesor)s, %(responsable)s, %(fecha_ingreso)s,
-                %(grupo)s, %(plan_contratado)s, %(cuotas_totales)s, %(moneda_pago)s, %(valor_cuota)s,
-                %(inscripcion_monto)s, %(proceso)s
-            )
-            """
-            nombre_completo = form_data.get('nombre_apellido', '').split(' ', 1)
-            form_data['nombre'] = nombre_completo[0]
-            form_data['apellido'] = nombre_completo[1] if len(nombre_completo) > 1 else ''
+            # CORRECCIÓN: Se construye la consulta dinámicamente para manejar campos opcionales
+            
+            # Dividir nombre y apellido
+            nombre_completo = nombre_apellido.split(' ', 1)
+            nombre = nombre_completo[0]
+            apellido = nombre_completo[1] if len(nombre_completo) > 1 else ''
 
-            cur.execute(query, form_data)
+            # Datos base obligatorios
+            insert_dict = {
+                'nombre': nombre,
+                'apellido': apellido,
+                'cedula': cedula.replace(' ', '')
+            }
+            
+            # Campos opcionales que vienen del formulario
+            optional_fields = [
+                'contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso',
+                'grupo', 'plan_contratado', 'cuotas_totales', 'moneda_pago', 'valor_cuota',
+                'inscripcion_monto', 'proceso'
+            ]
+            
+            for field in optional_fields:
+                if form_data.get(field):
+                    insert_dict[field] = form_data[field]
+
+            # Construir la consulta SQL
+            columns = insert_dict.keys()
+            values = [insert_dict[col] for col in columns]
+            
+            query = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))})"
+            
+            cur.execute(query, values)
             conn.commit()
-            flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado exitosamente!", 'success')
+            flash(f"¡Cliente '{nombre_apellido}' registrado exitosamente!", 'success')
+
     except psycopg2.IntegrityError:
         conn.rollback()
-        flash(f"Registro fallido: La cédula '{form_data.get('cedula')}' ya existe.", 'error')
+        flash(f"Registro fallido: La cédula '{cedula}' ya existe.", 'error')
     except (psycopg2.Error, ValueError) as e:
         conn.rollback()
         flash(f"Registro fallido: Ocurrió un error de base de datos: {e}", 'error')
     return redirect(url_for('registrar'))
+
 
 @app.route('/consulta', methods=['GET', 'POST'])
 def consulta():
@@ -526,9 +543,10 @@ def edit_client(client_id):
                     telefono = %(telefono)s, asesor = %(asesor)s, responsable = %(responsable)s, fecha_ingreso = %(fecha_ingreso)s,
                     grupo = %(grupo)s, plan_contratado = %(plan_contratado)s,
                     cuotas_totales = %(cuotas_totales)s, moneda_pago = %(moneda_pago)s, valor_cuota = %(valor_cuota)s,
-                    inscripcion_monto = %(inscripcion_monto)s, proceso = %(proceso)s, estatus = %(estatus)s, estatus_1 = %(estatus_1)s
+                    inscripcion_monto = %(inscripcion_monto)s, proceso = %(proceso)s, estatus = %(estatus)s
                 WHERE id = %(id)s;
                 """
+                # Removido estatus_1 que no existe en el CREATE TABLE
                 cur.execute(update_query, update_data)
                 conn.commit()
                 flash('¡Cliente actualizado exitosamente!', 'success')
@@ -650,7 +668,6 @@ def adjudicacion():
             """)
             ofertas_activas = cur.fetchall()
             
-            # CORRECCIÓN: Se elimina la columna 'ganadores_ahorro_ids' que no existe
             cur.execute("""
                 SELECT 
                     a.id, a.fecha_adjudicacion, 
@@ -726,7 +743,7 @@ def realizar_adjudicacion():
             ganador_sorteo_id = None
             ganador_oferta_id = ganador_oferta['id'] if ganador_oferta else None
             
-            # CORRECCIÓN: Se elimina 'ganadores_ahorro_ids' del INSERT
+            # El INSERT aquí debería ser compatible con la tabla 'adjudicaciones'
             cur.execute("""
                 INSERT INTO adjudicaciones (ganador_oferta_id, ganador_sorteo_id)
                 VALUES (%s, %s);
