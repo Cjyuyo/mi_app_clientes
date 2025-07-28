@@ -1,25 +1,22 @@
 import subprocess
 import sys
 import os
-import pandas as pd
-import pg8000.dbapi
 from urllib.parse import urlparse
 
 def install_and_import(package):
+    """Installs a package."""
     try:
         subprocess.check_call([sys.executable, "-m", "pip", "install", package])
     except Exception as e:
         print(f"Failed to install {package}: {e}")
         sys.exit(1)
 
-# --- 1. Install Dependencies ---
-print("Installing dependencies...")
-install_and_import('pg8000')
-install_and_import('pandas')
-install_and_import('openpyxl')
-
-# --- 2. Main Migration Logic ---
 def run_migration():
+    """Main function to run the data migration."""
+    # Move imports inside the function to ensure they run after installation
+    import pandas as pd
+    import pg8000.dbapi
+
     print("\nStarting migration process from Excel file...")
     try:
         database_url = "postgresql://clientes_prod_86od_user:c9HerXPZBQRpjtmXNPmLqWoA8KQSFAye@dpg-d21foofgi27c73ds6oig-a.oregon-postgres.render.com/clientes_prod_86od"
@@ -49,7 +46,6 @@ def run_migration():
         print("Database connection successful.")
         
         print("Recreating 'clientes' table...")
-        # (El create table SQL se mantiene igual)
         create_table_sql = """
         DROP TABLE IF EXISTS clientes CASCADE;
         CREATE TABLE clientes (
@@ -71,15 +67,13 @@ def run_migration():
         print("Inserting data with business logic...")
         df.columns = [str(col).strip().lower() for col in df.columns]
         
-        # CORRECCIÓN: Se añaden las columnas de lógica de negocio al INSERT
         insert_query = """
         INSERT INTO clientes (
-            cedula, nombre, apellido, grupo, plan_contratado, moneda_pago, asesor, responsable, 
+            cedula, nombre, apellido, grupo, plan_contratado,
             contrato_nro, proceso, estatus, fecha_ingreso, telefono, 
             inscripcion_monto, cuotas_totales, cuotas_pagas, valor_cuota,
-            -- Columnas de lógica de negocio
             inscripcion_pagada, cuotas_pagadas_progresivas
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         
         data_to_insert = []
@@ -105,23 +99,18 @@ def run_migration():
             nombre = name_parts[0]
             apellido = name_parts[1] if len(name_parts) > 1 else ''
             
-            # CORRECCIÓN: Se calcula el valor para las nuevas columnas
-            proceso = row.get('proceso', '').upper()
+            proceso = str(row.get('proceso', '')).upper() if pd.notna(row.get('proceso')) else None
             inscripcion_monto = to_numeric(row.get('inscripcion'))
             cuotas_pagas = to_integer(row.get('cuotas pagas'))
-
-            # Lógica simple: si no está en reserva, se asume inscripción pagada.
             inscripcion_pagada = inscripcion_monto if proceso != 'RESERVA' else 0
             
             data_tuple = (
-                str(row.get('n⁰ cedula', '')).split('.')[0], nombre, apellido, row.get('grupo'),
-                row.get('plan'), row.get('moneda de pago'), row.get('asesor'), row.get('responsable'),
+                str(row.get('n⁰ cedula', '')).split('.')[0], nombre, apellido, row.get('grupo'), row.get('plan'),
                 str(row.get('n⁰ contrato')), proceso, row.get('estatus'), to_date(row.get('fecha de ingreso')),
                 str(row.get('numero de tlf')), inscripcion_monto, to_integer(row.get('cuotas totales')),
                 cuotas_pagas, to_numeric(row.get('valor de cuota')),
-                # Valores para las nuevas columnas
                 inscripcion_pagada,
-                cuotas_pagas # Se usa cuotas_pagas para llenar cuotas_pagadas_progresivas
+                cuotas_pagas
             )
             data_to_insert.append(data_tuple)
 
@@ -137,5 +126,12 @@ def run_migration():
         if 'conn' in locals(): conn.close()
         print("Database connection closed.")
 
+# --- Punto de Entrada ---
 if __name__ == "__main__":
+    print("Installing dependencies...")
+    install_and_import('pg8000')
+    install_and_import('pandas')
+    install_and_import('openpyxl')
+    
+    # Run the main migration function
     run_migration()
