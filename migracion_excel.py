@@ -67,13 +67,14 @@ def run_migration():
         print("Inserting data with business logic...")
         df.columns = [str(col).strip().lower() for col in df.columns]
         
+        # CORRECCIÓN: Se incluyen todos los campos en el INSERT
         insert_query = """
         INSERT INTO clientes (
-            cedula, nombre, apellido, grupo, plan_contratado,
+            cedula, nombre, apellido, grupo, plan_contratado, moneda_pago, asesor, responsable, 
             contrato_nro, proceso, estatus, fecha_ingreso, telefono, 
             inscripcion_monto, cuotas_totales, cuotas_pagas, valor_cuota,
             inscripcion_pagada, cuotas_pagadas_progresivas
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         
         data_to_insert = []
@@ -104,8 +105,10 @@ def run_migration():
             cuotas_pagas = to_integer(row.get('cuotas pagas'))
             inscripcion_pagada = inscripcion_monto if proceso != 'RESERVA' else 0
             
+            # CORRECCIÓN: Se incluyen todos los campos en la tupla de datos
             data_tuple = (
                 str(row.get('n⁰ cedula', '')).split('.')[0], nombre, apellido, row.get('grupo'), row.get('plan'),
+                row.get('moneda de pago'), row.get('asesor'), row.get('responsable'),
                 str(row.get('n⁰ contrato')), proceso, row.get('estatus'), to_date(row.get('fecha de ingreso')),
                 str(row.get('numero de tlf')), inscripcion_monto, to_integer(row.get('cuotas totales')),
                 cuotas_pagas, to_numeric(row.get('valor de cuota')),
@@ -133,5 +136,4 @@ if __name__ == "__main__":
     install_and_import('pandas')
     install_and_import('openpyxl')
     
-    # Run the main migration function
     run_migration()

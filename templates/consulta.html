@@ -32,9 +32,54 @@
         .progress-item { grid-column: 1 / -1; }
         .progress-bar-container { background-color: #e9ecef; border-radius: .375rem; height: 1.25rem; overflow: hidden; width: 100%; margin-top: 5px; }
         .progress-bar { background-color: #28a745; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold; transition: width 0.6s ease; }
-        
+        .progress-bar-secondary { background-color: #17a2b8; }
+        .progress-label { display: flex; justify-content: space-between; font-size: 0.9em; margin-top: 5px; }
+        .progress-label-detail { font-size: 0.9em; color: #606770; }
+
         .payment-history { padding: 0 20px 20px; }
-        /* Estilos adicionales que puedas necesitar */
+        .payment-history h3 { margin-top: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .payment-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 10px; border-bottom: 1px solid #f0f2f5; gap: 15px; }
+        .payment-info { flex-grow: 1; }
+        .payment-info span { display: block; }
+        .payment-info .payment-concept { font-weight: 600; color: #050505; }
+        .payment-info .payment-meta { font-size: 0.85em; color: #606770; }
+        .payment-amount { font-size: 1.1em; font-weight: bold; text-align: right; min-width: 90px; }
+        .payment-status-badge { font-size: 0.8em; font-weight: bold; padding: 4px 8px; border-radius: 6px; color: white; }
+        .status-conciliado { background-color: #28a745; }
+        .status-pendiente { background-color: #ffc107; color: #212529; }
+        .status-anulado { background-color: #dc3545; }
+        .status-puntualidad { font-size: 0.8em; font-weight: bold; padding: 4px 8px; border-radius: 6px; margin-left: 5px; }
+        .puntualidad-Puntual { background-color: #d4edda; color: #155724; }
+        .puntualidad-Impuntual { background-color: #f8d7da; color: #721c24; }
+        .client-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 15px 20px; background-color: #f5f6f7; border-top: 1px solid #dddfe2; }
+        .btn { text-decoration: none; color: white !important; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; }
+        .btn-primary { background-color: #28a745; }
+        .btn-warning { background-color: #ffc107; color: #212529 !important; }
+        .btn-danger { background-color: #dc3545; }
+        .btn-info { background-color: #17a2b8; }
+        .mensaje { margin: 0 0 20px 0; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
+        .error { color: #D8000C; background-color: #FFD2D2; }
+        .success { color: #4F8A10; background-color: #DFF2BF; }
+        .warning { color: #9F6000; background-color: #FEEFB3; }
+        .info { color: #00529B; background-color: #BDE5F8; }
+        
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .search-container form { flex-direction: column; align-items: stretch; }
+            .client-details { grid-template-columns: 1fr 1fr; } 
+            .progress-item { grid-column: 1 / -1; }
+            .payment-history h3 { cursor: pointer; }
+            .payment-list { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; }
+            .payment-accordion-item { border-bottom: 1px solid #e9ecef; }
+            .payment-accordion-item:last-child { border-bottom: none; }
+            .payment-summary { display: flex; justify-content: space-between; align-items: center; padding: 12px 10px; cursor: pointer; background-color: #f7f8fa; margin-top: 5px; border-radius: 6px; }
+            .payment-summary .accordion-arrow { font-size: 0.8em; transition: transform 0.3s ease; color: #606770; }
+            .payment-summary.active .accordion-arrow { transform: rotate(180deg); }
+            .payment-details-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; padding: 0 10px; background-color: #fff; }
+            .payment-row { flex-direction: column; align-items: flex-start; padding: 10px 0; border-bottom: none; }
+            .payment-actions { width: 100%; justify-content: flex-start; padding: 10px 0 0 0; }
+            .desktop-payment-list { display: none; }
+        }
     </style>
 </head>
 <body>
@@ -43,7 +88,7 @@
         <form method="POST" action="{{ url_for('consulta') }}">
             <input type="text" name="busqueda" placeholder="Buscar por Nombre o Cédula..." value="{{ busqueda or '' }}">
             <button type="submit">Buscar</button>
-            <a href="{{ url_for('consulta') }}" class="btn btn-secondary">Limpiar</a>
+            <a href="{{ url_for('consulta') }}" class="btn btn-secondary">Finalizar Consulta</a>
         </form>
     </div>
 
@@ -74,7 +119,7 @@
                 </div>
                 <div class="detail-item">
                     <span class="label">Plan</span>
-                    <span class="value">{{ cliente.plan_contratado or 'N/A' }}</span>
+                    <span class="value">{{ (cliente.plan_contratado | int) if cliente.plan_contratado is not none else 'N/A' }}</span>
                 </div>
                 <div class="detail-item">
                     <span class="label">Cuotas Pagadas</span>
@@ -86,7 +131,7 @@
                 </div>
                 <div class="detail-item">
                     <span class="label">Contrato</span>
-                    <span class="value">{{ cliente.contrato_nro or 'N/A' }}</span>
+                    <span class="value">{{ (cliente.contrato_nro | int) if cliente.contrato_nro is not none else 'N/A' }}</span>
                 </div>
                 <div class="detail-item">
                     <span class="label">Teléfono</span>
@@ -101,25 +146,205 @@
                     <span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span>
                 </div>
 
-                {% set cuotas_pagadas = cliente.cuotas_pagadas_progresivas or 0 %}
+                {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}
+                {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}
+                {% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}
                 {% set cuotas_totales = cliente.cuotas_totales or 0 %}
-                {% set progreso_total = (cuotas_pagadas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                {% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
 
                 <div class="detail-item progress-item">
-                    <span class="label">Progreso del Plan</span>
+                    <span class="label">Progreso Total del Plan</span>
                     <div class="progress-bar-container">
                         <div class="progress-bar" style="width: {{ progreso_total }}%;">
                             {{ "%.0f"|format(progreso_total) }}%
                         </div>
                     </div>
+                    <div class="progress-label">
+                        <span class="progress-label-detail">Pagadas: {{ cuotas_pagadas_total | int }}</span>
+                        <span class="progress-label-detail">Restantes: {{ (cuotas_totales | int) - (cuotas_pagadas_total | int) }}</span>
+                        <span class="progress-label-detail">Total: {{ cuotas_totales | int }}</span>
+                    </div>
+                </div>
+
+                {% set balance = cliente.balance_regresivo|float or 0.0 %}
+                {% set valor_cuota = cliente.valor_cuota|float or 0.0 %}
+                {% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
+                
+                <div class="detail-item progress-item">
+                    {% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}
+                    <span class="label">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span>
+                     <div class="progress-bar-container">
+                        <div class="progress-bar progress-bar-secondary" style="width: {{ progreso_cuota_actual }}%;">
+                            {{ "%.0f"|format(progreso_cuota_actual) }}%
+                        </div>
+                    </div>
+                    <div class="progress-label">
+                        <span>Abonado: ${{ "%.2f"|format(balance) }}</span>
+                        <span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}</span>
+                        <span>Valor Cuota: ${{ "%.2f"|format(valor_cuota) }}</span>
+                    </div>
+                </div>
+                </div>
+
+            {% if cliente.pagos %}
+            <div class="payment-history">
+                <h3>Historial de Pagos</h3>
+                <div class="desktop-payment-list">
+                    {% for pago in cliente.pagos %}
+                    <div class="payment-row">
+                        <div class="payment-info">
+                            <span class="payment-concept">{{ pago.tipo_pago }} - {{ pago.por_concepto_de }}</span>
+                            <span class="payment-meta">
+                                {{ pago.fecha_pago.strftime('%d/%m/%Y') }} | Ref: {{ pago.referencia or 'N/A' }}
+                            </span>
+                        </div>
+                        <div class="payment-amount">
+                            ${{ "%.2f"|format(pago.monto) }}
+                        </div>
+                        <div class="payment-status">
+                            <span class="payment-status-badge status-{{ pago.estado_pago.lower() }}">{{ pago.estado_pago }}</span>
+                            {% if pago.puntualidad %}
+                            <span class="status-puntualidad puntualidad-{{ pago.puntualidad }}">{{ pago.puntualidad }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="payment-actions">
+                             {% if pago.estado_pago == 'Pendiente' %}
+                            <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;">
+                                <button type="submit" class="btn btn-primary">Conciliar</button>
+                            </form>
+                            {% elif pago.estado_pago == 'Conciliado' %}
+                                {% if pago.tipo_pago == 'Inscripción Finalizada' %}
+                                    <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
+                                {% else %}
+                                    <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
+                                {% endif %}
+                            {% elif pago.estado_pago == 'Anulado' %}
+                                <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-danger">Ver Anulado</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="mobile-payment-list">
+                    <div class="payment-list">
+                        {% for pago in cliente.pagos %}
+                        <div class="payment-accordion-item">
+                            <div class="payment-summary">
+                                 <div class="payment-info">
+                                    <span class="payment-concept">Recibo N° {{ pago.id }} - {{ pago.tipo_pago }}</span>
+                                    <span class="payment-meta">{{ pago.fecha_pago.strftime('%d/%m/%Y') }}</span>
+                                </div>
+                                <div class="payment-amount">${{ "%.2f"|format(pago.monto) }}</div>
+                                <span class="accordion-arrow">&#9660;</span>
+                            </div>
+                            <div class="payment-details-content">
+                                <div class="payment-row">
+                                    <div class="payment-info">
+                                        <span class="payment-concept">{{ pago.por_concepto_de }}</span>
+                                        <span class="payment-meta">Ref: {{ pago.referencia or 'N/A' }}</span>
+                                    </div>
+                                    <div class="payment-status">
+                                        <span class="payment-status-badge status-{{ pago.estado_pago.lower() }}">{{ pago.estado_pago }}</span>
+                                        {% if pago.puntualidad %}
+                                        <span class="status-puntualidad puntualidad-{{ pago.puntualidad }}">{{ pago.puntualidad }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="payment-actions">
+                                        {% if pago.estado_pago == 'Pendiente' %}
+                                        <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;">
+                                            <button type="submit" class="btn btn-primary">Conciliar</button>
+                                        </form>
+                                        {% elif pago.estado_pago == 'Conciliado' %}
+                                            {% if pago.tipo_pago == 'Inscripción Finalizada' %}
+                                                <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
+                                            {% else %}
+                                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
+                                            {% endif %}
+                                        {% elif pago.estado_pago == 'Anulado' %}
+                                            <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-danger">Ver Anulado</a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
+            {% endif %}
 
             <div class="client-actions">
-                </div>
+                <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-primary">Registrar Pago</a>
+                <a href="{{ url_for('registrar_oferta', client_id=cliente.id) }}" class="btn btn-info">Registrar Oferta</a>
+                <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-warning">Editar</a>
+                <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres eliminar a este cliente? Se borrarán todos sus pagos asociados.');">
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+            </div>
         </div>
         {% endfor %}
     </div>
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        function isMobileView() {
+            return window.innerWidth <= 600;
+        }
+
+        if (isMobileView()) {
+            document.querySelectorAll('.desktop-payment-list').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.mobile-payment-list').forEach(el => el.style.display = 'block');
+
+            const mainAccordionHeader = document.querySelector('.payment-history h3');
+            const mainAccordionContent = document.querySelector('.payment-list');
+
+            if (mainAccordionHeader) {
+                mainAccordionHeader.addEventListener('click', function() {
+                    if (mainAccordionContent.style.maxHeight) {
+                        mainAccordionContent.style.maxHeight = null;
+                    } else {
+                        mainAccordionContent.style.maxHeight = mainAccordionContent.scrollHeight + "px";
+                    }
+                });
+            }
+
+            const paymentItems = document.querySelectorAll('.payment-summary');
+            paymentItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    this.classList.toggle('active');
+                    const arrow = this.querySelector('.accordion-arrow');
+                    if (arrow) {
+                        arrow.style.transform = this.classList.contains('active') ? 'rotate(180deg)' : 'rotate(0deg)';
+                    }
+
+                    const detailContent = this.nextElementSibling;
+                    const mainContent = this.closest('.payment-list');
+                    
+                    if (detailContent.style.maxHeight) {
+                        detailContent.style.maxHeight = null;
+                        mainContent.style.maxHeight = (mainContent.scrollHeight - detailContent.scrollHeight) + "px";
+                    } else {
+                        const openItems = mainContent.querySelectorAll('.payment-details-content');
+                        openItems.forEach(openItem => {
+                             if(openItem.style.maxHeight){
+                                openItem.style.maxHeight = null;
+                                const openSummary = openItem.previousElementSibling;
+                                openSummary.classList.remove('active');
+                                const openArrow = openSummary.querySelector('.accordion-arrow');
+                                if(openArrow) openArrow.style.transform = 'rotate(0deg)';
+                             }
+                        });
+
+                        detailContent.style.maxHeight = detailContent.scrollHeight + "px";
+                        mainContent.style.maxHeight = (mainContent.scrollHeight + detailContent.scrollHeight) + "px";
+                    }
+                });
+            });
+        } else {
+            document.querySelectorAll('.desktop-payment-list').forEach(el => el.style.display = 'block');
+            document.querySelectorAll('.mobile-payment-list').forEach(el => el.style.display = 'none');
+        }
+    });
+</script>
 </body>
 </html>
