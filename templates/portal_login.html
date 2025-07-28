@@ -51,10 +51,6 @@
             font-size: 0.9rem;
             color: #6c757d;
         }
-        .admin-link {
-            text-align: center;
-            margin-top: 1rem;
-        }
     </style>
 </head>
 <body>
@@ -79,20 +75,20 @@
         <form method="POST" action="{{ url_for('portal_login') }}">
             <div class="mb-3">
                 <label for="cedula" class="form-label">Cédula de Identidad</label>
-                <input type="text" class="form-control" id="cedula" name="cedula" placeholder="V-12345678" required>
+                <!-- CAMBIO: Se elimina el prefijo "V-" del placeholder -->
+                <input type="text" class="form-control" id="cedula" name="cedula" placeholder="12345678" required>
             </div>
             <div class="mb-3">
                 <label for="contrato_nro" class="form-label">Número de Contrato</label>
-                <input type="text" class="form-control" id="contrato_nro" name="contrato_nro" placeholder="Ej: MP-00123" required>
+                <!-- CAMBIO: Se elimina el prefijo "MP-" del placeholder -->
+                <input type="text" class="form-control" id="contrato_nro" name="contrato_nro" placeholder="00123" required>
             </div>
             <div class="d-grid mt-4">
                 <button type="submit" class="btn btn-primary">Iniciar Sesión</button>
             </div>
         </form>
         
-        <div class="admin-link">
-            <a href="{{ url_for('hub') }}">Acceso de Administrador</a>
-        </div>
+        <!-- CAMBIO: Se elimina el link de acceso para administradores -->
 
         <div class="footer-text">
             &copy; {{ anio_actual }} Moto Plan Motors C.A.
