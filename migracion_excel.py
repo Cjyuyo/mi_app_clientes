@@ -8,7 +8,6 @@ def install_and_import(package):
         subprocess.check_call([sys.executable, "-m", "pip", "install", package])
     except subprocess.CalledProcessError as e:
         print(f"Failed to install {package}: {e}")
-        # Exit if a critical package fails
         if package in ['pg8000', 'pandas', 'openpyxl']:
             sys.exit(1)
     
@@ -18,7 +17,7 @@ def install_and_import(package):
 print("Installing dependencies...")
 install_and_import('pg8000')
 install_and_import('pandas')
-install_and_import('openpyxl') # Required for reading .xlsx files
+install_and_import('openpyxl')
 
 # Now import them for use in the script
 import pandas as pd
@@ -29,26 +28,23 @@ from urllib.parse import urlparse
 def run_migration():
     print("\nStarting migration process from Excel file...")
     try:
-        # --- Get Database Credentials ---
         database_url = "postgresql://clientes_prod_86od_user:c9HerXPZBQRpjtmXNPmLqWoA8KQSFAye@dpg-d21foofgi27c73ds6oig-a.oregon-postgres.render.com/clientes_prod_86od"
         print("Using provided DATABASE_URL.")
 
         url = urlparse(database_url)
-        port = url.port or 5432 # Use default port 5432 if not found
+        port = url.port or 5432
         
         conn_details = {
             "user": url.username,
             "password": url.password,
             "host": url.hostname,
             "port": port,
-            "database": url.path[1:], # Remove leading '/'
+            "database": url.path[1:],
             "ssl_context": True 
         }
 
-        # --- Read Excel File ---
         excel_file_path = 'clientes_actualizado_final.xlsx'
         sheet1_name = 'CYK'
-        # CORRECTED SHEET NAME:
         sheet2_name = 'Moto Plan Motors'
         
         print(f"Reading Excel file: {excel_file_path}")
@@ -58,13 +54,10 @@ def run_migration():
         df_sheet2 = pd.read_excel(excel_file_path, sheet_name=sheet2_name)
         print(f"Read {len(df_sheet2)} rows from sheet '{sheet2_name}'.")
 
-        # --- Combine DataFrames ---
         df = pd.concat([df_sheet1, df_sheet2], ignore_index=True)
-        df.dropna(subset=['N⁰ CEDULA'], inplace=True, how='all') # Clean empty rows
+        df.dropna(subset=['N⁰ CEDULA'], inplace=True, how='all')
         print(f"Total combined rows to process: {len(df)}.")
 
-
-        # --- Connect and Execute ---
         print(f"Connecting to host {conn_details['host']} on port {conn_details['port']}...")
         conn = pg8000.dbapi.connect(**conn_details)
         cursor = conn.cursor()
@@ -72,8 +65,9 @@ def run_migration():
 
         # --- a. Recreate Table ---
         print("Recreating 'clientes' table...")
+        # FIX: Added CASCADE to the DROP TABLE command
         create_table_sql = """
-        DROP TABLE IF EXISTS clientes;
+        DROP TABLE IF EXISTS clientes CASCADE;
         CREATE TABLE clientes (
             id SERIAL PRIMARY KEY,
             cedula VARCHAR(255),
@@ -109,10 +103,8 @@ def run_migration():
         # --- b. Insert Data ---
         print("Inserting data... This may take a moment.")
         
-        # Normalize column names
         df.columns = [str(col).strip().lower() for col in df.columns]
         
-        # Handle duplicated 'estatus' column
         cols = pd.Series(df.columns)
         estatus_indices = cols[cols == 'estatus'].index
         if len(estatus_indices) > 1:
