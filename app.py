@@ -775,10 +775,19 @@ def portal_login():
         
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                cur.execute(
-                    "SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE TRIM(cedula) = %s AND (TRIM(contrato_nro) = %s OR TRIM(contrato_nro) = %s);",
-                    (cedula, contrato_nro, f"MP-{contrato_nro}")
-                )
+                # --- CORRECCIÓN APLICADA ---
+                # La consulta ahora normaliza el campo `contrato_nro` de la base de datos para que coincida con el formato del input.
+                # 1. TRIM(): Elimina espacios en blanco al inicio y al final.
+                # 2. REPLACE(..., 'MP-', ''): Elimina el prefijo 'MP-' si existe.
+                # 3. SPLIT_PART(..., '.', 1): Obtiene solo la parte entera del número de contrato, ignorando los decimales.
+                # Esto hace que la comparación sea robusta contra '779', '779.0', 'MP-779', y 'MP-779.0'.
+                sql_query = """
+                    SELECT id, (nombre || ' ' || apellido) as nombre_apellido 
+                    FROM clientes 
+                    WHERE TRIM(cedula) = %s 
+                    AND SPLIT_PART(REPLACE(TRIM(contrato_nro), 'MP-', ''), '.', 1) = %s;
+                """
+                cur.execute(sql_query, (cedula, contrato_nro))
                 cliente = cur.fetchone()
 
             if cliente:
