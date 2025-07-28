@@ -3,14 +3,12 @@ import sys
 import os
 
 def install_and_import(package):
-    """Installs a package and then imports it."""
     try:
         subprocess.check_call([sys.executable, "-m", "pip", "install", package])
     except subprocess.CalledProcessError as e:
         print(f"Failed to install {package}: {e}")
         if package in ['pg8000', 'pandas', 'openpyxl']:
             sys.exit(1)
-    
     __import__(package)
 
 # --- 1. Install Dependencies ---
@@ -63,9 +61,7 @@ def run_migration():
         cursor = conn.cursor()
         print("Database connection successful.")
 
-        # --- a. Recreate Table ---
         print("Recreating 'clientes' table...")
-        # FIX: Added CASCADE to the DROP TABLE command
         create_table_sql = """
         DROP TABLE IF EXISTS clientes CASCADE;
         CREATE TABLE clientes (
@@ -100,7 +96,6 @@ def run_migration():
         cursor.execute(create_table_sql)
         print("Table 'clientes' created successfully.")
 
-        # --- b. Insert Data ---
         print("Inserting data... This may take a moment.")
         
         df.columns = [str(col).strip().lower() for col in df.columns]
@@ -122,19 +117,26 @@ def run_migration():
         """
         
         data_to_insert = []
+        # Helper functions for data conversion
+        def to_date(date_str):
+            try: return pd.to_datetime(date_str, dayfirst=True, errors='coerce').date() if pd.notna(date_str) else None
+            except Exception: return None
+
+        def to_numeric(val):
+            try: return pd.to_numeric(val, errors='coerce') if pd.notna(val) else None
+            except Exception: return None
+
+        # FIX: New function to safely convert to Integer
+        def to_integer(val):
+            if pd.isna(val): return None
+            try: return int(pd.to_numeric(val, errors='coerce'))
+            except (ValueError, TypeError): return None
+
         for _, row in df.iterrows():
             full_name = str(row.get('nombre y apellido', ''))
             name_parts = full_name.strip().split(' ', 1)
             nombre = name_parts[0]
             apellido = name_parts[1] if len(name_parts) > 1 else ''
-
-            def to_date(date_str):
-                try: return pd.to_datetime(date_str, dayfirst=True, errors='coerce').date() if pd.notna(date_str) else None
-                except Exception: return None
-
-            def to_numeric(val):
-                try: return pd.to_numeric(val, errors='coerce') if pd.notna(val) else None
-                except Exception: return None
             
             data_tuple = (
                 str(row.get('n⁰ cedula', '')).split('.')[0], nombre, apellido,
@@ -142,9 +144,13 @@ def run_migration():
                 row.get('asesor'), row.get('responsable'), str(row.get('n⁰ contrato')),
                 row.get('proceso'), row.get('estatus'), to_date(row.get('fecha de ingreso')),
                 str(row.get('numero de tlf')), to_numeric(row.get('% inscripcion')),
-                to_numeric(row.get('inscripcion')), to_numeric(row.get('cuotas totales')),
-                to_numeric(row.get('cuotas pagas')), row.get('estatus_pago'),
-                to_numeric(row.get('pagos impuntuales')), to_numeric(row.get('cuotas en mora')),
+                to_numeric(row.get('inscripcion')), 
+                # Apply the integer conversion fix
+                to_integer(row.get('cuotas totales')), 
+                to_integer(row.get('cuotas pagas')),
+                row.get('estatus_pago'),
+                to_integer(row.get('pagos impuntuales')),
+                to_integer(row.get('cuotas en mora')),
                 row.get('observación'), to_numeric(row.get('valor de cuota')),
                 to_date(row.get('fecha de pago')), row.get('estatus cuota'),
                 to_numeric(row.get('valor cancelado'))
