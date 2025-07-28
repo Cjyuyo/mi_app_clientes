@@ -651,7 +651,6 @@ def adjudicacion():
 
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            # CORRECCIÓN: Se usa ILIKE para ignorar mayúsculas/minúsculas en 'proceso'
             cur.execute("""
                 SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega
                 FROM clientes 
