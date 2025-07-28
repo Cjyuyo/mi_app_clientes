@@ -63,58 +63,23 @@
         .warning { color: #9F6000; background-color: #FEEFB3; }
         .info { color: #00529B; background-color: #BDE5F8; }
         
-        /* --- INICIO DE AJUSTES PARA MÓVILES --- */
         @media (max-width: 600px) {
             body { padding: 10px; }
             .search-container form { flex-direction: column; align-items: stretch; }
             .client-details { grid-template-columns: 1fr 1fr; } 
             .progress-item { grid-column: 1 / -1; }
-            
             .payment-history h3 { cursor: pointer; }
             .payment-list { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; }
-            
             .payment-accordion-item { border-bottom: 1px solid #e9ecef; }
             .payment-accordion-item:last-child { border-bottom: none; }
-            .payment-summary {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 12px 10px;
-                cursor: pointer;
-                background-color: #f7f8fa;
-                margin-top: 5px;
-                border-radius: 6px;
-            }
-            .payment-summary .accordion-arrow {
-                font-size: 0.8em;
-                transition: transform 0.3s ease;
-                color: #606770;
-            }
-            .payment-summary.active .accordion-arrow {
-                transform: rotate(180deg);
-            }
-            .payment-details-content {
-                max-height: 0;
-                overflow: hidden;
-                transition: max-height 0.4s ease-out;
-                padding: 0 10px;
-                background-color: #fff;
-            }
-            .payment-row { 
-                flex-direction: column; 
-                align-items: flex-start;
-                padding: 10px 0;
-                border-bottom: none;
-            }
-            .payment-actions {
-                width: 100%;
-                justify-content: flex-start;
-                padding: 10px 0 0 0;
-            }
-            /* Ocultar la lista de pagos por defecto en escritorio para evitar conflictos */
+            .payment-summary { display: flex; justify-content: space-between; align-items: center; padding: 12px 10px; cursor: pointer; background-color: #f7f8fa; margin-top: 5px; border-radius: 6px; }
+            .payment-summary .accordion-arrow { font-size: 0.8em; transition: transform 0.3s ease; color: #606770; }
+            .payment-summary.active .accordion-arrow { transform: rotate(180deg); }
+            .payment-details-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; padding: 0 10px; background-color: #fff; }
+            .payment-row { flex-direction: column; align-items: flex-start; padding: 10px 0; border-bottom: none; }
+            .payment-actions { width: 100%; justify-content: flex-start; padding: 10px 0 0 0; }
             .desktop-payment-list { display: none; }
         }
-        /* --- FIN DE AJUSTES PARA MÓVILES --- */
     </style>
 </head>
 <body>
@@ -173,6 +138,7 @@
                     <span class="value">{{ cliente.meses_retraso_entrega or 0 }} mes(es)</span>
                 </div>
 
+                <!-- INICIO: Bloque de progreso unificado -->
                 {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}
                 {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}
                 {% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}
@@ -198,8 +164,8 @@
                 {% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
                 
                 <div class="detail-item progress-item">
-                    {% set cuota_objetivo = cuotas_totales - cuotas_regresivas %}
-                    <span class="label">Saldo a Favor (Abono a la cuota regresiva N° {{ cuota_objetivo }})</span>
+                    {% set cuota_regresiva_objetivo = cuotas_totales - cuotas_regresivas %}
+                    <span class="label">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span>
                      <div class="progress-bar-container">
                         <div class="progress-bar progress-bar-secondary" style="width: {{ progreso_cuota_actual }}%;">
                             {{ "%.0f"|format(progreso_cuota_actual) }}%
@@ -211,12 +177,12 @@
                         <span>Valor Cuota: ${{ "%.2f"|format(valor_cuota) }}</span>
                     </div>
                 </div>
+                <!-- FIN: Bloque de progreso unificado -->
             </div>
 
             {% if cliente.pagos %}
             <div class="payment-history">
                 <h3>Historial de Pagos</h3>
-                <!-- INICIO DE LA LÓGICA CORREGIDA -->
                 <div class="desktop-payment-list">
                     {% for pago in cliente.pagos %}
                     <div class="payment-row">
@@ -298,7 +264,6 @@
                         {% endfor %}
                     </div>
                 </div>
-                <!-- FIN DE LA LÓGICA CORREGIDA -->
             </div>
             {% endif %}
 
@@ -316,13 +281,11 @@
 </div>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // --- INICIO DE LA LÓGICA MEJORADA ---
         function isMobileView() {
             return window.innerWidth <= 600;
         }
 
         if (isMobileView()) {
-            // Ocultar la lista de escritorio y mostrar la de móvil
             document.querySelectorAll('.desktop-payment-list').forEach(el => el.style.display = 'none');
             document.querySelectorAll('.mobile-payment-list').forEach(el => el.style.display = 'block');
 
@@ -372,11 +335,9 @@
                 });
             });
         } else {
-            // Ocultar la lista de móvil y mostrar la de escritorio
             document.querySelectorAll('.desktop-payment-list').forEach(el => el.style.display = 'block');
             document.querySelectorAll('.mobile-payment-list').forEach(el => el.style.display = 'none');
         }
-        // --- FIN DE LA LÓGICA MEJORADA ---
     });
 </script>
 </body>

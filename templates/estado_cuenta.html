@@ -36,7 +36,7 @@
         }
         .info-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr; /* 2 columnas por defecto */
+            grid-template-columns: 1fr 1fr;
             gap: 10px 20px;
         }
         .info-item {
@@ -58,9 +58,8 @@
             color: #1c1e21;
             font-size: 1.1em;
         }
-        /* Estilos para las barras de progreso */
         .progress-item {
-            grid-column: 1 / -1; /* Ocupa todo el ancho */
+            grid-column: 1 / -1;
         }
         .progress-bar-container {
             background-color: #e9ecef;
@@ -156,10 +155,10 @@
                 </div>
             </div>
             
-            <!-- =========== NUEVA SECCIÓN: RESUMEN DEL PLAN =========== -->
             <div class="section">
-                <h3>Resumen del Plan</h3>
+                <h3>Resumen del Plan (Estado Actual)</h3>
                 <div class="info-grid">
+                    <!-- INICIO: Bloque de progreso unificado -->
                     {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}
                     {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}
                     {% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}
@@ -174,8 +173,9 @@
                             </div>
                         </div>
                         <div class="progress-label">
-                            <span>Pagadas: {{ cuotas_pagadas_total }} de {{ cuotas_totales }}</span>
-                            <span>Valor Cuota: ${{ "%.2f"|format(cliente.valor_cuota|float) }}</span>
+                            <span>Pagadas: {{ cuotas_pagadas_total }}</span>
+                            <span>Restantes: {{ cuotas_totales - cuotas_pagadas_total }}</span>
+                            <span>Total: {{ cuotas_totales }}</span>
                         </div>
                     </div>
 
@@ -184,7 +184,8 @@
                     {% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
 
                     <div class="info-item progress-item">
-                        <span class="label">Saldo a Favor (Abono a próxima cuota)</span>
+                        {% set cuota_regresiva_objetivo = cuotas_totales - cuotas_regresivas %}
+                        <span class="label">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span>
                         <div class="progress-bar-container">
                             <div class="progress-bar progress-bar-secondary" style="width: {{ progreso_cuota_actual }}%;">
                                 {{ "%.0f"|format(progreso_cuota_actual) }}%
@@ -192,9 +193,11 @@
                         </div>
                         <div class="progress-label">
                             <span>Abonado: ${{ "%.2f"|format(balance) }}</span>
-                            <span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) if valor_cuota > balance else "0.00" }}</span>
+                            <span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}</span>
+                            <span>Valor Cuota: ${{ "%.2f"|format(valor_cuota) }}</span>
                         </div>
                     </div>
+                    <!-- FIN: Bloque de progreso unificado -->
                 </div>
             </div>
             

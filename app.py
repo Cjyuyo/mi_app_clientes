@@ -5,7 +5,7 @@ from flask import Flask, render_template, request, g, flash, redirect, url_for, 
 from dotenv import load_dotenv
 from decimal import Decimal
 from datetime import datetime, timedelta
-import random # Importar la librería random
+import random
 
 load_dotenv()
 app = Flask(__name__)
@@ -15,7 +15,6 @@ app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-des
 @app.before_request
 def make_session_permanent():
     session.permanent = True
-    # La sesión del cliente expirará después de 5 minutos de inactividad.
     app.permanent_session_lifetime = timedelta(minutes=5)
 
 def get_db():
@@ -75,10 +74,8 @@ def home():
 def hub():
     return render_template('hub.html', anio_actual=datetime.now().year)
 
-# --- RUTA CORREGIDA PARA EL FORMULARIO DE REGISTRO ---
 @app.route('/registrar')
 def registrar():
-    """Muestra el formulario para registrar un nuevo cliente."""
     return render_template('registrar.html')
 
 
@@ -266,35 +263,62 @@ def conciliar_pago(pago_id):
                     return redirect(url_for('ver_recibo', pago_id=pago_id))
 
             elif pago['tipo_pago'] == 'Cuota':
-                if cliente['proceso'] == 'INSCRITO' and cliente['cuotas_pagadas_progresivas'] == 0 and cliente['balance_regresivo'] == 0:
+                if cliente['proceso'] == 'INSCRITO':
                     cur.execute("UPDATE clientes SET proceso = 'Ahorrador' WHERE id = %s", (cliente['id'],))
                     flash("Primer pago de cuota registrado. El proceso del cliente ha cambiado a 'Ahorrador'.", "info")
 
                 valor_cuota = Decimal(cliente['valor_cuota'] or 0)
                 if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
-                cuotas_progresivas_actuales = cliente['cuotas_pagadas_progresivas'] or 0
-                balance_regresivo_actual = Decimal(cliente['balance_regresivo'] or 0)
-                cuotas_regresivas_actuales = cliente['cuotas_pagadas_regresivas'] or 0
                 
-                nuevas_cuotas_regresivas = cuotas_regresivas_actuales
-                monto_necesario_progresiva = valor_cuota - balance_regresivo_actual
-                nuevas_cuotas_progresivas = cuotas_progresivas_actuales
-                nuevo_balance_regresivo = balance_regresivo_actual
+                # CAMBIO: Lógica de cálculo de cuotas mejorada
+                cuotas_progresivas_actuales = cliente['cuotas_pagadas_progresivas'] or 0
+                cuotas_regresivas_actuales = cliente['cuotas_pagadas_regresivas'] or 0
+                balance_actual = Decimal(cliente['balance_regresivo'] or 0)
+
+                monto_total_disponible = monto_pagado + balance_actual
+                
                 cuotas_cubiertas_este_pago = 0
-                if monto_pagado >= monto_necesario_progresiva:
-                    nuevas_cuotas_progresivas += 1
-                    excedente = monto_pagado - monto_necesario_progresiva
-                    nuevo_balance_regresivo = excedente
-                    cuotas_cubiertas_este_pago = 1
-                else:
-                    nuevo_balance_regresivo += monto_pagado
-                while nuevo_balance_regresivo >= valor_cuota:
-                    nuevo_balance_regresivo -= valor_cuota
-                    nuevas_cuotas_regresivas += 1
+                
+                # Primero, intentar completar la cuota progresiva actual si hay un saldo pendiente
+                if balance_actual > 0 and balance_actual < valor_cuota:
+                    monto_necesario = valor_cuota - balance_actual
+                    if monto_pagado >= monto_necesario:
+                        cuotas_progresivas_actuales += 1
+                        monto_total_disponible -= monto_necesario # Se resta lo usado para completar
+                        balance_actual = 0 # El balance se resetea
+                        cuotas_cubiertas_este_pago += 1
+
+                # Con el monto restante, calcular cuotas completas (progresivas o regresivas)
+                cuotas_completas_adicionales = int(monto_total_disponible // valor_cuota)
+                
+                # Distinguir si son progresivas o regresivas
+                cuotas_progresivas_nuevas = cuotas_progresivas_actuales + cuotas_regresivas_actuales + cuotas_completas_adicionales
+                
+                # Se asume que las nuevas cuotas completas son progresivas
+                nuevas_cuotas_progresivas = cuotas_progresivas_actuales + cuotas_completas_adicionales
+                nuevas_cuotas_regresivas = cuotas_regresivas_actuales
+                
+                cuotas_cubiertas_este_pago += cuotas_completas_adicionales
+                
+                # El nuevo balance es el residuo
+                nuevo_balance = monto_total_disponible % valor_cuota
+
+                # Actualizar la tabla de clientes con el estado final
                 update_cliente_query = "UPDATE clientes SET cuotas_pagadas_progresivas = %s, balance_regresivo = %s, cuotas_pagadas_regresivas = %s WHERE id = %s;"
-                cur.execute(update_cliente_query, (nuevas_cuotas_progresivas, nuevo_balance_regresivo, nuevas_cuotas_regresivas, cliente['id']))
-                update_pago_query = "UPDATE pagos SET estado_pago = 'Conciliado', cuotas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s WHERE id = %s;"
-                cur.execute(update_pago_query, (cuotas_cubiertas_este_pago, nuevas_cuotas_progresivas, nuevas_cuotas_regresivas, nuevo_balance_regresivo, pago_id))
+                cur.execute(update_cliente_query, (nuevas_cuotas_progresivas, nuevo_balance, nuevas_cuotas_regresivas, cliente['id']))
+                
+                # Sellar el estado en el momento del pago en la tabla de pagos
+                update_pago_query = """
+                    UPDATE pagos 
+                    SET estado_pago = 'Conciliado', 
+                        cuotas_cubiertas = %s, 
+                        cuotas_progresivas_al_pagar = %s, 
+                        cuotas_regresivas_al_pagar = %s, 
+                        balance_al_pagar = %s 
+                    WHERE id = %s;
+                """
+                cur.execute(update_pago_query, (cuotas_cubiertas_este_pago, nuevas_cuotas_progresivas, nuevas_cuotas_regresivas, nuevo_balance, pago_id))
+                
                 conn.commit()
                 flash(f"¡Pago de cuota N° {pago_id} conciliado como '{puntualidad}'!", 'success')
                 return redirect(url_for('ver_recibo', pago_id=pago_id))
@@ -613,8 +637,6 @@ def guardar_oferta(client_id):
 
     return redirect(url_for('consulta', busqueda=cedula_cliente))
 
-# --- INICIO: NUEVAS RUTAS PARA ADJUDICACIÓN ---
-
 @app.route('/adjudicacion', methods=['GET'])
 def adjudicacion():
     conn = get_db()
@@ -624,7 +646,6 @@ def adjudicacion():
 
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            # Clientes elegibles para el sorteo (Ahorradores y Solventes)
             cur.execute("""
                 SELECT id, nombre_apellido, cedula, contrato_nro 
                 FROM clientes 
@@ -633,7 +654,6 @@ def adjudicacion():
             """)
             clientes_elegibles_sorteo = cur.fetchall()
 
-            # Ofertas activas para la licitación
             cur.execute("""
                 SELECT o.cuotas_ofertadas, c.id, c.nombre_apellido, c.cedula
                 FROM ofertas o
@@ -643,7 +663,6 @@ def adjudicacion():
             """)
             ofertas_activas = cur.fetchall()
             
-            # Historial de adjudicaciones
             cur.execute("""
                 SELECT a.id, a.fecha_adjudicacion, 
                        gs.nombre_apellido as nombre_ganador_sorteo,
@@ -679,7 +698,6 @@ def realizar_adjudicacion():
 
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            # --- 1. Determinar ganador por OFERTA ---
             cur.execute("""
                 SELECT c.id, c.nombre_apellido, o.cuotas_ofertadas
                 FROM ofertas o
@@ -694,7 +712,6 @@ def realizar_adjudicacion():
                 empatados_oferta = [p for p in posibles_ganadores_oferta if p['cuotas_ofertadas'] == max_oferta]
                 ganador_oferta = random.choice(empatados_oferta)
 
-            # --- 2. Determinar ganador por SORTEO ---
             cur.execute("""
                 SELECT id, nombre_apellido 
                 FROM clientes 
@@ -703,18 +720,15 @@ def realizar_adjudicacion():
             candidatos_sorteo = cur.fetchall()
 
             if ganador_oferta:
-                # Excluir al ganador de la oferta de la lista de candidatos para el sorteo
                 candidatos_sorteo = [c for c in candidatos_sorteo if c['id'] != ganador_oferta['id']]
 
             if candidatos_sorteo:
                 ganador_sorteo = random.choice(candidatos_sorteo)
 
-            # --- 3. Actualizar la base de datos si hay ganadores ---
             if not ganador_oferta and not ganador_sorteo:
                 flash("No hay clientes elegibles ni ofertas activas para realizar la adjudicación.", "warning")
                 return redirect(url_for('adjudicacion'))
 
-            # Actualizar estado de los ganadores
             ids_ganadores = []
             if ganador_oferta: ids_ganadores.append(ganador_oferta['id'])
             if ganador_sorteo: ids_ganadores.append(ganador_sorteo['id'])
@@ -722,12 +736,10 @@ def realizar_adjudicacion():
             if ids_ganadores:
                 cur.execute("UPDATE clientes SET proceso = 'ADJUDICADO' WHERE id = ANY(%s);", (ids_ganadores,))
 
-            # Actualizar estado de las ofertas
             if ganador_oferta:
                 cur.execute("UPDATE ofertas SET estado_oferta = 'ganadora' WHERE cliente_id = %s AND estado_oferta = 'activa';", (ganador_oferta['id'],))
             cur.execute("UPDATE ofertas SET estado_oferta = 'perdida' WHERE estado_oferta = 'activa';")
 
-            # --- 4. Guardar en el historial ---
             ganador_sorteo_id = ganador_sorteo['id'] if ganador_sorteo else None
             ganador_oferta_id = ganador_oferta['id'] if ganador_oferta else None
             
@@ -738,7 +750,6 @@ def realizar_adjudicacion():
 
             conn.commit()
 
-            # Mensajes de éxito
             if ganador_sorteo:
                 flash(f"🎉 ¡Ganador por Sorteo: {ganador_sorteo['nombre_apellido']}!", 'success')
             if ganador_oferta:
@@ -749,10 +760,6 @@ def realizar_adjudicacion():
         flash(f"Ocurrió un error durante el proceso de adjudicación: {e}", 'error')
     
     return redirect(url_for('adjudicacion'))
-
-
-# --- FIN: NUEVAS RUTAS PARA ADJUDICACIÓN ---
-
 
 # --- RUTAS DEL PORTAL DEL CLIENTE ---
 @app.route('/portal', methods=['GET'])
@@ -780,7 +787,6 @@ def portal_login():
         
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                # Búsqueda más flexible para el número de contrato
                 cur.execute(
                     "SELECT id, nombre_apellido FROM clientes WHERE cedula = %s AND (contrato_nro = %s OR contrato_nro = %s);",
                     (cedula, contrato_nro, f"MP-{contrato_nro}")

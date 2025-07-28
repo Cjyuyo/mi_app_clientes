@@ -195,20 +195,25 @@
                 </div>
             </div>
 
+            <!-- CAMBIO: Sección de estado de cuenta actualizada -->
             <div class="section">
-                <h3>Estado de Cuenta Actualizado</h3>
+                <h3>Estado de Cuenta (Al Momento del Pago)</h3>
                 <div class="info-grid">
                     <div class="info-item">
                         <span class="label">Cuotas Pagadas (Progresivas)</span>
-                        <span class="value">{{ pago.cuotas_pagadas_progresivas or 0 }} de {{ pago.cuotas_totales or 'N/A' }}</span>
+                        <span class="value">{{ pago.cuotas_pagadas_progresivas or 0 }}</span>
                     </div>
                     <div class="info-item">
                         <span class="label">Cuotas Pagadas (Regresivas)</span>
                         <span class="value">{{ pago.cuotas_pagadas_regresivas or 0 }}</span>
                     </div>
                     <div class="info-item">
+                        <span class="label">Total Pagadas</span>
+                        <span class="value">{{ (pago.cuotas_pagadas_progresivas or 0) + (pago.cuotas_pagadas_regresivas or 0) }} de {{ pago.cuotas_totales or 'N/A' }}</span>
+                    </div>
+                    <div class="info-item">
                         <span class="label">Balance a Favor</span>
-                        <span class="value">${{ "%.2f"|format(pago.balance_regresivo) }} de ${{ "%.2f"|format(pago.valor_cuota) }}</span>
+                        <span class="value">${{ "%.2f"|format(pago.balance_regresivo) }}</span>
                     </div>
                 </div>
             </div>
@@ -222,14 +227,12 @@
         <div class="actions-section">
             <button class="btn-imprimir" onclick="window.print()">Imprimir / Guardar PDF</button>
 
-            <!-- Lógica Condicional para el botón "Volver" -->
             {% if is_admin_view %}
                 <a href="{{ url_for('consulta', busqueda=pago.cedula) }}" class="btn-volver">Volver a Consulta</a>
             {% else %}
                 <a href="{{ url_for('portal_dashboard') }}" class="btn-volver">Volver al Portal</a>
             {% endif %}
 
-            <!-- Lógica Condicional para el botón "Anular" (Solo para Admin) -->
             {% if is_admin_view and pago.estado_pago != 'Anulado' %}
             <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo? Esta acción revertirá el pago y el estado de cuenta del cliente.');">
                 <button type="submit" class="btn-anular">Anular Recibo</button>

@@ -78,7 +78,6 @@
     </div>
 
     <div class="container my-5">
-        <!-- CAMBIO: Se ajusta la clase de la fila para un mejor espaciado -->
         <div class="row g-4 justify-content-center">
             <!-- Tarjeta para Registrar Cliente -->
             <div class="col-lg-4 col-md-6">
@@ -88,7 +87,8 @@
                         <h3>Registrar Cliente</h3>
                         <p>Añade un nuevo cliente al sistema rellenando su información inicial.</p>
                     </div>
-                    <a href="{{ url_for('registrar') }}" class="btn btn-primary">Acceder</a>
+                    <!-- CAMBIO: Se añade target="_blank" -->
+                    <a href="{{ url_for('registrar') }}" class="btn btn-primary" target="_blank">Acceder</a>
                 </div>
             </div>
 
@@ -100,7 +100,8 @@
                         <h3>Consultar Clientes</h3>
                         <p>Busca, visualiza y gestiona los perfiles y pagos de los clientes existentes.</p>
                     </div>
-                    <a href="{{ url_for('consulta') }}" class="btn btn-primary">Acceder</a>
+                    <!-- CAMBIO: Se añade target="_blank" -->
+                    <a href="{{ url_for('consulta') }}" class="btn btn-primary" target="_blank">Acceder</a>
                 </div>
             </div>
 
@@ -112,11 +113,12 @@
                         <h3>Sistema de Adjudicación</h3>
                         <p>Inicia el proceso de adjudicación mensual y consulta el historial de ganadores.</p>
                     </div>
-                    <a href="{{ url_for('adjudicacion') }}" class="btn btn-success">Adjudicar</a>
+                    <!-- CAMBIO: Se añade target="_blank" -->
+                    <a href="{{ url_for('adjudicacion') }}" class="btn btn-success" target="_blank">Adjudicar</a>
                 </div>
             </div>
             
-            <!-- CAMBIO: Se reincorpora la tarjeta del Portal de Clientes -->
+            <!-- Tarjeta del Portal de Clientes -->
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
                     <div>
@@ -124,7 +126,8 @@
                         <h3>Portal de Clientes</h3>
                         <p>Accede a la página de inicio de sesión del portal del cliente.</p>
                     </div>
-                    <a href="{{ url_for('portal_login') }}" class="btn btn-secondary">Ir al Portal</a>
+                    <!-- CAMBIO: Se añade target="_blank" -->
+                    <a href="{{ url_for('portal_login') }}" class="btn btn-secondary" target="_blank">Ir al Portal</a>
                 </div>
             </div>
         </div>
