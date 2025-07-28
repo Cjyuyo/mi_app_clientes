@@ -40,25 +40,11 @@
             font-weight: bold;
             padding: 0.75rem 1.5rem;
         }
-        .nav-bar {
-            background-color: white;
-            padding: 15px 30px;
-            border-bottom: 1px solid #dddfe2;
+        /* Estilo para la nueva barra de navegación/acción */
+        .action-bar {
             display: flex;
-            gap: 15px;
-            align-items: center;
-            border-radius: .5rem;
+            justify-content: flex-end; /* Alinea el botón a la derecha */
             margin-bottom: 1rem;
-        }
-        .nav-bar a {
-            text-decoration: none;
-            color: #0056b3;
-            font-weight: 600;
-            padding: 8px 12px;
-            border-radius: 6px;
-        }
-        .nav-bar a.active {
-            background-color: #e7f3ff;
         }
     </style>
 </head>
@@ -69,9 +55,11 @@
             <p>Realiza la adjudicación mensual por ahorro, sorteo y oferta.</p>
         </div>
 
-        <div class="nav-bar">
-            <a href="{{ url_for('hub') }}">Hub Principal</a>
-            <a href="{{ url_for('adjudicacion') }}" class="active">Adjudicación</a>
+        <!-- BARRA DE ACCIÓN CON BOTÓN PARA VOLVER AL HUB -->
+        <div class="action-bar">
+            <a href="{{ url_for('hub') }}" class="btn btn-secondary">
+                <i class="bi bi-house-door-fill me-2"></i>Volver al Hub Principal
+            </a>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -96,7 +84,6 @@
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link active" id="ahorro-tab" data-bs-toggle="tab" data-bs-target="#ahorro" type="button" role="tab">Elegibles por Ahorro ({{ clientes_elegibles_ahorro|length }})</button>
                             </li>
-                            <!-- CAMBIO: Se deshabilita la pestaña de Sorteo -->
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="sorteo-tab" data-bs-toggle="tab" data-bs-target="#sorteo" type="button" role="tab" disabled title="Funcionalidad temporalmente deshabilitada">Elegibles para Sorteo (0)</button>
                             </li>
@@ -116,7 +103,6 @@
                             </div>
                             <div class="tab-pane fade" id="sorteo" role="tabpanel">
                                 <ul class="list-group list-group-flush">
-                                    <!-- CAMBIO: Mensaje indicando que está deshabilitado -->
                                     <li class="list-group-item">La adjudicación por sorteo está temporalmente deshabilitada.</li>
                                 </ul>
                             </div>
@@ -144,7 +130,6 @@
                                     <th>Fecha</th>
                                     <th>Ganador(es) por Ahorro</th>
                                     <th>Ganador Oferta</th>
-                                    <!-- CAMBIO: Se indica que el sorteo está deshabilitado -->
                                     <th>Ganador Sorteo <small class="text-muted">(Deshabilitado)</small></th>
                                 </tr>
                             </thead>
