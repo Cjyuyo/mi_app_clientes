@@ -227,7 +227,6 @@ def registrar_cliente():
                 if form_data.get(field) and form_data.get(field) != '':
                     insert_dict[field] = form_data[field]
             
-            # --- MEJORA: Calcular cuotas regresivas al registrar ---
             if 'cuotas_totales' in insert_dict and 'cuotas_pagadas_progresivas' in insert_dict:
                 cuotas_t = int(insert_dict['cuotas_totales'])
                 cuotas_p = int(insert_dict['cuotas_pagadas_progresivas'])
@@ -282,7 +281,7 @@ def consulta():
                         for cliente in clientes_raw:
                             cliente_dict = dict(cliente)
                             cliente_dict['nombre_apellido'] = f"{cliente.get('nombre', '')} {cliente.get('apellido', '')}".strip()
-                            if 'cuotas_pagas' in cliente_dict: # Compatibilidad con datos antiguos
+                            if 'cuotas_pagas' in cliente_dict: 
                                 cliente_dict['cuotas_pagadas_progresivas'] = cliente_dict['cuotas_pagas']
 
                             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC", (cliente_dict['id'],))
@@ -337,7 +336,7 @@ def registrar_pago(client_id):
                 """
                 cur.execute(pago_query, (
                     client_id, pago_form['monto'], tipo_pago, pago_form['forma_pago'], pago_form['fecha_pago'],
-                    pago_form.get('pago_en'), pago_form['por_concepto_de'],
+                    pago_form.get('pago_en'), pago_form.get('por_concepto_de'),
                     pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('lugar_emision'),
                     pago_form.get('tasa_dia'), pago_form.get('monto_bs')
                 ))
@@ -414,7 +413,8 @@ def conciliar_pago(pago_id):
                     return redirect(url_for('ver_recibo', pago_id=pago_id))
 
             elif pago['tipo_pago'] == 'Cuota':
-                # --- LÓGICA CORREGIDA Y MEJORADA ---
+                ### INICIO DE LA NUEVA LÓGICA DE NEGOCIO ###
+                
                 puntualidad = 'Puntual'
                 fecha_vencimiento = get_fecha_vencimiento_ajustada(pago['fecha_pago'])
                 if pago['fecha_pago'] > fecha_vencimiento:
@@ -425,47 +425,77 @@ def conciliar_pago(pago_id):
                     cur.execute("UPDATE clientes SET proceso = 'Ahorrador' WHERE id = %s", (cliente['id'],))
                     flash("Primer pago de cuota registrado. El proceso del cliente ha cambiado a 'Ahorrador'.", "info")
 
+                # Obtener estado actual del cliente
                 valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
                 if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
                 
                 cuotas_progresivas_actuales = cliente.get('cuotas_pagadas_progresivas') or 0
+                cuotas_regresivas_actuales = cliente.get('cuotas_pagadas_regresivas') or 0
                 balance_actual = Decimal(cliente.get('balance_regresivo') or 0)
+
+                # Monto total disponible para el pago
                 monto_total_disponible = monto_pagado + balance_actual
-                cuotas_completas_adicionales = int(monto_total_disponible // valor_cuota)
                 
-                # 1. Calcular nuevas cuotas progresivas (CORREGIDO)
-                nuevas_cuotas_progresivas = cuotas_progresivas_actuales + cuotas_completas_adicionales
-                nuevo_balance = monto_total_disponible % valor_cuota
+                # Contadores para esta transacción específica
+                progresivas_pagadas_hoy = 0
+                regresivas_pagadas_hoy = 0
 
-                # 2. Calcular nuevas cuotas regresivas (MEJORA)
-                cuotas_totales = cliente.get('cuotas_totales') or 0
-                nuevas_cuotas_regresivas = cuotas_totales - nuevas_cuotas_progresivas if cuotas_totales > 0 else 0
-
-                # 3. Actualizar la tabla de clientes con ambos valores
-                update_cliente_query = "UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s;"
-                cur.execute(update_cliente_query, (nuevas_cuotas_progresivas, nuevas_cuotas_regresivas, nuevo_balance, cliente['id']))
+                # 1. Pagar máximo UNA cuota progresiva
+                if monto_total_disponible >= valor_cuota:
+                    progresivas_pagadas_hoy = 1
+                    monto_total_disponible -= valor_cuota
                 
-                # 4. Guardar el estado histórico en la tabla de pagos
+                # El monto restante ahora es el balance provisional
+                balance_provisional = monto_total_disponible
+
+                # 2. Usar el balance para pagar cuotas regresivas (del final hacia atrás)
+                while balance_provisional >= valor_cuota:
+                    regresivas_pagadas_hoy += 1
+                    balance_provisional -= valor_cuota
+                
+                # 3. Calcular los nuevos totales y el balance final
+                nuevo_balance_final = balance_provisional
+                nuevas_cuotas_progresivas_totales = cuotas_progresivas_actuales + progresivas_pagadas_hoy
+                nuevas_cuotas_regresivas_totales = cuotas_regresivas_actuales + regresivas_pagadas_hoy
+                cuotas_cubiertas_hoy = progresivas_pagadas_hoy + regresivas_pagadas_hoy
+
+                # 4. Actualizar la tabla de clientes
+                update_cliente_query = """
+                    UPDATE clientes 
+                    SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s 
+                    WHERE id = %s;
+                """
+                cur.execute(update_cliente_query, (nuevas_cuotas_progresivas_totales, nuevas_cuotas_regresivas_totales, nuevo_balance_final, cliente['id']))
+                
+                # 5. Guardar el estado histórico y el detalle de la transacción en la tabla de pagos
                 update_pago_query = """
                     UPDATE pagos 
                     SET estado_pago = 'Conciliado', puntualidad = %s, cuotas_cubiertas = %s, 
+                        progresivas_cubiertas = %s, regresivas_cubiertas = %s,
                         cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s 
                     WHERE id = %s;
                 """
-                cur.execute(update_pago_query, (puntualidad, cuotas_completas_adicionales, nuevas_cuotas_progresivas, nuevas_cuotas_regresivas, nuevo_balance, pago_id))
+                cur.execute(update_pago_query, (
+                    puntualidad, cuotas_cubiertas_hoy, 
+                    progresivas_pagadas_hoy, regresivas_pagadas_hoy,
+                    nuevas_cuotas_progresivas_totales, nuevas_cuotas_regresivas_totales, nuevo_balance_final, 
+                    pago_id
+                ))
                 
                 conn.commit()
                 
-                descripcion_audit = f"Concilió pago de cuota N° {pago_id} por ${pago['monto']} como '{puntualidad}' para el cliente {cliente['nombre_apellido']}."
+                descripcion_audit = f"Concilió pago de cuota N° {pago_id} por ${monto_pagado} como '{puntualidad}' para el cliente {cliente['nombre_apellido']}."
                 registrar_accion_auditoria('CONCILIACION_CUOTA', descripcion_audit, cliente['id'])
 
                 flash(f"¡Pago de cuota N° {pago_id} conciliado como '{puntualidad}'!", 'success')
                 return redirect(url_for('ver_recibo', pago_id=pago_id))
+                ### FIN DE LA NUEVA LÓGICA DE NEGOCIO ###
 
     except (psycopg2.Error, ValueError, TypeError) as e:
         conn.rollback()
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
+
 
 @app.route('/recibo/<int:pago_id>')
 def ver_recibo(pago_id):
@@ -546,38 +576,45 @@ def anular_recibo(pago_id):
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
             
             elif pago_a_anular['tipo_pago'] == 'Cuota':
-                # --- LÓGICA DE ANULACIÓN MEJORADA ---
-                cur.execute("SELECT cuotas_pagadas_progresivas, balance_regresivo, valor_cuota, cuotas_totales FROM clientes WHERE id = %s FOR UPDATE", (cliente_id,))
+                ### INICIO LÓGICA DE ANULACIÓN ACTUALIZADA ###
+                cur.execute("SELECT cuotas_pagadas_progresivas, cuotas_pagadas_regresivas, balance_regresivo, valor_cuota FROM clientes WHERE id = %s FOR UPDATE", (cliente_id,))
                 cliente = cur.fetchone()
                 
-                cuotas_p = Decimal(cliente.get('cuotas_pagadas_progresivas') or 0)
-                balance = Decimal(cliente.get('balance_regresivo') or 0)
-                valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
-                cuotas_totales = Decimal(cliente.get('cuotas_totales') or 0)
-                monto_a_revertir = Decimal(pago_a_anular['monto'])
+                # Cuotas que este pago específico cubrió
+                progresivas_a_revertir = pago_a_anular.get('progresivas_cubiertas', 0)
+                regresivas_a_revertir = pago_a_anular.get('regresivas_cubiertas', 0)
+                
+                # Saldos actuales del cliente
+                cuotas_p_actuales = cliente.get('cuotas_pagadas_progresivas', 0)
+                cuotas_r_actuales = cliente.get('cuotas_pagadas_regresivas', 0)
+                balance_actual = Decimal(cliente.get('balance_regresivo', 0))
+                valor_cuota = Decimal(cliente.get('valor_cuota', 0))
+                monto_del_pago = Decimal(pago_a_anular['monto'])
                 
                 if valor_cuota <= 0:
                     raise ValueError("El cliente no tiene un valor de cuota válido para recalcular.")
-                
-                valor_total_actual = (cuotas_p * valor_cuota) + balance
-                nuevo_valor_total = valor_total_actual - monto_a_revertir
-                
-                if nuevo_valor_total < 0:
-                    flash("Advertencia: La anulación resultó en un saldo negativo, se ha ajustado a cero.", "warning")
-                    nuevo_valor_total = Decimal('0.00')
 
-                nuevas_cuotas_progresivas = int(nuevo_valor_total // valor_cuota)
-                nuevo_balance = nuevo_valor_total % valor_cuota
-                nuevas_cuotas_regresivas = cuotas_totales - nuevas_cuotas_progresivas if cuotas_totales > 0 else 0
+                # Reconstruir el balance que había ANTES de este pago
+                # Se suman el balance actual + el valor de las cuotas cubiertas por este pago
+                balance_reconstruido = balance_actual + (progresivas_a_revertir * valor_cuota) + (regresivas_a_revertir * valor_cuota)
                 
+                # Ahora, se le resta el monto del pago para obtener el balance original
+                balance_anterior = balance_reconstruido - monto_del_pago
+
+                # Calcular las cuotas anteriores
+                cuotas_p_anteriores = cuotas_p_actuales - progresivas_a_revertir
+                cuotas_r_anteriores = cuotas_r_actuales - regresivas_a_revertir
+                
+                # Actualizar el cliente a su estado anterior
                 cur.execute("""
                     UPDATE clientes 
                     SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s 
                     WHERE id = %s
-                """, (nuevas_cuotas_progresivas, nuevas_cuotas_regresivas, nuevo_balance, cliente_id))
+                """, (cuotas_p_anteriores, cuotas_r_anteriores, balance_anterior, cliente_id))
                 
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
-            
+                ### FIN LÓGICA DE ANULACIÓN ACTUALIZADA ###
+
             elif pago_a_anular['tipo_pago'] == 'Inscripción Finalizada':
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción'", (cliente_id,))
@@ -657,7 +694,6 @@ def edit_client(client_id):
             
             update_data.update(form_data)
 
-            # --- MEJORA: Recalcular cuotas regresivas al editar ---
             if 'cuotas_totales' in update_data or 'cuotas_pagadas_progresivas' in update_data:
                 cuotas_t = int(update_data.get('cuotas_totales') or 0)
                 cuotas_p = int(update_data.get('cuotas_pagadas_progresivas') or 0)
