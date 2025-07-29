@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 from decimal import Decimal
 from datetime import datetime, timedelta
 import random
-# --- NUEVO: Importaciones para seguridad y decoradores ---
 from werkzeug.security import check_password_hash, generate_password_hash
 from functools import wraps
 
@@ -39,7 +38,6 @@ def setup_session_and_user():
                 cur.execute("SELECT id, usuario, rol FROM administradores WHERE id = %s", (admin_id,))
                 g.admin = cur.fetchone()
             elif cliente_id:
-                # Se carga la información del cliente si hay una sesión de cliente activa
                 cur.execute("SELECT id, nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
                 g.cliente = cur.fetchone()
 
@@ -63,7 +61,7 @@ def close_db(exception):
     if db is not None:
         db.close()
 
-# --- NUEVO: DECORADOR DE AUTENTICACIÓN PARA ADMINISTRADORES ---
+# --- DECORADOR DE AUTENTICACIÓN PARA ADMINISTRADORES ---
 def admin_required(f):
     """
     Decorador para proteger rutas. Verifica que un administrador haya iniciado sesión.
@@ -71,7 +69,6 @@ def admin_required(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Usamos g.admin que se carga en setup_session_and_user
         if g.admin is None:
             flash('Acceso denegado. Debes iniciar sesión como administrador.', 'warning')
             return redirect(url_for('admin_login'))
@@ -109,7 +106,7 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
             feriados = get_feriados_venezuela(vencimiento.year)
     return vencimiento
 
-# --- NUEVO: RUTAS DEL PORTAL DE ADMINISTRACIÓN ---
+# --- RUTAS DEL PORTAL DE ADMINISTRACIÓN ---
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     """Maneja el inicio de sesión para el portal de administración."""
@@ -151,8 +148,7 @@ def admin_dashboard():
 @app.route('/admin/logout')
 def admin_logout():
     """Cierra la sesión del administrador."""
-    session.pop('admin_id', None)
-    session.pop('admin_usuario', None)
+    session.clear()
     flash('Has cerrado la sesión de administrador exitosamente.', 'info')
     return redirect(url_for('admin_login'))
 
@@ -421,7 +417,6 @@ def conciliar_pago(pago_id):
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
-# (El resto de las rutas de tu aplicación se mantienen sin cambios)
 @app.route('/recibo/<int:pago_id>')
 def ver_recibo(pago_id):
     conn = get_db()
@@ -450,7 +445,7 @@ def ver_recibo(pago_id):
             return redirect(url_for('portal_dashboard'))
         return redirect(url_for('consulta'))
     
-    is_admin_view = 'admin_id' in session # La vista de admin se determina por la sesión de admin
+    is_admin_view = 'admin_id' in session
     
     return render_template('recibo.html', pago=pago, is_admin_view=is_admin_view)
 
@@ -548,7 +543,6 @@ def anular_recibo(pago_id):
             elif pago_a_anular['tipo_pago'] == 'Inscripción Finalizada':
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
                 
-                # Anular también todos los pagos de tipo 'Inscripción' que fueron consolidados
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción'", (cliente_id,))
                 
                 cur.execute("UPDATE clientes SET inscripcion_pagada = 0, proceso = 'RESERVA' WHERE id = %s", (cliente_id,))
@@ -763,7 +757,6 @@ def adjudicacion():
             """)
             clientes_elegibles_ahorro = cur.fetchall()
             
-            # La lógica de sorteo se mantiene por si se reactiva, aunque no se use ahora
             clientes_elegibles_sorteo = [] 
             
             cur.execute("""
@@ -855,7 +848,7 @@ def realizar_adjudicacion():
                 cur.execute("UPDATE ofertas SET estado_oferta = 'ganadora' WHERE cliente_id = %s AND estado_oferta = 'activa';", (ganador_oferta['id'],))
             cur.execute("UPDATE ofertas SET estado_oferta = 'perdida' WHERE estado_oferta = 'activa';")
             
-            ganador_sorteo_id = None # Lógica de sorteo desactivada
+            ganador_sorteo_id = None
             ganador_oferta_id = ganador_oferta['id'] if ganador_oferta else None
             
             cur.execute("""
@@ -874,8 +867,7 @@ def realizar_adjudicacion():
 # --- RUTAS DEL PORTAL DEL CLIENTE ---
 @app.route('/portal/login', methods=['GET', 'POST'])
 def portal_login():
-    if 'cliente_id' in session:
-        flash('Ya tienes una sesión activa. Redirigiendo a tu portal.', 'info')
+    if g.cliente:
         return redirect(url_for('portal_dashboard'))
 
     if request.method == 'POST':
@@ -903,6 +895,7 @@ def portal_login():
                 cliente = cur.fetchone()
 
             if cliente:
+                session.clear()
                 session['cliente_id'] = cliente['id']
                 session['cliente_nombre'] = cliente['nombre_apellido']
                 return redirect(url_for('portal_dashboard'))
@@ -1065,8 +1058,7 @@ def portal_estado_cuenta():
 
 @app.route('/portal/logout')
 def portal_logout():
-    session.pop('cliente_id', None)
-    session.pop('cliente_nombre', None)
+    session.clear()
     flash('Has cerrado sesión exitosamente.', 'success')
     return redirect(url_for('portal_login'))
 
