@@ -6,18 +6,45 @@ from dotenv import load_dotenv
 from decimal import Decimal
 from datetime import datetime, timedelta
 import random
+# --- NUEVO: Importaciones para seguridad y decoradores ---
+from werkzeug.security import check_password_hash, generate_password_hash
+from functools import wraps
 
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-desarrollo')
 
-# --- CONFIGURACIÓN DE LA SESIÓN (EXPIRACIÓN AUTOMÁTICA) ---
+# --- CONFIGURACIÓN DE LA SESIÓN Y CARGA DE USUARIO ---
 @app.before_request
-def make_session_permanent():
+def setup_session_and_user():
+    """
+    Se ejecuta antes de cada petición para:
+    1.  Establecer la duración de la sesión.
+    2.  Cargar en el objeto 'g' al administrador o cliente que haya iniciado sesión.
+    """
     session.permanent = True
     app.permanent_session_lifetime = timedelta(minutes=30)
+    
+    # Cargar usuario (admin o cliente) en el contexto global
+    g.admin = None
+    g.cliente = None
+    
+    admin_id = session.get('admin_id')
+    cliente_id = session.get('cliente_id')
+
+    db = get_db()
+    if db:
+        with db.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            if admin_id:
+                cur.execute("SELECT id, usuario, rol FROM administradores WHERE id = %s", (admin_id,))
+                g.admin = cur.fetchone()
+            elif cliente_id:
+                # Se carga la información del cliente si hay una sesión de cliente activa
+                cur.execute("SELECT id, nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
+                g.cliente = cur.fetchone()
 
 def get_db():
+    """Obtiene una conexión a la base de datos para la petición actual."""
     if 'db' not in g:
         DATABASE_URL = os.getenv('DATABASE_URL')
         if not DATABASE_URL:
@@ -31,10 +58,27 @@ def get_db():
 
 @app.teardown_appcontext
 def close_db(exception):
+    """Cierra la conexión a la base de datos al final de la petición."""
     db = g.pop('db', None)
     if db is not None:
         db.close()
 
+# --- NUEVO: DECORADOR DE AUTENTICACIÓN PARA ADMINISTRADORES ---
+def admin_required(f):
+    """
+    Decorador para proteger rutas. Verifica que un administrador haya iniciado sesión.
+    Si no, lo redirige a la página de login de administrador.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Usamos g.admin que se carga en setup_session_and_user
+        if g.admin is None:
+            flash('Acceso denegado. Debes iniciar sesión como administrador.', 'warning')
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# --- Funciones de Utilidad (Helpers) ---
 def get_nombre_mes(month_number):
     meses = {
         1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
@@ -65,24 +109,79 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
             feriados = get_feriados_venezuela(vencimiento.year)
     return vencimiento
 
-# --- RUTAS DE NAVEGACIÓN PRINCIPAL ---
+# --- NUEVO: RUTAS DEL PORTAL DE ADMINISTRACIÓN ---
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    """Maneja el inicio de sesión para el portal de administración."""
+    if g.admin:
+        return redirect(url_for('hub'))
+
+    if request.method == 'POST':
+        usuario = request.form.get('usuario')
+        password = request.form.get('password')
+        
+        conn = get_db()
+        if not conn:
+            flash('Error de conexión con la base de datos.', 'danger')
+            return render_template('portal_login.html', anio_actual=datetime.now().year)
+
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM administradores WHERE usuario = %s", (usuario,))
+            admin = cur.fetchone()
+
+        if admin and check_password_hash(admin['password_hash'], password):
+            session.clear()
+            session['admin_id'] = admin['id']
+            session['admin_usuario'] = admin['usuario']
+            flash(f"¡Bienvenido de nuevo, {admin['usuario']}!", 'success')
+            return redirect(url_for('hub'))
+        else:
+            flash('Usuario o contraseña incorrectos.', 'danger')
+
+    return render_template('portal_login.html', anio_actual=datetime.now().year)
+
+
+@app.route('/admin/dashboard')
+@admin_required
+def admin_dashboard():
+    """ Muestra el dashboard principal del administrador. (Actualmente redirige a consulta) """
+    return redirect(url_for('consulta'))
+
+
+@app.route('/admin/logout')
+def admin_logout():
+    """Cierra la sesión del administrador."""
+    session.pop('admin_id', None)
+    session.pop('admin_usuario', None)
+    flash('Has cerrado la sesión de administrador exitosamente.', 'info')
+    return redirect(url_for('admin_login'))
+
+
+# --- RUTAS PRINCIPALES Y DE ADMINISTRACIÓN DE CLIENTES ---
 @app.route('/')
 def home():
     return redirect(url_for('hub'))
 
 @app.route('/hub')
 def hub():
+    if g.admin:
+        # Si es un admin, el hub es la página de consulta
+        return redirect(url_for('consulta'))
+    if g.cliente:
+        # Si es un cliente, el hub es su dashboard
+        return redirect(url_for('portal_dashboard'))
+    # Si no hay sesión, muestra el hub público
     return render_template('hub.html', anio_actual=datetime.now().year)
 
 @app.route('/registrar')
+@admin_required
 def registrar():
     return render_template('registrar.html')
 
-# --- RUTAS DE LA APLICACIÓN (PANEL DE ADMINISTRACIÓN) ---
 @app.route('/registrar_cliente', methods=['POST'])
+@admin_required
 def registrar_cliente():
     form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
-    
     cedula = form_data.get('cedula')
     nombre_apellido = form_data.get('nombre_apellido')
 
@@ -101,26 +200,20 @@ def registrar_cliente():
             apellido = nombre_completo[1] if len(nombre_completo) > 1 else ''
 
             insert_dict = {
-                'nombre': nombre,
-                'apellido': apellido,
-                'cedula': cedula.replace(' ', '')
+                'nombre': nombre, 'apellido': apellido, 'cedula': cedula.replace(' ', '')
             }
-            
             optional_fields = [
                 'contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso',
                 'grupo', 'plan_contratado', 'cuotas_totales', 'moneda_pago', 'valor_cuota',
                 'inscripcion_monto', 'proceso'
             ]
-            
             for field in optional_fields:
                 if form_data.get(field) and form_data.get(field) != '':
                     insert_dict[field] = form_data[field]
 
             columns = insert_dict.keys()
             values = [insert_dict[col] for col in columns]
-            
             query = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))})"
-            
             cur.execute(query, values)
             conn.commit()
             flash(f"¡Cliente '{nombre_apellido}' registrado exitosamente!", 'success')
@@ -135,6 +228,7 @@ def registrar_cliente():
 
 
 @app.route('/consulta', methods=['GET', 'POST'])
+@admin_required
 def consulta():
     clientes_encontrados = []
     mensaje_error = None
@@ -159,7 +253,6 @@ def consulta():
                         for cliente in clientes_raw:
                             cliente_dict = dict(cliente)
                             cliente_dict['nombre_apellido'] = f"{cliente.get('nombre', '')} {cliente.get('apellido', '')}".strip()
-                            
                             if 'cuotas_pagas' in cliente_dict:
                                 cliente_dict['cuotas_pagadas_progresivas'] = cliente_dict['cuotas_pagas']
 
@@ -171,6 +264,7 @@ def consulta():
     return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda_raw)
 
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
+@admin_required
 def registrar_pago(client_id):
     conn = get_db()
     if not conn:
@@ -215,7 +309,7 @@ def registrar_pago(client_id):
                 cur.execute(pago_query, (
                     client_id, pago_form['monto'], tipo_pago, pago_form['forma_pago'], pago_form['fecha_pago'],
                     pago_form.get('pago_en'), pago_form['por_concepto_de'],
-                    pago_form['referencia'], pago_form['banco'], pago_form['lugar_emision'],
+                    pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('lugar_emision'),
                     pago_form.get('tasa_dia'), pago_form.get('monto_bs')
                 ))
                 conn.commit()
@@ -230,6 +324,7 @@ def registrar_pago(client_id):
     return render_template('registrar_pago.html', cliente=cliente)
 
 @app.route('/conciliar_pago/<int:pago_id>', methods=['POST'])
+@admin_required
 def conciliar_pago(pago_id):
     conn = get_db()
     cedula_cliente_fallback = request.args.get('cedula', '')
@@ -326,10 +421,11 @@ def conciliar_pago(pago_id):
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
+# (El resto de las rutas de tu aplicación se mantienen sin cambios)
 @app.route('/recibo/<int:pago_id>')
 def ver_recibo(pago_id):
     conn = get_db()
-    if not conn: 
+    if not conn:
         if 'cliente_id' in session:
             return redirect(url_for('portal_login'))
         return redirect(url_for('consulta'))
@@ -354,7 +450,7 @@ def ver_recibo(pago_id):
             return redirect(url_for('portal_dashboard'))
         return redirect(url_for('consulta'))
     
-    is_admin_view = 'cliente_id' not in session
+    is_admin_view = 'admin_id' in session # La vista de admin se determina por la sesión de admin
     
     return render_template('recibo.html', pago=pago, is_admin_view=is_admin_view)
 
@@ -382,11 +478,12 @@ def ver_recibo_inscripcion(pago_id):
             return redirect(url_for('portal_dashboard'))
         return redirect(url_for('consulta'))
     
-    is_admin_view = 'cliente_id' not in session
+    is_admin_view = 'admin_id' in session
     
     return render_template('recibo_inscripcion.html', pago=pago, cliente=pago, is_admin_view=is_admin_view)
 
 @app.route('/anular_recibo/<int:pago_id>', methods=['POST'])
+@admin_required
 def anular_recibo(pago_id):
     conn = get_db()
     if not conn:
@@ -429,7 +526,7 @@ def anular_recibo(pago_id):
                 
                 if valor_cuota <= 0:
                     raise ValueError("El cliente no tiene un valor de cuota válido para recalcular.")
-                    
+                
                 valor_total_actual = (cuotas_p * valor_cuota) + (cuotas_r * valor_cuota) + balance
                 nuevo_valor_total = valor_total_actual - monto_a_revertir
                 
@@ -451,6 +548,7 @@ def anular_recibo(pago_id):
             elif pago_a_anular['tipo_pago'] == 'Inscripción Finalizada':
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
                 
+                # Anular también todos los pagos de tipo 'Inscripción' que fueron consolidados
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción'", (cliente_id,))
                 
                 cur.execute("UPDATE clientes SET inscripcion_pagada = 0, proceso = 'RESERVA' WHERE id = %s", (cliente_id,))
@@ -488,6 +586,7 @@ def verificar_recibo(pago_id):
 
 
 @app.route('/recibo_anulado/<int:pago_id>')
+@admin_required
 def ver_recibo_anulado(pago_id):
     conn = get_db()
     if not conn:
@@ -508,6 +607,7 @@ def ver_recibo_anulado(pago_id):
     return render_template('recibo_anulado.html', pago=pago)
 
 @app.route('/edit/<int:client_id>', methods=['GET', 'POST'])
+@admin_required
 def edit_client(client_id):
     conn = get_db()
     if not conn: 
@@ -544,7 +644,6 @@ def edit_client(client_id):
                     inscripcion_monto = %(inscripcion_monto)s, proceso = %(proceso)s, estatus = %(estatus)s
                 WHERE id = %(id)s;
                 """
-                # Removido estatus_1 que no existe en el CREATE TABLE
                 cur.execute(update_query, update_data)
                 conn.commit()
                 flash('¡Cliente actualizado exitosamente!', 'success')
@@ -558,6 +657,7 @@ def edit_client(client_id):
     return render_template('edit_cliente.html', cliente=cliente)
 
 @app.route('/delete/<int:client_id>', methods=['POST'])
+@admin_required
 def delete_client(client_id):
     conn = get_db()
     if not conn: return redirect(url_for('consulta'))
@@ -572,6 +672,7 @@ def delete_client(client_id):
     return redirect(url_for('consulta'))
 
 @app.route('/registrar_oferta/<int:client_id>', methods=['GET'])
+@admin_required
 def registrar_oferta(client_id):
     conn = get_db()
     if not conn:
@@ -590,6 +691,7 @@ def registrar_oferta(client_id):
 
 
 @app.route('/guardar_oferta/<int:client_id>', methods=['POST'])
+@admin_required
 def guardar_oferta(client_id):
     conn = get_db()
     cuotas_ofertadas = request.form.get('cuotas_ofertadas')
@@ -642,6 +744,7 @@ def guardar_oferta(client_id):
     return redirect(url_for('consulta', busqueda=cedula_cliente))
 
 @app.route('/adjudicacion', methods=['GET'])
+@admin_required
 def adjudicacion():
     conn = get_db()
     if not conn:
@@ -650,8 +753,6 @@ def adjudicacion():
 
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            # --- CORRECCIÓN APLICADA ---
-            # Se añade la condición "AND estatus ILIKE 'activo'" para filtrar solo clientes activos.
             cur.execute("""
                 SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega
                 FROM clientes 
@@ -661,7 +762,10 @@ def adjudicacion():
                 ORDER BY nombre, apellido;
             """)
             clientes_elegibles_ahorro = cur.fetchall()
-            clientes_elegibles_sorteo = []
+            
+            # La lógica de sorteo se mantiene por si se reactiva, aunque no se use ahora
+            clientes_elegibles_sorteo = [] 
+            
             cur.execute("""
                 SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula
                 FROM ofertas o JOIN clientes c ON o.cliente_id = c.id
@@ -691,6 +795,7 @@ def adjudicacion():
                            historial=historial)
 
 @app.route('/realizar_adjudicacion', methods=['POST'])
+@admin_required
 def realizar_adjudicacion():
     conn = get_db()
     if not conn:
@@ -701,8 +806,6 @@ def realizar_adjudicacion():
             cur.execute("UPDATE clientes SET ignorar_penalidad_puntualidad = FALSE;")
             ids_ya_ganadores = set()
             
-            # --- CORRECCIÓN APLICADA ---
-            # Se añade la condición "AND estatus ILIKE 'activo'" para seleccionar solo clientes activos para la adjudicación por ahorro.
             cur.execute("""
                 SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes 
                 WHERE proceso ILIKE 'Ahorrador' 
@@ -712,6 +815,7 @@ def realizar_adjudicacion():
             ganadores_ahorro = cur.fetchall()
             ids_ganadores_ahorro = [g['id'] for g in ganadores_ahorro]
             ids_ya_ganadores.update(ids_ganadores_ahorro)
+            
             ganador_oferta = None
             cur.execute("""
                 SELECT c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas
@@ -719,6 +823,7 @@ def realizar_adjudicacion():
                 WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador' AND c.id NOT IN %s;
             """, (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
             candidatos_oferta_raw = cur.fetchall()
+            
             candidatos_oferta = []
             for c in candidatos_oferta_raw:
                 cur.execute("SELECT COUNT(*) FROM ofertas WHERE cliente_id = %s;", (c['id'],))
@@ -726,6 +831,7 @@ def realizar_adjudicacion():
                 cur.execute("SELECT COUNT(*) FROM pagos WHERE cliente_id = %s AND puntualidad = 'Impuntual';", (c['id'],))
                 impuntualidades = cur.fetchone()[0]
                 candidatos_oferta.append({**c, 'frecuencia': frecuencia, 'impuntualidades': impuntualidades})
+            
             if candidatos_oferta:
                 candidatos_oferta.sort(key=lambda x: (
                     -x['cuotas_ofertadas'], 
@@ -739,21 +845,24 @@ def realizar_adjudicacion():
                         perdedor['frecuencia'] == ganador_oferta['frecuencia'] and
                         perdedor['impuntualidades'] > ganador_oferta['impuntualidades']):
                         cur.execute("UPDATE clientes SET ignorar_penalidad_puntualidad = TRUE WHERE id = %s;", (perdedor['id'],))
-            ganador_sorteo = None
+            
             if not ids_ya_ganadores:
                 flash("No hay clientes que cumplan los criterios para ser adjudicados este ciclo.", "warning")
                 return redirect(url_for('adjudicacion'))
+
             cur.execute("UPDATE clientes SET proceso = 'ADJUDICADO' WHERE id = ANY(%s);", (list(ids_ya_ganadores),))
             if ganador_oferta:
                 cur.execute("UPDATE ofertas SET estado_oferta = 'ganadora' WHERE cliente_id = %s AND estado_oferta = 'activa';", (ganador_oferta['id'],))
             cur.execute("UPDATE ofertas SET estado_oferta = 'perdida' WHERE estado_oferta = 'activa';")
-            ganador_sorteo_id = None
+            
+            ganador_sorteo_id = None # Lógica de sorteo desactivada
             ganador_oferta_id = ganador_oferta['id'] if ganador_oferta else None
             
             cur.execute("""
                 INSERT INTO adjudicaciones (ganador_oferta_id, ganador_sorteo_id)
                 VALUES (%s, %s);
             """, (ganador_oferta_id, ganador_sorteo_id))
+            
             conn.commit()
             for g in ganadores_ahorro: flash(f"🏆 ¡Ganador por Ahorro: {g['nombre_apellido']}!", 'success')
             if ganador_oferta: flash(f"🏆 ¡Ganador por Oferta: {ganador_oferta['nombre_apellido']}!", 'success')
