@@ -20,9 +20,15 @@
         }
         .hub-header h1 {
             font-weight: 700;
-            font-size: 3rem;
+            font-size: 2.5rem; /* Ajustado para el título principal */
+            margin-bottom: 0.5rem;
         }
-        .hub-header p {
+        .hub-header .company-name {
+            font-size: 1.75rem; /* Tamaño para el nombre de la empresa */
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        .hub-header .tagline {
             font-size: 1.25rem;
             opacity: 0.9;
         }
@@ -73,9 +79,10 @@
 <body>
 
     <div class="hub-header">
-        <!-- TÍTULO MODIFICADO -->
-        <h1>Panel de Administración Moto Plan Motors C.A.</h1>
-        <p>Selecciona una opción para comenzar a gestionar.</p>
+        <!-- TÍTULO MODIFICADO EN TRES LÍNEAS -->
+        <h1>Panel de Administración</h1>
+        <p class="company-name">Moto Plan Motors C.A.</p>
+        <p class="tagline">Selecciona una opción para comenzar a gestionar.</p>
     </div>
 
     <div class="container my-5">
