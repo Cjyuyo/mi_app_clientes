@@ -17,7 +17,7 @@ app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-des
 @app.before_request
 def setup_session_and_user():
     session.permanent = True
-     app.permanent_session_lifetime = timedelta(minutes=5) # La sesión expira a los 5 minutos de inactividad
+    app.permanent_session_lifetime = timedelta(minutes=5) # La sesión expira a los 5 minutos de inactividad
     g.admin = None
     g.cliente = None
     admin_id = session.get('admin_id')
