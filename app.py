@@ -18,18 +18,15 @@ app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-des
 def setup_session_and_user():
     session.permanent = True
     app.permanent_session_lifetime = timedelta(minutes=30)
-    
     g.admin = None
     g.cliente = None
-    
     admin_id = session.get('admin_id')
     cliente_id = session.get('cliente_id')
-
     db = get_db()
     if db:
         with db.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             if admin_id:
-                cur.execute("SELECT id, usuario, rol FROM administradores WHERE id = %s", (admin_id,))
+                cur.execute("SELECT * FROM administradores WHERE id = %s", (admin_id,))
                 g.admin = cur.fetchone()
             elif cliente_id:
                 cur.execute("SELECT id, nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
@@ -63,7 +60,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# --- Funciones de Utilidad (Helpers) ---
+# (Aquí van tus funciones de utilidad como get_nombre_mes, etc. Sin cambios)
 def get_nombre_mes(month_number):
     meses = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
     return meses.get(month_number, "")
@@ -84,7 +81,6 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
         if vencimiento.year != ano_vencimiento:
             feriados = get_feriados_venezuela(vencimiento.year)
     return vencimiento
-
 # --- RUTAS DEL PORTAL DE ADMINISTRACIÓN ---
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -97,19 +93,29 @@ def admin_login():
         if not conn:
             flash('Error de conexión con la base de datos.', 'danger')
             return render_template('admin_login.html', anio_actual=datetime.now().year)
+        
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("SELECT * FROM administradores WHERE usuario = %s", (usuario,))
             admin = cur.fetchone()
-        if admin and check_password_hash(admin['password_hash'], password):
-            session.clear()
-            session['admin_id'] = admin['id']
-            session['admin_usuario'] = admin['usuario']
-            flash(f"¡Bienvenido de nuevo, {admin['usuario']}!", 'success')
-            # --- CAMBIO: Al loguearse correctamente, ahora va al hub ---
-            return redirect(url_for('hub'))
-        else:
-            flash('Usuario o contraseña incorrectos.', 'danger')
-    # --- CAMBIO: Renderiza la nueva plantilla de login de admin ---
+
+            if admin and check_password_hash(admin['password_hash'], password):
+                session.clear()
+                session['admin_id'] = admin['id']
+                session['admin_usuario'] = admin['usuario']
+                
+                # --- NUEVO: Actualizar estado al iniciar sesión ---
+                cur.execute(
+                    "UPDATE administradores SET ultimo_login = NOW(), estatus_online = TRUE WHERE id = %s",
+                    (admin['id'],)
+                )
+                conn.commit()
+                # ----------------------------------------------
+
+                flash(f"¡Bienvenido de nuevo, {admin['usuario']}!", 'success')
+                return redirect(url_for('hub'))
+            else:
+                flash('Usuario o contraseña incorrectos.', 'danger')
+
     return render_template('admin_login.html', anio_actual=datetime.now().year)
 
 @app.route('/admin/dashboard')
@@ -119,33 +125,47 @@ def admin_dashboard():
 
 @app.route('/admin/logout')
 def admin_logout():
+    # --- NUEVO: Actualizar estado al cerrar sesión ---
+    admin_id = session.get('admin_id')
+    if admin_id:
+        conn = get_db()
+        if conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE administradores SET estatus_online = FALSE WHERE id = %s",
+                    (admin_id,)
+                )
+                conn.commit()
+    # ---------------------------------------------
     session.clear()
-    flash('Has cerrado la sesión de administrador exitosamente.', 'info')
+    flash('Has cerrado la sesión exitosamente.', 'info')
     return redirect(url_for('admin_login'))
 
 # --- RUTAS PRINCIPALES ---
-# --- CAMBIO: La ruta principal ahora redirige al hub (que está protegido) ---
 @app.route('/')
 def home():
     return redirect(url_for('hub'))
 
-# --- CAMBIO: El Hub ahora es una página real, no una simple redirección ---
 @app.route('/hub')
 @admin_required
 def hub():
-    # El decorador ya asegura que solo administradores entren aquí.
-    # Esta página servirá como el menú principal para administradores.
-    return render_template('hub.html', anio_actual=datetime.now().year)
+    # --- NUEVO: Obtener lista de usuarios para mostrar en el hub ---
+    conn = get_db()
+    usuarios = []
+    if conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT usuario, estatus_online, ultimo_login FROM administradores ORDER BY usuario")
+            usuarios = cur.fetchall()
+    # -------------------------------------------------------------
+    return render_template('hub.html', anio_actual=datetime.now().year, usuarios=usuarios)
 
-# --- RUTAS DE GESTIÓN (ADMIN) ---
+# (Aquí va el resto de tu código de la aplicación, desde /registrar hasta el final. No necesita cambios)
+# PEGA EL RESTO DE TU CÓDIGO AQUÍ...
 @app.route('/registrar')
 @admin_required
 def registrar():
     return render_template('registrar.html')
     
-# (El resto de tu código desde @app.route('/registrar_cliente'...) hasta el final no necesita cambios)
-# PEGA EL RESTO DE TU CÓDIGO AQUÍ...
-# ...
 @app.route('/registrar_cliente', methods=['POST'])
 @admin_required
 def registrar_cliente():
