@@ -17,7 +17,7 @@ app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-des
 @app.before_request
 def setup_session_and_user():
     session.permanent = True
-    app.permanent_session_lifetime = timedelta(minutes=5)
+     app.permanent_session_lifetime = timedelta(minutes=5) # La sesión expira a los 5 minutos de inactividad
     g.admin = None
     g.cliente = None
     admin_id = session.get('admin_id')
@@ -360,13 +360,14 @@ def conciliar_pago(pago_id):
             cur.execute("SELECT * FROM pagos WHERE id = %s", (pago_id,))
             pago = cur.fetchone()
             if not pago or pago['estado_pago'] != 'Pendiente':
-                flash("El pago no se puede conciliar.", 'error')
+                flash("El pago no se puede conciliar (ya está conciliado, anulado o no existe).", 'error')
                 return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s FOR UPDATE", (pago['cliente_id'],))
             cliente = cur.fetchone()
             if not cliente:
                 flash("Error: No se encontró el cliente asociado a este pago.", 'error')
+                conn.rollback()
                 return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
             monto_pagado = Decimal(pago['monto'])
@@ -381,7 +382,7 @@ def conciliar_pago(pago_id):
                         cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],))
                         flash("Cliente ha completado la inscripción y su proceso ha cambiado a 'INSCRITO'.", "info")
 
-                    cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción'", (cliente['id'],))
+                    cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente['id'],))
                     pago_final_query = """
                         INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, por_concepto_de, estado_pago, cuotas_cubiertas, lugar_emision)
                         VALUES (%s, %s, 'Inscripción Finalizada', %s, %s, %s, 'Conciliado', 0, %s) RETURNING id;
@@ -389,9 +390,10 @@ def conciliar_pago(pago_id):
                     cur.execute(pago_final_query, (cliente['id'], inscripcion_total, pago['forma_pago'], pago['fecha_pago'], 'Pago total de inscripción', pago['lugar_emision']))
                     pago_final_id = cur.fetchone()[0]
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (inscripcion_total, cliente['id']))
+                    cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
                     conn.commit()
                     
-                    descripcion_audit = f"Concilió pago final de inscripción N° {pago_id} por ${pago['monto']} para el cliente {cliente['nombre_apellido']}."
+                    descripcion_audit = f"Concilió pago final de inscripción (basado en abono N°{pago_id}) por ${monto_pagado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
 
                     flash("¡Inscripción completada! Se generó el recibo final y se anularon los abonos.", 'success')
@@ -401,7 +403,7 @@ def conciliar_pago(pago_id):
                     cur.execute("UPDATE pagos SET estado_pago = 'Conciliado' WHERE id = %s", (pago_id,))
                     conn.commit()
 
-                    descripcion_audit = f"Concilió abono de inscripción N° {pago_id} por ${pago['monto']} para el cliente {cliente['nombre_apellido']}."
+                    descripcion_audit = f"Concilió abono de inscripción N° {pago_id} por ${monto_pagado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
 
                     flash(f"Abono de inscripción N° {pago_id} conciliado.", 'success')
@@ -410,7 +412,7 @@ def conciliar_pago(pago_id):
             elif pago['tipo_pago'] == 'Cuota':
                 puntualidad = 'Puntual'
                 fecha_vencimiento = get_fecha_vencimiento_ajustada(pago['fecha_pago'])
-                if pago['fecha_pago'] > fecha_vencimiento:
+                if pago['fecha_pago'].date() > fecha_vencimiento:
                     puntualidad = 'Impuntual'
                     cur.execute("UPDATE clientes SET meses_retraso_entrega = meses_retraso_entrega + 1 WHERE id = %s;", (cliente['id'],))
                 
@@ -419,11 +421,13 @@ def conciliar_pago(pago_id):
                     flash("Primer pago de cuota registrado. El proceso del cliente ha cambiado a 'Ahorrador'.", "info")
 
                 valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
-                if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
+                if valor_cuota <= 0:
+                    raise ValueError('El cliente no tiene un valor de cuota válido para conciliar.')
                 
                 cuotas_progresivas_actuales = cliente.get('cuotas_pagadas_progresivas', 0)
                 cuotas_regresivas_actuales = cliente.get('cuotas_pagadas_regresivas', 0)
                 balance_actual = Decimal(cliente.get('balance_regresivo', 0))
+                
                 monto_total_disponible = monto_pagado + balance_actual
                 
                 progresivas_pagadas_hoy = 0
@@ -434,7 +438,6 @@ def conciliar_pago(pago_id):
                     monto_total_disponible -= valor_cuota
                 
                 balance_provisional = monto_total_disponible
-
                 while balance_provisional >= valor_cuota:
                     regresivas_pagadas_hoy += 1
                     balance_provisional -= valor_cuota
@@ -467,16 +470,19 @@ def conciliar_pago(pago_id):
                 
                 conn.commit()
                 
-                descripcion_audit = f"Concilió pago de cuota N° {pago_id} por ${monto_pagado} como '{puntualidad}' para el cliente {cliente['nombre_apellido']}."
+                descripcion_audit = f"Concilió pago de cuota N° {pago_id} por ${monto_pagado} como '{puntualidad}' para {cliente['nombre_apellido']}."
                 registrar_accion_auditoria('CONCILIACION_CUOTA', descripcion_audit, cliente['id'])
 
                 flash(f"¡Pago de cuota N° {pago_id} conciliado como '{puntualidad}'!", 'success')
                 return redirect(url_for('ver_recibo', pago_id=pago_id))
 
     except (psycopg2.Error, ValueError, TypeError) as e:
-        conn.rollback()
+        if conn:
+            conn.rollback()
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
+    
+    return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
 
 @app.route('/recibo/<int:pago_id>')
@@ -488,7 +494,16 @@ def ver_recibo(pago_id):
         return redirect(url_for('consulta'))
 
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        query = "SELECT p.*, c.nombre, c.apellido, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.cuotas_totales, c.valor_cuota, c.inscripcion_monto, c.inscripcion_pagada, COALESCE(p.cuotas_progresivas_al_pagar, c.cuotas_pagadas_progresivas) AS cuotas_pagadas_progresivas, COALESCE(p.cuotas_regresivas_al_pagar, c.cuotas_pagadas_regresivas) AS cuotas_pagadas_regresivas, COALESCE(p.balance_al_pagar, c.balance_regresivo) AS balance_regresivo FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s;"
+        query = """
+            SELECT p.*, 
+                   c.nombre, c.apellido, (c.nombre || ' ' || c.apellido) as nombre_apellido, 
+                   c.cedula, c.cuotas_totales, c.valor_cuota, c.inscripcion_monto, c.inscripcion_pagada,
+                   COALESCE(p.cuotas_progresivas_al_pagar, c.cuotas_pagadas_progresivas) AS cuotas_pagadas_progresivas, 
+                   COALESCE(p.cuotas_regresivas_al_pagar, c.cuotas_pagadas_regresivas) AS cuotas_pagadas_regresivas,
+                   COALESCE(p.balance_al_pagar, c.balance_regresivo) AS balance_regresivo
+            FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
+            WHERE p.id = %s;
+        """
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
 
@@ -558,26 +573,25 @@ def anular_recibo(pago_id):
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
             
             elif pago_a_anular['tipo_pago'] == 'Cuota':
-                cur.execute("SELECT cuotas_pagadas_progresivas, cuotas_pagadas_regresivas, balance_regresivo, valor_cuota FROM clientes WHERE id = %s FOR UPDATE", (cliente_id,))
+                cur.execute("SELECT * FROM clientes WHERE id = %s FOR UPDATE", (cliente_id,))
                 cliente = cur.fetchone()
                 
                 progresivas_a_revertir = pago_a_anular.get('progresivas_cubiertas', 0)
                 regresivas_a_revertir = pago_a_anular.get('regresivas_cubiertas', 0)
-                
-                cuotas_p_actuales = cliente.get('cuotas_pagadas_progresivas', 0)
-                cuotas_r_actuales = cliente.get('cuotas_pagadas_regresivas', 0)
-                balance_actual = Decimal(cliente.get('balance_regresivo', 0))
-                valor_cuota = Decimal(cliente.get('valor_cuota', 0))
                 monto_del_pago = Decimal(pago_a_anular['monto'])
                 
-                if valor_cuota <= 0:
-                    raise ValueError("El cliente no tiene un valor de cuota válido para recalcular.")
+                cuotas_p_anteriores = cliente.get('cuotas_pagadas_progresivas', 0) - progresivas_a_revertir
+                cuotas_r_anteriores = cliente.get('cuotas_pagadas_regresivas', 0) - regresivas_a_revertir
 
-                balance_reconstruido = balance_actual + (progresivas_a_revertir * valor_cuota) + (regresivas_a_revertir * valor_cuota)
-                balance_anterior = balance_reconstruido - monto_del_pago
-                cuotas_p_anteriores = cuotas_p_actuales - progresivas_a_revertir
-                cuotas_r_anteriores = cuotas_r_actuales - regresivas_a_revertir
+                valor_cuota = Decimal(cliente.get('valor_cuota', 0))
+                if valor_cuota <= 0:
+                    raise ValueError("El cliente no tiene un valor de cuota válido para recalcular la anulación.")
                 
+                valor_total_cuotas_revertidas = (progresivas_a_revertir + regresivas_a_revertir) * valor_cuota
+                balance_actual = Decimal(cliente.get('balance_regresivo', 0))
+                
+                balance_anterior = (balance_actual + valor_total_cuotas_revertidas) - monto_del_pago
+
                 cur.execute("""
                     UPDATE clientes 
                     SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s 
@@ -588,9 +602,13 @@ def anular_recibo(pago_id):
 
             elif pago_a_anular['tipo_pago'] == 'Inscripción Finalizada':
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
-                cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción'", (cliente_id,))
-                cur.execute("UPDATE clientes SET inscripcion_pagada = 0, proceso = 'RESERVA' WHERE id = %s", (cliente_id,))
-                flash("¡Reinicio de inscripción completado! El cliente ha vuelto a 'RESERVA' con saldo de inscripción en cero.", 'success')
+                cur.execute("UPDATE pagos SET estado_pago = 'Conciliado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Anulado'", (cliente_id,))
+                
+                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente_id,))
+                total_inscripcion_reactivada = cur.fetchone()[0]
+
+                cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'RESERVA' WHERE id = %s", (total_inscripcion_reactivada, cliente_id))
+                flash("¡Reinicio de inscripción completado! El cliente ha vuelto a 'RESERVA' y sus abonos han sido restaurados.", 'success')
 
             conn.commit()
             
