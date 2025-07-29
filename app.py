@@ -30,7 +30,6 @@ def setup_session_and_user():
     cliente_id = session.get('cliente_id')
     db = get_db()
     if db:
-        # Ya no se necesita `cursor_factory` aquí, se establece en get_db()
         with db.cursor() as cur:
             if admin_id:
                 cur.execute("SELECT id, usuario, rol FROM administradores WHERE id = %s", (admin_id,))
@@ -45,8 +44,7 @@ def get_db():
         if not DATABASE_URL:
             raise ValueError("FATAL: La variable de entorno DATABASE_URL no está configurada.")
         try:
-            # CORRECCIÓN DEFINITIVA: Se establece el cursor_factory en la conexión.
-            # Esto asegura que TODOS los cursores devuelvan diccionarios.
+            # Se establece el cursor_factory en la conexión para que todos los cursores devuelvan diccionarios.
             g.db = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
         except psycopg2.OperationalError as e:
             logging.error(f"Error de conexión a la base de datos: {e}")
@@ -114,7 +112,6 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
     conn = get_db()
     if conn:
         try:
-            # Ya no se necesita `cursor_factory` aquí
             with conn.cursor() as cur:
                 cur.execute(
                     """
@@ -125,7 +122,6 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
                 )
                 conn.commit()
                 logging.info(f"AUDITORIA-EXITO: Usuario '{g.admin['usuario']}' realizó '{accion}'.")
-        # Se amplía el except para capturar cualquier tipo de error durante la auditoría
         except Exception as e:
             logging.error(f"AUDITORIA-FALLO: {e}")
             conn.rollback()
@@ -983,18 +979,14 @@ def auditoria():
                        c.nombre, c.apellido, c.cedula
                 FROM registros_auditoria r
                 LEFT JOIN clientes c ON r.cliente_afectado_id = c.id
+                WHERE r.fecha_hora >= %s::date AND r.fecha_hora < (%s::date + '1 day'::interval)
+                ORDER BY r.fecha_hora DESC;
             """
-            params = []
-            if fecha_filtro_str:
-                sql += " WHERE r.fecha_hora::date = %s"
-                params.append(fecha_filtro_str)
             
-            sql += " ORDER BY r.fecha_hora DESC;"
-            
-            cur.execute(sql, tuple(params))
+            cur.execute(sql, (fecha_filtro_str, fecha_filtro_str))
             logs = cur.fetchall()
             
-    except (psycopg2.Error, ValueError) as e:
+    except (Exception, psycopg2.Error) as e:
         flash(f"Error al consultar los registros de auditoría: {e}", "error")
 
     return render_template('auditoria.html', logs=logs, anio_actual=datetime.now().year, fecha_filtro=fecha_filtro_str)
@@ -1010,15 +1002,16 @@ def descargar_reporte_auditoria():
 
     try:
         with conn.cursor() as cur:
+            # CORRECCIÓN: Se aplica la misma lógica de consulta robusta al reporte.
             sql = """
                 SELECT r.fecha_hora, r.usuario_nombre, r.accion, r.descripcion, 
                        (c.nombre || ' ' || c.apellido) as cliente_nombre, c.cedula
                 FROM registros_auditoria r
                 LEFT JOIN clientes c ON r.cliente_afectado_id = c.id
-                WHERE r.fecha_hora::date = %s
+                WHERE r.fecha_hora >= %s::date AND r.fecha_hora < (%s::date + '1 day'::interval)
                 ORDER BY r.fecha_hora ASC;
             """
-            cur.execute(sql, (fecha_reporte_str,))
+            cur.execute(sql, (fecha_reporte_str, fecha_reporte_str))
             logs = cur.fetchall()
 
             output = io.StringIO()
