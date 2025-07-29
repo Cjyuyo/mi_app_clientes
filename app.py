@@ -103,30 +103,38 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
             feriados = get_feriados_venezuela(vencimiento.year)
     return vencimiento
 
-# --- FUNCIÓN DE AUDITORÍA (VERSIÓN MEJORADA CON LOGGING) ---
+# --- FUNCIÓN DE AUDITORÍA (VERSIÓN CORREGIDA Y ROBUSTA) ---
 def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
+    """
+    Registra una acción en la tabla de auditoría SIN gestionar la transacción.
+    La responsabilidad del commit y rollback recae en la función que llama a esta.
+    """
     if not g.admin:
-        logging.warning(f"AUDITORIA-OMITIDA: Intento de registrar '{accion}' sin un g.admin establecido. La acción no será registrada.")
+        logging.warning(f"AUDITORIA-OMITIDA: Intento de registrar '{accion}' sin un g.admin establecido.")
         return
     
     conn = get_db()
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO registros_auditoria (usuario_id, usuario_nombre, accion, descripcion, cliente_afectado_id)
-                    VALUES (%s, %s, %s, %s, %s)
-                    """,
-                    (g.admin['id'], g.admin['usuario'], accion, descripcion, cliente_id)
-                )
-                conn.commit()
-                logging.info(f"AUDITORIA-EXITO: Usuario '{g.admin['usuario']}' realizó '{accion}'.")
-        except Exception as e:
-            logging.error(f"AUDITORIA-FALLO: {e}")
-            conn.rollback()
-    else:
+    if not conn:
         logging.error("AUDITORIA-FALLO-CONEXION: No se pudo obtener conexión a la base de datos.")
+        # Es crítico detenerse si no hay conexión
+        raise ConnectionError("No se pudo establecer conexión con la base de datos para la auditoría.")
+
+    # Esta función solo ejecuta la inserción. No usa commit ni rollback.
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO registros_auditoria (usuario_id, usuario_nombre, accion, descripcion, cliente_afectado_id)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (g.admin['id'], g.admin['usuario'], accion, descripcion, cliente_id)
+            )
+        logging.info(f"AUDITORIA-REGISTRADA: Usuario '{g.admin['usuario']}' realizó '{accion}'.")
+    except Exception as e:
+        # Registra el error específico de la inserción
+        logging.error(f"AUDITORIA-FALLO-INSERCION: {e}")
+        # Relanza la excepción para que la función principal sepa que algo falló y haga el rollback general.
+        raise e
 
 
 # --- RUTAS DEL PORTAL DE ADMINISTRACIÓN ---
@@ -248,10 +256,13 @@ def registrar_cliente():
             query = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))}) RETURNING id"
             cur.execute(query, values)
             new_client_id = cur.fetchone()[0]
-            conn.commit()
             
+            # Ahora se registra la auditoría como parte de la misma transacción
             descripcion_audit = f"Registró al nuevo cliente: {nombre_apellido} (C.I. {cedula})."
             registrar_accion_auditoria('REGISTRO_CLIENTE', descripcion_audit, new_client_id)
+            
+            # El commit final guarda tanto el cliente como el registro de auditoría
+            conn.commit()
             
             flash(f"¡Cliente '{nombre_apellido}' registrado exitosamente!", 'success')
 
@@ -348,6 +359,10 @@ def registrar_pago(client_id):
                     pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('lugar_emision'),
                     pago_form.get('tasa_dia'), pago_form.get('monto_bs')
                 ))
+                
+                # Aquí no se registra auditoría porque es un pago PENDIENTE.
+                # La auditoría se registrará en la CONCILIACIÓN.
+                
                 conn.commit()
                 flash(f"¡Pago de {tipo_pago} registrado como PENDIENTE! Ahora debe ser conciliado.", 'success')
                 return redirect(url_for('consulta', busqueda=cliente['cedula']))
@@ -385,6 +400,10 @@ def conciliar_pago(pago_id):
 
             monto_pagado = Decimal(pago['monto'])
             
+            # Variable para el ID del recibo final, por si se genera
+            pago_final_id = None
+            flash_msg = "" # Mensaje a mostrar al final
+
             if pago['tipo_pago'] == 'Inscripción':
                 inscripcion_pagada_actual = Decimal(cliente.get('inscripcion_pagada') or 0)
                 inscripcion_total = Decimal(cliente.get('inscripcion_monto') or 0)
@@ -404,23 +423,20 @@ def conciliar_pago(pago_id):
                     pago_final_id = cur.fetchone()[0]
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (inscripcion_total, cliente['id']))
                     cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
-                    conn.commit()
                     
                     descripcion_audit = f"Concilió pago final de inscripción (basado en abono N°{pago_id}) por ${monto_pagado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
+                    
+                    flash_msg = "¡Inscripción completada! Se generó el recibo final y se anularon los abonos."
 
-                    flash("¡Inscripción completada! Se generó el recibo final y se anularon los abonos.", 'success')
-                    return redirect(url_for('ver_recibo_inscripcion', pago_id=pago_final_id))
-                else:
+                else: # Es solo un abono
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
                     cur.execute("UPDATE pagos SET estado_pago = 'Conciliado' WHERE id = %s", (pago_id,))
-                    conn.commit()
 
                     descripcion_audit = f"Concilió abono de inscripción N° {pago_id} por ${monto_pagado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
 
-                    flash(f"Abono de inscripción N° {pago_id} conciliado.", 'success')
-                    return redirect(url_for('ver_recibo', pago_id=pago_id))
+                    flash_msg = f"Abono de inscripción N° {pago_id} conciliado."
 
             elif pago['tipo_pago'] == 'Cuota':
                 puntualidad = 'Puntual'
@@ -481,12 +497,19 @@ def conciliar_pago(pago_id):
                     pago_id
                 ))
                 
-                conn.commit()
-                
                 descripcion_audit = f"Concilió pago de cuota N° {pago_id} por ${monto_pagado} como '{puntualidad}' para {cliente['nombre_apellido']}."
                 registrar_accion_auditoria('CONCILIACION_CUOTA', descripcion_audit, cliente['id'])
 
-                flash(f"¡Pago de cuota N° {pago_id} conciliado como '{puntualidad}'!", 'success')
+                flash_msg = f"¡Pago de cuota N° {pago_id} conciliado como '{puntualidad}'!"
+
+            # Commit final para toda la operación de conciliación
+            conn.commit()
+            flash(flash_msg, 'success')
+
+            # Redireccionar al recibo correspondiente
+            if pago_final_id:
+                return redirect(url_for('ver_recibo_inscripcion', pago_id=pago_final_id))
+            else:
                 return redirect(url_for('ver_recibo', pago_id=pago_id))
 
     except (psycopg2.Error, ValueError, TypeError) as e:
@@ -622,12 +645,12 @@ def anular_recibo(pago_id):
 
                 cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'RESERVA' WHERE id = %s", (total_inscripcion_reactivada, cliente_id))
                 flash("¡Reinicio de inscripción completado! El cliente ha vuelto a 'RESERVA' y sus abonos han sido restaurados.", 'success')
-
-            conn.commit()
             
+            # Registrar auditoría antes del commit final
             descripcion_audit = f"Anuló el recibo N° {pago_id} (Tipo: {pago_a_anular['tipo_pago']}, Monto: ${pago_a_anular['monto']}) del cliente {nombre_cliente}."
             registrar_accion_auditoria('ANULACION_RECIBO', descripcion_audit, cliente_id)
             
+            conn.commit()
             flash(f"¡Recibo N° {pago_id} anulado y saldo corregido exitosamente!", "success")
             return redirect(url_for('consulta', busqueda=cedula_cliente))
 
@@ -709,11 +732,11 @@ def edit_client(client_id):
                 WHERE id = %(id)s;
                 """
                 cur.execute(update_query, update_data)
-                conn.commit()
                 
                 descripcion_audit = f"Editó los datos del cliente {update_data['nombre']} {update_data['apellido']} (C.I. {update_data['cedula']})."
                 registrar_accion_auditoria('EDICION_CLIENTE', descripcion_audit, client_id)
                 
+                conn.commit()
                 flash('¡Cliente actualizado exitosamente!', 'success')
                 
                 cedula_actualizada = update_data.get('cedula')
@@ -734,13 +757,20 @@ def delete_client(client_id):
         with conn.cursor() as cur:
             cur.execute("SELECT nombre, apellido, cedula FROM clientes WHERE id = %s", (client_id,))
             cliente_a_borrar = cur.fetchone()
+
+            if not cliente_a_borrar:
+                 flash('El cliente que intenta eliminar no existe.', 'warning')
+                 conn.rollback()
+                 return redirect(url_for('consulta'))
+
+            descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']})."
             
             cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
-            conn.commit()
+            
+            # Se registra la auditoría ANTES del commit final.
+            registrar_accion_auditoria('ELIMINACION_CLIENTE', descripcion_audit, client_id)
 
-            if cliente_a_borrar:
-                descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']})."
-                registrar_accion_auditoria('ELIMINACION_CLIENTE', descripcion_audit, client_id)
+            conn.commit()
 
             flash('¡Cliente y sus registros asociados han sido eliminados exitosamente!', 'success')
     except psycopg2.Error as e:
@@ -783,7 +813,7 @@ def guardar_oferta(client_id):
             cur.execute("SELECT cedula, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
             cliente_info = cur.fetchone()
             if cliente_info:
-                cedula_cliente = cliente_info['nombre_apellido']
+                cedula_cliente = cliente_info['cedula'] # Corregido para usar la cédula en la redirección
                 nombre_cliente = cliente_info['nombre_apellido']
 
             hoy = datetime.now().date()
@@ -812,11 +842,10 @@ def guardar_oferta(client_id):
                 VALUES (%s, %s, %s, 'activa')
             """, (client_id, int(cuotas_ofertadas), hoy))
             
-            conn.commit()
-            
             descripcion_audit = f"Registró una oferta de {cuotas_ofertadas} cuotas para el cliente {nombre_cliente}."
             registrar_accion_auditoria('REGISTRO_OFERTA', descripcion_audit, client_id)
 
+            conn.commit()
             flash(f"¡Oferta de {cuotas_ofertadas} cuotas registrada exitosamente!", 'success')
 
     except psycopg2.Error as e:
@@ -945,14 +974,14 @@ def realizar_adjudicacion():
                 VALUES (%s, %s);
             """, (ganador_oferta_id, ganador_sorteo_id))
             
-            conn.commit()
-
             nombres_ganadores = [g['nombre_apellido'] for g in ganadores_ahorro]
             if ganador_oferta:
                 nombres_ganadores.append(ganador_oferta['nombre_apellido'])
             descripcion_audit = f"Ejecutó el proceso de adjudicación. Ganadores: {', '.join(nombres_ganadores)}."
             registrar_accion_auditoria('EJECUCION_ADJUDICACION', descripcion_audit)
             
+            conn.commit()
+
             for g in ganadores_ahorro: flash(f"🏆 ¡Ganador por Ahorro: {g['nombre_apellido']}!", 'success')
             if ganador_oferta: flash(f"🏆 ¡Ganador por Oferta: {ganador_oferta['nombre_apellido']}!", 'success')
     except (psycopg2.Error, IndexError, KeyError) as e:
@@ -1002,7 +1031,6 @@ def descargar_reporte_auditoria():
 
     try:
         with conn.cursor() as cur:
-            # CORRECCIÓN: Se aplica la misma lógica de consulta robusta al reporte.
             sql = """
                 SELECT r.fecha_hora, r.usuario_nombre, r.accion, r.descripcion, 
                        (c.nombre || ' ' || c.apellido) as cliente_nombre, c.cedula
