@@ -30,15 +30,11 @@ def setup_session_and_user():
     cliente_id = session.get('cliente_id')
     db = get_db()
     if db:
-        with db.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        # Ya no se necesita `cursor_factory` aquí, se establece en get_db()
+        with db.cursor() as cur:
             if admin_id:
                 cur.execute("SELECT id, usuario, rol FROM administradores WHERE id = %s", (admin_id,))
                 g.admin = cur.fetchone()
-                # LOGGING ADICIONAL PARA DIAGNÓSTICO
-                if g.admin:
-                    logging.info(f"SETUP: g.admin cargado exitosamente para el usuario '{g.admin['usuario']}' (ID: {admin_id}).")
-                else:
-                    logging.error(f"SETUP FATAL: Se encontró un admin_id ({admin_id}) en la sesión, pero no se pudo cargar el usuario desde la BD.")
             elif cliente_id:
                 cur.execute("SELECT id, nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
                 g.cliente = cur.fetchone()
@@ -49,9 +45,11 @@ def get_db():
         if not DATABASE_URL:
             raise ValueError("FATAL: La variable de entorno DATABASE_URL no está configurada.")
         try:
-            g.db = psycopg2.connect(DATABASE_URL)
+            # CORRECCIÓN DEFINITIVA: Se establece el cursor_factory en la conexión.
+            # Esto asegura que TODOS los cursores devuelvan diccionarios.
+            g.db = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
         except psycopg2.OperationalError as e:
-            print(f"Error de conexión a la base de datos: {e}")
+            logging.error(f"Error de conexión a la base de datos: {e}")
             g.db = None
     return g.db
 
@@ -65,10 +63,7 @@ def close_db(exception):
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # LOGGING ADICIONAL PARA DIAGNÓSTICO
-        logging.info(f"DECORATOR CHECK: Verificando acceso para la ruta {request.path}. g.admin es: {g.admin}")
         if g.admin is None:
-            logging.warning(f"DECORATOR FAIL: Acceso denegado para la ruta {request.path}. g.admin es None. Redirigiendo a login.")
             flash('Acceso denegado. Debes iniciar sesión como administrador.', 'warning')
             return redirect(url_for('admin_login'))
         return f(*args, **kwargs)
@@ -119,6 +114,7 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
     conn = get_db()
     if conn:
         try:
+            # Ya no se necesita `cursor_factory` aquí
             with conn.cursor() as cur:
                 cur.execute(
                     """
@@ -129,8 +125,9 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
                 )
                 conn.commit()
                 logging.info(f"AUDITORIA-EXITO: Usuario '{g.admin['usuario']}' realizó '{accion}'.")
-        except psycopg2.Error as e:
-            logging.error(f"AUDITORIA-FALLO-DB: {e}")
+        # Se amplía el except para capturar cualquier tipo de error durante la auditoría
+        except Exception as e:
+            logging.error(f"AUDITORIA-FALLO: {e}")
             conn.rollback()
     else:
         logging.error("AUDITORIA-FALLO-CONEXION: No se pudo obtener conexión a la base de datos.")
@@ -149,7 +146,7 @@ def admin_login():
             flash('Error de conexión con la base de datos.', 'danger')
             return render_template('admin_login.html', anio_actual=datetime.now().year)
         
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        with conn.cursor() as cur:
             cur.execute("SELECT * FROM administradores WHERE usuario = %s", (usuario,))
             admin = cur.fetchone()
 
@@ -203,7 +200,7 @@ def hub():
     conn = get_db()
     usuarios = []
     if conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        with conn.cursor() as cur:
             cur.execute("SELECT usuario, estatus_online, ultimo_login FROM administradores ORDER BY usuario")
             usuarios = cur.fetchall()
     return render_template('hub.html', anio_actual=datetime.now().year, usuarios=usuarios)
@@ -284,7 +281,7 @@ def consulta():
             mensaje_error = "Error de conexión a la base de datos."
         else:
             try:
-                with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+                with conn.cursor() as cur:
                     query_clientes = "SELECT *, inscripcion_monto AS inscripcion FROM clientes WHERE cedula ILIKE %s OR nombre ILIKE %s OR apellido ILIKE %s ORDER BY nombre, apellido LIMIT 20;"
                     patron_busqueda = f'%{termino_busqueda}%'
                     cur.execute(query_clientes, (patron_busqueda, patron_busqueda, patron_busqueda))
@@ -314,7 +311,7 @@ def registrar_pago(client_id):
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta'))
     
-    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+    with conn.cursor() as cur:
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
     
@@ -376,7 +373,7 @@ def conciliar_pago(pago_id):
         return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
     try:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        with conn.cursor() as cur:
             cur.execute("SELECT * FROM pagos WHERE id = %s", (pago_id,))
             pago = cur.fetchone()
             if not pago or pago['estado_pago'] != 'Pendiente':
@@ -513,7 +510,7 @@ def ver_recibo(pago_id):
             return redirect(url_for('portal_login'))
         return redirect(url_for('consulta'))
 
-    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+    with conn.cursor() as cur:
         query = """
             SELECT p.*, 
                    c.nombre, c.apellido, (c.nombre || ' ' || c.apellido) as nombre_apellido, 
@@ -546,7 +543,7 @@ def ver_recibo_inscripcion(pago_id):
             return redirect(url_for('portal_login'))
         return redirect(url_for('consulta'))
 
-    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+    with conn.cursor() as cur:
         query = "SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.plan_contratado FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s AND p.tipo_pago = 'Inscripción Finalizada';"
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
@@ -572,7 +569,7 @@ def anular_recibo(pago_id):
     
     cedula_cliente = ''
     try:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        with conn.cursor() as cur:
             cur.execute("SELECT p.*, c.nombre, c.apellido, c.cedula FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s FOR UPDATE", (pago_id,))
             pago_a_anular = cur.fetchone()
 
@@ -649,7 +646,7 @@ def verificar_recibo(pago_id):
     if not conn:
         return "Error de conexión a la base de datos.", 500
     
-    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+    with conn.cursor() as cur:
         query = "SELECT p.id, p.monto, p.fecha_pago, p.estado_pago, p.tipo_pago, (c.nombre || ' ' || c.apellido) as nombre_apellido FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s;"
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
@@ -665,7 +662,7 @@ def ver_recibo_anulado(pago_id):
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta'))
-    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+    with conn.cursor() as cur:
         query = "SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s AND p.estado_pago = 'Anulado';"
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
@@ -683,7 +680,7 @@ def edit_client(client_id):
         flash('Error de conexión a la base de datos.', 'error')
         return redirect(url_for('consulta'))
 
-    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+    with conn.cursor() as cur:
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
 
@@ -738,7 +735,7 @@ def delete_client(client_id):
     conn = get_db()
     if not conn: return redirect(url_for('consulta'))
     try:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        with conn.cursor() as cur:
             cur.execute("SELECT nombre, apellido, cedula FROM clientes WHERE id = %s", (client_id,))
             cliente_a_borrar = cur.fetchone()
             
@@ -763,7 +760,7 @@ def registrar_oferta(client_id):
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta'))
     
-    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+    with conn.cursor() as cur:
         cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
     
@@ -786,7 +783,7 @@ def guardar_oferta(client_id):
         return redirect(url_for('consulta'))
     
     try:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        with conn.cursor() as cur:
             cur.execute("SELECT cedula, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
             cliente_info = cur.fetchone()
             if cliente_info:
@@ -841,7 +838,7 @@ def adjudicacion():
         return render_template('adjudicacion.html', clientes_elegibles_ahorro=[], clientes_elegibles_sorteo=[], ofertas_activas=[], historial=[])
 
     try:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        with conn.cursor() as cur:
             cur.execute("""
                 SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega
                 FROM clientes 
@@ -891,7 +888,7 @@ def realizar_adjudicacion():
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('adjudicacion'))
     try:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        with conn.cursor() as cur:
             cur.execute("UPDATE clientes SET ignorar_penalidad_puntualidad = FALSE;")
             ids_ya_ganadores = set()
             
@@ -980,7 +977,7 @@ def auditoria():
         return render_template('auditoria.html', logs=logs, anio_actual=datetime.now().year, fecha_filtro=fecha_filtro_str)
     
     try:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        with conn.cursor() as cur:
             sql = """
                 SELECT r.id, r.usuario_nombre, r.accion, r.descripcion, r.fecha_hora, 
                        c.nombre, c.apellido, c.cedula
@@ -1012,7 +1009,7 @@ def descargar_reporte_auditoria():
         return "Error de conexión a la base de datos", 500
 
     try:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        with conn.cursor() as cur:
             sql = """
                 SELECT r.fecha_hora, r.usuario_nombre, r.accion, r.descripcion, 
                        (c.nombre || ' ' || c.apellido) as cliente_nombre, c.cedula
@@ -1073,7 +1070,7 @@ def portal_login():
             return render_template('portal_login.html', anio_actual=datetime.now().year)
         
         try:
-            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            with conn.cursor() as cur:
                 sql_query = """
                     SELECT id, (nombre || ' ' || apellido) as nombre_apellido 
                     FROM clientes 
@@ -1108,7 +1105,7 @@ def portal_dashboard():
         return redirect(url_for('portal_dashboard'))
         
     try:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        with conn.cursor() as cur:
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
             cliente = cur.fetchone()
             
@@ -1163,7 +1160,7 @@ def portal_reportar_pago():
         flash('No se pudo conectar con la base de datos.', 'error')
         return redirect(url_for('portal_dashboard'))
 
-    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+    with conn.cursor() as cur:
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
         cliente = cur.fetchone()
 
@@ -1221,7 +1218,7 @@ def portal_estado_cuenta():
         return redirect(url_for('portal_dashboard'))
 
     try:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        with conn.cursor() as cur:
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
             cliente = cur.fetchone()
 
