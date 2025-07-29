@@ -1,13 +1,15 @@
 import os
 import psycopg2
 import psycopg2.extras
-from flask import Flask, render_template, request, g, flash, redirect, url_for, session
+from flask import Flask, render_template, request, g, flash, redirect, url_for, session, Response
 from dotenv import load_dotenv
 from decimal import Decimal
 from datetime import datetime, timedelta
 import random
 from werkzeug.security import check_password_hash, generate_password_hash
 from functools import wraps
+import io
+import csv
 
 load_dotenv()
 app = Flask(__name__)
@@ -770,7 +772,7 @@ def guardar_oferta(client_id):
             cur.execute("SELECT cedula, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
             cliente_info = cur.fetchone()
             if cliente_info:
-                cedula_cliente = cliente_info['cedula']
+                cedula_cliente = cliente_info['nombre_apellido']
                 nombre_cliente = cliente_info['nombre_apellido']
 
             hoy = datetime.now().date()
@@ -947,30 +949,90 @@ def realizar_adjudicacion():
         flash(f"Ocurrió un error durante el proceso de adjudicación: {e}", 'error')
     return redirect(url_for('adjudicacion'))
 
-@app.route('/auditoria')
+@app.route('/auditoria', methods=['GET'])
 @admin_required
 @rol_requerido('superadmin')
 def auditoria():
     conn = get_db()
     logs = []
+    fecha_filtro_str = request.args.get('fecha', datetime.now().strftime('%Y-%m-%d'))
+    
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
-        return render_template('auditoria.html', logs=logs)
+        return render_template('auditoria.html', logs=logs, anio_actual=datetime.now().year, fecha_filtro=fecha_filtro_str)
     
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("""
+            sql = """
                 SELECT r.id, r.usuario_nombre, r.accion, r.descripcion, r.fecha_hora, 
                        c.nombre, c.apellido, c.cedula
                 FROM registros_auditoria r
                 LEFT JOIN clientes c ON r.cliente_afectado_id = c.id
-                ORDER BY r.fecha_hora DESC;
-            """)
+            """
+            params = []
+            if fecha_filtro_str:
+                sql += " WHERE r.fecha_hora::date = %s"
+                params.append(fecha_filtro_str)
+            
+            sql += " ORDER BY r.fecha_hora DESC;"
+            
+            cur.execute(sql, tuple(params))
             logs = cur.fetchall()
-    except psycopg2.Error as e:
+            
+    except (psycopg2.Error, ValueError) as e:
         flash(f"Error al consultar los registros de auditoría: {e}", "error")
 
-    return render_template('auditoria.html', logs=logs)
+    return render_template('auditoria.html', logs=logs, anio_actual=datetime.now().year, fecha_filtro=fecha_filtro_str)
+
+@app.route('/descargar_reporte_auditoria')
+@admin_required
+@rol_requerido('superadmin')
+def descargar_reporte_auditoria():
+    fecha_reporte_str = request.args.get('fecha', datetime.now().strftime('%Y-%m-%d'))
+    conn = get_db()
+    if not conn:
+        return "Error de conexión a la base de datos", 500
+
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            sql = """
+                SELECT r.fecha_hora, r.usuario_nombre, r.accion, r.descripcion, 
+                       (c.nombre || ' ' || c.apellido) as cliente_nombre, c.cedula
+                FROM registros_auditoria r
+                LEFT JOIN clientes c ON r.cliente_afectado_id = c.id
+                WHERE r.fecha_hora::date = %s
+                ORDER BY r.fecha_hora ASC;
+            """
+            cur.execute(sql, (fecha_reporte_str,))
+            logs = cur.fetchall()
+
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            writer.writerow(['Fecha y Hora', 'Usuario Admin', 'Accion', 'Descripcion', 'Cliente Afectado', 'Cedula Cliente'])
+            
+            for log in logs:
+                writer.writerow([
+                    log['fecha_hora'].strftime('%Y-%m-%d %H:%M:%S'),
+                    log['usuario_nombre'],
+                    log['accion'],
+                    log['descripcion'],
+                    log['cliente_nombre'] or 'N/A',
+                    log['cedula'] or 'N/A'
+                ])
+            
+            output.seek(0)
+            
+            return Response(
+                output,
+                mimetype="text/csv",
+                headers={"Content-Disposition": f"attachment;filename=reporte_auditoria_{fecha_reporte_str}.csv"}
+            )
+
+    except (psycopg2.Error, ValueError) as e:
+        flash(f"Error al generar el reporte: {e}", "error")
+        return redirect(url_for('auditoria'))
+
 
 # --- RUTAS DEL PORTAL DEL CLIENTE ---
 @app.route('/portal/login', methods=['GET', 'POST'])
