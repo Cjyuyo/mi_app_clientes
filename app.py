@@ -105,21 +105,13 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
 
 # --- FUNCIÓN DE AUDITORÍA (VERSIÓN CORREGIDA Y ROBUSTA) ---
 def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
-    """
-    Registra una acción en la tabla de auditoría SIN gestionar la transacción.
-    La responsabilidad del commit y rollback recae en la función que llama a esta.
-    """
     if not g.admin:
         logging.warning(f"AUDITORIA-OMITIDA: Intento de registrar '{accion}' sin un g.admin establecido.")
         return
-    
     conn = get_db()
     if not conn:
         logging.error("AUDITORIA-FALLO-CONEXION: No se pudo obtener conexión a la base de datos.")
-        # Es crítico detenerse si no hay conexión
         raise ConnectionError("No se pudo establecer conexión con la base de datos para la auditoría.")
-
-    # Esta función solo ejecuta la inserción. No usa commit ni rollback.
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -131,45 +123,31 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
             )
         logging.info(f"AUDITORIA-REGISTRADA: Usuario '{g.admin['usuario']}' realizó '{accion}'.")
     except Exception as e:
-        # Registra el error específico de la inserción
         logging.error(f"AUDITORIA-FALLO-INSERCION: {e}")
-        # Relanza la excepción para que la función principal sepa que algo falló y haga el rollback general.
         raise e
-
 
 # --- RUTAS DEL PORTAL DE ADMINISTRACIÓN ---
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
-    if g.admin:
-        return redirect(url_for('hub'))
+    if g.admin: return redirect(url_for('hub'))
     if request.method == 'POST':
-        usuario = request.form.get('usuario')
-        password = request.form.get('password')
+        usuario, password = request.form.get('usuario'), request.form.get('password')
         conn = get_db()
         if not conn:
             flash('Error de conexión con la base de datos.', 'danger')
             return render_template('admin_login.html', anio_actual=datetime.now().year)
-        
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM administradores WHERE usuario = %s", (usuario,))
             admin = cur.fetchone()
-
             if admin and check_password_hash(admin['password_hash'], password):
                 session.clear()
                 session['admin_id'] = admin['id']
-                session['admin_usuario'] = admin['usuario']
-                
-                cur.execute(
-                    "UPDATE administradores SET ultimo_login = NOW(), estatus_online = TRUE WHERE id = %s",
-                    (admin['id'],)
-                )
+                cur.execute("UPDATE administradores SET ultimo_login = NOW(), estatus_online = TRUE WHERE id = %s", (admin['id'],))
                 conn.commit()
-
                 flash(f"¡Bienvenido de nuevo, {admin['usuario']}!", 'success')
                 return redirect(url_for('hub'))
             else:
                 flash('Usuario o contraseña incorrectos.', 'danger')
-
     return render_template('admin_login.html', anio_actual=datetime.now().year)
 
 @app.route('/admin/dashboard')
@@ -184,10 +162,7 @@ def admin_logout():
         conn = get_db()
         if conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    "UPDATE administradores SET estatus_online = FALSE WHERE id = %s",
-                    (admin_id,)
-                )
+                cur.execute("UPDATE administradores SET estatus_online = FALSE WHERE id = %s", (admin_id,))
                 conn.commit()
     session.clear()
     flash('Has cerrado la sesión exitosamente.', 'info')
@@ -218,13 +193,10 @@ def registrar():
 @admin_required
 def registrar_cliente():
     form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
-    cedula = form_data.get('cedula')
-    nombre_apellido = form_data.get('nombre_apellido')
-
+    cedula, nombre_apellido = form_data.get('cedula'), form_data.get('nombre_apellido')
     if not nombre_apellido or not cedula:
         flash("Error: Nombre y Cédula son campos obligatorios.", 'error')
         return redirect(url_for('registrar'))
-    
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
@@ -234,42 +206,25 @@ def registrar_cliente():
             nombre_completo = nombre_apellido.split(' ', 1)
             nombre = nombre_completo[0]
             apellido = nombre_completo[1] if len(nombre_completo) > 1 else ''
-
-            insert_dict = {
-                'nombre': nombre, 
-                'apellido': apellido, 
-                'cedula': cedula.replace(' ', ''),
-                'cuotas_pagadas_progresivas': 0,
-                'cuotas_pagadas_regresivas': 0
-            }
-            optional_fields = [
-                'contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso',
-                'grupo', 'plan_contratado', 'cuotas_totales', 'moneda_pago', 'valor_cuota',
-                'inscripcion_monto', 'proceso'
-            ]
+            insert_dict = {'nombre': nombre, 'apellido': apellido, 'cedula': cedula.replace(' ', ''), 'cuotas_pagadas_progresivas': 0, 'cuotas_pagadas_regresivas': 0}
+            optional_fields = ['contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso', 'grupo', 'plan_contratado', 'cuotas_totales', 'moneda_pago', 'valor_cuota', 'inscripcion_monto', 'proceso']
             for field in optional_fields:
                 if form_data.get(field) and form_data.get(field) != '':
                     insert_dict[field] = form_data[field]
-
-            columns = insert_dict.keys()
-            values = [insert_dict[col] for col in columns]
+            columns, values = insert_dict.keys(), [insert_dict[col] for col in columns]
             query = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))}) RETURNING id"
             cur.execute(query, values)
             new_client_id = cur.fetchone()[0]
             
-            # Ahora se registra la auditoría como parte de la misma transacción
             descripcion_audit = f"Registró al nuevo cliente: {nombre_apellido} (C.I. {cedula})."
             registrar_accion_auditoria('REGISTRO_CLIENTE', descripcion_audit, new_client_id)
             
-            # El commit final guarda tanto el cliente como el registro de auditoría
             conn.commit()
-            
             flash(f"¡Cliente '{nombre_apellido}' registrado exitosamente!", 'success')
-
     except psycopg2.IntegrityError:
         conn.rollback()
         flash(f"Registro fallido: La cédula '{cedula}' ya existe.", 'error')
-    except (psycopg2.Error, ValueError) as e:
+    except (psycopg2.Error, ValueError, ConnectionError) as e:
         conn.rollback()
         flash(f"Registro fallido: Ocurrió un error de base de datos: {e}", 'error')
     return redirect(url_for('registrar'))
@@ -277,11 +232,9 @@ def registrar_cliente():
 @app.route('/consulta', methods=['GET', 'POST'])
 @admin_required
 def consulta():
-    clientes_encontrados = []
-    mensaje_error = None
+    clientes_encontrados, mensaje_error = [], None
     termino_busqueda_raw = request.form.get('busqueda', request.args.get('busqueda', ''))
     termino_busqueda = termino_busqueda_raw.strip()
-
     if termino_busqueda:
         conn = get_db()
         if not conn:
@@ -292,20 +245,14 @@ def consulta():
                     query_clientes = "SELECT *, inscripcion_monto AS inscripcion FROM clientes WHERE cedula ILIKE %s OR nombre ILIKE %s OR apellido ILIKE %s ORDER BY nombre, apellido LIMIT 20;"
                     patron_busqueda = f'%{termino_busqueda}%'
                     cur.execute(query_clientes, (patron_busqueda, patron_busqueda, patron_busqueda))
-                    clientes_raw = cur.fetchall()
-                    
-                    if not clientes_raw:
+                    for cliente in cur.fetchall():
+                        cliente_dict = dict(cliente)
+                        cliente_dict['nombre_apellido'] = f"{cliente.get('nombre', '')} {cliente.get('apellido', '')}".strip()
+                        cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC", (cliente_dict['id'],))
+                        cliente_dict['pagos'] = cur.fetchall()
+                        clientes_encontrados.append(cliente_dict)
+                    if not clientes_encontrados:
                         mensaje_error = "🚫 No se encontraron clientes que coincidan con su búsqueda."
-                    else:
-                        for cliente in clientes_raw:
-                            cliente_dict = dict(cliente)
-                            cliente_dict['nombre_apellido'] = f"{cliente.get('nombre', '')} {cliente.get('apellido', '')}".strip()
-                            if 'cuotas_pagas' in cliente_dict: 
-                                cliente_dict['cuotas_pagadas_progresivas'] = cliente_dict['cuotas_pagas']
-
-                            cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC", (cliente_dict['id'],))
-                            cliente_dict['pagos'] = cur.fetchall()
-                            clientes_encontrados.append(cliente_dict)
             except psycopg2.Error as e:
                 mensaje_error = f"Error al consultar la base de datos: {e}"
     return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda_raw)
@@ -317,34 +264,26 @@ def registrar_pago(client_id):
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta'))
-    
     with conn.cursor() as cur:
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
-    
     if not cliente:
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('consulta'))
-
     if request.method == 'POST':
         pago_form = {k: v if v else None for k, v in request.form.items()}
         tipo_pago = pago_form.get('tipo_pago')
-        
         inscripcion_total = Decimal(cliente.get('inscripcion_monto') or 0)
         inscripcion_pagada = Decimal(cliente.get('inscripcion_pagada') or 0)
-        
         if tipo_pago == 'Cuota' and inscripcion_pagada < inscripcion_total:
             flash('Error: No se puede registrar un pago de cuota hasta que la inscripción esté 100% pagada.', 'error')
             return render_template('registrar_pago.html', cliente=cliente)
-        
         if tipo_pago == 'Inscripción' and inscripcion_pagada >= inscripcion_total:
             flash('Error: La inscripción para este cliente ya ha sido completada.', 'error')
             return render_template('registrar_pago.html', cliente=cliente)
-
-        if pago_form.get('forma_pago') == 'Transferencia' and not pago_form.get('referencia'):
+        if pago_form.get('forma_pago') != 'Efectivo' and not pago_form.get('referencia'):
             flash('Error: La referencia es obligatoria para pagos por transferencia.', 'error')
             return render_template('registrar_pago.html', cliente=cliente)
-        
         try:
             with conn.cursor() as cur:
                 pago_query = """
@@ -353,36 +292,23 @@ def registrar_pago(client_id):
                                         tasa_dia, monto_bs, estado_pago, cuotas_cubiertas)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0);
                 """
-                cur.execute(pago_query, (
-                    client_id, pago_form['monto'], tipo_pago, pago_form['forma_pago'], pago_form['fecha_pago'],
-                    pago_form.get('pago_en'), pago_form.get('por_concepto_de'),
-                    pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('lugar_emision'),
-                    pago_form.get('tasa_dia'), pago_form.get('monto_bs')
-                ))
-                
-                # Aquí no se registra auditoría porque es un pago PENDIENTE.
-                # La auditoría se registrará en la CONCILIACIÓN.
-                
+                cur.execute(pago_query, (client_id, pago_form['monto'], tipo_pago, pago_form['forma_pago'], pago_form['fecha_pago'], pago_form.get('pago_en'), pago_form.get('por_concepto_de'), pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('lugar_emision'), pago_form.get('tasa_dia'), pago_form.get('monto_bs')))
                 conn.commit()
                 flash(f"¡Pago de {tipo_pago} registrado como PENDIENTE! Ahora debe ser conciliado.", 'success')
                 return redirect(url_for('consulta', busqueda=cliente['cedula']))
-
         except (psycopg2.Error, ValueError, TypeError) as e:
             conn.rollback()
             flash(f'Ocurrió un error al registrar el pago: {e}', 'error')
             return render_template('registrar_pago.html', cliente=cliente)
-
     return render_template('registrar_pago.html', cliente=cliente)
 
 @app.route('/conciliar_pago/<int:pago_id>', methods=['POST'])
 @admin_required
 def conciliar_pago(pago_id):
-    conn = get_db()
-    cedula_cliente_fallback = request.args.get('cedula', '')
+    conn, cedula_cliente_fallback = get_db(), request.args.get('cedula', '')
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
-
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM pagos WHERE id = %s", (pago_id,))
@@ -390,7 +316,6 @@ def conciliar_pago(pago_id):
             if not pago or pago['estado_pago'] != 'Pendiente':
                 flash("El pago no se puede conciliar (ya está conciliado, anulado o no existe).", 'error')
                 return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
-
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s FOR UPDATE", (pago['cliente_id'],))
             cliente = cur.fetchone()
             if not cliente:
@@ -398,263 +323,143 @@ def conciliar_pago(pago_id):
                 conn.rollback()
                 return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
-            monto_pagado = Decimal(pago['monto'])
-            
-            # Variable para el ID del recibo final, por si se genera
-            pago_final_id = None
-            flash_msg = "" # Mensaje a mostrar al final
-
+            monto_pagado, pago_final_id, flash_msg = Decimal(pago['monto']), None, ""
             if pago['tipo_pago'] == 'Inscripción':
                 inscripcion_pagada_actual = Decimal(cliente.get('inscripcion_pagada') or 0)
                 inscripcion_total = Decimal(cliente.get('inscripcion_monto') or 0)
                 nueva_inscripcion_pagada = inscripcion_pagada_actual + monto_pagado
-
                 if inscripcion_total > 0 and nueva_inscripcion_pagada >= inscripcion_total:
                     if cliente['proceso'] == 'RESERVA':
                         cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],))
-                        flash("Cliente ha completado la inscripción y su proceso ha cambiado a 'INSCRITO'.", "info")
-
                     cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente['id'],))
-                    pago_final_query = """
-                        INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, por_concepto_de, estado_pago, cuotas_cubiertas, lugar_emision)
-                        VALUES (%s, %s, 'Inscripción Finalizada', %s, %s, %s, 'Conciliado', 0, %s) RETURNING id;
-                    """
-                    cur.execute(pago_final_query, (cliente['id'], inscripcion_total, pago['forma_pago'], pago['fecha_pago'], 'Pago total de inscripción', pago['lugar_emision']))
+                    cur.execute("INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, por_concepto_de, estado_pago, cuotas_cubiertas, lugar_emision) VALUES (%s, %s, 'Inscripción Finalizada', %s, %s, %s, 'Conciliado', 0, %s) RETURNING id;", (cliente['id'], inscripcion_total, pago['forma_pago'], pago['fecha_pago'], 'Pago total de inscripción', pago['lugar_emision']))
                     pago_final_id = cur.fetchone()[0]
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (inscripcion_total, cliente['id']))
                     cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
-                    
-                    descripcion_audit = f"Concilió pago final de inscripción (basado en abono N°{pago_id}) por ${monto_pagado} para {cliente['nombre_apellido']}."
+                    descripcion_audit = f"Concilió pago final de inscripción (N°{pago_id}) por ${monto_pagado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
-                    
-                    flash_msg = "¡Inscripción completada! Se generó el recibo final y se anularon los abonos."
-
-                else: # Es solo un abono
+                    flash_msg = "¡Inscripción completada! Se generó el recibo final."
+                else:
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
                     cur.execute("UPDATE pagos SET estado_pago = 'Conciliado' WHERE id = %s", (pago_id,))
-
                     descripcion_audit = f"Concilió abono de inscripción N° {pago_id} por ${monto_pagado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
-
                     flash_msg = f"Abono de inscripción N° {pago_id} conciliado."
-
             elif pago['tipo_pago'] == 'Cuota':
-                puntualidad = 'Puntual'
-                fecha_vencimiento = get_fecha_vencimiento_ajustada(pago['fecha_pago'])
+                puntualidad, fecha_vencimiento = 'Puntual', get_fecha_vencimiento_ajustada(pago['fecha_pago'])
                 if pago['fecha_pago'] > fecha_vencimiento:
                     puntualidad = 'Impuntual'
                     cur.execute("UPDATE clientes SET meses_retraso_entrega = meses_retraso_entrega + 1 WHERE id = %s;", (cliente['id'],))
-                
                 if cliente['proceso'] == 'INSCRITO':
                     cur.execute("UPDATE clientes SET proceso = 'Ahorrador' WHERE id = %s", (cliente['id'],))
-                    flash("Primer pago de cuota registrado. El proceso del cliente ha cambiado a 'Ahorrador'.", "info")
-
                 valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
-                if valor_cuota <= 0:
-                    raise ValueError('El cliente no tiene un valor de cuota válido para conciliar.')
-                
-                cuotas_progresivas_actuales = cliente.get('cuotas_pagadas_progresivas', 0)
-                cuotas_regresivas_actuales = cliente.get('cuotas_pagadas_regresivas', 0)
-                balance_actual = Decimal(cliente.get('balance_regresivo', 0))
-                
-                monto_total_disponible = monto_pagado + balance_actual
-                
-                progresivas_pagadas_hoy = 0
-                regresivas_pagadas_hoy = 0
-
-                if monto_total_disponible >= valor_cuota:
-                    progresivas_pagadas_hoy = 1
-                    monto_total_disponible -= valor_cuota
-                
-                balance_provisional = monto_total_disponible
-                while balance_provisional >= valor_cuota:
-                    regresivas_pagadas_hoy += 1
-                    balance_provisional -= valor_cuota
-                
-                nuevo_balance_final = balance_provisional
-                nuevas_cuotas_progresivas_totales = cuotas_progresivas_actuales + progresivas_pagadas_hoy
-                nuevas_cuotas_regresivas_totales = cuotas_regresivas_actuales + regresivas_pagadas_hoy
-                cuotas_cubiertas_hoy = progresivas_pagadas_hoy + regresivas_pagadas_hoy
-
-                update_cliente_query = """
-                    UPDATE clientes 
-                    SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s 
-                    WHERE id = %s;
-                """
-                cur.execute(update_cliente_query, (nuevas_cuotas_progresivas_totales, nuevas_cuotas_regresivas_totales, nuevo_balance_final, cliente['id']))
-                
-                update_pago_query = """
-                    UPDATE pagos 
-                    SET estado_pago = 'Conciliado', puntualidad = %s, cuotas_cubiertas = %s, 
-                        progresivas_cubiertas = %s, regresivas_cubiertas = %s,
-                        cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s 
-                    WHERE id = %s;
-                """
-                cur.execute(update_pago_query, (
-                    puntualidad, cuotas_cubiertas_hoy, 
-                    progresivas_pagadas_hoy, regresivas_pagadas_hoy,
-                    nuevas_cuotas_progresivas_totales, nuevas_cuotas_regresivas_totales, nuevo_balance_final, 
-                    pago_id
-                ))
-                
+                if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
+                cpp, cpr, br = cliente.get('cuotas_pagadas_progresivas', 0), cliente.get('cuotas_pagadas_regresivas', 0), Decimal(cliente.get('balance_regresivo', 0))
+                mtd, pph, rph = monto_pagado + br, 0, 0
+                if mtd >= valor_cuota: pph, mtd = 1, mtd - valor_cuota
+                bp = mtd
+                while bp >= valor_cuota: rph, bp = rph + 1, bp - valor_cuota
+                nbf, ncpp, ncpr, cch = bp, cpp + pph, cpr + rph, pph + rph
+                cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s;", (ncpp, ncpr, nbf, cliente['id']))
+                cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', puntualidad = %s, cuotas_cubiertas = %s, progresivas_cubiertas = %s, regresivas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s WHERE id = %s;", (puntualidad, cch, pph, rph, ncpp, ncpr, nbf, pago_id))
                 descripcion_audit = f"Concilió pago de cuota N° {pago_id} por ${monto_pagado} como '{puntualidad}' para {cliente['nombre_apellido']}."
                 registrar_accion_auditoria('CONCILIACION_CUOTA', descripcion_audit, cliente['id'])
-
                 flash_msg = f"¡Pago de cuota N° {pago_id} conciliado como '{puntualidad}'!"
-
-            # Commit final para toda la operación de conciliación
+            
             conn.commit()
             flash(flash_msg, 'success')
-
-            # Redireccionar al recibo correspondiente
-            if pago_final_id:
-                return redirect(url_for('ver_recibo_inscripcion', pago_id=pago_final_id))
-            else:
-                return redirect(url_for('ver_recibo', pago_id=pago_id))
-
-    except (psycopg2.Error, ValueError, TypeError) as e:
-        if conn:
-            conn.rollback()
+            if pago_final_id: return redirect(url_for('ver_recibo_inscripcion', pago_id=pago_final_id))
+            return redirect(url_for('ver_recibo', pago_id=pago_id))
+    except (psycopg2.Error, ValueError, TypeError, ConnectionError) as e:
+        if conn: conn.rollback()
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
-        return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
-    
     return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
-
 
 @app.route('/recibo/<int:pago_id>')
 def ver_recibo(pago_id):
     conn = get_db()
     if not conn:
-        if 'cliente_id' in session:
-            return redirect(url_for('portal_login'))
+        if 'cliente_id' in session: return redirect(url_for('portal_login'))
         return redirect(url_for('consulta'))
-
     with conn.cursor() as cur:
         query = """
-            SELECT p.*, 
-                   c.nombre, c.apellido, (c.nombre || ' ' || c.apellido) as nombre_apellido, 
-                   c.cedula, c.cuotas_totales, c.valor_cuota, c.inscripcion_monto, c.inscripcion_pagada,
+            SELECT p.*, c.nombre, c.apellido, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.cuotas_totales, c.valor_cuota, c.inscripcion_monto, c.inscripcion_pagada,
                    COALESCE(p.cuotas_progresivas_al_pagar, c.cuotas_pagadas_progresivas) AS cuotas_pagadas_progresivas, 
                    COALESCE(p.cuotas_regresivas_al_pagar, c.cuotas_pagadas_regresivas) AS cuotas_pagadas_regresivas,
                    COALESCE(p.balance_al_pagar, c.balance_regresivo) AS balance_regresivo
-            FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
-            WHERE p.id = %s;
-        """
+            FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s;"""
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
-
     if not pago:
         flash('Recibo no encontrado.', 'error')
-        if 'cliente_id' in session:
-            return redirect(url_for('portal_dashboard'))
+        if 'cliente_id' in session: return redirect(url_for('portal_dashboard'))
         return redirect(url_for('consulta'))
-    
-    is_admin_view = 'admin_id' in session
-    
-    return render_template('recibo.html', pago=pago, is_admin_view=is_admin_view)
-
+    return render_template('recibo.html', pago=pago, is_admin_view='admin_id' in session)
 
 @app.route('/recibo_inscripcion/<int:pago_id>')
 def ver_recibo_inscripcion(pago_id):
     conn = get_db()
     if not conn:
-        if 'cliente_id' in session:
-            return redirect(url_for('portal_login'))
+        if 'cliente_id' in session: return redirect(url_for('portal_login'))
         return redirect(url_for('consulta'))
-
     with conn.cursor() as cur:
-        query = "SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.plan_contratado FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s AND p.tipo_pago = 'Inscripción Finalizada';"
-        cur.execute(query, (pago_id,))
+        cur.execute("SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.plan_contratado FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s AND p.tipo_pago = 'Inscripción Finalizada';", (pago_id,))
         pago = cur.fetchone()
-
     if not pago:
         flash('Recibo de inscripción final no encontrado.', 'error')
-        if 'cliente_id' in session:
-            return redirect(url_for('portal_dashboard'))
+        if 'cliente_id' in session: return redirect(url_for('portal_dashboard'))
         return redirect(url_for('consulta'))
-    
-    is_admin_view = 'admin_id' in session
-    
-    return render_template('recibo_inscripcion.html', pago=pago, cliente=pago, is_admin_view=is_admin_view)
+    return render_template('recibo_inscripcion.html', pago=pago, cliente=pago, is_admin_view='admin_id' in session)
 
 @app.route('/anular_recibo/<int:pago_id>', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def anular_recibo(pago_id):
-    conn = get_db()
+    conn, cedula_cliente = get_db(), ''
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta'))
-    
-    cedula_cliente = ''
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT p.*, c.nombre, c.apellido, c.cedula FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s FOR UPDATE", (pago_id,))
             pago_a_anular = cur.fetchone()
-
             if not pago_a_anular or pago_a_anular['estado_pago'] == 'Anulado':
                 flash("Este recibo ya está anulado o no se puede anular.", "warning")
                 return redirect(url_for('consulta'))
 
-            cliente_id = pago_a_anular['cliente_id']
-            cedula_cliente = pago_a_anular['cedula']
-            nombre_cliente = f"{pago_a_anular['nombre']} {pago_a_anular['apellido']}"
-
+            cliente_id, cedula_cliente, nombre_cliente = pago_a_anular['cliente_id'], pago_a_anular['cedula'], f"{pago_a_anular['nombre']} {pago_a_anular['apellido']}"
             if pago_a_anular['estado_pago'] == 'Pendiente':
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
-            
             elif pago_a_anular['tipo_pago'] == 'Inscripción':
-                monto_pago = Decimal(pago_a_anular['monto'])
-                cur.execute("UPDATE clientes SET inscripcion_pagada = inscripcion_pagada - %s WHERE id = %s", (monto_pago, cliente_id))
+                cur.execute("UPDATE clientes SET inscripcion_pagada = inscripcion_pagada - %s WHERE id = %s", (Decimal(pago_a_anular['monto']), cliente_id))
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
-            
             elif pago_a_anular['tipo_pago'] == 'Cuota':
                 cur.execute("SELECT * FROM clientes WHERE id = %s FOR UPDATE", (cliente_id,))
                 cliente = cur.fetchone()
-                
-                progresivas_a_revertir = pago_a_anular.get('progresivas_cubiertas', 0)
-                regresivas_a_revertir = pago_a_anular.get('regresivas_cubiertas', 0)
-                monto_del_pago = Decimal(pago_a_anular['monto'])
-                
-                cuotas_p_anteriores = cliente.get('cuotas_pagadas_progresivas', 0) - progresivas_a_revertir
-                cuotas_r_anteriores = cliente.get('cuotas_pagadas_regresivas', 0) - regresivas_a_revertir
-
+                ppr, rpr, monto = pago_a_anular.get('progresivas_cubiertas', 0), pago_a_anular.get('regresivas_cubiertas', 0), Decimal(pago_a_anular['monto'])
+                cpa, cra = cliente.get('cuotas_pagadas_progresivas', 0) - ppr, cliente.get('cuotas_pagadas_regresivas', 0) - rpr
                 valor_cuota = Decimal(cliente.get('valor_cuota', 0))
-                if valor_cuota <= 0:
-                    raise ValueError("El cliente no tiene un valor de cuota válido para recalcular la anulación.")
-                
-                valor_total_cuotas_revertidas = (progresivas_a_revertir + regresivas_a_revertir) * valor_cuota
-                balance_actual = Decimal(cliente.get('balance_regresivo', 0))
-                
-                balance_anterior = (balance_actual + valor_total_cuotas_revertidas) - monto_del_pago
-
-                cur.execute("""
-                    UPDATE clientes 
-                    SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s 
-                    WHERE id = %s
-                """, (cuotas_p_anteriores, cuotas_r_anteriores, balance_anterior, cliente_id))
-                
+                if valor_cuota <= 0: raise ValueError("El cliente no tiene un valor de cuota válido.")
+                vtr = (ppr + rpr) * valor_cuota
+                ba = Decimal(cliente.get('balance_regresivo', 0))
+                ban = (ba + vtr) - monto
+                cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s", (cpa, cra, ban, cliente_id))
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
-
             elif pago_a_anular['tipo_pago'] == 'Inscripción Finalizada':
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
                 cur.execute("UPDATE pagos SET estado_pago = 'Conciliado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Anulado'", (cliente_id,))
-                
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente_id,))
                 total_inscripcion_reactivada = cur.fetchone()[0]
-
                 cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'RESERVA' WHERE id = %s", (total_inscripcion_reactivada, cliente_id))
-                flash("¡Reinicio de inscripción completado! El cliente ha vuelto a 'RESERVA' y sus abonos han sido restaurados.", 'success')
+                flash("¡Reinicio de inscripción completado! El cliente ha vuelto a 'RESERVA'.", 'success')
             
-            # Registrar auditoría antes del commit final
-            descripcion_audit = f"Anuló el recibo N° {pago_id} (Tipo: {pago_a_anular['tipo_pago']}, Monto: ${pago_a_anular['monto']}) del cliente {nombre_cliente}."
+            descripcion_audit = f"Anuló el recibo N° {pago_id} (Tipo: {pago_a_anular['tipo_pago']}, ${pago_a_anular['monto']}) del cliente {nombre_cliente}."
             registrar_accion_auditoria('ANULACION_RECIBO', descripcion_audit, cliente_id)
             
             conn.commit()
             flash(f"¡Recibo N° {pago_id} anulado y saldo corregido exitosamente!", "success")
             return redirect(url_for('consulta', busqueda=cedula_cliente))
-
-    except (psycopg2.Error, ValueError) as e:
+    except (psycopg2.Error, ValueError, ConnectionError) as e:
         conn.rollback()
         flash(f"Ocurrió un error al anular el recibo: {e}", 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente))
@@ -664,15 +469,12 @@ def verificar_recibo(pago_id):
     conn = get_db()
     if not conn:
         return "Error de conexión a la base de datos.", 500
-    
     with conn.cursor() as cur:
         query = "SELECT p.id, p.monto, p.fecha_pago, p.estado_pago, p.tipo_pago, (c.nombre || ' ' || c.apellido) as nombre_apellido FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s;"
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
-    
     current_year = datetime.now().year
     return render_template('verificacion_recibo.html', pago=pago, current_year=current_year)
-
 
 @app.route('/recibo_anulado/<int:pago_id>')
 @admin_required
@@ -695,30 +497,24 @@ def ver_recibo_anulado(pago_id):
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def edit_client(client_id):
     conn = get_db()
-    if not conn: 
+    if not conn:
         flash('Error de conexión a la base de datos.', 'error')
         return redirect(url_for('consulta'))
-
     with conn.cursor() as cur:
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
-
     if not cliente:
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('consulta'))
-
     if request.method == 'POST':
         try:
             update_data = dict(cliente)
             form_data = {k: v if v else None for k, v in request.form.items()}
-            
             if 'nombre_apellido' in form_data:
                 nombre_completo = form_data['nombre_apellido'].split(' ', 1)
                 form_data['nombre'] = nombre_completo[0]
                 form_data['apellido'] = nombre_completo[1] if len(nombre_completo) > 1 else ''
-            
             update_data.update(form_data)
-
             with conn.cursor() as cur:
                 update_query = """
                 UPDATE clientes SET
@@ -738,13 +534,11 @@ def edit_client(client_id):
                 
                 conn.commit()
                 flash('¡Cliente actualizado exitosamente!', 'success')
-                
                 cedula_actualizada = update_data.get('cedula')
                 return redirect(url_for('consulta', busqueda=cedula_actualizada))
-        except (psycopg2.Error, ValueError) as e: 
+        except (psycopg2.Error, ValueError, ConnectionError) as e: 
             conn.rollback()
             flash(f'Ocurrió un error al actualizar: {e}', 'error')
-    
     return render_template('edit_cliente.html', cliente=cliente)
 
 @app.route('/delete/<int:client_id>', methods=['POST'])
@@ -757,23 +551,19 @@ def delete_client(client_id):
         with conn.cursor() as cur:
             cur.execute("SELECT nombre, apellido, cedula FROM clientes WHERE id = %s", (client_id,))
             cliente_a_borrar = cur.fetchone()
-
             if not cliente_a_borrar:
-                 flash('El cliente que intenta eliminar no existe.', 'warning')
-                 conn.rollback()
-                 return redirect(url_for('consulta'))
+                flash('El cliente que intenta eliminar no existe.', 'warning')
+                return redirect(url_for('consulta'))
 
             descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']})."
             
             cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
             
-            # Se registra la auditoría ANTES del commit final.
             registrar_accion_auditoria('ELIMINACION_CLIENTE', descripcion_audit, client_id)
-
+            
             conn.commit()
-
             flash('¡Cliente y sus registros asociados han sido eliminados exitosamente!', 'success')
-    except psycopg2.Error as e:
+    except (psycopg2.Error, ConnectionError) as e:
         conn.rollback()
         flash(f'Ocurrió un error al eliminar: {e}', 'error')
     return redirect(url_for('consulta'))
@@ -785,17 +575,13 @@ def registrar_oferta(client_id):
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta'))
-    
     with conn.cursor() as cur:
         cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
-    
     if not cliente:
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('consulta'))
-
     return render_template('registrar_oferta.html', cliente=cliente)
-
 
 @app.route('/guardar_oferta/<int:client_id>', methods=['POST'])
 @admin_required
@@ -803,33 +589,22 @@ def guardar_oferta(client_id):
     conn = get_db()
     cuotas_ofertadas = request.form.get('cuotas_ofertadas')
     cedula_cliente = ''
-
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta'))
-    
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT cedula, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
             cliente_info = cur.fetchone()
             if cliente_info:
-                cedula_cliente = cliente_info['cedula'] # Corregido para usar la cédula en la redirección
+                cedula_cliente = cliente_info['cedula']
                 nombre_cliente = cliente_info['nombre_apellido']
 
             hoy = datetime.now().date()
             inicio_mes = hoy.replace(day=1)
             
-            cur.execute("""
-                SELECT 1 FROM pagos 
-                WHERE cliente_id = %s 
-                  AND tipo_pago = 'Cuota' 
-                  AND puntualidad = 'Impuntual'
-                  AND fecha_pago >= %s
-            """, (client_id, inicio_mes))
-            
-            pago_impuntual_reciente = cur.fetchone()
-
-            if pago_impuntual_reciente:
+            cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND puntualidad = 'Impuntual' AND fecha_pago >= %s", (client_id, inicio_mes))
+            if cur.fetchone():
                 flash("No se puede registrar la oferta: El cliente tiene un pago impuntual registrado en el mes actual.", 'error')
                 return redirect(url_for('consulta', busqueda=cedula_cliente))
 
@@ -837,21 +612,16 @@ def guardar_oferta(client_id):
                 flash("Debe ingresar un número válido de cuotas para la oferta.", 'error')
                 return redirect(url_for('registrar_oferta', client_id=client_id))
 
-            cur.execute("""
-                INSERT INTO ofertas (cliente_id, cuotas_ofertadas, fecha_oferta, estado_oferta)
-                VALUES (%s, %s, %s, 'activa')
-            """, (client_id, int(cuotas_ofertadas), hoy))
+            cur.execute("INSERT INTO ofertas (cliente_id, cuotas_ofertadas, fecha_oferta, estado_oferta) VALUES (%s, %s, %s, 'activa')", (client_id, int(cuotas_ofertadas), hoy))
             
             descripcion_audit = f"Registró una oferta de {cuotas_ofertadas} cuotas para el cliente {nombre_cliente}."
             registrar_accion_auditoria('REGISTRO_OFERTA', descripcion_audit, client_id)
-
+            
             conn.commit()
             flash(f"¡Oferta de {cuotas_ofertadas} cuotas registrada exitosamente!", 'success')
-
-    except psycopg2.Error as e:
+    except (psycopg2.Error, ConnectionError) as e:
         conn.rollback()
         flash(f"Ocurrió un error al registrar la oferta: {e}", 'error')
-
     return redirect(url_for('consulta', busqueda=cedula_cliente))
 
 @app.route('/adjudicacion', methods=['GET'])
@@ -860,49 +630,21 @@ def adjudicacion():
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
-        return render_template('adjudicacion.html', clientes_elegibles_ahorro=[], clientes_elegibles_sorteo=[], ofertas_activas=[], historial=[])
-
+        return render_template('adjudicacion.html', clientes_elegibles_ahorro=[], ofertas_activas=[], historial=[])
     try:
         with conn.cursor() as cur:
-            cur.execute("""
-                SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega
-                FROM clientes 
-                WHERE proceso ILIKE 'Ahorrador' 
-                  AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega)
-                  AND estatus ILIKE 'activo'
-                ORDER BY nombre, apellido;
-            """)
+            cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega FROM clientes WHERE proceso ILIKE 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega) AND estatus ILIKE 'activo' ORDER BY nombre, apellido;")
             clientes_elegibles_ahorro = cur.fetchall()
             
-            clientes_elegibles_sorteo = [] 
-            
-            cur.execute("""
-                SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || apellido) as nombre_apellido, c.cedula
-                FROM ofertas o JOIN clientes c ON o.cliente_id = c.id
-                WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador'
-                ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;
-            """)
+            cur.execute("SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || apellido) as nombre_apellido, c.cedula FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador' ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;")
             ofertas_activas = cur.fetchall()
             
-            cur.execute("""
-                SELECT 
-                    a.id, a.fecha_adjudicacion, 
-                    (gs.nombre || ' ' || gs.apellido) as nombre_ganador_sorteo,
-                    (go.nombre || ' ' || go.apellido) as nombre_ganador_oferta
-                FROM adjudicaciones a
-                LEFT JOIN clientes gs ON a.ganador_sorteo_id = gs.id
-                LEFT JOIN clientes go ON a.ganador_oferta_id = go.id
-                ORDER BY a.fecha_adjudicacion DESC;
-            """)
+            cur.execute("SELECT a.id, a.fecha_adjudicacion, (gs.nombre || ' ' || gs.apellido) as nombre_ganador_sorteo, (go.nombre || ' ' || go.apellido) as nombre_ganador_oferta FROM adjudicaciones a LEFT JOIN clientes gs ON a.ganador_sorteo_id = gs.id LEFT JOIN clientes go ON a.ganador_oferta_id = go.id ORDER BY a.fecha_adjudicacion DESC;")
             historial = cur.fetchall()
     except psycopg2.Error as e:
         flash(f"Error al cargar datos para la adjudicación: {e}", "error")
-        clientes_elegibles_ahorro, clientes_elegibles_sorteo, ofertas_activas, historial = [], [], [], []
-    return render_template('adjudicacion.html', 
-                           clientes_elegibles_ahorro=clientes_elegibles_ahorro,
-                           clientes_elegibles_sorteo=clientes_elegibles_sorteo, 
-                           ofertas_activas=ofertas_activas,
-                           historial=historial)
+        clientes_elegibles_ahorro, ofertas_activas, historial = [], [], []
+    return render_template('adjudicacion.html', clientes_elegibles_ahorro=clientes_elegibles_ahorro, ofertas_activas=ofertas_activas, historial=historial)
 
 @app.route('/realizar_adjudicacion', methods=['POST'])
 @admin_required
@@ -917,22 +659,13 @@ def realizar_adjudicacion():
             cur.execute("UPDATE clientes SET ignorar_penalidad_puntualidad = FALSE;")
             ids_ya_ganadores = set()
             
-            cur.execute("""
-                SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes 
-                WHERE proceso ILIKE 'Ahorrador' 
-                  AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega)
-                  AND estatus ILIKE 'activo';
-            """)
+            cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE proceso ILIKE 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega) AND estatus ILIKE 'activo';")
             ganadores_ahorro = cur.fetchall()
             ids_ganadores_ahorro = [g['id'] for g in ganadores_ahorro]
             ids_ya_ganadores.update(ids_ganadores_ahorro)
             
             ganador_oferta = None
-            cur.execute("""
-                SELECT c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas
-                FROM ofertas o JOIN clientes c ON o.cliente_id = c.id
-                WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador' AND c.id NOT IN %s;
-            """, (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
+            cur.execute("SELECT c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador' AND c.id NOT IN %s;", (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
             candidatos_oferta_raw = cur.fetchall()
             
             candidatos_oferta = []
@@ -944,17 +677,11 @@ def realizar_adjudicacion():
                 candidatos_oferta.append({**c, 'frecuencia': frecuencia, 'impuntualidades': impuntualidades})
             
             if candidatos_oferta:
-                candidatos_oferta.sort(key=lambda x: (
-                    -x['cuotas_ofertadas'], 
-                    -x['frecuencia'], 
-                    x['impuntualidades'] if not x['ignorar_penalidad_puntualidad'] else 0
-                ))
+                candidatos_oferta.sort(key=lambda x: (-x['cuotas_ofertadas'], -x['frecuencia'], x['impuntualidades'] if not x['ignorar_penalidad_puntualidad'] else 0))
                 ganador_oferta = candidatos_oferta[0]
                 ids_ya_ganadores.add(ganador_oferta['id'])
                 for perdedor in candidatos_oferta[1:]:
-                    if (perdedor['cuotas_ofertadas'] == ganador_oferta['cuotas_ofertadas'] and
-                        perdedor['frecuencia'] == ganador_oferta['frecuencia'] and
-                        perdedor['impuntualidades'] > ganador_oferta['impuntualidades']):
+                    if (perdedor['cuotas_ofertadas'] == ganador_oferta['cuotas_ofertadas'] and perdedor['frecuencia'] == ganador_oferta['frecuencia'] and perdedor['impuntualidades'] > ganador_oferta['impuntualidades']):
                         cur.execute("UPDATE clientes SET ignorar_penalidad_puntualidad = TRUE WHERE id = %s;", (perdedor['id'],))
             
             if not ids_ya_ganadores:
@@ -966,13 +693,9 @@ def realizar_adjudicacion():
                 cur.execute("UPDATE ofertas SET estado_oferta = 'ganadora' WHERE cliente_id = %s AND estado_oferta = 'activa';", (ganador_oferta['id'],))
             cur.execute("UPDATE ofertas SET estado_oferta = 'perdida' WHERE estado_oferta = 'activa';")
             
-            ganador_sorteo_id = None 
             ganador_oferta_id = ganador_oferta['id'] if ganador_oferta else None
             
-            cur.execute("""
-                INSERT INTO adjudicaciones (ganador_oferta_id, ganador_sorteo_id)
-                VALUES (%s, %s);
-            """, (ganador_oferta_id, ganador_sorteo_id))
+            cur.execute("INSERT INTO adjudicaciones (ganador_oferta_id, ganador_sorteo_id) VALUES (%s, %s);", (ganador_oferta_id, None))
             
             nombres_ganadores = [g['nombre_apellido'] for g in ganadores_ahorro]
             if ganador_oferta:
@@ -984,7 +707,7 @@ def realizar_adjudicacion():
 
             for g in ganadores_ahorro: flash(f"🏆 ¡Ganador por Ahorro: {g['nombre_apellido']}!", 'success')
             if ganador_oferta: flash(f"🏆 ¡Ganador por Oferta: {ganador_oferta['nombre_apellido']}!", 'success')
-    except (psycopg2.Error, IndexError, KeyError) as e:
+    except (psycopg2.Error, IndexError, KeyError, ConnectionError) as e:
         conn.rollback()
         flash(f"Ocurrió un error durante el proceso de adjudicación: {e}", 'error')
     return redirect(url_for('adjudicacion'))
@@ -996,11 +719,9 @@ def auditoria():
     conn = get_db()
     logs = []
     fecha_filtro_str = request.args.get('fecha', datetime.now().strftime('%Y-%m-%d'))
-    
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return render_template('auditoria.html', logs=logs, anio_actual=datetime.now().year, fecha_filtro=fecha_filtro_str)
-    
     try:
         with conn.cursor() as cur:
             sql = """
@@ -1011,13 +732,10 @@ def auditoria():
                 WHERE r.fecha_hora >= %s::date AND r.fecha_hora < (%s::date + '1 day'::interval)
                 ORDER BY r.fecha_hora DESC;
             """
-            
             cur.execute(sql, (fecha_filtro_str, fecha_filtro_str))
             logs = cur.fetchall()
-            
     except (Exception, psycopg2.Error) as e:
         flash(f"Error al consultar los registros de auditoría: {e}", "error")
-
     return render_template('auditoria.html', logs=logs, anio_actual=datetime.now().year, fecha_filtro=fecha_filtro_str)
 
 @app.route('/descargar_reporte_auditoria')
@@ -1028,7 +746,6 @@ def descargar_reporte_auditoria():
     conn = get_db()
     if not conn:
         return "Error de conexión a la base de datos", 500
-
     try:
         with conn.cursor() as cur:
             sql = """
@@ -1041,34 +758,16 @@ def descargar_reporte_auditoria():
             """
             cur.execute(sql, (fecha_reporte_str, fecha_reporte_str))
             logs = cur.fetchall()
-
             output = io.StringIO()
             writer = csv.writer(output)
-            
             writer.writerow(['Fecha y Hora', 'Usuario Admin', 'Accion', 'Descripcion', 'Cliente Afectado', 'Cedula Cliente'])
-            
             for log in logs:
-                writer.writerow([
-                    log['fecha_hora'].strftime('%Y-%m-%d %H:%M:%S'),
-                    log['usuario_nombre'],
-                    log['accion'],
-                    log['descripcion'],
-                    log['cliente_nombre'] or 'N/A',
-                    log['cedula'] or 'N/A'
-                ])
-            
+                writer.writerow([log['fecha_hora'].strftime('%Y-%m-%d %H:%M:%S'), log['usuario_nombre'], log['accion'], log['descripcion'], log['cliente_nombre'] or 'N/A', log['cedula'] or 'N/A'])
             output.seek(0)
-            
-            return Response(
-                output,
-                mimetype="text/csv",
-                headers={"Content-Disposition": f"attachment;filename=reporte_auditoria_{fecha_reporte_str}.csv"}
-            )
-
+            return Response(output, mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename=reporte_auditoria_{fecha_reporte_str}.csv"})
     except (psycopg2.Error, ValueError) as e:
         flash(f"Error al generar el reporte: {e}", "error")
         return redirect(url_for('auditoria'))
-
 
 # --- RUTAS DEL PORTAL DEL CLIENTE ---
 @app.route('/portal/login', methods=['GET', 'POST'])
@@ -1076,31 +775,21 @@ def portal_login():
     if 'cliente_id' in session:
         flash('Ya tienes una sesión activa. Redirigiendo a tu portal.', 'info')
         return redirect(url_for('portal_dashboard'))
-
     if request.method == 'POST':
         cedula = request.form.get('cedula', '').strip().replace('V-', '').replace('v-', '')
         contrato_nro = request.form.get('contrato_nro', '').strip().upper().replace('MP-', '')
-
         if not cedula or not contrato_nro:
             flash('La cédula y el número de contrato son obligatorios.', 'error')
             return render_template('portal_login.html', anio_actual=datetime.now().year)
-
         conn = get_db()
         if not conn:
             flash('Error de conexión con el servidor. Intente más tarde.', 'error')
             return render_template('portal_login.html', anio_actual=datetime.now().year)
-        
         try:
             with conn.cursor() as cur:
-                sql_query = """
-                    SELECT id, (nombre || ' ' || apellido) as nombre_apellido 
-                    FROM clientes 
-                    WHERE TRIM(cedula) = %s 
-                    AND SPLIT_PART(REPLACE(TRIM(contrato_nro), 'MP-', ''), '.', 1) = %s;
-                """
+                sql_query = "SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE TRIM(cedula) = %s AND SPLIT_PART(REPLACE(TRIM(contrato_nro), 'MP-', ''), '.', 1) = %s;"
                 cur.execute(sql_query, (cedula, contrato_nro))
                 cliente = cur.fetchone()
-
             if cliente:
                 session.clear()
                 session['cliente_id'] = cliente['id']
@@ -1108,10 +797,8 @@ def portal_login():
                 return redirect(url_for('portal_dashboard'))
             else:
                 flash('Credenciales incorrectas. Verifique sus datos e intente de nuevo.', 'error')
-
         except psycopg2.Error as e:
             flash(f'Error de base de datos: {e}', 'error')
-            
     return render_template('portal_login.html', anio_actual=datetime.now().year)
 
 @app.route('/portal/dashboard')
@@ -1119,53 +806,36 @@ def portal_dashboard():
     if 'cliente_id' not in session:
         flash('Debe iniciar sesión para acceder a su portal.', 'error')
         return redirect(url_for('portal_login'))
-    
     conn = get_db()
     if not conn:
         flash('No se pudo conectar con la base de datos.', 'error')
         return redirect(url_for('portal_dashboard'))
-        
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
             cliente = cur.fetchone()
-            
             if not cliente:
                 session.clear()
                 flash('No se encontró su información de cliente.', 'error')
                 return redirect(url_for('portal_login'))
 
             cliente_dict = dict(cliente)
-
             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC;", (session['cliente_id'],))
             pagos = cur.fetchall()
             cliente_dict['pagos'] = pagos
 
-            hoy = datetime.now().date()
-            dia_de_vencimiento = 3
+            hoy, dia_de_vencimiento = datetime.now().date(), 3
+            pago_del_mes_realizado = any(pago['tipo_pago'] == 'Cuota' and pago['fecha_pago'].year == hoy.year and pago['fecha_pago'].month == hoy.month for pago in pagos)
             
-            pago_del_mes_realizado = False
-            for pago in pagos:
-                if pago['tipo_pago'] == 'Cuota' and pago['fecha_pago'].year == hoy.year and pago['fecha_pago'].month == hoy.month:
-                    pago_del_mes_realizado = True
-                    break
-
             estado_cuota = {}
             if pago_del_mes_realizado:
-                estado_cuota['estado'] = 'Pagada'
-                estado_cuota['mes'] = get_nombre_mes(hoy.month)
-                estado_cuota['mensaje'] = 'Tu cuota de este mes ya fue procesada.'
+                estado_cuota = {'estado': 'Pagada', 'mes': get_nombre_mes(hoy.month), 'mensaje': 'Tu cuota de este mes ya fue procesada.'}
             elif hoy.day <= dia_de_vencimiento:
-                estado_cuota['estado'] = 'Vigente'
-                estado_cuota['mes'] = get_nombre_mes(hoy.month)
-                estado_cuota['fecha_vencimiento'] = f"{dia_de_vencimiento:02d}/{hoy.month:02d}/{hoy.year}"
+                estado_cuota = {'estado': 'Vigente', 'mes': get_nombre_mes(hoy.month), 'fecha_vencimiento': f"{dia_de_vencimiento:02d}/{hoy.month:02d}/{hoy.year}"}
             else:
-                estado_cuota['estado'] = 'En Mora'
-                estado_cuota['mes'] = get_nombre_mes(hoy.month)
-                estado_cuota['fecha_vencimiento'] = f"{dia_de_vencimiento:02d}/{hoy.month:02d}/{hoy.year}"
-
+                estado_cuota = {'estado': 'En Mora', 'mes': get_nombre_mes(hoy.month), 'fecha_vencimiento': f"{dia_de_vencimiento:02d}/{hoy.month:02d}/{hoy.year}"}
+            
             return render_template('portal_dashboard.html', cliente=cliente_dict, cuota_status=estado_cuota)
-
     except psycopg2.Error as e:
         flash(f'Ocurrió un error al cargar su información: {e}', 'error')
         return redirect(url_for('portal_login'))
@@ -1175,56 +845,37 @@ def portal_reportar_pago():
     if 'cliente_id' not in session:
         flash('Debe iniciar sesión para acceder a su portal.', 'error')
         return redirect(url_for('portal_login'))
-    
     conn = get_db()
     if not conn:
         flash('No se pudo conectar con la base de datos.', 'error')
         return redirect(url_for('portal_dashboard'))
-
     with conn.cursor() as cur:
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
         cliente = cur.fetchone()
-
     if not cliente:
         session.clear()
         flash('No se encontró su información de cliente.', 'error')
         return redirect(url_for('portal_login'))
 
     mes_actual = get_nombre_mes(datetime.now().date().month)
-
     if request.method == 'POST':
         pago_form = {k: v if v else None for k, v in request.form.items()}
-        
-        if not pago_form.get('monto') or not pago_form.get('fecha_pago') or not pago_form.get('forma_pago'):
+        if not all(pago_form.get(key) for key in ['monto', 'fecha_pago', 'forma_pago']):
             flash('Error: Monto, fecha y forma de pago son campos obligatorios.', 'error')
             return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual)
-
         if pago_form.get('forma_pago') != 'Efectivo' and not pago_form.get('referencia'):
-            flash('Error: La referencia es obligatoria para pagos por transferencia, pago móvil o Zelle.', 'error')
+            flash('Error: La referencia es obligatoria para pagos que no son en efectivo.', 'error')
             return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual)
-            
         try:
             with conn.cursor() as cur:
-                pago_query = """
-                    INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, 
-                                        pago_en, por_concepto_de, referencia, banco, lugar_emision,
-                                        tasa_dia, monto_bs, estado_pago, cuotas_cubiertas)
-                    VALUES (%s, %s, 'Cuota', %s, %s, %s, %s, %s, %s, 'Acarigua', %s, %s, 'Pendiente', 0);
-                """
-                cur.execute(pago_query, (
-                    session['cliente_id'], pago_form['monto'], pago_form['forma_pago'], pago_form['fecha_pago'],
-                    pago_form.get('pago_en'), pago_form.get('por_concepto_de'),
-                    pago_form.get('referencia'), pago_form.get('banco'),
-                    pago_form.get('tasa_dia'), pago_form.get('monto_bs')
-                ))
+                pago_query = "INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, lugar_emision, tasa_dia, monto_bs, estado_pago, cuotas_cubiertas) VALUES (%s, %s, 'Cuota', %s, %s, %s, %s, %s, %s, 'Acarigua', %s, %s, 'Pendiente', 0);"
+                cur.execute(pago_query, (session['cliente_id'], pago_form['monto'], pago_form['forma_pago'], pago_form['fecha_pago'], pago_form.get('pago_en'), pago_form.get('por_concepto_de'), pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('tasa_dia'), pago_form.get('monto_bs')))
                 conn.commit()
-                flash('¡Pago reportado exitosamente! Será verificado por un administrador a la brevedad.', 'success')
+                flash('¡Pago reportado exitosamente! Será verificado a la brevedad.', 'success')
                 return redirect(url_for('portal_dashboard'))
-
         except (psycopg2.Error, ValueError, TypeError) as e:
             conn.rollback()
             flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
-    
     return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual)
 
 @app.route('/portal/estado_cuenta')
@@ -1232,43 +883,31 @@ def portal_estado_cuenta():
     if 'cliente_id' not in session:
         flash('Debe iniciar sesión para acceder a su portal.', 'error')
         return redirect(url_for('portal_login'))
-
     conn = get_db()
     if not conn:
         flash('No se pudo conectar con la base de datos.', 'error')
         return redirect(url_for('portal_dashboard'))
-
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
             cliente = cur.fetchone()
-
             if not cliente:
                 session.clear()
                 flash('No se encontró su información de cliente.', 'error')
                 return redirect(url_for('portal_login'))
-
             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago ASC, id ASC;", (session['cliente_id'],))
             pagos = cur.fetchall()
-
             fecha_generacion = datetime.now().strftime('%d/%m/%Y')
-
-            return render_template('estado_cuenta.html',
-                                   cliente=cliente,
-                                   pagos=pagos,
-                                   fecha_generacion=fecha_generacion)
-
+            return render_template('estado_cuenta.html', cliente=cliente, pagos=pagos, fecha_generacion=fecha_generacion)
     except psycopg2.Error as e:
         flash(f'Ocurrió un error al generar el estado de cuenta: {e}', 'error')
         return redirect(url_for('portal_dashboard'))
-
 
 @app.route('/portal/logout')
 def portal_logout():
     session.clear()
     flash('Has cerrado sesión exitosamente.', 'success')
     return redirect(url_for('portal_login'))
-
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
