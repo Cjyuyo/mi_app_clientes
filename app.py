@@ -421,9 +421,9 @@ def conciliar_pago(pago_id):
                 valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
                 if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
                 
-                cuotas_progresivas_actuales = cliente.get('cuotas_pagadas_progresivas') or 0
-                cuotas_regresivas_actuales = cliente.get('cuotas_pagadas_regresivas') or 0
-                balance_actual = Decimal(cliente.get('balance_regresivo') or 0)
+                cuotas_progresivas_actuales = cliente.get('cuotas_pagadas_progresivas', 0)
+                cuotas_regresivas_actuales = cliente.get('cuotas_pagadas_regresivas', 0)
+                balance_actual = Decimal(cliente.get('balance_regresivo', 0))
                 monto_total_disponible = monto_pagado + balance_actual
                 
                 progresivas_pagadas_hoy = 0

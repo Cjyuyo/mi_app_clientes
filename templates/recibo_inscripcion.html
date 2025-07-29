@@ -211,7 +211,6 @@
                 <a href="{{ url_for('portal_dashboard') }}" class="btn-volver">Volver al Portal</a>
             {% endif %}
 
-            <!-- MODIFICADO: Se añade la comprobación de rol para el botón de anular -->
             {% if is_admin_view and g.admin and g.admin.rol in ['superadmin', 'gerente'] and pago.estado_pago != 'Anulado' %}
             <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo? Esta acción revertirá el proceso de inscripción del cliente.');">
                 <button type="submit" class="btn-anular">Anular Inscripción</button>
@@ -219,5 +218,25 @@
             {% endif %}
         </div>
     </div>
+<script>
+    (function() {
+        const forms = document.querySelectorAll('form');
+        forms.forEach(form => {
+            form.addEventListener('submit', function(e) {
+                if (form.getAttribute('data-submitted') === 'true') {
+                    e.preventDefault();
+                    return;
+                }
+                form.setAttribute('data-submitted', 'true');
+
+                const submitButtons = form.querySelectorAll('button[type="submit"]');
+                submitButtons.forEach(button => {
+                    button.setAttribute('disabled', 'disabled');
+                    button.innerHTML = 'Procesando...';
+                });
+            });
+        });
+    })();
+</script>
 </body>
 </html>
