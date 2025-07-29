@@ -90,7 +90,7 @@
             <div class="d-flex">
                  {% if g.admin %}
                     <span class="navbar-text me-3">
-                        Usuario: <strong>{{ g.admin.usuario }}</strong>
+                        Usuario: <strong>{{ g.admin.usuario }}</strong> ({{ g.admin.rol }})
                     </span>
                     <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger">Cerrar Sesión</a>
                  {% endif %}
@@ -126,6 +126,8 @@
                     <a href="{{ url_for('consulta') }}" class="btn btn-primary" target="_blank">Acceder</a>
                 </div>
             </div>
+
+            {% if g.admin and g.admin.rol in ['superadmin', 'gerente'] %}
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
                     <div>
@@ -136,6 +138,8 @@
                     <a href="{{ url_for('adjudicacion') }}" class="btn btn-success" target="_blank">Adjudicar</a>
                 </div>
             </div>
+            {% endif %}
+            
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
                     <div>

@@ -204,15 +204,13 @@
         <div class="actions-section">
             <button class="btn-imprimir" onclick="window.print()">Imprimir / Guardar PDF</button>
             
-            <!-- Lógica Condicional para el botón "Volver" -->
-            {% if is_admin_view %}
+            <{% if is_admin_view %}
                 <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="btn-volver">Volver a Consulta</a>
             {% else %}
                 <a href="{{ url_for('portal_dashboard') }}" class="btn-volver">Volver al Portal</a>
             {% endif %}
 
-            <!-- Lógica Condicional para el botón "Anular" (Solo para Admin) -->
-            {% if is_admin_view and pago.estado_pago != 'Anulado' %}
+            {% if is_admin_view and g.admin and g.admin.rol in ['superadmin', 'gerente'] and pago.estado_pago != 'Anulado' %}
             <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo? Esta acción revertirá el proceso de inscripción del cliente.');">
                 <button type="submit" class="btn-anular">Anular Inscripción</button>
             </form>
