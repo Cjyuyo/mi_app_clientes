@@ -128,7 +128,8 @@
             cursor: pointer;
             font-size: 16px;
             font-weight: bold;
-            margin: 0;
+            /* MODIFICADO: Se añade un margen para asegurar la separación de los botones */
+            margin: 5px;
         }
         .btn-anular { background-color: #dc3545; }
         .btn-volver { background-color: #007bff; }
@@ -204,12 +205,13 @@
         <div class="actions-section">
             <button class="btn-imprimir" onclick="window.print()">Imprimir / Guardar PDF</button>
             
-            <{% if is_admin_view %}
+            {% if is_admin_view %}
                 <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="btn-volver">Volver a Consulta</a>
             {% else %}
                 <a href="{{ url_for('portal_dashboard') }}" class="btn-volver">Volver al Portal</a>
             {% endif %}
 
+            <!-- MODIFICADO: Se añade la comprobación de rol para el botón de anular -->
             {% if is_admin_view and g.admin and g.admin.rol in ['superadmin', 'gerente'] and pago.estado_pago != 'Anulado' %}
             <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo? Esta acción revertirá el proceso de inscripción del cliente.');">
                 <button type="submit" class="btn-anular">Anular Inscripción</button>
