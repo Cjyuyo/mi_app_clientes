@@ -17,7 +17,8 @@ app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-des
 @app.before_request
 def setup_session_and_user():
     session.permanent = True
-    app.permanent_session_lifetime = timedelta(minutes=30)
+    # CAMBIO A 5 MINUTOS DE INACTIVIDAD
+    app.permanent_session_lifetime = timedelta(minutes=5)
     g.admin = None
     g.cliente = None
     admin_id = session.get('admin_id')
@@ -26,7 +27,6 @@ def setup_session_and_user():
     if db:
         with db.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             if admin_id:
-                # Se añade 'rol' para el sistema de permisos
                 cur.execute("SELECT id, usuario, rol FROM administradores WHERE id = %s", (admin_id,))
                 g.admin = cur.fetchone()
             elif cliente_id:
@@ -62,9 +62,6 @@ def admin_required(f):
     return decorated_function
 
 def rol_requerido(*roles):
-    """
-    Decorador que restringe el acceso a una ruta a los roles especificados.
-    """
     def wrapper(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
@@ -118,6 +115,7 @@ def admin_login():
             admin = cur.fetchone()
 
             if admin and check_password_hash(admin['password_hash'], password):
+                # SE LIMPIA LA SESIÓN ANTERIOR
                 session.clear()
                 session['admin_id'] = admin['id']
                 session['admin_usuario'] = admin['usuario']
@@ -225,7 +223,6 @@ def registrar_cliente():
         flash(f"Registro fallido: Ocurrió un error de base de datos: {e}", 'error')
     return redirect(url_for('registrar'))
 
-# --- FUNCIÓN DE CONSULTA CORREGIDA ---
 @app.route('/consulta', methods=['GET', 'POST'])
 @admin_required
 def consulta():
@@ -241,15 +238,8 @@ def consulta():
         else:
             try:
                 with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                    # CONSULTA CORREGIDA: Busca en 'nombre' y 'apellido' por separado
-                    query_clientes = """
-                        SELECT *, inscripcion_monto AS inscripcion 
-                        FROM clientes 
-                        WHERE cedula ILIKE %s OR nombre ILIKE %s OR apellido ILIKE %s 
-                        ORDER BY nombre, apellido LIMIT 20;
-                    """
+                    query_clientes = "SELECT *, inscripcion_monto AS inscripcion FROM clientes WHERE cedula ILIKE %s OR nombre ILIKE %s OR apellido ILIKE %s ORDER BY nombre, apellido LIMIT 20;"
                     patron_busqueda = f'%{termino_busqueda}%'
-                    # Se pasan tres parámetros a la consulta
                     cur.execute(query_clientes, (patron_busqueda, patron_busqueda, patron_busqueda))
                     clientes_raw = cur.fetchall()
                     
@@ -258,15 +248,15 @@ def consulta():
                     else:
                         for cliente in clientes_raw:
                             cliente_dict = dict(cliente)
-                            # Se reconstruye 'nombre_apellido' para la visualización
                             cliente_dict['nombre_apellido'] = f"{cliente.get('nombre', '')} {cliente.get('apellido', '')}".strip()
-                            
+                            if 'cuotas_pagas' in cliente_dict:
+                                cliente_dict['cuotas_pagadas_progresivas'] = cliente_dict['cuotas_pagas']
+
                             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC", (cliente_dict['id'],))
                             cliente_dict['pagos'] = cur.fetchall()
                             clientes_encontrados.append(cliente_dict)
             except psycopg2.Error as e:
                 mensaje_error = f"Error al consultar la base de datos: {e}"
-                
     return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda_raw)
 
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
@@ -278,7 +268,6 @@ def registrar_pago(client_id):
         return redirect(url_for('consulta'))
     
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        # CORRECCIÓN: Se reconstruye 'nombre_apellido' en la consulta
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
     
@@ -911,6 +900,7 @@ def portal_login():
                 cliente = cur.fetchone()
 
             if cliente:
+                # SE LIMPIA LA SESIÓN ANTERIOR
                 session.clear()
                 session['cliente_id'] = cliente['id']
                 session['cliente_nombre'] = cliente['nombre_apellido']
