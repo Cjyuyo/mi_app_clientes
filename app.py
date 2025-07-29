@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 from decimal import Decimal
 from datetime import datetime, timedelta
 import random
-# --- Importaciones para seguridad y decoradores ---
 from werkzeug.security import check_password_hash, generate_password_hash
 from functools import wraps
 
@@ -66,19 +65,11 @@ def admin_required(f):
 
 # --- Funciones de Utilidad (Helpers) ---
 def get_nombre_mes(month_number):
-    meses = {
-        1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
-        7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
-    }
+    meses = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
     return meses.get(month_number, "")
 
 def get_feriados_venezuela(year):
-    return [
-        datetime(year, 1, 1).date(), datetime(year, 4, 19).date(), datetime(year, 5, 1).date(),
-        datetime(year, 6, 24).date(), datetime(year, 7, 5).date(), datetime(year, 7, 24).date(),
-        datetime(year, 10, 12).date(), datetime(year, 12, 24).date(), datetime(year, 12, 25).date(),
-        datetime(year, 12, 31).date(),
-    ]
+    return [datetime(year, 1, 1).date(), datetime(year, 4, 19).date(), datetime(year, 5, 1).date(), datetime(year, 6, 24).date(), datetime(year, 7, 5).date(), datetime(year, 7, 24).date(), datetime(year, 10, 12).date(), datetime(year, 12, 24).date(), datetime(year, 12, 25).date(), datetime(year, 12, 31).date()]
 
 def get_fecha_vencimiento_ajustada(fecha_pago):
     if fecha_pago.day < 15:
@@ -86,7 +77,6 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
     else:
         mes_vencimiento = fecha_pago.month + 1 if fecha_pago.month < 12 else 1
         ano_vencimiento = fecha_pago.year if fecha_pago.month < 12 else fecha_pago.year + 1
-    
     vencimiento = datetime(ano_vencimiento, mes_vencimiento, 2).date()
     feriados = get_feriados_venezuela(vencimiento.year)
     while vencimiento.weekday() >= 5 or vencimiento in feriados:
@@ -100,37 +90,32 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
 def admin_login():
     if g.admin:
         return redirect(url_for('hub'))
-
     if request.method == 'POST':
         usuario = request.form.get('usuario')
         password = request.form.get('password')
-        
         conn = get_db()
         if not conn:
             flash('Error de conexión con la base de datos.', 'danger')
-            return render_template('portal_login.html', anio_actual=datetime.now().year)
-
+            return render_template('admin_login.html', anio_actual=datetime.now().year)
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("SELECT * FROM administradores WHERE usuario = %s", (usuario,))
             admin = cur.fetchone()
-
         if admin and check_password_hash(admin['password_hash'], password):
             session.clear()
             session['admin_id'] = admin['id']
             session['admin_usuario'] = admin['usuario']
             flash(f"¡Bienvenido de nuevo, {admin['usuario']}!", 'success')
+            # --- CAMBIO: Al loguearse correctamente, ahora va al hub ---
             return redirect(url_for('hub'))
         else:
             flash('Usuario o contraseña incorrectos.', 'danger')
-
-    return render_template('portal_login.html', anio_actual=datetime.now().year)
-
+    # --- CAMBIO: Renderiza la nueva plantilla de login de admin ---
+    return render_template('admin_login.html', anio_actual=datetime.now().year)
 
 @app.route('/admin/dashboard')
 @admin_required
 def admin_dashboard():
     return redirect(url_for('consulta'))
-
 
 @app.route('/admin/logout')
 def admin_logout():
@@ -138,27 +123,29 @@ def admin_logout():
     flash('Has cerrado la sesión de administrador exitosamente.', 'info')
     return redirect(url_for('admin_login'))
 
-
-# --- RUTAS PRINCIPALES Y DE ADMINISTRACIÓN DE CLIENTES ---
-
-# --- CAMBIO: La ruta principal ahora redirige al login de clientes ---
+# --- RUTAS PRINCIPALES ---
+# --- CAMBIO: La ruta principal ahora redirige al hub (que está protegido) ---
 @app.route('/')
 def home():
-    return redirect(url_for('portal_login'))
+    return redirect(url_for('hub'))
 
-# --- CAMBIO: El Hub ahora es solo para administradores y está protegido ---
+# --- CAMBIO: El Hub ahora es una página real, no una simple redirección ---
 @app.route('/hub')
 @admin_required
 def hub():
-    # Si un admin llega aquí, lo enviamos a su página principal.
-    # El decorador @admin_required ya se encarga de los que no son admins.
-    return redirect(url_for('consulta'))
+    # El decorador ya asegura que solo administradores entren aquí.
+    # Esta página servirá como el menú principal para administradores.
+    return render_template('hub.html', anio_actual=datetime.now().year)
 
+# --- RUTAS DE GESTIÓN (ADMIN) ---
 @app.route('/registrar')
 @admin_required
 def registrar():
     return render_template('registrar.html')
-
+    
+# (El resto de tu código desde @app.route('/registrar_cliente'...) hasta el final no necesita cambios)
+# PEGA EL RESTO DE TU CÓDIGO AQUÍ...
+# ...
 @app.route('/registrar_cliente', methods=['POST'])
 @admin_required
 def registrar_cliente():
