@@ -10,6 +10,10 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from functools import wraps
 import io
 import csv
+import logging
+
+# Configuración del logging para que sea visible en Render
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 load_dotenv()
 app = Flask(__name__)
@@ -30,6 +34,11 @@ def setup_session_and_user():
             if admin_id:
                 cur.execute("SELECT id, usuario, rol FROM administradores WHERE id = %s", (admin_id,))
                 g.admin = cur.fetchone()
+                # LOGGING ADICIONAL PARA DIAGNÓSTICO
+                if g.admin:
+                    logging.info(f"SETUP: g.admin cargado exitosamente para el usuario '{g.admin['usuario']}' (ID: {admin_id}).")
+                else:
+                    logging.error(f"SETUP FATAL: Se encontró un admin_id ({admin_id}) en la sesión, pero no se pudo cargar el usuario desde la BD.")
             elif cliente_id:
                 cur.execute("SELECT id, nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
                 g.cliente = cur.fetchone()
@@ -56,7 +65,10 @@ def close_db(exception):
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # LOGGING ADICIONAL PARA DIAGNÓSTICO
+        logging.info(f"DECORATOR CHECK: Verificando acceso para la ruta {request.path}. g.admin es: {g.admin}")
         if g.admin is None:
+            logging.warning(f"DECORATOR FAIL: Acceso denegado para la ruta {request.path}. g.admin es None. Redirigiendo a login.")
             flash('Acceso denegado. Debes iniciar sesión como administrador.', 'warning')
             return redirect(url_for('admin_login'))
         return f(*args, **kwargs)
@@ -98,10 +110,12 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
             feriados = get_feriados_venezuela(vencimiento.year)
     return vencimiento
 
-# --- FUNCIÓN DE AUDITORÍA ---
+# --- FUNCIÓN DE AUDITORÍA (VERSIÓN MEJORADA CON LOGGING) ---
 def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
     if not g.admin:
+        logging.warning(f"AUDITORIA-OMITIDA: Intento de registrar '{accion}' sin un g.admin establecido. La acción no será registrada.")
         return
+    
     conn = get_db()
     if conn:
         try:
@@ -114,9 +128,13 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
                     (g.admin['id'], g.admin['usuario'], accion, descripcion, cliente_id)
                 )
                 conn.commit()
+                logging.info(f"AUDITORIA-EXITO: Usuario '{g.admin['usuario']}' realizó '{accion}'.")
         except psycopg2.Error as e:
-            print(f"Error al registrar en auditoría: {e}")
+            logging.error(f"AUDITORIA-FALLO-DB: {e}")
             conn.rollback()
+    else:
+        logging.error("AUDITORIA-FALLO-CONEXION: No se pudo obtener conexión a la base de datos.")
+
 
 # --- RUTAS DEL PORTAL DE ADMINISTRACIÓN ---
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -837,7 +855,7 @@ def adjudicacion():
             clientes_elegibles_sorteo = [] 
             
             cur.execute("""
-                SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula
+                SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || apellido) as nombre_apellido, c.cedula
                 FROM ofertas o JOIN clientes c ON o.cliente_id = c.id
                 WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador'
                 ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;
