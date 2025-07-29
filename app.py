@@ -718,12 +718,25 @@ def realizar_adjudicacion():
 def auditoria():
     conn = get_db()
     logs = []
-    fecha_filtro_str = request.args.get('fecha', datetime.now().strftime('%Y-%m-%d'))
+    # Usamos la fecha actual en la zona horaria de Venezuela como default
+    try:
+        import pytz
+        vz_tz = pytz.timezone('America/Caracas')
+        fecha_actual_vet = datetime.now(vz_tz).strftime('%Y-%m-%d')
+    except ImportError:
+        fecha_actual_vet = datetime.now().strftime('%Y-%m-%d')
+
+    fecha_filtro_str = request.args.get('fecha', fecha_actual_vet)
+    
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return render_template('auditoria.html', logs=logs, anio_actual=datetime.now().year, fecha_filtro=fecha_filtro_str)
+    
     try:
         with conn.cursor() as cur:
+            # --- CORRECCIÓN: Establecer la zona horaria de Venezuela para la consulta ---
+            cur.execute("SET TIME ZONE 'America/Caracas';")
+
             sql = """
                 SELECT r.id, r.usuario_nombre, r.accion, r.descripcion, r.fecha_hora, 
                        c.nombre, c.apellido, c.cedula
@@ -732,22 +745,36 @@ def auditoria():
                 WHERE r.fecha_hora >= %s::date AND r.fecha_hora < (%s::date + '1 day'::interval)
                 ORDER BY r.fecha_hora DESC;
             """
+            
             cur.execute(sql, (fecha_filtro_str, fecha_filtro_str))
             logs = cur.fetchall()
+            
     except (Exception, psycopg2.Error) as e:
         flash(f"Error al consultar los registros de auditoría: {e}", "error")
+
     return render_template('auditoria.html', logs=logs, anio_actual=datetime.now().year, fecha_filtro=fecha_filtro_str)
 
 @app.route('/descargar_reporte_auditoria')
 @admin_required
 @rol_requerido('superadmin')
 def descargar_reporte_auditoria():
-    fecha_reporte_str = request.args.get('fecha', datetime.now().strftime('%Y-%m-%d'))
+    # Usamos la fecha actual en la zona horaria de Venezuela como default
+    try:
+        import pytz
+        vz_tz = pytz.timezone('America/Caracas')
+        fecha_actual_vet = datetime.now(vz_tz).strftime('%Y-%m-%d')
+    except ImportError:
+        fecha_actual_vet = datetime.now().strftime('%Y-%m-%d')
+        
+    fecha_reporte_str = request.args.get('fecha', fecha_actual_vet)
     conn = get_db()
     if not conn:
         return "Error de conexión a la base de datos", 500
     try:
         with conn.cursor() as cur:
+            # --- CORRECCIÓN: Establecer la zona horaria de Venezuela también para el reporte ---
+            cur.execute("SET TIME ZONE 'America/Caracas';")
+            
             sql = """
                 SELECT r.fecha_hora, r.usuario_nombre, r.accion, r.descripcion, 
                        (c.nombre || ' ' || c.apellido) as cliente_nombre, c.cedula
@@ -758,13 +785,29 @@ def descargar_reporte_auditoria():
             """
             cur.execute(sql, (fecha_reporte_str, fecha_reporte_str))
             logs = cur.fetchall()
+
             output = io.StringIO()
             writer = csv.writer(output)
-            writer.writerow(['Fecha y Hora', 'Usuario Admin', 'Accion', 'Descripcion', 'Cliente Afectado', 'Cedula Cliente'])
+            
+            writer.writerow(['Fecha y Hora (VET)', 'Usuario Admin', 'Accion', 'Descripcion', 'Cliente Afectado', 'Cedula Cliente'])
+            
             for log in logs:
-                writer.writerow([log['fecha_hora'].strftime('%Y-%m-%d %H:%M:%S'), log['usuario_nombre'], log['accion'], log['descripcion'], log['cliente_nombre'] or 'N/A', log['cedula'] or 'N/A'])
+                writer.writerow([
+                    log['fecha_hora'].strftime('%Y-%m-%d %H:%M:%S'),
+                    log['usuario_nombre'],
+                    log['accion'],
+                    log['descripcion'],
+                    log['cliente_nombre'] or 'N/A',
+                    log['cedula'] or 'N/A'
+                ])
+            
             output.seek(0)
-            return Response(output, mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename=reporte_auditoria_{fecha_reporte_str}.csv"})
+            
+            return Response(
+                output,
+                mimetype="text/csv",
+                headers={"Content-Disposition": f"attachment;filename=reporte_auditoria_{fecha_reporte_str}.csv"}
+            )
     except (psycopg2.Error, ValueError) as e:
         flash(f"Error al generar el reporte: {e}", "error")
         return redirect(url_for('auditoria'))
