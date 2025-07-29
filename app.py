@@ -26,7 +26,8 @@ def setup_session_and_user():
     if db:
         with db.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             if admin_id:
-                cur.execute("SELECT * FROM administradores WHERE id = %s", (admin_id,))
+                # MODIFICADO: Se añade 'rol' a la consulta
+                cur.execute("SELECT id, usuario, rol, nombre_completo FROM administradores WHERE id = %s", (admin_id,))
                 g.admin = cur.fetchone()
             elif cliente_id:
                 cur.execute("SELECT id, nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
@@ -50,7 +51,7 @@ def close_db(exception):
     if db is not None:
         db.close()
 
-# --- DECORADOR DE AUTENTICACIÓN PARA ADMINISTRADORES ---
+# --- DECORADORES DE AUTENTICACIÓN ---
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -60,7 +61,25 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# (Aquí van tus funciones de utilidad como get_nombre_mes, etc. Sin cambios)
+# --- NUEVO DECORADOR DE ROLES ---
+def rol_requerido(*roles):
+    """
+    Decorador que restringe el acceso a una ruta a los roles especificados.
+    """
+    def wrapper(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if g.admin is None:
+                flash('Acceso denegado. Debes iniciar sesión como administrador.', 'warning')
+                return redirect(url_for('admin_login'))
+            if g.admin['rol'] not in roles:
+                flash('No tienes los permisos necesarios para acceder a esta página.', 'danger')
+                return redirect(url_for('hub'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return wrapper
+
+# --- Funciones de utilidad (sin cambios) ---
 def get_nombre_mes(month_number):
     meses = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
     return meses.get(month_number, "")
@@ -81,6 +100,7 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
         if vencimiento.year != ano_vencimiento:
             feriados = get_feriados_venezuela(vencimiento.year)
     return vencimiento
+
 # --- RUTAS DEL PORTAL DE ADMINISTRACIÓN ---
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -103,13 +123,11 @@ def admin_login():
                 session['admin_id'] = admin['id']
                 session['admin_usuario'] = admin['usuario']
                 
-                # --- NUEVO: Actualizar estado al iniciar sesión ---
                 cur.execute(
                     "UPDATE administradores SET ultimo_login = NOW(), estatus_online = TRUE WHERE id = %s",
                     (admin['id'],)
                 )
                 conn.commit()
-                # ----------------------------------------------
 
                 flash(f"¡Bienvenido de nuevo, {admin['usuario']}!", 'success')
                 return redirect(url_for('hub'))
@@ -125,7 +143,6 @@ def admin_dashboard():
 
 @app.route('/admin/logout')
 def admin_logout():
-    # --- NUEVO: Actualizar estado al cerrar sesión ---
     admin_id = session.get('admin_id')
     if admin_id:
         conn = get_db()
@@ -136,31 +153,27 @@ def admin_logout():
                     (admin_id,)
                 )
                 conn.commit()
-    # ---------------------------------------------
     session.clear()
     flash('Has cerrado la sesión exitosamente.', 'info')
     return redirect(url_for('admin_login'))
 
 # --- RUTAS PRINCIPALES ---
 @app.route('/')
+@admin_required
 def home():
     return redirect(url_for('hub'))
 
 @app.route('/hub')
 @admin_required
 def hub():
-    # --- NUEVO: Obtener lista de usuarios para mostrar en el hub ---
     conn = get_db()
     usuarios = []
     if conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("SELECT usuario, estatus_online, ultimo_login FROM administradores ORDER BY usuario")
             usuarios = cur.fetchall()
-    # -------------------------------------------------------------
     return render_template('hub.html', anio_actual=datetime.now().year, usuarios=usuarios)
 
-# (Aquí va el resto de tu código de la aplicación, desde /registrar hasta el final. No necesita cambios)
-# PEGA EL RESTO DE TU CÓDIGO AQUÍ...
 @app.route('/registrar')
 @admin_required
 def registrar():
@@ -188,7 +201,7 @@ def registrar_cliente():
             apellido = nombre_completo[1] if len(nombre_completo) > 1 else ''
 
             insert_dict = {
-                'nombre': nombre, 'apellido': apellido, 'cedula': cedula.replace(' ', '')
+                'nombre_apellido': nombre_apellido, 'cedula': cedula.replace(' ', '')
             }
             optional_fields = [
                 'contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso',
@@ -230,9 +243,9 @@ def consulta():
         else:
             try:
                 with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                    query_clientes = "SELECT *, inscripcion_monto AS inscripcion FROM clientes WHERE cedula ILIKE %s OR nombre ILIKE %s OR apellido ILIKE %s ORDER BY nombre, apellido LIMIT 20;"
+                    query_clientes = "SELECT * FROM clientes WHERE cedula ILIKE %s OR nombre_apellido ILIKE %s ORDER BY nombre_apellido LIMIT 20;"
                     patron_busqueda = f'%{termino_busqueda}%'
-                    cur.execute(query_clientes, (patron_busqueda, patron_busqueda, patron_busqueda))
+                    cur.execute(query_clientes, (patron_busqueda, patron_busqueda))
                     clientes_raw = cur.fetchall()
                     
                     if not clientes_raw:
@@ -240,11 +253,7 @@ def consulta():
                     else:
                         for cliente in clientes_raw:
                             cliente_dict = dict(cliente)
-                            cliente_dict['nombre_apellido'] = f"{cliente.get('nombre', '')} {cliente.get('apellido', '')}".strip()
-                            if 'cuotas_pagas' in cliente_dict:
-                                cliente_dict['cuotas_pagadas_progresivas'] = cliente_dict['cuotas_pagas']
-
-                            cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC", (cliente_dict['id'],))
+                            cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha DESC, id DESC", (cliente_dict['id'],))
                             cliente_dict['pagos'] = cur.fetchall()
                             clientes_encontrados.append(cliente_dict)
             except psycopg2.Error as e:
@@ -260,7 +269,7 @@ def registrar_pago(client_id):
         return redirect(url_for('consulta'))
     
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
+        cur.execute("SELECT * FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
     
     if not cliente:
@@ -289,13 +298,13 @@ def registrar_pago(client_id):
         try:
             with conn.cursor() as cur:
                 pago_query = """
-                    INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, 
+                    INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha, 
                                         pago_en, por_concepto_de, referencia, banco, lugar_emision,
-                                        tasa_dia, monto_bs, estado_pago, cuotas_cubiertas)
+                                        tasa_dia, monto_bs, estatus, cuotas_cubiertas)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0);
                 """
                 cur.execute(pago_query, (
-                    client_id, pago_form['monto'], tipo_pago, pago_form['forma_pago'], pago_form['fecha_pago'],
+                    client_id, pago_form['monto'], tipo_pago, pago_form['forma_pago'], pago_form['fecha'],
                     pago_form.get('pago_en'), pago_form['por_concepto_de'],
                     pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('lugar_emision'),
                     pago_form.get('tasa_dia'), pago_form.get('monto_bs')
@@ -324,11 +333,11 @@ def conciliar_pago(pago_id):
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("SELECT * FROM pagos WHERE id = %s", (pago_id,))
             pago = cur.fetchone()
-            if not pago or pago['estado_pago'] != 'Pendiente':
+            if not pago or pago['estatus'] != 'Pendiente':
                 flash("El pago no se puede conciliar.", 'error')
                 return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
-            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s FOR UPDATE", (pago['cliente_id'],))
+            cur.execute("SELECT * FROM clientes WHERE id = %s FOR UPDATE", (pago['cliente_id'],))
             cliente = cur.fetchone()
             if not cliente:
                 flash("Error: No se encontró el cliente asociado a este pago.", 'error')
@@ -338,8 +347,8 @@ def conciliar_pago(pago_id):
             
             puntualidad = 'Puntual'
             if pago['tipo_pago'] == 'Cuota':
-                fecha_vencimiento = get_fecha_vencimiento_ajustada(pago['fecha_pago'])
-                if pago['fecha_pago'] > fecha_vencimiento:
+                fecha_vencimiento = get_fecha_vencimiento_ajustada(pago['fecha'])
+                if pago['fecha'] > fecha_vencimiento:
                     puntualidad = 'Impuntual'
                     cur.execute("UPDATE clientes SET meses_retraso_entrega = meses_retraso_entrega + 1 WHERE id = %s;", (cliente['id'],))
                 cur.execute("UPDATE pagos SET puntualidad = %s WHERE id = %s", (puntualidad, pago_id))
@@ -354,12 +363,12 @@ def conciliar_pago(pago_id):
                         cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],))
                         flash("Cliente ha completado la inscripción y su proceso ha cambiado a 'INSCRITO'.", "info")
 
-                    cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción'", (cliente['id'],))
+                    cur.execute("UPDATE pagos SET estatus = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción'", (cliente['id'],))
                     pago_final_query = """
-                        INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, por_concepto_de, estado_pago, cuotas_cubiertas, lugar_emision)
+                        INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha, por_concepto_de, estatus, cuotas_cubiertas, lugar_emision)
                         VALUES (%s, %s, 'Inscripción Finalizada', %s, %s, %s, 'Conciliado', 0, %s) RETURNING id;
                     """
-                    cur.execute(pago_final_query, (cliente['id'], inscripcion_total, pago['forma_pago'], pago['fecha_pago'], 'Pago total de inscripción', pago['lugar_emision']))
+                    cur.execute(pago_final_query, (cliente['id'], inscripcion_total, pago['forma_pago'], pago['fecha'], 'Pago total de inscripción', pago['lugar_emision']))
                     pago_final_id = cur.fetchone()[0]
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (inscripcion_total, cliente['id']))
                     conn.commit()
@@ -367,7 +376,7 @@ def conciliar_pago(pago_id):
                     return redirect(url_for('ver_recibo_inscripcion', pago_id=pago_final_id))
                 else:
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
-                    cur.execute("UPDATE pagos SET estado_pago = 'Conciliado' WHERE id = %s", (pago_id,))
+                    cur.execute("UPDATE pagos SET estatus = 'Conciliado' WHERE id = %s", (pago_id,))
                     conn.commit()
                     flash(f"Abono de inscripción N° {pago_id} conciliado.", 'success')
                     return redirect(url_for('ver_recibo', pago_id=pago_id))
@@ -394,7 +403,7 @@ def conciliar_pago(pago_id):
                 
                 update_pago_query = """
                     UPDATE pagos 
-                    SET estado_pago = 'Conciliado', cuotas_cubiertas = %s, 
+                    SET estatus = 'Conciliado', cuotas_cubiertas = %s, 
                         cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s 
                     WHERE id = %s;
                 """
@@ -419,8 +428,7 @@ def ver_recibo(pago_id):
 
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         query = """
-            SELECT p.*, 
-                   (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.cuotas_totales, c.valor_cuota,
+            SELECT p.*, c.nombre_apellido, c.cedula, c.cuotas_totales, c.valor_cuota,
                    c.inscripcion_monto, c.inscripcion_pagada,
                    COALESCE(p.cuotas_progresivas_al_pagar, c.cuotas_pagadas_progresivas) AS cuotas_pagadas_progresivas, 
                    COALESCE(p.cuotas_regresivas_al_pagar, c.cuotas_pagadas_regresivas) AS cuotas_pagadas_regresivas,
@@ -452,7 +460,7 @@ def ver_recibo_inscripcion(pago_id):
 
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         query = """
-            SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.plan_contratado
+            SELECT p.*, c.nombre_apellido, c.cedula, c.plan_contratado
             FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
             WHERE p.id = %s AND p.tipo_pago = 'Inscripción Finalizada';
         """
@@ -471,6 +479,7 @@ def ver_recibo_inscripcion(pago_id):
 
 @app.route('/anular_recibo/<int:pago_id>', methods=['POST'])
 @admin_required
+@rol_requerido('superadmin', 'gerente')
 def anular_recibo(pago_id):
     conn = get_db()
     if not conn:
@@ -483,7 +492,7 @@ def anular_recibo(pago_id):
             cur.execute("SELECT * FROM pagos WHERE id = %s FOR UPDATE", (pago_id,))
             pago_a_anular = cur.fetchone()
 
-            if not pago_a_anular or pago_a_anular['estado_pago'] == 'Anulado':
+            if not pago_a_anular or pago_a_anular['estatus'] == 'Anulado':
                 flash("Este recibo ya está anulado o no se puede anular.", "warning")
                 return redirect(url_for('consulta'))
 
@@ -493,13 +502,13 @@ def anular_recibo(pago_id):
             if cliente_info:
                 cedula_cliente = cliente_info['cedula']
 
-            if pago_a_anular['estado_pago'] == 'Pendiente':
-                cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
+            if pago_a_anular['estatus'] == 'Pendiente':
+                cur.execute("UPDATE pagos SET estatus = 'Anulado' WHERE id = %s", (pago_id,))
             
             elif pago_a_anular['tipo_pago'] == 'Inscripción':
                 monto_pago = Decimal(pago_a_anular['monto'])
                 cur.execute("UPDATE clientes SET inscripcion_pagada = inscripcion_pagada - %s WHERE id = %s", (monto_pago, cliente_id))
-                cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
+                cur.execute("UPDATE pagos SET estatus = 'Anulado' WHERE id = %s", (pago_id,))
             
             elif pago_a_anular['tipo_pago'] == 'Cuota':
                 cur.execute("SELECT cuotas_pagadas_progresivas, cuotas_pagadas_regresivas, balance_regresivo, valor_cuota FROM clientes WHERE id = %s FOR UPDATE", (cliente_id,))
@@ -530,12 +539,12 @@ def anular_recibo(pago_id):
                     WHERE id = %s
                 """, (nuevas_cuotas_pagadas, nuevo_balance, cliente_id))
                 
-                cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
+                cur.execute("UPDATE pagos SET estatus = 'Anulado' WHERE id = %s", (pago_id,))
             
             elif pago_a_anular['tipo_pago'] == 'Inscripción Finalizada':
-                cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
+                cur.execute("UPDATE pagos SET estatus = 'Anulado' WHERE id = %s", (pago_id,))
                 
-                cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción'", (cliente_id,))
+                cur.execute("UPDATE pagos SET estatus = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción'", (cliente_id,))
                 
                 cur.execute("UPDATE clientes SET inscripcion_pagada = 0, proceso = 'RESERVA' WHERE id = %s", (cliente_id,))
                 
@@ -558,8 +567,8 @@ def verificar_recibo(pago_id):
     
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         query = """
-            SELECT p.id, p.monto, p.fecha_pago, p.estado_pago, p.tipo_pago,
-                   (c.nombre || ' ' || c.apellido) as nombre_apellido
+            SELECT p.id, p.monto, p.fecha, p.estatus, p.tipo_pago,
+                   c.nombre_apellido
             FROM pagos p 
             JOIN clientes c ON p.cliente_id = c.id 
             WHERE p.id = %s;
@@ -580,10 +589,10 @@ def ver_recibo_anulado(pago_id):
         return redirect(url_for('consulta'))
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         query = """
-            SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula
+            SELECT p.*, c.nombre_apellido, c.cedula
             FROM pagos p 
             JOIN clientes c ON p.cliente_id = c.id 
-            WHERE p.id = %s AND p.estado_pago = 'Anulado';
+            WHERE p.id = %s AND p.estatus = 'Anulado';
         """
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
@@ -594,6 +603,7 @@ def ver_recibo_anulado(pago_id):
 
 @app.route('/edit/<int:client_id>', methods=['GET', 'POST'])
 @admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora')
 def edit_client(client_id):
     conn = get_db()
     if not conn: 
@@ -601,7 +611,7 @@ def edit_client(client_id):
         return redirect(url_for('consulta'))
 
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
+        cur.execute("SELECT * FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
 
     if not cliente:
@@ -613,21 +623,16 @@ def edit_client(client_id):
             update_data = dict(cliente)
             form_data = {k: v if v else None for k, v in request.form.items()}
             
-            if 'nombre_apellido' in form_data:
-                nombre_completo = form_data['nombre_apellido'].split(' ', 1)
-                form_data['nombre'] = nombre_completo[0]
-                form_data['apellido'] = nombre_completo[1] if len(nombre_completo) > 1 else ''
-            
             update_data.update(form_data)
 
             with conn.cursor() as cur:
                 update_query = """
                 UPDATE clientes SET
-                    nombre = %(nombre)s, apellido = %(apellido)s, cedula = %(cedula)s, contrato_nro = %(contrato_nro)s,
+                    nombre_apellido = %(nombre_apellido)s, cedula = %(cedula)s, contrato_nro = %(contrato_nro)s,
                     telefono = %(telefono)s, asesor = %(asesor)s, responsable = %(responsable)s, fecha_ingreso = %(fecha_ingreso)s,
                     grupo = %(grupo)s, plan_contratado = %(plan_contratado)s,
                     cuotas_totales = %(cuotas_totales)s, moneda_pago = %(moneda_pago)s, valor_cuota = %(valor_cuota)s,
-                    inscripcion_monto = %(inscripcion_monto)s, proceso = %(proceso)s, estatus = %(estatus)s
+                    inscripcion_monto = %(inscripcion_monto)s, proceso = %(proceso)s, estatus = %(estatus)s, estatus_1 = %(estatus_1)s
                 WHERE id = %(id)s;
                 """
                 cur.execute(update_query, update_data)
@@ -644,6 +649,7 @@ def edit_client(client_id):
 
 @app.route('/delete/<int:client_id>', methods=['POST'])
 @admin_required
+@rol_requerido('superadmin')
 def delete_client(client_id):
     conn = get_db()
     if not conn: return redirect(url_for('consulta'))
@@ -666,7 +672,7 @@ def registrar_oferta(client_id):
         return redirect(url_for('consulta'))
     
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula FROM clientes WHERE id = %s", (client_id,))
+        cur.execute("SELECT id, nombre_apellido, cedula FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
     
     if not cliente:
@@ -702,7 +708,7 @@ def guardar_oferta(client_id):
                 WHERE cliente_id = %s 
                   AND tipo_pago = 'Cuota' 
                   AND puntualidad = 'Impuntual'
-                  AND fecha_pago >= %s
+                  AND fecha >= %s
             """, (client_id, inicio_mes))
             
             pago_impuntual_reciente = cur.fetchone()
@@ -739,37 +745,40 @@ def adjudicacion():
 
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            # Ganadores por ahorro
             cur.execute("""
-                SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega
-                FROM clientes 
-                WHERE proceso ILIKE 'Ahorrador' 
-                  AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega)
-                  AND estatus ILIKE 'activo'
-                ORDER BY nombre, apellido;
+                SELECT c.id, c.nombre_apellido, c.cedula, c.cuotas_pagadas_progresivas, c.meses_retraso_entrega
+                FROM clientes c
+                WHERE c.proceso = 'Ahorrador'
+                  AND c.estatus = 'activo'
+                  AND c.cuotas_pagadas_progresivas >= (12 + c.meses_retraso_entrega);
             """)
             clientes_elegibles_ahorro = cur.fetchall()
             
+            # Candidatos a sorteo (ejemplo, se debe definir la lógica)
             clientes_elegibles_sorteo = [] 
             
+            # Ofertas activas
             cur.execute("""
-                SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula
+                SELECT o.cuotas_ofertadas, c.id, c.nombre_apellido, c.cedula
                 FROM ofertas o JOIN clientes c ON o.cliente_id = c.id
-                WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador'
+                WHERE o.estado_oferta = 'activa' AND c.proceso = 'Ahorrador'
                 ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;
             """)
             ofertas_activas = cur.fetchall()
             
+            # Historial
             cur.execute("""
                 SELECT 
                     a.id, a.fecha_adjudicacion, 
-                    (gs.nombre || ' ' || gs.apellido) as nombre_ganador_sorteo,
-                    (go.nombre || ' ' || go.apellido) as nombre_ganador_oferta
+                    (SELECT array_agg(c.nombre_apellido) FROM clientes c WHERE c.id = ANY(a.ganadores_ahorro_ids)) as nombres_ganadores_ahorro,
+                    (SELECT c.nombre_apellido FROM clientes c WHERE c.id = a.ganador_oferta_id) as nombre_ganador_oferta,
+                    (SELECT c.nombre_apellido FROM clientes c WHERE c.id = a.ganador_sorteo_id) as nombre_ganador_sorteo
                 FROM adjudicaciones a
-                LEFT JOIN clientes gs ON a.ganador_sorteo_id = gs.id
-                LEFT JOIN clientes go ON a.ganador_oferta_id = go.id
                 ORDER BY a.fecha_adjudicacion DESC;
             """)
             historial = cur.fetchall()
+
     except psycopg2.Error as e:
         flash(f"Error al cargar datos para la adjudicación: {e}", 'error')
         clientes_elegibles_ahorro, clientes_elegibles_sorteo, ofertas_activas, historial = [], [], [], []
@@ -781,6 +790,7 @@ def adjudicacion():
 
 @app.route('/realizar_adjudicacion', methods=['POST'])
 @admin_required
+@rol_requerido('superadmin', 'gerente')
 def realizar_adjudicacion():
     conn = get_db()
     if not conn:
@@ -792,10 +802,10 @@ def realizar_adjudicacion():
             ids_ya_ganadores = set()
             
             cur.execute("""
-                SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes 
-                WHERE proceso ILIKE 'Ahorrador' 
+                SELECT id, nombre_apellido FROM clientes 
+                WHERE proceso = 'Ahorrador' 
                   AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega)
-                  AND estatus ILIKE 'activo';
+                  AND estatus = 'activo';
             """)
             ganadores_ahorro = cur.fetchall()
             ids_ganadores_ahorro = [g['id'] for g in ganadores_ahorro]
@@ -803,9 +813,9 @@ def realizar_adjudicacion():
             
             ganador_oferta = None
             cur.execute("""
-                SELECT c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas
+                SELECT c.id, c.nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas
                 FROM ofertas o JOIN clientes c ON o.cliente_id = c.id
-                WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador' AND c.id NOT IN %s;
+                WHERE o.estado_oferta = 'activa' AND c.proceso = 'Ahorrador' AND c.id NOT IN %s;
             """, (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
             candidatos_oferta_raw = cur.fetchall()
             
@@ -844,9 +854,9 @@ def realizar_adjudicacion():
             ganador_oferta_id = ganador_oferta['id'] if ganador_oferta else None
             
             cur.execute("""
-                INSERT INTO adjudicaciones (ganador_oferta_id, ganador_sorteo_id)
-                VALUES (%s, %s);
-            """, (ganador_oferta_id, ganador_sorteo_id))
+                INSERT INTO adjudicaciones (ganador_oferta_id, ganador_sorteo_id, ganadores_ahorro_ids, fecha_adjudicacion)
+                VALUES (%s, %s, %s, NOW());
+            """, (ganador_oferta_id, ganador_sorteo_id, ids_ganadores_ahorro or None))
             
             conn.commit()
             for g in ganadores_ahorro: flash(f"🏆 ¡Ganador por Ahorro: {g['nombre_apellido']}!", 'success')
@@ -856,7 +866,7 @@ def realizar_adjudicacion():
         flash(f"Ocurrió un error durante el proceso de adjudicación: {e}", 'error')
     return redirect(url_for('adjudicacion'))
 
-# --- RUTAS DEL PORTAL DEL CLIENTE ---
+# --- RUTAS DEL PORTAL DEL CLIENTE (sin cambios) ---
 @app.route('/portal/login', methods=['GET', 'POST'])
 def portal_login():
     if 'cliente_id' in session:
@@ -879,7 +889,7 @@ def portal_login():
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
                 sql_query = """
-                    SELECT id, (nombre || ' ' || apellido) as nombre_apellido 
+                    SELECT id, nombre_apellido 
                     FROM clientes 
                     WHERE TRIM(cedula) = %s 
                     AND SPLIT_PART(REPLACE(TRIM(contrato_nro), 'MP-', ''), '.', 1) = %s;
@@ -913,7 +923,7 @@ def portal_dashboard():
         
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
+            cur.execute("SELECT * FROM clientes WHERE id = %s;", (session['cliente_id'],))
             cliente = cur.fetchone()
             
             if not cliente:
@@ -923,7 +933,7 @@ def portal_dashboard():
 
             cliente_dict = dict(cliente)
 
-            cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC;", (session['cliente_id'],))
+            cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha DESC, id DESC;", (session['cliente_id'],))
             pagos = cur.fetchall()
             cliente_dict['pagos'] = pagos
 
@@ -932,7 +942,7 @@ def portal_dashboard():
             
             pago_del_mes_realizado = False
             for pago in pagos:
-                if pago['tipo_pago'] == 'Cuota' and pago['fecha_pago'].year == hoy.year and pago['fecha_pago'].month == hoy.month:
+                if pago['tipo_pago'] == 'Cuota' and pago['fecha'].year == hoy.year and pago['fecha'].month == hoy.month:
                     pago_del_mes_realizado = True
                     break
 
@@ -968,7 +978,7 @@ def portal_reportar_pago():
         return redirect(url_for('portal_dashboard'))
 
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
+        cur.execute("SELECT * FROM clientes WHERE id = %s;", (session['cliente_id'],))
         cliente = cur.fetchone()
 
     if not cliente:
@@ -981,7 +991,7 @@ def portal_reportar_pago():
     if request.method == 'POST':
         pago_form = {k: v if v else None for k, v in request.form.items()}
         
-        if not pago_form.get('monto') or not pago_form.get('fecha_pago') or not pago_form.get('forma_pago'):
+        if not pago_form.get('monto') or not pago_form.get('fecha') or not pago_form.get('forma_pago'):
             flash('Error: Monto, fecha y forma de pago son campos obligatorios.', 'error')
             return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual)
 
@@ -992,13 +1002,13 @@ def portal_reportar_pago():
         try:
             with conn.cursor() as cur:
                 pago_query = """
-                    INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, 
+                    INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha, 
                                         pago_en, por_concepto_de, referencia, banco, lugar_emision,
-                                        tasa_dia, monto_bs, estado_pago, cuotas_cubiertas)
+                                        tasa_dia, monto_bs, estatus, cuotas_cubiertas)
                     VALUES (%s, %s, 'Cuota', %s, %s, %s, %s, %s, %s, 'Acarigua', %s, %s, 'Pendiente', 0);
                 """
                 cur.execute(pago_query, (
-                    session['cliente_id'], pago_form['monto'], pago_form['forma_pago'], pago_form['fecha_pago'],
+                    session['cliente_id'], pago_form['monto'], pago_form['forma_pago'], pago_form['fecha'],
                     pago_form.get('pago_en'), pago_form['por_concepto_de'],
                     pago_form.get('referencia'), pago_form.get('banco'),
                     pago_form.get('tasa_dia'), pago_form.get('monto_bs')
@@ -1026,7 +1036,7 @@ def portal_estado_cuenta():
 
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
+            cur.execute("SELECT * FROM clientes WHERE id = %s;", (session['cliente_id'],))
             cliente = cur.fetchone()
 
             if not cliente:
@@ -1034,7 +1044,7 @@ def portal_estado_cuenta():
                 flash('No se encontró su información de cliente.', 'error')
                 return redirect(url_for('portal_login'))
 
-            cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago ASC, id ASC;", (session['cliente_id'],))
+            cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha ASC, id ASC;", (session['cliente_id'],))
             pagos = cur.fetchall()
 
             fecha_generacion = datetime.now().strftime('%d/%m/%Y')
