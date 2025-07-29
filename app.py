@@ -752,6 +752,21 @@ def auditoria():
         fecha_actual_vet = datetime.now().strftime('%Y-%m-%d')
 
     fecha_filtro_str = request.args.get('fecha', fecha_actual_vet)
+
+    # --- INICIO DE LA CORRECCIÓN DE FECHA ---
+    logging.info(f"AUDITORIA DEBUG: Fecha recibida del request: '{fecha_filtro_str}'")
+    
+    fecha_para_sql = fecha_filtro_str
+    try:
+        # Si por alguna razón el formato llega como DD-MM-YYYY, lo convertimos
+        fecha_obj = datetime.strptime(fecha_filtro_str, '%d-%m-%Y')
+        fecha_para_sql = fecha_obj.strftime('%Y-%m-%d')
+    except ValueError:
+        # Si falla, asumimos que ya está en el formato correcto YYYY-MM-DD.
+        pass
+
+    logging.info(f"AUDITORIA DEBUG: Fecha final para SQL: '{fecha_para_sql}'")
+    # --- FIN DE LA CORRECCIÓN DE FECHA ---
     
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
@@ -771,12 +786,14 @@ def auditoria():
                 ORDER BY r.fecha_hora DESC;
             """
             
-            cur.execute(sql, (fecha_filtro_str, fecha_filtro_str))
+            # Usamos la variable corregida para la consulta
+            cur.execute(sql, (fecha_para_sql, fecha_para_sql))
             logs = cur.fetchall()
             
     except (Exception, psycopg2.Error) as e:
         flash(f"Error al consultar los registros de auditoría: {e}", "error")
 
+    # Devolvemos la fecha original al template para que el selector de fecha no se rompa
     return render_template('auditoria.html', logs=logs, anio_actual=datetime.now().year, fecha_filtro=fecha_filtro_str)
 
 @app.route('/descargar_reporte_auditoria')
@@ -792,6 +809,22 @@ def descargar_reporte_auditoria():
         fecha_actual_vet = datetime.now().strftime('%Y-%m-%d')
         
     fecha_reporte_str = request.args.get('fecha', fecha_actual_vet)
+
+    # --- INICIO DE LA CORRECCIÓN DE FECHA ---
+    logging.info(f"REPORTE DEBUG: Fecha recibida del request: '{fecha_reporte_str}'")
+    
+    fecha_para_sql = fecha_reporte_str
+    try:
+        # Si por alguna razón el formato llega como DD-MM-YYYY, lo convertimos
+        fecha_obj = datetime.strptime(fecha_reporte_str, '%d-%m-%Y')
+        fecha_para_sql = fecha_obj.strftime('%Y-%m-%d')
+    except ValueError:
+        # Si falla, asumimos que ya está en el formato correcto YYYY-MM-DD.
+        pass
+
+    logging.info(f"REPORTE DEBUG: Fecha final para SQL: '{fecha_para_sql}'")
+    # --- FIN DE LA CORRECCIÓN DE FECHA ---
+
     conn = get_db()
     if not conn:
         return "Error de conexión a la base de datos", 500
@@ -808,7 +841,8 @@ def descargar_reporte_auditoria():
                 WHERE r.fecha_hora >= %s::date AND r.fecha_hora < (%s::date + '1 day'::interval)
                 ORDER BY r.fecha_hora ASC;
             """
-            cur.execute(sql, (fecha_reporte_str, fecha_reporte_str))
+            # Usamos la variable corregida para la consulta
+            cur.execute(sql, (fecha_para_sql, fecha_para_sql))
             logs = cur.fetchall()
 
             output = io.StringIO()
