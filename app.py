@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from decimal import Decimal
 from datetime import datetime, timedelta
 import random
+# --- Importaciones para seguridad y decoradores ---
 from werkzeug.security import check_password_hash, generate_password_hash
 from functools import wraps
 
@@ -16,15 +17,9 @@ app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-des
 # --- CONFIGURACIÓN DE LA SESIÓN Y CARGA DE USUARIO ---
 @app.before_request
 def setup_session_and_user():
-    """
-    Se ejecuta antes de cada petición para:
-    1.  Establecer la duración de la sesión.
-    2.  Cargar en el objeto 'g' al administrador o cliente que haya iniciado sesión.
-    """
     session.permanent = True
     app.permanent_session_lifetime = timedelta(minutes=30)
     
-    # Cargar usuario (admin o cliente) en el contexto global
     g.admin = None
     g.cliente = None
     
@@ -42,7 +37,6 @@ def setup_session_and_user():
                 g.cliente = cur.fetchone()
 
 def get_db():
-    """Obtiene una conexión a la base de datos para la petición actual."""
     if 'db' not in g:
         DATABASE_URL = os.getenv('DATABASE_URL')
         if not DATABASE_URL:
@@ -56,17 +50,12 @@ def get_db():
 
 @app.teardown_appcontext
 def close_db(exception):
-    """Cierra la conexión a la base de datos al final de la petición."""
     db = g.pop('db', None)
     if db is not None:
         db.close()
 
 # --- DECORADOR DE AUTENTICACIÓN PARA ADMINISTRADORES ---
 def admin_required(f):
-    """
-    Decorador para proteger rutas. Verifica que un administrador haya iniciado sesión.
-    Si no, lo redirige a la página de login de administrador.
-    """
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if g.admin is None:
@@ -109,7 +98,6 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
 # --- RUTAS DEL PORTAL DE ADMINISTRACIÓN ---
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
-    """Maneja el inicio de sesión para el portal de administración."""
     if g.admin:
         return redirect(url_for('hub'))
 
@@ -141,33 +129,30 @@ def admin_login():
 @app.route('/admin/dashboard')
 @admin_required
 def admin_dashboard():
-    """ Muestra el dashboard principal del administrador. (Actualmente redirige a consulta) """
     return redirect(url_for('consulta'))
 
 
 @app.route('/admin/logout')
 def admin_logout():
-    """Cierra la sesión del administrador."""
     session.clear()
     flash('Has cerrado la sesión de administrador exitosamente.', 'info')
     return redirect(url_for('admin_login'))
 
 
 # --- RUTAS PRINCIPALES Y DE ADMINISTRACIÓN DE CLIENTES ---
+
+# --- CAMBIO: La ruta principal ahora redirige al login de clientes ---
 @app.route('/')
 def home():
-    return redirect(url_for('hub'))
+    return redirect(url_for('portal_login'))
 
+# --- CAMBIO: El Hub ahora es solo para administradores y está protegido ---
 @app.route('/hub')
+@admin_required
 def hub():
-    if g.admin:
-        # Si es un admin, el hub es la página de consulta
-        return redirect(url_for('consulta'))
-    if g.cliente:
-        # Si es un cliente, el hub es su dashboard
-        return redirect(url_for('portal_dashboard'))
-    # Si no hay sesión, muestra el hub público
-    return render_template('hub.html', anio_actual=datetime.now().year)
+    # Si un admin llega aquí, lo enviamos a su página principal.
+    # El decorador @admin_required ya se encarga de los que no son admins.
+    return redirect(url_for('consulta'))
 
 @app.route('/registrar')
 @admin_required
@@ -848,7 +833,7 @@ def realizar_adjudicacion():
                 cur.execute("UPDATE ofertas SET estado_oferta = 'ganadora' WHERE cliente_id = %s AND estado_oferta = 'activa';", (ganador_oferta['id'],))
             cur.execute("UPDATE ofertas SET estado_oferta = 'perdida' WHERE estado_oferta = 'activa';")
             
-            ganador_sorteo_id = None
+            ganador_sorteo_id = None 
             ganador_oferta_id = ganador_oferta['id'] if ganador_oferta else None
             
             cur.execute("""
@@ -867,7 +852,8 @@ def realizar_adjudicacion():
 # --- RUTAS DEL PORTAL DEL CLIENTE ---
 @app.route('/portal/login', methods=['GET', 'POST'])
 def portal_login():
-    if g.cliente:
+    if 'cliente_id' in session:
+        flash('Ya tienes una sesión activa. Redirigiendo a tu portal.', 'info')
         return redirect(url_for('portal_dashboard'))
 
     if request.method == 'POST':
