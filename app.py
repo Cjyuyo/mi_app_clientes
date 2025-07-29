@@ -1072,7 +1072,7 @@ def portal_reportar_pago():
                 """
                 cur.execute(pago_query, (
                     session['cliente_id'], pago_form['monto'], pago_form['forma_pago'], pago_form['fecha_pago'],
-                    pago_form.get('pago_en'), pago_form['por_concepto_de'],
+                    pago_form.get('pago_en'), pago_form.get('por_concepto_de'),
                     pago_form.get('referencia'), pago_form.get('banco'),
                     pago_form.get('tasa_dia'), pago_form.get('monto_bs')
                 ))
