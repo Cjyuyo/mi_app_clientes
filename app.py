@@ -103,7 +103,6 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
             feriados = get_feriados_venezuela(vencimiento.year)
     return vencimiento
 
-# --- FUNCIÓN DE AUDITORÍA (VERSIÓN CORREGIDA Y ROBUSTA) ---
 def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
     if not g.admin:
         logging.warning(f"AUDITORIA-OMITIDA: Intento de registrar '{accion}' sin un g.admin establecido.")
@@ -193,40 +192,66 @@ def registrar():
 @admin_required
 def registrar_cliente():
     form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
-    cedula, nombre_apellido = form_data.get('cedula'), form_data.get('nombre_apellido')
-    if not nombre_apellido or not cedula:
-        flash("Error: Nombre y Cédula son campos obligatorios.", 'error')
+    
+    # --- VALIDACIÓN DE CAMPOS OBLIGATORIOS ---
+    campos_obligatorios = {
+        'nombre_apellido': 'Nombre y Apellido',
+        'cedula': 'Cédula',
+        'contrato_nro': 'Número de Contrato',
+        'telefono': 'Teléfono',
+        'plan_contratado': 'Plan Contratado',
+        'valor_cuota': 'Valor de la Cuota'
+    }
+    campos_faltantes = [nombre_legible for campo_html, nombre_legible in campos_obligatorios.items() if not form_data.get(campo_html)]
+    if campos_faltantes:
+        mensaje_error = f"Error: Los siguientes campos son obligatorios: {', '.join(campos_faltantes)}."
+        flash(mensaje_error, 'error')
         return redirect(url_for('registrar'))
+    # --- FIN DE LA VALIDACIÓN ---
+
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('registrar'))
     try:
         with conn.cursor() as cur:
-            nombre_completo = nombre_apellido.split(' ', 1)
+            nombre_completo = form_data.get('nombre_apellido').split(' ', 1)
             nombre = nombre_completo[0]
             apellido = nombre_completo[1] if len(nombre_completo) > 1 else ''
-            insert_dict = {'nombre': nombre, 'apellido': apellido, 'cedula': cedula.replace(' ', ''), 'cuotas_pagadas_progresivas': 0, 'cuotas_pagadas_regresivas': 0}
+            
+            insert_dict = {
+                'nombre': nombre, 
+                'apellido': apellido, 
+                'cedula': form_data.get('cedula').replace(' ', ''),
+                'cuotas_pagadas_progresivas': 0,
+                'cuotas_pagadas_regresivas': 0
+            }
             optional_fields = ['contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso', 'grupo', 'plan_contratado', 'cuotas_totales', 'moneda_pago', 'valor_cuota', 'inscripcion_monto', 'proceso']
             for field in optional_fields:
-                if form_data.get(field) and form_data.get(field) != '':
+                if form_data.get(field):
                     insert_dict[field] = form_data[field]
-            columns, values = insert_dict.keys(), [insert_dict[col] for col in columns]
+            
+            # Corrección del error UnboundLocalError
+            columns = list(insert_dict.keys())
+            values = [insert_dict[col] for col in columns]
+            
             query = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))}) RETURNING id"
             cur.execute(query, values)
             new_client_id = cur.fetchone()[0]
             
-            descripcion_audit = f"Registró al nuevo cliente: {nombre_apellido} (C.I. {cedula})."
+            descripcion_audit = f"Registró al nuevo cliente: {form_data.get('nombre_apellido')} (C.I. {form_data.get('cedula')})."
             registrar_accion_auditoria('REGISTRO_CLIENTE', descripcion_audit, new_client_id)
             
             conn.commit()
-            flash(f"¡Cliente '{nombre_apellido}' registrado exitosamente!", 'success')
+            flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado exitosamente!", 'success')
+
     except psycopg2.IntegrityError:
         conn.rollback()
-        flash(f"Registro fallido: La cédula '{cedula}' ya existe.", 'error')
+        flash(f"Registro fallido: La cédula '{form_data.get('cedula')}' ya existe.", 'error')
     except (psycopg2.Error, ValueError, ConnectionError) as e:
         conn.rollback()
         flash(f"Registro fallido: Ocurrió un error de base de datos: {e}", 'error')
+        
     return redirect(url_for('registrar'))
 
 @app.route('/consulta', methods=['GET', 'POST'])
