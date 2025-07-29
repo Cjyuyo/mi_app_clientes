@@ -17,7 +17,6 @@ app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-des
 @app.before_request
 def setup_session_and_user():
     session.permanent = True
-    # CAMBIO A 5 MINUTOS DE INACTIVIDAD
     app.permanent_session_lifetime = timedelta(minutes=5)
     g.admin = None
     g.cliente = None
@@ -27,6 +26,7 @@ def setup_session_and_user():
     if db:
         with db.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             if admin_id:
+                # Se obtiene el rol y usuario para los permisos y la auditoría
                 cur.execute("SELECT id, usuario, rol FROM administradores WHERE id = %s", (admin_id,))
                 g.admin = cur.fetchone()
             elif cliente_id:
@@ -97,6 +97,30 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
             feriados = get_feriados_venezuela(vencimiento.year)
     return vencimiento
 
+# --- FUNCIÓN DE AUDITORÍA ---
+def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
+    """
+    Registra una acción de un administrador en la tabla de auditoría.
+    """
+    if not g.admin:
+        return
+
+    conn = get_db()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO registros_auditoria (usuario_id, usuario_nombre, accion, descripcion, cliente_afectado_id)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (g.admin['id'], g.admin['usuario'], accion, descripcion, cliente_id)
+                )
+                conn.commit()
+        except psycopg2.Error as e:
+            print(f"Error al registrar en auditoría: {e}")
+            conn.rollback()
+
 # --- RUTAS DEL PORTAL DE ADMINISTRACIÓN ---
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -115,7 +139,6 @@ def admin_login():
             admin = cur.fetchone()
 
             if admin and check_password_hash(admin['password_hash'], password):
-                # SE LIMPIA LA SESIÓN ANTERIOR
                 session.clear()
                 session['admin_id'] = admin['id']
                 session['admin_usuario'] = admin['usuario']
@@ -210,9 +233,15 @@ def registrar_cliente():
 
             columns = insert_dict.keys()
             values = [insert_dict[col] for col in columns]
-            query = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))})"
+            query = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))}) RETURNING id"
             cur.execute(query, values)
+            new_client_id = cur.fetchone()[0]
             conn.commit()
+            
+            # Registro de auditoría
+            descripcion_audit = f"Registró al nuevo cliente: {nombre_apellido} (C.I. {cedula})."
+            registrar_accion_auditoria('REGISTRO_CLIENTE', descripcion_audit, new_client_id)
+            
             flash(f"¡Cliente '{nombre_apellido}' registrado exitosamente!", 'success')
 
     except psycopg2.IntegrityError:
@@ -344,14 +373,6 @@ def conciliar_pago(pago_id):
 
             monto_pagado = Decimal(pago['monto'])
             
-            puntualidad = 'Puntual'
-            if pago['tipo_pago'] == 'Cuota':
-                fecha_vencimiento = get_fecha_vencimiento_ajustada(pago['fecha_pago'])
-                if pago['fecha_pago'] > fecha_vencimiento:
-                    puntualidad = 'Impuntual'
-                    cur.execute("UPDATE clientes SET meses_retraso_entrega = meses_retraso_entrega + 1 WHERE id = %s;", (cliente['id'],))
-                cur.execute("UPDATE pagos SET puntualidad = %s WHERE id = %s", (puntualidad, pago_id))
-
             if pago['tipo_pago'] == 'Inscripción':
                 inscripcion_pagada_actual = Decimal(cliente.get('inscripcion_pagada') or 0)
                 inscripcion_total = Decimal(cliente.get('inscripcion_monto') or 0)
@@ -371,16 +392,31 @@ def conciliar_pago(pago_id):
                     pago_final_id = cur.fetchone()[0]
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (inscripcion_total, cliente['id']))
                     conn.commit()
+                    
+                    descripcion_audit = f"Concilió pago final de inscripción N° {pago_id} por ${pago['monto']} para el cliente {cliente['nombre_apellido']}."
+                    registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
+
                     flash("¡Inscripción completada! Se generó el recibo final y se anularon los abonos.", 'success')
                     return redirect(url_for('ver_recibo_inscripcion', pago_id=pago_final_id))
                 else:
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
                     cur.execute("UPDATE pagos SET estado_pago = 'Conciliado' WHERE id = %s", (pago_id,))
                     conn.commit()
+
+                    descripcion_audit = f"Concilió abono de inscripción N° {pago_id} por ${pago['monto']} para el cliente {cliente['nombre_apellido']}."
+                    registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
+
                     flash(f"Abono de inscripción N° {pago_id} conciliado.", 'success')
                     return redirect(url_for('ver_recibo', pago_id=pago_id))
 
             elif pago['tipo_pago'] == 'Cuota':
+                puntualidad = 'Puntual'
+                fecha_vencimiento = get_fecha_vencimiento_ajustada(pago['fecha_pago'])
+                if pago['fecha_pago'] > fecha_vencimiento:
+                    puntualidad = 'Impuntual'
+                    cur.execute("UPDATE clientes SET meses_retraso_entrega = meses_retraso_entrega + 1 WHERE id = %s;", (cliente['id'],))
+                cur.execute("UPDATE pagos SET puntualidad = %s WHERE id = %s", (puntualidad, pago_id))
+                
                 if cliente['proceso'] == 'INSCRITO':
                     cur.execute("UPDATE clientes SET proceso = 'Ahorrador' WHERE id = %s", (cliente['id'],))
                     flash("Primer pago de cuota registrado. El proceso del cliente ha cambiado a 'Ahorrador'.", "info")
@@ -409,6 +445,10 @@ def conciliar_pago(pago_id):
                 cur.execute(update_pago_query, (cuotas_completas_adicionales, nuevas_cuotas_progresivas, cuotas_regresivas_actuales, nuevo_balance, pago_id))
                 
                 conn.commit()
+                
+                descripcion_audit = f"Concilió pago de cuota N° {pago_id} por ${pago['monto']} como '{puntualidad}' para el cliente {cliente['nombre_apellido']}."
+                registrar_accion_auditoria('CONCILIACION_CUOTA', descripcion_audit, cliente['id'])
+
                 flash(f"¡Pago de cuota N° {pago_id} conciliado como '{puntualidad}'!", 'success')
                 return redirect(url_for('ver_recibo', pago_id=pago_id))
 
@@ -426,16 +466,7 @@ def ver_recibo(pago_id):
         return redirect(url_for('consulta'))
 
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        query = """
-            SELECT p.*, 
-                   (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.cuotas_totales, c.valor_cuota,
-                   c.inscripcion_monto, c.inscripcion_pagada,
-                   COALESCE(p.cuotas_progresivas_al_pagar, c.cuotas_pagadas_progresivas) AS cuotas_pagadas_progresivas, 
-                   COALESCE(p.cuotas_regresivas_al_pagar, c.cuotas_pagadas_regresivas) AS cuotas_pagadas_regresivas,
-                   COALESCE(p.balance_al_pagar, c.balance_regresivo) AS balance_regresivo
-            FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
-            WHERE p.id = %s;
-        """
+        query = "SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.cuotas_totales, c.valor_cuota, c.inscripcion_monto, c.inscripcion_pagada, COALESCE(p.cuotas_progresivas_al_pagar, c.cuotas_pagadas_progresivas) AS cuotas_pagadas_progresivas, COALESCE(p.cuotas_regresivas_al_pagar, c.cuotas_pagadas_regresivas) AS cuotas_pagadas_regresivas, COALESCE(p.balance_al_pagar, c.balance_regresivo) AS balance_regresivo FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s;"
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
 
@@ -459,11 +490,7 @@ def ver_recibo_inscripcion(pago_id):
         return redirect(url_for('consulta'))
 
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        query = """
-            SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.plan_contratado
-            FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
-            WHERE p.id = %s AND p.tipo_pago = 'Inscripción Finalizada';
-        """
+        query = "SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.plan_contratado FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s AND p.tipo_pago = 'Inscripción Finalizada';"
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
 
@@ -489,7 +516,7 @@ def anular_recibo(pago_id):
     cedula_cliente = ''
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT * FROM pagos WHERE id = %s FOR UPDATE", (pago_id,))
+            cur.execute("SELECT p.*, c.nombre, c.apellido, c.cedula FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s FOR UPDATE", (pago_id,))
             pago_a_anular = cur.fetchone()
 
             if not pago_a_anular or pago_a_anular['estado_pago'] == 'Anulado':
@@ -497,10 +524,8 @@ def anular_recibo(pago_id):
                 return redirect(url_for('consulta'))
 
             cliente_id = pago_a_anular['cliente_id']
-            cur.execute("SELECT cedula FROM clientes WHERE id = %s", (cliente_id,))
-            cliente_info = cur.fetchone()
-            if cliente_info:
-                cedula_cliente = cliente_info['cedula']
+            cedula_cliente = pago_a_anular['cedula']
+            nombre_cliente = f"{pago_a_anular['nombre']} {pago_a_anular['apellido']}"
 
             if pago_a_anular['estado_pago'] == 'Pendiente':
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
@@ -551,6 +576,10 @@ def anular_recibo(pago_id):
                 flash("¡Reinicio de inscripción completado! El cliente ha vuelto a 'RESERVA' con saldo de inscripción en cero.", 'success')
 
             conn.commit()
+            
+            descripcion_audit = f"Anuló el recibo N° {pago_id} (Tipo: {pago_a_anular['tipo_pago']}, Monto: ${pago_a_anular['monto']}) del cliente {nombre_cliente}."
+            registrar_accion_auditoria('ANULACION_RECIBO', descripcion_audit, cliente_id)
+            
             flash(f"¡Recibo N° {pago_id} anulado y saldo corregido exitosamente!", "success")
             return redirect(url_for('consulta', busqueda=cedula_cliente))
 
@@ -566,13 +595,7 @@ def verificar_recibo(pago_id):
         return "Error de conexión a la base de datos.", 500
     
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        query = """
-            SELECT p.id, p.monto, p.fecha_pago, p.estado_pago, p.tipo_pago,
-                   (c.nombre || ' ' || c.apellido) as nombre_apellido
-            FROM pagos p 
-            JOIN clientes c ON p.cliente_id = c.id 
-            WHERE p.id = %s;
-        """
+        query = "SELECT p.id, p.monto, p.fecha_pago, p.estado_pago, p.tipo_pago, (c.nombre || ' ' || c.apellido) as nombre_apellido FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s;"
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
     
@@ -588,12 +611,7 @@ def ver_recibo_anulado(pago_id):
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta'))
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        query = """
-            SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula
-            FROM pagos p 
-            JOIN clientes c ON p.cliente_id = c.id 
-            WHERE p.id = %s AND p.estado_pago = 'Anulado';
-        """
+        query = "SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s AND p.estado_pago = 'Anulado';"
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
     if not pago:
@@ -642,6 +660,10 @@ def edit_client(client_id):
                 """
                 cur.execute(update_query, update_data)
                 conn.commit()
+                
+                descripcion_audit = f"Editó los datos del cliente {cliente['nombre_apellido']} (C.I. {cliente['cedula']})."
+                registrar_accion_auditoria('EDICION_CLIENTE', descripcion_audit, client_id)
+                
                 flash('¡Cliente actualizado exitosamente!', 'success')
                 
                 cedula_actualizada = update_data.get('cedula')
@@ -659,9 +681,17 @@ def delete_client(client_id):
     conn = get_db()
     if not conn: return redirect(url_for('consulta'))
     try:
-        with conn.cursor() as cur:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT nombre, apellido, cedula FROM clientes WHERE id = %s", (client_id,))
+            cliente_a_borrar = cur.fetchone()
+            
             cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
             conn.commit()
+
+            if cliente_a_borrar:
+                descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']})."
+                registrar_accion_auditoria('ELIMINACION_CLIENTE', descripcion_audit, client_id)
+
             flash('¡Cliente y sus registros asociados han sido eliminados exitosamente!', 'success')
     except psycopg2.Error as e:
         conn.rollback()
@@ -700,10 +730,11 @@ def guardar_oferta(client_id):
     
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT cedula FROM clientes WHERE id = %s", (client_id,))
+            cur.execute("SELECT cedula, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
             cliente_info = cur.fetchone()
             if cliente_info:
                 cedula_cliente = cliente_info['cedula']
+                nombre_cliente = cliente_info['nombre_apellido']
 
             hoy = datetime.now().date()
             inicio_mes = hoy.replace(day=1)
@@ -732,6 +763,10 @@ def guardar_oferta(client_id):
             """, (client_id, int(cuotas_ofertadas), hoy))
             
             conn.commit()
+            
+            descripcion_audit = f"Registró una oferta de {cuotas_ofertadas} cuotas para el cliente {nombre_cliente}."
+            registrar_accion_auditoria('REGISTRO_OFERTA', descripcion_audit, client_id)
+
             flash(f"¡Oferta de {cuotas_ofertadas} cuotas registrada exitosamente!", 'success')
 
     except psycopg2.Error as e:
@@ -861,6 +896,13 @@ def realizar_adjudicacion():
             """, (ganador_oferta_id, ganador_sorteo_id))
             
             conn.commit()
+
+            nombres_ganadores = [g['nombre_apellido'] for g in ganadores_ahorro]
+            if ganador_oferta:
+                nombres_ganadores.append(ganador_oferta['nombre_apellido'])
+            descripcion_audit = f"Ejecutó el proceso de adjudicación. Ganadores: {', '.join(nombres_ganadores)}."
+            registrar_accion_auditoria('EJECUCION_ADJUDICACION', descripcion_audit)
+            
             for g in ganadores_ahorro: flash(f"🏆 ¡Ganador por Ahorro: {g['nombre_apellido']}!", 'success')
             if ganador_oferta: flash(f"🏆 ¡Ganador por Oferta: {ganador_oferta['nombre_apellido']}!", 'success')
     except (psycopg2.Error, IndexError, KeyError) as e:
@@ -900,7 +942,6 @@ def portal_login():
                 cliente = cur.fetchone()
 
             if cliente:
-                # SE LIMPIA LA SESIÓN ANTERIOR
                 session.clear()
                 session['cliente_id'] = cliente['id']
                 session['cliente_nombre'] = cliente['nombre_apellido']
