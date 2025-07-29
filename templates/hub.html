@@ -90,7 +90,7 @@
             <div class="d-flex">
                  {% if g.admin %}
                     <span class="navbar-text me-3">
-                        Usuario: <strong>{{ g.admin.usuario }}</strong> ({{ g.admin.rol }})
+                        Usuario: <strong>{{ g.admin.usuario }}</strong>
                     </span>
                     <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger">Cerrar Sesión</a>
                  {% endif %}
@@ -113,7 +113,7 @@
                         <h3>Registrar Cliente</h3>
                         <p>Añade un nuevo cliente al sistema rellenando su información inicial.</p>
                     </div>
-                    <a href="{{ url_for('registrar') }}" class="btn btn-primary" target="_blank">Acceder</a>
+                    <a href="{{ url_for('registrar') }}" class="btn btn-primary">Acceder</a>
                 </div>
             </div>
             <div class="col-lg-4 col-md-6">
@@ -123,11 +123,9 @@
                         <h3>Consultar Clientes</h3>
                         <p>Busca, visualiza y gestiona los perfiles y pagos de los clientes existentes.</p>
                     </div>
-                    <a href="{{ url_for('consulta') }}" class="btn btn-primary" target="_blank">Acceder</a>
+                    <a href="{{ url_for('consulta') }}" class="btn btn-primary">Acceder</a>
                 </div>
             </div>
-
-            {% if g.admin and g.admin.rol in ['superadmin', 'gerente'] %}
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
                     <div>
@@ -135,21 +133,24 @@
                         <h3>Sistema de Adjudicación</h3>
                         <p>Inicia el proceso de adjudicación mensual y consulta el historial de ganadores.</p>
                     </div>
-                    <a href="{{ url_for('adjudicacion') }}" class="btn btn-success" target="_blank">Adjudicar</a>
+                    <a href="{{ url_for('adjudicacion') }}" class="btn btn-success">Adjudicar</a>
                 </div>
             </div>
-            {% endif %}
             
+            <!-- Tarjeta Condicional para Superadmin -->
+            {% if g.admin and g.admin.rol == 'superadmin' %}
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
                     <div>
-                        <div class="icon"><i class="bi bi-box-arrow-in-right"></i></div>
-                        <h3>Portal de Clientes</h3>
-                        <p>Accede a la página de inicio de sesión del portal del cliente.</p>
+                        <div class="icon" style="color: #dc3545;"><i class="bi bi-shield-lock-fill"></i></div>
+                        <h3>Registro de Auditoría</h3>
+                        <p>Visualiza el historial completo de acciones realizadas por los administradores en el sistema.</p>
                     </div>
-                    <a href="{{ url_for('portal_login') }}" class="btn btn-secondary" target="_blank">Ir al Portal</a>
+                    <a href="{{ url_for('auditoria') }}" class="btn btn-danger">Revisar</a>
                 </div>
             </div>
+            {% endif %}
+
         </div>
         
         <hr class="my-5">

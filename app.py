@@ -17,7 +17,7 @@ app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-des
 @app.before_request
 def setup_session_and_user():
     session.permanent = True
-    app.permanent_session_lifetime = timedelta(minutes=5) # La sesión expira a los 5 minutos de inactividad
+    app.permanent_session_lifetime = timedelta(minutes=5)
     g.admin = None
     g.cliente = None
     admin_id = session.get('admin_id')
@@ -412,7 +412,6 @@ def conciliar_pago(pago_id):
             elif pago['tipo_pago'] == 'Cuota':
                 puntualidad = 'Puntual'
                 fecha_vencimiento = get_fecha_vencimiento_ajustada(pago['fecha_pago'])
-                # CORRECCIÓN: Se elimina .date() porque pago['fecha_pago'] ya es un objeto date.
                 if pago['fecha_pago'] > fecha_vencimiento:
                     puntualidad = 'Impuntual'
                     cur.execute("UPDATE clientes SET meses_retraso_entrega = meses_retraso_entrega + 1 WHERE id = %s;", (cliente['id'],))
@@ -855,7 +854,7 @@ def adjudicacion():
             """)
             historial = cur.fetchall()
     except psycopg2.Error as e:
-        flash(f"Error al cargar datos para la adjudicación: {e}", 'error')
+        flash(f"Error al cargar datos para la adjudicación: {e}", "error")
         clientes_elegibles_ahorro, clientes_elegibles_sorteo, ofertas_activas, historial = [], [], [], []
     return render_template('adjudicacion.html', 
                            clientes_elegibles_ahorro=clientes_elegibles_ahorro,
@@ -947,6 +946,31 @@ def realizar_adjudicacion():
         conn.rollback()
         flash(f"Ocurrió un error durante el proceso de adjudicación: {e}", 'error')
     return redirect(url_for('adjudicacion'))
+
+@app.route('/auditoria')
+@admin_required
+@rol_requerido('superadmin')
+def auditoria():
+    conn = get_db()
+    logs = []
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return render_template('auditoria.html', logs=logs)
+    
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("""
+                SELECT r.id, r.usuario_nombre, r.accion, r.descripcion, r.fecha_hora, 
+                       c.nombre, c.apellido, c.cedula
+                FROM registros_auditoria r
+                LEFT JOIN clientes c ON r.cliente_afectado_id = c.id
+                ORDER BY r.fecha_hora DESC;
+            """)
+            logs = cur.fetchall()
+    except psycopg2.Error as e:
+        flash(f"Error al consultar los registros de auditoría: {e}", "error")
+
+    return render_template('auditoria.html', logs=logs)
 
 # --- RUTAS DEL PORTAL DEL CLIENTE ---
 @app.route('/portal/login', methods=['GET', 'POST'])
