@@ -1132,3 +1132,201 @@ def portal_logout():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+```
+
+### 2. Archivos HTML con Bloqueo de Doble Clic
+
+He añadido el script a todos los archivos que contienen formularios. Reemplaza cada uno de ellos con su versión correspondiente.
+
+
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Adjudicación</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body {
+            background-color: #f0f2f5;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .container { max-width: 1200px; }
+        .header {
+            background: linear-gradient(135deg, #0d6efd, #0056b3);
+            color: white;
+            padding: 2rem;
+            border-radius: .5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .header h1 { font-weight: 700; }
+        .card-custom {
+            border: none;
+            border-radius: .75rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+        .card-header-custom {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        .list-group-item-custom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-adjudicar {
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 0.75rem 1.5rem;
+        }
+        .action-bar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <div class="header">
+            <h1><i class="bi bi-trophy-fill"></i> Sistema de Adjudicación</h1>
+            <p>Realiza la adjudicación mensual por ahorro, sorteo y oferta.</p>
+        </div>
+
+        <div class="action-bar">
+            <a href="{{ url_for('hub') }}" class="btn btn-secondary">
+                <i class="bi bi-house-door-fill me-2"></i>Volver al Hub Principal
+            </a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card card-custom mb-4">
+                    <div class="card-header card-header-custom">
+                        <i class="bi bi-people-fill"></i> Participantes del Mes
+                    </div>
+                    <div class="card-body">
+                        <ul class="nav nav-tabs" id="myTab" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="ahorro-tab" data-bs-toggle="tab" data-bs-target="#ahorro" type="button" role="tab">Elegibles por Ahorro ({{ clientes_elegibles_ahorro|length }})</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="sorteo-tab" data-bs-toggle="tab" data-bs-target="#sorteo" type="button" role="tab" disabled title="Funcionalidad temporalmente deshabilitada">Elegibles para Sorteo (0)</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="ofertas-tab" data-bs-toggle="tab" data-bs-target="#ofertas" type="button" role="tab">Ofertas Activas ({{ ofertas_activas|length }})</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content" id="myTabContent">
+                            <div class="tab-pane fade show active" id="ahorro" role="tabpanel">
+                                <ul class="list-group list-group-flush">
+                                    {% for cliente in clientes_elegibles_ahorro %}
+                                        <li class="list-group-item list-group-item-custom">{{ cliente.nombre_apellido }} <span class="badge bg-info">Cuota {{ cliente.cuotas_pagadas_progresivas }} (Retraso: {{ cliente.meses_retraso_entrega }})</span></li>
+                                    {% else %}
+                                        <li class="list-group-item">No hay clientes elegibles por ahorro este ciclo.</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            <div class="tab-pane fade" id="sorteo" role="tabpanel">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item">La adjudicación por sorteo está temporalmente deshabilitada.</li>
+                                </ul>
+                            </div>
+                            <div class="tab-pane fade" id="ofertas" role="tabpanel">
+                                <ul class="list-group list-group-flush">
+                                    {% for oferta in ofertas_activas %}
+                                        <li class="list-group-item list-group-item-custom">{{ oferta.nombre_apellido }} <span class="badge bg-primary">{{ oferta.cuotas_ofertadas }} Cuotas</span></li>
+                                    {% else %}
+                                        <li class="list-group-item">No hay ofertas activas este mes.</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card card-custom">
+                    <div class="card-header card-header-custom">
+                        <i class="bi bi-clock-history"></i> Historial de Adjudicaciones
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Ganador(es) por Ahorro</th>
+                                    <th>Ganador Oferta</th>
+                                    <th>Ganador Sorteo <small class="text-muted">(Deshabilitado)</small></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in historial %}
+                                <tr>
+                                    <td>{{ item.fecha_adjudicacion.strftime('%d/%m/%Y') }}</td>
+                                    <td>{{ item.nombres_ganadores_ahorro|join(', ') if item.nombres_ganadores_ahorro else 'N/A' }}</td>
+                                    <td>{{ item.nombre_ganador_oferta or 'N/A' }}</td>
+                                    <td>{{ item.nombre_ganador_sorteo or 'N/A' }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center">No hay registros de adjudicaciones.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card card-custom">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Iniciar Proceso</h5>
+                        <p class="card-text">Al hacer clic, el sistema seleccionará a los ganadores de forma irreversible para este ciclo.</p>
+                        <form action="{{ url_for('realizar_adjudicacion') }}" method="POST" onsubmit="return confirm('¿Está seguro de que desea iniciar el proceso de adjudicación? Esta acción es final y no se puede deshacer.');">
+                            <button type="submit" class="btn btn-success btn-adjudicar">
+                                <i class="bi bi-play-circle-fill"></i> Iniciar Adjudicación
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        (function() {
+            const forms = document.querySelectorAll('form');
+            forms.forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    if (form.getAttribute('data-submitted') === 'true') {
+                        e.preventDefault();
+                        return;
+                    }
+                    form.setAttribute('data-submitted', 'true');
+
+                    const submitButtons = form.querySelectorAll('button[type="submit"]');
+                    submitButtons.forEach(button => {
+                        button.setAttribute('disabled', 'disabled');
+                        button.innerHTML = 'Procesando...';
+                    });
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

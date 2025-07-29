@@ -355,5 +355,25 @@
         }
     });
 </script>
+<script>
+    (function() {
+        const forms = document.querySelectorAll('form');
+        forms.forEach(form => {
+            form.addEventListener('submit', function(e) {
+                if (form.getAttribute('data-submitted') === 'true') {
+                    e.preventDefault();
+                    return;
+                }
+                form.setAttribute('data-submitted', 'true');
+
+                const submitButtons = form.querySelectorAll('button[type="submit"]');
+                submitButtons.forEach(button => {
+                    button.setAttribute('disabled', 'disabled');
+                    button.innerHTML = 'Procesando...';
+                });
+            });
+        });
+    })();
+</script>
 </body>
 </html>
