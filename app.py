@@ -412,7 +412,8 @@ def conciliar_pago(pago_id):
             elif pago['tipo_pago'] == 'Cuota':
                 puntualidad = 'Puntual'
                 fecha_vencimiento = get_fecha_vencimiento_ajustada(pago['fecha_pago'])
-                if pago['fecha_pago'].date() > fecha_vencimiento:
+                # CORRECCIÓN: Se elimina .date() porque pago['fecha_pago'] ya es un objeto date.
+                if pago['fecha_pago'] > fecha_vencimiento:
                     puntualidad = 'Impuntual'
                     cur.execute("UPDATE clientes SET meses_retraso_entrega = meses_retraso_entrega + 1 WHERE id = %s;", (cliente['id'],))
                 
