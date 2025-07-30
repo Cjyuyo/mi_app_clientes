@@ -227,8 +227,9 @@
       </div>
       <div class="modal-footer">
         <!-- Botones para la vista en vivo -->
-        <div class="live-view-footer w-100 d-flex justify-content-between">
+        <div class="live-view-footer w-100 d-flex justify-content-between align-items-center">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" id="flip-camera-btn" class="btn btn-info"><i class="bi bi-arrow-repeat"></i> Voltear Cámara</button>
             <button type="button" id="capture-btn" class="btn btn-primary"><i class="bi bi-camera-fill"></i> Capturar</button>
         </div>
         <!-- Botones para la vista de confirmación -->
@@ -251,45 +252,71 @@ document.addEventListener('DOMContentLoaded', function() {
     const captureBtn = document.getElementById('capture-btn');
     const retakeBtn = document.getElementById('retake-btn');
     const savePhotoBtn = document.getElementById('save-photo-btn');
+    const flipCameraBtn = document.getElementById('flip-camera-btn');
     
     let stream;
     let currentCaptureType = null;
     let capturedImageData = null;
+    let currentFacingMode = 'user';
 
-    // Función para cambiar entre la vista en vivo y la de confirmación
     function toggleViews(showConfirmation) {
-        document.querySelector('.live-view').style.display = showConfirmation ? 'none' : 'block';
-        document.querySelector('.live-view-footer').style.display = showConfirmation ? 'none' : 'flex';
-        document.querySelector('.confirmation-view').style.display = showConfirmation ? 'block' : 'none';
-        document.querySelector('.confirmation-view-footer').style.display = showConfirmation ? 'flex' : 'none';
+        cameraModal.querySelector('.live-view').style.display = showConfirmation ? 'none' : 'block';
+        cameraModal.querySelector('.live-view-footer').style.display = showConfirmation ? 'none' : 'flex';
+        cameraModal.querySelector('.confirmation-view').style.display = showConfirmation ? 'block' : 'none';
+        cameraModal.querySelector('.confirmation-view-footer').style.display = showConfirmation ? 'flex' : 'none';
     }
 
-    // Evento que se dispara al abrir el modal
+    async function startCamera(facingMode) {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+        const constraints = { video: { width: 400, height: 300, facingMode: facingMode } };
+        try {
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = stream;
+            await video.play();
+        } catch (err) {
+            console.error("Error starting camera with facingMode " + facingMode + ": ", err);
+            // Fallback for devices that don't support facingMode exactly
+            try {
+                const fallbackConstraints = { video: { width: 400, height: 300 } };
+                stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+                video.srcObject = stream;
+                await video.play();
+            } catch (fallbackErr) {
+                alert("No se pudo acceder a la cámara. Asegúrese de haber otorgado los permisos.");
+                bootstrap.Modal.getInstance(cameraModal).hide();
+            }
+        }
+    }
+
     cameraModal.addEventListener('show.bs.modal', async function (event) {
         currentCaptureType = event.relatedTarget.getAttribute('data-capture-type');
         const modalTitle = cameraModal.querySelector('.modal-title');
-        modalTitle.textContent = currentCaptureType === 'cliente' ? 'Capturar Foto del Cliente' : 'Capturar Foto de la Cédula';
-
-        toggleViews(false); // Asegurarse de empezar en la vista en vivo
-
-        try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: { width: 400, height: 300 } });
-            video.srcObject = stream;
-        } catch (err) {
-            console.error("Error al acceder a la cámara: ", err);
-            alert("No se pudo acceder a la cámara. Asegúrese de haber otorgado los permisos.");
-            bootstrap.Modal.getInstance(cameraModal).hide();
+        
+        if (currentCaptureType === 'cedula') {
+            modalTitle.textContent = 'Capturar Foto de la Cédula';
+            currentFacingMode = 'environment'; // Cámara trasera para la cédula
+        } else {
+            modalTitle.textContent = 'Capturar Foto del Cliente';
+            currentFacingMode = 'user'; // Cámara frontal para el cliente
         }
+
+        toggleViews(false);
+        await startCamera(currentFacingMode);
     });
 
-    // Evento para detener la cámara al cerrar el modal
     cameraModal.addEventListener('hide.bs.modal', function () {
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
         }
     });
 
-    // Botón para capturar la foto
+    flipCameraBtn.addEventListener('click', () => {
+        currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+        startCamera(currentFacingMode);
+    });
+
     captureBtn.addEventListener('click', () => {
         const context = canvas.getContext('2d');
         context.drawImage(video, 0, 0, 400, 300);
@@ -297,13 +324,11 @@ document.addEventListener('DOMContentLoaded', function() {
         toggleViews(true);
     });
 
-    // Botón para volver a tomar la foto
     retakeBtn.addEventListener('click', () => {
         capturedImageData = null;
         toggleViews(false);
     });
 
-    // Botón para guardar la foto
     savePhotoBtn.addEventListener('click', () => {
         if (capturedImageData && currentCaptureType) {
             const previewElement = document.getElementById(`preview-${currentCaptureType}`);
@@ -315,7 +340,6 @@ document.addEventListener('DOMContentLoaded', function() {
         bootstrap.Modal.getInstance(cameraModal).hide();
     });
     
-    // Lógica para evitar doble submit del formulario principal
     const form = document.getElementById('registroForm');
     form.addEventListener('submit', function(e) {
         if (form.getAttribute('data-submitted') === 'true') {
