@@ -107,7 +107,11 @@
         }
         .success { color: #4F8A10; background-color: #DFF2BF; }
         .error { color: #D8000C; background-color: #FFD2D2; }
-        .camera-section { display: none; }
+        #video-feed, #capture-canvas {
+            max-width: 100%;
+            height: auto;
+        }
+        .confirmation-view { display: none; }
     </style>
 </head>
 <body>
@@ -160,29 +164,22 @@
 
         <div class="section">
             <h3>Verificación de Identidad</h3>
-            <div class="alert alert-info"><i class="bi bi-camera-video-fill"></i> Por favor, permita el acceso a la cámara para la verificación.</div>
+            <div class="alert alert-info"><i class="bi bi-camera-video-fill"></i> Use los siguientes botones para capturar las fotos requeridas.</div>
             
-            <div id="camera-section" class="camera-section text-center mb-3">
-                <video id="video-feed" width="320" height="240" autoplay class="bg-dark rounded"></video>
-                <canvas id="capture-canvas" width="320" height="240" style="display:none;"></canvas>
-            </div>
-
-            <div class="text-center mb-4">
-                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
-                    <button type="button" id="start-camera" class="btn btn-secondary"><i class="bi bi-camera"></i> Iniciar Cámara</button>
-                    <button type="button" id="capture-cliente" class="btn btn-primary" disabled><i class="bi bi-person-bounding-box"></i> Tomar Foto Cliente</button>
-                    <button type="button" id="capture-cedula" class="btn btn-primary" disabled><i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula</button>
-                </div>
-            </div>
-
             <div class="row">
-                <div class="col-md-6 text-center">
-                    <h6>Vista Previa Foto Cliente</h6>
-                    <img id="preview-cliente" src="https://placehold.co/320x240/eee/ccc?text=Foto+Cliente" class="img-fluid rounded border">
+                <div class="col-md-6 text-center mb-3">
+                    <h6>Foto del Cliente</h6>
+                    <img id="preview-cliente" src="https://placehold.co/320x240/eee/ccc?text=Foto+Cliente" class="img-fluid rounded border mb-2">
+                    <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cliente">
+                        <i class="bi bi-person-bounding-box"></i> Tomar Foto Cliente
+                    </button>
                 </div>
-                <div class="col-md-6 text-center">
-                    <h6>Vista Previa Foto Cédula</h6>
-                    <img id="preview-cedula" src="https://placehold.co/320x240/eee/ccc?text=Foto+Cédula" class="img-fluid rounded border">
+                <div class="col-md-6 text-center mb-3">
+                    <h6>Foto de la Cédula</h6>
+                    <img id="preview-cedula" src="https://placehold.co/320x240/eee/ccc?text=Foto+Cédula" class="img-fluid rounded border mb-2">
+                     <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cedula">
+                        <i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula
+                    </button>
                 </div>
             </div>
         </div>
@@ -209,47 +206,116 @@
     </form>
 </div>
 
+<!-- Modal de la Cámara -->
+<div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cameraModalLabel">Capturar Foto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <!-- Vista de la cámara en vivo -->
+        <div class="live-view">
+            <video id="video-feed" width="400" height="300" autoplay class="bg-dark rounded"></video>
+        </div>
+        <!-- Vista de confirmación de la foto -->
+        <div class="confirmation-view">
+            <p><strong>¿Desea usar esta foto?</strong></p>
+            <canvas id="capture-canvas" width="400" height="300" class="rounded"></canvas>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <!-- Botones para la vista en vivo -->
+        <div class="live-view-footer w-100 d-flex justify-content-between">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" id="capture-btn" class="btn btn-primary"><i class="bi bi-camera-fill"></i> Capturar</button>
+        </div>
+        <!-- Botones para la vista de confirmación -->
+        <div class="confirmation-view-footer w-100 d-flex justify-content-between">
+            <button type="button" class="btn btn-secondary" id="retake-btn"><i class="bi bi-arrow-clockwise"></i> Volver a Tomar</button>
+            <button type="button" class="btn btn-success" id="save-photo-btn"><i class="bi bi-check-circle-fill"></i> Guardar Foto</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const cameraModal = document.getElementById('cameraModal');
     const video = document.getElementById('video-feed');
     const canvas = document.getElementById('capture-canvas');
-    const cameraSection = document.getElementById('camera-section');
-    const startCameraButton = document.getElementById('start-camera');
-    const captureClienteButton = document.getElementById('capture-cliente');
-    const captureCedulaButton = document.getElementById('capture-cedula');
-    const previewCliente = document.getElementById('preview-cliente');
-    const previewCedula = document.getElementById('preview-cedula');
-    const fotoClienteInput = document.getElementById('foto_cliente');
-    const fotoCedulaInput = document.getElementById('foto_cedula');
+    const captureBtn = document.getElementById('capture-btn');
+    const retakeBtn = document.getElementById('retake-btn');
+    const savePhotoBtn = document.getElementById('save-photo-btn');
     
     let stream;
+    let currentCaptureType = null;
+    let capturedImageData = null;
 
-    startCameraButton.addEventListener('click', async () => {
+    // Función para cambiar entre la vista en vivo y la de confirmación
+    function toggleViews(showConfirmation) {
+        document.querySelector('.live-view').style.display = showConfirmation ? 'none' : 'block';
+        document.querySelector('.live-view-footer').style.display = showConfirmation ? 'none' : 'flex';
+        document.querySelector('.confirmation-view').style.display = showConfirmation ? 'block' : 'none';
+        document.querySelector('.confirmation-view-footer').style.display = showConfirmation ? 'flex' : 'none';
+    }
+
+    // Evento que se dispara al abrir el modal
+    cameraModal.addEventListener('show.bs.modal', async function (event) {
+        currentCaptureType = event.relatedTarget.getAttribute('data-capture-type');
+        const modalTitle = cameraModal.querySelector('.modal-title');
+        modalTitle.textContent = currentCaptureType === 'cliente' ? 'Capturar Foto del Cliente' : 'Capturar Foto de la Cédula';
+
+        toggleViews(false); // Asegurarse de empezar en la vista en vivo
+
         try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            stream = await navigator.mediaDevices.getUserMedia({ video: { width: 400, height: 300 } });
             video.srcObject = stream;
-            cameraSection.style.display = 'block';
-            startCameraButton.disabled = true;
-            captureClienteButton.disabled = false;
-            captureCedulaButton.disabled = false;
         } catch (err) {
             console.error("Error al acceder a la cámara: ", err);
             alert("No se pudo acceder a la cámara. Asegúrese de haber otorgado los permisos.");
+            bootstrap.Modal.getInstance(cameraModal).hide();
         }
     });
 
-    function capturePhoto(previewElement, inputElement) {
-        if (!stream) return;
-        const context = canvas.getContext('2d');
-        context.drawImage(video, 0, 0, 320, 240);
-        const dataUrl = canvas.toDataURL('image/jpeg');
-        previewElement.src = dataUrl;
-        inputElement.value = dataUrl;
-    }
+    // Evento para detener la cámara al cerrar el modal
+    cameraModal.addEventListener('hide.bs.modal', function () {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+    });
 
-    captureClienteButton.addEventListener('click', () => capturePhoto(previewCliente, fotoClienteInput));
-    captureCedulaButton.addEventListener('click', () => capturePhoto(previewCedula, fotoCedulaInput));
+    // Botón para capturar la foto
+    captureBtn.addEventListener('click', () => {
+        const context = canvas.getContext('2d');
+        context.drawImage(video, 0, 0, 400, 300);
+        capturedImageData = canvas.toDataURL('image/jpeg');
+        toggleViews(true);
+    });
+
+    // Botón para volver a tomar la foto
+    retakeBtn.addEventListener('click', () => {
+        capturedImageData = null;
+        toggleViews(false);
+    });
+
+    // Botón para guardar la foto
+    savePhotoBtn.addEventListener('click', () => {
+        if (capturedImageData && currentCaptureType) {
+            const previewElement = document.getElementById(`preview-${currentCaptureType}`);
+            const inputElement = document.getElementById(`foto_${currentCaptureType}`);
+            
+            previewElement.src = capturedImageData;
+            inputElement.value = capturedImageData;
+        }
+        bootstrap.Modal.getInstance(cameraModal).hide();
+    });
     
+    // Lógica para evitar doble submit del formulario principal
     const form = document.getElementById('registroForm');
     form.addEventListener('submit', function(e) {
         if (form.getAttribute('data-submitted') === 'true') {
