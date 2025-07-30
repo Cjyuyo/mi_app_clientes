@@ -198,7 +198,6 @@ def registrar():
 def registrar_cliente():
     form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
     
-    # --- VALIDACIÓN DE CAMPOS OBLIGATORIOS ---
     campos_obligatorios = {
         'nombre_apellido': 'Nombre y Apellido',
         'cedula': 'Cédula',
@@ -212,7 +211,6 @@ def registrar_cliente():
         mensaje_error = f"Error: Los siguientes campos son obligatorios: {', '.join(campos_faltantes)}."
         flash(mensaje_error, 'error')
         return redirect(url_for('registrar'))
-    # --- FIN DE LA VALIDACIÓN ---
 
     conn = get_db()
     if not conn:
@@ -236,7 +234,6 @@ def registrar_cliente():
                 if form_data.get(field):
                     insert_dict[field] = form_data[field]
             
-            # Corrección del error UnboundLocalError
             columns = list(insert_dict.keys())
             values = [insert_dict[col] for col in columns]
             
@@ -748,7 +745,6 @@ def realizar_adjudicacion():
 def auditoria():
     conn = get_db()
     logs = []
-    # Usamos la fecha actual en la zona horaria de Venezuela como default
     try:
         import pytz
         vz_tz = pytz.timezone('America/Caracas')
@@ -757,21 +753,17 @@ def auditoria():
         fecha_actual_vet = datetime.now().strftime('%Y-%m-%d')
 
     fecha_filtro_str = request.args.get('fecha', fecha_actual_vet)
-
-    # --- INICIO DE LA CORRECCIÓN DE FECHA ---
+    
     logging.info(f"AUDITORIA DEBUG: Fecha recibida del request: '{fecha_filtro_str}'")
     
     fecha_para_sql = fecha_filtro_str
     try:
-        # CORRECCIÓN: Usamos el formato MM/DD/YYYY que envía tu navegador
         fecha_obj = datetime.strptime(fecha_filtro_str, '%m/%d/%Y')
         fecha_para_sql = fecha_obj.strftime('%Y-%m-%d')
     except ValueError:
-        # Si falla, es probable que ya esté en el formato correcto YYYY-MM-DD.
         pass
 
     logging.info(f"AUDITORIA DEBUG: Fecha final para SQL: '{fecha_para_sql}'")
-    # --- FIN DE LA CORRECCIÓN DE FECHA ---
     
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
@@ -779,33 +771,29 @@ def auditoria():
     
     try:
         with conn.cursor() as cur:
-            # --- CORRECCIÓN: Establecer la zona horaria de Venezuela para la consulta ---
             cur.execute("SET TIME ZONE 'America/Caracas';")
 
             sql = """
-                SELECT r.id, r.usuario_nombre, r.accion, r.descripcion, r.fecha_hora, 
+                SELECT r.id, r.usuario_nombre, r.accion, r.descripcion, r.timestamp, 
                        c.nombre, c.apellido, c.cedula
                 FROM registros_auditoria r
                 LEFT JOIN clientes c ON r.cliente_afectado_id = c.id
-                WHERE r.fecha_hora >= %s::date AND r.fecha_hora < (%s::date + '1 day'::interval)
-                ORDER BY r.fecha_hora DESC;
+                WHERE r.timestamp >= %s::date AND r.timestamp < (%s::date + '1 day'::interval)
+                ORDER BY r.timestamp DESC;
             """
             
-            # Usamos la variable corregida para la consulta
             cur.execute(sql, (fecha_para_sql, fecha_para_sql))
             logs = cur.fetchall()
             
     except (Exception, psycopg2.Error) as e:
         flash(f"Error al consultar los registros de auditoría: {e}", "error")
 
-    # Devolvemos la fecha original al template para que el selector de fecha no se rompa
     return render_template('auditoria.html', logs=logs, anio_actual=datetime.now().year, fecha_filtro=fecha_filtro_str)
 
 @app.route('/descargar_reporte_auditoria')
 @admin_required
 @rol_requerido('superadmin')
 def descargar_reporte_auditoria():
-    # Usamos la fecha actual en la zona horaria de Venezuela como default
     try:
         import pytz
         vz_tz = pytz.timezone('America/Caracas')
@@ -815,38 +803,28 @@ def descargar_reporte_auditoria():
         
     fecha_reporte_str = request.args.get('fecha', fecha_actual_vet)
 
-    # --- INICIO DE LA CORRECCIÓN DE FECHA ---
-    logging.info(f"REPORTE DEBUG: Fecha recibida del request: '{fecha_reporte_str}'")
-    
     fecha_para_sql = fecha_reporte_str
     try:
-        # CORRECCIÓN: Usamos el formato MM/DD/YYYY que envía tu navegador
         fecha_obj = datetime.strptime(fecha_reporte_str, '%m/%d/%Y')
         fecha_para_sql = fecha_obj.strftime('%Y-%m-%d')
     except ValueError:
-        # Si falla, es probable que ya esté en el formato correcto YYYY-MM-DD.
         pass
-
-    logging.info(f"REPORTE DEBUG: Fecha final para SQL: '{fecha_para_sql}'")
-    # --- FIN DE LA CORRECCIÓN DE FECHA ---
 
     conn = get_db()
     if not conn:
         return "Error de conexión a la base de datos", 500
     try:
         with conn.cursor() as cur:
-            # --- CORRECCIÓN: Establecer la zona horaria de Venezuela también para el reporte ---
             cur.execute("SET TIME ZONE 'America/Caracas';")
             
             sql = """
-                SELECT r.fecha_hora, r.usuario_nombre, r.accion, r.descripcion, 
+                SELECT r.timestamp, r.usuario_nombre, r.accion, r.descripcion, 
                        (c.nombre || ' ' || c.apellido) as cliente_nombre, c.cedula
                 FROM registros_auditoria r
                 LEFT JOIN clientes c ON r.cliente_afectado_id = c.id
-                WHERE r.fecha_hora >= %s::date AND r.fecha_hora < (%s::date + '1 day'::interval)
-                ORDER BY r.fecha_hora ASC;
+                WHERE r.timestamp >= %s::date AND r.timestamp < (%s::date + '1 day'::interval)
+                ORDER BY r.timestamp ASC;
             """
-            # Usamos la variable corregida para la consulta
             cur.execute(sql, (fecha_para_sql, fecha_para_sql))
             logs = cur.fetchall()
 
@@ -857,7 +835,7 @@ def descargar_reporte_auditoria():
             
             for log in logs:
                 writer.writerow([
-                    log['fecha_hora'].strftime('%Y-%m-%d %H:%M:%S'),
+                    log['timestamp'].strftime('%Y-%m-%d %H:%M:%S'),
                     log['usuario_nombre'],
                     log['accion'],
                     log['descripcion'],
