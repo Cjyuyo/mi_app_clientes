@@ -170,13 +170,10 @@
                                         Nunca ha iniciado sesión
                                     {% endif %}
                                 </small>
-                                <div style="font-size: 0.8rem; margin-top: 5px; background-color: #eee; padding: 5px; border-radius: 4px;">
-                                    <strong>Debug:</strong><br>
-                                    Estatus Online (BD): <strong>{{ usuario.estatus_online }}</strong><br>
-                                    Última Actividad (BD): <strong>{{ usuario.ultimo_visto.strftime('%Y-%m-%d %H:%M:%S') if usuario.ultimo_visto else 'N/A' }}</strong><br>
-                                    Tiempo Inactivo: <strong>{{ usuario.inactividad }}</strong>
-                                </div>
-                                </div>
+                                <small class="d-block text-danger" style="font-size: 0.75rem; margin-top: 3px;">
+                                    Debug: [Estatus: {{ usuario.estatus_online }} | Inactividad: {{ usuario.inactividad }}]
+                                </small>
+                            </div>
                             <span class="badge rounded-pill {{ 'bg-success' if usuario.esta_en_linea else 'bg-secondary' }}">
                                 {{ 'En línea' if usuario.esta_en_linea else 'Desconectado' }}
                             </span>
@@ -193,10 +190,6 @@
     <footer class="footer">
         <p>&copy; {{ anio_actual }} Moto Plan Motors C.A.</p>
     </footer>
-
-    <script>
-        // No es necesario modificar el script para la depuración
-    </script>
 
 </body>
 </html>
