@@ -126,6 +126,8 @@
                     <a href="{{ url_for('consulta') }}" class="btn btn-primary">Acceder</a>
                 </div>
             </div>
+
+            {% if g.admin and g.admin.rol in ['superadmin', 'gerente'] %}
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
                     <div>
@@ -136,6 +138,7 @@
                     <a href="{{ url_for('adjudicacion') }}" class="btn btn-success">Adjudicar</a>
                 </div>
             </div>
+            {% endif %}
             
             {% if g.admin and g.admin.rol == 'superadmin' %}
             <div class="col-lg-4 col-md-6">
