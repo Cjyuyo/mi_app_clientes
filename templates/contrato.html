@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contrato de Adhesión - {{ cliente.contrato_nro }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body {
+            background-color: #f0f2f5;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .navbar {
+            background-color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+        }
+        .contract-container {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            padding: 2rem 3rem;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        .header h1 { margin: 0; font-size: 20px; font-weight: bold; }
+        .header p { margin: 5px 0 0; font-size: 14px; }
+        .client-info {
+            border: 1px solid #e0e0e0;
+            padding: 1.5rem;
+            margin-bottom: 25px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+        .client-info h2 {
+            margin-top: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .client-info p { margin: 8px 0; font-size: 0.95rem; }
+        .client-info strong { color: #333; }
+        .client-info hr { border: 0; border-top: 1px dashed #ccc; }
+        .contract-body h2, .contract-body h3 {
+            font-size: 1rem;
+            margin-top: 20px;
+            font-weight: bold;
+            text-align: center;
+            color: #0056b3;
+        }
+        .contract-body h3 {
+             text-align: left;
+             font-size: 1rem;
+             color: #343a40;
+             border-bottom: 1px solid #eee;
+             padding-bottom: 5px;
+             margin-top: 25px;
+        }
+        .contract-body p, .contract-body li {
+            text-align: justify;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            color: #212529;
+        }
+        .signatures { margin-top: 50px; }
+        .signature-block { text-align: center; }
+        .signature-block p {
+            border-top: 1px solid #333;
+            padding-top: 10px;
+            margin-top: 60px;
+            font-weight: bold;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+            color: #6c757d;
+        }
+        .print-button-container { text-align: center; margin-top: 30px; padding-top: 20px; }
+        .verification-section {
+            margin-top: 40px;
+            padding: 20px;
+            border: 2px dashed #0056b3;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+        .verification-section h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #0056b3;
+        }
+        .verification-section img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .signature-pad { border: 2px dashed #0056b3; cursor: crosshair; }
+
+        @media print {
+            body { background-color: #fff; }
+            .no-print { display: none; }
+            .contract-container { box-shadow: none; border: none; padding: 0; max-width: 100%; border-radius: 0; }
+            .container.my-5 { padding: 0 !important; margin: 0 !important; }
+        }
+    </style>
+</head>
+<body>
+    
+    <nav class="navbar navbar-expand-lg navbar-light no-print">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('hub') }}"><strong>Panel de Control</strong></a>
+            <div class="d-flex">
+                 {% if g.admin %}
+                    <span class="navbar-text me-3">Usuario: <strong>{{ g.admin.usuario }}</strong></span>
+                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger">Cerrar Sesión</a>
+                 {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-5">
+        <div class="contract-container">
+            <div class="header">
+                <h1>CONTRATO DE ADHESIÓN – PLAN DE AHORRO PROGRAMADO</h1>
+                <p>MOTO PLAN MOTORS, C.A. | RIF: J-50408959-1</p>
+            </div>
+
+            <div class="client-info mt-4">
+                <h2 class="text-center">Datos del Adherente</h2>
+                <h6 class="text-muted mt-3">INFORMACIÓN PERSONAL</h6>
+                <div class="row">
+                    <div class="col-md-6"><p><strong>Nombre Completo:</strong> {{ cliente.nombre_apellido }}</p></div>
+                    <div class="col-md-6"><p><strong>Cédula de Identidad:</strong> V-{{ cliente.cedula }}</p></div>
+                    <div class="col-md-6"><p><strong>Teléfono:</strong> {{ cliente.telefono }}</p></div>
+                    <div class="col-md-6"><p><strong>Fecha de Ingreso:</strong> {{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</p></div>
+                </div>
+                <hr class="my-3">
+                <h6 class="text-muted">DETALLES DEL CONTRATO</h6>
+                <div class="row">
+                    <div class="col-md-6"><p><strong>Nº Contrato:</strong> {{ cliente.contrato_nro }}</p></div>
+                    <div class="col-md-6"><p><strong>Plan Contratado:</strong> {{ cliente.plan_contratado }}</p></div>
+                    <div class="col-md-6"><p><strong>Cuotas Totales:</strong> {{ cliente.cuotas_totales }}</p></div>
+                    <div class="col-md-6"><p><strong>Cuota Mensual:</strong> ${{ "%.2f"|format(cliente.valor_cuota) if cliente.valor_cuota else 'N/A' }}</p></div>
+                    <div class="col-md-6"><p><strong>Monto Inscripción:</strong> ${{ "%.2f"|format(cliente.inscripcion_monto) if cliente.inscripcion_monto else 'N/A' }}</p></div>
+                    <div class="col-md-6"><p><strong>Moneda de Pago:</strong> {{ cliente.moneda_pago }}</p></div>
+                </div>
+                <hr class="my-3">
+                <h6 class="text-muted">INFORMACIÓN ADMINISTRATIVA</h6>
+                <div class="row">
+                    <div class="col-md-6"><p><strong>Asesor:</strong> {{ cliente.asesor }}</p></div>
+                    <div class="col-md-6"><p><strong>Ciclo de Cobranza:</strong> {{ cliente.ciclo_cobranza }}</p></div>
+                </div>
+            </div>
+
+            <div class="contract-body">
+                <!-- ... Cláusulas del contrato ... -->
+                <h2>CAPÍTULO I: DISPOSICIONES GENERALES</h2>
+                <h3>Cláusula 1. Identificación de las partes:</h3>
+                <p>MOTO PLAN MOTORS, C.A., sociedad mercantil inscrita en el Registro Mercantil Primero del Estado Portuguesa, Tomo 66-A RM410 N°18 de 2023, RIF J-50408959-1, en adelante <strong>LA EMPRESA</strong>, ofrece el presente contrato a <strong>EL CLIENTE</strong> ({{ cliente.nombre_apellido }}), quien acepta adherirse voluntariamente al PLAN DE AHORRO PROGRAMADO.</p>
+                <h3>Cláusula 2. Objeto del contrato:</h3>
+                <p>Mediante este contrato, <strong>LA EMPRESA</strong> ofrece a <strong>EL CLIENTE</strong> la posibilidad de adquirir bienes mediante la planificación de pagos mensuales dentro de un sistema basado en ahorro colectivo y asignación periódica.</p>
+                <h3>Cláusula 3. Aceptación del sistema:</h3>
+                <p><strong>EL CLIENTE</strong> declara haber recibido asesoría clara y suficiente sobre el plan, haber leído y entendido cada cláusula, y aceptar expresamente las condiciones al firmar este documento. Declara haber recibido copia del contrato, evaluación financiera y tarjeta de control de pagos.</p>
+                <h3>Cláusula 4. Definiciones clave:</h3>
+                <ul>
+                    <li><strong>Contrato:</strong> Documento que rige las condiciones del plan.</li>
+                    <li><strong>Monto Contratado:</strong> Valor total que se compromete <strong>EL CLIENTE</strong> a ahorrar para adquirir el bien.</li>
+                    <li><strong>Cuota Mensual:</strong> Aporte periódico de <strong>EL CLIENTE</strong>, que incluye el abono al capital, costos operativos (máx. 30%) e impuestos.</li>
+                    <li><strong>Finiquito:</strong> Pago total anticipado de las cuotas del plan.</li>
+                    <li><strong>Grupo:</strong> Conjunto de 54 clientes participantes del mismo plan.</li>
+                    <li><strong>Adjudicación:</strong> Asignación mensual del monto contratado a clientes solventes, vía sorteo u oferta.</li>
+                    <li><strong>Cuota de Inscripción:</strong> Monto único (16% del plan) para gastos administrativos.</li>
+                    <li><strong>Beneficiario por fallecimiento:</strong> Persona designada para heredar los derechos del contrato.</li>
+                </ul>
+                <h2>CAPÍTULO II: DEL GRUPO Y EL BIEN A ADQUIRIR</h2>
+                <h3>Cláusula 5. Integración del grupo:</h3>
+                <p><strong>EL CLIENTE</strong> pasa a formar parte de un grupo activo al pagar su primera cuota. Se considera formalmente constituido con al menos el 85% de los integrantes solventes.</p>
+                <h3>Cláusula 6. Precio del bien:</h3>
+                <p>Si el precio del bien es menor al monto contratado, <strong>LA EMPRESA</strong> abonará el excedente en cuotas. Si es mayor, <strong>EL CLIENTE</strong> asumirá la diferencia.</p>
+                <h2>CAPÍTULO III: DE LAS CUOTAS</h2>
+                <h3>Cláusula 7. Composición de la cuota mensual:</h3>
+                <p>La cuota mensual está compuesta por:</p>
+                <ul>
+                    <li><strong>Aporte neto:</strong> Parte fija destinada al capital contratado.</li>
+                    <li><strong>Costos operativos y utilidad:</strong> Máximo 30% del monto contratado.</li>
+                    <li><strong>Impuestos:</strong> Según normativa vigente (IVA o IGTF).</li>
+                    <li><strong>Penalidades por atraso:</strong> Aplicables por mora o gestión de cobranza.</li>
+                </ul>
+                <h2>CAPÍTULO IV: DE LOS PAGOS</h2>
+                <h3>Cláusula 8. Duración y forma de pago:</h3>
+                <p>El plan tiene una duración de 24 meses. <strong>EL CLIENTE</strong> deberá pagar una cuota mensual. Se aceptan abonos anticipados. No se aceptan pagos parciales.</p>
+                <h3>Cláusula 9. Pago obligatorio en divisas (concesión y renuncia expresa)</h3>
+                <p>En ejercicio de la libertad contractual y en aplicación del artículo 128 de la Ley del Banco Central de Venezuela, las partes convienen de manera expresa, clara y sin ambigüedad que el pago de las obligaciones derivadas de este contrato se realizará de manera obligatoria en dólares de los Estados Unidos de América (USD), ya sea mediante efectivo o transferencia a las cuentas autorizadas por <strong>LA EMPRESA</strong>.</p>
+                <p>Las partes dejan constancia de que esta estipulación constituye concesión expresa conforme a derecho, y <strong>EL CLIENTE</strong> renuncia expresamente a cualquier pretensión de pago en bolívares, salvo acuerdo escrito y firmado por ambas partes en el que se disponga lo contrario.</p>
+                <h2>CAPÍTULO V: DEL PROCESO DE ENTREGAS</h2>
+                <h3>Cláusula 10. Asignación:</h3>
+                <p>Mensualmente se realiza el evento de asignación. Solo participan clientes solventes. Los adjudicados deberán presentar recaudos dentro del plazo indicado.</p>
+                <h3>Cláusula 11. Mecanismos de adjudicación:</h3>
+                <p>Existen tres mecanismos de adjudicación:</p>
+                <ol type="a">
+                    <li><strong>Asignación por Oferta:</strong> Participan clientes solventes que presenten dos ciclos de cobranza completos en los últimos 60 días previos al evento. Se realizará una oferta por escrito indicando la cantidad de cuotas que se adelantarán. La adjudicación se otorga al cliente con mayor oferta. El pago de la oferta debe efectuarse en un plazo máximo de 8 días desde la notificación; en caso de incumplimiento, se adjudica al siguiente en la lista. En caso de empate, prevalece la mayor antigüedad en el grupo.</li>
+                    <li><strong>Asignación por Abonos Adelantados:</strong> Participan clientes que hayan realizado abonos extras de cuotas antes del evento. La adjudicación se otorga al cliente con mayor número de abonos adelantados. Este mecanismo prevalece sobre el mecanismo por oferta.</li>
+                    <li><strong>Asignación por Antigüedad:</strong> Este mecanismo se activa una vez que <strong>EL CLIENTE</strong> haya alcanzado al menos el treinta y cinco por ciento (35%) del plan total contratado. El porcentaje se calculará en base al número total de cuotas del plan y, en caso de resultar un valor con decimales, se tomará como referencia la cuota entera inmediata siguiente, dado que no se aceptan cuotas parciales. Participan los clientes con el mayor número de pagos mensuales consecutivos, adjudicándose el beneficio al que ocupe el primer lugar según orden de antigüedad para el mes de la selección.</li>
+                </ol>
+                <h3>Cláusula 12. Plazo de entrega:</h3>
+                <p>Una vez adjudicado, <strong>LA EMPRESA</strong> dispone de hasta 60 días hábiles posteriores a la validación de recaudos para efectuar la entrega del bien, condicionado a disponibilidad y cumplimiento contractual.</p>
+                <h2>CAPÍTULO VI: INCUMPLIMIENTO</h2>
+                <h3>Cláusula 13. Mora:</h3>
+                <p>Se considera mora el pago fuera de la fecha límite o por montos incompletos. Afecta el orden de adjudicación.</p>
+                <h3>Cláusula 14. Cliente no adjudicado:</h3>
+                <p>La falta de pago de 3 cuotas consecutivas faculta a <strong>LA EMPRESA</strong> a rescindir el contrato, devolviendo solo el aporte neto.</p>
+                <h3>Cláusula 15. Cliente adjudicado:</h3>
+                <p>El incumplimiento de 3 cuotas por parte de un adjudicado habilita a <strong>LA EMPRESA</strong> a ejecutar el contrato o exigir devolución del bien, más daños y perjuicios.</p>
+                <h2>CAPÍTULO VII: DERECHOS DEL CLIENTE</h2>
+                <h3>Cláusula 16. Derecho de retracto y modificaciones:</h3>
+                <p><strong>EL CLIENTE</strong> podrá:</p>
+                <ul>
+                    <li>Retractarse dentro de los 7 días hábiles (cuota de inscripción no es reembolsable).</li>
+                    <li>Cambiar de grupo o monto con ajuste de cuotas e inscripción.</li>
+                    <li>Transferir su contrato a un tercero solvente.</li>
+                    <li>Rescindir el contrato, recuperando únicamente los aportes netos al final del plan.</li>
+                </ul>
+                <h2>CAPÍTULO VIII: DOMICILIO Y JURISDICCIÓN</h2>
+                <h3>Cláusula 17. Domicilios y tribunal competente:</h3>
+                <p>Las partes fijan los domicilios indicados en la solicitud de inscripción. En caso de controversia, se someten a los tribunales del Estado Portuguesa.</p>
+                <h2>CAPÍTULO IX: FIRMA ELECTRÓNICA</h2>
+                <h3>Cláusula 18. Firma electrónica:</h3>
+                <p>El contrato podrá firmarse mediante firma electrónica avanzada, con igual validez que la manuscrita, garantizando identidad, integridad y consentimiento.</p>
+                <h2>CAPÍTULO X: CONSTANCIA DE ASESORÍA Y GRABACIÓN</h2>
+                <h3>Cláusula 19. Grabación de asesoría:</h3>
+                <p><strong>EL CLIENTE</strong> declara haber recibido asesoría clara y suficiente, cuya grabación podrá conservar <strong>LA EMPRESA</strong> como respaldo legal.</p>
+            </div>
+            
+            <!-- SECCIÓN DE FIRMA INTERACTIVA -->
+            <div class="signatures row">
+                <div class="col-md-6 signature-block">
+                    {% if not cliente.firma_empresa %}
+                    <form id="formFirmaEmpresa" action="{{ url_for('guardar_firma_empresa', client_id=cliente.id) }}" method="POST" class="no-print">
+                        <input type="hidden" name="firma_empresa" id="firma_empresa_input">
+                        <p class="border-0 m-0">LA EMPRESA</p>
+                        <canvas id="signature-pad-empresa" class="mx-auto signature-pad" width="400" height="200"></canvas>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-outline-danger btn-sm clear-signature-btn">Limpiar</button>
+                            <button type="submit" class="btn btn-primary btn-sm">Guardar Firma Empresa</button>
+                        </div>
+                    </form>
+                    {% else %}
+                        <img src="{{ cliente.firma_empresa }}" alt="Firma de la Empresa" style="max-width: 250px; margin-top: -20px;">
+                        <p>LA EMPRESA<br>(MOTO PLAN MOTORS, C.A.)</p>
+                    {% endif %}
+                </div>
+                <div class="col-md-6 signature-block">
+                    {% if not cliente.firma_digital %}
+                    <form id="formFirmaCliente" action="{{ url_for('guardar_firma_cliente', client_id=cliente.id) }}" method="POST" class="no-print">
+                        <input type="hidden" name="firma_cliente" id="firma_cliente_input">
+                        <p class="border-0 m-0">EL CLIENTE</p>
+                        <canvas id="signature-pad-cliente" class="mx-auto signature-pad" width="400" height="200"></canvas>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-outline-danger btn-sm clear-signature-btn">Limpiar</button>
+                            <button type="submit" class="btn btn-primary btn-sm">Guardar Firma Cliente</button>
+                        </div>
+                    </form>
+                    {% else %}
+                        <img src="{{ cliente.firma_digital }}" alt="Firma Digital del Cliente" style="max-width: 250px; margin-top: -20px;">
+                        <p>EL CLIENTE<br>{{ cliente.nombre_apellido }}<br>C.I: V-{{ cliente.cedula }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- SECCIÓN DE VERIFICACIÓN Y TRAZABILIDAD -->
+            <div class="verification-section">
+                <h2 class="no-print">Anexos de Verificación y Trazabilidad</h2>
+                 {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                        <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} no-print">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                <div class="row text-center align-items-center">
+                    <div class="col-md-6">
+                        <h6>Foto del Cliente</h6>
+                        <img src="{{ cliente.foto_cliente if cliente.foto_cliente else 'https://placehold.co/320x240/eee/ccc?text=Foto+Cliente' }}" alt="Foto del Cliente" class="img-fluid">
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Foto de la Cédula</h6>
+                        <img src="{{ cliente.foto_cedula if cliente.foto_cedula else 'https://placehold.co/320x240/eee/ccc?text=Foto+Cédula' }}" alt="Foto de la Cédula" class="img-fluid">
+                    </div>
+                </div>
+                {% if cliente.fecha_firma %}
+                <div class="text-center mt-3">
+                    <p class="text-muted">
+                        <i class="bi bi-patch-check-fill"></i>
+                        Contrato generado y firmado digitalmente el: 
+                        <strong>{{ cliente.fecha_firma.strftime('%d/%m/%Y a las %I:%M %p') }}</strong>
+                        (Hora de Venezuela)
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="print-button-container no-print">
+                <button class="btn btn-success btn-lg" onclick="window.print()"><i class="bi bi-printer-fill"></i> Imprimir Contrato Completo</button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer no-print">
+        <p>&copy; {{ anio_actual }} Moto Plan Motors C.A.</p>
+    </footer>
+    
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Configuración para la firma del cliente
+        const signaturePadCanvasCliente = document.getElementById('signature-pad-cliente');
+        if (signaturePadCanvasCliente) {
+            const signaturePadCliente = new SignaturePad(signaturePadCanvasCliente, { backgroundColor: 'rgb(255, 255, 255)' });
+            const formCliente = document.getElementById('formFirmaCliente');
+            formCliente.querySelector('.clear-signature-btn').addEventListener('click', () => {
+                signaturePadCliente.clear();
+            });
+            formCliente.addEventListener('submit', function(e) {
+                if (signaturePadCliente.isEmpty()) {
+                    alert("Por favor, el cliente debe firmar en el recuadro.");
+                    e.preventDefault();
+                    return;
+                }
+                formCliente.querySelector('#firma_cliente_input').value = signaturePadCliente.toDataURL('image/png');
+            });
+        }
+
+        // Configuración para la firma de la empresa
+        const signaturePadCanvasEmpresa = document.getElementById('signature-pad-empresa');
+        if (signaturePadCanvasEmpresa) {
+            const signaturePadEmpresa = new SignaturePad(signaturePadCanvasEmpresa, { backgroundColor: 'rgb(255, 255, 255)' });
+            const formEmpresa = document.getElementById('formFirmaEmpresa');
+            formEmpresa.querySelector('.clear-signature-btn').addEventListener('click', () => {
+                signaturePadEmpresa.clear();
+            });
+            formEmpresa.addEventListener('submit', function(e) {
+                if (signaturePadEmpresa.isEmpty()) {
+                    alert("Por favor, el representante de la empresa debe firmar en el recuadro.");
+                    e.preventDefault();
+                    return;
+                }
+                formEmpresa.querySelector('#firma_empresa_input').value = signaturePadEmpresa.toDataURL('image/png');
+            });
+        }
+    });
+    </script>
+</body>
+</html>

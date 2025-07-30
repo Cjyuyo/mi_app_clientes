@@ -11,6 +11,7 @@ from functools import wraps
 import io
 import csv
 import logging
+import pytz
 
 # Configuración del logging para que sea visible en Render
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -148,7 +149,6 @@ def admin_login():
             if admin and check_password_hash(admin['password_hash'], password):
                 session.clear()
                 session['admin_id'] = admin['id']
-                # CORRECCIÓN: Se añade ultimo_visto = NOW() para asegurar el estado online inmediato
                 cur.execute("UPDATE administradores SET ultimo_login = NOW(), estatus_online = TRUE, ultimo_visto = NOW() WHERE id = %s", (admin['id'],))
                 conn.commit()
                 flash(f"¡Bienvenido de nuevo, {admin['usuario']}!", 'success')
@@ -169,7 +169,6 @@ def admin_logout():
         conn = get_db()
         if conn:
             with conn.cursor() as cur:
-                # Se establece el estado como DESCONECTADO al cerrar sesión
                 cur.execute("UPDATE administradores SET estatus_online = FALSE WHERE id = %s", (admin_id,))
                 conn.commit()
     session.clear()
@@ -188,8 +187,6 @@ def hub():
     usuarios = []
     if conn:
         with conn.cursor() as cur:
-            # Consulta híbrida: un usuario está en línea si su estatus es TRUE
-            # Y su última actividad fue en los últimos 5 minutos.
             cur.execute("""
                 SELECT 
                     usuario, 
@@ -211,20 +208,6 @@ def registrar():
 def registrar_cliente():
     form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
     
-    campos_obligatorios = {
-        'nombre_apellido': 'Nombre y Apellido',
-        'cedula': 'Cédula',
-        'contrato_nro': 'Número de Contrato',
-        'telefono': 'Teléfono',
-        'plan_contratado': 'Plan Contratado',
-        'valor_cuota': 'Valor de la Cuota'
-    }
-    campos_faltantes = [nombre_legible for campo_html, nombre_legible in campos_obligatorios.items() if not form_data.get(campo_html)]
-    if campos_faltantes:
-        mensaje_error = f"Error: Los siguientes campos son obligatorios: {', '.join(campos_faltantes)}."
-        flash(mensaje_error, 'error')
-        return redirect(url_for('registrar'))
-
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
@@ -240,9 +223,11 @@ def registrar_cliente():
                 'apellido': apellido, 
                 'cedula': form_data.get('cedula').replace(' ', ''),
                 'cuotas_pagadas_progresivas': 0,
-                'cuotas_pagadas_regresivas': 0
+                'cuotas_pagadas_regresivas': 0,
+                'foto_cliente': form_data.get('foto_cliente'),
+                'foto_cedula': form_data.get('foto_cedula')
             }
-            optional_fields = ['contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso', 'grupo', 'plan_contratado', 'cuotas_totales', 'moneda_pago', 'valor_cuota', 'inscripcion_monto', 'proceso']
+            optional_fields = ['contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso', 'grupo', 'plan_contratado', 'cuotas_totales', 'moneda_pago', 'valor_cuota', 'inscripcion_monto', 'proceso', 'ciclo_cobranza']
             for field in optional_fields:
                 if form_data.get(field):
                     insert_dict[field] = form_data[field]
@@ -254,11 +239,12 @@ def registrar_cliente():
             cur.execute(query, values)
             new_client_id = cur.fetchone()[0]
             
-            descripcion_audit = f"Registró al nuevo cliente: {form_data.get('nombre_apellido')} (C.I. {form_data.get('cedula')})."
+            descripcion_audit = f"Registró al nuevo cliente y preparó contrato para: {form_data.get('nombre_apellido')} (C.I. {form_data.get('cedula')})."
             registrar_accion_auditoria('REGISTRO_CLIENTE', descripcion_audit, new_client_id)
             
             conn.commit()
-            flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado exitosamente!", 'success')
+            flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado! Ahora el cliente debe firmar el contrato.", 'success')
+            return redirect(url_for('generar_contrato', client_id=new_client_id))
 
     except psycopg2.IntegrityError:
         conn.rollback()
@@ -268,6 +254,84 @@ def registrar_cliente():
         flash(f"Registro fallido: Ocurrió un error de base de datos: {e}", 'error')
         
     return redirect(url_for('registrar'))
+
+@app.route('/generar_contrato/<int:client_id>')
+@admin_required
+def generar_contrato(client_id):
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('registrar'))
+    
+    with conn.cursor() as cur:
+        cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
+        cliente = cur.fetchone()
+
+    if not cliente:
+        flash('Cliente no encontrado.', 'error')
+        return redirect(url_for('registrar'))
+
+    return render_template('contrato.html', cliente=cliente, anio_actual=datetime.now().year)
+
+@app.route('/guardar_firma_cliente/<int:client_id>', methods=['POST'])
+@admin_required
+def guardar_firma_cliente(client_id):
+    firma_cliente = request.form.get('firma_cliente')
+    if not firma_cliente:
+        flash('No se recibió la firma del cliente.', 'error')
+        return redirect(url_for('generar_contrato', client_id=client_id))
+    
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('generar_contrato', client_id=client_id))
+
+    try:
+        with conn.cursor() as cur:
+            fecha_firma_utc = datetime.now(pytz.utc)
+            fecha_firma_vet = fecha_firma_utc.astimezone(pytz.timezone('America/Caracas'))
+
+            cur.execute(
+                "UPDATE clientes SET firma_digital = %s, fecha_firma = %s WHERE id = %s",
+                (firma_cliente, fecha_firma_vet, client_id)
+            )
+            conn.commit()
+            flash('¡Firma del cliente guardada exitosamente!', 'success')
+    except (psycopg2.Error, ConnectionError) as e:
+        conn.rollback()
+        flash(f'Error al guardar la firma del cliente: {e}', 'error')
+
+    return redirect(url_for('generar_contrato', client_id=client_id))
+
+@app.route('/guardar_firma_empresa/<int:client_id>', methods=['POST'])
+@admin_required
+def guardar_firma_empresa(client_id):
+    firma_empresa = request.form.get('firma_empresa')
+    if not firma_empresa:
+        flash('No se recibió la firma de la empresa.', 'error')
+        return redirect(url_for('generar_contrato', client_id=client_id))
+    
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('generar_contrato', client_id=client_id))
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE clientes SET firma_empresa = %s WHERE id = %s",
+                (firma_empresa, client_id)
+            )
+            # Opcional: actualizar fecha_firma si no existe, para registrar el momento en que el contrato se vuelve bilateral
+            cur.execute("UPDATE clientes SET fecha_firma = %s WHERE id = %s AND fecha_firma IS NULL", (datetime.now(pytz.timezone('America/Caracas')), client_id))
+            conn.commit()
+            flash('¡Firma de la empresa guardada exitosamente!', 'success')
+    except (psycopg2.Error, ConnectionError) as e:
+        conn.rollback()
+        flash(f'Error al guardar la firma de la empresa: {e}', 'error')
+
+    return redirect(url_for('generar_contrato', client_id=client_id))
+
 
 @app.route('/consulta', methods=['GET', 'POST'])
 @admin_required
