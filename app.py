@@ -48,7 +48,6 @@ def get_db():
         if not DATABASE_URL:
             raise ValueError("FATAL: La variable de entorno DATABASE_URL no está configurada.")
         try:
-            # Se establece el cursor_factory en la conexión para que todos los cursores devuelvan diccionarios.
             g.db = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
         except psycopg2.OperationalError as e:
             logging.error(f"Error de conexión a la base de datos: {e}")
@@ -148,7 +147,8 @@ def admin_login():
             if admin and check_password_hash(admin['password_hash'], password):
                 session.clear()
                 session['admin_id'] = admin['id']
-                cur.execute("UPDATE administradores SET ultimo_login = NOW() WHERE id = %s", (admin['id'],))
+                # Se establece el estado como EN LÍNEA al iniciar sesión
+                cur.execute("UPDATE administradores SET ultimo_login = NOW(), estatus_online = TRUE WHERE id = %s", (admin['id'],))
                 conn.commit()
                 flash(f"¡Bienvenido de nuevo, {admin['usuario']}!", 'success')
                 return redirect(url_for('hub'))
@@ -163,6 +163,14 @@ def admin_dashboard():
 
 @app.route('/admin/logout')
 def admin_logout():
+    admin_id = session.get('admin_id')
+    if admin_id:
+        conn = get_db()
+        if conn:
+            with conn.cursor() as cur:
+                # Se establece el estado como DESCONECTADO al cerrar sesión
+                cur.execute("UPDATE administradores SET estatus_online = FALSE WHERE id = %s", (admin_id,))
+                conn.commit()
     session.clear()
     flash('Has cerrado la sesión exitosamente.', 'info')
     return redirect(url_for('admin_login'))
@@ -179,16 +187,20 @@ def hub():
     usuarios = []
     if conn:
         with conn.cursor() as cur:
+            # Consulta híbrida: un usuario está en línea si su estatus es TRUE
+            # Y su última actividad fue en los últimos 5 minutos.
             cur.execute("""
                 SELECT 
                     usuario, 
                     ultimo_login,
-                    (ultimo_visto > NOW() - INTERVAL '5 minutes') AS esta_en_linea
+                    (estatus_online AND ultimo_visto > NOW() - INTERVAL '5 minutes') AS esta_en_linea
                 FROM administradores 
                 ORDER BY usuario
             """)
             usuarios = cur.fetchall()
     return render_template('hub.html', anio_actual=datetime.now().year, usuarios=usuarios)
+
+# --- (Aquí comienza el resto de tu código, que no necesita cambios) ---
 
 @app.route('/registrar')
 @admin_required
