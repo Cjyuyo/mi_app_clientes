@@ -779,7 +779,7 @@ def auditoria():
             cur.execute("SET TIME ZONE 'America/Caracas';")
 
             sql = """
-                SELECT r.id, r.usuario_nombre, r.accion, r.descripcion, r.timestamp, 
+                SELECT r.id, r.usuario_nombre, r.accion, r.descripcion, r.timestamp AS fecha_registro, 
                        c.nombre, c.apellido, c.cedula
                 FROM registros_auditoria r
                 LEFT JOIN clientes c ON r.cliente_afectado_id = c.id
@@ -823,7 +823,7 @@ def descargar_reporte_auditoria():
             cur.execute("SET TIME ZONE 'America/Caracas';")
             
             sql = """
-                SELECT r.timestamp, r.usuario_nombre, r.accion, r.descripcion, 
+                SELECT r.timestamp AS fecha_registro, r.usuario_nombre, r.accion, r.descripcion, 
                        (c.nombre || ' ' || c.apellido) as cliente_nombre, c.cedula
                 FROM registros_auditoria r
                 LEFT JOIN clientes c ON r.cliente_afectado_id = c.id
@@ -840,7 +840,7 @@ def descargar_reporte_auditoria():
             
             for log in logs:
                 writer.writerow([
-                    log['timestamp'].strftime('%Y-%m-%d %H:%M:%S'),
+                    log['fecha_registro'].strftime('%Y-%m-%d %H:%M:%S'),
                     log['usuario_nombre'],
                     log['accion'],
                     log['descripcion'],

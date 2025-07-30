@@ -69,7 +69,6 @@
     </div>
 
     <div class="container my-5">
-        <!-- Formulario de Filtro y Descarga -->
         <div class="card shadow-sm border-0 rounded-lg mb-4">
             <div class="card-body">
                 <form method="GET" action="{{ url_for('auditoria') }}" class="row g-3 align-items-center">
@@ -89,7 +88,6 @@
             </div>
         </div>
 
-        <!-- Tabla de Registros -->
         <div class="row justify-content-center">
             <div class="col-lg-12">
                 <div class="card shadow-sm border-0 rounded-lg">
@@ -108,7 +106,7 @@
                                 <tbody>
                                     {% for log in logs %}
                                     <tr>
-                                        <td>{{ log.fecha_hora.strftime('%d/%m/%Y %I:%M %p') if log.fecha_hora else 'N/A' }}</td>
+                                        <td>{{ log.fecha_registro.strftime('%d/%m/%Y %I:%M %p') if log.fecha_registro else 'N/A' }}</td>
                                         <td><strong>{{ log.usuario_nombre }}</strong></td>
                                         <td>
                                             <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">
