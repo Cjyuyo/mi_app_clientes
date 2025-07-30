@@ -137,7 +137,6 @@
                 </div>
             </div>
             
-            <!-- Tarjeta Condicional para Superadmin -->
             {% if g.admin and g.admin.rol == 'superadmin' %}
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
@@ -166,16 +165,20 @@
                                 <strong>{{ usuario.usuario }}</strong><br>
                                 <small class="text-muted">
                                     {% if usuario.ultimo_login %}
-                                        <span class="local-time" data-utc-time="{{ usuario.ultimo_login.isoformat() }}">
-                                            Cargando...
-                                        </span>
+                                        Última sesión: {{ usuario.ultimo_login.strftime('%d/%m/%Y, %-I:%M %p') }}
                                     {% else %}
                                         Nunca ha iniciado sesión
                                     {% endif %}
                                 </small>
-                            </div>
-                            <span class="badge rounded-pill {{ 'bg-success' if usuario.estatus_online else 'bg-secondary' }}">
-                                {{ 'En línea' if usuario.estatus_online else 'Desconectado' }}
+                                <div style="font-size: 0.8rem; margin-top: 5px; background-color: #eee; padding: 5px; border-radius: 4px;">
+                                    <strong>Debug:</strong><br>
+                                    Estatus Online (BD): <strong>{{ usuario.estatus_online }}</strong><br>
+                                    Última Actividad (BD): <strong>{{ usuario.ultimo_visto.strftime('%Y-%m-%d %H:%M:%S') if usuario.ultimo_visto else 'N/A' }}</strong><br>
+                                    Tiempo Inactivo: <strong>{{ usuario.inactividad }}</strong>
+                                </div>
+                                </div>
+                            <span class="badge rounded-pill {{ 'bg-success' if usuario.esta_en_linea else 'bg-secondary' }}">
+                                {{ 'En línea' if usuario.esta_en_linea else 'Desconectado' }}
                             </span>
                         </li>
                         {% endfor %}
@@ -192,23 +195,7 @@
     </footer>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const timeElements = document.querySelectorAll('.local-time');
-            
-            timeElements.forEach(function(element) {
-                const utcTimeString = element.getAttribute('data-utc-time');
-                if (utcTimeString) {
-                    const localDate = new Date(utcTimeString);
-                    
-                    const options = {
-                        year: 'numeric', month: 'numeric', day: 'numeric',
-                        hour: 'numeric', minute: 'numeric', hour12: true
-                    };
-
-                    element.textContent = 'Última sesión: ' + localDate.toLocaleString('es-VE', options);
-                }
-            });
-        });
+        // No es necesario modificar el script para la depuración
     </script>
 
 </body>
