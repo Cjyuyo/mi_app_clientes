@@ -48,6 +48,7 @@ def get_db():
         if not DATABASE_URL:
             raise ValueError("FATAL: La variable de entorno DATABASE_URL no está configurada.")
         try:
+            # Se establece el cursor_factory en la conexión para que todos los cursores devuelvan diccionarios.
             g.db = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
         except psycopg2.OperationalError as e:
             logging.error(f"Error de conexión a la base de datos: {e}")
@@ -147,8 +148,8 @@ def admin_login():
             if admin and check_password_hash(admin['password_hash'], password):
                 session.clear()
                 session['admin_id'] = admin['id']
-                # Se establece el estado como EN LÍNEA al iniciar sesión
-                cur.execute("UPDATE administradores SET ultimo_login = NOW(), estatus_online = TRUE WHERE id = %s", (admin['id'],))
+                # CORRECCIÓN: Se añade ultimo_visto = NOW() para asegurar el estado online inmediato
+                cur.execute("UPDATE administradores SET ultimo_login = NOW(), estatus_online = TRUE, ultimo_visto = NOW() WHERE id = %s", (admin['id'],))
                 conn.commit()
                 flash(f"¡Bienvenido de nuevo, {admin['usuario']}!", 'success')
                 return redirect(url_for('hub'))
@@ -199,8 +200,6 @@ def hub():
             """)
             usuarios = cur.fetchall()
     return render_template('hub.html', anio_actual=datetime.now().year, usuarios=usuarios)
-
-# --- (Aquí comienza el resto de tu código, que no necesita cambios) ---
 
 @app.route('/registrar')
 @admin_required
