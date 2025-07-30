@@ -97,7 +97,14 @@
             text-align: center;
         }
         .btn-primary { background-color: #28a745; color: white; }
-        .mensaje { margin: 20px 0 0; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
+        .mensaje {
+            margin: 20px auto 0;
+            max-width: 95%;
+            font-weight: bold;
+            padding: 10px 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
         .success { color: #4F8A10; background-color: #DFF2BF; }
         .error { color: #D8000C; background-color: #FFD2D2; }
         .camera-section { display: none; }
@@ -161,9 +168,11 @@
             </div>
 
             <div class="text-center mb-4">
-                <button type="button" id="start-camera" class="btn btn-secondary"><i class="bi bi-camera"></i> Iniciar Cámara</button>
-                <button type="button" id="capture-cliente" class="btn btn-primary" disabled><i class="bi bi-person-bounding-box"></i> Tomar Foto Cliente</button>
-                <button type="button" id="capture-cedula" class="btn btn-primary" disabled><i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula</button>
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                    <button type="button" id="start-camera" class="btn btn-secondary"><i class="bi bi-camera"></i> Iniciar Cámara</button>
+                    <button type="button" id="capture-cliente" class="btn btn-primary" disabled><i class="bi bi-person-bounding-box"></i> Tomar Foto Cliente</button>
+                    <button type="button" id="capture-cedula" class="btn btn-primary" disabled><i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula</button>
+                </div>
             </div>
 
             <div class="row">
