@@ -107,9 +107,17 @@
         }
         .success { color: #4F8A10; background-color: #DFF2BF; }
         .error { color: #D8000C; background-color: #FFD2D2; }
-        #video-feed, #capture-canvas {
-            max-width: 100%;
+        
+        /* Estilos para corregir el aspecto de las fotos */
+        #preview-cliente, #preview-cedula {
+            width: 100%;
+            height: 240px;
+            object-fit: cover; /* Clave para evitar distorsión */
+        }
+        .modal-body video, .modal-body canvas {
+            width: 100%;
             height: auto;
+            object-fit: cover; /* Clave para evitar distorsión */
         }
         .confirmation-view { display: none; }
     </style>
@@ -169,14 +177,14 @@
             <div class="row">
                 <div class="col-md-6 text-center mb-3">
                     <h6>Foto del Cliente</h6>
-                    <img id="preview-cliente" src="https://placehold.co/320x240/eee/ccc?text=Foto+Cliente" class="img-fluid rounded border mb-2">
+                    <img id="preview-cliente" src="https://placehold.co/400x300/eee/ccc?text=Foto+Cliente" class="rounded border mb-2">
                     <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cliente">
                         <i class="bi bi-person-bounding-box"></i> Tomar Foto Cliente
                     </button>
                 </div>
                 <div class="col-md-6 text-center mb-3">
                     <h6>Foto de la Cédula</h6>
-                    <img id="preview-cedula" src="https://placehold.co/320x240/eee/ccc?text=Foto+Cédula" class="img-fluid rounded border mb-2">
+                    <img id="preview-cedula" src="https://placehold.co/400x300/eee/ccc?text=Foto+Cédula" class="rounded border mb-2">
                      <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cedula">
                         <i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula
                     </button>
@@ -217,12 +225,12 @@
       <div class="modal-body text-center">
         <!-- Vista de la cámara en vivo -->
         <div class="live-view">
-            <video id="video-feed" width="400" height="300" autoplay playsinline muted class="bg-dark rounded"></video>
+            <video id="video-feed" autoplay playsinline muted class="bg-dark rounded"></video>
         </div>
         <!-- Vista de confirmación de la foto -->
         <div class="confirmation-view">
             <p><strong>¿Desea usar esta foto?</strong></p>
-            <canvas id="capture-canvas" width="400" height="300" class="rounded"></canvas>
+            <canvas id="capture-canvas" class="rounded"></canvas>
         </div>
       </div>
       <div class="modal-footer">
@@ -258,6 +266,13 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentCaptureType = null;
     let capturedImageData = null;
     let currentFacingMode = 'user';
+    const CAPTURE_WIDTH = 400;
+    const CAPTURE_HEIGHT = 300;
+
+    canvas.width = CAPTURE_WIDTH;
+    canvas.height = CAPTURE_HEIGHT;
+    video.width = CAPTURE_WIDTH;
+    video.height = CAPTURE_HEIGHT;
 
     function toggleViews(showConfirmation) {
         cameraModal.querySelector('.live-view').style.display = showConfirmation ? 'none' : 'block';
@@ -270,16 +285,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
         }
-        const constraints = { video: { width: 400, height: 300, facingMode: facingMode } };
+        const constraints = { video: { width: CAPTURE_WIDTH, height: CAPTURE_HEIGHT, facingMode: facingMode } };
         try {
             stream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = stream;
             await video.play();
         } catch (err) {
             console.error("Error starting camera with facingMode " + facingMode + ": ", err);
-            // Fallback for devices that don't support facingMode exactly
             try {
-                const fallbackConstraints = { video: { width: 400, height: 300 } };
+                const fallbackConstraints = { video: { width: CAPTURE_WIDTH, height: CAPTURE_HEIGHT } };
                 stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
                 video.srcObject = stream;
                 await video.play();
@@ -296,10 +310,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (currentCaptureType === 'cedula') {
             modalTitle.textContent = 'Capturar Foto de la Cédula';
-            currentFacingMode = 'environment'; // Cámara trasera para la cédula
+            currentFacingMode = 'environment';
         } else {
             modalTitle.textContent = 'Capturar Foto del Cliente';
-            currentFacingMode = 'user'; // Cámara frontal para el cliente
+            currentFacingMode = 'user';
         }
 
         toggleViews(false);
@@ -319,7 +333,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     captureBtn.addEventListener('click', () => {
         const context = canvas.getContext('2d');
-        context.drawImage(video, 0, 0, 400, 300);
+        context.drawImage(video, 0, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT);
         capturedImageData = canvas.toDataURL('image/jpeg');
         toggleViews(true);
     });
