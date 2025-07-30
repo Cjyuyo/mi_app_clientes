@@ -120,9 +120,14 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
                 """,
                 (g.admin['id'], g.admin['usuario'], accion, descripcion, cliente_id)
             )
+        # SOLUCIÓN DEFINITIVA: Se asegura de que esta acción específica se guarde inmediatamente.
+        conn.commit()
         logging.info(f"AUDITORIA-REGISTRADA: Usuario '{g.admin['usuario']}' realizó '{accion}'.")
     except Exception as e:
         logging.error(f"AUDITORIA-FALLO-INSERCION: {e}")
+        # Si hay un error, revierte la transacción para no dejar la BD en un estado inconsistente.
+        if conn:
+            conn.rollback()
         raise e
 
 # --- RUTAS DEL PORTAL DE ADMINISTRACIÓN ---
@@ -690,7 +695,7 @@ def realizar_adjudicacion():
             ids_ya_ganadores.update(ids_ganadores_ahorro)
             
             ganador_oferta = None
-            cur.execute("SELECT c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador' AND c.id NOT IN %s;", (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
+            cur.execute("SELECT c.id, (c.nombre || ' ' || apellido) as nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador' AND c.id NOT IN %s;", (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
             candidatos_oferta_raw = cur.fetchall()
             
             candidatos_oferta = []
