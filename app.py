@@ -576,6 +576,7 @@ def delete_client(client_id):
     if not conn: return redirect(url_for('consulta'))
     try:
         with conn.cursor() as cur:
+            # Primero, obtenemos los datos del cliente para el mensaje de auditoría
             cur.execute("SELECT nombre, apellido, cedula FROM clientes WHERE id = %s", (client_id,))
             cliente_a_borrar = cur.fetchone()
             if not cliente_a_borrar:
@@ -584,12 +585,16 @@ def delete_client(client_id):
 
             descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']})."
             
-            cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
-            
+            # --- ORDEN CORREGIDO ---
+            # 1. Primero registramos la acción, mientras el cliente todavía existe.
             registrar_accion_auditoria('ELIMINACION_CLIENTE', descripcion_audit, client_id)
+            
+            # 2. Ahora sí, borramos al cliente.
+            cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
             
             conn.commit()
             flash('¡Cliente y sus registros asociados han sido eliminados exitosamente!', 'success')
+            
     except (psycopg2.Error, ConnectionError) as e:
         conn.rollback()
         flash(f'Ocurrió un error al eliminar: {e}', 'error')
