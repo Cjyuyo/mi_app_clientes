@@ -172,9 +172,9 @@
                                 </div>
                                 <div>
                                     <h6 class="mb-0 fw-bold">{{ usuario.usuario }}</h6>
-                                    <small class="text-muted">
+                                    <small class="text-muted local-time" data-utc-time="{{ usuario.ultimo_login.isoformat() if usuario.ultimo_login else '' }}">
                                         {% if usuario.ultimo_login %}
-                                            Última sesión: {{ usuario.ultimo_login.strftime('%d/%m/%Y, %-I:%M %p') }}
+                                            Cargando hora local...
                                         {% else %}
                                             Nunca ha iniciado sesión
                                         {% endif %}
@@ -201,6 +201,27 @@
     <footer class="footer">
         <p>&copy; {{ anio_actual }} Moto Plan Motors C.A.</p>
     </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const timeElements = document.querySelectorAll('.local-time');
+            
+            timeElements.forEach(function(element) {
+                const utcTimeString = element.getAttribute('data-utc-time');
+                if (utcTimeString) {
+                    const localDate = new Date(utcTimeString);
+                    
+                    const options = {
+                        year: 'numeric', month: 'numeric', day: 'numeric',
+                        hour: 'numeric', minute: 'numeric', hour12: true,
+                        timeZoneName: 'short'
+                    };
+
+                    element.textContent = 'Última sesión: ' + localDate.toLocaleString('es-CO', options);
+                }
+            });
+        });
+    </script>
 
 </body>
 </html>
