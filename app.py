@@ -35,7 +35,6 @@ def setup_session_and_user():
             if admin_id:
                 cur.execute("SELECT id, usuario, rol FROM administradores WHERE id = %s", (admin_id,))
                 g.admin = cur.fetchone()
-                # Si el admin está logueado, actualizamos su última hora de actividad
                 if g.admin:
                     cur.execute("UPDATE administradores SET ultimo_visto = NOW() WHERE id = %s", (g.admin['id'],))
                     db.commit()
@@ -49,7 +48,6 @@ def get_db():
         if not DATABASE_URL:
             raise ValueError("FATAL: La variable de entorno DATABASE_URL no está configurada.")
         try:
-            # Se establece el cursor_factory en la conexión para que todos los cursores devuelvan diccionarios.
             g.db = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
         except psycopg2.OperationalError as e:
             logging.error(f"Error de conexión a la base de datos: {e}")
@@ -256,12 +254,20 @@ def registrar_cliente():
     return redirect(url_for('registrar'))
 
 @app.route('/generar_contrato/<int:client_id>')
-@admin_required
 def generar_contrato(client_id):
+    is_admin = 'admin_id' in session
+    is_correct_client = 'cliente_id' in session and session['cliente_id'] == client_id
+
+    if not is_admin and not is_correct_client:
+        flash('Acceso no autorizado.', 'error')
+        if 'cliente_id' in session:
+            return redirect(url_for('portal_dashboard'))
+        return redirect(url_for('home'))
+
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('registrar'))
+        return redirect(url_for('home'))
     
     with conn.cursor() as cur:
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
@@ -269,7 +275,7 @@ def generar_contrato(client_id):
 
     if not cliente:
         flash('Cliente no encontrado.', 'error')
-        return redirect(url_for('registrar'))
+        return redirect(url_for('home'))
 
     return render_template('contrato.html', cliente=cliente, anio_actual=datetime.now().year)
 
@@ -322,7 +328,6 @@ def guardar_firma_empresa(client_id):
                 "UPDATE clientes SET firma_empresa = %s WHERE id = %s",
                 (firma_empresa, client_id)
             )
-            # Opcional: actualizar fecha_firma si no existe, para registrar el momento en que el contrato se vuelve bilateral
             cur.execute("UPDATE clientes SET fecha_firma = %s WHERE id = %s AND fecha_firma IS NULL", (datetime.now(pytz.timezone('America/Caracas')), client_id))
             conn.commit()
             flash('¡Firma de la empresa guardada exitosamente!', 'success')

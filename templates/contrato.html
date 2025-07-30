@@ -69,7 +69,7 @@
             color: #212529;
         }
         .signatures { margin-top: 50px; }
-        .signature-block { text-align: center; }
+        .signature-block { text-align: center; margin-bottom: 2rem;}
         .signature-block p {
             border-top: 1px solid #333;
             padding-top: 10px;
@@ -97,11 +97,18 @@
         }
         .verification-section img {
             max-width: 100%;
-            height: auto;
+            height: 250px; /* Altura fija para consistencia */
+            object-fit: contain; /* Clave para evitar distorsión */
             border: 1px solid #ddd;
             border-radius: 4px;
+            background-color: #f0f2f5;
         }
-        .signature-pad { border: 2px dashed #0056b3; cursor: crosshair; }
+        .signature-pad { 
+            border: 2px dashed #0056b3; 
+            cursor: crosshair;
+            max-width: 100%;
+            height: auto;
+        }
 
         @media print {
             body { background-color: #fff; }
@@ -245,14 +252,14 @@
                     <form id="formFirmaEmpresa" action="{{ url_for('guardar_firma_empresa', client_id=cliente.id) }}" method="POST" class="no-print">
                         <input type="hidden" name="firma_empresa" id="firma_empresa_input">
                         <p class="border-0 m-0">LA EMPRESA</p>
-                        <canvas id="signature-pad-empresa" class="mx-auto signature-pad" width="400" height="200"></canvas>
-                        <div class="mt-2">
+                        <canvas id="signature-pad-empresa" class="mx-auto signature-pad"></canvas>
+                        <div class="mt-2 d-grid gap-2 d-sm-flex justify-content-sm-center">
                             <button type="button" class="btn btn-outline-danger btn-sm clear-signature-btn">Limpiar</button>
-                            <button type="submit" class="btn btn-primary btn-sm">Guardar Firma Empresa</button>
+                            <button type="submit" class="btn btn-primary btn-sm">Guardar Firma</button>
                         </div>
                     </form>
                     {% else %}
-                        <img src="{{ cliente.firma_empresa }}" alt="Firma de la Empresa" style="max-width: 250px; margin-top: -20px;">
+                        <img src="{{ cliente.firma_empresa }}" alt="Firma de la Empresa" class="img-fluid" style="max-height: 150px;">
                         <p>LA EMPRESA<br>(MOTO PLAN MOTORS, C.A.)</p>
                     {% endif %}
                 </div>
@@ -261,14 +268,14 @@
                     <form id="formFirmaCliente" action="{{ url_for('guardar_firma_cliente', client_id=cliente.id) }}" method="POST" class="no-print">
                         <input type="hidden" name="firma_cliente" id="firma_cliente_input">
                         <p class="border-0 m-0">EL CLIENTE</p>
-                        <canvas id="signature-pad-cliente" class="mx-auto signature-pad" width="400" height="200"></canvas>
-                        <div class="mt-2">
+                        <canvas id="signature-pad-cliente" class="mx-auto signature-pad"></canvas>
+                        <div class="mt-2 d-grid gap-2 d-sm-flex justify-content-sm-center">
                             <button type="button" class="btn btn-outline-danger btn-sm clear-signature-btn">Limpiar</button>
-                            <button type="submit" class="btn btn-primary btn-sm">Guardar Firma Cliente</button>
+                            <button type="submit" class="btn btn-primary btn-sm">Guardar Firma</button>
                         </div>
                     </form>
                     {% else %}
-                        <img src="{{ cliente.firma_digital }}" alt="Firma Digital del Cliente" style="max-width: 250px; margin-top: -20px;">
+                        <img src="{{ cliente.firma_digital }}" alt="Firma Digital del Cliente" class="img-fluid" style="max-height: 150px;">
                         <p>EL CLIENTE<br>{{ cliente.nombre_apellido }}<br>C.I: V-{{ cliente.cedula }}</p>
                     {% endif %}
                 </div>
@@ -284,14 +291,14 @@
                         {% endfor %}
                     {% endif %}
                 {% endwith %}
-                <div class="row text-center align-items-center">
+                <div class="row text-center align-items-center g-3">
                     <div class="col-md-6">
                         <h6>Foto del Cliente</h6>
-                        <img src="{{ cliente.foto_cliente if cliente.foto_cliente else 'https://placehold.co/320x240/eee/ccc?text=Foto+Cliente' }}" alt="Foto del Cliente" class="img-fluid">
+                        <img src="{{ cliente.foto_cliente if cliente.foto_cliente else 'https://placehold.co/400x300/eee/ccc?text=Foto+Cliente' }}" alt="Foto del Cliente">
                     </div>
                     <div class="col-md-6">
                         <h6>Foto de la Cédula</h6>
-                        <img src="{{ cliente.foto_cedula if cliente.foto_cedula else 'https://placehold.co/320x240/eee/ccc?text=Foto+Cédula' }}" alt="Foto de la Cédula" class="img-fluid">
+                        <img src="{{ cliente.foto_cedula if cliente.foto_cedula else 'https://placehold.co/400x300/eee/ccc?text=Foto+Cédula' }}" alt="Foto de la Cédula">
                     </div>
                 </div>
                 {% if cliente.fecha_firma %}
@@ -319,41 +326,37 @@
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Configuración para la firma del cliente
-        const signaturePadCanvasCliente = document.getElementById('signature-pad-cliente');
-        if (signaturePadCanvasCliente) {
-            const signaturePadCliente = new SignaturePad(signaturePadCanvasCliente, { backgroundColor: 'rgb(255, 255, 255)' });
-            const formCliente = document.getElementById('formFirmaCliente');
-            formCliente.querySelector('.clear-signature-btn').addEventListener('click', () => {
-                signaturePadCliente.clear();
+        function setupSignaturePad(canvasId, formId, inputId) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+
+            const form = document.getElementById(formId);
+            const input = document.getElementById(inputId);
+            
+            // Ajustar tamaño del canvas
+            const ratio =  Math.max(window.devicePixelRatio || 1, 1);
+            canvas.width = canvas.offsetWidth * ratio;
+            canvas.height = canvas.offsetHeight * ratio;
+            canvas.getContext("2d").scale(ratio, ratio);
+
+            const signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)' });
+
+            form.querySelector('.clear-signature-btn').addEventListener('click', () => {
+                signaturePad.clear();
             });
-            formCliente.addEventListener('submit', function(e) {
-                if (signaturePadCliente.isEmpty()) {
-                    alert("Por favor, el cliente debe firmar en el recuadro.");
+
+            form.addEventListener('submit', function(e) {
+                if (signaturePad.isEmpty()) {
+                    alert("Por favor, se requiere una firma en el recuadro.");
                     e.preventDefault();
                     return;
                 }
-                formCliente.querySelector('#firma_cliente_input').value = signaturePadCliente.toDataURL('image/png');
+                input.value = signaturePad.toDataURL('image/png');
             });
         }
 
-        // Configuración para la firma de la empresa
-        const signaturePadCanvasEmpresa = document.getElementById('signature-pad-empresa');
-        if (signaturePadCanvasEmpresa) {
-            const signaturePadEmpresa = new SignaturePad(signaturePadCanvasEmpresa, { backgroundColor: 'rgb(255, 255, 255)' });
-            const formEmpresa = document.getElementById('formFirmaEmpresa');
-            formEmpresa.querySelector('.clear-signature-btn').addEventListener('click', () => {
-                signaturePadEmpresa.clear();
-            });
-            formEmpresa.addEventListener('submit', function(e) {
-                if (signaturePadEmpresa.isEmpty()) {
-                    alert("Por favor, el representante de la empresa debe firmar en el recuadro.");
-                    e.preventDefault();
-                    return;
-                }
-                formEmpresa.querySelector('#firma_empresa_input').value = signaturePadEmpresa.toDataURL('image/png');
-            });
-        }
+        setupSignaturePad('signature-pad-cliente', 'formFirmaCliente', 'firma_cliente_input');
+        setupSignaturePad('signature-pad-empresa', 'formFirmaEmpresa', 'firma_empresa_input');
     });
     </script>
 </body>

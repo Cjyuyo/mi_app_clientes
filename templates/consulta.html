@@ -279,6 +279,7 @@
             <div class="client-actions">
                 <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-primary">Registrar Pago</a>
                 <a href="{{ url_for('registrar_oferta', client_id=cliente.id) }}" class="btn btn-info">Registrar Oferta</a>
+                <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-secondary" target="_blank"><i class="bi bi-file-earmark-pdf-fill me-1"></i> Ver Contrato</a>
 
                 {% if g.admin and g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
                 <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-warning">Editar</a>

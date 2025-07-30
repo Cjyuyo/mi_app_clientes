@@ -109,15 +109,15 @@
         .error { color: #D8000C; background-color: #FFD2D2; }
         
         /* Estilos para corregir el aspecto de las fotos */
-        #preview-cliente, #preview-cedula {
+        .preview-img {
             width: 100%;
             height: 240px;
-            object-fit: cover; /* Clave para evitar distorsión */
+            object-fit: contain; /* Clave para evitar distorsión y recortes */
+            background-color: #f0f2f5;
         }
         .modal-body video, .modal-body canvas {
-            width: 100%;
+            max-width: 100%;
             height: auto;
-            object-fit: cover; /* Clave para evitar distorsión */
         }
         .confirmation-view { display: none; }
     </style>
@@ -177,14 +177,14 @@
             <div class="row">
                 <div class="col-md-6 text-center mb-3">
                     <h6>Foto del Cliente</h6>
-                    <img id="preview-cliente" src="https://placehold.co/400x300/eee/ccc?text=Foto+Cliente" class="rounded border mb-2">
+                    <img id="preview-cliente" src="https://placehold.co/400x300/eee/ccc?text=Foto+Cliente" class="preview-img rounded border mb-2">
                     <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cliente">
                         <i class="bi bi-person-bounding-box"></i> Tomar Foto Cliente
                     </button>
                 </div>
                 <div class="col-md-6 text-center mb-3">
                     <h6>Foto de la Cédula</h6>
-                    <img id="preview-cedula" src="https://placehold.co/400x300/eee/ccc?text=Foto+Cédula" class="rounded border mb-2">
+                    <img id="preview-cedula" src="https://placehold.co/400x300/eee/ccc?text=Foto+Cédula" class="preview-img rounded border mb-2">
                      <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cedula">
                         <i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula
                     </button>
@@ -235,13 +235,13 @@
       </div>
       <div class="modal-footer">
         <!-- Botones para la vista en vivo -->
-        <div class="live-view-footer w-100 d-flex justify-content-between align-items-center">
+        <div class="live-view-footer w-100 d-grid gap-2 d-sm-flex justify-content-sm-between">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="button" id="flip-camera-btn" class="btn btn-info"><i class="bi bi-arrow-repeat"></i> Voltear Cámara</button>
+            <button type="button" id="flip-camera-btn" class="btn btn-info"><i class="bi bi-arrow-repeat"></i></button>
             <button type="button" id="capture-btn" class="btn btn-primary"><i class="bi bi-camera-fill"></i> Capturar</button>
         </div>
         <!-- Botones para la vista de confirmación -->
-        <div class="confirmation-view-footer w-100 d-flex justify-content-between">
+        <div class="confirmation-view-footer w-100 d-grid gap-2 d-sm-flex justify-content-sm-between">
             <button type="button" class="btn btn-secondary" id="retake-btn"><i class="bi bi-arrow-clockwise"></i> Volver a Tomar</button>
             <button type="button" class="btn btn-success" id="save-photo-btn"><i class="bi bi-check-circle-fill"></i> Guardar Foto</button>
         </div>
@@ -266,13 +266,6 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentCaptureType = null;
     let capturedImageData = null;
     let currentFacingMode = 'user';
-    const CAPTURE_WIDTH = 400;
-    const CAPTURE_HEIGHT = 300;
-
-    canvas.width = CAPTURE_WIDTH;
-    canvas.height = CAPTURE_HEIGHT;
-    video.width = CAPTURE_WIDTH;
-    video.height = CAPTURE_HEIGHT;
 
     function toggleViews(showConfirmation) {
         cameraModal.querySelector('.live-view').style.display = showConfirmation ? 'none' : 'block';
@@ -285,22 +278,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
         }
-        const constraints = { video: { width: CAPTURE_WIDTH, height: CAPTURE_HEIGHT, facingMode: facingMode } };
+        const constraints = { video: { facingMode: facingMode } };
         try {
             stream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = stream;
             await video.play();
         } catch (err) {
             console.error("Error starting camera with facingMode " + facingMode + ": ", err);
-            try {
-                const fallbackConstraints = { video: { width: CAPTURE_WIDTH, height: CAPTURE_HEIGHT } };
-                stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
-                video.srcObject = stream;
-                await video.play();
-            } catch (fallbackErr) {
-                alert("No se pudo acceder a la cámara. Asegúrese de haber otorgado los permisos.");
-                bootstrap.Modal.getInstance(cameraModal).hide();
-            }
+            alert("No se pudo acceder a la cámara. Asegúrese de haber otorgado los permisos.");
+            bootstrap.Modal.getInstance(cameraModal).hide();
         }
     }
 
@@ -332,8 +318,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     captureBtn.addEventListener('click', () => {
+        // Ajustar el canvas a las dimensiones reales del video para evitar distorsión
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
         const context = canvas.getContext('2d');
-        context.drawImage(video, 0, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT);
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
         capturedImageData = canvas.toDataURL('image/jpeg');
         toggleViews(true);
     });
