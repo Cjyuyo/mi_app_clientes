@@ -34,6 +34,10 @@ def setup_session_and_user():
             if admin_id:
                 cur.execute("SELECT id, usuario, rol FROM administradores WHERE id = %s", (admin_id,))
                 g.admin = cur.fetchone()
+                # Si el admin está logueado, actualizamos su última hora de actividad
+                if g.admin:
+                    cur.execute("UPDATE administradores SET ultimo_visto = NOW() WHERE id = %s", (g.admin['id'],))
+                    db.commit()
             elif cliente_id:
                 cur.execute("SELECT id, nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
                 g.cliente = cur.fetchone()
@@ -120,12 +124,10 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
                 """,
                 (g.admin['id'], g.admin['usuario'], accion, descripcion, cliente_id)
             )
-        # SOLUCIÓN DEFINITIVA: Se asegura de que esta acción específica se guarde inmediatamente.
         conn.commit()
         logging.info(f"AUDITORIA-REGISTRADA: Usuario '{g.admin['usuario']}' realizó '{accion}'.")
     except Exception as e:
         logging.error(f"AUDITORIA-FALLO-INSERCION: {e}")
-        # Si hay un error, revierte la transacción para no dejar la BD en un estado inconsistente.
         if conn:
             conn.rollback()
         raise e
@@ -146,7 +148,7 @@ def admin_login():
             if admin and check_password_hash(admin['password_hash'], password):
                 session.clear()
                 session['admin_id'] = admin['id']
-                cur.execute("UPDATE administradores SET ultimo_login = NOW(), estatus_online = TRUE WHERE id = %s", (admin['id'],))
+                cur.execute("UPDATE administradores SET ultimo_login = NOW() WHERE id = %s", (admin['id'],))
                 conn.commit()
                 flash(f"¡Bienvenido de nuevo, {admin['usuario']}!", 'success')
                 return redirect(url_for('hub'))
@@ -161,13 +163,6 @@ def admin_dashboard():
 
 @app.route('/admin/logout')
 def admin_logout():
-    admin_id = session.get('admin_id')
-    if admin_id:
-        conn = get_db()
-        if conn:
-            with conn.cursor() as cur:
-                cur.execute("UPDATE administradores SET estatus_online = FALSE WHERE id = %s", (admin_id,))
-                conn.commit()
     session.clear()
     flash('Has cerrado la sesión exitosamente.', 'info')
     return redirect(url_for('admin_login'))
@@ -184,7 +179,14 @@ def hub():
     usuarios = []
     if conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT usuario, estatus_online, ultimo_login FROM administradores ORDER BY usuario")
+            cur.execute("""
+                SELECT 
+                    usuario, 
+                    ultimo_login,
+                    (ultimo_visto > NOW() - INTERVAL '5 minutes') AS esta_en_linea
+                FROM administradores 
+                ORDER BY usuario
+            """)
             usuarios = cur.fetchall()
     return render_template('hub.html', anio_actual=datetime.now().year, usuarios=usuarios)
 
@@ -576,7 +578,6 @@ def delete_client(client_id):
     if not conn: return redirect(url_for('consulta'))
     try:
         with conn.cursor() as cur:
-            # Primero, obtenemos los datos del cliente para el mensaje de auditoría
             cur.execute("SELECT nombre, apellido, cedula FROM clientes WHERE id = %s", (client_id,))
             cliente_a_borrar = cur.fetchone()
             if not cliente_a_borrar:
@@ -585,16 +586,12 @@ def delete_client(client_id):
 
             descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']})."
             
-            # --- ORDEN CORREGIDO ---
-            # 1. Primero registramos la acción, mientras el cliente todavía existe.
             registrar_accion_auditoria('ELIMINACION_CLIENTE', descripcion_audit, client_id)
             
-            # 2. Ahora sí, borramos al cliente.
             cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
             
             conn.commit()
             flash('¡Cliente y sus registros asociados han sido eliminados exitosamente!', 'success')
-            
     except (psycopg2.Error, ConnectionError) as e:
         conn.rollback()
         flash(f'Ocurrió un error al eliminar: {e}', 'error')
@@ -759,16 +756,12 @@ def auditoria():
 
     fecha_filtro_str = request.args.get('fecha', fecha_actual_vet)
     
-    logging.info(f"AUDITORIA DEBUG: Fecha recibida del request: '{fecha_filtro_str}'")
-    
     fecha_para_sql = fecha_filtro_str
     try:
         fecha_obj = datetime.strptime(fecha_filtro_str, '%m/%d/%Y')
         fecha_para_sql = fecha_obj.strftime('%Y-%m-%d')
     except ValueError:
         pass
-
-    logging.info(f"AUDITORIA DEBUG: Fecha final para SQL: '{fecha_para_sql}'")
     
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
