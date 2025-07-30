@@ -758,11 +758,11 @@ def auditoria():
     
     fecha_para_sql = fecha_filtro_str
     try:
-        # Si por alguna razón el formato llega como DD-MM-YYYY, lo convertimos
-        fecha_obj = datetime.strptime(fecha_filtro_str, '%d-%m-%Y')
+        # CORRECCIÓN: Usamos el formato MM/DD/YYYY que envía tu navegador
+        fecha_obj = datetime.strptime(fecha_filtro_str, '%m/%d/%Y')
         fecha_para_sql = fecha_obj.strftime('%Y-%m-%d')
     except ValueError:
-        # Si falla, asumimos que ya está en el formato correcto YYYY-MM-DD.
+        # Si falla, es probable que ya esté en el formato correcto YYYY-MM-DD.
         pass
 
     logging.info(f"AUDITORIA DEBUG: Fecha final para SQL: '{fecha_para_sql}'")
@@ -815,11 +815,11 @@ def descargar_reporte_auditoria():
     
     fecha_para_sql = fecha_reporte_str
     try:
-        # Si por alguna razón el formato llega como DD-MM-YYYY, lo convertimos
-        fecha_obj = datetime.strptime(fecha_reporte_str, '%d-%m-%Y')
+        # CORRECCIÓN: Usamos el formato MM/DD/YYYY que envía tu navegador
+        fecha_obj = datetime.strptime(fecha_reporte_str, '%m/%d/%Y')
         fecha_para_sql = fecha_obj.strftime('%Y-%m-%d')
     except ValueError:
-        # Si falla, asumimos que ya está en el formato correcto YYYY-MM-DD.
+        # Si falla, es probable que ya esté en el formato correcto YYYY-MM-DD.
         pass
 
     logging.info(f"REPORTE DEBUG: Fecha final para SQL: '{fecha_para_sql}'")
