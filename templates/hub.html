@@ -153,36 +153,47 @@
         </div>
         
         <hr class="my-5">
+
         <div class="row justify-content-center">
             <div class="col-lg-8">
-                <h2 class="text-center mb-4">Estado del Equipo</h2>
-                <ul class="list-group">
+                <h2 class="text-center mb-4">Equipo en Tiempo Real</h2>
+                <div class="list-group shadow-sm rounded">
                     {% if usuarios %}
                         {% for usuario in usuarios %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <div>
-                                <i class="bi bi-person-circle me-2"></i>
-                                <strong>{{ usuario.usuario }}</strong><br>
-                                <small class="text-muted">
-                                    {% if usuario.ultimo_login %}
-                                        Última sesión: {{ usuario.ultimo_login.strftime('%d/%m/%Y, %-I:%M %p') }}
-                                    {% else %}
-                                        Nunca ha iniciado sesión
+                        <div class="list-group-item list-group-item-action d-flex align-items-center justify-content-between p-3">
+                            <div class="d-flex align-items-center">
+                                <div class="me-3 position-relative">
+                                    <i class="bi bi-person-circle" style="font-size: 2.5rem; color: #adb5bd;"></i>
+                                    {% if usuario.esta_en_linea %}
+                                    <span class="position-absolute bottom-0 start-100 translate-middle p-2 bg-success border border-light rounded-circle" title="En línea">
+                                        <span class="visually-hidden">En línea</span>
+                                    </span>
                                     {% endif %}
-                                </small>
-                                <small class="d-block text-danger" style="font-size: 0.75rem; margin-top: 3px;">
-                                    Debug: [Estatus: {{ usuario.estatus_online }} | Inactividad: {{ usuario.inactividad }}]
-                                </small>
+                                </div>
+                                <div>
+                                    <h6 class="mb-0 fw-bold">{{ usuario.usuario }}</h6>
+                                    <small class="text-muted">
+                                        {% if usuario.ultimo_login %}
+                                            Última sesión: {{ usuario.ultimo_login.strftime('%d/%m/%Y, %-I:%M %p') }}
+                                        {% else %}
+                                            Nunca ha iniciado sesión
+                                        {% endif %}
+                                    </small>
+                                </div>
                             </div>
-                            <span class="badge rounded-pill {{ 'bg-success' if usuario.esta_en_linea else 'bg-secondary' }}">
-                                {{ 'En línea' if usuario.esta_en_linea else 'Desconectado' }}
-                            </span>
-                        </li>
+                            <div>
+                                {% if usuario.esta_en_linea %}
+                                    <span class="badge text-bg-success rounded-pill">En línea</span>
+                                {% else %}
+                                    <span class="badge text-bg-secondary rounded-pill">Desconectado</span>
+                                {% endif %}
+                            </div>
+                        </div>
                         {% endfor %}
                     {% else %}
-                        <li class="list-group-item">No se pudieron cargar los usuarios.</li>
+                        <div class="list-group-item">No se pudieron cargar los usuarios.</div>
                     {% endif %}
-                </ul>
+                </div>
             </div>
         </div>
     </div>
