@@ -72,16 +72,21 @@
         <div class="card shadow-sm border-0 rounded-lg mb-4">
             <div class="card-body">
                 <form method="GET" action="{{ url_for('auditoria') }}" class="row g-3 align-items-center">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="fecha" class="form-label">Filtrar por fecha:</label>
                         <input type="date" id="fecha" name="fecha" class="form-control" value="{{ fecha_filtro }}">
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <button type="submit" class="btn btn-primary w-100 mt-4"><i class="bi bi-funnel-fill me-2"></i>Filtrar</button>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <a href="{{ url_for('descargar_reporte_auditoria', fecha=fecha_filtro) }}" class="btn btn-success w-100 mt-4" target="_blank">
-                            <i class="bi bi-download me-2"></i>Descargar Reporte del Día
+                            <i class="bi bi-download me-2"></i>Descargar Reporte
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('hub') }}" class="btn btn-secondary w-100 mt-4">
+                            <i class="bi bi-arrow-left-circle me-2"></i>Volver al Hub
                         </a>
                     </div>
                 </form>
