@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, g, flash, redirect, url_for, 
 from dotenv import load_dotenv
 from decimal import Decimal
 from datetime import datetime, timedelta, date
+from calendar import monthrange
 import random
 from werkzeug.security import check_password_hash, generate_password_hash
 from functools import wraps
@@ -173,7 +174,7 @@ def admin_logout():
     flash('Has cerrado la sesión exitosamente.', 'info')
     return redirect(url_for('admin_login'))
 
-# --- RUTAS PRINCIPALES ---
+# --- RUTAS PRINCIPALES Y DE NAVEGACIÓN ---
 @app.route('/')
 def home():
     return redirect(url_for('hub'))
@@ -183,77 +184,99 @@ def home():
 def hub():
     conn = get_db()
     usuarios = []
+    if conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT 
+                    usuario, 
+                    ultimo_login,
+                    (estatus_online AND ultimo_visto > NOW() - INTERVAL '5 minutes') AS esta_en_linea
+                FROM administradores 
+                ORDER BY usuario
+            """)
+            usuarios = cur.fetchall()
+    return render_template('hub.html', anio_actual=datetime.now().year, usuarios=usuarios)
+
+# --- NUEVO MÓDULO DE GESTIÓN ADMINISTRATIVA ---
+@app.route('/gestion_administrativa')
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def gestion_administrativa():
+    return render_template('gestion_administrativa.html', anio_actual=datetime.now().year)
+
+@app.route('/reportes/metricas')
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def reporte_metricas():
+    conn = get_db()
+    today = date.today()
     dashboard_metrics = {
         'clientes_activos': 0,
-        'clientes_inscritos': 0,
         'clientes_adjudicados': 0,
         'ingresos_mes_conciliados': 0,
         'indice_morosidad': 0.0,
-        'mes_actual': ''
+        'mes_actual': get_nombre_mes(today.month),
+        'anio_actual': today.year,
+        'ingresos_ultimos_meses': {'labels': [], 'values': []},
+        'composicion_clientes': {'labels': [], 'values': []}
     }
 
     if conn:
         try:
             with conn.cursor() as cur:
-                # Obtener usuarios en línea
-                cur.execute("""
-                    SELECT 
-                        usuario, 
-                        ultimo_login,
-                        (estatus_online AND ultimo_visto > NOW() - INTERVAL '5 minutes') AS esta_en_linea
-                    FROM administradores 
-                    ORDER BY usuario
-                """)
-                usuarios = cur.fetchall()
-
-                # Obtener métricas del dashboard
+                # Métricas básicas
                 cur.execute("SELECT COUNT(*) FROM clientes WHERE estatus = 'activo'")
                 dashboard_metrics['clientes_activos'] = cur.fetchone()[0]
-
-                cur.execute("SELECT COUNT(*) FROM clientes WHERE proceso = 'INSCRITO'")
-                dashboard_metrics['clientes_inscritos'] = cur.fetchone()[0]
                 
                 cur.execute("SELECT COUNT(*) FROM clientes WHERE proceso = 'ADJUDICADO'")
                 dashboard_metrics['clientes_adjudicados'] = cur.fetchone()[0]
 
-                # Calcular ingresos del mes
-                today = date.today()
                 first_day_of_month = today.replace(day=1)
-                cur.execute(
-                    "SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s",
-                    (first_day_of_month,)
-                )
+                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
                 dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
 
-                # Calcular índice de morosidad
+                # Índice de Morosidad
                 cur.execute("SELECT COUNT(*) FROM clientes WHERE proceso = 'Ahorrador' AND estatus = 'activo'")
                 total_ahorradores = cur.fetchone()[0]
-
                 if total_ahorradores > 0:
-                    query_pagaron_mes = """
-                        SELECT COUNT(DISTINCT p.cliente_id) 
-                        FROM pagos p
-                        JOIN clientes c ON p.cliente_id = c.id
-                        WHERE p.tipo_pago = 'Cuota' 
-                        AND p.estado_pago = 'Conciliado' 
-                        AND c.proceso = 'Ahorrador' 
-                        AND c.estatus = 'activo'
-                        AND p.fecha_pago >= %s
-                    """
-                    cur.execute(query_pagaron_mes, (first_day_of_month,))
+                    cur.execute("SELECT COUNT(DISTINCT p.cliente_id) FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.tipo_pago = 'Cuota' AND p.estado_pago = 'Conciliado' AND c.proceso = 'Ahorrador' AND c.estatus = 'activo' AND p.fecha_pago >= %s", (first_day_of_month,))
                     ahorradores_al_dia = cur.fetchone()[0]
-                    
                     clientes_en_mora = total_ahorradores - ahorradores_al_dia
-                    dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100
-                
-                dashboard_metrics['mes_actual'] = get_nombre_mes(today.month)
+                    dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100 if total_ahorradores > 0 else 0
+
+                # Datos para el gráfico de ingresos (últimos 6 meses)
+                income_labels, income_values = [], []
+                current_date = today
+                for _ in range(6):
+                    month_start = current_date.replace(day=1)
+                    _, days_in_month = monthrange(current_date.year, current_date.month)
+                    month_end = current_date.replace(day=days_in_month)
+                    
+                    cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (month_start, month_end))
+                    total = cur.fetchone()[0]
+                    
+                    income_labels.insert(0, get_nombre_mes(current_date.month))
+                    income_values.insert(0, float(total))
+                    
+                    # Moverse al mes anterior
+                    current_date = month_start - timedelta(days=1)
+
+                dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
+
+                # Datos para el gráfico de composición de clientes
+                cur.execute("SELECT proceso, COUNT(*) FROM clientes WHERE estatus = 'activo' GROUP BY proceso")
+                client_composition = cur.fetchall()
+                comp_labels = [row['proceso'].capitalize() for row in client_composition]
+                comp_values = [row['count'] for row in client_composition]
+                dashboard_metrics['composicion_clientes'] = {'labels': comp_labels, 'values': comp_values}
 
         except psycopg2.Error as e:
             flash(f"No se pudieron cargar las métricas del dashboard: {e}", "error")
 
-    return render_template('hub.html', anio_actual=datetime.now().year, usuarios=usuarios, metrics=dashboard_metrics)
+    return render_template('reporte_metricas.html', anio_actual=datetime.now().year, metrics=dashboard_metrics)
 
 
+# --- GESTIÓN DE CLIENTES Y PAGOS ---
 @app.route('/registrar')
 @admin_required
 def registrar():

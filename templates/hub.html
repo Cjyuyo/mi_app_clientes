@@ -105,46 +105,6 @@
     </div>
 
     <div class="container my-5">
-        <!-- Dashboard Metrics -->
-        <div class="row mb-5">
-            <h2 class="text-center mb-4">Métricas Clave ({{ metrics.mes_actual }})</h2>
-            <div class="col-md-3 mb-3">
-                <div class="card text-center h-100">
-                    <div class="card-body">
-                        <h5 class="card-title"><i class="bi bi-people-fill"></i> Clientes Activos</h5>
-                        <p class="card-text fs-2 fw-bold">{{ metrics.clientes_activos }}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="card text-center h-100">
-                    <div class="card-body">
-                        <h5 class="card-title"><i class="bi bi-cash-stack"></i> Ingresos del Mes</h5>
-                        <p class="card-text fs-2 fw-bold">${{ "{:,.2f}".format(metrics.ingresos_mes_conciliados) }}</p>
-                         <small class="text-muted">Pagos Conciliados</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="card text-center h-100">
-                    <div class="card-body">
-                        <h5 class="card-title"><i class="bi bi-graph-down-arrow"></i> Morosidad</h5>
-                        <p class="card-text fs-2 fw-bold">{{ "%.1f"|format(metrics.indice_morosidad) }}%</p>
-                        <small class="text-muted">De clientes ahorradores</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                 <div class="card text-center h-100">
-                    <div class="card-body">
-                        <h5 class="card-title"><i class="bi bi-award-fill"></i> Adjudicados</h5>
-                        <p class="card-text fs-2 fw-bold">{{ metrics.clientes_adjudicados }}</p>
-                         <small class="text-muted">Total histórico</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- Action Cards -->
         <div class="row g-4 justify-content-center">
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
@@ -167,22 +127,24 @@
                 </div>
             </div>
 
+            {% if g.admin and g.admin.rol in ['superadmin', 'gerente'] %}
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
                     <div>
-                        <div class="icon" style="color: #6f42c1;"><i class="bi bi-box-arrow-in-right"></i></div>
-                        <h3>Portal Cliente</h3>
-                        <p>Accede a la vista de inicio de sesión del portal para clientes.</p>
+                        <div class="icon" style="color: #17a2b8;"><i class="bi bi-bar-chart-line-fill"></i></div>
+                        <h3>Gestión Administrativa</h3>
+                        <p>Accede a reportes, métricas y herramientas de cobranza.</p>
                     </div>
-                    <a href="{{ url_for('portal_login') }}" class="btn" style="background-color: #6f42c1; color: white;" target="_blank">Ir al Portal</a>
+                    <a href="{{ url_for('gestion_administrativa') }}" class="btn" style="background-color: #17a2b8; color: white;">Analizar</a>
                 </div>
             </div>
+            {% endif %}
 
             {% if g.admin and g.admin.rol in ['superadmin', 'gerente'] %}
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
                     <div>
-                        <div class="icon"><i class="bi bi-trophy-fill"></i></div>
+                        <div class="icon" style="color: #28a745;"><i class="bi bi-trophy-fill"></i></div>
                         <h3>Sistema de Adjudicación</h3>
                         <p>Inicia el proceso de adjudicación mensual y consulta el historial de ganadores.</p>
                     </div>
@@ -203,6 +165,17 @@
                 </div>
             </div>
             {% endif %}
+            
+            <div class="col-lg-4 col-md-6">
+                <div class="hub-card">
+                    <div>
+                        <div class="icon" style="color: #6f42c1;"><i class="bi bi-box-arrow-in-right"></i></div>
+                        <h3>Portal Cliente</h3>
+                        <p>Accede a la vista de inicio de sesión del portal para clientes.</p>
+                    </div>
+                    <a href="{{ url_for('portal_login') }}" class="btn" style="background-color: #6f42c1; color: white;" target="_blank">Ir al Portal</a>
+                </div>
+            </div>
 
         </div>
         
