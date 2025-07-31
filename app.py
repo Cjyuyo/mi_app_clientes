@@ -482,36 +482,44 @@ def reporte_flujo_caja():
         anio_actual=today.year
     )
 
+# =================================================================================
+# ===== INICIO DEL BLOQUE DE CÓDIGO MODIFICADO =====
+# =================================================================================
 @app.route('/registrar_operacion_tesoreria', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def registrar_operacion_tesoreria():
     try:
-        monto_bs = Decimal(request.form.get('monto_bs_convertido'))
-        monto_usdt = Decimal(request.form.get('monto_usdt_recibido'))
-        nota = request.form.get('nota_conversion', '')
+        # Validar y convertir los datos de entrada
+        monto_bs_str = request.form.get('monto_bs_convertido')
+        monto_usdt_str = request.form.get('monto_usdt_recibido')
         tasa_conversion_str = request.form.get('tasa_conversion_aplicada')
+        nota = request.form.get('nota_conversion', '')
 
-        if not tasa_conversion_str:
-            flash("La tasa de conversión aplicada es obligatoria para calcular la pérdida con precisión.", "warning")
+        if not all([monto_bs_str, monto_usdt_str, tasa_conversion_str]):
+            flash("Todos los campos monetarios y la tasa son obligatorios.", "warning")
             return redirect(url_for('reporte_flujo_caja'))
 
+        monto_bs = Decimal(monto_bs_str)
+        monto_usdt = Decimal(monto_usdt_str)
         tasa_conversion = Decimal(tasa_conversion_str)
-        
-        if tasa_conversion <= 0:
-            perdida = Decimal('0.0')
-            flash("Tasa de conversión inválida. La pérdida no se pudo calcular.", "warning")
-        else:
-            valor_real_bs_en_usd = monto_bs / tasa_conversion
-            perdida = valor_real_bs_en_usd - monto_usdt
+
+        # --- INICIO DE LA NUEVA VALIDACIÓN ---
+        if monto_bs <= 0 or monto_usdt <= 0 or tasa_conversion <= 0:
+            flash("Los montos y la tasa de conversión deben ser valores positivos.", "danger")
+            return redirect(url_for('reporte_flujo_caja'))
+        # --- FIN DE LA NUEVA VALIDACIÓN ---
+
+        # Calcular la pérdida cambiaria
+        valor_real_bs_en_usd = monto_bs / tasa_conversion
+        perdida = valor_real_bs_en_usd - monto_usdt
 
         conn = get_db()
         if conn and g.admin:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO operaciones_tesoreria 
-                    (tipo_operacion, monto_origen, monto_destino, perdida_cambiaria, nota, realizada_por, tasa_aplicada)
+                    INSERT INTO operaciones_tesoreria (tipo_operacion, monto_origen, monto_destino, perdida_cambiaria, nota, realizada_por, tasa_aplicada)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """,
                     ('CONVERSION_BS_BINANCE', monto_bs, monto_usdt, perdida, nota, g.admin['id'], tasa_conversion)
@@ -519,12 +527,26 @@ def registrar_operacion_tesoreria():
                 conn.commit()
                 flash("Operación de conversión registrada exitosamente.", "success")
 
-    except (ValueError, TypeError, psycopg2.Error) as e:
-        flash(f"Datos inválidos o error de base de datos: {e}", "error")
-        if get_db():
-            get_db().rollback()
+    except (ValueError, TypeError) as e:
+        logging.error(f"ERROR DE CONVERSIÓN DE DATOS: {e}")
+        flash("Error en los datos ingresados. Por favor, verifica que los números sean válidos.", "danger")
+        if get_db(): get_db().rollback()
+    
+    except psycopg2.Error as db_error:
+        logging.error(f"ERROR DE BASE DE DATOS: {db_error}")
+        flash(f"Error de base de datos al registrar la operación: {db_error}", "danger")
+        if get_db(): get_db().rollback()
+
+    except Exception as general_error:
+        # Captura cualquier otro error inesperado, como División entre Cero
+        logging.error(f"ERROR INESPERADO AL REGISTRAR OPERACION: {general_error}")
+        flash(f"Ocurrió un error inesperado: {general_error}", "danger")
+        if get_db(): get_db().rollback()
 
     return redirect(url_for('reporte_flujo_caja'))
+# =================================================================================
+# ===== FIN DEL BLOQUE DE CÓDIGO MODIFICADO =====
+# =================================================================================
 
 
 # --- GESTIÓN DE CLIENTES Y PAGOS ---
