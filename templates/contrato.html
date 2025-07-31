@@ -110,11 +110,58 @@
             height: auto;
         }
 
+        /* --- ESTILOS PARA IMPRESIÓN --- */
         @media print {
-            body { background-color: #fff; }
-            .no-print { display: none; }
-            .contract-container { box-shadow: none; border: none; padding: 0; max-width: 100%; border-radius: 0; }
-            .container.my-5 { padding: 0 !important; margin: 0 !important; }
+            body {
+                background-color: #fff !important;
+                font-size: 10pt; /* Fuente más pequeña para impresión */
+            }
+            .no-print {
+                display: none !important; /* Oculta elementos que no se imprimen */
+            }
+            .contract-container, .container, .container-fluid {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+            .client-info, .verification-section {
+                padding: 1rem !important;
+                margin-top: 20px !important;
+                margin-bottom: 20px !important;
+            }
+            .contract-body p, .contract-body li {
+                font-size: 9.5pt;
+                margin-bottom: 6px;
+            }
+            .signatures {
+                margin-top: 25px !important;
+                page-break-inside: avoid; /* Evita que el bloque de firmas se divida en dos páginas */
+            }
+            .signature-block {
+                margin-bottom: 1rem !important;
+            }
+            .signature-block p {
+                margin-top: 15px !important; /* Reduce el espacio sobre la línea de firma */
+                font-size: 10pt;
+            }
+            .verification-section {
+                page-break-inside: avoid; /* Evita que la sección de verificación se divida */
+            }
+            .verification-section img {
+                height: auto; /* Permite que la altura se ajuste automáticamente */
+                max-height: 160px; /* Define una altura máxima razonable */
+            }
+            /* Control de saltos de página para evitar títulos o párrafos sueltos */
+            h1, h2, h3, h4, h5, h6 {
+                page-break-after: avoid;
+                page-break-inside: avoid;
+            }
+            p, ul, ol {
+                page-break-inside: avoid;
+            }
         }
     </style>
 </head>
@@ -143,31 +190,30 @@
                 <h2 class="text-center">Datos del Adherente</h2>
                 <h6 class="text-muted mt-3">INFORMACIÓN PERSONAL</h6>
                 <div class="row">
-                    <div class="col-md-6"><p><strong>Nombre Completo:</strong> {{ cliente.nombre_apellido }}</p></div>
-                    <div class="col-md-6"><p><strong>Cédula de Identidad:</strong> V-{{ cliente.cedula }}</p></div>
-                    <div class="col-md-6"><p><strong>Teléfono:</strong> {{ cliente.telefono }}</p></div>
-                    <div class="col-md-6"><p><strong>Fecha de Ingreso:</strong> {{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</p></div>
+                    <div class="col-6"><p><strong>Nombre Completo:</strong> {{ cliente.nombre_apellido }}</p></div>
+                    <div class="col-6"><p><strong>Cédula de Identidad:</strong> V-{{ cliente.cedula }}</p></div>
+                    <div class="col-6"><p><strong>Teléfono:</strong> {{ cliente.telefono }}</p></div>
+                    <div class="col-6"><p><strong>Fecha de Ingreso:</strong> {{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</p></div>
                 </div>
                 <hr class="my-3">
                 <h6 class="text-muted">DETALLES DEL CONTRATO</h6>
                 <div class="row">
-                    <div class="col-md-6"><p><strong>Nº Contrato:</strong> {{ cliente.contrato_nro }}</p></div>
-                    <div class="col-md-6"><p><strong>Plan Contratado:</strong> {{ cliente.plan_contratado }}</p></div>
-                    <div class="col-md-6"><p><strong>Cuotas Totales:</strong> {{ cliente.cuotas_totales }}</p></div>
-                    <div class="col-md-6"><p><strong>Cuota Mensual:</strong> ${{ "%.2f"|format(cliente.valor_cuota) if cliente.valor_cuota else 'N/A' }}</p></div>
-                    <div class="col-md-6"><p><strong>Monto Inscripción:</strong> ${{ "%.2f"|format(cliente.inscripcion_monto) if cliente.inscripcion_monto else 'N/A' }}</p></div>
-                    <div class="col-md-6"><p><strong>Moneda de Pago:</strong> {{ cliente.moneda_pago }}</p></div>
+                    <div class="col-6"><p><strong>Nº Contrato:</strong> {{ cliente.contrato_nro }}</p></div>
+                    <div class="col-6"><p><strong>Plan Contratado:</strong> {{ cliente.plan_contratado }}</p></div>
+                    <div class="col-6"><p><strong>Cuotas Totales:</strong> {{ cliente.cuotas_totales }}</p></div>
+                    <div class="col-6"><p><strong>Cuota Mensual:</strong> ${{ "%.2f"|format(cliente.valor_cuota) if cliente.valor_cuota else 'N/A' }}</p></div>
+                    <div class="col-6"><p><strong>Monto Inscripción:</strong> ${{ "%.2f"|format(cliente.inscripcion_monto) if cliente.inscripcion_monto else 'N/A' }}</p></div>
+                    <div class="col-6"><p><strong>Moneda de Pago:</strong> {{ cliente.moneda_pago }}</p></div>
                 </div>
                 <hr class="my-3">
                 <h6 class="text-muted">INFORMACIÓN ADMINISTRATIVA</h6>
                 <div class="row">
-                    <div class="col-md-6"><p><strong>Asesor:</strong> {{ cliente.asesor }}</p></div>
-                    <div class="col-md-6"><p><strong>Ciclo de Cobranza:</strong> {{ cliente.ciclo_cobranza }}</p></div>
+                    <div class="col-6"><p><strong>Asesor:</strong> {{ cliente.asesor }}</p></div>
+                    <div class="col-6"><p><strong>Ciclo de Cobranza:</strong> {{ cliente.ciclo_cobranza }}</p></div>
                 </div>
             </div>
 
             <div class="contract-body">
-                <!-- ... Cláusulas del contrato ... -->
                 <h2>CAPÍTULO I: DISPOSICIONES GENERALES</h2>
                 <h3>Cláusula 1. Identificación de las partes:</h3>
                 <p>MOTO PLAN MOTORS, C.A., sociedad mercantil inscrita en el Registro Mercantil Primero del Estado Portuguesa, Tomo 66-A RM410 N°18 de 2023, RIF J-50408959-1, en adelante <strong>LA EMPRESA</strong>, ofrece el presente contrato a <strong>EL CLIENTE</strong> ({{ cliente.nombre_apellido }}), quien acepta adherirse voluntariamente al PLAN DE AHORRO PROGRAMADO.</p>
@@ -245,9 +291,8 @@
                 <p><strong>EL CLIENTE</strong> declara haber recibido asesoría clara y suficiente, cuya grabación podrá conservar <strong>LA EMPRESA</strong> como respaldo legal.</p>
             </div>
             
-            <!-- SECCIÓN DE FIRMA INTERACTIVA -->
             <div class="signatures row">
-                <div class="col-md-6 signature-block">
+                <div class="col-6 signature-block">
                     {% if not cliente.firma_empresa %}
                     <form id="formFirmaEmpresa" action="{{ url_for('guardar_firma_empresa', client_id=cliente.id) }}" method="POST" class="no-print">
                         <input type="hidden" name="firma_empresa" id="firma_empresa_input">
@@ -263,7 +308,7 @@
                         <p>LA EMPRESA<br>(MOTO PLAN MOTORS, C.A.)</p>
                     {% endif %}
                 </div>
-                <div class="col-md-6 signature-block">
+                <div class="col-6 signature-block">
                     {% if not cliente.firma_digital %}
                     <form id="formFirmaCliente" action="{{ url_for('guardar_firma_cliente', client_id=cliente.id) }}" method="POST" class="no-print">
                         <input type="hidden" name="firma_cliente" id="firma_cliente_input">
@@ -281,7 +326,6 @@
                 </div>
             </div>
 
-            <!-- SECCIÓN DE VERIFICACIÓN Y TRAZABILIDAD -->
             <div class="verification-section">
                 <h2 class="no-print">Anexos de Verificación y Trazabilidad</h2>
                  {% with messages = get_flashed_messages(with_categories=true) %}
@@ -292,11 +336,11 @@
                     {% endif %}
                 {% endwith %}
                 <div class="row text-center align-items-center g-3">
-                    <div class="col-md-6">
+                    <div class="col-6">
                         <h6>Foto del Cliente</h6>
                         <img src="{{ cliente.foto_cliente if cliente.foto_cliente else 'https://placehold.co/400x300/eee/ccc?text=Foto+Cliente' }}" alt="Foto del Cliente">
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-6">
                         <h6>Foto de la Cédula</h6>
                         <img src="{{ cliente.foto_cedula if cliente.foto_cedula else 'https://placehold.co/400x300/eee/ccc?text=Foto+Cédula' }}" alt="Foto de la Cédula">
                     </div>
