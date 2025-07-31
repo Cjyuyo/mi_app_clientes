@@ -25,7 +25,6 @@ app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-des
 @app.before_request
 def setup_session_and_user():
     session.permanent = True
-    # Aumentamos el tiempo de la sesión para mayor comodidad
     app.permanent_session_lifetime = timedelta(minutes=30)
     g.admin = None
     g.cliente = None
@@ -203,35 +202,7 @@ def hub():
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def gestion_administrativa():
-    conn = get_db()
-    today = date.today()
-    alertas_cobranza = []
-    
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                first_day_of_month = today.replace(day=1)
-                
-                subquery_pagaron_mes = "SELECT DISTINCT cliente_id FROM pagos WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s"
-                query_pendientes = f"""
-                    SELECT id, nombre, apellido, cedula, valor_cuota
-                    FROM clientes
-                    WHERE proceso = 'Ahorrador' 
-                    AND estatus = 'activo'
-                    AND id NOT IN ({subquery_pagaron_mes})
-                    ORDER BY nombre, apellido;
-                """
-                cur.execute(query_pendientes, (first_day_of_month,))
-                alertas_cobranza = cur.fetchall()
-        except psycopg2.Error as e:
-            flash(f"No se pudieron cargar las alertas de cobranza: {e}", "error")
-
-    return render_template(
-        'gestion_administrativa.html', 
-        anio_actual=today.year,
-        alertas_cobranza=alertas_cobranza,
-        mes_actual=get_nombre_mes(today.month)
-    )
+    return render_template('gestion_administrativa.html', anio_actual=date.today().year)
 
 @app.route('/mi_cartera')
 @admin_required
@@ -411,9 +382,7 @@ def asignar_gestor(cliente_id):
     
     return redirect(url_for('reporte_morosidad'))
 
-# ==============================================================================
-# ===== NUEVA LÓGICA DE FLUJO DE CAJA - COMIENZO DE LA MODIFICACIÓN =====
-# ==============================================================================
+
 @app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -421,23 +390,18 @@ def reporte_flujo_caja():
     conn = get_db()
     today = date.today()
     
-    # Valores por defecto para el formulario
     fecha_inicio_str = request.form.get('fecha_inicio', today.replace(day=1).strftime('%Y-%m-%d'))
     fecha_fin_str = request.form.get('fecha_fin', today.strftime('%Y-%m-%d'))
     tasa_actual_bcv_str = request.form.get('tasa_actual_bcv', '0.0')
     
     mostrar_resultados = request.method == 'POST'
     
-    # Estructura del resumen para los saldos y rendimiento
     resumen = {
-        # Balances Totales Acumulados
         'balance_efectivo_usd': Decimal('0.0'),
         'balance_binance_usdt': Decimal('0.0'),
         'balance_bolivares_bs': Decimal('0.0'),
         'balance_bolivares_usd': Decimal('0.0'),
         'balance_general_consolidado_usd': Decimal('0.0'),
-        
-        # Rendimiento del Período Seleccionado
         'periodo_ingresos_usd': Decimal('0.0'),
         'periodo_ingresos_por_tipo': {},
         'periodo_ingresos_por_forma': {},
@@ -455,17 +419,12 @@ def reporte_flujo_caja():
                 tasa_actual_decimal = Decimal(tasa_actual_bcv_str)
                 fecha_fin_dt = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
 
-                # --- 1. CÁLCULO DE BALANCES TOTALES ACUMULADOS (hasta fecha_fin) ---
-                
-                # Saldo en Efectivo (USD)
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND forma_pago = 'Efectivo' AND fecha_pago <= %s", (fecha_fin_dt,))
                 resumen['balance_efectivo_usd'] = cur.fetchone()[0] or Decimal('0.0')
 
-                # Saldo en Binance (USDT)
                 cur.execute("SELECT COALESCE(SUM(monto_destino), 0) FROM operaciones_tesoreria WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s", (fecha_fin_dt,))
                 resumen['balance_binance_usdt'] = cur.fetchone()[0] or Decimal('0.0')
 
-                # Saldo en Bolívares (Bs)
                 cur.execute("SELECT COALESCE(SUM(monto_bs), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND monto_bs > 0 AND fecha_pago <= %s", (fecha_fin_dt,))
                 ingresos_bs_total = cur.fetchone()[0] or Decimal('0.0')
                 
@@ -477,12 +436,8 @@ def reporte_flujo_caja():
                 if tasa_actual_decimal > 0:
                     resumen['balance_bolivares_usd'] = resumen['balance_bolivares_bs'] / tasa_actual_decimal
 
-                # Balance General Consolidado
                 resumen['balance_general_consolidado_usd'] = resumen['balance_efectivo_usd'] + resumen['balance_binance_usdt'] + resumen['balance_bolivares_usd']
 
-                # --- 2. CÁLCULO DE RENDIMIENTO DEL PERÍODO (entre fecha_inicio y fecha_fin) ---
-
-                # Obtener todos los pagos conciliados en el rango
                 query_pagos_periodo = "SELECT * FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s"
                 cur.execute(query_pagos_periodo, (fecha_inicio_str, fecha_fin_str))
                 pagos_periodo = cur.fetchall()
@@ -490,12 +445,8 @@ def reporte_flujo_caja():
                 for pago in pagos_periodo:
                     monto_usd = pago['monto'] or Decimal('0.0')
                     resumen['periodo_ingresos_usd'] += monto_usd
-
-                    # Desglose por tipo
                     tipo = pago['tipo_pago']
                     resumen['periodo_ingresos_por_tipo'][tipo] = resumen['periodo_ingresos_por_tipo'].get(tipo, Decimal('0.0')) + monto_usd
-
-                    # Desglose por forma de pago
                     forma = pago['forma_pago'] or 'No especificada'
                     if forma not in resumen['periodo_ingresos_por_forma']:
                         resumen['periodo_ingresos_por_forma'][forma] = {'usd': Decimal('0.0'), 'bs': Decimal('0.0')}
@@ -503,22 +454,18 @@ def reporte_flujo_caja():
                     if pago['monto_bs']:
                         resumen['periodo_ingresos_por_forma'][forma]['bs'] += pago['monto_bs']
 
-                    # Calcular pérdida por devaluación para pagos en Bolívares DENTRO DEL PERÍODO
                     if pago['monto_bs'] and pago['tasa_dia'] and tasa_actual_decimal > 0:
                         valor_usd_original = pago['monto_bs'] / pago['tasa_dia']
                         valor_usd_actual = pago['monto_bs'] / tasa_actual_decimal
                         resumen['periodo_perdida_devaluacion'] += (valor_usd_original - valor_usd_actual)
                 
-                # Obtener pérdidas por conversión de tesorería DENTRO DEL PERÍODO
                 query_perdidas_periodo = "SELECT COALESCE(SUM(perdida_cambiaria), 0) FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s"
                 cur.execute(query_perdidas_periodo, (fecha_inicio_str + " 00:00:00", fecha_fin_str + " 23:59:59"))
                 resumen['periodo_perdida_conversion'] = cur.fetchone()[0] or Decimal('0.0')
 
-                # Calcular totales del período
                 resumen['periodo_total_perdidas'] = resumen['periodo_perdida_devaluacion'] + resumen['periodo_perdida_conversion']
                 resumen['periodo_balance_neto'] = resumen['periodo_ingresos_usd'] - resumen['periodo_total_perdidas']
                 
-                # --- 3. OBTENER HISTORIAL DE CONVERSIONES A BINANCE ---
                 cur.execute("SELECT * FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s ORDER BY fecha_operacion DESC", (fecha_inicio_str, fecha_fin_str))
                 historial_binance = cur.fetchall()
 
@@ -535,9 +482,6 @@ def reporte_flujo_caja():
         historial_binance=historial_binance,
         anio_actual=today.year
     )
-# ==============================================================================
-# ===== FIN DE LA MODIFICACIÓN =====
-# ==============================================================================
 
 @app.route('/registrar_operacion_tesoreria', methods=['POST'])
 @admin_required
@@ -547,7 +491,6 @@ def registrar_operacion_tesoreria():
         monto_bs = Decimal(request.form.get('monto_bs_convertido'))
         monto_usdt = Decimal(request.form.get('monto_usdt_recibido'))
         nota = request.form.get('nota_conversion', '')
-        # Mejora: Permitir que el usuario ingrese la tasa de conversión para mayor precisión
         tasa_conversion_str = request.form.get('tasa_conversion_aplicada')
 
         if not tasa_conversion_str:
@@ -577,8 +520,10 @@ def registrar_operacion_tesoreria():
                 conn.commit()
                 flash("Operación de conversión registrada exitosamente.", "success")
 
-    except (ValueError, TypeError) as e:
-        flash(f"Datos inválidos para la operación: {e}", "error")
+    except (ValueError, TypeError, psycopg2.Error) as e:
+        flash(f"Datos inválidos o error de base de datos: {e}", "error")
+        if get_db():
+            get_db().rollback()
 
     return redirect(url_for('reporte_flujo_caja'))
 
@@ -596,18 +541,15 @@ def perfil_cliente(cliente_id):
     if conn:
         try:
             with conn.cursor() as cur:
-                # Obtener datos del cliente
                 cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (cliente_id,))
                 cliente = cur.fetchone()
                 if not cliente:
                     flash("Cliente no encontrado.", "error")
                     return redirect(url_for('consulta'))
 
-                # Obtener historial de pagos
                 cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC", (cliente_id,))
                 pagos = cur.fetchall()
 
-                # Obtener gestiones de cobranza
                 query_gestiones = """
                     SELECT g.nota, g.fecha_creacion, a.usuario as gestor_nombre
                     FROM gestiones_cobranza g
@@ -641,7 +583,6 @@ def agregar_gestion(cliente_id):
                     (cliente_id, g.admin['id'], nota.strip())
                 )
                 
-                # Registrar en auditoría
                 cur.execute("SELECT nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
                 cliente = cur.fetchone()
                 descripcion = f"Agregó nota de gestión para el cliente {cliente['nombre']} {cliente['apellido']}: '{nota[:50]}...'"
