@@ -3,26 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reporte de Flujo de Caja - Moto Plan Motors C.A.</title>
+    <title>Reporte de Flujo de Caja Avanzado - Moto Plan Motors C.A.</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
-        body {
-            background-color: #f8f9fa;
-        }
+        body { background-color: #f8f9fa; }
         .summary-card {
             background-color: #fff;
-            border-radius: 0.5rem;
+            border-radius: 0.75rem;
             padding: 1.5rem;
             box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.05);
+            margin-bottom: 1.5rem;
         }
-        .summary-card .value {
-            font-size: 2rem;
-            font-weight: 700;
-        }
-        .income { border-left: 5px solid #28a745; }
-        .expense { border-left: 5px solid #dc3545; }
-        .balance { border-left: 5px solid #0d6efd; }
+        .summary-card .value { font-size: 1.75rem; font-weight: 700; }
+        .summary-card .sub-value { font-size: 1rem; font-weight: 500; }
+        .table-responsive { max-height: 400px; }
     </style>
 </head>
 <body>
@@ -32,9 +27,7 @@
             <a class="navbar-brand" href="{{ url_for('gestion_administrativa') }}">
                 <i class="bi bi-arrow-left"></i> Volver a Gestión
             </a>
-            <span class="navbar-text fw-bold">
-                Reporte de Flujo de Caja
-            </span>
+            <span class="navbar-text fw-bold">Flujo de Caja Avanzado</span>
             <div class="d-flex align-items-center">
                  {% if g.admin %}
                     <span class="navbar-text me-3 d-none d-md-inline">
@@ -48,21 +41,25 @@
 
     <main class="container">
         <div class="text-center mb-5">
-            <h1 class="display-5 fw-bold">Reporte de Flujo de Caja</h1>
-            <p class="lead text-muted">Analiza los ingresos y egresos en un período determinado.</p>
+            <h1 class="display-5 fw-bold">Reporte de Flujo de Caja Avanzado</h1>
+            <p class="lead text-muted">Análisis detallado de ingresos y su valor real.</p>
         </div>
 
-        <!-- Date Filter Form -->
+        <!-- Filtros -->
         <div class="card shadow-sm mb-5">
             <div class="card-body">
                 <form method="POST" class="row g-3 align-items-end">
-                    <div class="col-md-5">
+                    <div class="col-md-4">
                         <label for="fecha_inicio" class="form-label">Fecha de Inicio</label>
                         <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" value="{{ fecha_inicio }}" required>
                     </div>
-                    <div class="col-md-5">
+                    <div class="col-md-4">
                         <label for="fecha_fin" class="form-label">Fecha de Fin</label>
                         <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" value="{{ fecha_fin }}" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="tasa_actual_bcv" class="form-label">Tasa BCV Actual</label>
+                        <input type="number" step="0.01" class="form-control" id="tasa_actual_bcv" name="tasa_actual_bcv" value="{{ tasa_actual_bcv }}" required>
                     </div>
                     <div class="col-md-2">
                         <button type="submit" class="btn btn-primary w-100">Generar Reporte</button>
@@ -72,63 +69,99 @@
         </div>
 
         {% if mostrar_resultados %}
-        <!-- Summary Cards -->
-        <div class="row g-4 mb-5">
-            <div class="col-md-4">
-                <div class="summary-card income">
-                    <h6 class="text-muted text-uppercase small">Total Ingresos</h6>
-                    <div class="value text-success">${{ "{:,.2f}".format(resumen.total_ingresos) }}</div>
+        <!-- Resumen Consolidado -->
+        <div class="row">
+            <div class="col-lg-4">
+                <div class="summary-card text-center bg-primary text-white">
+                    <h6 class="text-uppercase small opacity-75">Balance Real en Caja (USD)</h6>
+                    <div class="value">${{ "{:,.2f}".format(resumen.balance_real) }}</div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="summary-card expense">
-                    <h6 class="text-muted text-uppercase small">Total Egresos</h6>
-                    <div class="value text-danger">${{ "{:,.2f}".format(resumen.total_egresos) }}</div>
+            <div class="col-lg-4">
+                <div class="summary-card text-center bg-success text-white">
+                    <h6 class="text-uppercase small opacity-75">Total Ingresos (USD)</h6>
+                    <div class="value">${{ "{:,.2f}".format(resumen.total_ingresos_usd) }}</div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="summary-card balance">
-                    <h6 class="text-muted text-uppercase small">Balance</h6>
-                    <div class="value text-primary">${{ "{:,.2f}".format(resumen.balance) }}</div>
+            <div class="col-lg-4">
+                <div class="summary-card text-center bg-danger text-white">
+                    <h6 class="text-uppercase small opacity-75">Total Pérdidas (USD)</h6>
+                    <div class="value">${{ "{:,.2f}".format(resumen.total_perdidas) }}</div>
+                    <div class="sub-value opacity-75">Devaluación: ${{ "{:,.2f}".format(resumen.perdida_devaluacion) }} | Conversión: ${{ "{:,.2f}".format(resumen.perdida_conversion) }}</div>
                 </div>
             </div>
         </div>
 
-        <!-- Transactions Table -->
-        <div class="card shadow-sm">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">Detalle de Ingresos Conciliados</h5>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover table-striped mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th scope="col">Fecha</th>
-                                <th scope="col">Cliente</th>
-                                <th scope="col">Cédula</th>
-                                <th scope="col">Concepto</th>
-                                <th scope="col" class="text-end">Monto</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for pago in pagos %}
-                            <tr>
-                                <td>{{ pago.fecha_pago.strftime('%d/%m/%Y') }}</td>
-                                <td>{{ pago.nombre_apellido }}</td>
-                                <td>{{ pago.cedula }}</td>
-                                <td>{{ pago.tipo_pago }}</td>
-                                <td class="text-end">${{ "{:,.2f}".format(pago.monto) }}</td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="5" class="text-center py-4">
-                                    No se encontraron ingresos en el período seleccionado.
-                                </td>
-                            </tr>
+        <div class="row g-4 mt-2">
+            <!-- Desglose de Ingresos -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">Desglose de Ingresos por Tipo</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            {% for tipo, monto in resumen.ingresos_por_tipo.items() %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ tipo }}
+                                <span class="badge bg-success rounded-pill">${{ "{:,.2f}".format(monto) }}</span>
+                            </li>
                             {% endfor %}
-                        </tbody>
-                    </table>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">Desglose de Ingresos por Moneda/Forma de Pago</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            {% for forma, data in resumen.ingresos_por_forma.items() %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ forma }}
+                                <div>
+                                    <span class="badge bg-primary rounded-pill">${{ "{:,.2f}".format(data.usd) }}</span>
+                                    {% if data.bs > 0 %}
+                                    <span class="badge bg-secondary rounded-pill">{{ "{:,.2f}".format(data.bs) }} Bs.</span>
+                                    {% endif %}
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Operaciones de Tesorería -->
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">Operaciones de Tesorería</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>Registrar Conversión de Bolívares a Binance (USDT)</h6>
+                        <form action="{{ url_for('registrar_operacion_tesoreria') }}" method="POST">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-3">
+                                    <label for="monto_bs_convertido" class="form-label">Monto en Bolívares (Bs.)</label>
+                                    <input type="number" step="0.01" class="form-control" name="monto_bs_convertido" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="monto_usdt_recibido" class="form-label">Monto en USDT Recibido</label>
+                                    <input type="number" step="0.01" class="form-control" name="monto_usdt_recibido" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="nota_conversion" class="form-label">Nota (Opcional)</label>
+                                    <input type="text" class="form-control" name="nota_conversion" placeholder="Ej: Conversión del día">
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="submit" class="btn btn-success w-100">Registrar</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>

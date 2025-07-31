@@ -383,13 +383,11 @@ def asignar_gestor(cliente_id):
     conn = get_db()
     gestor_id = request.form.get('gestor_id')
     
-    # Convertir a None si se selecciona "Sin asignar"
     gestor_id_para_db = int(gestor_id) if gestor_id and gestor_id.isdigit() else None
 
     if conn:
         try:
             with conn.cursor() as cur:
-                # Obtener info para auditoría
                 cur.execute("SELECT nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
                 cliente = cur.fetchone()
                 nombre_gestor = "nadie"
@@ -399,10 +397,8 @@ def asignar_gestor(cliente_id):
                     if gestor:
                         nombre_gestor = gestor['usuario']
 
-                # Actualizar la base de datos
                 cur.execute("UPDATE clientes SET gestor_id = %s WHERE id = %s", (gestor_id_para_db, cliente_id))
                 
-                # Registrar en auditoría
                 descripcion = f"Asignó al cliente {cliente['nombre']} {cliente['apellido']} al gestor '{nombre_gestor}'."
                 registrar_accion_auditoria('ASIGNACION_GESTOR', descripcion, cliente_id)
                 
@@ -421,49 +417,116 @@ def asignar_gestor(cliente_id):
 def reporte_flujo_caja():
     conn = get_db()
     today = date.today()
-    fecha_inicio = today.replace(day=1).strftime('%Y-%m-%d')
-    fecha_fin = today.strftime('%Y-%m-%d')
-    mostrar_resultados = False
-    pagos = []
-    resumen = {'total_ingresos': 0, 'total_egresos': 0, 'balance': 0}
+    
+    # Valores por defecto para el formulario
+    fecha_inicio = request.form.get('fecha_inicio', today.replace(day=1).strftime('%Y-%m-%d'))
+    fecha_fin = request.form.get('fecha_fin', today.strftime('%Y-%m-%d'))
+    tasa_actual_bcv = request.form.get('tasa_actual_bcv', '0.0')
+    
+    mostrar_resultados = request.method == 'POST'
+    resumen = {
+        'total_ingresos_usd': Decimal('0.0'),
+        'ingresos_por_tipo': {},
+        'ingresos_por_forma': {},
+        'perdida_devaluacion': Decimal('0.0'),
+        'perdida_conversion': Decimal('0.0'),
+        'total_perdidas': Decimal('0.0'),
+        'balance_real': Decimal('0.0')
+    }
 
-    if request.method == 'POST':
-        fecha_inicio = request.form.get('fecha_inicio')
-        fecha_fin = request.form.get('fecha_fin')
-        mostrar_resultados = True
+    if mostrar_resultados and conn:
+        try:
+            with conn.cursor() as cur:
+                tasa_actual_decimal = Decimal(tasa_actual_bcv)
 
-        if conn:
-            try:
-                with conn.cursor() as cur:
-                    query = """
-                        SELECT p.fecha_pago, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, p.tipo_pago, p.monto
-                        FROM pagos p
-                        JOIN clientes c ON p.cliente_id = c.id
-                        WHERE p.estado_pago = 'Conciliado'
-                        AND p.fecha_pago BETWEEN %s AND %s
-                        ORDER BY p.fecha_pago ASC;
-                    """
-                    cur.execute(query, (fecha_inicio, fecha_fin))
-                    pagos = cur.fetchall()
+                # Obtener todos los pagos conciliados en el rango
+                query_pagos = "SELECT * FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s"
+                cur.execute(query_pagos, (fecha_inicio, fecha_fin))
+                pagos = cur.fetchall()
 
-                    if pagos:
-                        total_ingresos = sum(p['monto'] for p in pagos)
-                        resumen['total_ingresos'] = total_ingresos
-                        # Por ahora, los egresos son 0
-                        resumen['balance'] = total_ingresos
+                # Procesar pagos
+                for pago in pagos:
+                    monto_usd = pago['monto'] or Decimal('0.0')
+                    resumen['total_ingresos_usd'] += monto_usd
 
-            except psycopg2.Error as e:
-                flash(f"No se pudo generar el reporte de flujo de caja: {e}", "error")
+                    # Desglose por tipo
+                    tipo = pago['tipo_pago']
+                    resumen['ingresos_por_tipo'][tipo] = resumen['ingresos_por_tipo'].get(tipo, Decimal('0.0')) + monto_usd
+
+                    # Desglose por forma de pago
+                    forma = pago['forma_pago'] or 'No especificada'
+                    if forma not in resumen['ingresos_por_forma']:
+                        resumen['ingresos_por_forma'][forma] = {'usd': Decimal('0.0'), 'bs': Decimal('0.0')}
+                    resumen['ingresos_por_forma'][forma]['usd'] += monto_usd
+                    if pago['monto_bs']:
+                        resumen['ingresos_por_forma'][forma]['bs'] += pago['monto_bs']
+
+                    # Calcular pérdida por devaluación para pagos en Bolívares
+                    if pago['monto_bs'] and pago['tasa_dia'] and tasa_actual_decimal > 0:
+                        monto_bs = pago['monto_bs']
+                        tasa_pago = pago['tasa_dia']
+                        valor_usd_original = monto_bs / tasa_pago
+                        valor_usd_actual = monto_bs / tasa_actual_decimal
+                        resumen['perdida_devaluacion'] += (valor_usd_original - valor_usd_actual)
+                
+                # Obtener pérdidas por conversión de tesorería
+                query_perdidas = "SELECT COALESCE(SUM(perdida_cambiaria), 0) FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s"
+                cur.execute(query_perdidas, (fecha_inicio + " 00:00:00", fecha_fin + " 23:59:59"))
+                resumen['perdida_conversion'] = cur.fetchone()[0] or Decimal('0.0')
+
+                # Calcular totales
+                resumen['total_perdidas'] = resumen['perdida_devaluacion'] + resumen['perdida_conversion']
+                resumen['balance_real'] = resumen['total_ingresos_usd'] - resumen['total_perdidas']
+
+        except (psycopg2.Error, ValueError, TypeError) as e:
+            flash(f"Error al generar el reporte: {e}", "error")
 
     return render_template(
         'reporte_flujo_caja.html',
         fecha_inicio=fecha_inicio,
         fecha_fin=fecha_fin,
+        tasa_actual_bcv=tasa_actual_bcv,
         mostrar_resultados=mostrar_resultados,
-        pagos=pagos,
         resumen=resumen,
         anio_actual=today.year
     )
+
+@app.route('/registrar_operacion_tesoreria', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def registrar_operacion_tesoreria():
+    try:
+        monto_bs = Decimal(request.form.get('monto_bs_convertido'))
+        monto_usdt = Decimal(request.form.get('monto_usdt_recibido'))
+        nota = request.form.get('nota_conversion', '')
+        tasa_actual_bcv_str = request.form.get('tasa_actual_bcv', '0.0') # Necesitamos la tasa actual para el cálculo
+        tasa_actual_bcv = Decimal(tasa_actual_bcv_str)
+
+        if tasa_actual_bcv <= 0:
+            flash("La tasa BCV actual debe ser un número positivo para calcular la pérdida.", "danger")
+            return redirect(url_for('reporte_flujo_caja'))
+
+        valor_real_bs_en_usd = monto_bs / tasa_actual_bcv
+        perdida = valor_real_bs_en_usd - monto_usdt
+
+        conn = get_db()
+        if conn and g.admin:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO operaciones_tesoreria 
+                    (tipo_operacion, monto_origen, monto_destino, perdida_cambiaria, nota, realizada_por)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    ('CONVERSION_BS_BINANCE', monto_bs, monto_usdt, perdida, nota, g.admin['id'])
+                )
+                conn.commit()
+                flash("Operación de conversión registrada exitosamente.", "success")
+
+    except (ValueError, TypeError) as e:
+        flash(f"Datos inválidos para la operación: {e}", "error")
+
+    return redirect(url_for('reporte_flujo_caja'))
 
 
 # --- GESTIÓN DE CLIENTES Y PAGOS ---
