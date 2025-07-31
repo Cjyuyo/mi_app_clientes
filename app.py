@@ -382,6 +382,9 @@ def asignar_gestor(cliente_id):
     
     return redirect(url_for('reporte_morosidad'))
 
+# =================================================================================
+# ===== INICIO DEL BLOQUE DE CÓDIGO CORREGIDO =====
+# =================================================================================
 @app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -465,7 +468,7 @@ def reporte_flujo_caja():
                 resumen['periodo_total_perdidas'] = resumen['periodo_perdida_devaluacion'] + resumen['periodo_perdida_conversion']
                 resumen['periodo_balance_neto'] = resumen['periodo_ingresos_usd'] - resumen['periodo_total_perdidas']
                 
-                cur.execute("SELECT * FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s ORDER BY fecha_operacion DESC", (fecha_inicio_str, fecha_fin_str))
+                cur.execute("SELECT * FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s ORDER BY fecha_operacion DESC", (fecha_inicio_str + " 00:00:00", fecha_fin_str + " 23:59:59"))
                 historial_binance = cur.fetchall()
 
         except (psycopg2.Error, ValueError, TypeError) as e:
@@ -482,9 +485,6 @@ def reporte_flujo_caja():
         anio_actual=today.year
     )
 
-# =================================================================================
-# ===== INICIO DEL BLOQUE DE CÓDIGO FINAL Y CORREGIDO =====
-# =================================================================================
 @app.route('/registrar_operacion_tesoreria', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -542,7 +542,7 @@ def registrar_operacion_tesoreria():
 
     return redirect(url_for('reporte_flujo_caja'))
 # =================================================================================
-# ===== FIN DEL BLOQUE DE CÓDIGO FINAL Y CORREGIDO =====
+# ===== FIN DEL BLOQUE DE CÓDIGO CORREGIDO =====
 # =================================================================================
 
 
