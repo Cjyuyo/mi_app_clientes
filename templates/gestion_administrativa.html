@@ -16,7 +16,7 @@
             box-shadow: 0 2px 4px rgba(0,0,0,.1);
         }
         .hub-header {
-            background-color: #17a2b8;
+            background-color: #17a2b8; /* Color turquesa para este módulo */
             color: white;
             padding: 50px 20px;
             text-align: center;
@@ -76,7 +76,7 @@
 </head>
 <body>
     
-    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+    <nav class="navbar navbar-expand-lg navbar-light">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('hub') }}">
                 <i class="bi bi-arrow-left"></i> Volver al Panel Principal
@@ -98,30 +98,6 @@
     </div>
 
     <div class="container my-5">
-
-        <!-- Alertas de Cobranza -->
-        {% if alertas_cobranza %}
-        <div class="alert alert-warning border-0 shadow-sm mb-5" role="alert">
-            <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Alertas de Cobranza</h4>
-            <p>Los siguientes clientes ahorradores tienen pagos pendientes para el mes de <strong>{{ mes_actual }}</strong>.</p>
-            <hr>
-            <ul class="list-group">
-                {% for cliente in alertas_cobranza %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div>
-                        <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong> (C.I. {{ cliente.cedula }})
-                    </div>
-                    <div>
-                        <span class="badge bg-danger me-3">Cuota: ${{ "{:,.2f}".format(cliente.valor_cuota) }}</span>
-                        <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="btn btn-sm btn-outline-secondary">Ver Perfil</a>
-                    </div>
-                </li>
-                {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-
-        <!-- Hub Cards -->
         <div class="row g-4 justify-content-center">
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
@@ -138,7 +114,7 @@
                     <div>
                         <div class="icon" style="color: #dc3545;"><i class="bi bi-file-earmark-text-fill"></i></div>
                         <h3>Reporte de Morosidad</h3>
-                        <p>Genera una lista detallada de clientes con pagos vencidos.</p>
+                        <p>Genera una lista detallada de clientes con pagos vencidos y asigna gestores.</p>
                     </div>
                     <a href="{{ url_for('reporte_morosidad') }}" class="btn" style="background-color: #dc3545; color: white;">Generar Reporte</a>
                 </div>
@@ -147,10 +123,20 @@
                 <div class="hub-card">
                     <div>
                         <div class="icon" style="color: #28a745;"><i class="bi bi-cash-coin"></i></div>
-                        <h3>Reporte de Flujo de Caja</h3>
-                        <p>Analiza los ingresos y egresos de un período específico.</p>
+                        <h3>Flujo de Caja Avanzado</h3>
+                        <p>Analiza ingresos, egresos y el balance real de tus cajas financieras.</p>
                     </div>
-                    <a href="{{ url_for('reporte_flujo_caja') }}" class="btn" style="background-color: #28a745; color: white;">Generar Reporte</a>
+                    <a href="{{ url_for('reporte_flujo_caja') }}" class="btn" style="background-color: #28a745; color: white;">Analizar Cajas</a>
+                </div>
+            </div>
+             <div class="col-lg-4 col-md-6">
+                <div class="hub-card">
+                    <div>
+                        <div class="icon" style="color: #ffc107;"><i class="bi bi-briefcase-fill"></i></div>
+                        <h3>Mi Cartera de Cobranza</h3>
+                        <p>Visualiza y gestiona los clientes que te han sido asignados.</p>
+                    </div>
+                    <a href="{{ url_for('mi_cartera') }}" class="btn btn-warning text-dark">Gestionar</a>
                 </div>
             </div>
         </div>

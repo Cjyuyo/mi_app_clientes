@@ -499,17 +499,29 @@ def registrar_operacion_tesoreria():
         monto_bs = Decimal(request.form.get('monto_bs_convertido'))
         monto_usdt = Decimal(request.form.get('monto_usdt_recibido'))
         nota = request.form.get('nota_conversion', '')
-        tasa_actual_bcv_str = request.form.get('tasa_actual_bcv', '0.0') # Necesitamos la tasa actual para el cálculo
-        tasa_actual_bcv = Decimal(tasa_actual_bcv_str)
-
-        if tasa_actual_bcv <= 0:
-            flash("La tasa BCV actual debe ser un número positivo para calcular la pérdida.", "danger")
-            return redirect(url_for('reporte_flujo_caja'))
-
-        valor_real_bs_en_usd = monto_bs / tasa_actual_bcv
-        perdida = valor_real_bs_en_usd - monto_usdt
-
+        
+        # Para calcular la pérdida real, necesitamos la tasa BCV del día de la conversión
+        # Asumiremos que el usuario la introduce o la obtenemos de una API (simplificado por ahora)
+        # Aquí, calcularemos la pérdida basada en una tasa de referencia implícita
+        # Esta lógica puede ser más compleja si se requiere mayor precisión
+        
+        # Buscamos la tasa BCV más reciente registrada en un pago para tener una referencia
         conn = get_db()
+        tasa_referencia = Decimal('0.0')
+        if conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT tasa_dia FROM pagos WHERE tasa_dia IS NOT NULL ORDER BY fecha_pago DESC LIMIT 1")
+                resultado = cur.fetchone()
+                if resultado:
+                    tasa_referencia = resultado['tasa_dia']
+
+        if tasa_referencia <= 0:
+            flash("No se pudo determinar una tasa de referencia para calcular la pérdida. Operación registrada sin pérdida calculada.", "warning")
+            perdida = Decimal('0.0')
+        else:
+            valor_real_bs_en_usd = monto_bs / tasa_referencia
+            perdida = valor_real_bs_en_usd - monto_usdt
+
         if conn and g.admin:
             with conn.cursor() as cur:
                 cur.execute(
