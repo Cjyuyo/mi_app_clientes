@@ -21,6 +21,25 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-desarrollo')
 
+# =================================================================================
+# ===== INICIO DE LA CORRECCIÓN: AÑADIR FILTRO DE FECHA =====
+# =================================================================================
+@app.template_filter('format_date')
+def format_date_filter(value, format='%d/%m/%Y'):
+    if value == 'now':
+        return date.today().strftime(format)
+    if isinstance(value, str):
+        try:
+            value = datetime.strptime(value, '%Y-%m-%d').date()
+        except ValueError:
+            return value
+    if isinstance(value, (datetime, date)):
+        return value.strftime(format)
+    return value
+# =================================================================================
+# ===== FIN DE LA CORRECCIÓN =====
+# =================================================================================
+
 # --- CONFIGURACIÓN DE LA SESIÓN Y CARGA DE USUARIO ---
 @app.before_request
 def setup_session_and_user():
@@ -245,7 +264,6 @@ def reporte_metricas():
     if conn:
         try:
             with conn.cursor() as cur:
-                # Métricas básicas
                 cur.execute("SELECT COUNT(*) FROM clientes WHERE estatus = 'activo'")
                 dashboard_metrics['clientes_activos'] = cur.fetchone()[0]
                 
@@ -256,7 +274,6 @@ def reporte_metricas():
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
                 dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
 
-                # Índice de Morosidad
                 cur.execute("SELECT COUNT(*) FROM clientes WHERE proceso = 'Ahorrador' AND estatus = 'activo'")
                 total_ahorradores = cur.fetchone()[0]
                 if total_ahorradores > 0:
@@ -265,7 +282,6 @@ def reporte_metricas():
                     clientes_en_mora = total_ahorradores - ahorradores_al_dia
                     dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100 if total_ahorradores > 0 else 0
 
-                # Datos para el gráfico de ingresos (últimos 6 meses)
                 income_labels, income_values = [], []
                 current_date = today
                 for _ in range(6):
@@ -283,7 +299,6 @@ def reporte_metricas():
 
                 dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
 
-                # Datos para el gráfico de composición de clientes
                 cur.execute("SELECT proceso, COUNT(*) FROM clientes WHERE estatus = 'activo' GROUP BY proceso")
                 client_composition = cur.fetchall()
                 comp_labels = [row['proceso'].capitalize() for row in client_composition]
@@ -308,7 +323,6 @@ def reporte_morosidad():
     if conn:
         try:
             with conn.cursor() as cur:
-                # Obtener lista de posibles gestores
                 cur.execute("SELECT id, usuario FROM administradores ORDER BY usuario")
                 gestores = cur.fetchall()
 
@@ -396,7 +410,6 @@ def administrar_tasa_bcv():
     if conn:
         try:
             with conn.cursor() as cur:
-                # Verificar si ya existe una tasa para hoy
                 cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha = %s", (today_str,))
                 resultado = cur.fetchone()
                 if resultado:
@@ -417,7 +430,6 @@ def administrar_tasa_bcv():
                         else:
                             flash('La tasa debe ser un número positivo.', 'danger')
                 
-                # Obtener historial para mostrar en la tabla
                 cur.execute("""
                     SELECT h.fecha, h.tasa, a.usuario 
                     FROM historial_tasas_bcv h
