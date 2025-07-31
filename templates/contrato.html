@@ -7,6 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
+        /* --- ESTILOS GENERALES PARA PANTALLA --- */
         body {
             background-color: #f0f2f5;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -66,6 +67,7 @@
             text-align: justify;
             font-size: 0.9rem;
             margin-bottom: 10px;
+            line-height: 1.4;
             color: #212529;
         }
         .signatures { margin-top: 50px; }
@@ -97,8 +99,8 @@
         }
         .verification-section img {
             max-width: 100%;
-            height: 250px; /* Altura fija para consistencia */
-            object-fit: contain; /* Clave para evitar distorsión */
+            height: 250px;
+            object-fit: contain;
             border: 1px solid #ddd;
             border-radius: 4px;
             background-color: #f0f2f5;
@@ -110,14 +112,21 @@
             height: auto;
         }
 
-        /* --- ESTILOS PARA IMPRESIÓN --- */
+        /* --- ESTILOS OPTIMIZADOS PARA IMPRESIÓN --- */
         @media print {
+            @page {
+                size: letter;
+                margin: 0.75in 0.5in; /* Márgenes de página reducidos */
+            }
             body {
                 background-color: #fff !important;
-                font-size: 10pt; /* Fuente más pequeña para impresión */
+                font-size: 8.5pt; /* Fuente muy pequeña para máxima compactación */
+                line-height: 1.2;
+                margin: 0 !important;
+                padding: 0 !important;
             }
             .no-print {
-                display: none !important; /* Oculta elementos que no se imprimen */
+                display: none !important;
             }
             .contract-container, .container, .container-fluid {
                 width: 100% !important;
@@ -127,40 +136,65 @@
                 box-shadow: none !important;
                 border: none !important;
             }
-            .client-info, .verification-section {
-                padding: 1rem !important;
-                margin-top: 20px !important;
-                margin-bottom: 20px !important;
+            .header {
+                padding-bottom: 5px;
+                margin-bottom: 10px;
             }
+            .header h1 { font-size: 14pt; }
+            .header p { font-size: 9pt; margin-bottom: 0; }
+            .client-info {
+                padding: 0.5rem !important; /* Relleno mínimo */
+                margin-top: 10px !important;
+                margin-bottom: 15px !important;
+                border: 1px solid #ccc !important;
+            }
+            .client-info h2 {
+                font-size: 11pt;
+                padding-bottom: 5px;
+                margin-bottom: 8px;
+            }
+            .client-info p {
+                font-size: 8.5pt; /* Letra de datos del cliente más pequeña */
+                margin: 2px 0 !important; /* Espaciado mínimo */
+            }
+            .client-info hr { display: none; } /* Ocultar separadores */
+            .client-info h6 { font-size: 9pt; margin-top: 5px; margin-bottom: 3px;}
+
+            .contract-body h2 { font-size: 10pt; margin-top: 15px; }
+            .contract-body h3 { font-size: 9pt; margin-top: 10px; }
             .contract-body p, .contract-body li {
-                font-size: 9.5pt;
-                margin-bottom: 6px;
+                font-size: 8.5pt;
+                margin-bottom: 4px; /* Espaciado mínimo entre párrafos */
             }
             .signatures {
-                margin-top: 25px !important;
-                page-break-inside: avoid; /* Evita que el bloque de firmas se divida en dos páginas */
+                margin-top: 20px !important;
+                page-break-inside: avoid;
             }
-            .signature-block {
-                margin-bottom: 1rem !important;
+            .signature-block img {
+                max-height: 70px !important; /* Firmas mucho más pequeñas */
             }
             .signature-block p {
-                margin-top: 15px !important; /* Reduce el espacio sobre la línea de firma */
-                font-size: 10pt;
+                margin-top: 5px !important;
+                font-size: 8.5pt;
+                border: none !important;
+                border-top: 1px solid #333 !important;
+                padding-top: 5px !important;
             }
             .verification-section {
-                page-break-inside: avoid; /* Evita que la sección de verificación se divida */
+                padding: 0.5rem !important;
+                margin-top: 15px !important;
+                page-break-inside: avoid;
             }
+             .verification-section h2 { font-size: 11pt; }
             .verification-section img {
-                height: auto; /* Permite que la altura se ajuste automáticamente */
-                max-height: 160px; /* Define una altura máxima razonable */
+                max-height: 120px !important; /* Fotos de verificación más pequeñas */
             }
-            /* Control de saltos de página para evitar títulos o párrafos sueltos */
-            h1, h2, h3, h4, h5, h6 {
-                page-break-after: avoid;
+            h1, h2, h3, p, ul, ol, div {
                 page-break-inside: avoid;
             }
-            p, ul, ol {
-                page-break-inside: avoid;
+            .row > * {
+                padding-right: 5px !important;
+                padding-left: 5px !important;
             }
         }
     </style>
@@ -195,7 +229,7 @@
                     <div class="col-6"><p><strong>Teléfono:</strong> {{ cliente.telefono }}</p></div>
                     <div class="col-6"><p><strong>Fecha de Ingreso:</strong> {{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</p></div>
                 </div>
-                <hr class="my-3">
+                <hr class="my-2">
                 <h6 class="text-muted">DETALLES DEL CONTRATO</h6>
                 <div class="row">
                     <div class="col-6"><p><strong>Nº Contrato:</strong> {{ cliente.contrato_nro }}</p></div>
@@ -205,7 +239,7 @@
                     <div class="col-6"><p><strong>Monto Inscripción:</strong> ${{ "%.2f"|format(cliente.inscripcion_monto) if cliente.inscripcion_monto else 'N/A' }}</p></div>
                     <div class="col-6"><p><strong>Moneda de Pago:</strong> {{ cliente.moneda_pago }}</p></div>
                 </div>
-                <hr class="my-3">
+                <hr class="my-2">
                 <h6 class="text-muted">INFORMACIÓN ADMINISTRATIVA</h6>
                 <div class="row">
                     <div class="col-6"><p><strong>Asesor:</strong> {{ cliente.asesor }}</p></div>
@@ -214,6 +248,7 @@
             </div>
 
             <div class="contract-body">
+                <!-- El resto del cuerpo del contrato no necesita cambios estructurales -->
                 <h2>CAPÍTULO I: DISPOSICIONES GENERALES</h2>
                 <h3>Cláusula 1. Identificación de las partes:</h3>
                 <p>MOTO PLAN MOTORS, C.A., sociedad mercantil inscrita en el Registro Mercantil Primero del Estado Portuguesa, Tomo 66-A RM410 N°18 de 2023, RIF J-50408959-1, en adelante <strong>LA EMPRESA</strong>, ofrece el presente contrato a <strong>EL CLIENTE</strong> ({{ cliente.nombre_apellido }}), quien acepta adherirse voluntariamente al PLAN DE AHORRO PROGRAMADO.</p>
@@ -291,6 +326,7 @@
                 <p><strong>EL CLIENTE</strong> declara haber recibido asesoría clara y suficiente, cuya grabación podrá conservar <strong>LA EMPRESA</strong> como respaldo legal.</p>
             </div>
             
+            <!-- SECCIÓN DE FIRMA INTERACTIVA -->
             <div class="signatures row">
                 <div class="col-6 signature-block">
                     {% if not cliente.firma_empresa %}
@@ -304,7 +340,7 @@
                         </div>
                     </form>
                     {% else %}
-                        <img src="{{ cliente.firma_empresa }}" alt="Firma de la Empresa" class="img-fluid" style="max-height: 150px;">
+                        <img src="{{ cliente.firma_empresa }}" alt="Firma de la Empresa" class="img-fluid">
                         <p>LA EMPRESA<br>(MOTO PLAN MOTORS, C.A.)</p>
                     {% endif %}
                 </div>
@@ -320,12 +356,13 @@
                         </div>
                     </form>
                     {% else %}
-                        <img src="{{ cliente.firma_digital }}" alt="Firma Digital del Cliente" class="img-fluid" style="max-height: 150px;">
+                        <img src="{{ cliente.firma_digital }}" alt="Firma Digital del Cliente" class="img-fluid">
                         <p>EL CLIENTE<br>{{ cliente.nombre_apellido }}<br>C.I: V-{{ cliente.cedula }}</p>
                     {% endif %}
                 </div>
             </div>
 
+            <!-- SECCIÓN DE VERIFICACIÓN Y TRAZABILIDAD -->
             <div class="verification-section">
                 <h2 class="no-print">Anexos de Verificación y Trazabilidad</h2>
                  {% with messages = get_flashed_messages(with_categories=true) %}
@@ -377,7 +414,6 @@
             const form = document.getElementById(formId);
             const input = document.getElementById(inputId);
             
-            // Ajustar tamaño del canvas
             const ratio =  Math.max(window.devicePixelRatio || 1, 1);
             canvas.width = canvas.offsetWidth * ratio;
             canvas.height = canvas.offsetHeight * ratio;
