@@ -382,7 +382,6 @@ def asignar_gestor(cliente_id):
     
     return redirect(url_for('reporte_morosidad'))
 
-
 @app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
