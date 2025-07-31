@@ -112,16 +112,16 @@
             height: auto;
         }
 
-        /* --- ESTILOS OPTIMIZADOS PARA IMPRESIÓN --- */
+        /* --- ESTILOS SÚPER OPTIMIZADOS PARA IMPRESIÓN --- */
         @media print {
             @page {
                 size: letter;
-                margin: 0.75in 0.5in; /* Márgenes de página reducidos */
+                margin: 0.5in; /* Márgenes de página aún más reducidos */
             }
             body {
                 background-color: #fff !important;
-                font-size: 8.5pt; /* Fuente muy pequeña para máxima compactación */
-                line-height: 1.2;
+                font-size: 8pt; /* Fuente base muy pequeña */
+                line-height: 1.15;
                 margin: 0 !important;
                 padding: 0 !important;
             }
@@ -138,63 +138,66 @@
             }
             .header {
                 padding-bottom: 5px;
-                margin-bottom: 10px;
+                margin-bottom: 8px;
             }
-            .header h1 { font-size: 14pt; }
-            .header p { font-size: 9pt; margin-bottom: 0; }
+            .header h1 { font-size: 13pt; }
+            .header p { font-size: 8.5pt; margin-bottom: 0; }
+            
             .client-info {
-                padding: 0.5rem !important; /* Relleno mínimo */
-                margin-top: 10px !important;
-                margin-bottom: 15px !important;
+                padding: 0.4rem !important;
+                margin-top: 8px !important;
+                margin-bottom: 12px !important;
                 border: 1px solid #ccc !important;
             }
             .client-info h2 {
-                font-size: 11pt;
-                padding-bottom: 5px;
-                margin-bottom: 8px;
+                font-size: 10pt;
+                padding-bottom: 4px;
+                margin-bottom: 5px;
             }
             .client-info p {
-                font-size: 8.5pt; /* Letra de datos del cliente más pequeña */
-                margin: 2px 0 !important; /* Espaciado mínimo */
+                font-size: 8pt;
+                margin: 1px 0 !important;
+                line-height: 1.1;
             }
-            .client-info hr { display: none; } /* Ocultar separadores */
-            .client-info h6 { font-size: 9pt; margin-top: 5px; margin-bottom: 3px;}
+            .client-info hr { display: none; }
+            .client-info h6 { font-size: 8.5pt; margin-top: 4px; margin-bottom: 2px; text-decoration: underline; }
 
-            .contract-body h2 { font-size: 10pt; margin-top: 15px; }
-            .contract-body h3 { font-size: 9pt; margin-top: 10px; }
+            .contract-body h2 { font-size: 9.5pt; margin-top: 12px; margin-bottom: 4px; }
+            .contract-body h3 { font-size: 8.5pt; margin-top: 8px; margin-bottom: 3px; }
             .contract-body p, .contract-body li {
-                font-size: 8.5pt;
-                margin-bottom: 4px; /* Espaciado mínimo entre párrafos */
+                font-size: 8pt;
+                margin-bottom: 3px;
             }
+             .contract-body ul { padding-left: 1.2rem; }
+
             .signatures {
-                margin-top: 20px !important;
-                page-break-inside: avoid;
-            }
-            .signature-block img {
-                max-height: 70px !important; /* Firmas mucho más pequeñas */
-            }
-            .signature-block p {
-                margin-top: 5px !important;
-                font-size: 8.5pt;
-                border: none !important;
-                border-top: 1px solid #333 !important;
-                padding-top: 5px !important;
-            }
-            .verification-section {
-                padding: 0.5rem !important;
                 margin-top: 15px !important;
                 page-break-inside: avoid;
             }
-             .verification-section h2 { font-size: 11pt; }
+            .signature-block img {
+                max-height: 55px !important; /* Firmas visiblemente más pequeñas */
+            }
+            .signature-block p {
+                margin-top: 4px !important;
+                font-size: 8pt;
+                border-top: 1px solid #333 !important;
+                padding-top: 4px !important;
+            }
+            .verification-section {
+                padding: 0.4rem !important;
+                margin-top: 12px !important;
+                page-break-inside: avoid;
+            }
+             .verification-section h2 { font-size: 10pt; }
             .verification-section img {
-                max-height: 120px !important; /* Fotos de verificación más pequeñas */
+                max-height: 100px !important; /* Fotos de verificación más pequeñas */
             }
             h1, h2, h3, p, ul, ol, div {
                 page-break-inside: avoid;
             }
             .row > * {
-                padding-right: 5px !important;
-                padding-left: 5px !important;
+                padding-right: 4px !important;
+                padding-left: 4px !important;
             }
         }
     </style>
@@ -220,35 +223,33 @@
                 <p>MOTO PLAN MOTORS, C.A. | RIF: J-50408959-1</p>
             </div>
 
+            <!-- Caja de datos del adherente reorganizada -->
             <div class="client-info mt-4">
                 <h2 class="text-center">Datos del Adherente</h2>
-                <h6 class="text-muted mt-3">INFORMACIÓN PERSONAL</h6>
-                <div class="row">
-                    <div class="col-6"><p><strong>Nombre Completo:</strong> {{ cliente.nombre_apellido }}</p></div>
-                    <div class="col-6"><p><strong>Cédula de Identidad:</strong> V-{{ cliente.cedula }}</p></div>
-                    <div class="col-6"><p><strong>Teléfono:</strong> {{ cliente.telefono }}</p></div>
-                    <div class="col-6"><p><strong>Fecha de Ingreso:</strong> {{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</p></div>
-                </div>
-                <hr class="my-2">
-                <h6 class="text-muted">DETALLES DEL CONTRATO</h6>
-                <div class="row">
-                    <div class="col-6"><p><strong>Nº Contrato:</strong> {{ cliente.contrato_nro }}</p></div>
-                    <div class="col-6"><p><strong>Plan Contratado:</strong> {{ cliente.plan_contratado }}</p></div>
-                    <div class="col-6"><p><strong>Cuotas Totales:</strong> {{ cliente.cuotas_totales }}</p></div>
-                    <div class="col-6"><p><strong>Cuota Mensual:</strong> ${{ "%.2f"|format(cliente.valor_cuota) if cliente.valor_cuota else 'N/A' }}</p></div>
-                    <div class="col-6"><p><strong>Monto Inscripción:</strong> ${{ "%.2f"|format(cliente.inscripcion_monto) if cliente.inscripcion_monto else 'N/A' }}</p></div>
-                    <div class="col-6"><p><strong>Moneda de Pago:</strong> {{ cliente.moneda_pago }}</p></div>
-                </div>
-                <hr class="my-2">
-                <h6 class="text-muted">INFORMACIÓN ADMINISTRATIVA</h6>
-                <div class="row">
-                    <div class="col-6"><p><strong>Asesor:</strong> {{ cliente.asesor }}</p></div>
-                    <div class="col-6"><p><strong>Ciclo de Cobranza:</strong> {{ cliente.ciclo_cobranza }}</p></div>
+                <div class="row g-2">
+                    <!-- Columna 1 -->
+                    <div class="col-4">
+                        <p><strong>Nombre:</strong> {{ cliente.nombre_apellido }}</p>
+                        <p><strong>Cédula:</strong> V-{{ cliente.cedula }}</p>
+                        <p><strong>Teléfono:</strong> {{ cliente.telefono }}</p>
+                    </div>
+                    <!-- Columna 2 -->
+                    <div class="col-4">
+                        <p><strong>Nº Contrato:</strong> {{ cliente.contrato_nro }}</p>
+                        <p><strong>Plan:</strong> {{ cliente.plan_contratado }}</p>
+                        <p><strong>Cuotas:</strong> {{ cliente.cuotas_totales }}</p>
+                    </div>
+                    <!-- Columna 3 -->
+                    <div class="col-4">
+                        <p><strong>Valor Cuota:</strong> ${{ "%.2f"|format(cliente.valor_cuota) }}</p>
+                        <p><strong>Inscripción:</strong> ${{ "%.2f"|format(cliente.inscripcion_monto) }}</p>
+                        <p><strong>Asesor:</strong> {{ cliente.asesor }}</p>
+                    </div>
                 </div>
             </div>
 
             <div class="contract-body">
-                <!-- El resto del cuerpo del contrato no necesita cambios estructurales -->
+                <!-- El cuerpo del contrato permanece igual -->
                 <h2>CAPÍTULO I: DISPOSICIONES GENERALES</h2>
                 <h3>Cláusula 1. Identificación de las partes:</h3>
                 <p>MOTO PLAN MOTORS, C.A., sociedad mercantil inscrita en el Registro Mercantil Primero del Estado Portuguesa, Tomo 66-A RM410 N°18 de 2023, RIF J-50408959-1, en adelante <strong>LA EMPRESA</strong>, ofrece el presente contrato a <strong>EL CLIENTE</strong> ({{ cliente.nombre_apellido }}), quien acepta adherirse voluntariamente al PLAN DE AHORRO PROGRAMADO.</p>
