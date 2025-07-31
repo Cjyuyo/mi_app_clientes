@@ -21,9 +21,6 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-desarrollo')
 
-# =================================================================================
-# ===== INICIO DE LA CORRECCIÓN: AÑADIR FILTRO DE FECHA =====
-# =================================================================================
 @app.template_filter('format_date')
 def format_date_filter(value, format='%d/%m/%Y'):
     if value == 'now':
@@ -36,9 +33,6 @@ def format_date_filter(value, format='%d/%m/%Y'):
     if isinstance(value, (datetime, date)):
         return value.strftime(format)
     return value
-# =================================================================================
-# ===== FIN DE LA CORRECCIÓN =====
-# =================================================================================
 
 # --- CONFIGURACIÓN DE LA SESIÓN Y CARGA DE USUARIO ---
 @app.before_request
@@ -222,181 +216,8 @@ def hub():
 def gestion_administrativa():
     return render_template('gestion_administrativa.html', anio_actual=date.today().year)
 
-@app.route('/mi_cartera')
-@admin_required
-def mi_cartera():
-    conn = get_db()
-    clientes_asignados = []
-    if conn and g.admin:
-        try:
-            with conn.cursor() as cur:
-                query = """
-                    SELECT id, nombre, apellido, cedula, telefono, proceso
-                    FROM clientes
-                    WHERE gestor_id = %s
-                    ORDER BY nombre, apellido;
-                """
-                cur.execute(query, (g.admin['id'],))
-                clientes_asignados = cur.fetchall()
-        except psycopg2.Error as e:
-            flash(f"No se pudo cargar tu cartera de clientes: {e}", "error")
-            
-    return render_template('mi_cartera.html', clientes=clientes_asignados, anio_actual=date.today().year)
-
-
-@app.route('/reportes/metricas')
-@admin_required
-@rol_requerido('superadmin', 'gerente')
-def reporte_metricas():
-    conn = get_db()
-    today = date.today()
-    dashboard_metrics = {
-        'clientes_activos': 0,
-        'clientes_adjudicados': 0,
-        'ingresos_mes_conciliados': 0,
-        'indice_morosidad': 0.0,
-        'mes_actual': get_nombre_mes(today.month),
-        'anio_actual': today.year,
-        'ingresos_ultimos_meses': {'labels': [], 'values': []},
-        'composicion_clientes': {'labels': [], 'values': []}
-    }
-
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                cur.execute("SELECT COUNT(*) FROM clientes WHERE estatus = 'activo'")
-                dashboard_metrics['clientes_activos'] = cur.fetchone()[0]
-                
-                cur.execute("SELECT COUNT(*) FROM clientes WHERE proceso = 'ADJUDICADO'")
-                dashboard_metrics['clientes_adjudicados'] = cur.fetchone()[0]
-
-                first_day_of_month = today.replace(day=1)
-                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
-                dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
-
-                cur.execute("SELECT COUNT(*) FROM clientes WHERE proceso = 'Ahorrador' AND estatus = 'activo'")
-                total_ahorradores = cur.fetchone()[0]
-                if total_ahorradores > 0:
-                    cur.execute("SELECT COUNT(DISTINCT p.cliente_id) FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.tipo_pago = 'Cuota' AND p.estado_pago = 'Conciliado' AND c.proceso = 'Ahorrador' AND c.estatus = 'activo' AND p.fecha_pago >= %s", (first_day_of_month,))
-                    ahorradores_al_dia = cur.fetchone()[0]
-                    clientes_en_mora = total_ahorradores - ahorradores_al_dia
-                    dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100 if total_ahorradores > 0 else 0
-
-                income_labels, income_values = [], []
-                current_date = today
-                for _ in range(6):
-                    month_start = current_date.replace(day=1)
-                    _, days_in_month = monthrange(current_date.year, current_date.month)
-                    month_end = current_date.replace(day=days_in_month)
-                    
-                    cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (month_start, month_end))
-                    total = cur.fetchone()[0]
-                    
-                    income_labels.insert(0, get_nombre_mes(current_date.month))
-                    income_values.insert(0, float(total))
-                    
-                    current_date = month_start - timedelta(days=1)
-
-                dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
-
-                cur.execute("SELECT proceso, COUNT(*) FROM clientes WHERE estatus = 'activo' GROUP BY proceso")
-                client_composition = cur.fetchall()
-                comp_labels = [row['proceso'].capitalize() for row in client_composition]
-                comp_values = [row['count'] for row in client_composition]
-                dashboard_metrics['composicion_clientes'] = {'labels': comp_labels, 'values': comp_values}
-
-        except psycopg2.Error as e:
-            flash(f"No se pudieron cargar las métricas del dashboard: {e}", "error")
-
-    return render_template('reporte_metricas.html', anio_actual=datetime.now().year, metrics=dashboard_metrics)
-
-@app.route('/reportes/morosidad')
-@admin_required
-@rol_requerido('superadmin', 'gerente')
-def reporte_morosidad():
-    conn = get_db()
-    today = date.today()
-    clientes_en_mora = []
-    gestores = []
-    resumen = {'total_clientes_mora': 0, 'monto_total_mora': 0}
-
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                cur.execute("SELECT id, usuario FROM administradores ORDER BY usuario")
-                gestores = cur.fetchall()
-
-                first_day_of_month = today.replace(day=1)
-                
-                subquery_pagaron_mes = "SELECT DISTINCT cliente_id FROM pagos WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s"
-                query_morosos = f"""
-                    SELECT 
-                        c.id, c.nombre, c.apellido, c.cedula, c.telefono, c.valor_cuota, c.gestor_id,
-                        a.usuario as gestor_asignado,
-                        (SELECT MAX(p.fecha_pago) FROM pagos p WHERE p.cliente_id = c.id AND p.estado_pago = 'Conciliado') as ultimo_pago_fecha
-                    FROM clientes c
-                    LEFT JOIN administradores a ON c.gestor_id = a.id
-                    WHERE c.proceso = 'Ahorrador' 
-                    AND c.estatus = 'activo'
-                    AND c.id NOT IN ({subquery_pagaron_mes})
-                    ORDER BY c.nombre, c.apellido;
-                """
-                
-                cur.execute(query_morosos, (first_day_of_month,))
-                clientes_en_mora = cur.fetchall()
-
-                if clientes_en_mora:
-                    resumen['total_clientes_mora'] = len(clientes_en_mora)
-                    resumen['monto_total_mora'] = sum(c['valor_cuota'] for c in clientes_en_mora if c['valor_cuota'])
-
-        except psycopg2.Error as e:
-            flash(f"No se pudo generar el reporte de morosidad: {e}", "error")
-
-    return render_template(
-        'reporte_morosidad.html', 
-        clientes_en_mora=clientes_en_mora,
-        gestores=gestores,
-        resumen=resumen,
-        mes_actual=get_nombre_mes(today.month),
-        anio_actual=today.year
-    )
-
-@app.route('/asignar_gestor/<int:cliente_id>', methods=['POST'])
-@admin_required
-@rol_requerido('superadmin', 'gerente')
-def asignar_gestor(cliente_id):
-    conn = get_db()
-    gestor_id = request.form.get('gestor_id')
-    
-    gestor_id_para_db = int(gestor_id) if gestor_id and gestor_id.isdigit() else None
-
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                cur.execute("SELECT nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
-                cliente = cur.fetchone()
-                nombre_gestor = "nadie"
-                if gestor_id_para_db:
-                    cur.execute("SELECT usuario FROM administradores WHERE id = %s", (gestor_id_para_db,))
-                    gestor = cur.fetchone()
-                    if gestor:
-                        nombre_gestor = gestor['usuario']
-
-                cur.execute("UPDATE clientes SET gestor_id = %s WHERE id = %s", (gestor_id_para_db, cliente_id))
-                
-                descripcion = f"Asignó al cliente {cliente['nombre']} {cliente['apellido']} al gestor '{nombre_gestor}'."
-                registrar_accion_auditoria('ASIGNACION_GESTOR', descripcion, cliente_id)
-                
-                conn.commit()
-                flash(f"Cliente asignado al gestor '{nombre_gestor}' exitosamente.", 'success')
-        except (psycopg2.Error, ValueError) as e:
-            conn.rollback()
-            flash(f"Error al asignar el gestor: {e}", "error")
-    
-    return redirect(url_for('reporte_morosidad'))
-
 # =================================================================================
-# ===== INICIO DE NUEVA RUTA Y LÓGICA PARA TASA BCV =====
+# ===== INICIO DE RUTA ACTUALIZADA PARA TASA BCV (PERMITE MODIFICAR) =====
 # =================================================================================
 @app.route('/admin/config/tasa_bcv', methods=['GET', 'POST'])
 @admin_required
@@ -410,26 +231,35 @@ def administrar_tasa_bcv():
     if conn:
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha = %s", (today_str,))
-                resultado = cur.fetchone()
-                if resultado:
-                    tasa_de_hoy = resultado['tasa']
-
-                if request.method == 'POST' and not tasa_de_hoy:
-                    nueva_tasa = request.form.get('tasa_bcv')
-                    if nueva_tasa:
-                        tasa_decimal = Decimal(nueva_tasa)
+                if request.method == 'POST':
+                    nueva_tasa_str = request.form.get('tasa_bcv')
+                    if nueva_tasa_str:
+                        tasa_decimal = Decimal(nueva_tasa_str)
                         if tasa_decimal > 0:
+                            # Usar INSERT ... ON CONFLICT para insertar o actualizar
                             cur.execute(
-                                "INSERT INTO historial_tasas_bcv (fecha, tasa, establecida_por_id) VALUES (%s, %s, %s)",
+                                """
+                                INSERT INTO historial_tasas_bcv (fecha, tasa, establecida_por_id) 
+                                VALUES (%s, %s, %s)
+                                ON CONFLICT (fecha) DO UPDATE SET
+                                    tasa = EXCLUDED.tasa,
+                                    establecida_por_id = EXCLUDED.establecida_por_id;
+                                """,
                                 (today_str, tasa_decimal, g.admin['id'])
                             )
                             conn.commit()
-                            flash('Tasa BCV del día guardada exitosamente.', 'success')
+                            flash('Tasa BCV del día guardada/actualizada exitosamente.', 'success')
                             return redirect(url_for('administrar_tasa_bcv'))
                         else:
                             flash('La tasa debe ser un número positivo.', 'danger')
                 
+                # Obtener la tasa de hoy (después de un posible POST)
+                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha = %s", (today_str,))
+                resultado = cur.fetchone()
+                if resultado:
+                    tasa_de_hoy = resultado['tasa']
+                
+                # Obtener historial para mostrar en la tabla
                 cur.execute("""
                     SELECT h.fecha, h.tasa, a.usuario 
                     FROM historial_tasas_bcv h
@@ -1057,7 +887,7 @@ def anular_recibo(pago_id):
             return redirect(url_for('consulta', busqueda=cedula_cliente))
     except (psycopg2.Error, ValueError, ConnectionError) as e:
         conn.rollback()
-        flash(f"Ocurrió un error al anular el recibo: {e}", 'error')
+        flash(f'Ocurrió un error al anular el recibo: {e}', 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente))
 
 @app.route('/verificar_recibo/<int:pago_id>')
@@ -1561,4 +1391,4 @@ def portal_logout():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=Tr
