@@ -197,7 +197,7 @@ def hub():
             usuarios = cur.fetchall()
     return render_template('hub.html', anio_actual=datetime.now().year, usuarios=usuarios)
 
-# --- NUEVO MÓDULO DE GESTIÓN ADMINISTRATIVA ---
+# --- MÓDULO DE GESTIÓN ADMINISTRATIVA ---
 @app.route('/gestion_administrativa')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -258,7 +258,6 @@ def reporte_metricas():
                     income_labels.insert(0, get_nombre_mes(current_date.month))
                     income_values.insert(0, float(total))
                     
-                    # Moverse al mes anterior
                     current_date = month_start - timedelta(days=1)
 
                 dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
@@ -274,6 +273,100 @@ def reporte_metricas():
             flash(f"No se pudieron cargar las métricas del dashboard: {e}", "error")
 
     return render_template('reporte_metricas.html', anio_actual=datetime.now().year, metrics=dashboard_metrics)
+
+@app.route('/reportes/morosidad')
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def reporte_morosidad():
+    conn = get_db()
+    today = date.today()
+    clientes_en_mora = []
+    resumen = {'total_clientes_mora': 0, 'monto_total_mora': 0}
+
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                first_day_of_month = today.replace(day=1)
+                
+                subquery_pagaron_mes = "SELECT DISTINCT cliente_id FROM pagos WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s"
+                query_morosos = f"""
+                    SELECT 
+                        c.id, c.nombre, c.apellido, c.cedula, c.telefono, c.valor_cuota,
+                        (SELECT MAX(p.fecha_pago) FROM pagos p WHERE p.cliente_id = c.id AND p.estado_pago = 'Conciliado') as ultimo_pago_fecha
+                    FROM clientes c
+                    WHERE c.proceso = 'Ahorrador' 
+                    AND c.estatus = 'activo'
+                    AND c.id NOT IN ({subquery_pagaron_mes})
+                    ORDER BY c.nombre, c.apellido;
+                """
+                
+                cur.execute(query_morosos, (first_day_of_month,))
+                clientes_en_mora = cur.fetchall()
+
+                if clientes_en_mora:
+                    resumen['total_clientes_mora'] = len(clientes_en_mora)
+                    resumen['monto_total_mora'] = sum(c['valor_cuota'] for c in clientes_en_mora if c['valor_cuota'])
+
+        except psycopg2.Error as e:
+            flash(f"No se pudo generar el reporte de morosidad: {e}", "error")
+
+    return render_template(
+        'reporte_morosidad.html', 
+        clientes_en_mora=clientes_en_mora,
+        resumen=resumen,
+        mes_actual=get_nombre_mes(today.month),
+        anio_actual=today.year
+    )
+
+@app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def reporte_flujo_caja():
+    conn = get_db()
+    today = date.today()
+    fecha_inicio = today.replace(day=1).strftime('%Y-%m-%d')
+    fecha_fin = today.strftime('%Y-%m-%d')
+    mostrar_resultados = False
+    pagos = []
+    resumen = {'total_ingresos': 0, 'total_egresos': 0, 'balance': 0}
+
+    if request.method == 'POST':
+        fecha_inicio = request.form.get('fecha_inicio')
+        fecha_fin = request.form.get('fecha_fin')
+        mostrar_resultados = True
+
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    query = """
+                        SELECT p.fecha_pago, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, p.tipo_pago, p.monto
+                        FROM pagos p
+                        JOIN clientes c ON p.cliente_id = c.id
+                        WHERE p.estado_pago = 'Conciliado'
+                        AND p.fecha_pago BETWEEN %s AND %s
+                        ORDER BY p.fecha_pago ASC;
+                    """
+                    cur.execute(query, (fecha_inicio, fecha_fin))
+                    pagos = cur.fetchall()
+
+                    if pagos:
+                        total_ingresos = sum(p['monto'] for p in pagos)
+                        resumen['total_ingresos'] = total_ingresos
+                        # Por ahora, los egresos son 0
+                        resumen['balance'] = total_ingresos
+
+            except psycopg2.Error as e:
+                flash(f"No se pudo generar el reporte de flujo de caja: {e}", "error")
+
+    return render_template(
+        'reporte_flujo_caja.html',
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        mostrar_resultados=mostrar_resultados,
+        pagos=pagos,
+        resumen=resumen,
+        anio_actual=today.year
+    )
 
 
 # --- GESTIÓN DE CLIENTES Y PAGOS ---
