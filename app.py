@@ -4,7 +4,7 @@ import psycopg2.extras
 from flask import Flask, render_template, request, g, flash, redirect, url_for, session, Response
 from dotenv import load_dotenv
 from decimal import Decimal
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import random
 from werkzeug.security import check_password_hash, generate_password_hash
 from functools import wraps
@@ -183,18 +183,76 @@ def home():
 def hub():
     conn = get_db()
     usuarios = []
+    dashboard_metrics = {
+        'clientes_activos': 0,
+        'clientes_inscritos': 0,
+        'clientes_adjudicados': 0,
+        'ingresos_mes_conciliados': 0,
+        'indice_morosidad': 0.0,
+        'mes_actual': ''
+    }
+
     if conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT 
-                    usuario, 
-                    ultimo_login,
-                    (estatus_online AND ultimo_visto > NOW() - INTERVAL '5 minutes') AS esta_en_linea
-                FROM administradores 
-                ORDER BY usuario
-            """)
-            usuarios = cur.fetchall()
-    return render_template('hub.html', anio_actual=datetime.now().year, usuarios=usuarios)
+        try:
+            with conn.cursor() as cur:
+                # Obtener usuarios en línea
+                cur.execute("""
+                    SELECT 
+                        usuario, 
+                        ultimo_login,
+                        (estatus_online AND ultimo_visto > NOW() - INTERVAL '5 minutes') AS esta_en_linea
+                    FROM administradores 
+                    ORDER BY usuario
+                """)
+                usuarios = cur.fetchall()
+
+                # Obtener métricas del dashboard
+                cur.execute("SELECT COUNT(*) FROM clientes WHERE estatus = 'activo'")
+                dashboard_metrics['clientes_activos'] = cur.fetchone()[0]
+
+                cur.execute("SELECT COUNT(*) FROM clientes WHERE proceso = 'INSCRITO'")
+                dashboard_metrics['clientes_inscritos'] = cur.fetchone()[0]
+                
+                cur.execute("SELECT COUNT(*) FROM clientes WHERE proceso = 'ADJUDICADO'")
+                dashboard_metrics['clientes_adjudicados'] = cur.fetchone()[0]
+
+                # Calcular ingresos del mes
+                today = date.today()
+                first_day_of_month = today.replace(day=1)
+                cur.execute(
+                    "SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s",
+                    (first_day_of_month,)
+                )
+                dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
+
+                # Calcular índice de morosidad
+                cur.execute("SELECT COUNT(*) FROM clientes WHERE proceso = 'Ahorrador' AND estatus = 'activo'")
+                total_ahorradores = cur.fetchone()[0]
+
+                if total_ahorradores > 0:
+                    query_pagaron_mes = """
+                        SELECT COUNT(DISTINCT p.cliente_id) 
+                        FROM pagos p
+                        JOIN clientes c ON p.cliente_id = c.id
+                        WHERE p.tipo_pago = 'Cuota' 
+                        AND p.estado_pago = 'Conciliado' 
+                        AND c.proceso = 'Ahorrador' 
+                        AND c.estatus = 'activo'
+                        AND p.fecha_pago >= %s
+                    """
+                    cur.execute(query_pagaron_mes, (first_day_of_month,))
+                    ahorradores_al_dia = cur.fetchone()[0]
+                    
+                    clientes_en_mora = total_ahorradores - ahorradores_al_dia
+                    dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100
+                
+                dashboard_metrics['mes_actual'] = get_nombre_mes(today.month)
+
+        except psycopg2.Error as e:
+            flash(f"No se pudieron cargar las métricas del dashboard: {e}", "error")
+
+    return render_template('hub.html', anio_actual=datetime.now().year, usuarios=usuarios, metrics=dashboard_metrics)
+
 
 @app.route('/registrar')
 @admin_required

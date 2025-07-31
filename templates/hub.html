@@ -105,6 +105,46 @@
     </div>
 
     <div class="container my-5">
+        <!-- Dashboard Metrics -->
+        <div class="row mb-5">
+            <h2 class="text-center mb-4">Métricas Clave ({{ metrics.mes_actual }})</h2>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center h-100">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-people-fill"></i> Clientes Activos</h5>
+                        <p class="card-text fs-2 fw-bold">{{ metrics.clientes_activos }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center h-100">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-cash-stack"></i> Ingresos del Mes</h5>
+                        <p class="card-text fs-2 fw-bold">${{ "{:,.2f}".format(metrics.ingresos_mes_conciliados) }}</p>
+                         <small class="text-muted">Pagos Conciliados</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center h-100">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-graph-down-arrow"></i> Morosidad</h5>
+                        <p class="card-text fs-2 fw-bold">{{ "%.1f"|format(metrics.indice_morosidad) }}%</p>
+                        <small class="text-muted">De clientes ahorradores</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                 <div class="card text-center h-100">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-award-fill"></i> Adjudicados</h5>
+                        <p class="card-text fs-2 fw-bold">{{ metrics.clientes_adjudicados }}</p>
+                         <small class="text-muted">Total histórico</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Action Cards -->
         <div class="row g-4 justify-content-center">
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
