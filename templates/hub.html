@@ -127,6 +127,17 @@
                 </div>
             </div>
 
+            <div class="col-lg-4 col-md-6">
+                <div class="hub-card">
+                    <div>
+                        <div class="icon" style="color: #ffc107;"><i class="bi bi-briefcase-fill"></i></div>
+                        <h3>Mi Cartera de Cobranza</h3>
+                        <p>Visualiza y gestiona los clientes que te han sido asignados.</p>
+                    </div>
+                    <a href="{{ url_for('mi_cartera') }}" class="btn btn-warning text-dark">Gestionar</a>
+                </div>
+            </div>
+
             {% if g.admin and g.admin.rol in ['superadmin', 'gerente'] %}
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
@@ -165,17 +176,6 @@
                 </div>
             </div>
             {% endif %}
-            
-            <div class="col-lg-4 col-md-6">
-                <div class="hub-card">
-                    <div>
-                        <div class="icon" style="color: #6f42c1;"><i class="bi bi-box-arrow-in-right"></i></div>
-                        <h3>Portal Cliente</h3>
-                        <p>Accede a la vista de inicio de sesión del portal para clientes.</p>
-                    </div>
-                    <a href="{{ url_for('portal_login') }}" class="btn" style="background-color: #6f42c1; color: white;" target="_blank">Ir al Portal</a>
-                </div>
-            </div>
 
         </div>
         

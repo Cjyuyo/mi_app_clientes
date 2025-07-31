@@ -197,12 +197,62 @@ def hub():
             usuarios = cur.fetchall()
     return render_template('hub.html', anio_actual=datetime.now().year, usuarios=usuarios)
 
-# --- MÓDULO DE GESTIÓN ADMINISTRATIVA ---
+# --- MÓDULO DE GESTIÓN ADMINISTRATIVA Y COBRANZA ---
 @app.route('/gestion_administrativa')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def gestion_administrativa():
-    return render_template('gestion_administrativa.html', anio_actual=datetime.now().year)
+    conn = get_db()
+    today = date.today()
+    alertas_cobranza = []
+    
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                first_day_of_month = today.replace(day=1)
+                
+                subquery_pagaron_mes = "SELECT DISTINCT cliente_id FROM pagos WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s"
+                query_pendientes = f"""
+                    SELECT id, nombre, apellido, cedula, valor_cuota
+                    FROM clientes
+                    WHERE proceso = 'Ahorrador' 
+                    AND estatus = 'activo'
+                    AND id NOT IN ({subquery_pagaron_mes})
+                    ORDER BY nombre, apellido;
+                """
+                cur.execute(query_pendientes, (first_day_of_month,))
+                alertas_cobranza = cur.fetchall()
+        except psycopg2.Error as e:
+            flash(f"No se pudieron cargar las alertas de cobranza: {e}", "error")
+
+    return render_template(
+        'gestion_administrativa.html', 
+        anio_actual=today.year,
+        alertas_cobranza=alertas_cobranza,
+        mes_actual=get_nombre_mes(today.month)
+    )
+
+@app.route('/mi_cartera')
+@admin_required
+def mi_cartera():
+    conn = get_db()
+    clientes_asignados = []
+    if conn and g.admin:
+        try:
+            with conn.cursor() as cur:
+                query = """
+                    SELECT id, nombre, apellido, cedula, telefono, proceso
+                    FROM clientes
+                    WHERE gestor_id = %s
+                    ORDER BY nombre, apellido;
+                """
+                cur.execute(query, (g.admin['id'],))
+                clientes_asignados = cur.fetchall()
+        except psycopg2.Error as e:
+            flash(f"No se pudo cargar tu cartera de clientes: {e}", "error")
+            
+    return render_template('mi_cartera.html', clientes=clientes_asignados, anio_actual=date.today().year)
+
 
 @app.route('/reportes/metricas')
 @admin_required
@@ -281,19 +331,26 @@ def reporte_morosidad():
     conn = get_db()
     today = date.today()
     clientes_en_mora = []
+    gestores = []
     resumen = {'total_clientes_mora': 0, 'monto_total_mora': 0}
 
     if conn:
         try:
             with conn.cursor() as cur:
+                # Obtener lista de posibles gestores
+                cur.execute("SELECT id, usuario FROM administradores ORDER BY usuario")
+                gestores = cur.fetchall()
+
                 first_day_of_month = today.replace(day=1)
                 
                 subquery_pagaron_mes = "SELECT DISTINCT cliente_id FROM pagos WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s"
                 query_morosos = f"""
                     SELECT 
-                        c.id, c.nombre, c.apellido, c.cedula, c.telefono, c.valor_cuota,
+                        c.id, c.nombre, c.apellido, c.cedula, c.telefono, c.valor_cuota, c.gestor_id,
+                        a.usuario as gestor_asignado,
                         (SELECT MAX(p.fecha_pago) FROM pagos p WHERE p.cliente_id = c.id AND p.estado_pago = 'Conciliado') as ultimo_pago_fecha
                     FROM clientes c
+                    LEFT JOIN administradores a ON c.gestor_id = a.id
                     WHERE c.proceso = 'Ahorrador' 
                     AND c.estatus = 'activo'
                     AND c.id NOT IN ({subquery_pagaron_mes})
@@ -313,10 +370,50 @@ def reporte_morosidad():
     return render_template(
         'reporte_morosidad.html', 
         clientes_en_mora=clientes_en_mora,
+        gestores=gestores,
         resumen=resumen,
         mes_actual=get_nombre_mes(today.month),
         anio_actual=today.year
     )
+
+@app.route('/asignar_gestor/<int:cliente_id>', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def asignar_gestor(cliente_id):
+    conn = get_db()
+    gestor_id = request.form.get('gestor_id')
+    
+    # Convertir a None si se selecciona "Sin asignar"
+    gestor_id_para_db = int(gestor_id) if gestor_id and gestor_id.isdigit() else None
+
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                # Obtener info para auditoría
+                cur.execute("SELECT nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
+                cliente = cur.fetchone()
+                nombre_gestor = "nadie"
+                if gestor_id_para_db:
+                    cur.execute("SELECT usuario FROM administradores WHERE id = %s", (gestor_id_para_db,))
+                    gestor = cur.fetchone()
+                    if gestor:
+                        nombre_gestor = gestor['usuario']
+
+                # Actualizar la base de datos
+                cur.execute("UPDATE clientes SET gestor_id = %s WHERE id = %s", (gestor_id_para_db, cliente_id))
+                
+                # Registrar en auditoría
+                descripcion = f"Asignó al cliente {cliente['nombre']} {cliente['apellido']} al gestor '{nombre_gestor}'."
+                registrar_accion_auditoria('ASIGNACION_GESTOR', descripcion, cliente_id)
+                
+                conn.commit()
+                flash(f"Cliente asignado al gestor '{nombre_gestor}' exitosamente.", 'success')
+        except (psycopg2.Error, ValueError) as e:
+            conn.rollback()
+            flash(f"Error al asignar el gestor: {e}", "error")
+    
+    return redirect(url_for('reporte_morosidad'))
+
 
 @app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
 @admin_required
@@ -370,6 +467,78 @@ def reporte_flujo_caja():
 
 
 # --- GESTIÓN DE CLIENTES Y PAGOS ---
+
+@app.route('/cliente/<int:cliente_id>')
+@admin_required
+def perfil_cliente(cliente_id):
+    conn = get_db()
+    cliente = None
+    pagos = []
+    gestiones = []
+
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                # Obtener datos del cliente
+                cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (cliente_id,))
+                cliente = cur.fetchone()
+                if not cliente:
+                    flash("Cliente no encontrado.", "error")
+                    return redirect(url_for('consulta'))
+
+                # Obtener historial de pagos
+                cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC", (cliente_id,))
+                pagos = cur.fetchall()
+
+                # Obtener gestiones de cobranza
+                query_gestiones = """
+                    SELECT g.nota, g.fecha_creacion, a.usuario as gestor_nombre
+                    FROM gestiones_cobranza g
+                    JOIN administradores a ON g.gestor_id = a.id
+                    WHERE g.cliente_id = %s
+                    ORDER BY g.fecha_creacion DESC;
+                """
+                cur.execute(query_gestiones, (cliente_id,))
+                gestiones = cur.fetchall()
+
+        except psycopg2.Error as e:
+            flash(f"Error al cargar el perfil del cliente: {e}", "error")
+            return redirect(url_for('consulta'))
+
+    return render_template('cliente_perfil.html', cliente=cliente, pagos=pagos, gestiones=gestiones, anio_actual=date.today().year)
+
+@app.route('/agregar_gestion/<int:cliente_id>', methods=['POST'])
+@admin_required
+def agregar_gestion(cliente_id):
+    nota = request.form.get('nota')
+    if not nota or not nota.strip():
+        flash("La nota de gestión no puede estar vacía.", "warning")
+        return redirect(url_for('perfil_cliente', cliente_id=cliente_id))
+
+    conn = get_db()
+    if conn and g.admin:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO gestiones_cobranza (cliente_id, gestor_id, nota) VALUES (%s, %s, %s)",
+                    (cliente_id, g.admin['id'], nota.strip())
+                )
+                
+                # Registrar en auditoría
+                cur.execute("SELECT nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
+                cliente = cur.fetchone()
+                descripcion = f"Agregó nota de gestión para el cliente {cliente['nombre']} {cliente['apellido']}: '{nota[:50]}...'"
+                registrar_accion_auditoria('AGREGAR_GESTION', descripcion, cliente_id)
+
+                conn.commit()
+                flash("Nota de gestión guardada exitosamente.", "success")
+        except psycopg2.Error as e:
+            conn.rollback()
+            flash(f"Error al guardar la nota de gestión: {e}", "error")
+
+    return redirect(url_for('perfil_cliente', cliente_id=cliente_id))
+
+
 @app.route('/registrar')
 @admin_required
 def registrar():

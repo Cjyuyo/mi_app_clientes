@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfil de {{ cliente.nombre_apellido }} - Moto Plan Motors C.A.</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body { background-color: #f8f9fa; }
+        .timeline {
+            list-style: none;
+            padding: 0;
+            position: relative;
+        }
+        .timeline:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: #e9ecef;
+            left: 31px;
+            margin: 0;
+        }
+        .timeline-item {
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .timeline-item:after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+        .timeline-icon {
+            position: absolute;
+            left: 15px;
+            top: 0;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: #0d6efd;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+        .timeline-content {
+            margin-left: 65px;
+            background: white;
+            border-radius: .25rem;
+            padding: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,.1);
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('hub') }}">
+                <i class="bi bi-arrow-left"></i> Volver al Panel
+            </a>
+            <span class="navbar-text fw-bold">
+                Perfil de Cliente
+            </span>
+            <div class="d-flex align-items-center">
+                 {% if g.admin %}
+                    <span class="navbar-text me-3 d-none d-md-inline">
+                        <i class="bi bi-person-circle"></i> {{ g.admin.usuario }}
+                    </span>
+                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger btn-sm">Cerrar Sesión</a>
+                 {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="row g-4">
+            <!-- Columna de Información del Cliente -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-dark text-white text-center">
+                        <h4 class="my-1">{{ cliente.nombre_apellido }}</h4>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between"><strong>Cédula:</strong> <span>{{ cliente.cedula }}</span></li>
+                            <li class="list-group-item d-flex justify-content-between"><strong>Teléfono:</strong> <span>{{ cliente.telefono or 'N/A' }}</span></li>
+                            <li class="list-group-item d-flex justify-content-between"><strong>Contrato N°:</strong> <span>{{ cliente.contrato_nro or 'N/A' }}</span></li>
+                            <li class="list-group-item d-flex justify-content-between"><strong>Plan:</strong> <span>{{ cliente.plan_contratado or 'N/A' }}</span></li>
+                            <li class="list-group-item d-flex justify-content-between"><strong>Proceso:</strong> <span class="badge bg-primary">{{ cliente.proceso }}</span></li>
+                            <li class="list-group-item d-flex justify-content-between"><strong>Estatus:</strong> <span class="badge bg-success">{{ cliente.estatus }}</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna de Pestañas (Pagos y Gestiones) -->
+            <div class="col-lg-8">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs" id="myTab" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="gestiones-tab" data-bs-toggle="tab" data-bs-target="#gestiones" type="button" role="tab">Gestión de Cobranza</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="pagos-tab" data-bs-toggle="tab" data-bs-target="#pagos" type="button" role="tab">Historial de Pagos</button>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body">
+                        <div class="tab-content" id="myTabContent">
+                            <!-- Pestaña de Gestión de Cobranza -->
+                            <div class="tab-pane fade show active" id="gestiones" role="tabpanel">
+                                <h5 class="mb-3">Registrar Nueva Gestión</h5>
+                                <form action="{{ url_for('agregar_gestion', cliente_id=cliente.id) }}" method="POST">
+                                    <div class="mb-3">
+                                        <textarea name="nota" class="form-control" rows="3" placeholder="Escribe aquí los detalles de la llamada, mensaje, acuerdo, etc." required></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary"><i class="bi bi-plus-circle-fill me-2"></i>Guardar Nota</button>
+                                </form>
+                                <hr class="my-4">
+                                <h5 class="mb-3">Historial de Gestiones</h5>
+                                {% if gestiones %}
+                                <ul class="timeline">
+                                    {% for gestion in gestiones %}
+                                    <li class="timeline-item">
+                                        <div class="timeline-icon"><i class="bi bi-chat-left-text-fill"></i></div>
+                                        <div class="timeline-content">
+                                            <p class="mb-1">{{ gestion.nota }}</p>
+                                            <small class="text-muted">
+                                                Por <strong>{{ gestion.gestor_nombre }}</strong> el {{ gestion.fecha_creacion.strftime('%d/%m/%Y a las %I:%M %p') }}
+                                            </small>
+                                        </div>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <p class="text-muted">No hay gestiones registradas para este cliente.</p>
+                                {% endif %}
+                            </div>
+
+                            <!-- Pestaña de Historial de Pagos -->
+                            <div class="tab-pane fade" id="pagos" role="tabpanel">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Fecha</th>
+                                                <th>Tipo</th>
+                                                <th>Monto</th>
+                                                <th>Estado</th>
+                                                <th>Acción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for pago in pagos %}
+                                            <tr>
+                                                <td>{{ pago.fecha_pago.strftime('%d/%m/%Y') }}</td>
+                                                <td>{{ pago.tipo_pago }}</td>
+                                                <td>${{ "{:,.2f}".format(pago.monto) }}</td>
+                                                <td>
+                                                    <span class="badge 
+                                                        {% if pago.estado_pago == 'Conciliado' %} bg-success
+                                                        {% elif pago.estado_pago == 'Pendiente' %} bg-warning text-dark
+                                                        {% else %} bg-danger {% endif %}">
+                                                        {{ pago.estado_pago }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    {% if pago.estado_pago != 'Anulado' %}
+                                                        <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-outline-info btn-sm">
+                                                            <i class="bi bi-receipt"></i>
+                                                        </a>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="text-center py-4 mt-5 text-muted">
+        <p>&copy; {{ anio_actual }} Moto Plan Motors C.A.</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

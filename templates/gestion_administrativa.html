@@ -98,6 +98,30 @@
     </div>
 
     <div class="container my-5">
+
+        <!-- Alertas de Cobranza -->
+        {% if alertas_cobranza %}
+        <div class="alert alert-warning border-0 shadow-sm mb-5" role="alert">
+            <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Alertas de Cobranza</h4>
+            <p>Los siguientes clientes ahorradores tienen pagos pendientes para el mes de <strong>{{ mes_actual }}</strong>.</p>
+            <hr>
+            <ul class="list-group">
+                {% for cliente in alertas_cobranza %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong> (C.I. {{ cliente.cedula }})
+                    </div>
+                    <div>
+                        <span class="badge bg-danger me-3">Cuota: ${{ "{:,.2f}".format(cliente.valor_cuota) }}</span>
+                        <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="btn btn-sm btn-outline-secondary">Ver Perfil</a>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- Hub Cards -->
         <div class="row g-4 justify-content-center">
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
@@ -126,7 +150,7 @@
                         <h3>Reporte de Flujo de Caja</h3>
                         <p>Analiza los ingresos y egresos de un período específico.</p>
                     </div>
-                    <a href="#" class="btn btn-secondary disabled">Próximamente</a>
+                    <a href="{{ url_for('reporte_flujo_caja') }}" class="btn" style="background-color: #28a745; color: white;">Generar Reporte</a>
                 </div>
             </div>
         </div>
