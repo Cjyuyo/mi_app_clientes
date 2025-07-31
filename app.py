@@ -25,7 +25,8 @@ app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-des
 @app.before_request
 def setup_session_and_user():
     session.permanent = True
-    app.permanent_session_lifetime = timedelta(minutes=5)
+    # Aumentamos el tiempo de la sesión para mayor comodidad
+    app.permanent_session_lifetime = timedelta(minutes=30)
     g.admin = None
     g.cliente = None
     admin_id = session.get('admin_id')
@@ -410,7 +411,9 @@ def asignar_gestor(cliente_id):
     
     return redirect(url_for('reporte_morosidad'))
 
-
+# ==============================================================================
+# ===== NUEVA LÓGICA DE FLUJO DE CAJA - COMIENZO DE LA MODIFICACIÓN =====
+# ==============================================================================
 @app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -419,77 +422,122 @@ def reporte_flujo_caja():
     today = date.today()
     
     # Valores por defecto para el formulario
-    fecha_inicio = request.form.get('fecha_inicio', today.replace(day=1).strftime('%Y-%m-%d'))
-    fecha_fin = request.form.get('fecha_fin', today.strftime('%Y-%m-%d'))
-    tasa_actual_bcv = request.form.get('tasa_actual_bcv', '0.0')
+    fecha_inicio_str = request.form.get('fecha_inicio', today.replace(day=1).strftime('%Y-%m-%d'))
+    fecha_fin_str = request.form.get('fecha_fin', today.strftime('%Y-%m-%d'))
+    tasa_actual_bcv_str = request.form.get('tasa_actual_bcv', '0.0')
     
     mostrar_resultados = request.method == 'POST'
+    
+    # Estructura del resumen para los saldos y rendimiento
     resumen = {
-        'total_ingresos_usd': Decimal('0.0'),
-        'ingresos_por_tipo': {},
-        'ingresos_por_forma': {},
-        'perdida_devaluacion': Decimal('0.0'),
-        'perdida_conversion': Decimal('0.0'),
-        'total_perdidas': Decimal('0.0'),
-        'balance_real': Decimal('0.0')
+        # Balances Totales Acumulados
+        'balance_efectivo_usd': Decimal('0.0'),
+        'balance_binance_usdt': Decimal('0.0'),
+        'balance_bolivares_bs': Decimal('0.0'),
+        'balance_bolivares_usd': Decimal('0.0'),
+        'balance_general_consolidado_usd': Decimal('0.0'),
+        
+        # Rendimiento del Período Seleccionado
+        'periodo_ingresos_usd': Decimal('0.0'),
+        'periodo_ingresos_por_tipo': {},
+        'periodo_ingresos_por_forma': {},
+        'periodo_perdida_devaluacion': Decimal('0.0'),
+        'periodo_perdida_conversion': Decimal('0.0'),
+        'periodo_total_perdidas': Decimal('0.0'),
+        'periodo_balance_neto': Decimal('0.0')
     }
+    
+    historial_binance = []
 
     if mostrar_resultados and conn:
         try:
             with conn.cursor() as cur:
-                tasa_actual_decimal = Decimal(tasa_actual_bcv)
+                tasa_actual_decimal = Decimal(tasa_actual_bcv_str)
+                fecha_fin_dt = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+
+                # --- 1. CÁLCULO DE BALANCES TOTALES ACUMULADOS (hasta fecha_fin) ---
+                
+                # Saldo en Efectivo (USD)
+                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND forma_pago = 'Efectivo' AND fecha_pago <= %s", (fecha_fin_dt,))
+                resumen['balance_efectivo_usd'] = cur.fetchone()[0] or Decimal('0.0')
+
+                # Saldo en Binance (USDT)
+                cur.execute("SELECT COALESCE(SUM(monto_destino), 0) FROM operaciones_tesoreria WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s", (fecha_fin_dt,))
+                resumen['balance_binance_usdt'] = cur.fetchone()[0] or Decimal('0.0')
+
+                # Saldo en Bolívares (Bs)
+                cur.execute("SELECT COALESCE(SUM(monto_bs), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND monto_bs > 0 AND fecha_pago <= %s", (fecha_fin_dt,))
+                ingresos_bs_total = cur.fetchone()[0] or Decimal('0.0')
+                
+                cur.execute("SELECT COALESCE(SUM(monto_origen), 0) FROM operaciones_tesoreria WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s", (fecha_fin_dt,))
+                egresos_bs_conversion = cur.fetchone()[0] or Decimal('0.0')
+                
+                resumen['balance_bolivares_bs'] = ingresos_bs_total - egresos_bs_conversion
+                
+                if tasa_actual_decimal > 0:
+                    resumen['balance_bolivares_usd'] = resumen['balance_bolivares_bs'] / tasa_actual_decimal
+
+                # Balance General Consolidado
+                resumen['balance_general_consolidado_usd'] = resumen['balance_efectivo_usd'] + resumen['balance_binance_usdt'] + resumen['balance_bolivares_usd']
+
+                # --- 2. CÁLCULO DE RENDIMIENTO DEL PERÍODO (entre fecha_inicio y fecha_fin) ---
 
                 # Obtener todos los pagos conciliados en el rango
-                query_pagos = "SELECT * FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s"
-                cur.execute(query_pagos, (fecha_inicio, fecha_fin))
-                pagos = cur.fetchall()
+                query_pagos_periodo = "SELECT * FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s"
+                cur.execute(query_pagos_periodo, (fecha_inicio_str, fecha_fin_str))
+                pagos_periodo = cur.fetchall()
 
-                # Procesar pagos
-                for pago in pagos:
+                for pago in pagos_periodo:
                     monto_usd = pago['monto'] or Decimal('0.0')
-                    resumen['total_ingresos_usd'] += monto_usd
+                    resumen['periodo_ingresos_usd'] += monto_usd
 
                     # Desglose por tipo
                     tipo = pago['tipo_pago']
-                    resumen['ingresos_por_tipo'][tipo] = resumen['ingresos_por_tipo'].get(tipo, Decimal('0.0')) + monto_usd
+                    resumen['periodo_ingresos_por_tipo'][tipo] = resumen['periodo_ingresos_por_tipo'].get(tipo, Decimal('0.0')) + monto_usd
 
                     # Desglose por forma de pago
                     forma = pago['forma_pago'] or 'No especificada'
-                    if forma not in resumen['ingresos_por_forma']:
-                        resumen['ingresos_por_forma'][forma] = {'usd': Decimal('0.0'), 'bs': Decimal('0.0')}
-                    resumen['ingresos_por_forma'][forma]['usd'] += monto_usd
+                    if forma not in resumen['periodo_ingresos_por_forma']:
+                        resumen['periodo_ingresos_por_forma'][forma] = {'usd': Decimal('0.0'), 'bs': Decimal('0.0')}
+                    resumen['periodo_ingresos_por_forma'][forma]['usd'] += monto_usd
                     if pago['monto_bs']:
-                        resumen['ingresos_por_forma'][forma]['bs'] += pago['monto_bs']
+                        resumen['periodo_ingresos_por_forma'][forma]['bs'] += pago['monto_bs']
 
-                    # Calcular pérdida por devaluación para pagos en Bolívares
+                    # Calcular pérdida por devaluación para pagos en Bolívares DENTRO DEL PERÍODO
                     if pago['monto_bs'] and pago['tasa_dia'] and tasa_actual_decimal > 0:
-                        monto_bs = pago['monto_bs']
-                        tasa_pago = pago['tasa_dia']
-                        valor_usd_original = monto_bs / tasa_pago
-                        valor_usd_actual = monto_bs / tasa_actual_decimal
-                        resumen['perdida_devaluacion'] += (valor_usd_original - valor_usd_actual)
+                        valor_usd_original = pago['monto_bs'] / pago['tasa_dia']
+                        valor_usd_actual = pago['monto_bs'] / tasa_actual_decimal
+                        resumen['periodo_perdida_devaluacion'] += (valor_usd_original - valor_usd_actual)
                 
-                # Obtener pérdidas por conversión de tesorería
-                query_perdidas = "SELECT COALESCE(SUM(perdida_cambiaria), 0) FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s"
-                cur.execute(query_perdidas, (fecha_inicio + " 00:00:00", fecha_fin + " 23:59:59"))
-                resumen['perdida_conversion'] = cur.fetchone()[0] or Decimal('0.0')
+                # Obtener pérdidas por conversión de tesorería DENTRO DEL PERÍODO
+                query_perdidas_periodo = "SELECT COALESCE(SUM(perdida_cambiaria), 0) FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s"
+                cur.execute(query_perdidas_periodo, (fecha_inicio_str + " 00:00:00", fecha_fin_str + " 23:59:59"))
+                resumen['periodo_perdida_conversion'] = cur.fetchone()[0] or Decimal('0.0')
 
-                # Calcular totales
-                resumen['total_perdidas'] = resumen['perdida_devaluacion'] + resumen['perdida_conversion']
-                resumen['balance_real'] = resumen['total_ingresos_usd'] - resumen['total_perdidas']
+                # Calcular totales del período
+                resumen['periodo_total_perdidas'] = resumen['periodo_perdida_devaluacion'] + resumen['periodo_perdida_conversion']
+                resumen['periodo_balance_neto'] = resumen['periodo_ingresos_usd'] - resumen['periodo_total_perdidas']
+                
+                # --- 3. OBTENER HISTORIAL DE CONVERSIONES A BINANCE ---
+                cur.execute("SELECT * FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s ORDER BY fecha_operacion DESC", (fecha_inicio_str, fecha_fin_str))
+                historial_binance = cur.fetchall()
 
         except (psycopg2.Error, ValueError, TypeError) as e:
             flash(f"Error al generar el reporte: {e}", "error")
 
     return render_template(
         'reporte_flujo_caja.html',
-        fecha_inicio=fecha_inicio,
-        fecha_fin=fecha_fin,
-        tasa_actual_bcv=tasa_actual_bcv,
+        fecha_inicio=fecha_inicio_str,
+        fecha_fin=fecha_fin_str,
+        tasa_actual_bcv=tasa_actual_bcv_str,
         mostrar_resultados=mostrar_resultados,
         resumen=resumen,
+        historial_binance=historial_binance,
         anio_actual=today.year
     )
+# ==============================================================================
+# ===== FIN DE LA MODIFICACIÓN =====
+# ==============================================================================
 
 @app.route('/registrar_operacion_tesoreria', methods=['POST'])
 @admin_required
@@ -499,38 +547,32 @@ def registrar_operacion_tesoreria():
         monto_bs = Decimal(request.form.get('monto_bs_convertido'))
         monto_usdt = Decimal(request.form.get('monto_usdt_recibido'))
         nota = request.form.get('nota_conversion', '')
-        
-        # Para calcular la pérdida real, necesitamos la tasa BCV del día de la conversión
-        # Asumiremos que el usuario la introduce o la obtenemos de una API (simplificado por ahora)
-        # Aquí, calcularemos la pérdida basada en una tasa de referencia implícita
-        # Esta lógica puede ser más compleja si se requiere mayor precisión
-        
-        # Buscamos la tasa BCV más reciente registrada en un pago para tener una referencia
-        conn = get_db()
-        tasa_referencia = Decimal('0.0')
-        if conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT tasa_dia FROM pagos WHERE tasa_dia IS NOT NULL ORDER BY fecha_pago DESC LIMIT 1")
-                resultado = cur.fetchone()
-                if resultado:
-                    tasa_referencia = resultado['tasa_dia']
+        # Mejora: Permitir que el usuario ingrese la tasa de conversión para mayor precisión
+        tasa_conversion_str = request.form.get('tasa_conversion_aplicada')
 
-        if tasa_referencia <= 0:
-            flash("No se pudo determinar una tasa de referencia para calcular la pérdida. Operación registrada sin pérdida calculada.", "warning")
+        if not tasa_conversion_str:
+            flash("La tasa de conversión aplicada es obligatoria para calcular la pérdida con precisión.", "warning")
+            return redirect(url_for('reporte_flujo_caja'))
+
+        tasa_conversion = Decimal(tasa_conversion_str)
+        
+        if tasa_conversion <= 0:
             perdida = Decimal('0.0')
+            flash("Tasa de conversión inválida. La pérdida no se pudo calcular.", "warning")
         else:
-            valor_real_bs_en_usd = monto_bs / tasa_referencia
+            valor_real_bs_en_usd = monto_bs / tasa_conversion
             perdida = valor_real_bs_en_usd - monto_usdt
 
+        conn = get_db()
         if conn and g.admin:
             with conn.cursor() as cur:
                 cur.execute(
                     """
                     INSERT INTO operaciones_tesoreria 
-                    (tipo_operacion, monto_origen, monto_destino, perdida_cambiaria, nota, realizada_por)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    (tipo_operacion, monto_origen, monto_destino, perdida_cambiaria, nota, realizada_por, tasa_aplicada)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """,
-                    ('CONVERSION_BS_BINANCE', monto_bs, monto_usdt, perdida, nota, g.admin['id'])
+                    ('CONVERSION_BS_BINANCE', monto_bs, monto_usdt, perdida, nota, g.admin['id'], tasa_conversion)
                 )
                 conn.commit()
                 flash("Operación de conversión registrada exitosamente.", "success")
@@ -1163,7 +1205,7 @@ def adjudicacion():
             cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega FROM clientes WHERE proceso ILIKE 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega) AND estatus ILIKE 'activo' ORDER BY nombre, apellido;")
             clientes_elegibles_ahorro = cur.fetchall()
             
-            cur.execute("SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || apellido) as nombre_apellido, c.cedula FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador' ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;")
+            cur.execute("SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador' ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;")
             ofertas_activas = cur.fetchall()
             
             cur.execute("SELECT a.id, a.fecha_adjudicacion, (gs.nombre || ' ' || gs.apellido) as nombre_ganador_sorteo, (go.nombre || ' ' || go.apellido) as nombre_ganador_oferta FROM adjudicaciones a LEFT JOIN clientes gs ON a.ganador_sorteo_id = gs.id LEFT JOIN clientes go ON a.ganador_oferta_id = go.id ORDER BY a.fecha_adjudicacion DESC;")
@@ -1192,7 +1234,7 @@ def realizar_adjudicacion():
             ids_ya_ganadores.update(ids_ganadores_ahorro)
             
             ganador_oferta = None
-            cur.execute("SELECT c.id, (c.nombre || ' ' || apellido) as nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador' AND c.id NOT IN %s;", (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
+            cur.execute("SELECT c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador' AND c.id NOT IN %s;", (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
             candidatos_oferta_raw = cur.fetchall()
             
             candidatos_oferta = []
