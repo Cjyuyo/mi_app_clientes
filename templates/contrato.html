@@ -6,199 +6,143 @@
     <title>Contrato de Adhesión - {{ cliente.contrato_nro }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* --- ESTILOS GENERALES PARA PANTALLA --- */
+        /* --- ESTILOS DE DISEÑO PREMIUM PARA PANTALLA --- */
         body {
-            background-color: #f0f2f5;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f6f9;
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #4a4a4a;
         }
         .navbar {
             background-color: #ffffff;
-            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,.05);
         }
         .contract-container {
             background-color: white;
-            border-radius: 12px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-            padding: 2rem 3rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.07);
+            padding: 3rem 4rem;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
         }
         .header {
             text-align: center;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #333;
-            padding-bottom: 10px;
+            margin-bottom: 2.5rem;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 1.5rem;
         }
-        .header h1 { margin: 0; font-size: 20px; font-weight: bold; }
-        .header p { margin: 5px 0 0; font-size: 14px; }
-        .client-info {
-            border: 1px solid #e0e0e0;
-            padding: 1.5rem;
-            margin-bottom: 25px;
-            background-color: #f9f9f9;
-            border-radius: 8px;
+        .header h1 { font-size: 24px; font-weight: 600; color: #1a2538; }
+        .header p { margin: 5px 0 0; font-size: 14px; color: #6c757d; }
+        
+        /* --- TARJETA DE DATOS DEL ADHERENTE - DISEÑO WOW --- */
+        .client-info-card {
+            background: linear-gradient(135deg, #f8f9fa, #ffffff);
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2.5rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
         }
-        .client-info h2 {
-            margin-top: 0;
-            font-size: 1.25rem;
+        .client-info-card .card-title {
+            font-size: 1.4rem;
             font-weight: 600;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-        }
-        .client-info p { margin: 8px 0; font-size: 0.95rem; }
-        .client-info strong { color: #333; }
-        .client-info hr { border: 0; border-top: 1px dashed #ccc; }
-        .contract-body h2, .contract-body h3 {
-            font-size: 1rem;
-            margin-top: 20px;
-            font-weight: bold;
+            color: #004a99;
+            margin-bottom: 1.5rem;
             text-align: center;
-            color: #0056b3;
         }
-        .contract-body h3 {
-             text-align: left;
-             font-size: 1rem;
-             color: #343a40;
-             border-bottom: 1px solid #eee;
-             padding-bottom: 5px;
-             margin-top: 25px;
-        }
-        .contract-body p, .contract-body li {
-            text-align: justify;
+        .info-group { margin-bottom: 1.2rem; }
+        .info-group h6 {
             font-size: 0.9rem;
-            margin-bottom: 10px;
-            line-height: 1.4;
-            color: #212529;
+            font-weight: 600;
+            color: #343a40;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
         }
-        .signatures { margin-top: 50px; }
-        .signature-block { text-align: center; margin-bottom: 2rem;}
-        .signature-block p {
-            border-top: 1px solid #333;
-            padding-top: 10px;
-            margin-top: 60px;
-            font-weight: bold;
+        .info-group h6 i {
+            font-size: 1.2rem;
+            color: #0056b3;
+            margin-right: 10px;
         }
-        .footer {
-            text-align: center;
-            padding: 20px;
-            margin-top: 40px;
-            color: #6c757d;
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.95rem;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #f1f3f5;
         }
-        .print-button-container { text-align: center; margin-top: 30px; padding-top: 20px; }
+        .info-item:last-child { border-bottom: none; }
+        .info-item span { color: #6c757d; }
+        .info-item strong { color: #212529; font-weight: 500; }
+
+        .contract-body h2 { font-size: 1.2rem; margin-top: 2rem; font-weight: 600; text-align: center; color: #1a2538; }
+        .contract-body h3 { font-size: 1rem; font-weight: 600; color: #343a40; margin-top: 1.5rem; }
+        .contract-body p, .contract-body li { text-align: justify; font-size: 0.9rem; line-height: 1.6; }
+        
+        .signatures { margin-top: 3rem; }
+        .signature-block p { border-top: 1px solid #999; padding-top: 8px; margin-top: 50px; font-weight: 500; }
+        
         .verification-section {
-            margin-top: 40px;
-            padding: 20px;
-            border: 2px dashed #0056b3;
-            border-radius: 8px;
+            margin-top: 3rem;
+            padding: 1.5rem;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
             background-color: #f8f9fa;
         }
-        .verification-section h2 {
-            text-align: center;
-            margin-bottom: 20px;
-            color: #0056b3;
-        }
+        .verification-section h6 { font-weight: 600; margin-bottom: 10px; text-align: center; }
         .verification-section img {
-            max-width: 100%;
-            height: 250px;
+            width: 100%;
+            height: 220px;
             object-fit: contain;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            background-color: #f0f2f5;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background-color: #fff;
+            padding: 5px;
         }
-        .signature-pad { 
-            border: 2px dashed #0056b3; 
-            cursor: crosshair;
-            max-width: 100%;
-            height: auto;
-        }
+        .signature-pad { border: 2px dashed #0056b3; cursor: crosshair; border-radius: 6px; }
 
-        /* --- ESTILOS SÚPER OPTIMIZADOS PARA IMPRESIÓN --- */
+        /* --- ESTILOS DE IMPRESIÓN - ELEGANCIA Y COMPACTACIÓN --- */
         @media print {
-            @page {
-                size: letter;
-                margin: 0.5in; /* Márgenes de página aún más reducidos */
-            }
-            body {
-                background-color: #fff !important;
-                font-size: 8pt; /* Fuente base muy pequeña */
-                line-height: 1.15;
-                margin: 0 !important;
-                padding: 0 !important;
-            }
-            .no-print {
-                display: none !important;
-            }
-            .contract-container, .container, .container-fluid {
-                width: 100% !important;
-                max-width: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                box-shadow: none !important;
-                border: none !important;
-            }
-            .header {
-                padding-bottom: 5px;
-                margin-bottom: 8px;
-            }
-            .header h1 { font-size: 13pt; }
-            .header p { font-size: 8.5pt; margin-bottom: 0; }
+            @page { size: letter; margin: 0.5in; }
+            body { background-color: #fff !important; font-size: 8.5pt; line-height: 1.25; }
+            .no-print { display: none !important; }
+            .contract-container { padding: 0 !important; box-shadow: none !important; border: none !important; }
+            .header { padding-bottom: 8px; margin-bottom: 12px; }
+            .header h1 { font-size: 12pt; font-weight: 600; }
+            .header p { font-size: 8.5pt; }
             
-            .client-info {
-                padding: 0.4rem !important;
-                margin-top: 8px !important;
-                margin-bottom: 12px !important;
-                border: 1px solid #ccc !important;
+            .client-info-card {
+                padding: 0.6rem !important;
+                margin-bottom: 15px !important;
+                border: 1px solid #bbb !important;
+                background: #fff !important;
             }
-            .client-info h2 {
-                font-size: 10pt;
-                padding-bottom: 4px;
-                margin-bottom: 5px;
-            }
-            .client-info p {
-                font-size: 8pt;
-                margin: 1px 0 !important;
-                line-height: 1.1;
-            }
-            .client-info hr { display: none; }
-            .client-info h6 { font-size: 8.5pt; margin-top: 4px; margin-bottom: 2px; text-decoration: underline; }
+            .client-info-card .card-title { font-size: 10pt; padding-bottom: 5px; margin-bottom: 8px; font-weight: 600; }
+            .info-group h6 { font-size: 8.5pt; font-weight: 600; margin-bottom: 6px; }
+            .info-group h6 i { display: none; }
+            .info-item { font-size: 8pt; margin-bottom: 3px; padding-bottom: 3px; border-color: #eee; }
+            .info-item span { color: #555; }
+            .info-item strong { color: #000; font-weight: 500; }
 
-            .contract-body h2 { font-size: 9.5pt; margin-top: 12px; margin-bottom: 4px; }
-            .contract-body h3 { font-size: 8.5pt; margin-top: 8px; margin-bottom: 3px; }
-            .contract-body p, .contract-body li {
-                font-size: 8pt;
-                margin-bottom: 3px;
-            }
-             .contract-body ul { padding-left: 1.2rem; }
+            .contract-body h2 { font-size: 10pt; margin-top: 12px; margin-bottom: 4px; font-weight: 600; }
+            .contract-body h3 { font-size: 9pt; margin-top: 10px; margin-bottom: 3px; font-weight: 600; }
+            .contract-body p, .contract-body li { font-size: 8.5pt; margin-bottom: 4px; }
+            .contract-body ul { padding-left: 1.2rem; }
 
-            .signatures {
-                margin-top: 15px !important;
-                page-break-inside: avoid;
-            }
-            .signature-block img {
-                max-height: 55px !important; /* Firmas visiblemente más pequeñas */
-            }
-            .signature-block p {
-                margin-top: 4px !important;
-                font-size: 8pt;
-                border-top: 1px solid #333 !important;
-                padding-top: 4px !important;
-            }
-            .verification-section {
-                padding: 0.4rem !important;
-                margin-top: 12px !important;
-                page-break-inside: avoid;
-            }
-             .verification-section h2 { font-size: 10pt; }
-            .verification-section img {
-                max-height: 100px !important; /* Fotos de verificación más pequeñas */
-            }
-            h1, h2, h3, p, ul, ol, div {
-                page-break-inside: avoid;
-            }
-            .row > * {
-                padding-right: 4px !important;
-                padding-left: 4px !important;
-            }
+            .signatures { margin-top: 15px !important; page-break-inside: avoid; }
+            .signature-block img { max-height: 45px !important; } /* Firmas muy discretas */
+            .signature-block p { margin-top: 5px !important; font-size: 8pt; border-top: 1px solid #666 !important; padding-top: 4px !important; }
+            
+            .verification-section { padding: 0.6rem !important; margin-top: 15px !important; page-break-inside: avoid; border: 1px solid #bbb !important; }
+            .verification-section h6 { font-size: 9pt; }
+            .verification-section .photo-id { max-height: 150px !important; } /* Cédula grande y legible */
+            .verification-section .photo-client { max-height: 100px !important; } /* Foto cliente más pequeña */
+            
+            h1, h2, h3, p, ul, ol, div { page-break-inside: avoid; }
         }
     </style>
 </head>
@@ -223,27 +167,39 @@
                 <p>MOTO PLAN MOTORS, C.A. | RIF: J-50408959-1</p>
             </div>
 
-            <!-- Caja de datos del adherente reorganizada -->
-            <div class="client-info mt-4">
-                <h2 class="text-center">Datos del Adherente</h2>
-                <div class="row g-2">
-                    <!-- Columna 1 -->
-                    <div class="col-4">
-                        <p><strong>Nombre:</strong> {{ cliente.nombre_apellido }}</p>
-                        <p><strong>Cédula:</strong> V-{{ cliente.cedula }}</p>
-                        <p><strong>Teléfono:</strong> {{ cliente.telefono }}</p>
+            <!-- Caja de datos del adherente con diseño de Prestigio -->
+            <div class="client-info-card">
+                <h5 class="card-title">Información del Contrato</h5>
+                <div class="row">
+                    <div class="col-md-7">
+                        <div class="info-group">
+                            <h6><i class="bi bi-person-circle"></i> Datos del Adherente</h6>
+                            <div class="info-item"><span>Nombre y Apellido:</span><strong>{{ cliente.nombre_apellido }}</strong></div>
+                            <div class="info-item"><span>Cédula de Identidad:</span><strong>V-{{ cliente.cedula }}</strong></div>
+                            <div class="info-item"><span>Teléfono de Contacto:</span><strong>{{ cliente.telefono }}</strong></div>
+                        </div>
                     </div>
-                    <!-- Columna 2 -->
-                    <div class="col-4">
-                        <p><strong>Nº Contrato:</strong> {{ cliente.contrato_nro }}</p>
-                        <p><strong>Plan:</strong> {{ cliente.plan_contratado }}</p>
-                        <p><strong>Cuotas:</strong> {{ cliente.cuotas_totales }}</p>
+                    <div class="col-md-5">
+                        <div class="info-group">
+                            <h6><i class="bi bi-file-earmark-text-fill"></i> Plan Contratado</h6>
+                            <div class="info-item"><span>Nº Contrato:</span><strong>{{ cliente.contrato_nro }}</strong></div>
+                            <div class="info-item"><span>Plan:</span><strong>{{ cliente.plan_contratado }}</strong></div>
+                            <div class="info-item"><span>Total de Cuotas:</span><strong>{{ cliente.cuotas_totales }}</strong></div>
+                        </div>
                     </div>
-                    <!-- Columna 3 -->
-                    <div class="col-4">
-                        <p><strong>Valor Cuota:</strong> ${{ "%.2f"|format(cliente.valor_cuota) }}</p>
-                        <p><strong>Inscripción:</strong> ${{ "%.2f"|format(cliente.inscripcion_monto) }}</p>
-                        <p><strong>Asesor:</strong> {{ cliente.asesor }}</p>
+                    <div class="col-md-7">
+                        <div class="info-group">
+                            <h6><i class="bi bi-cash-coin"></i> Condiciones Financieras</h6>
+                            <div class="info-item"><span>Monto de Inscripción:</span><strong>${{ "%.2f"|format(cliente.inscripcion_monto) }}</strong></div>
+                            <div class="info-item"><span>Valor de Cuota Mensual:</span><strong>${{ "%.2f"|format(cliente.valor_cuota) }}</strong></div>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                         <div class="info-group">
+                            <h6><i class="bi bi-calendar-check-fill"></i> Datos Administrativos</h6>
+                            <div class="info-item"><span>Fecha de Ingreso:</span><strong>{{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</strong></div>
+                            <div class="info-item"><span>Asesor Comercial:</span><strong>{{ cliente.asesor }}</strong></div>
+                         </div>
                     </div>
                 </div>
             </div>
@@ -365,27 +321,19 @@
 
             <!-- SECCIÓN DE VERIFICACIÓN Y TRAZABILIDAD -->
             <div class="verification-section">
-                <h2 class="no-print">Anexos de Verificación y Trazabilidad</h2>
-                 {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                        <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} no-print">{{ message }}</div>
-                        {% endfor %}
-                    {% endif %}
-                {% endwith %}
                 <div class="row text-center align-items-center g-3">
-                    <div class="col-6">
+                    <div class="col-5">
                         <h6>Foto del Cliente</h6>
-                        <img src="{{ cliente.foto_cliente if cliente.foto_cliente else 'https://placehold.co/400x300/eee/ccc?text=Foto+Cliente' }}" alt="Foto del Cliente">
+                        <img src="{{ cliente.foto_cliente if cliente.foto_cliente else 'https://placehold.co/400x300/eee/ccc?text=Foto+Cliente' }}" alt="Foto del Cliente" class="photo-client">
                     </div>
-                    <div class="col-6">
+                    <div class="col-7">
                         <h6>Foto de la Cédula</h6>
-                        <img src="{{ cliente.foto_cedula if cliente.foto_cedula else 'https://placehold.co/400x300/eee/ccc?text=Foto+Cédula' }}" alt="Foto de la Cédula">
+                        <img src="{{ cliente.foto_cedula if cliente.foto_cedula else 'https://placehold.co/400x300/eee/ccc?text=Foto+Cédula' }}" alt="Foto de la Cédula" class="photo-id">
                     </div>
                 </div>
                 {% if cliente.fecha_firma %}
                 <div class="text-center mt-3">
-                    <p class="text-muted">
+                    <p class="text-muted small">
                         <i class="bi bi-patch-check-fill"></i>
                         Contrato generado y firmado digitalmente el: 
                         <strong>{{ cliente.fecha_firma.strftime('%d/%m/%Y a las %I:%M %p') }}</strong>
