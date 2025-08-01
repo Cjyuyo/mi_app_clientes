@@ -178,6 +178,16 @@
                         <option value="USDT">USDT</option>
                     </select>
                 </div>
+                
+                <!-- CAMBIO: Campo para seleccionar la moneda de referencia -->
+                <div class="form-group" id="moneda_referencia_group" style="display: none;">
+                    <label for="moneda_referencia">Moneda de Referencia (para Bs.)</label>
+                    <select id="moneda_referencia" name="moneda_referencia">
+                        <option value="USD" selected>Dólar (USD)</option>
+                        <option value="EUR">Euro (EUR)</option>
+                    </select>
+                </div>
+
                 <div class="form-group">
                     <label for="banco">Banco</label>
                     <input type="text" id="banco" name="banco">
@@ -210,7 +220,32 @@
         </div>
     </form>
 </div>
+
+<!-- CAMBIO: Script unificado y con nueva lógica -->
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+    // --- Lógica para mostrar/ocultar el campo de moneda de referencia ---
+    const pagoEnSelect = document.getElementById('pago_en');
+    const monedaReferenciaGroup = document.getElementById('moneda_referencia_group');
+    const monedaReferenciaSelect = document.getElementById('moneda_referencia');
+
+    function toggleMonedaReferencia() {
+        if (pagoEnSelect.value === 'Bolívares') {
+            monedaReferenciaGroup.style.display = 'flex';
+            monedaReferenciaSelect.required = true;
+        } else {
+            monedaReferenciaGroup.style.display = 'none';
+            monedaReferenciaSelect.required = false;
+        }
+    }
+
+    // Ejecutar al cargar la página por si el formulario viene con un valor preseleccionado
+    toggleMonedaReferencia();
+    // Añadir el listener para cambios
+    pagoEnSelect.addEventListener('change', toggleMonedaReferencia);
+
+
+    // --- Lógica para el cálculo del monto en Bs. ---
     const montoUsdInput = document.getElementById('monto_usd');
     const tasaDiaInput = document.getElementById('tasa_dia');
     const montoBsCalculadoInput = document.getElementById('monto_bs_calculado');
@@ -228,26 +263,27 @@
 
     montoUsdInput.addEventListener('input', calcularMontoBs);
     tasaDiaInput.addEventListener('input', calcularMontoBs);
-</script>
-<script>
-    (function() {
-        const forms = document.querySelectorAll('form');
-        forms.forEach(form => {
-            form.addEventListener('submit', function(e) {
-                if (form.getAttribute('data-submitted') === 'true') {
-                    e.preventDefault();
-                    return;
-                }
-                form.setAttribute('data-submitted', 'true');
 
-                const submitButtons = form.querySelectorAll('button[type="submit"]');
-                submitButtons.forEach(button => {
-                    button.setAttribute('disabled', 'disabled');
-                    button.innerHTML = 'Procesando...';
-                });
+
+    // --- Lógica para evitar doble submit del formulario ---
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            if (form.getAttribute('data-submitted') === 'true') {
+                e.preventDefault();
+                return;
+            }
+            form.setAttribute('data-submitted', 'true');
+
+            const submitButtons = form.querySelectorAll('button[type="submit"]');
+            submitButtons.forEach(button => {
+                button.setAttribute('disabled', 'disabled');
+                button.innerHTML = 'Procesando...';
             });
         });
-    })();
+    });
+});
 </script>
+
 </body>
 </html>

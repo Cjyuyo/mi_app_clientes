@@ -63,8 +63,9 @@
             margin-bottom: 0.5rem;
         }
         .stat-card .sub-value {
-            font-size: 0.9rem;
+            font-size: 1.1rem; /* Aumentado para mayor visibilidad */
             color: #6c757d;
+            font-weight: 500; /* Ligeramente más grueso */
         }
         .balance-card {
             background: linear-gradient(45deg, #0056b3, #004a99);
@@ -145,9 +146,14 @@
         <h2 class="mb-4 fw-bold">Saldos Totales Acumulados</h2>
         <div class="row g-4">
             <div class="col-12"><div class="content-card stat-card balance-card"><div class="card-body text-center p-4 p-md-5"><div class="stat-label">Balance General Consolidado (USD)</div><div class="stat-value">${{ "{:,.2f}".format(resumen.balance_general_consolidado_usd) }}</div></div></div></div>
-            <div class="col-md-4"><div class="content-card stat-card"><div class="card-body p-4"><div class="d-flex align-items-center"><i class="bi bi-cash-stack fs-1 text-success me-3"></i><div><div class="stat-label">Efectivo (USD)</div><div class="stat-value text-success">${{ "{:,.2f}".format(resumen.balance_efectivo_usd) }}</div></div></div></div></div></div>
-            <div class="col-md-4"><div class="content-card stat-card"><div class="card-body p-4"><div class="d-flex align-items-center"><i class="bi bi-currency-bitcoin fs-1 text-warning me-3"></i><div><div class="stat-label">Binance (USDT)</div><div class="stat-value text-warning">${{ "{:,.2f}".format(resumen.balance_binance_usdt) }}</div></div></div></div></div></div>
-            <div class="col-md-4"><div class="content-card stat-card"><div class="card-body p-4 text-center"><div class="stat-label">Saldo en Bolívares</div><div class="stat-value" style="color: #6f42c1;">{{ "{:,.2f}".format(resumen.balance_bolivares_bs) }} Bs</div><div class="sub-value mt-1 fw-bold">~ ${{ "{:,.2f}".format(resumen.balance_bolivares_usd) }}</div></div></div></div>
+            <div class="col-lg-3 col-md-6"><div class="content-card stat-card"><div class="card-body p-4"><div class="d-flex align-items-center"><i class="bi bi-cash-stack fs-1 text-success me-3"></i><div><div class="stat-label">Efectivo (USD)</div><div class="stat-value text-success">${{ "{:,.2f}".format(resumen.balance_efectivo_usd) }}</div></div></div></div></div></div>
+            <div class="col-lg-3 col-md-6"><div class="content-card stat-card"><div class="card-body p-4"><div class="d-flex align-items-center"><i class="bi bi-currency-bitcoin fs-1 text-warning me-3"></i><div><div class="stat-label">Binance (USDT)</div><div class="stat-value text-warning">${{ "{:,.2f}".format(resumen.balance_binance_usdt) }}</div></div></div></div></div></div>
+            
+            <!-- Caja Bs. (Referencia Dólar) -->
+            <div class="col-lg-3 col-md-6"><div class="content-card stat-card"><div class="card-body p-4 text-center"><div class="stat-label">Caja Bs. (Ref. $)</div><div class="stat-value" style="color: #6f42c1;">{{ "{:,.2f}".format(resumen.balance_bs_usd_bs) }} Bs</div><div class="sub-value mt-1 fw-bold">~ ${{ "{:,.2f}".format(resumen.balance_bs_usd_usd) }}</div></div></div></div>
+            
+            <!-- Caja Bs. (Referencia Euro) -->
+            <div class="col-lg-3 col-md-6"><div class="content-card stat-card"><div class="card-body p-4 text-center"><div class="stat-label">Caja Bs. (Ref. €)</div><div class="stat-value" style="color: #0d6efd;">{{ "{:,.2f}".format(resumen.balance_bs_eur_bs) }} Bs</div><div class="sub-value mt-1 fw-bold">~ €{{ "{:,.2f}".format(resumen.balance_bs_eur_eur) }}</div></div></div></div>
         </div>
 
         <!-- Análisis de Pérdidas -->

@@ -29,10 +29,17 @@ def get_venezuela_current_date():
     return datetime.now(VENEZUELA_TZ).date()
 
 # =================================================================================
-# ===== FILTRO DE FECHA PARA PLANTILLAS JINJA2 =====
+# ===== FUNCIONES DE UTILIDAD Y FILTROS JINJA =====
 # =================================================================================
+
+def get_nombre_mes(month_number):
+    """Convierte el número de un mes a su nombre en español."""
+    meses = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
+    return meses.get(month_number, "")
+
 @app.template_filter('format_date')
 def format_date_filter(value, format='%d/%m/%Y'):
+    """Filtro de Jinja para formatear fechas."""
     if value == 'now':
         return get_venezuela_current_date().strftime(format)
     if isinstance(value, str):
@@ -109,10 +116,31 @@ def rol_requerido(*roles):
     return wrapper
 
 # --- Funciones de utilidad ---
+def get_feriados_venezuela(year):
+    return [datetime(year, 1, 1).date(), datetime(year, 4, 19).date(), datetime(year, 5, 1).date(), datetime(year, 6, 24).date(), datetime(year, 7, 5).date(), datetime(year, 7, 24).date(), datetime(year, 10, 12).date(), datetime(year, 12, 24).date(), datetime(year, 12, 25).date(), datetime(year, 12, 31).date()]
+
+def get_fecha_vencimiento_ajustada(fecha_pago):
+    if fecha_pago.day < 15:
+        mes_vencimiento, ano_vencimiento = fecha_pago.month, fecha_pago.year
+    else:
+        mes_vencimiento = fecha_pago.month + 1 if fecha_pago.month < 12 else 1
+        ano_vencimiento = fecha_pago.year if fecha_pago.month < 12 else fecha_pago.year + 1
+    vencimiento = datetime(ano_vencimiento, mes_vencimiento, 2).date()
+    feriados = get_feriados_venezuela(vencimiento.year)
+    while vencimiento.weekday() >= 5 or vencimiento in feriados:
+        vencimiento += timedelta(days=1)
+        if vencimiento.year != ano_vencimiento:
+            feriados = get_feriados_venezuela(vencimiento.year)
+    return vencimiento
+
 def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
-    if not g.admin: return
+    if not g.admin:
+        logging.warning(f"AUDITORIA-OMITIDA: Intento de registrar '{accion}' sin un g.admin establecido.")
+        return
     conn = get_db()
-    if not conn: return
+    if not conn:
+        logging.error("AUDITORIA-FALLO-CONEXION: No se pudo obtener conexión a la base de datos.")
+        return
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -123,9 +151,11 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
                 (g.admin['id'], g.admin['usuario'], accion, descripcion, cliente_id)
             )
         conn.commit()
+        logging.info(f"AUDITORIA-REGISTRADA: Usuario '{g.admin['usuario']}' realizó '{accion}'.")
     except Exception as e:
         logging.error(f"AUDITORIA-FALLO-INSERCION: {e}")
-        if conn: conn.rollback()
+        if conn:
+            conn.rollback()
 
 # --- RUTAS DEL PORTAL DE ADMINISTRACIÓN ---
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -377,7 +407,7 @@ def asignar_gestor(cliente_id):
 # =================================================================================
 @app.route('/admin/tasa_bcv', methods=['GET', 'POST'])
 @admin_required
-@rol_requerido('superadmin')
+@rol_requerido('superadmin', 'gerente')
 def admin_tasa_bcv():
     conn = get_db()
     today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
@@ -387,7 +417,6 @@ def admin_tasa_bcv():
     if conn:
         try:
             with conn.cursor() as cur:
-                # Primero, obtener las tasas actuales para no borrarlas si no se envían
                 cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha = %s", (today_str,))
                 tasas_actuales = cur.fetchone()
 
@@ -395,9 +424,8 @@ def admin_tasa_bcv():
                     tasa_usd_str = request.form.get('tasa_usd', '').replace(',', '.')
                     tasa_eur_str = request.form.get('tasa_eur', '').replace(',', '.')
                     
-                    # Si el campo viene vacío, usar el valor actual de la BD. Si no hay valor actual, usar 0.
-                    tasa_usd_final = Decimal(tasa_usd_str) if tasa_usd_str else (tasas_actuales['tasa'] if tasas_actuales else Decimal('0'))
-                    tasa_eur_final = Decimal(tasa_eur_str) if tasa_eur_str else (tasas_actuales['tasa_euro'] if tasas_actuales else Decimal('0'))
+                    tasa_usd_final = Decimal(tasa_usd_str) if tasa_usd_str else (tasas_actuales['tasa'] if tasas_actuales and tasas_actuales['tasa'] is not None else Decimal('0'))
+                    tasa_eur_final = Decimal(tasa_eur_str) if tasa_eur_str else (tasas_actuales['tasa_euro'] if tasas_actuales and tasas_actuales['tasa_euro'] is not None else Decimal('0'))
 
                     if tasa_usd_final >= 0 and tasa_eur_final >= 0:
                         cur.execute(
@@ -417,14 +445,12 @@ def admin_tasa_bcv():
                     else:
                         flash('Las tasas deben ser números positivos.', 'danger')
                 
-                # Cargar tasas del día actual (puede que se hayan actualizado)
                 cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha = %s", (today_str,))
                 resultado = cur.fetchone()
                 if resultado:
                     tasas_de_hoy['usd'] = resultado['tasa']
                     tasas_de_hoy['eur'] = resultado['tasa_euro']
                 
-                # Cargar historial reciente
                 cur.execute("""
                     SELECT h.fecha, h.tasa, h.tasa_euro, a.usuario 
                     FROM historial_tasas_bcv h
@@ -469,13 +495,18 @@ def reporte_flujo_caja():
                 tasas_del_dia['usd'] = resultado_tasa['tasa'] or Decimal('0.0')
                 tasas_del_dia['eur'] = resultado_tasa['tasa_euro'] or Decimal('0.0')
 
-    if tasas_del_dia['usd'] > 0:
+    # Se puede generar el reporte si al menos una de las tasas es válida.
+    if tasas_del_dia['usd'] > 0 or tasas_del_dia['eur'] > 0:
         mostrar_resultados = True
         try:
             with conn.cursor() as cur:
                 resumen = {
-                    'balance_efectivo_usd': Decimal('0.0'), 'balance_binance_usdt': Decimal('0.0'),
-                    'balance_bolivares_bs': Decimal('0.0'), 'balance_bolivares_usd': Decimal('0.0'),
+                    'balance_efectivo_usd': Decimal('0.0'), 
+                    'balance_binance_usdt': Decimal('0.0'),
+                    'balance_bs_usd_bs': Decimal('0.0'), 
+                    'balance_bs_usd_usd': Decimal('0.0'),
+                    'balance_bs_eur_bs': Decimal('0.0'), 
+                    'balance_bs_eur_eur': Decimal('0.0'),
                     'balance_general_consolidado_usd': Decimal('0.0'),
                     'acumulado_perdida_devaluacion': Decimal('0.0'),
                     'acumulado_perdida_conversion': Decimal('0.0'),
@@ -485,31 +516,42 @@ def reporte_flujo_caja():
                 fecha_reporte_dt = datetime.strptime(fecha_reporte_str, '%Y-%m-%d').date()
                 fecha_fin_timestamp = datetime.combine(fecha_reporte_dt, datetime.max.time())
 
-                # --- Balances Acumulados ---
+                # --- Balances en Moneda Fuerte ---
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND forma_pago = 'Efectivo' AND fecha_pago <= %s", (fecha_reporte_dt,))
                 resumen['balance_efectivo_usd'] = cur.fetchone()[0] or Decimal('0.0')
 
                 cur.execute("SELECT COALESCE(SUM(monto_destino), 0) FROM operaciones_tesoreria WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s", (fecha_fin_timestamp,))
                 resumen['balance_binance_usdt'] = cur.fetchone()[0] or Decimal('0.0')
 
-                cur.execute("SELECT COALESCE(SUM(monto_bs), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND monto_bs > 0 AND fecha_pago <= %s", (fecha_reporte_dt,))
-                ingresos_bs_total = cur.fetchone()[0] or Decimal('0.0')
-                
+                # --- Egresos de Bolívares (se asume que salen de la caja USD por defecto) ---
                 cur.execute("SELECT COALESCE(SUM(monto_origen), 0) FROM operaciones_tesoreria WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s", (fecha_fin_timestamp,))
                 egresos_bs_conversion = cur.fetchone()[0] or Decimal('0.0')
-                
-                resumen['balance_bolivares_bs'] = ingresos_bs_total - egresos_bs_conversion
-                resumen['balance_bolivares_usd'] = resumen['balance_bolivares_bs'] / tasas_del_dia['usd']
 
-                resumen['balance_general_consolidado_usd'] = resumen['balance_efectivo_usd'] + resumen['balance_binance_usdt'] + resumen['balance_bolivares_usd']
+                # --- Caja Bs-USD ---
+                cur.execute("SELECT COALESCE(SUM(monto_bs), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND moneda_referencia = 'USD' AND fecha_pago <= %s", (fecha_reporte_dt,))
+                ingresos_bs_usd_total = cur.fetchone()[0] or Decimal('0.0')
+                resumen['balance_bs_usd_bs'] = ingresos_bs_usd_total - egresos_bs_conversion
+                resumen['balance_bs_usd_usd'] = resumen['balance_bs_usd_bs'] / tasas_del_dia['usd'] if tasas_del_dia['usd'] > 0 else Decimal('0.0')
                 
-                # --- Cálculo de Pérdidas Acumuladas ---
+                # --- Caja Bs-EUR ---
+                cur.execute("SELECT COALESCE(SUM(monto_bs), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND moneda_referencia = 'EUR' AND fecha_pago <= %s", (fecha_reporte_dt,))
+                ingresos_bs_eur_total = cur.fetchone()[0] or Decimal('0.0')
+                resumen['balance_bs_eur_bs'] = ingresos_bs_eur_total
+                resumen['balance_bs_eur_eur'] = resumen['balance_bs_eur_bs'] / tasas_del_dia['eur'] if tasas_del_dia['eur'] > 0 else Decimal('0.0')
+                
+                # --- Consolidado y Pérdidas ---
+                balance_bs_eur_en_usd = resumen['balance_bs_eur_bs'] / tasas_del_dia['usd'] if tasas_del_dia['usd'] > 0 else Decimal('0.0')
+                resumen['balance_general_consolidado_usd'] = resumen['balance_efectivo_usd'] + resumen['balance_binance_usdt'] + resumen['balance_bs_usd_usd'] + balance_bs_eur_en_usd
+
+                # El cálculo de la pérdida por devaluación se vuelve más complejo.
+                # Por ahora, se mantiene el cálculo original enfocado en la caja principal (USD).
+                # TODO: Refinar este cálculo si es necesario considerar la devaluación de la caja EUR.
                 cur.execute("""
                     SELECT COALESCE(SUM(CASE WHEN tasa_dia > 0 THEN monto_bs / tasa_dia ELSE 0 END), 0) 
                     FROM pagos 
-                    WHERE estado_pago = 'Conciliado' AND monto_bs > 0 AND fecha_pago <= %s
+                    WHERE estado_pago = 'Conciliado' AND monto_bs > 0 AND moneda_referencia = 'USD' AND fecha_pago <= %s
                 """, (fecha_reporte_dt,))
-                valor_historico_ingresos_bs_en_usd = cur.fetchone()[0] or Decimal('0.0')
+                valor_historico_ingresos_bs_usd_en_usd = cur.fetchone()[0] or Decimal('0.0')
 
                 cur.execute("""
                     SELECT COALESCE(SUM(CASE WHEN tasa_aplicada > 0 THEN monto_origen / tasa_aplicada ELSE 0 END), 0)
@@ -518,8 +560,8 @@ def reporte_flujo_caja():
                 """, (fecha_fin_timestamp,))
                 valor_historico_egresos_bs_en_usd = cur.fetchone()[0] or Decimal('0.0')
                 
-                valor_teorico_saldo_bs_en_usd = valor_historico_ingresos_bs_en_usd - valor_historico_egresos_bs_en_usd
-                resumen['acumulado_perdida_devaluacion'] = valor_teorico_saldo_bs_en_usd - resumen['balance_bolivares_usd']
+                valor_teorico_saldo_bs_usd_en_usd = valor_historico_ingresos_bs_usd_en_usd - valor_historico_egresos_bs_en_usd
+                resumen['acumulado_perdida_devaluacion'] = valor_teorico_saldo_bs_usd_en_usd - resumen['balance_bs_usd_usd']
 
                 cur.execute("""
                     SELECT COALESCE(SUM(perdida_cambiaria), 0) 
@@ -539,7 +581,7 @@ def reporte_flujo_caja():
             logging.error(f"Error en reporte_flujo_caja: {e}", exc_info=True)
             mostrar_resultados = False
     elif request.method == 'POST':
-        flash(f"No se puede generar el reporte. La tasa BCV del Dólar para el día {format_date_filter(fecha_reporte_str)} no ha sido establecida.", "warning")
+        flash(f"No se puede generar el reporte. Ninguna tasa (USD o EUR) ha sido establecida para el día {format_date_filter(fecha_reporte_str)}.", "warning")
 
     return render_template(
         'reporte_flujo_caja.html',
@@ -871,15 +913,29 @@ def registrar_pago(client_id):
         if pago_form.get('forma_pago') != 'Efectivo' and not pago_form.get('referencia'):
             flash('Error: La referencia es obligatoria para pagos por transferencia.', 'error')
             return render_template('registrar_pago.html', cliente=cliente)
+        
+        # Lógica para la nueva columna moneda_referencia
+        moneda_referencia = None
+        if pago_form.get('pago_en') == 'Bolívares':
+            moneda_referencia = pago_form.get('moneda_referencia') # 'USD' o 'EUR' desde el form
+            if not moneda_referencia:
+                flash('Error: Debe seleccionar una moneda de referencia (USD o EUR) para pagos en Bolívares.', 'error')
+                return render_template('registrar_pago.html', cliente=cliente)
+        
         try:
             with conn.cursor() as cur:
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, 
                                         pago_en, por_concepto_de, referencia, banco, lugar_emision,
-                                        tasa_dia, monto_bs, estado_pago, cuotas_cubiertas)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0);
+                                        tasa_dia, monto_bs, estado_pago, cuotas_cubiertas, moneda_referencia)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, %s);
                 """
-                cur.execute(pago_query, (client_id, pago_form['monto'], tipo_pago, pago_form['forma_pago'], pago_form['fecha_pago'], pago_form.get('pago_en'), pago_form.get('por_concepto_de'), pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('lugar_emision'), pago_form.get('tasa_dia'), pago_form.get('monto_bs')))
+                cur.execute(pago_query, (
+                    client_id, pago_form['monto'], tipo_pago, pago_form['forma_pago'], 
+                    pago_form['fecha_pago'], pago_form.get('pago_en'), pago_form.get('por_concepto_de'), 
+                    pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('lugar_emision'), 
+                    pago_form.get('tasa_dia'), pago_form.get('monto_bs'), moneda_referencia
+                ))
                 conn.commit()
                 flash(f"¡Pago de {tipo_pago} registrado como PENDIENTE! Ahora debe ser conciliado.", 'success')
                 return redirect(url_for('consulta', busqueda=cliente['cedula']))
