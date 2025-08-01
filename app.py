@@ -3,7 +3,7 @@ import psycopg2
 import psycopg2.extras
 from flask import Flask, render_template, request, g, flash, redirect, url_for, session, Response
 from dotenv import load_dotenv
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta, date
 from calendar import monthrange
 import random
@@ -398,12 +398,12 @@ def asignar_gestor(cliente_id):
     return redirect(url_for('reporte_morosidad'))
 
 # =================================================================================
-# ===== INICIO DE NUEVA RUTA Y LÓGICA PARA TASA BCV (PERMITE MODIFICAR) =====
+# ===== RUTA DEDICADA PARA GESTIONAR TASA BCV =====
 # =================================================================================
-@app.route('/admin/config/tasa_bcv', methods=['GET', 'POST'])
+@app.route('/admin/tasa_bcv', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin')
-def administrar_tasa_bcv():
+def admin_tasa_bcv():
     conn = get_db()
     today_str = date.today().strftime('%Y-%m-%d')
     tasa_de_hoy = None
@@ -415,32 +415,30 @@ def administrar_tasa_bcv():
                 if request.method == 'POST':
                     nueva_tasa_str = request.form.get('tasa_bcv')
                     if nueva_tasa_str:
-                        tasa_decimal = Decimal(nueva_tasa_str)
+                        tasa_decimal = Decimal(nueva_tasa_str.replace(',', '.'))
                         if tasa_decimal > 0:
-                            # Usar INSERT ... ON CONFLICT para insertar o actualizar
                             cur.execute(
                                 """
                                 INSERT INTO historial_tasas_bcv (fecha, tasa, establecida_por_id) 
                                 VALUES (%s, %s, %s)
                                 ON CONFLICT (fecha) DO UPDATE SET
                                     tasa = EXCLUDED.tasa,
-                                    establecida_por_id = EXCLUDED.establecida_por_id;
+                                    establecida_por_id = EXCLUDED.establecida_por_id,
+                                    fecha_actualizacion = NOW();
                                 """,
                                 (today_str, tasa_decimal, g.admin['id'])
                             )
                             conn.commit()
                             flash('Tasa BCV del día guardada/actualizada exitosamente.', 'success')
-                            return redirect(url_for('administrar_tasa_bcv'))
+                            return redirect(url_for('admin_tasa_bcv'))
                         else:
                             flash('La tasa debe ser un número positivo.', 'danger')
                 
-                # Obtener la tasa de hoy (después de un posible POST)
                 cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha = %s", (today_str,))
                 resultado = cur.fetchone()
                 if resultado:
                     tasa_de_hoy = resultado['tasa']
                 
-                # Obtener historial para mostrar en la tabla
                 cur.execute("""
                     SELECT h.fecha, h.tasa, a.usuario 
                     FROM historial_tasas_bcv h
@@ -449,7 +447,9 @@ def administrar_tasa_bcv():
                     LIMIT 30
                 """)
                 historial_tasas = cur.fetchall()
-        except (ValueError, psycopg2.Error) as e:
+        except InvalidOperation:
+            flash('Por favor, introduce un número válido para la tasa.', 'danger')
+        except psycopg2.Error as e:
             if conn: conn.rollback()
             flash(f'Error al procesar la solicitud: {e}', 'danger')
 
@@ -459,7 +459,7 @@ def administrar_tasa_bcv():
                            anio_actual=date.today().year)
 
 # =================================================================================
-# ===== INICIO DE LA CORRECCIÓN: LÓGICA DE FLUJO DE CAJA =====
+# ===== LÓGICA DE FLUJO DE CAJA (CORREGIDA) =====
 # =================================================================================
 @app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
 @admin_required
@@ -468,10 +468,8 @@ def reporte_flujo_caja():
     conn = get_db()
     today = date.today()
     
-    # **CORRECCIÓN**: Unificar la obtención de la fecha desde GET o POST.
     fecha_reporte_str = request.form.get('fecha_reporte') or request.args.get('fecha_reporte')
     
-    # Si no se provee ninguna fecha, se muestra la página inicial con la fecha de hoy.
     if not fecha_reporte_str:
         return render_template(
             'reporte_flujo_caja.html',
@@ -483,7 +481,6 @@ def reporte_flujo_caja():
             anio_actual=today.year
         )
 
-    # Si se provee una fecha, se procede a calcular y mostrar los resultados.
     mostrar_resultados = True
     tasa_bcv_decimal = Decimal('0.0')
 
@@ -517,8 +514,6 @@ def reporte_flujo_caja():
                 }
                 
                 fecha_reporte_dt = datetime.strptime(fecha_reporte_str, '%Y-%m-%d').date()
-                
-                # **CORRECCIÓN**: Asegurar que la fecha de fin incluya todo el día.
                 fecha_fin_timestamp = datetime.combine(fecha_reporte_dt, datetime.max.time())
 
                 # Balances Acumulados
@@ -595,7 +590,6 @@ def reporte_flujo_caja():
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def registrar_operacion_tesoreria():
-    # **CORRECCIÓN**: Usar la fecha del formulario para la redirección.
     fecha_reporte_redirect = request.form.get('fecha_reporte_hidden', date.today().strftime('%Y-%m-%d'))
     
     try:
@@ -644,7 +638,6 @@ def registrar_operacion_tesoreria():
         if db:
             db.rollback()
 
-    # **CORRECCIÓN**: Redirigir a la URL con el parámetro de fecha para que el reporte se regenere.
     return redirect(url_for('reporte_flujo_caja', fecha_reporte=fecha_reporte_redirect))
     
 # --- GESTIÓN DE CLIENTES Y PAGOS ---
