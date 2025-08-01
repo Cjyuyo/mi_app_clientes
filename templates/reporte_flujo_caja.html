@@ -50,6 +50,13 @@
             font-size: 2.75rem;
             font-weight: 700;
         }
+        /* Estilo para la parte decimal de los números */
+        .stat-card .stat-value .decimal-part {
+            font-size: 0.5em; /* 50% del tamaño del número principal */
+            font-weight: 500;
+            opacity: 0.75;
+            vertical-align: baseline; /* Alinea correctamente con el número principal */
+        }
         .stat-card .stat-label {
             font-size: 0.9rem;
             color: #6c757d;
@@ -156,7 +163,8 @@
                 <div class="card stat-card balance-card h-100">
                     <div class="card-body text-center d-flex flex-column justify-content-center p-4">
                         <div class="stat-label">Balance General Consolidado</div>
-                        <div class="stat-value">${{ "{:,.2f}".format(resumen.balance_general_consolidado_usd) }}</div>
+                        {% set parts = "{:,.2f}".format(resumen.balance_general_consolidado_usd).split('.') %}
+                        <div class="stat-value">${{ parts[0] }}<span class="decimal-part">.{{ parts[1] }}</span></div>
                     </div>
                 </div>
             </div>
@@ -167,7 +175,8 @@
                             <div class="card-body position-relative p-4">
                                 <i class="bi bi-cash-coin icon text-success"></i>
                                 <div class="stat-label">Efectivo</div>
-                                <div class="stat-value text-success">${{ "{:,.2f}".format(resumen.balance_efectivo_usd) }}</div>
+                                {% set parts = "{:,.2f}".format(resumen.balance_efectivo_usd).split('.') %}
+                                <div class="stat-value text-success">${{ parts[0] }}<span class="decimal-part">.{{ parts[1] }}</span></div>
                             </div>
                         </div>
                     </div>
@@ -176,7 +185,8 @@
                             <div class="card-body position-relative p-4">
                                 <i class="bi bi-currency-bitcoin icon text-warning"></i>
                                 <div class="stat-label">Binance</div>
-                                <div class="stat-value text-warning">${{ "{:,.2f}".format(resumen.balance_binance_usdt) }}</div>
+                                {% set parts = "{:,.2f}".format(resumen.balance_binance_usdt).split('.') %}
+                                <div class="stat-value text-warning">${{ parts[0] }}<span class="decimal-part">.{{ parts[1] }}</span></div>
                             </div>
                         </div>
                     </div>
@@ -185,7 +195,8 @@
                             <div class="card-body position-relative p-4">
                                 <i class="bi bi-bootstrap-fill icon text-info"></i>
                                 <div class="stat-label">Bolívares</div>
-                                <div class="stat-value text-info">{{ "{:,.2f}".format(resumen.balance_bolivares_bs) }} Bs</div>
+                                {% set parts = "{:,.2f}".format(resumen.balance_bolivares_bs).split('.') %}
+                                <div class="stat-value text-info">{{ parts[0] }}<span class="decimal-part">.{{ parts[1] }}</span> Bs</div>
                                 <div class="sub-value">(~ ${{ "{:,.2f}".format(resumen.balance_bolivares_usd) }})</div>
                             </div>
                         </div>
