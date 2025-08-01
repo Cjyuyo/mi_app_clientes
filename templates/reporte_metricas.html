@@ -156,8 +156,18 @@
         </div>
 
         <div class="row g-4 mt-4">
-            <div class="col-lg-7"><div class="chart-container"><h5 class="mb-4">Ingresos Mensuales (Últimos 6 Meses)</h5><canvas id="incomeChart"></canvas></div></div>
-            <div class="col-lg-5"><div class="chart-container"><h5 class="mb-4">Composición de Clientes Activos</h5><canvas id="clientsChart"></canvas></div></div>
+            <div class="col-lg-7">
+                <div class="chart-container">
+                    <h5 class="mb-4">Evolución de Ingresos (Últimos 6 Meses)</h5>
+                    <canvas id="incomeChart"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="chart-container">
+                    <h5 class="mb-4">Composición de Clientes Activos</h5>
+                    <canvas id="clientsChart"></canvas>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -171,27 +181,62 @@
             const clientData = JSON.parse('{{ metrics.composicion_clientes | tojson | safe }}');
             
             const incomeCtx = document.getElementById('incomeChart')?.getContext('2d');
-            if (incomeCtx) { 
-                new Chart(incomeCtx, { 
-                    type: 'bar', 
-                    data: { 
-                        labels: incomeData.labels, 
-                        datasets: [{ 
-                            label: 'Ingresos ($)', 
-                            data: incomeData.values, 
-                            backgroundColor: 'rgba(111, 66, 193, 0.6)', 
-                            borderColor: 'rgba(111, 66, 193, 1)', 
-                            borderWidth: 1, 
-                            borderRadius: 4 
-                        }] 
-                    }, 
-                    options: { 
-                        scales: { y: { beginAtZero: true } }, 
-                        responsive: true, 
+            if (incomeCtx) {
+                const gradient = incomeCtx.createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, 'rgba(111, 66, 193, 0.5)');
+                gradient.addColorStop(1, 'rgba(111, 66, 193, 0)');
+
+                new Chart(incomeCtx, {
+                    type: 'line',
+                    data: {
+                        labels: incomeData.labels,
+                        datasets: [{
+                            label: 'Ingresos ($)',
+                            data: incomeData.values,
+                            backgroundColor: gradient,
+                            borderColor: '#6f42c1',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: '#6f42c1',
+                            pointBorderColor: '#fff',
+                            pointHoverRadius: 7,
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: '#6f42c1'
+                        }]
+                    },
+                    options: {
+                        scales: { 
+                            y: { 
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value, index, values) {
+                                        return '$' + new Intl.NumberFormat().format(value);
+                                    }
+                                }
+                            } 
+                        },
+                        responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { legend: { display: false } } 
-                    } 
-                }); 
+                        plugins: { 
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed.y !== null) {
+                                            label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
             }
             
             const clientsCtx = document.getElementById('clientsChart')?.getContext('2d');
