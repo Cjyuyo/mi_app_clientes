@@ -22,7 +22,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-desarrollo')
 
 # =================================================================================
-# ===== INICIO DE LA CORRECCIÓN: AÑADIR FILTRO DE FECHA =====
+# ===== FILTRO DE FECHA PARA PLANTILLAS JINJA2 =====
 # =================================================================================
 @app.template_filter('format_date')
 def format_date_filter(value, format='%d/%m/%Y'):
@@ -31,14 +31,11 @@ def format_date_filter(value, format='%d/%m/%Y'):
     if isinstance(value, str):
         try:
             value = datetime.strptime(value, '%Y-%m-%d').date()
-        except ValueError:
+        except (ValueError, TypeError):
             return value
     if isinstance(value, (datetime, date)):
         return value.strftime(format)
     return value
-# =================================================================================
-# ===== FIN DE LA CORRECCIÓN =====
-# =================================================================================
 
 # --- CONFIGURACIÓN DE LA SESIÓN Y CARGA DE USUARIO ---
 @app.before_request
@@ -462,7 +459,7 @@ def administrar_tasa_bcv():
                            anio_actual=date.today().year)
 
 # =================================================================================
-# ===== CÓDIGO ACTUALIZADO PARA FLUJO DE CAJA =====
+# ===== INICIO DE LA CORRECCIÓN: LÓGICA DE FLUJO DE CAJA =====
 # =================================================================================
 @app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
 @admin_required
@@ -470,10 +467,26 @@ def administrar_tasa_bcv():
 def reporte_flujo_caja():
     conn = get_db()
     today = date.today()
-
-    fecha_reporte_str = request.form.get('fecha_reporte', today.strftime('%Y-%m-%d'))
     
+    # **CORRECCIÓN**: Unificar la obtención de la fecha desde GET o POST.
+    fecha_reporte_str = request.form.get('fecha_reporte') or request.args.get('fecha_reporte')
+    
+    # Si no se provee ninguna fecha, se muestra la página inicial con la fecha de hoy.
+    if not fecha_reporte_str:
+        return render_template(
+            'reporte_flujo_caja.html',
+            fecha_reporte=today.strftime('%Y-%m-%d'),
+            tasa_actual_bcv=Decimal('0.0'),
+            mostrar_resultados=False,
+            resumen={},
+            historial_binance=[],
+            anio_actual=today.year
+        )
+
+    # Si se provee una fecha, se procede a calcular y mostrar los resultados.
+    mostrar_resultados = True
     tasa_bcv_decimal = Decimal('0.0')
+
     if conn:
         with conn.cursor() as cur:
             cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha = %s", (fecha_reporte_str,))
@@ -483,87 +496,90 @@ def reporte_flujo_caja():
     
     resumen = {}
     historial_binance = []
-    mostrar_resultados = request.method == 'POST'
 
-    if mostrar_resultados:
-        if not conn:
-            flash("Error de conexión a la base de datos.", "danger")
-        elif tasa_bcv_decimal <= 0:
-            flash(f"No se puede generar el reporte. La tasa BCV para el día {datetime.strptime(fecha_reporte_str, '%Y-%m-%d').strftime('%d/%m/%Y')} no ha sido establecida.", "warning")
-        else:
-            try:
-                with conn.cursor() as cur:
-                    resumen = {
-                        'balance_efectivo_usd': Decimal('0.0'), 'balance_binance_usdt': Decimal('0.0'),
-                        'balance_bolivares_bs': Decimal('0.0'), 'balance_bolivares_usd': Decimal('0.0'),
-                        'balance_general_consolidado_usd': Decimal('0.0'),
-                        'periodo_ingresos_usd': Decimal('0.0'), 'periodo_ingresos_por_tipo': {},
-                        'periodo_ingresos_por_forma': {}, 'periodo_perdida_devaluacion': Decimal('0.0'),
-                        'periodo_perdida_conversion': Decimal('0.0'), 'periodo_total_perdidas': Decimal('0.0'),
-                        'periodo_balance_neto': Decimal('0.0')
-                    }
-                    
-                    fecha_reporte_dt = datetime.strptime(fecha_reporte_str, '%Y-%m-%d').date()
-                    fecha_fin_timestamp = fecha_reporte_str + " 23:59:59"
+    if not conn:
+        flash("Error de conexión a la base de datos.", "danger")
+        mostrar_resultados = False
+    elif tasa_bcv_decimal <= 0:
+        flash(f"No se puede generar el reporte. La tasa BCV para el día {format_date_filter(fecha_reporte_str)} no ha sido establecida.", "warning")
+        mostrar_resultados = False
+    else:
+        try:
+            with conn.cursor() as cur:
+                resumen = {
+                    'balance_efectivo_usd': Decimal('0.0'), 'balance_binance_usdt': Decimal('0.0'),
+                    'balance_bolivares_bs': Decimal('0.0'), 'balance_bolivares_usd': Decimal('0.0'),
+                    'balance_general_consolidado_usd': Decimal('0.0'),
+                    'periodo_ingresos_usd': Decimal('0.0'), 'periodo_ingresos_por_tipo': {},
+                    'periodo_ingresos_por_forma': {}, 'periodo_perdida_devaluacion': Decimal('0.0'),
+                    'periodo_perdida_conversion': Decimal('0.0'), 'periodo_total_perdidas': Decimal('0.0'),
+                    'periodo_balance_neto': Decimal('0.0')
+                }
+                
+                fecha_reporte_dt = datetime.strptime(fecha_reporte_str, '%Y-%m-%d').date()
+                
+                # **CORRECCIÓN**: Asegurar que la fecha de fin incluya todo el día.
+                fecha_fin_timestamp = datetime.combine(fecha_reporte_dt, datetime.max.time())
 
-                    # Balances Acumulados
-                    cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND forma_pago = 'Efectivo' AND fecha_pago <= %s", (fecha_reporte_dt,))
-                    resumen['balance_efectivo_usd'] = cur.fetchone()[0] or Decimal('0.0')
+                # Balances Acumulados
+                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND forma_pago = 'Efectivo' AND fecha_pago <= %s", (fecha_reporte_dt,))
+                resumen['balance_efectivo_usd'] = cur.fetchone()[0] or Decimal('0.0')
 
-                    cur.execute("SELECT COALESCE(SUM(monto_destino), 0) FROM operaciones_tesoreria WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s", (fecha_fin_timestamp,))
-                    resumen['balance_binance_usdt'] = cur.fetchone()[0] or Decimal('0.0')
+                cur.execute("SELECT COALESCE(SUM(monto_destino), 0) FROM operaciones_tesoreria WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s", (fecha_fin_timestamp,))
+                resumen['balance_binance_usdt'] = cur.fetchone()[0] or Decimal('0.0')
 
-                    cur.execute("SELECT COALESCE(SUM(monto_bs), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND monto_bs > 0 AND fecha_pago <= %s", (fecha_reporte_dt,))
-                    ingresos_bs_total = cur.fetchone()[0] or Decimal('0.0')
-                    
-                    cur.execute("SELECT COALESCE(SUM(monto_origen), 0) FROM operaciones_tesoreria WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s", (fecha_fin_timestamp,))
-                    egresos_bs_conversion = cur.fetchone()[0] or Decimal('0.0')
-                    
-                    resumen['balance_bolivares_bs'] = ingresos_bs_total - egresos_bs_conversion
-                    
-                    if tasa_bcv_decimal > 0:
-                        resumen['balance_bolivares_usd'] = resumen['balance_bolivares_bs'] / tasa_bcv_decimal
+                cur.execute("SELECT COALESCE(SUM(monto_bs), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND monto_bs > 0 AND fecha_pago <= %s", (fecha_reporte_dt,))
+                ingresos_bs_total = cur.fetchone()[0] or Decimal('0.0')
+                
+                cur.execute("SELECT COALESCE(SUM(monto_origen), 0) FROM operaciones_tesoreria WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s", (fecha_fin_timestamp,))
+                egresos_bs_conversion = cur.fetchone()[0] or Decimal('0.0')
+                
+                resumen['balance_bolivares_bs'] = ingresos_bs_total - egresos_bs_conversion
+                
+                if tasa_bcv_decimal > 0:
+                    resumen['balance_bolivares_usd'] = resumen['balance_bolivares_bs'] / tasa_bcv_decimal
 
-                    resumen['balance_general_consolidado_usd'] = resumen['balance_efectivo_usd'] + resumen['balance_binance_usdt'] + resumen['balance_bolivares_usd']
-                    
-                    # Rendimiento del período (un solo día)
-                    fecha_inicio_periodo = fecha_reporte_str + " 00:00:00"
-                    fecha_fin_periodo = fecha_reporte_str + " 23:59:59"
+                resumen['balance_general_consolidado_usd'] = resumen['balance_efectivo_usd'] + resumen['balance_binance_usdt'] + resumen['balance_bolivares_usd']
+                
+                # Rendimiento del período (un solo día)
+                fecha_inicio_periodo = datetime.combine(fecha_reporte_dt, datetime.min.time())
+                fecha_fin_periodo = fecha_fin_timestamp
 
-                    query_pagos_periodo = "SELECT * FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago = %s"
-                    cur.execute(query_pagos_periodo, (fecha_reporte_dt,))
-                    pagos_periodo = cur.fetchall()
+                query_pagos_periodo = "SELECT * FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago = %s"
+                cur.execute(query_pagos_periodo, (fecha_reporte_dt,))
+                pagos_periodo = cur.fetchall()
 
-                    for pago in pagos_periodo:
-                        monto_usd = pago['monto'] or Decimal('0.0')
-                        resumen['periodo_ingresos_usd'] += monto_usd
-                        tipo = pago['tipo_pago']
-                        resumen['periodo_ingresos_por_tipo'][tipo] = resumen['periodo_ingresos_por_tipo'].get(tipo, Decimal('0.0')) + monto_usd
-                        forma = pago['forma_pago'] or 'No especificada'
-                        if forma not in resumen['periodo_ingresos_por_forma']:
-                            resumen['periodo_ingresos_por_forma'][forma] = {'usd': Decimal('0.0'), 'bs': Decimal('0.0')}
-                        resumen['periodo_ingresos_por_forma'][forma]['usd'] += monto_usd
-                        if pago['monto_bs']:
-                            resumen['periodo_ingresos_por_forma'][forma]['bs'] += pago['monto_bs']
+                for pago in pagos_periodo:
+                    monto_usd = pago['monto'] or Decimal('0.0')
+                    resumen['periodo_ingresos_usd'] += monto_usd
+                    tipo = pago['tipo_pago']
+                    resumen['periodo_ingresos_por_tipo'][tipo] = resumen['periodo_ingresos_por_tipo'].get(tipo, Decimal('0.0')) + monto_usd
+                    forma = pago['forma_pago'] or 'No especificada'
+                    if forma not in resumen['periodo_ingresos_por_forma']:
+                        resumen['periodo_ingresos_por_forma'][forma] = {'usd': Decimal('0.0'), 'bs': Decimal('0.0')}
+                    resumen['periodo_ingresos_por_forma'][forma]['usd'] += monto_usd
+                    if pago['monto_bs']:
+                        resumen['periodo_ingresos_por_forma'][forma]['bs'] += pago['monto_bs']
 
-                        if pago['monto_bs'] and pago['tasa_dia'] and tasa_bcv_decimal > 0:
-                            valor_usd_original = pago['monto_bs'] / pago['tasa_dia']
-                            valor_usd_actual = pago['monto_bs'] / tasa_bcv_decimal
-                            resumen['periodo_perdida_devaluacion'] += (valor_usd_original - valor_usd_actual)
+                    if pago['monto_bs'] and pago['tasa_dia'] and tasa_bcv_decimal > 0 and pago['tasa_dia'] > 0:
+                        valor_usd_original = pago['monto_bs'] / pago['tasa_dia']
+                        valor_usd_actual = pago['monto_bs'] / tasa_bcv_decimal
+                        resumen['periodo_perdida_devaluacion'] += (valor_usd_original - valor_usd_actual)
 
-                    query_perdidas_periodo = "SELECT COALESCE(SUM(perdida_cambiaria), 0) FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s"
-                    cur.execute(query_perdidas_periodo, (fecha_inicio_periodo, fecha_fin_periodo))
-                    resumen['periodo_perdida_conversion'] = cur.fetchone()[0] or Decimal('0.0')
+                query_perdidas_periodo = "SELECT COALESCE(SUM(perdida_cambiaria), 0) FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s"
+                cur.execute(query_perdidas_periodo, (fecha_inicio_periodo, fecha_fin_periodo))
+                resumen['periodo_perdida_conversion'] = cur.fetchone()[0] or Decimal('0.0')
 
-                    resumen['periodo_total_perdidas'] = resumen['periodo_perdida_devaluacion'] + resumen['periodo_perdida_conversion']
-                    resumen['periodo_balance_neto'] = resumen['periodo_ingresos_usd'] - resumen['periodo_total_perdidas']
-                    
-                    cur.execute("SELECT * FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s ORDER BY fecha_operacion DESC", (fecha_inicio_periodo, fecha_fin_periodo))
-                    historial_binance = cur.fetchall()
-            
-            except (psycopg2.Error, ValueError, TypeError) as e:
-                flash(f"Error al generar el reporte: {e}", "error")
-                logging.error(f"Error en reporte_flujo_caja: {e}")
+                resumen['periodo_total_perdidas'] = resumen['periodo_perdida_devaluacion'] + resumen['periodo_perdida_conversion']
+                resumen['periodo_balance_neto'] = resumen['periodo_ingresos_usd'] - resumen['periodo_total_perdidas']
+                
+                cur.execute("SELECT * FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s ORDER BY fecha_operacion DESC", (fecha_inicio_periodo, fecha_fin_periodo))
+                historial_binance = cur.fetchall()
+        
+        except (psycopg2.Error, ValueError, TypeError) as e:
+            flash(f"Error al generar el reporte: {e}", "error")
+            logging.error(f"Error en reporte_flujo_caja: {e}", exc_info=True)
+            mostrar_resultados = False
 
     return render_template(
         'reporte_flujo_caja.html',
@@ -579,7 +595,9 @@ def reporte_flujo_caja():
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def registrar_operacion_tesoreria():
-    fecha_reporte_redirect = request.args.get('fecha_reporte', date.today().strftime('%Y-%m-%d'))
+    # **CORRECCIÓN**: Usar la fecha del formulario para la redirección.
+    fecha_reporte_redirect = request.form.get('fecha_reporte_hidden', date.today().strftime('%Y-%m-%d'))
+    
     try:
         monto_bs_str = request.form.get('monto_bs_convertido')
         monto_usdt_str = request.form.get('monto_usdt_recibido')
@@ -611,8 +629,8 @@ def registrar_operacion_tesoreria():
             cur.execute(
                 """
                 INSERT INTO operaciones_tesoreria 
-                (tipo_operacion, monto_origen, monto_destino, perdida_cambiaria, nota, realizada_por, tasa_aplicada)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                (tipo_operacion, monto_origen, monto_destino, perdida_cambiaria, nota, realizada_por, tasa_aplicada, fecha_operacion)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
                 """,
                 ('CONVERSION_BS_BINANCE', monto_bs, monto_usdt, perdida, nota, g.admin['id'], tasa_conversion)
             )
@@ -621,11 +639,12 @@ def registrar_operacion_tesoreria():
 
     except Exception as e:
         logging.error(f"FALLA CRÍTICA EN REGISTRO DE OPERACIÓN: {e}", exc_info=True)
-        flash("Ocurrió un error crítico al procesar la operación.", "danger")
+        flash(f"Ocurrió un error crítico al procesar la operación: {e}", "danger")
         db = get_db()
         if db:
             db.rollback()
 
+    # **CORRECCIÓN**: Redirigir a la URL con el parámetro de fecha para que el reporte se regenere.
     return redirect(url_for('reporte_flujo_caja', fecha_reporte=fecha_reporte_redirect))
     
 # --- GESTIÓN DE CLIENTES Y PAGOS ---
