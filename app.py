@@ -499,6 +499,7 @@ def reporte_flujo_caja():
         mostrar_resultados = True
         try:
             with conn.cursor() as cur:
+                # ### INICIO DE CAMBIO: Añadir nuevos campos al diccionario de resumen ###
                 resumen = {
                     'balance_efectivo_usd': Decimal('0.0'), 
                     'balance_binance_usdt': Decimal('0.0'),
@@ -506,16 +507,20 @@ def reporte_flujo_caja():
                     'balance_bs_usd_usd': Decimal('0.0'),
                     'balance_bs_eur_bs': Decimal('0.0'), 
                     'balance_bs_eur_eur': Decimal('0.0'),
+                    'balance_bs_consolidado_bs': Decimal('0.0'),
+                    'balance_bs_consolidado_usd': Decimal('0.0'),
+                    'tasa_ponderada_bs': Decimal('0.0'),
                     'balance_general_consolidado_usd': Decimal('0.0'),
                     'acumulado_perdida_devaluacion': Decimal('0.0'),
                     'acumulado_perdida_conversion': Decimal('0.0'),
                     'acumulado_total_perdidas': Decimal('0.0')
                 }
+                # ### FIN DE CAMBIO ###
                 
                 fecha_reporte_dt = datetime.strptime(fecha_reporte_str, '%Y-%m-%d').date()
                 fecha_fin_timestamp = datetime.combine(fecha_reporte_dt, datetime.max.time())
 
-                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND forma_pago = 'Efectivo' AND fecha_pago <= %s", (fecha_reporte_dt,))
+                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND pago_en = 'Efectivo USD' AND fecha_pago <= %s", (fecha_reporte_dt,))
                 resumen['balance_efectivo_usd'] = cur.fetchone()[0] or Decimal('0.0')
 
                 cur.execute("SELECT COALESCE(SUM(monto_destino), 0) FROM operaciones_tesoreria WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s", (fecha_fin_timestamp,))
@@ -534,8 +539,15 @@ def reporte_flujo_caja():
                 resumen['balance_bs_eur_bs'] = ingresos_bs_eur_total
                 resumen['balance_bs_eur_eur'] = resumen['balance_bs_eur_bs'] / tasas_del_dia['eur'] if tasas_del_dia['eur'] > 0 else Decimal('0.0')
                 
+                # ### INICIO DE CAMBIO: Calcular los valores consolidados ###
+                resumen['balance_bs_consolidado_bs'] = resumen['balance_bs_usd_bs'] + resumen['balance_bs_eur_bs']
                 balance_bs_eur_en_usd = resumen['balance_bs_eur_bs'] / tasas_del_dia['usd'] if tasas_del_dia['usd'] > 0 else Decimal('0.0')
-                resumen['balance_general_consolidado_usd'] = resumen['balance_efectivo_usd'] + resumen['balance_binance_usdt'] + resumen['balance_bs_usd_usd'] + balance_bs_eur_en_usd
+                resumen['balance_bs_consolidado_usd'] = resumen['balance_bs_usd_usd'] + balance_bs_eur_en_usd
+                if resumen['balance_bs_consolidado_usd'] > 0:
+                    resumen['tasa_ponderada_bs'] = resumen['balance_bs_consolidado_bs'] / resumen['balance_bs_consolidado_usd']
+                # ### FIN DE CAMBIO ###
+
+                resumen['balance_general_consolidado_usd'] = resumen['balance_efectivo_usd'] + resumen['balance_binance_usdt'] + resumen['balance_bs_consolidado_usd']
 
                 cur.execute("""
                     SELECT COALESCE(SUM(CASE WHEN tasa_dia > 0 THEN monto_bs / tasa_dia ELSE 0 END), 0) 

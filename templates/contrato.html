@@ -129,13 +129,37 @@
             .contract-body p, .contract-body li { font-size: 8pt; margin-bottom: 2px; } /* Párrafos más juntos */
             .contract-body ul { padding-left: 1.2rem; margin-bottom: 4px; }
 
+            /* --- INICIO DE CAMBIO: Estilos de firma mejorados para impresión --- */
             .final-section {
-                page-break-inside: avoid !important; /* ¡LA REGLA DE ORO! */
-                margin-top: 0.5rem !important; /* Acercar al máximo al texto */
+                page-break-inside: avoid !important;
+                margin-top: 1rem !important;
             }
-            .signatures { margin-top: 0 !important; }
-            .signature-block img { max-height: 40px !important; }
-            .signature-block p { margin-top: 5px !important; font-size: 8pt; border-top: 1px solid #666 !important; padding-top: 4px !important; }
+            .signatures.row {
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                width: 100% !important;
+                margin-top: 1rem !important;
+            }
+            .signature-block {
+                width: 50% !important;
+                padding: 0 1rem;
+                box-sizing: border-box;
+                text-align: center;
+            }
+            .signature-block img {
+                max-width: 100%;
+                height: auto;
+                max-height: 45px !important;
+                display: block;
+                margin: 0 auto 5px auto;
+            }
+            .signature-block p {
+                margin-top: 5px !important;
+                font-size: 8pt;
+                border-top: 1px solid #666 !important;
+                padding-top: 4px !important;
+            }
+            /* --- FIN DE CAMBIO --- */
             
             .verification-section { padding: 0.5rem !important; margin-top: 1rem !important; border: 1px solid #ccc !important; }
             .verification-section h6 { font-size: 9pt; }
@@ -340,9 +364,20 @@
                 </div>
             </div>
 
-            <div class="print-button-container no-print">
-                <button class="btn btn-success btn-lg" onclick="window.print()"><i class="bi bi-printer-fill"></i> Imprimir Contrato Completo</button>
+            <!-- INICIO DE CAMBIO: Lógica para mostrar el botón de impresión -->
+            <div class="print-button-container no-print text-center mt-5">
+                {% if cliente.firma_digital and cliente.firma_empresa %}
+                    <button class="btn btn-success btn-lg" onclick="window.print()">
+                        <i class="bi bi-printer-fill"></i> Imprimir Contrato Firmado
+                    </button>
+                {% else %}
+                    <div class="alert alert-warning" role="alert">
+                        <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Acción Requerida</h4>
+                        <p>El contrato no puede ser generado hasta que tanto <strong>LA EMPRESA</strong> como <strong>EL CLIENTE</strong> hayan registrado sus firmas digitales en los recuadros correspondientes.</p>
+                    </div>
+                {% endif %}
             </div>
+            <!-- FIN DE CAMBIO -->
         </div>
     </div>
 
