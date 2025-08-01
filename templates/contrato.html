@@ -24,8 +24,13 @@
             background-color: white;
             border-radius: 16px;
             box-shadow: 0 12px 40px rgba(0,0,0,0.08);
-            padding: 3rem 4rem;
+            padding: 2rem 3rem;
             margin: 2rem auto;
+        }
+        @media (max-width: 767px) {
+            .contract-container {
+                padding: 1.5rem 1rem;
+            }
         }
         .header {
             text-align: center;
@@ -98,23 +103,28 @@
             background-color: #fff;
             padding: 5px;
         }
-        .signature-pad { border: 2px dashed #0056b3; cursor: crosshair; border-radius: 6px; }
+        
+        /* --- INICIO DE CAMBIO: Estilos para el lienzo de firma responsivo --- */
+        .signature-pad {
+            border: 2px dashed #0056b3;
+            cursor: crosshair;
+            border-radius: 6px;
+            width: 100%; /* Ocupa todo el ancho de su columna */
+            height: 200px; /* Altura fija para un área de firma cómoda */
+        }
+        /* --- FIN DE CAMBIO --- */
 
         /* --- ESTILOS DE IMPRESIÓN - LA VERSIÓN DEFINITIVA Y COMPACTA --- */
         @media print {
-            @page { size: letter; margin: 0.45in; } /* Márgenes apurados al límite */
-            body { background-color: #fff !important; font-size: 8pt; line-height: 1.15; } /* Interlineado y fuente ultra compactos */
+            @page { size: letter; margin: 0.45in; }
+            body { background-color: #fff !important; font-size: 8pt; line-height: 1.15; }
             .no-print { display: none !important; }
             .contract-container { padding: 0 !important; box-shadow: none !important; border: none !important; margin: 0 !important; }
             .header { padding-bottom: 6px; margin-bottom: 10px; }
             .header h1 { font-size: 12pt; font-weight: 600; }
             .header p { font-size: 8.5pt; }
             
-            .client-info-card {
-                padding: 0.4rem !important;
-                margin-bottom: 12px !important;
-                border: 1px solid #ccc !important;
-            }
+            .client-info-card { padding: 0.4rem !important; margin-bottom: 12px !important; border: 1px solid #ccc !important; }
             .client-info-card .card-title { font-size: 10pt; padding-bottom: 4px; margin-bottom: 6px; font-weight: 600; }
             .info-group { padding: 0 0.5rem !important; }
             .info-group h6 { font-size: 8.5pt; font-weight: 600; margin-bottom: 5px; }
@@ -126,40 +136,14 @@
 
             .contract-body h2 { font-size: 9.5pt; margin-top: 8px; margin-bottom: 3px; font-weight: 600; }
             .contract-body h3 { font-size: 8.5pt; margin-top: 6px; margin-bottom: 2px; font-weight: 600; }
-            .contract-body p, .contract-body li { font-size: 8pt; margin-bottom: 2px; } /* Párrafos más juntos */
+            .contract-body p, .contract-body li { font-size: 8pt; margin-bottom: 2px; }
             .contract-body ul { padding-left: 1.2rem; margin-bottom: 4px; }
 
-            /* --- INICIO DE CAMBIO: Estilos de firma mejorados para impresión --- */
-            .final-section {
-                page-break-inside: avoid !important;
-                margin-top: 1rem !important;
-            }
-            .signatures.row {
-                display: flex !important;
-                flex-wrap: nowrap !important;
-                width: 100% !important;
-                margin-top: 1rem !important;
-            }
-            .signature-block {
-                width: 50% !important;
-                padding: 0 1rem;
-                box-sizing: border-box;
-                text-align: center;
-            }
-            .signature-block img {
-                max-width: 100%;
-                height: auto;
-                max-height: 45px !important;
-                display: block;
-                margin: 0 auto 5px auto;
-            }
-            .signature-block p {
-                margin-top: 5px !important;
-                font-size: 8pt;
-                border-top: 1px solid #666 !important;
-                padding-top: 4px !important;
-            }
-            /* --- FIN DE CAMBIO --- */
+            .final-section { page-break-inside: avoid !important; margin-top: 1rem !important; }
+            .signatures.row { display: flex !important; flex-wrap: nowrap !important; width: 100% !important; margin-top: 1rem !important; }
+            .signature-block { width: 50% !important; padding: 0 1rem; box-sizing: border-box; text-align: center; }
+            .signature-block img { max-width: 100%; height: auto; max-height: 45px !important; display: block; margin: 0 auto 5px auto; }
+            .signature-block p { margin-top: 5px !important; font-size: 8pt; border-top: 1px solid #666 !important; padding-top: 4px !important; }
             
             .verification-section { padding: 0.5rem !important; margin-top: 1rem !important; border: 1px solid #ccc !important; }
             .verification-section h6 { font-size: 9pt; }
@@ -305,8 +289,10 @@
             
             <!-- BLOQUE FINAL UNIFICADO PARA FIRMAS Y VERIFICACIÓN -->
             <div class="final-section">
+                <!-- INICIO DE CAMBIO: Se ajusta la estructura de columnas para ser responsiva -->
                 <div class="signatures row">
-                    <div class="col-6 signature-block">
+                    <div class="col-md-6 col-12 signature-block mb-4 mb-md-0">
+                <!-- FIN DE CAMBIO -->
                         {% if not cliente.firma_empresa %}
                         <form id="formFirmaEmpresa" action="{{ url_for('guardar_firma_empresa', client_id=cliente.id) }}" method="POST" class="no-print">
                             <input type="hidden" name="firma_empresa" id="firma_empresa_input">
@@ -322,7 +308,9 @@
                             <p>LA EMPRESA<br>(MOTO PLAN MOTORS, C.A.)</p>
                         {% endif %}
                     </div>
-                    <div class="col-6 signature-block">
+                    <!-- INICIO DE CAMBIO: Se ajusta la estructura de columnas para ser responsiva -->
+                    <div class="col-md-6 col-12 signature-block">
+                    <!-- FIN DE CAMBIO -->
                         {% if not cliente.firma_digital %}
                         <form id="formFirmaCliente" action="{{ url_for('guardar_firma_cliente', client_id=cliente.id) }}" method="POST" class="no-print">
                             <input type="hidden" name="firma_cliente" id="firma_cliente_input">

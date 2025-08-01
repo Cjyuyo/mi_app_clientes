@@ -727,28 +727,66 @@ def registrar():
 @app.route('/registrar_cliente', methods=['POST'])
 @admin_required
 def registrar_cliente():
+    # --- INICIO DE CAMBIO: Flujo de pre-registro ---
+    # Paso 1: Recolectar datos del formulario, sin guardar en la BD.
     form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
     
+    # Validar que los campos esenciales no estén vacíos
+    if not all(form_data.get(key) for key in ['nombre_apellido', 'cedula', 'contrato_nro']):
+        flash('Nombre, Cédula y N° de Contrato son obligatorios.', 'error')
+        return redirect(url_for('registrar'))
+
+    # Pasar los datos del cliente a la plantilla del contrato para la firma.
+    # El cliente aún no tiene ID porque no ha sido creado.
+    flash('Datos del cliente validados. Por favor, proceda con las firmas para finalizar el registro.', 'info')
+    return render_template('contrato.html', cliente=form_data, modo_pre_registro=True, anio_actual=get_venezuela_current_date().year)
+    # --- FIN DE CAMBIO ---
+
+
+@app.route('/finalizar_registro', methods=['POST'])
+@admin_required
+def finalizar_registro():
+    # --- INICIO DE CAMBIO: Nueva ruta para guardar el cliente después de firmar ---
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('registrar'))
+
     try:
+        form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
+        
+        # Validar que las firmas fueron enviadas
+        firma_cliente = form_data.get('firma_cliente')
+        firma_empresa = form_data.get('firma_empresa')
+        if not firma_cliente or not firma_empresa:
+            flash('Ambas firmas son obligatorias para registrar al cliente.', 'error')
+            # Es difícil redirigir de vuelta con todos los datos, así que redirigimos al inicio.
+            return redirect(url_for('registrar'))
+
         with conn.cursor() as cur:
             nombre_completo = form_data.get('nombre_apellido').split(' ', 1)
             nombre = nombre_completo[0]
             apellido = nombre_completo[1] if len(nombre_completo) > 1 else ''
             
+            # Preparar el diccionario para la inserción en la base de datos
             insert_dict = {
                 'nombre': nombre, 
                 'apellido': apellido, 
                 'cedula': form_data.get('cedula').replace(' ', ''),
                 'cuotas_pagadas_progresivas': 0,
                 'cuotas_pagadas_regresivas': 0,
-                'foto_cliente': form_data.get('foto_cliente'),
-                'foto_cedula': form_data.get('foto_cedula')
+                'firma_digital': firma_cliente,
+                'firma_empresa': firma_empresa,
+                'fecha_firma': datetime.now(VENEZUELA_TZ)
             }
-            optional_fields = ['contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso', 'grupo', 'plan_contratado', 'cuotas_totales', 'moneda_pago', 'valor_cuota', 'inscripcion_monto', 'proceso', 'ciclo_cobranza']
+            
+            # Campos opcionales del formulario de registro
+            optional_fields = [
+                'contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso', 
+                'grupo', 'plan_contratado', 'cuotas_totales', 'moneda_pago', 
+                'valor_cuota', 'inscripcion_monto', 'proceso', 'ciclo_cobranza',
+                'foto_cliente', 'foto_cedula'
+            ]
             for field in optional_fields:
                 if form_data.get(field):
                     insert_dict[field] = form_data[field]
@@ -760,12 +798,12 @@ def registrar_cliente():
             cur.execute(query, values)
             new_client_id = cur.fetchone()[0]
             
-            descripcion_audit = f"Registró al nuevo cliente y preparó contrato para: {form_data.get('nombre_apellido')} (C.I. {form_data.get('cedula')})."
-            registrar_accion_auditoria('REGISTRO_CLIENTE', descripcion_audit, new_client_id)
+            descripcion_audit = f"Registró y firmó contrato para nuevo cliente: {form_data.get('nombre_apellido')} (C.I. {form_data.get('cedula')})."
+            registrar_accion_auditoria('REGISTRO_CLIENTE_FIRMADO', descripcion_audit, new_client_id)
             
             conn.commit()
-            flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado! Ahora el cliente debe firmar el contrato.", 'success')
-            return redirect(url_for('generar_contrato', client_id=new_client_id))
+            flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado y contrato guardado exitosamente!", 'success')
+            return redirect(url_for('consulta', busqueda=form_data.get('cedula')))
 
     except psycopg2.IntegrityError:
         conn.rollback()
@@ -775,6 +813,7 @@ def registrar_cliente():
         flash(f"Registro fallido: Ocurrió un error de base de datos: {e}", 'error')
         
     return redirect(url_for('registrar'))
+    # --- FIN DE CAMBIO ---
 
 @app.route('/generar_contrato/<int:client_id>')
 def generar_contrato(client_id):
