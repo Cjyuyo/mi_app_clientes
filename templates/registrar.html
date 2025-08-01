@@ -97,6 +97,7 @@
             text-align: center;
         }
         .btn-primary { background-color: #28a745; color: white; }
+        .btn-secondary { background-color: #6c757d; color: white; } /* Estilo para el botón gris */
         .mensaje {
             margin: 20px auto 0;
             max-width: 95%;
@@ -108,11 +109,10 @@
         .success { color: #4F8A10; background-color: #DFF2BF; }
         .error { color: #D8000C; background-color: #FFD2D2; }
         
-        /* Estilos para corregir el aspecto de las fotos */
         .preview-img {
             width: 100%;
             height: 240px;
-            object-fit: contain; /* Clave para evitar distorsión y recortes */
+            object-fit: contain;
             background-color: #f0f2f5;
         }
         .modal-body video, .modal-body canvas {
@@ -144,29 +144,28 @@
           {% endif %}
         {% endwith %}
 
-        <!-- Campos ocultos para las imágenes -->
         <input type="hidden" name="foto_cliente" id="foto_cliente">
         <input type="hidden" name="foto_cedula" id="foto_cedula">
 
         <div class="section">
             <h3>Información Personal y de Contacto</h3>
             <div class="form-grid">
-                <div class="form-group"><label for="nombre_apellido">Nombre y Apellido</label><input type="text" id="nombre_apellido" name="nombre_apellido" required></div>
-                <div class="form-group"><label for="cedula">Nº Cédula</label><input type="text" id="cedula" name="cedula" required></div>
-                <div class="form-group"><label for="telefono">Teléfono</label><input type="text" id="telefono" name="telefono"></div>
-                <div class="form-group"><label for="fecha_ingreso">Fecha de Ingreso</label><input type="date" id="fecha_ingreso" name="fecha_ingreso"></div>
+                <div class="form-group"><label for="nombre_apellido">Nombre y Apellido</label><input type="text" id="nombre_apellido" name="nombre_apellido" class="form-control-validate" required></div>
+                <div class="form-group"><label for="cedula">Nº Cédula</label><input type="text" id="cedula" name="cedula" class="form-control-validate" required></div>
+                <div class="form-group"><label for="telefono">Teléfono</label><input type="text" id="telefono" name="telefono" class="form-control-validate"></div>
+                <div class="form-group"><label for="fecha_ingreso">Fecha de Ingreso</label><input type="date" id="fecha_ingreso" name="fecha_ingreso" class="form-control-validate"></div>
             </div>
         </div>
 
         <div class="section">
             <h3>Detalles del Plan y Contrato</h3>
             <div class="form-grid">
-                <div class="form-group"><label for="contrato_nro">Nº Contrato</label><input type="text" id="contrato_nro" name="contrato_nro"></div>
-                <div class="form-group"><label for="plan_contratado">Plan Contratado</label><input type="text" id="plan_contratado" name="plan_contratado"></div>
-                <div class="form-group"><label for="cuotas_totales">Cuotas Totales</label><select id="cuotas_totales" name="cuotas_totales"><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
-                <div class="form-group"><label for="valor_cuota">Cuota Mensual (USD)</label><input type="number" id="valor_cuota" step="0.01" name="valor_cuota"></div>
-                <div class="form-group"><label for="inscripcion_monto">Monto Inscripción (USD)</label><input type="number" id="inscripcion_monto" step="0.01" name="inscripcion_monto"></div>
-                <div class="form-group"><label for="moneda_pago">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago"><option value="USD">USD</option><option value="BsBCV">BsBCV</option></select></div>
+                <div class="form-group"><label for="contrato_nro">Nº Contrato</label><input type="text" id="contrato_nro" name="contrato_nro" class="form-control-validate"></div>
+                <div class="form-group"><label for="plan_contratado">Plan Contratado</label><input type="text" id="plan_contratado" name="plan_contratado" class="form-control-validate"></div>
+                <div class="form-group"><label for="cuotas_totales">Cuotas Totales</label><select id="cuotas_totales" name="cuotas_totales" class="form-control-validate"><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
+                <div class="form-group"><label for="valor_cuota">Cuota Mensual (USD)</label><input type="number" id="valor_cuota" step="0.01" name="valor_cuota" class="form-control-validate"></div>
+                <div class="form-group"><label for="inscripcion_monto">Monto Inscripción (USD)</label><input type="number" id="inscripcion_monto" step="0.01" name="inscripcion_monto" class="form-control-validate"></div>
+                <div class="form-group"><label for="moneda_pago">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="form-control-validate"><option value="USD">USD</option><option value="BsBCV">BsBCV</option></select></div>
             </div>
         </div>
 
@@ -195,26 +194,25 @@
         <div class="section">
             <h3>Información Administrativa</h3>
             <div class="form-grid">
-                <div class="form-group"><label for="asesor">Asesor</label><input type="text" id="asesor" name="asesor"></div>
-                <div class="form-group"><label for="responsable">Responsable</label><input type="text" id="responsable" name="responsable"></div>
+                <div class="form-group"><label for="asesor">Asesor</label><input type="text" id="asesor" name="asesor" class="form-control-validate"></div>
+                <div class="form-group"><label for="responsable">Responsable</label><input type="text" id="responsable" name="responsable" class="form-control-validate"></div>
                 <div class="form-group">
                     <label for="ciclo_cobranza">Ciclo de Cobranza</label>
-                    <select id="ciclo_cobranza" name="ciclo_cobranza">
+                    <select id="ciclo_cobranza" name="ciclo_cobranza" class="form-control-validate">
                         <option value="15 al 02">Del 15 de cada mes al 02 del mes siguiente</option>
                         <option value="20 al 10">Del 20 de cada mes al 10 del mes siguiente</option>
                     </select>
                 </div>
-                <div class="form-group"><label for="proceso">Proceso Inicial</label><select id="proceso" name="proceso"><option value="RESERVA">Reserva</option><option value="INSCRITO">Inscrito</option></select></div>
+                <div class="form-group"><label for="proceso">Proceso Inicial</label><select id="proceso" name="proceso" class="form-control-validate"><option value="RESERVA">Reserva</option><option value="INSCRITO">Inscrito</option></select></div>
             </div>
         </div>
         
         <div class="button-group">
-            <button type="submit" class="btn btn-primary">Registrar y Generar Contrato</button>
+            <button type="submit" id="submitBtn" class="btn btn-secondary" disabled>Ir al Contrato</button>
         </div>
-    </form>
+        </form>
 </div>
 
-<!-- Modal de la Cámara -->
 <div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -223,24 +221,15 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body text-center">
-        <!-- Vista de la cámara en vivo -->
-        <div class="live-view">
-            <video id="video-feed" autoplay playsinline muted class="bg-dark rounded"></video>
-        </div>
-        <!-- Vista de confirmación de la foto -->
-        <div class="confirmation-view">
-            <p><strong>¿Desea usar esta foto?</strong></p>
-            <canvas id="capture-canvas" class="rounded"></canvas>
-        </div>
+        <div class="live-view"><video id="video-feed" autoplay playsinline muted class="bg-dark rounded"></video></div>
+        <div class="confirmation-view"><p><strong>¿Desea usar esta foto?</strong></p><canvas id="capture-canvas" class="rounded"></canvas></div>
       </div>
       <div class="modal-footer">
-        <!-- Botones para la vista en vivo -->
         <div class="live-view-footer w-100 d-grid gap-2 d-sm-flex justify-content-sm-between">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
             <button type="button" id="flip-camera-btn" class="btn btn-info"><i class="bi bi-arrow-repeat"></i></button>
             <button type="button" id="capture-btn" class="btn btn-primary"><i class="bi bi-camera-fill"></i> Capturar</button>
         </div>
-        <!-- Botones para la vista de confirmación -->
         <div class="confirmation-view-footer w-100 d-grid gap-2 d-sm-flex justify-content-sm-between">
             <button type="button" class="btn btn-secondary" id="retake-btn"><i class="bi bi-arrow-clockwise"></i> Volver a Tomar</button>
             <button type="button" class="btn btn-success" id="save-photo-btn"><i class="bi bi-check-circle-fill"></i> Guardar Foto</button>
@@ -254,6 +243,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Lógica de la cámara (sin cambios)
     const cameraModal = document.getElementById('cameraModal');
     const video = document.getElementById('video-feed');
     const canvas = document.getElementById('capture-canvas');
@@ -261,7 +251,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const retakeBtn = document.getElementById('retake-btn');
     const savePhotoBtn = document.getElementById('save-photo-btn');
     const flipCameraBtn = document.getElementById('flip-camera-btn');
-    
     let stream;
     let currentCaptureType = null;
     let capturedImageData = null;
@@ -275,41 +264,28 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function startCamera(facingMode) {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-        }
-        const constraints = { video: { facingMode: facingMode } };
+        if (stream) stream.getTracks().forEach(track => track.stop());
         try {
-            stream = await navigator.mediaDevices.getUserMedia(constraints);
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode } });
             video.srcObject = stream;
             await video.play();
         } catch (err) {
-            console.error("Error starting camera with facingMode " + facingMode + ": ", err);
+            console.error("Error starting camera: ", err);
             alert("No se pudo acceder a la cámara. Asegúrese de haber otorgado los permisos.");
             bootstrap.Modal.getInstance(cameraModal).hide();
         }
     }
 
-    cameraModal.addEventListener('show.bs.modal', async function (event) {
+    cameraModal.addEventListener('show.bs.modal', async (event) => {
         currentCaptureType = event.relatedTarget.getAttribute('data-capture-type');
-        const modalTitle = cameraModal.querySelector('.modal-title');
-        
-        if (currentCaptureType === 'cedula') {
-            modalTitle.textContent = 'Capturar Foto de la Cédula';
-            currentFacingMode = 'environment';
-        } else {
-            modalTitle.textContent = 'Capturar Foto del Cliente';
-            currentFacingMode = 'user';
-        }
-
+        cameraModal.querySelector('.modal-title').textContent = currentCaptureType === 'cedula' ? 'Capturar Foto de la Cédula' : 'Capturar Foto del Cliente';
+        currentFacingMode = currentCaptureType === 'cedula' ? 'environment' : 'user';
         toggleViews(false);
         await startCamera(currentFacingMode);
     });
 
-    cameraModal.addEventListener('hide.bs.modal', function () {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-        }
+    cameraModal.addEventListener('hide.bs.modal', () => {
+        if (stream) stream.getTracks().forEach(track => track.stop());
     });
 
     flipCameraBtn.addEventListener('click', () => {
@@ -318,11 +294,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     captureBtn.addEventListener('click', () => {
-        // Ajustar el canvas a las dimensiones reales del video para evitar distorsión
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        const context = canvas.getContext('2d');
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
         capturedImageData = canvas.toDataURL('image/jpeg');
         toggleViews(true);
     });
@@ -332,17 +306,52 @@ document.addEventListener('DOMContentLoaded', function() {
         toggleViews(false);
     });
 
+    // INICIO DE CAMBIO: Lógica de validación del formulario
+    const submitBtn = document.getElementById('submitBtn');
+    const fieldsToValidate = document.querySelectorAll('.form-control-validate, #foto_cliente, #foto_cedula');
+    
+    const validateForm = () => {
+        for (const field of fieldsToValidate) {
+            if (!field.value || field.value.trim() === '') {
+                return false; // Si algún campo está vacío, la validación falla
+            }
+        }
+        return true; // Todos los campos están llenos
+    };
+
+    const updateButtonState = () => {
+        if (validateForm()) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('btn-secondary');
+            submitBtn.classList.add('btn-primary');
+        } else {
+            submitBtn.disabled = true;
+            submitBtn.classList.remove('btn-primary');
+            submitBtn.classList.add('btn-secondary');
+        }
+    };
+
+    // Añadir listeners a todos los campos para validar en tiempo real
+    fieldsToValidate.forEach(field => {
+        field.addEventListener('input', updateButtonState);
+        field.addEventListener('change', updateButtonState);
+    });
+    
     savePhotoBtn.addEventListener('click', () => {
         if (capturedImageData && currentCaptureType) {
-            const previewElement = document.getElementById(`preview-${currentCaptureType}`);
+            document.getElementById(`preview-${currentCaptureType}`).src = capturedImageData;
             const inputElement = document.getElementById(`foto_${currentCaptureType}`);
-            
-            previewElement.src = capturedImageData;
             inputElement.value = capturedImageData;
+            // Disparar un evento 'input' para que la validación se active
+            inputElement.dispatchEvent(new Event('input', { bubbles: true }));
         }
         bootstrap.Modal.getInstance(cameraModal).hide();
     });
-    
+
+    // Validar el estado inicial del formulario al cargar la página
+    updateButtonState(); 
+    // FIN DE CAMBIO
+
     const form = document.getElementById('registroForm');
     form.addEventListener('submit', function(e) {
         if (form.getAttribute('data-submitted') === 'true') {
@@ -350,11 +359,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         form.setAttribute('data-submitted', 'true');
-        const submitButtons = form.querySelectorAll('button[type="submit"]');
-        submitButtons.forEach(button => {
-            button.disabled = true;
-            button.innerHTML = 'Procesando...';
-        });
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = 'Procesando...';
     });
 });
 </script>

@@ -104,17 +104,20 @@
             padding: 5px;
         }
         
-        /* --- INICIO DE CAMBIO: Estilos para el lienzo de firma responsivo --- */
         .signature-pad {
             border: 2px dashed #0056b3;
             cursor: crosshair;
             border-radius: 6px;
-            width: 100%; /* Ocupa todo el ancho de su columna */
-            height: 200px; /* Altura fija para un área de firma cómoda */
+            width: 100%;
+            height: 200px;
         }
-        /* --- FIN DE CAMBIO --- */
 
-        /* --- ESTILOS DE IMPRESIÓN - LA VERSIÓN DEFINITIVA Y COMPACTA --- */
+        .btn-guardar-todo {
+            font-size: 1.2rem;
+            padding: 0.8rem 2rem;
+            font-weight: 600;
+        }
+
         @media print {
             @page { size: letter; margin: 0.45in; }
             body { background-color: #fff !important; font-size: 8pt; line-height: 1.15; }
@@ -168,6 +171,15 @@
         </div>
     </nav>
 
+    {% if modo_pre_registro %}
+    <form action="{{ url_for('finalizar_registro') }}" method="POST" id="form-finalizar-registro">
+        {% for key, value in cliente.items() %}
+            <input type="hidden" name="{{ key }}" value="{{ value }}">
+        {% endfor %}
+        <input type="hidden" name="firma_cliente" id="firma_cliente_input">
+        <input type="hidden" name="firma_empresa" id="firma_empresa_input">
+    {% endif %}
+
     <div class="container my-5">
         <div class="contract-container">
             <div class="header">
@@ -209,7 +221,6 @@
             </div>
 
             <div class="contract-body">
-                <!-- El cuerpo del contrato permanece igual -->
                 <h2>CAPÍTULO I: DISPOSICIONES GENERALES</h2>
                 <h3>Cláusula 1. Identificación de las partes:</h3>
                 <p>MOTO PLAN MOTORS, C.A., sociedad mercantil inscrita en el Registro Mercantil Primero del Estado Portuguesa, Tomo 66-A RM410 N°18 de 2023, RIF J-50408959-1, en adelante <strong>LA EMPRESA</strong>, ofrece el presente contrato a <strong>EL CLIENTE</strong> ({{ cliente.nombre_apellido }}), quien acepta adherirse voluntariamente al PLAN DE AHORRO PROGRAMADO.</p>
@@ -287,45 +298,60 @@
                 <p><strong>EL CLIENTE</strong> declara haber recibido asesoría clara y suficiente, cuya grabación podrá conservar <strong>LA EMPRESA</strong> como respaldo legal.</p>
             </div>
             
-            <!-- BLOQUE FINAL UNIFICADO PARA FIRMAS Y VERIFICACIÓN -->
             <div class="final-section">
-                <!-- INICIO DE CAMBIO: Se ajusta la estructura de columnas para ser responsiva -->
                 <div class="signatures row">
                     <div class="col-md-6 col-12 signature-block mb-4 mb-md-0">
-                <!-- FIN DE CAMBIO -->
-                        {% if not cliente.firma_empresa %}
-                        <form id="formFirmaEmpresa" action="{{ url_for('guardar_firma_empresa', client_id=cliente.id) }}" method="POST" class="no-print">
-                            <input type="hidden" name="firma_empresa" id="firma_empresa_input">
-                            <p class="border-0 m-0">LA EMPRESA</p>
-                            <canvas id="signature-pad-empresa" class="mx-auto signature-pad"></canvas>
-                            <div class="mt-2 d-grid gap-2 d-sm-flex justify-content-sm-center">
-                                <button type="button" class="btn btn-outline-danger btn-sm clear-signature-btn">Limpiar</button>
-                                <button type="submit" class="btn btn-primary btn-sm">Guardar Firma</button>
+                        {% if modo_pre_registro %}
+                            <div id="signature-container-empresa" class="no-print">
+                                <p class="border-0 m-0">LA EMPRESA</p>
+                                <canvas id="signature-pad-empresa" class="mx-auto signature-pad"></canvas>
+                                <div class="mt-2 d-grid gap-2 d-sm-flex justify-content-sm-center">
+                                    <button type="button" class="btn btn-outline-danger btn-sm clear-signature-btn" data-target="signature-pad-empresa">Limpiar Firma</button>
+                                </div>
                             </div>
-                        </form>
                         {% else %}
-                            <img src="{{ cliente.firma_empresa }}" alt="Firma de la Empresa" class="img-fluid">
-                            <p>LA EMPRESA<br>(MOTO PLAN MOTORS, C.A.)</p>
+                            {% if not cliente.firma_empresa %}
+                            <form id="formFirmaEmpresa" action="{{ url_for('guardar_firma_empresa', client_id=cliente.id) }}" method="POST" class="no-print">
+                                <input type="hidden" name="firma_empresa" id="firma_empresa_input_existente">
+                                <p class="border-0 m-0">LA EMPRESA</p>
+                                <canvas id="signature-pad-empresa" class="mx-auto signature-pad"></canvas>
+                                <div class="mt-2 d-grid gap-2 d-sm-flex justify-content-sm-center">
+                                    <button type="button" class="btn btn-outline-danger btn-sm clear-signature-btn" data-target="signature-pad-empresa">Limpiar</button>
+                                    <button type="submit" class="btn btn-primary btn-sm">Guardar Firma</button>
+                                </div>
+                            </form>
+                            {% else %}
+                                <img src="{{ cliente.firma_empresa }}" alt="Firma de la Empresa" class="img-fluid">
+                                <p>LA EMPRESA<br>(MOTO PLAN MOTORS, C.A.)</p>
+                            {% endif %}
                         {% endif %}
-                    </div>
-                    <!-- INICIO DE CAMBIO: Se ajusta la estructura de columnas para ser responsiva -->
+                        </div>
                     <div class="col-md-6 col-12 signature-block">
-                    <!-- FIN DE CAMBIO -->
-                        {% if not cliente.firma_digital %}
-                        <form id="formFirmaCliente" action="{{ url_for('guardar_firma_cliente', client_id=cliente.id) }}" method="POST" class="no-print">
-                            <input type="hidden" name="firma_cliente" id="firma_cliente_input">
-                            <p class="border-0 m-0">EL CLIENTE</p>
-                            <canvas id="signature-pad-cliente" class="mx-auto signature-pad"></canvas>
-                            <div class="mt-2 d-grid gap-2 d-sm-flex justify-content-sm-center">
-                                <button type="button" class="btn btn-outline-danger btn-sm clear-signature-btn">Limpiar</button>
-                                <button type="submit" class="btn btn-primary btn-sm">Guardar Firma</button>
+                        {% if modo_pre_registro %}
+                             <div id="signature-container-cliente" class="no-print">
+                                <p class="border-0 m-0">EL CLIENTE</p>
+                                <canvas id="signature-pad-cliente" class="mx-auto signature-pad"></canvas>
+                                <div class="mt-2 d-grid gap-2 d-sm-flex justify-content-sm-center">
+                                    <button type="button" class="btn btn-outline-danger btn-sm clear-signature-btn" data-target="signature-pad-cliente">Limpiar Firma</button>
+                                </div>
                             </div>
-                        </form>
                         {% else %}
-                            <img src="{{ cliente.firma_digital }}" alt="Firma Digital del Cliente" class="img-fluid">
-                            <p>EL CLIENTE<br>{{ cliente.nombre_apellido }}<br>C.I: V-{{ cliente.cedula }}</p>
+                            {% if not cliente.firma_digital %}
+                            <form id="formFirmaCliente" action="{{ url_for('guardar_firma_cliente', client_id=cliente.id) }}" method="POST" class="no-print">
+                                <input type="hidden" name="firma_cliente" id="firma_cliente_input_existente">
+                                <p class="border-0 m-0">EL CLIENTE</p>
+                                <canvas id="signature-pad-cliente" class="mx-auto signature-pad"></canvas>
+                                <div class="mt-2 d-grid gap-2 d-sm-flex justify-content-sm-center">
+                                    <button type="button" class="btn btn-outline-danger btn-sm clear-signature-btn" data-target="signature-pad-cliente">Limpiar</button>
+                                    <button type="submit" class="btn btn-primary btn-sm">Guardar Firma</button>
+                                </div>
+                            </form>
+                            {% else %}
+                                <img src="{{ cliente.firma_digital }}" alt="Firma Digital del Cliente" class="img-fluid">
+                                <p>EL CLIENTE<br>{{ cliente.nombre_apellido }}<br>C.I: V-{{ cliente.cedula }}</p>
+                            {% endif %}
                         {% endif %}
-                    </div>
+                        </div>
                 </div>
 
                 <div class="verification-section">
@@ -352,22 +378,33 @@
                 </div>
             </div>
 
-            <!-- INICIO DE CAMBIO: Lógica para mostrar el botón de impresión -->
-            <div class="print-button-container no-print text-center mt-5">
-                {% if cliente.firma_digital and cliente.firma_empresa %}
-                    <button class="btn btn-success btn-lg" onclick="window.print()">
-                        <i class="bi bi-printer-fill"></i> Imprimir Contrato Firmado
+            <div class="final-actions-container no-print text-center mt-5">
+                {% if modo_pre_registro %}
+                    <div class="alert alert-info">
+                        <strong><i class="bi bi-pen-fill"></i> Paso Final:</strong> Por favor, complete ambas firmas en los recuadros para poder guardar el cliente y el contrato.
+                    </div>
+                    <button type="submit" form="form-finalizar-registro" id="btn-finalizar-registro" class="btn btn-primary btn-lg btn-guardar-todo">
+                        <i class="bi bi-check-circle-fill"></i> Guardar Cliente y Generar Contrato
                     </button>
                 {% else %}
-                    <div class="alert alert-warning" role="alert">
-                        <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Acción Requerida</h4>
-                        <p>El contrato no puede ser generado hasta que tanto <strong>LA EMPRESA</strong> como <strong>EL CLIENTE</strong> hayan registrado sus firmas digitales en los recuadros correspondientes.</p>
-                    </div>
+                    {% if cliente.firma_digital and cliente.firma_empresa %}
+                        <button class="btn btn-success btn-lg" onclick="window.print()">
+                            <i class="bi bi-printer-fill"></i> Imprimir Contrato Firmado
+                        </button>
+                    {% else %}
+                        <div class="alert alert-warning" role="alert">
+                            <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Acción Requerida</h4>
+                            <p>El contrato no puede ser generado hasta que tanto <strong>LA EMPRESA</strong> como <strong>EL CLIENTE</strong> hayan registrado sus firmas digitales en los recuadros correspondientes.</p>
+                        </div>
+                    {% endif %}
                 {% endif %}
             </div>
-            <!-- FIN DE CAMBIO -->
-        </div>
+            </div>
     </div>
+
+    {% if modo_pre_registro %}
+    </form>
+    {% endif %}
 
     <footer class="footer no-print">
         <p>&copy; {{ anio_actual }} Moto Plan Motors C.A.</p>
@@ -376,37 +413,72 @@
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        function setupSignaturePad(canvasId, formId, inputId) {
-            const canvas = document.getElementById(canvasId);
+        const modoPreRegistro = {{ modo_pre_registro|tojson }};
+        const pads = {};
+
+        function initializePad(padName) {
+            const canvas = document.getElementById(`signature-pad-${padName}`);
             if (!canvas) return;
 
-            const form = document.getElementById(formId);
-            const input = document.getElementById(inputId);
-            
             const ratio =  Math.max(window.devicePixelRatio || 1, 1);
             canvas.width = canvas.offsetWidth * ratio;
             canvas.height = canvas.offsetHeight * ratio;
             canvas.getContext("2d").scale(ratio, ratio);
 
-            const signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)' });
+            pads[padName] = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)' });
 
-            form.querySelector('.clear-signature-btn').addEventListener('click', () => {
-                signaturePad.clear();
-            });
-
-            form.addEventListener('submit', function(e) {
-                if (signaturePad.isEmpty()) {
-                    alert("Por favor, se requiere una firma en el recuadro.");
-                    e.preventDefault();
-                    return;
-                }
-                input.value = signaturePad.toDataURL('image/png');
-            });
+            const clearButton = document.querySelector(`.clear-signature-btn[data-target="signature-pad-${padName}"]`);
+            if(clearButton) {
+                clearButton.addEventListener('click', () => {
+                    pads[padName].clear();
+                });
+            }
         }
 
-        setupSignaturePad('signature-pad-cliente', 'formFirmaCliente', 'firma_cliente_input');
-        setupSignaturePad('signature-pad-empresa', 'formFirmaEmpresa', 'firma_empresa_input');
+        // Inicializar los pads que existan en la página
+        initializePad('cliente');
+        initializePad('empresa');
+
+        if (modoPreRegistro) {
+            // MODO PRE-REGISTRO: El submit es del formulario grande
+            const formPrincipal = document.getElementById('form-finalizar-registro');
+            if(formPrincipal) {
+                formPrincipal.addEventListener('submit', function(e) {
+                    // Validar que ambos pads tengan firma
+                    if (pads['cliente'] && pads['cliente'].isEmpty() || pads['empresa'] && pads['empresa'].isEmpty()) {
+                        alert("Ambas firmas son obligatorias para continuar.");
+                        e.preventDefault();
+                        return;
+                    }
+
+                    // Asignar los valores de las firmas a los inputs ocultos
+                    if(pads['cliente']) {
+                        document.getElementById('firma_cliente_input').value = pads['cliente'].toDataURL('image/png');
+                    }
+                    if(pads['empresa']) {
+                        document.getElementById('firma_empresa_input').value = pads['empresa'].toDataURL('image/png');
+                    }
+                });
+            }
+        } else {
+            // MODO NORMAL: El submit es para los formularios individuales de clientes existentes
+            function setupExistingClientForm(padName, formId, inputId) {
+                const form = document.getElementById(formId);
+                if(form && pads[padName]) {
+                    form.addEventListener('submit', function(e) {
+                        if (pads[padName].isEmpty()) {
+                            alert("Por favor, se requiere una firma en el recuadro.");
+                            e.preventDefault();
+                            return;
+                        }
+                        document.getElementById(inputId).value = pads[padName].toDataURL('image/png');
+                    });
+                }
+            }
+            setupExistingClientForm('cliente', 'formFirmaCliente', 'firma_cliente_input_existente');
+            setupExistingClientForm('empresa', 'formFirmaEmpresa', 'firma_empresa_input_existente');
+        }
     });
     </script>
-</body>
+    </body>
 </html>
