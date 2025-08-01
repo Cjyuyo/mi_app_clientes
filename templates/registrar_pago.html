@@ -162,24 +162,58 @@
             <h3>Información del Pago</h3>
             <div class="form-grid">
                 <div class="form-group">
-                    <label for="forma_pago">Forma de Pago</label>
-                    <select id="forma_pago" name="forma_pago" required>
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Transferencia">Transferencia</option>
-                        <option value="Pago Móvil">Pago Móvil</option>
-                        <option value="Zelle">Zelle</option>
-                    </select>
-                </div>
-                <div class="form-group">
                     <label for="pago_en">Pago en</label>
                     <select id="pago_en" name="pago_en" required>
-                        <option value="Divisas">Divisas</option>
-                        <option value="Bolívares">Bolívares</option>
+                        <option value="Efectivo USD">Efectivo USD</option>
+                        <option value="Dolar/BCV">Dolar/BCV</option>
+                        <option value="Euro/BCV">Euro/BCV</option>
                         <option value="USDT">USDT</option>
+                        <option value="Bolívares Efectivo">Bolívares Efectivo</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="forma_pago">Forma de Pago</label>
+                    <select id="forma_pago" name="forma_pago" required>
+                        <option value="">Seleccione...</option>
+                        <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+                        <option value="Pago Movil">Pago Móvil</option>
+                        <option value="Binance">Binance</option>
+                        <option value="Nequi">Nequi</option>
+                        <option value="Efectivo">Efectivo</option> </select>
+                </div>
+                
+                <div class="form-group" id="banco_group" style="display: none;">
+                    <label for="banco">Banco</label>
+                    <select id="banco" name="banco">
+                        <option value="">Seleccione un banco...</option>
+                        <option value="0102 - Banco de Venezuela S.A.C.A.">0102 - Banco de Venezuela S.A.C.A.</option>
+                        <option value="0104 - Venezolano de Crédito S.A.">0104 - Venezolano de Crédito S.A.</option>
+                        <option value="0105 - Mercantil Banco Universal C.A.">0105 - Mercantil Banco Universal C.A.</option>
+                        <option value="0108 - BBVA Banco Provincial">0108 - BBVA Banco Provincial</option>
+                        <option value="0114 - Bancaribe C.A.">0114 - Bancaribe C.A.</option>
+                        <option value="0115 - Banco Exterior C.A.">0115 - Banco Exterior C.A.</option>
+                        <option value="0128 - Banco Caroní C.A.">0128 - Banco Caroní C.A.</option>
+                        <option value="0134 - Banesco Banco Universal C.A.">0134 - Banesco Banco Universal C.A.</option>
+                        <option value="0137 - Banco Sofitasa C.A.">0137 - Banco Sofitasa C.A.</option>
+                        <option value="0138 - Banco Plaza C.A.">0138 - Banco Plaza C.A.</option>
+                        <option value="0146 - Bangente C.A.">0146 - Bangente C.A.</option>
+                        <option value="0151 - BFC Banco Fondo Común C.A.">0151 - BFC Banco Fondo Común C.A.</option>
+                        <option value="0156 - 100% Banco C.A.">0156 - 100% Banco C.A.</option>
+                        <option value="0157 - DelSur Banco Universal C.A.">0157 - DelSur Banco Universal C.A.</option>
+                        <option value="0163 - Banco del Tesoro C.A.">0163 - Banco del Tesoro C.A.</option>
+                        <option value="0166 - Banco Agrícola de Venezuela C.A.">0166 - Banco Agrícola de Venezuela C.A.</option>
+                        <option value="0171 - Banco Activo C.A.">0171 - Banco Activo C.A.</option>
+                        <option value="0172 - Bancamiga Banco Universal C.A.">0172 - Bancamiga Banco Universal C.A.</option>
+                        <option value="0173 - Banco Internacional de Desarrollo C.A.">0173 - Banco Internacional de Desarrollo C.A.</option>
+                        <option value="0174 - Banplus Banco Universal C.A.">0174 - Banplus Banco Universal C.A.</option>
+                        <option value="0175 - Banco Digital de los Trabajadores (BDT)">0175 - Banco Digital de los Trabajadores (BDT)</option>
+                        <option value="0177 - BANFANB">0177 - BANFANB - Banco de la Fuerza Armada Nacional Bolivariana</option>
+                        <option value="0178 - N58 Banco Digital C.A.">0178 - N58 Banco Digital C.A.</option>
+                        <option value="0191 - Banco Nacional de Crédito (BNC)">0191 - Banco Nacional de Crédito (BNC)</option>
                     </select>
                 </div>
                 
-                <!-- CAMBIO: Campo para seleccionar la moneda de referencia -->
                 <div class="form-group" id="moneda_referencia_group" style="display: none;">
                     <label for="moneda_referencia">Moneda de Referencia (para Bs.)</label>
                     <select id="moneda_referencia" name="moneda_referencia">
@@ -188,10 +222,6 @@
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label for="banco">Banco</label>
-                    <input type="text" id="banco" name="banco">
-                </div>
                 <div class="form-group">
                     <label for="referencia">Referencia</label>
                     <input type="text" id="referencia" name="referencia">
@@ -221,28 +251,49 @@
     </form>
 </div>
 
-<!-- CAMBIO: Script unificado y con nueva lógica -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // --- Lógica para mostrar/ocultar el campo de moneda de referencia ---
     const pagoEnSelect = document.getElementById('pago_en');
     const monedaReferenciaGroup = document.getElementById('moneda_referencia_group');
     const monedaReferenciaSelect = document.getElementById('moneda_referencia');
 
+    // --- Lógica para mostrar/ocultar el campo de moneda de referencia ---
     function toggleMonedaReferencia() {
-        if (pagoEnSelect.value === 'Bolívares') {
+        const pagoEnValue = pagoEnSelect.value;
+        // Muestra el selector de moneda de referencia si se paga en Bolívares por tasa
+        if (pagoEnValue === 'Dolar/BCV' || pagoEnValue === 'Euro/BCV') {
             monedaReferenciaGroup.style.display = 'flex';
             monedaReferenciaSelect.required = true;
+            // Auto-selecciona la moneda correcta
+            monedaReferenciaSelect.value = (pagoEnValue === 'Dolar/BCV') ? 'USD' : 'EUR';
         } else {
             monedaReferenciaGroup.style.display = 'none';
             monedaReferenciaSelect.required = false;
         }
     }
 
-    // Ejecutar al cargar la página por si el formulario viene con un valor preseleccionado
+    // --- CAMBIO: Lógica para mostrar/ocultar el desplegable de bancos ---
+    const formaPagoSelect = document.getElementById('forma_pago');
+    const bancoGroup = document.getElementById('banco_group');
+    const bancoSelect = document.getElementById('banco');
+
+    function toggleBancoSelect() {
+        const formaPagoValue = formaPagoSelect.value;
+        if (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil') {
+            bancoGroup.style.display = 'flex';
+            bancoSelect.required = true;
+        } else {
+            bancoGroup.style.display = 'none';
+            bancoSelect.required = false;
+        }
+    }
+
+    // --- Ejecutar las funciones al cargar y en cada cambio ---
     toggleMonedaReferencia();
-    // Añadir el listener para cambios
+    toggleBancoSelect();
+    
     pagoEnSelect.addEventListener('change', toggleMonedaReferencia);
+    formaPagoSelect.addEventListener('change', toggleBancoSelect);
 
 
     // --- Lógica para el cálculo del monto en Bs. ---

@@ -914,13 +914,15 @@ def registrar_pago(client_id):
             flash('Error: La referencia es obligatoria para pagos por transferencia.', 'error')
             return render_template('registrar_pago.html', cliente=cliente)
         
-        # Lógica para la nueva columna moneda_referencia
+        # ### INICIO DE CAMBIO: Lógica de etiquetado de moneda de referencia ###
         moneda_referencia = None
-        if pago_form.get('pago_en') == 'Bolívares':
-            moneda_referencia = pago_form.get('moneda_referencia') # 'USD' o 'EUR' desde el form
-            if not moneda_referencia:
-                flash('Error: Debe seleccionar una moneda de referencia (USD o EUR) para pagos en Bolívares.', 'error')
-                return render_template('registrar_pago.html', cliente=cliente)
+        pago_en_valor = pago_form.get('pago_en')
+
+        if pago_en_valor == 'Dolar/BCV':
+            moneda_referencia = 'USD'
+        elif pago_en_valor == 'Euro/BCV':
+            moneda_referencia = 'EUR'
+        # ### FIN DE CAMBIO ###
         
         try:
             with conn.cursor() as cur:

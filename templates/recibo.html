@@ -181,12 +181,20 @@
                         <span class="value amount">${{ "%.2f"|format(pago.monto) }}</span>
                     </div>
                     <div class="info-item">
+                        <span class="label">Pago Realizado En</span>
+                        <span class="value">{{ pago.pago_en or 'N/A' }}</span>
+                    </div>
+                    <div class="info-item">
                         <span class="label">Forma de Pago</span>
                         <span class="value">{{ pago.forma_pago }}</span>
                     </div>
                     <div class="info-item">
-                        <span class="label">Referencia / Banco</span>
-                        <span class="value">{{ pago.referencia or 'N/A' }} / {{ pago.banco or 'N/A' }}</span>
+                        <span class="label">Banco / Referencia</span>
+                        <span class="value">
+                            {% if pago.banco and pago.banco.strip() %}{{ pago.banco }}{% endif %}
+                            {% if pago.referencia and pago.referencia.strip() %} / {{ pago.referencia }}{% endif %}
+                            {% if not (pago.banco and pago.banco.strip()) and not (pago.referencia and pago.referencia.strip()) %}N/A{% endif %}
+                        </span>
                     </div>
                      <div class="info-item">
                         <span class="label">Por Concepto de</span>
