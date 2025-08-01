@@ -109,35 +109,10 @@ def rol_requerido(*roles):
     return wrapper
 
 # --- Funciones de utilidad ---
-def get_nombre_mes(month_number):
-    meses = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
-    return meses.get(month_number, "")
-
-def get_feriados_venezuela(year):
-    return [datetime(year, 1, 1).date(), datetime(year, 4, 19).date(), datetime(year, 5, 1).date(), datetime(year, 6, 24).date(), datetime(year, 7, 5).date(), datetime(year, 7, 24).date(), datetime(year, 10, 12).date(), datetime(year, 12, 24).date(), datetime(year, 12, 25).date(), datetime(year, 12, 31).date()]
-
-def get_fecha_vencimiento_ajustada(fecha_pago):
-    if fecha_pago.day < 15:
-        mes_vencimiento, ano_vencimiento = fecha_pago.month, fecha_pago.year
-    else:
-        mes_vencimiento = fecha_pago.month + 1 if fecha_pago.month < 12 else 1
-        ano_vencimiento = fecha_pago.year if fecha_pago.month < 12 else fecha_pago.year + 1
-    vencimiento = datetime(ano_vencimiento, mes_vencimiento, 2).date()
-    feriados = get_feriados_venezuela(vencimiento.year)
-    while vencimiento.weekday() >= 5 or vencimiento in feriados:
-        vencimiento += timedelta(days=1)
-        if vencimiento.year != ano_vencimiento:
-            feriados = get_feriados_venezuela(vencimiento.year)
-    return vencimiento
-
 def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
-    if not g.admin:
-        logging.warning(f"AUDITORIA-OMITIDA: Intento de registrar '{accion}' sin un g.admin establecido.")
-        return
+    if not g.admin: return
     conn = get_db()
-    if not conn:
-        logging.error("AUDITORIA-FALLO-CONEXION: No se pudo obtener conexión a la base de datos.")
-        return
+    if not conn: return
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -148,11 +123,9 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
                 (g.admin['id'], g.admin['usuario'], accion, descripcion, cliente_id)
             )
         conn.commit()
-        logging.info(f"AUDITORIA-REGISTRADA: Usuario '{g.admin['usuario']}' realizó '{accion}'.")
     except Exception as e:
         logging.error(f"AUDITORIA-FALLO-INSERCION: {e}")
-        if conn:
-            conn.rollback()
+        if conn: conn.rollback()
 
 # --- RUTAS DEL PORTAL DE ADMINISTRACIÓN ---
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -268,7 +241,6 @@ def reporte_metricas():
     if conn:
         try:
             with conn.cursor() as cur:
-                # Métricas básicas
                 cur.execute("SELECT COUNT(*) FROM clientes WHERE estatus = 'activo'")
                 dashboard_metrics['clientes_activos'] = cur.fetchone()[0]
                 
@@ -279,7 +251,6 @@ def reporte_metricas():
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
                 dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
 
-                # Índice de Morosidad
                 cur.execute("SELECT COUNT(*) FROM clientes WHERE proceso = 'Ahorrador' AND estatus = 'activo'")
                 total_ahorradores = cur.fetchone()[0]
                 if total_ahorradores > 0:
@@ -288,7 +259,6 @@ def reporte_metricas():
                     clientes_en_mora = total_ahorradores - ahorradores_al_dia
                     dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100 if total_ahorradores > 0 else 0
 
-                # Datos para el gráfico de ingresos (últimos 6 meses)
                 income_labels, income_values = [], []
                 current_date = today
                 for _ in range(6):
@@ -306,7 +276,6 @@ def reporte_metricas():
 
                 dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
 
-                # Datos para el gráfico de composición de clientes
                 cur.execute("SELECT proceso, COUNT(*) FROM clientes WHERE estatus = 'activo' GROUP BY proceso")
                 client_composition = cur.fetchall()
                 comp_labels = [row['proceso'].capitalize() for row in client_composition]
@@ -331,7 +300,6 @@ def reporte_morosidad():
     if conn:
         try:
             with conn.cursor() as cur:
-                # Obtener lista de posibles gestores
                 cur.execute("SELECT id, usuario FROM administradores ORDER BY usuario")
                 gestores = cur.fetchall()
 
@@ -419,14 +387,19 @@ def admin_tasa_bcv():
     if conn:
         try:
             with conn.cursor() as cur:
-                if request.method == 'POST':
-                    tasa_usd_str = request.form.get('tasa_usd', '0').replace(',', '.')
-                    tasa_eur_str = request.form.get('tasa_eur', '0').replace(',', '.')
-                    
-                    tasa_usd = Decimal(tasa_usd_str) if tasa_usd_str else Decimal('0')
-                    tasa_eur = Decimal(tasa_eur_str) if tasa_eur_str else Decimal('0')
+                # Primero, obtener las tasas actuales para no borrarlas si no se envían
+                cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha = %s", (today_str,))
+                tasas_actuales = cur.fetchone()
 
-                    if tasa_usd >= 0 and tasa_eur >= 0:
+                if request.method == 'POST':
+                    tasa_usd_str = request.form.get('tasa_usd', '').replace(',', '.')
+                    tasa_eur_str = request.form.get('tasa_eur', '').replace(',', '.')
+                    
+                    # Si el campo viene vacío, usar el valor actual de la BD. Si no hay valor actual, usar 0.
+                    tasa_usd_final = Decimal(tasa_usd_str) if tasa_usd_str else (tasas_actuales['tasa'] if tasas_actuales else Decimal('0'))
+                    tasa_eur_final = Decimal(tasa_eur_str) if tasa_eur_str else (tasas_actuales['tasa_euro'] if tasas_actuales else Decimal('0'))
+
+                    if tasa_usd_final >= 0 and tasa_eur_final >= 0:
                         cur.execute(
                             """
                             INSERT INTO historial_tasas_bcv (fecha, tasa, tasa_euro, establecida_por_id) 
@@ -436,7 +409,7 @@ def admin_tasa_bcv():
                                 tasa_euro = EXCLUDED.tasa_euro,
                                 establecida_por_id = EXCLUDED.establecida_por_id;
                             """,
-                            (today_str, tasa_usd, tasa_eur, g.admin['id'])
+                            (today_str, tasa_usd_final, tasa_eur_final, g.admin['id'])
                         )
                         conn.commit()
                         flash('Tasas BCV del día guardadas/actualizadas exitosamente.', 'success')
@@ -444,12 +417,14 @@ def admin_tasa_bcv():
                     else:
                         flash('Las tasas deben ser números positivos.', 'danger')
                 
+                # Cargar tasas del día actual (puede que se hayan actualizado)
                 cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha = %s", (today_str,))
                 resultado = cur.fetchone()
                 if resultado:
                     tasas_de_hoy['usd'] = resultado['tasa']
                     tasas_de_hoy['eur'] = resultado['tasa_euro']
                 
+                # Cargar historial reciente
                 cur.execute("""
                     SELECT h.fecha, h.tasa, h.tasa_euro, a.usuario 
                     FROM historial_tasas_bcv h
