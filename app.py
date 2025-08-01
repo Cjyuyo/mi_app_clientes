@@ -495,7 +495,6 @@ def reporte_flujo_caja():
                 tasas_del_dia['usd'] = resultado_tasa['tasa'] or Decimal('0.0')
                 tasas_del_dia['eur'] = resultado_tasa['tasa_euro'] or Decimal('0.0')
 
-    # Se puede generar el reporte si al menos una de las tasas es válida.
     if tasas_del_dia['usd'] > 0 or tasas_del_dia['eur'] > 0:
         mostrar_resultados = True
         try:
@@ -516,36 +515,28 @@ def reporte_flujo_caja():
                 fecha_reporte_dt = datetime.strptime(fecha_reporte_str, '%Y-%m-%d').date()
                 fecha_fin_timestamp = datetime.combine(fecha_reporte_dt, datetime.max.time())
 
-                # --- Balances en Moneda Fuerte ---
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND forma_pago = 'Efectivo' AND fecha_pago <= %s", (fecha_reporte_dt,))
                 resumen['balance_efectivo_usd'] = cur.fetchone()[0] or Decimal('0.0')
 
                 cur.execute("SELECT COALESCE(SUM(monto_destino), 0) FROM operaciones_tesoreria WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s", (fecha_fin_timestamp,))
                 resumen['balance_binance_usdt'] = cur.fetchone()[0] or Decimal('0.0')
 
-                # --- Egresos de Bolívares (se asume que salen de la caja USD por defecto) ---
                 cur.execute("SELECT COALESCE(SUM(monto_origen), 0) FROM operaciones_tesoreria WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s", (fecha_fin_timestamp,))
                 egresos_bs_conversion = cur.fetchone()[0] or Decimal('0.0')
 
-                # --- Caja Bs-USD ---
                 cur.execute("SELECT COALESCE(SUM(monto_bs), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND moneda_referencia = 'USD' AND fecha_pago <= %s", (fecha_reporte_dt,))
                 ingresos_bs_usd_total = cur.fetchone()[0] or Decimal('0.0')
                 resumen['balance_bs_usd_bs'] = ingresos_bs_usd_total - egresos_bs_conversion
                 resumen['balance_bs_usd_usd'] = resumen['balance_bs_usd_bs'] / tasas_del_dia['usd'] if tasas_del_dia['usd'] > 0 else Decimal('0.0')
                 
-                # --- Caja Bs-EUR ---
                 cur.execute("SELECT COALESCE(SUM(monto_bs), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND moneda_referencia = 'EUR' AND fecha_pago <= %s", (fecha_reporte_dt,))
                 ingresos_bs_eur_total = cur.fetchone()[0] or Decimal('0.0')
                 resumen['balance_bs_eur_bs'] = ingresos_bs_eur_total
                 resumen['balance_bs_eur_eur'] = resumen['balance_bs_eur_bs'] / tasas_del_dia['eur'] if tasas_del_dia['eur'] > 0 else Decimal('0.0')
                 
-                # --- Consolidado y Pérdidas ---
                 balance_bs_eur_en_usd = resumen['balance_bs_eur_bs'] / tasas_del_dia['usd'] if tasas_del_dia['usd'] > 0 else Decimal('0.0')
                 resumen['balance_general_consolidado_usd'] = resumen['balance_efectivo_usd'] + resumen['balance_binance_usdt'] + resumen['balance_bs_usd_usd'] + balance_bs_eur_en_usd
 
-                # El cálculo de la pérdida por devaluación se vuelve más complejo.
-                # Por ahora, se mantiene el cálculo original enfocado en la caja principal (USD).
-                # TODO: Refinar este cálculo si es necesario considerar la devaluación de la caja EUR.
                 cur.execute("""
                     SELECT COALESCE(SUM(CASE WHEN tasa_dia > 0 THEN monto_bs / tasa_dia ELSE 0 END), 0) 
                     FROM pagos 
@@ -886,6 +877,7 @@ def consulta():
                 mensaje_error = f"Error al consultar la base de datos: {e}"
     return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda_raw)
 
+# ### INICIO DE LA SECCIÓN MODIFICADA ###
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 @admin_required
 def registrar_pago(client_id):
@@ -893,28 +885,36 @@ def registrar_pago(client_id):
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta'))
+
     with conn.cursor() as cur:
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
+
+        # Se obtienen las tasas del día para pasarlas al formulario
+        today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
+        cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha = %s", (today_str,))
+        tasas_hoy = cur.fetchone()
+
     if not cliente:
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('consulta'))
+
     if request.method == 'POST':
         pago_form = {k: v if v else None for k, v in request.form.items()}
         tipo_pago = pago_form.get('tipo_pago')
         inscripcion_total = Decimal(cliente.get('inscripcion_monto') or 0)
         inscripcion_pagada = Decimal(cliente.get('inscripcion_pagada') or 0)
+
         if tipo_pago == 'Cuota' and inscripcion_pagada < inscripcion_total:
             flash('Error: No se puede registrar un pago de cuota hasta que la inscripción esté 100% pagada.', 'error')
-            return render_template('registrar_pago.html', cliente=cliente)
+            return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
         if tipo_pago == 'Inscripción' and inscripcion_pagada >= inscripcion_total:
             flash('Error: La inscripción para este cliente ya ha sido completada.', 'error')
-            return render_template('registrar_pago.html', cliente=cliente)
-        if pago_form.get('forma_pago') != 'Efectivo' and not pago_form.get('referencia'):
-            flash('Error: La referencia es obligatoria para pagos por transferencia.', 'error')
-            return render_template('registrar_pago.html', cliente=cliente)
+            return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
+        if pago_form.get('forma_pago') not in ['Efectivo', 'Binance', 'Nequi'] and not pago_form.get('referencia'):
+            flash('Error: La referencia es obligatoria para pagos por Transferencia o Pago Móvil.', 'error')
+            return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
         
-        # ### INICIO DE CAMBIO: Lógica de etiquetado de moneda de referencia ###
         moneda_referencia = None
         pago_en_valor = pago_form.get('pago_en')
 
@@ -922,7 +922,6 @@ def registrar_pago(client_id):
             moneda_referencia = 'USD'
         elif pago_en_valor == 'Euro/BCV':
             moneda_referencia = 'EUR'
-        # ### FIN DE CAMBIO ###
         
         try:
             with conn.cursor() as cur:
@@ -944,8 +943,10 @@ def registrar_pago(client_id):
         except (psycopg2.Error, ValueError, TypeError) as e:
             conn.rollback()
             flash(f'Ocurrió un error al registrar el pago: {e}', 'error')
-            return render_template('registrar_pago.html', cliente=cliente)
-    return render_template('registrar_pago.html', cliente=cliente)
+            return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
+
+    return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
+# ### FIN DE LA SECCIÓN MODIFICADA ###
 
 @app.route('/conciliar_pago/<int:pago_id>', methods=['POST'])
 @admin_required

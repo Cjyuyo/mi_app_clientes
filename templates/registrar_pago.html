@@ -5,108 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registrar Pago - {{ cliente.nombre_apellido }}</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f0f2f5;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 800px;
-            margin: auto;
-        }
-        .form-header {
-            background-color: #0056b3;
-            color: white;
-            padding: 20px 30px;
-            border-radius: 8px 8px 0 0;
-        }
-        .form-header h1 {
-            margin: 0;
-            font-size: 24px;
-        }
-        .form-header p {
-            margin: 5px 0 0;
-            opacity: 0.9;
-        }
-        form {
-            background: white;
-            padding: 30px;
-            border-radius: 0 0 8px 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .section {
-            margin-bottom: 30px;
-        }
-        .section h3 {
-            font-size: 16px;
-            color: #606770;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid #dddfe2;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-        }
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-        }
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-        .full-width {
-            grid-column: 1 / -1;
-        }
-        label {
-            font-size: 14px;
-            font-weight: 600;
-            color: #606770;
-            margin-bottom: 8px;
-        }
-        input, select, textarea {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            border: 1px solid #dddfe2;
-            border-radius: 6px;
-            box-sizing: border-box;
-        }
-        textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-        input[readonly] {
-            background-color: #e9ecef;
-            cursor: not-allowed;
-        }
-        .button-group {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #dddfe2;
-        }
-        .btn {
-            padding: 12px 25px;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            border-radius: 6px;
-            text-decoration: none;
-            text-align: center;
-        }
-        .btn-primary {
-            background-color: #28a745;
-            color: white;
-        }
-        .btn-secondary {
-            background-color: #6c757d;
-            color: white;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        .form-header { background-color: #0056b3; color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; }
+        .form-header h1 { margin: 0; font-size: 24px; }
+        .form-header p { margin: 5px 0 0; opacity: 0.9; }
+        form { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .section { margin-bottom: 30px; }
+        .section h3 { font-size: 16px; color: #606770; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #dddfe2; padding-bottom: 10px; margin-bottom: 20px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .form-group { display: flex; flex-direction: column; }
+        .full-width { grid-column: 1 / -1; }
+        label { font-size: 14px; font-weight: 600; color: #606770; margin-bottom: 8px; }
+        input, select, textarea { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #dddfe2; border-radius: 6px; box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 80px; }
+        input[readonly] { background-color: #e9ecef; cursor: not-allowed; }
+        .button-group { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #dddfe2; }
+        .btn { padding: 12px 25px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; border-radius: 6px; text-decoration: none; text-align: center; }
+        .btn-primary { background-color: #28a745; color: white; }
+        .btn-secondary { background-color: #6c757d; color: white; }
         .mensaje { margin-bottom: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
         .error { color: #D8000C; background-color: #FFD2D2; }
     </style>
@@ -128,43 +45,21 @@
         {% endwith %}
 
         <div class="section">
-            <h3>Detalles del Monto</h3>
+            <h3>Detalles del Monto y Método</h3>
             <div class="form-grid">
                 <div class="form-group">
                     <label for="tipo_pago">Tipo de Pago</label>
                     <select id="tipo_pago" name="tipo_pago" required>
                         {% set inscripcion_total = cliente.inscripcion_monto|float if cliente.inscripcion_monto else 0 %}
                         {% set inscripcion_pagada = cliente.inscripcion_pagada|float if cliente.inscripcion_pagada else 0 %}
-                        
-                        {% if inscripcion_pagada < inscripcion_total %}
-                            <option value="Inscripción">Inscripción</option>
-                        {% else %}
-                            <option value="Cuota">Cuota</option>
-                        {% endif %}
+                        {% if inscripcion_pagada < inscripcion_total %}<option value="Inscripción">Inscripción</option>{% else %}<option value="Cuota">Cuota</option>{% endif %}
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="monto_usd">Monto del Pago (USD)</label>
-                    <input type="number" id="monto_usd" step="0.01" name="monto" required>
-                </div>
-                <div class="form-group">
-                    <label for="tasa_dia">Tasa del Día (BCV)</label>
-                    <input type="number" id="tasa_dia" step="0.01" name="tasa_dia">
-                </div>
-                <div class="form-group">
-                    <label for="monto_bs_calculado">Monto en Bs (Calculado)</label>
-                    <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" readonly>
-                </div>
-            </div>
-        </div>
-
-        <div class="section">
-            <h3>Información del Pago</h3>
-            <div class="form-grid">
+                
                 <div class="form-group">
                     <label for="pago_en">Pago en</label>
                     <select id="pago_en" name="pago_en" required>
-                        <option value="Efectivo USD">Efectivo USD</option>
+                        <option value="Efectivo USD" selected>Efectivo USD</option>
                         <option value="Dolar/BCV">Dolar/BCV</option>
                         <option value="Euro/BCV">Euro/BCV</option>
                         <option value="USDT">USDT</option>
@@ -176,13 +71,33 @@
                     <label for="forma_pago">Forma de Pago</label>
                     <select id="forma_pago" name="forma_pago" required>
                         <option value="">Seleccione...</option>
+                        <option value="Efectivo">Efectivo</option>
                         <option value="Transferencia Bancaria">Transferencia Bancaria</option>
                         <option value="Pago Movil">Pago Móvil</option>
                         <option value="Binance">Binance</option>
                         <option value="Nequi">Nequi</option>
-                        <option value="Efectivo">Efectivo</option> </select>
+                    </select>
                 </div>
                 
+                <div class="form-group">
+                    <label for="monto_usd">Monto del Pago (USD)</label>
+                    <input type="number" id="monto_usd" step="0.01" name="monto" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="tasa_dia">Tasa del Día (BCV)</label>
+                    <input type="number" id="tasa_dia" step="0.01" name="tasa_dia" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="monto_bs_calculado">Monto en Bs (Calculado)</label>
+                    <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" readonly>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Información Adicional</h3>
+            <div class="form-grid">
                 <div class="form-group" id="banco_group" style="display: none;">
                     <label for="banco">Banco</label>
                     <select id="banco" name="banco">
@@ -213,15 +128,6 @@
                         <option value="0191 - Banco Nacional de Crédito (BNC)">0191 - Banco Nacional de Crédito (BNC)</option>
                     </select>
                 </div>
-                
-                <div class="form-group" id="moneda_referencia_group" style="display: none;">
-                    <label for="moneda_referencia">Moneda de Referencia (para Bs.)</label>
-                    <select id="moneda_referencia" name="moneda_referencia">
-                        <option value="USD" selected>Dólar (USD)</option>
-                        <option value="EUR">Euro (EUR)</option>
-                    </select>
-                </div>
-
                 <div class="form-group">
                     <label for="referencia">Referencia</label>
                     <input type="text" id="referencia" name="referencia">
@@ -253,30 +159,42 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const tasaUsd = {{ tasas_hoy.tasa|float if tasas_hoy and tasas_hoy.tasa else 'null' }};
+    const tasaEur = {{ tasas_hoy.tasa_euro|float if tasas_hoy and tasas_hoy.tasa_euro else 'null' }};
+
     const pagoEnSelect = document.getElementById('pago_en');
-    const monedaReferenciaGroup = document.getElementById('moneda_referencia_group');
-    const monedaReferenciaSelect = document.getElementById('moneda_referencia');
-
-    // --- Lógica para mostrar/ocultar el campo de moneda de referencia ---
-    function toggleMonedaReferencia() {
-        const pagoEnValue = pagoEnSelect.value;
-        // Muestra el selector de moneda de referencia si se paga en Bolívares por tasa
-        if (pagoEnValue === 'Dolar/BCV' || pagoEnValue === 'Euro/BCV') {
-            monedaReferenciaGroup.style.display = 'flex';
-            monedaReferenciaSelect.required = true;
-            // Auto-selecciona la moneda correcta
-            monedaReferenciaSelect.value = (pagoEnValue === 'Dolar/BCV') ? 'USD' : 'EUR';
-        } else {
-            monedaReferenciaGroup.style.display = 'none';
-            monedaReferenciaSelect.required = false;
-        }
-    }
-
-    // --- CAMBIO: Lógica para mostrar/ocultar el desplegable de bancos ---
     const formaPagoSelect = document.getElementById('forma_pago');
     const bancoGroup = document.getElementById('banco_group');
     const bancoSelect = document.getElementById('banco');
+    const montoUsdInput = document.getElementById('monto_usd');
+    const tasaDiaInput = document.getElementById('tasa_dia');
+    const montoBsCalculadoInput = document.getElementById('monto_bs_calculado');
 
+    function calcularMontoBs() {
+        const montoUsd = parseFloat(montoUsdInput.value) || 0;
+        const tasaDia = parseFloat(tasaDiaInput.value) || 0;
+        if (montoUsd > 0 && tasaDia > 0) {
+            montoBsCalculadoInput.value = (montoUsd * tasaDia).toFixed(2);
+        } else {
+            montoBsCalculadoInput.value = '';
+        }
+    }
+
+    function handlePagoEnChange() {
+        const pagoEnValue = pagoEnSelect.value;
+        tasaDiaInput.value = '';
+
+        if (pagoEnValue === 'Dolar/BCV') {
+            tasaDiaInput.value = tasaUsd || '';
+            if (!tasaUsd) alert('Advertencia: La tasa del Dólar (BCV) para hoy no ha sido establecida.');
+        } else if (pagoEnValue === 'Euro/BCV') {
+            tasaDiaInput.value = tasaEur || '';
+            if (!tasaEur) alert('Advertencia: La tasa del Euro (BCV) para hoy no ha sido establecida.');
+        }
+        
+        calcularMontoBs();
+    }
+    
     function toggleBancoSelect() {
         const formaPagoValue = formaPagoSelect.value;
         if (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil') {
@@ -288,50 +206,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- Ejecutar las funciones al cargar y en cada cambio ---
-    toggleMonedaReferencia();
-    toggleBancoSelect();
-    
-    pagoEnSelect.addEventListener('change', toggleMonedaReferencia);
+    pagoEnSelect.addEventListener('change', handlePagoEnChange);
     formaPagoSelect.addEventListener('change', toggleBancoSelect);
-
-
-    // --- Lógica para el cálculo del monto en Bs. ---
-    const montoUsdInput = document.getElementById('monto_usd');
-    const tasaDiaInput = document.getElementById('tasa_dia');
-    const montoBsCalculadoInput = document.getElementById('monto_bs_calculado');
-
-    function calcularMontoBs() {
-        const montoUsd = parseFloat(montoUsdInput.value) || 0;
-        const tasaDia = parseFloat(tasaDiaInput.value) || 0;
-        if (montoUsd > 0 && tasaDia > 0) {
-            const montoBs = montoUsd * tasaDia;
-            montoBsCalculadoInput.value = montoBs.toFixed(2);
-        } else {
-            montoBsCalculadoInput.value = '';
-        }
-    }
-
     montoUsdInput.addEventListener('input', calcularMontoBs);
-    tasaDiaInput.addEventListener('input', calcularMontoBs);
+    pagoEnSelect.addEventListener('change', calcularMontoBs);
 
+    handlePagoEnChange();
+    toggleBancoSelect();
 
-    // --- Lógica para evitar doble submit del formulario ---
-    const forms = document.querySelectorAll('form');
-    forms.forEach(form => {
-        form.addEventListener('submit', function(e) {
-            if (form.getAttribute('data-submitted') === 'true') {
-                e.preventDefault();
-                return;
-            }
-            form.setAttribute('data-submitted', 'true');
-
-            const submitButtons = form.querySelectorAll('button[type="submit"]');
-            submitButtons.forEach(button => {
-                button.setAttribute('disabled', 'disabled');
-                button.innerHTML = 'Procesando...';
-            });
-        });
+    document.querySelector('form').addEventListener('submit', function(e) {
+        if (this.getAttribute('data-submitted') === 'true') {
+            e.preventDefault();
+            return;
+        }
+        this.setAttribute('data-submitted', 'true');
+        this.querySelector('button[type="submit"]').setAttribute('disabled', 'disabled');
+        this.querySelector('button[type="submit"]').innerHTML = 'Procesando...';
     });
 });
 </script>
