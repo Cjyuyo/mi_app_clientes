@@ -724,38 +724,64 @@ def agregar_gestion(cliente_id):
 def registrar():
     return render_template('registrar.html')
     
+# =================================================================================
+# ===== INICIO DE LA SECCIÓN MODIFICADA: registrar_cliente =========================
+# =================================================================================
 @app.route('/registrar_cliente', methods=['POST'])
 @admin_required
 def registrar_cliente():
-    # --- INICIO DE CAMBIO: Flujo de pre-registro ---
-    # Paso 1: Recolectar datos del formulario, sin guardar en la BD.
     form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
     
-    # Validar que los campos esenciales no estén vacíos
     if not all(form_data.get(key) for key in ['nombre_apellido', 'cedula', 'contrato_nro']):
         flash('Nombre, Cédula y N° de Contrato son obligatorios.', 'error')
         return redirect(url_for('registrar'))
 
-    # INICIO DE CORRECCIÓN: Convertir la fecha de string a objeto date
+    # ===== INICIO DE LA CORRECCIÓN REFINADA: CONVERTIR STRINGS A NÚMEROS ======
+    try:
+        # 1. Convertir montos de DINERO a Decimal
+        if form_data.get('inscripcion_monto'):
+            form_data['inscripcion_monto'] = Decimal(form_data['inscripcion_monto'].replace(',', '.'))
+        else:
+            form_data['inscripcion_monto'] = Decimal('0.00')
+
+        if form_data.get('valor_cuota'):
+            form_data['valor_cuota'] = Decimal(form_data['valor_cuota'].replace(',', '.'))
+        else:
+            form_data['valor_cuota'] = Decimal('0.00')
+
+        # 2. Convertir cantidades a Entero (Integer)
+        if form_data.get('cuotas_totales'):
+            form_data['cuotas_totales'] = int(form_data['cuotas_totales'])
+        else:
+            form_data['cuotas_totales'] = 0
+            
+    except (InvalidOperation, ValueError):
+        flash('Los valores para inscripción, cuota o número de cuotas no son números válidos.', 'error')
+        return redirect(url_for('registrar'))
+    # ====== FIN DE LA CORRECCIÓN REFINADA ======
+
+    # Convertir la fecha de string a objeto date
     if form_data.get('fecha_ingreso'):
         try:
             form_data['fecha_ingreso'] = datetime.strptime(form_data['fecha_ingreso'], '%Y-%m-%d').date()
         except ValueError:
             flash('El formato de la fecha de ingreso no es válido.', 'error')
             return redirect(url_for('registrar'))
-    # FIN DE CORRECCIÓN
 
     # Pasar los datos del cliente a la plantilla del contrato para la firma.
-    # El cliente aún no tiene ID porque no ha sido creado.
     flash('Datos del cliente validados. Por favor, proceda con las firmas para finalizar el registro.', 'info')
     return render_template('contrato.html', cliente=form_data, modo_pre_registro=True, anio_actual=get_venezuela_current_date().year)
-    # --- FIN DE CAMBIO ---
+# =================================================================================
+# ===== FIN DE LA SECCIÓN MODIFICADA: registrar_cliente ===========================
+# =================================================================================
 
 
+# =================================================================================
+# ===== INICIO DE LA SECCIÓN MODIFICADA: finalizar_registro ========================
+# =================================================================================
 @app.route('/finalizar_registro', methods=['POST'])
 @admin_required
 def finalizar_registro():
-    # --- INICIO DE CAMBIO: Nueva ruta para guardar el cliente después de firmar ---
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
@@ -764,20 +790,40 @@ def finalizar_registro():
     try:
         form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
         
-        # Validar que las firmas fueron enviadas
         firma_cliente = form_data.get('firma_cliente')
         firma_empresa = form_data.get('firma_empresa')
         if not firma_cliente or not firma_empresa:
             flash('Ambas firmas son obligatorias para registrar al cliente.', 'error')
-            # Es difícil redirigir de vuelta con todos los datos, así que redirigimos al inicio.
             return redirect(url_for('registrar'))
+
+        # ===== INICIO DE LA CORRECCIÓN REFINADA: CONVERTIR STRINGS A NÚMEROS ======
+        # Esta conversión es necesaria aquí también, ya que los datos vienen de un nuevo formulario.
+        try:
+            if form_data.get('inscripcion_monto'):
+                form_data['inscripcion_monto'] = Decimal(form_data['inscripcion_monto'].replace(',', '.'))
+            else:
+                form_data['inscripcion_monto'] = Decimal('0.00')
+
+            if form_data.get('valor_cuota'):
+                form_data['valor_cuota'] = Decimal(form_data['valor_cuota'].replace(',', '.'))
+            else:
+                form_data['valor_cuota'] = Decimal('0.00')
+                
+            if form_data.get('cuotas_totales'):
+                form_data['cuotas_totales'] = int(form_data['cuotas_totales']) if form_data['cuotas_totales'] else None
+            else:
+                 form_data['cuotas_totales'] = None
+
+        except (InvalidOperation, ValueError):
+            flash('Los valores numéricos del contrato (inscripción, cuota) no son válidos.', 'error')
+            return redirect(url_for('registrar'))
+        # ====== FIN DE LA CORRECCIÓN REFINADA ======
 
         with conn.cursor() as cur:
             nombre_completo = form_data.get('nombre_apellido').split(' ', 1)
             nombre = nombre_completo[0]
             apellido = nombre_completo[1] if len(nombre_completo) > 1 else ''
             
-            # Preparar el diccionario para la inserción en la base de datos
             insert_dict = {
                 'nombre': nombre, 
                 'apellido': apellido, 
@@ -789,7 +835,6 @@ def finalizar_registro():
                 'fecha_firma': datetime.now(VENEZUELA_TZ)
             }
             
-            # Campos opcionales del formulario de registro
             optional_fields = [
                 'contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso', 
                 'grupo', 'plan_contratado', 'cuotas_totales', 'moneda_pago', 
@@ -822,7 +867,9 @@ def finalizar_registro():
         flash(f"Registro fallido: Ocurrió un error de base de datos: {e}", 'error')
         
     return redirect(url_for('registrar'))
-    # --- FIN DE CAMBIO ---
+# =================================================================================
+# ===== FIN DE LA SECCIÓN MODIFICADA: finalizar_registro ==========================
+# =================================================================================
 
 @app.route('/generar_contrato/<int:client_id>')
 def generar_contrato(client_id):
