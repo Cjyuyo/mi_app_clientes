@@ -869,7 +869,10 @@ def generar_contrato(client_id):
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('home'))
 
-    return render_template('contrato.html', cliente=cliente, anio_actual=get_venezuela_current_date().year)
+    # --- INICIO DE LA CORRECCIÓN ---
+    # Se añade modo_pre_registro=False para que la plantilla funcione correctamente.
+    return render_template('contrato.html', cliente=cliente, modo_pre_registro=False, anio_actual=get_venezuela_current_date().year)
+    # --- FIN DE LA CORRECCIÓN ---
 
 @app.route('/guardar_firma_cliente/<int:client_id>', methods=['POST'])
 @admin_required
@@ -1360,7 +1363,7 @@ def adjudicacion():
             cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega FROM clientes WHERE proceso ILIKE 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega) AND estatus ILIKE 'activo' ORDER BY nombre, apellido;")
             clientes_elegibles_ahorro = cur.fetchall()
             
-            cur.execute("SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador' ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;")
+            cur.execute("SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || apellido) as nombre_apellido, c.cedula FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador' ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;")
             ofertas_activas = cur.fetchall()
             
             cur.execute("SELECT a.id, a.fecha_adjudicacion, (gs.nombre || ' ' || gs.apellido) as nombre_ganador_sorteo, (go.nombre || ' ' || go.apellido) as nombre_ganador_oferta FROM adjudicaciones a LEFT JOIN clientes gs ON a.ganador_sorteo_id = gs.id LEFT JOIN clientes go ON a.ganador_oferta_id = go.id ORDER BY a.fecha_adjudicacion DESC;")
@@ -1679,4 +1682,4 @@ def portal_logout():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True
+    app.run(host='0.0.0.0', port=port, debug=True)
