@@ -467,7 +467,7 @@ def admin_tasa_bcv():
                            anio_actual=get_venezuela_current_date().year)
 
 # =================================================================================
-# ===== LÓGICA DE FLUJO DE CAJA (CORREGIDA) =====
+# ===== LÓGICA DE FLUJO DE CAJA (CORREGIDA Y AMPLIADA) =====
 # =================================================================================
 @app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
 @admin_required
@@ -476,7 +476,6 @@ def reporte_flujo_caja():
     conn = get_db()
     today = get_venezuela_current_date()
     
-    # Prioriza la fecha del formulario, luego de la URL, y si no, usa la de hoy.
     fecha_reporte_str = request.form.get('fecha_reporte') or request.args.get('fecha_reporte') or today.strftime('%Y-%m-%d')
     
     tasa_bcv_decimal = Decimal('0.0')
@@ -491,7 +490,6 @@ def reporte_flujo_caja():
             if resultado_tasa:
                 tasa_bcv_decimal = resultado_tasa['tasa']
 
-    # Si hay una tasa válida, procede a generar el reporte automáticamente.
     if tasa_bcv_decimal > 0:
         mostrar_resultados = True
         try:
@@ -500,16 +498,15 @@ def reporte_flujo_caja():
                     'balance_efectivo_usd': Decimal('0.0'), 'balance_binance_usdt': Decimal('0.0'),
                     'balance_bolivares_bs': Decimal('0.0'), 'balance_bolivares_usd': Decimal('0.0'),
                     'balance_general_consolidado_usd': Decimal('0.0'),
-                    'periodo_ingresos_usd': Decimal('0.0'), 'periodo_ingresos_por_tipo': {},
-                    'periodo_ingresos_por_forma': {}, 'periodo_perdida_devaluacion': Decimal('0.0'),
-                    'periodo_perdida_conversion': Decimal('0.0'), 'periodo_total_perdidas': Decimal('0.0'),
-                    'periodo_balance_neto': Decimal('0.0')
+                    'acumulado_perdida_devaluacion': Decimal('0.0'),
+                    'acumulado_perdida_conversion': Decimal('0.0'),
+                    'acumulado_total_perdidas': Decimal('0.0')
                 }
                 
                 fecha_reporte_dt = datetime.strptime(fecha_reporte_str, '%Y-%m-%d').date()
                 fecha_fin_timestamp = datetime.combine(fecha_reporte_dt, datetime.max.time())
 
-                # Balances Acumulados
+                # --- Balances Acumulados ---
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND forma_pago = 'Efectivo' AND fecha_pago <= %s", (fecha_reporte_dt,))
                 resumen['balance_efectivo_usd'] = cur.fetchone()[0] or Decimal('0.0')
 
@@ -523,45 +520,49 @@ def reporte_flujo_caja():
                 egresos_bs_conversion = cur.fetchone()[0] or Decimal('0.0')
                 
                 resumen['balance_bolivares_bs'] = ingresos_bs_total - egresos_bs_conversion
-                
-                if tasa_bcv_decimal > 0:
-                    resumen['balance_bolivares_usd'] = resumen['balance_bolivares_bs'] / tasa_bcv_decimal
+                resumen['balance_bolivares_usd'] = resumen['balance_bolivares_bs'] / tasa_bcv_decimal
 
                 resumen['balance_general_consolidado_usd'] = resumen['balance_efectivo_usd'] + resumen['balance_binance_usdt'] + resumen['balance_bolivares_usd']
                 
-                # Rendimiento del período (un solo día)
-                fecha_inicio_periodo = datetime.combine(fecha_reporte_dt, datetime.min.time())
-                fecha_fin_periodo = fecha_fin_timestamp
+                # --- Cálculo de Pérdidas Acumuladas ---
 
-                query_pagos_periodo = "SELECT * FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago = %s"
-                cur.execute(query_pagos_periodo, (fecha_reporte_dt,))
-                pagos_periodo = cur.fetchall()
+                # 1. Pérdida por Devaluación
+                # Suma el valor en USD de todos los ingresos en Bs al momento en que ocurrieron
+                cur.execute("""
+                    SELECT COALESCE(SUM(CASE WHEN tasa_dia > 0 THEN monto_bs / tasa_dia ELSE 0 END), 0) 
+                    FROM pagos 
+                    WHERE estado_pago = 'Conciliado' AND monto_bs > 0 AND fecha_pago <= %s
+                """, (fecha_reporte_dt,))
+                valor_historico_ingresos_bs_en_usd = cur.fetchone()[0] or Decimal('0.0')
 
-                for pago in pagos_periodo:
-                    monto_usd = pago['monto'] or Decimal('0.0')
-                    resumen['periodo_ingresos_usd'] += monto_usd
-                    tipo = pago['tipo_pago']
-                    resumen['periodo_ingresos_por_tipo'][tipo] = resumen['periodo_ingresos_por_tipo'].get(tipo, Decimal('0.0')) + monto_usd
-                    forma = pago['forma_pago'] or 'No especificada'
-                    if forma not in resumen['periodo_ingresos_por_forma']:
-                        resumen['periodo_ingresos_por_forma'][forma] = {'usd': Decimal('0.0'), 'bs': Decimal('0.0')}
-                    resumen['periodo_ingresos_por_forma'][forma]['usd'] += monto_usd
-                    if pago['monto_bs']:
-                        resumen['periodo_ingresos_por_forma'][forma]['bs'] += pago['monto_bs']
+                # Suma el valor en USD de todos los egresos (conversiones) en Bs al momento en que ocurrieron
+                cur.execute("""
+                    SELECT COALESCE(SUM(CASE WHEN tasa_aplicada > 0 THEN monto_origen / tasa_aplicada ELSE 0 END), 0)
+                    FROM operaciones_tesoreria
+                    WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s
+                """, (fecha_fin_timestamp,))
+                valor_historico_egresos_bs_en_usd = cur.fetchone()[0] or Decimal('0.0')
 
-                    if pago['monto_bs'] and pago['tasa_dia'] and tasa_bcv_decimal > 0 and pago['tasa_dia'] > 0:
-                        valor_usd_original = pago['monto_bs'] / pago['tasa_dia']
-                        valor_usd_actual = pago['monto_bs'] / tasa_bcv_decimal
-                        resumen['periodo_perdida_devaluacion'] += (valor_usd_original - valor_usd_actual)
-
-                query_perdidas_periodo = "SELECT COALESCE(SUM(perdida_cambiaria), 0) FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s"
-                cur.execute(query_perdidas_periodo, (fecha_inicio_periodo, fecha_fin_periodo))
-                resumen['periodo_perdida_conversion'] = cur.fetchone()[0] or Decimal('0.0')
-
-                resumen['periodo_total_perdidas'] = resumen['periodo_perdida_devaluacion'] + resumen['periodo_perdida_conversion']
-                resumen['periodo_balance_neto'] = resumen['periodo_ingresos_usd'] - resumen['periodo_total_perdidas']
+                # El valor teórico es la diferencia
+                valor_teorico_saldo_bs_en_usd = valor_historico_ingresos_bs_en_usd - valor_historico_egresos_bs_en_usd
                 
-                cur.execute("SELECT * FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s ORDER BY fecha_operacion DESC", (fecha_inicio_periodo, fecha_fin_periodo))
+                # La pérdida es la diferencia entre el valor teórico y el valor real de hoy
+                resumen['acumulado_perdida_devaluacion'] = valor_teorico_saldo_bs_en_usd - resumen['balance_bolivares_usd']
+
+                # 2. Pérdida por Conversión
+                cur.execute("""
+                    SELECT COALESCE(SUM(perdida_cambiaria), 0) 
+                    FROM operaciones_tesoreria 
+                    WHERE fecha_operacion <= %s
+                """, (fecha_fin_timestamp,))
+                resumen['acumulado_perdida_conversion'] = cur.fetchone()[0] or Decimal('0.0')
+
+                # 3. Total de Pérdidas
+                resumen['acumulado_total_perdidas'] = resumen['acumulado_perdida_devaluacion'] + resumen['acumulado_perdida_conversion']
+
+                # Historial de operaciones del día para la tabla
+                fecha_inicio_periodo = datetime.combine(fecha_reporte_dt, datetime.min.time())
+                cur.execute("SELECT * FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s ORDER BY fecha_operacion DESC", (fecha_inicio_periodo, fecha_fin_timestamp))
                 historial_binance = cur.fetchall()
         
         except (psycopg2.Error, ValueError, TypeError) as e:
@@ -569,7 +570,6 @@ def reporte_flujo_caja():
             logging.error(f"Error en reporte_flujo_caja: {e}", exc_info=True)
             mostrar_resultados = False
     elif request.method == 'POST':
-        # Si se hace POST pero la tasa es inválida, mostrar el error.
         flash(f"No se puede generar el reporte. La tasa BCV para el día {format_date_filter(fecha_reporte_str)} no ha sido establecida.", "warning")
 
     return render_template(

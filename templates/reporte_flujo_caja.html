@@ -78,6 +78,13 @@
         .balance-card .stat-label {
             color: rgba(255, 255, 255, 0.8);
         }
+        .loss-card {
+            background-color: #fff6f6;
+            border-left: 5px solid #dc3545;
+        }
+        .loss-card .stat-value {
+            color: #dc3545;
+        }
         .footer { 
             text-align: center; 
             padding: 20px; 
@@ -123,150 +130,50 @@
 
         <!-- Filtros -->
         <div class="content-card mb-5">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-filter-circle-fill me-2 text-primary"></i>Filtros del Reporte</h5>
-            </div>
+            <div class="card-header"><h5 class="mb-0"><i class="bi bi-filter-circle-fill me-2 text-primary"></i>Filtros del Reporte</h5></div>
             <div class="card-body p-4">
                 <form method="POST" action="{{ url_for('reporte_flujo_caja') }}" class="row g-3 align-items-end">
-                    <div class="col-md-5">
-                        <label for="fecha_reporte" class="form-label fw-bold">Fecha del Reporte</label>
-                        <input type="date" class="form-control form-control-lg" id="fecha_reporte" name="fecha_reporte" value="{{ fecha_reporte }}" required>
+                    <div class="col-md-5"><label for="fecha_reporte" class="form-label fw-bold">Fecha del Reporte</label><input type="date" class="form-control form-control-lg" id="fecha_reporte" name="fecha_reporte" value="{{ fecha_reporte }}" required></div>
+                    <div class="col-md-4"><label class="form-label fw-bold">Tasa BCV del Día</label>
+                        {% if tasa_actual_bcv > 0 %}<input type="text" class="form-control form-control-lg is-valid" value="{{ '{:,.4f}'.format(tasa_actual_bcv) }} Bs." readonly>
+                        {% else %}<div class="form-control form-control-lg is-invalid d-flex justify-content-between align-items-center"><span>No establecida</span>{% if g.admin and g.admin.rol == 'superadmin' %}<a href="{{ url_for('admin_tasa_bcv') }}" class="btn btn-sm btn-outline-primary">Configurar</a>{% endif %}</div>{% endif %}
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">Tasa BCV del Día</label>
-                        {% if tasa_actual_bcv > 0 %}
-                            <input type="text" class="form-control form-control-lg is-valid" value="{{ '{:,.4f}'.format(tasa_actual_bcv) }} Bs." readonly>
-                        {% else %}
-                            <div class="form-control form-control-lg is-invalid d-flex justify-content-between align-items-center">
-                                <span>No establecida</span>
-                                {% if g.admin and g.admin.rol == 'superadmin' %}
-                                <a href="{{ url_for('admin_tasa_bcv') }}" class="btn btn-sm btn-outline-primary">Configurar</a>
-                                {% endif %}
-                            </div>
-                        {% endif %}
-                    </div>
-                    <div class="col-md-3">
-                        <button type="submit" class="btn btn-primary btn-lg w-100"><i class="bi bi-arrow-clockwise"></i> Generar</button>
-                    </div>
+                    <div class="col-md-3"><button type="submit" class="btn btn-primary btn-lg w-100"><i class="bi bi-arrow-clockwise"></i> Generar</button></div>
                 </form>
             </div>
         </div>
 
         {% if mostrar_resultados and tasa_actual_bcv > 0 %}
+        <!-- Saldos Acumulados -->
         <h2 class="mb-4 fw-bold">Saldos Totales Acumulados</h2>
         <div class="row g-4">
-            <!-- Balance General -->
-            <div class="col-12">
-                <div class="content-card stat-card balance-card">
-                    <div class="card-body text-center p-4 p-md-5">
-                        <div class="stat-label">Balance General Consolidado (USD)</div>
-                        <div class="stat-value">${{ "{:,.2f}".format(resumen.balance_general_consolidado_usd) }}</div>
-                    </div>
-                </div>
-            </div>
-            <!-- Saldos Individuales -->
-            <div class="col-md-4">
-                <div class="content-card stat-card">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-cash-stack fs-1 text-success me-3"></i>
-                            <div>
-                                <div class="stat-label">Efectivo (USD)</div>
-                                <div class="stat-value text-success">${{ "{:,.2f}".format(resumen.balance_efectivo_usd) }}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="content-card stat-card">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-currency-bitcoin fs-1 text-warning me-3"></i>
-                            <div>
-                                <div class="stat-label">Binance (USDT)</div>
-                                <div class="stat-value text-warning">${{ "{:,.2f}".format(resumen.balance_binance_usdt) }}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="content-card stat-card">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center">
-                             <i class="bi bi-bank fs-1 text-info me-3"></i>
-                            <div>
-                                <div class="stat-label">Bolívares (BS)</div>
-                                <div class="stat-value text-info">{{ "{:,.2f}".format(resumen.balance_bolivares_bs) }}</div>
-                                <div class="sub-value mt-1">(~ ${{ "{:,.2f}".format(resumen.balance_bolivares_usd) }})</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <div class="col-12"><div class="content-card stat-card balance-card"><div class="card-body text-center p-4 p-md-5"><div class="stat-label">Balance General Consolidado (USD)</div><div class="stat-value">${{ "{:,.2f}".format(resumen.balance_general_consolidado_usd) }}</div></div></div></div>
+            <div class="col-md-4"><div class="content-card stat-card"><div class="card-body p-4"><div class="d-flex align-items-center"><i class="bi bi-cash-stack fs-1 text-success me-3"></i><div><div class="stat-label">Efectivo (USD)</div><div class="stat-value text-success">${{ "{:,.2f}".format(resumen.balance_efectivo_usd) }}</div></div></div></div></div></div>
+            <div class="col-md-4"><div class="content-card stat-card"><div class="card-body p-4"><div class="d-flex align-items-center"><i class="bi bi-currency-bitcoin fs-1 text-warning me-3"></i><div><div class="stat-label">Binance (USDT)</div><div class="stat-value text-warning">${{ "{:,.2f}".format(resumen.balance_binance_usdt) }}</div></div></div></div></div></div>
+            <div class="col-md-4"><div class="content-card stat-card"><div class="card-body p-4"><div class="d-flex align-items-center"><i class="bi bi-bank fs-1 text-info me-3"></i><div><div class="stat-label">Bolívares (BS)</div><div class="stat-value text-info">{{ "{:,.2f}".format(resumen.balance_bolivares_bs) }}</div><div class="sub-value mt-1">(~ ${{ "{:,.2f}".format(resumen.balance_bolivares_usd) }})</div></div></div></div></div></div>
         </div>
 
+        <!-- Análisis de Pérdidas -->
         <hr class="my-5">
+        <h2 class="mb-4 fw-bold">Análisis de Pérdidas Acumuladas</h2>
+        <div class="row g-4">
+            <div class="col-md-4"><div class="content-card stat-card loss-card"><div class="card-body"><div class="stat-label">Pérdida por Devaluación</div><div class="stat-value">(${{ "{:,.2f}".format(resumen.acumulado_perdida_devaluacion) }})</div><div class="sub-value mt-1">Diferencia entre valor histórico y actual del saldo en Bs.</div></div></div></div>
+            <div class="col-md-4"><div class="content-card stat-card loss-card"><div class="card-body"><div class="stat-label">Pérdida por Conversión</div><div class="stat-value">(${{ "{:,.2f}".format(resumen.acumulado_perdida_conversion) }})</div><div class="sub-value mt-1">Total de comisiones y diferenciales cambiarios a USDT.</div></div></div></div>
+            <div class="col-md-4"><div class="content-card stat-card loss-card"><div class="card-body bg-danger text-white rounded-3"><div class="stat-label text-white-50">Total de Pérdidas</div><div class="stat-value text-white">(${{ "{:,.2f}".format(resumen.acumulado_total_perdidas) }})</div><div class="sub-value mt-1 text-white-50">Suma de Devaluación y Conversión.</div></div></div></div>
+        </div>
 
+        <!-- Operaciones de Tesorería -->
+        <hr class="my-5">
         <h2 class="mb-4 fw-bold">Operaciones de Tesorería</h2>
         <div class="row g-4">
-            <div class="col-lg-5">
-                <div class="content-card h-100">
-                    <div class="card-header"><h5 class="mb-0"><i class="bi bi-send-plus-fill me-2 text-primary"></i>Registrar Conversión a Binance</h5></div>
-                    <div class="card-body p-4">
-                        <form action="{{ url_for('registrar_operacion_tesoreria') }}" method="POST">
-                            <input type="hidden" name="fecha_reporte_hidden" value="{{ fecha_reporte }}">
-                            <div class="mb-3"><label for="monto_bs_convertido" class="form-label">Monto a Enviar (Bs.)</label><input type="number" step="any" class="form-control" id="monto_bs_convertido" name="monto_bs_convertido" required></div>
-                            <div class="mb-3"><label for="tasa_conversion_aplicada" class="form-label">Tasa de Conversión Aplicada</label><input type="number" step="any" class="form-control" id="tasa_conversion_aplicada" name="tasa_conversion_aplicada" required placeholder="Tasa real de la transacción"></div>
-                            <div class="mb-3"><label for="monto_usdt_recibido" class="form-label">Monto Recibido (USDT)</label><input type="number" step="any" class="form-control" id="monto_usdt_recibido" name="monto_usdt_recibido" required></div>
-                            <div class="mb-3"><label for="nota_conversion" class="form-label">Nota (Opcional)</label><input type="text" class="form-control" name="nota_conversion" placeholder="Ej: Conversión del día"></div>
-                            <button type="submit" class="btn btn-primary w-100 mt-2"><i class="bi bi-check-circle-fill me-2"></i>Registrar Operación</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-7">
-                <div class="content-card h-100">
-                    <div class="card-header"><h5 class="mb-0"><i class="bi bi-clock-history me-2 text-primary"></i>Historial de Conversiones del Día</h5></div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover mb-0">
-                                <thead class="table-light"><tr><th class="p-3">Fecha</th><th class="p-3">Enviado (Bs)</th><th class="p-3">Recibido (USDT)</th><th class="p-3">Tasa</th><th class="p-3">Pérdida ($)</th></tr></thead>
-                                <tbody>
-                                    {% for op in historial_binance %}
-                                    <tr>
-                                        <td class="p-3 align-middle">{{ op.fecha_operacion.strftime('%H:%M') }}</td>
-                                        <td class="p-3 align-middle">{{ "{:,.2f}".format(op.monto_origen) }}</td>
-                                        <td class="p-3 align-middle fw-bold text-success">${{ "{:,.2f}".format(op.monto_destino) }}</td>
-                                        <td class="p-3 align-middle">
-                                            {% if op.tasa_aplicada is not none %}
-                                                {{ "{:,.4f}".format(op.tasa_aplicada) }}
-                                            {% else %}
-                                                <span class="text-muted">N/A</span>
-                                            {% endif %}
-                                        </td>
-                                        <td class="p-3 align-middle text-danger">(${{ "{:,.2f}".format(op.perdida_cambiaria) }})</td>
-                                    </tr>
-                                    {% else %}
-                                    <tr><td colspan="5" class="text-center text-muted p-5">No hay operaciones de tesorería registradas hoy.</td></tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <div class="col-lg-5"><div class="content-card h-100"><div class="card-header"><h5 class="mb-0"><i class="bi bi-send-plus-fill me-2 text-primary"></i>Registrar Conversión a Binance</h5></div><div class="card-body p-4"><form action="{{ url_for('registrar_operacion_tesoreria') }}" method="POST"><input type="hidden" name="fecha_reporte_hidden" value="{{ fecha_reporte }}"><div class="mb-3"><label for="monto_bs_convertido" class="form-label">Monto a Enviar (Bs.)</label><input type="number" step="any" class="form-control" id="monto_bs_convertido" name="monto_bs_convertido" required></div><div class="mb-3"><label for="tasa_conversion_aplicada" class="form-label">Tasa de Conversión Aplicada</label><input type="number" step="any" class="form-control" id="tasa_conversion_aplicada" name="tasa_conversion_aplicada" required placeholder="Tasa real de la transacción"></div><div class="mb-3"><label for="monto_usdt_recibido" class="form-label">Monto Recibido (USDT)</label><input type="number" step="any" class="form-control" id="monto_usdt_recibido" name="monto_usdt_recibido" required></div><div class="mb-3"><label for="nota_conversion" class="form-label">Nota (Opcional)</label><input type="text" class="form-control" name="nota_conversion" placeholder="Ej: Conversión del día"></div><button type="submit" class="btn btn-primary w-100 mt-2"><i class="bi bi-check-circle-fill me-2"></i>Registrar Operación</button></form></div></div></div>
+            <div class="col-lg-7"><div class="content-card h-100"><div class="card-header"><h5 class="mb-0"><i class="bi bi-clock-history me-2 text-primary"></i>Historial de Conversiones del Día</h5></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-striped table-hover mb-0"><thead class="table-light"><tr><th class="p-3">Fecha</th><th class="p-3">Enviado (Bs)</th><th class="p-3">Recibido (USDT)</th><th class="p-3">Tasa</th><th class="p-3">Pérdida ($)</th></tr></thead><tbody>
+                                    {% for op in historial_binance %}<tr><td class="p-3 align-middle">{{ op.fecha_operacion.strftime('%H:%M') }}</td><td class="p-3 align-middle">{{ "{:,.2f}".format(op.monto_origen) }}</td><td class="p-3 align-middle fw-bold text-success">${{ "{:,.2f}".format(op.monto_destino) }}</td><td class="p-3 align-middle">{% if op.tasa_aplicada is not none %}{{ "{:,.4f}".format(op.tasa_aplicada) }}{% else %}<span class="text-muted">N/A</span>{% endif %}</td><td class="p-3 align-middle text-danger">(${{ "{:,.2f}".format(op.perdida_cambiaria) }})</td></tr>
+                                    {% else %}<tr><td colspan="5" class="text-center text-muted p-5">No hay operaciones de tesorería registradas hoy.</td></tr>{% endfor %}
+            </tbody></table></div></div></div></div>
         </div>
         {% elif request.method == 'POST' %}
-        <div class="alert alert-warning text-center p-5">
-            <i class="bi bi-exclamation-triangle-fill fs-1"></i>
-            <h3 class="mt-3">No se puede generar el reporte</h3>
-            <p class="lead">La tasa BCV para el día <strong>{{ fecha_reporte | format_date }}</strong> no ha sido establecida.</p>
-            {% if g.admin and g.admin.rol == 'superadmin' %}
-            <a href="{{ url_for('admin_tasa_bcv') }}" class="btn btn-primary mt-3">Establecer Tasa Ahora</a>
-            {% endif %}
-        </div>
+        <div class="alert alert-warning text-center p-5"><i class="bi bi-exclamation-triangle-fill fs-1"></i><h3 class="mt-3">No se puede generar el reporte</h3><p class="lead">La tasa BCV para el día <strong>{{ fecha_reporte | format_date }}</strong> no ha sido establecida.</p>{% if g.admin and g.admin.rol == 'superadmin' %}<a href="{{ url_for('admin_tasa_bcv') }}" class="btn btn-primary mt-3">Establecer Tasa Ahora</a>{% endif %}</div>
         {% endif %}
     </main>
 
