@@ -6,168 +6,133 @@
     <title>Consulta de Clientes</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #f0f2f5; font-family: 'Poppins', sans-serif; }
-        .card { border: none; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
-        .card-header { background-color: #fff; border-bottom: 1px solid #e9ecef; }
-        .card-title strong { color: #0056b3; }
-        .info-label { color: #6c757d; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
-        .info-value { font-weight: 500; }
-        .progress-bar { background-color: #007bff; }
-        .pago-item { border-bottom: 1px solid #f1f1f1; }
-        .pago-item:last-child { border-bottom: none; }
-        .btn-action { margin-right: 5px; margin-bottom: 5px; }
+        /* Estilos básicos y para la nueva barra de búsqueda */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: auto; }
+        .search-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .search-container form { display: flex; gap: 10px; align-items: center; }
+        .search-container input[type="text"] { flex-grow: 1; padding: 12px; font-size: 16px; border: 1px solid #dddfe2; border-radius: 6px; }
+        .search-container button, .search-container .btn { padding: 12px 20px; font-size: 16px; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .search-container button { background-color: #1877f2; color: white; }
+        .btn-secondary { background-color: #6c757d; color: white !important; }
+        
+        /* Estilo simple para separar cada cliente */
+        .client-card-original {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .mensaje { margin: 0 0 20px 0; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
+        .error { color: #D8000C; background-color: #FFD2D2; }
     </style>
 </head>
 <body>
-    <div class="container my-4">
-        <div class="row justify-content-center">
-            <div class="col-lg-10">
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h4 class="card-title">Búsqueda de Clientes</h4>
-                        <form action="{{ url_for('consulta') }}" method="POST" class="d-flex gap-2">
-                            <input type="text" class="form-control" name="busqueda" placeholder="Buscar por nombre, apellido o cédula..." value="{{ busqueda or '' }}">
-                            <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Buscar</button>
-                            <a href="{{ url_for('hub') }}" class="btn btn-secondary">Volver al Hub</a>
-                        </form>
-                    </div>
-                </div>
+<div class="container">
+    <div class="search-container">
+        <form method="POST" action="{{ url_for('consulta') }}">
+            <input type="text" name="busqueda" placeholder="Buscar por Nombre o Cédula..." value="{{ busqueda or '' }}">
+            <button type="submit"><i class="bi bi-search"></i> Buscar</button>
+            <a href="{{ url_for('hub') }}" class="btn btn-secondary">
+                Volver al Hub
+            </a>
+        </form>
+    </div>
 
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                        {% endfor %}
-                    {% endif %}
-                {% endwith %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
 
-                {% if mensaje_error %}
-                <div class="alert alert-warning text-center">
-                    <i class="bi bi-exclamation-triangle-fill"></i> {{ mensaje_error }}
-                </div>
-                {% endif %}
+    {% if mensaje_error %}
+        <div class="mensaje error">{{ mensaje_error }}</div>
+    {% endif %}
 
-                {% for cliente in clientes %}
-                <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0"><strong>{{ cliente.nombre_apellido }}</strong></h5>
-                        <span class="badge bg-primary rounded-pill">{{ cliente.proceso or 'N/A' }}</span>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-4 mb-4">
-                                <h6 class="mb-3">Información General</h6>
-                                <p class="mb-2"><span class="info-label">Grupo:</span> <span class="info-value">{{ cliente.grupo or 'N/A' }}</span></p>
-                                <p class="mb-2"><span class="info-label">Plan:</span> <span class="info-value">{{ cliente.plan_contratado or 'N/A' }}</span></p>
-                                <p class="mb-2"><span class="info-label">Cuotas Pagadas:</span> <span class="info-value">{{ cliente.cuotas_pagadas_progresivas | int }} de {{ cliente.cuotas_totales | int }}</span></p>
-                                <p class="mb-2"><span class="info-label">Cédula:</span> <span class="info-value">{{ cliente.cedula }}</span></p>
-                                <p class="mb-2"><span class="info-label">Contrato:</span> <span class="info-value">{{ cliente.contrato_nro or 'N/A' }}</span></p>
-                                <p class="mb-2"><span class="info-label">Teléfono:</span> <span class="info-value">{{ cliente.telefono or 'N/A' }}</span></p>
-                                <p class="mb-2"><span class="info-label">Asesor:</span> <span class="info-value">{{ cliente.asesor or 'N/A' }}</span></p>
-                            </div>
-                            
-                            <div class="col-md-5 mb-4">
-                                <h6 class="mb-3">Progreso Financiero</h6>
-                                <p class="mb-2"><span class="info-label">Inscripción:</span> <span class="info-value text-success">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span></p>
-                                
-                                {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}
-                                {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}
-                                {% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}
-                                {% set cuotas_totales = cliente.cuotas_totales or 0 %}
-                                {% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
-                                <div class="mt-3">
-                                    <span class="info-label">Progreso Total del Plan ({{ "%.0f"|format(progreso_total) }}%)</span>
-                                    <div class="progress" style="height: 10px;">
-                                        <div class="progress-bar" role="progressbar" style="width: {{ progreso_total }}%;" aria-valuenow="{{ progreso_total }}" aria-valuemin="0" aria-valuemax="100"></div>
-                                    </div>
-                                    <div class="d-flex justify-content-between small mt-1">
-                                        <span>Pagadas: {{ cuotas_pagadas_total | int }}</span>
-                                        <span>Restantes: {{ (cuotas_totales | int) - (cuotas_pagadas_total | int) }}</span>
-                                        <span>Total: {{ cuotas_totales | int }}</span>
-                                    </div>
-                                </div>
-                                
-                                {% set balance = cliente.balance_regresivo|float or 0.0 %}
-                                {% set valor_cuota = cliente.valor_cuota|float or 0.0 %}
-                                {% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
-                                {% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}
-                                <div class="mt-3">
-                                     <span class="info-label">Saldo a Favor (Abono a Cuota N° {{ cuota_regresiva_objetivo }})</span>
-                                    <div class="progress" style="height: 10px;">
-                                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ progreso_cuota_actual }}%;" aria-valuenow="{{ progreso_cuota_actual }}" aria-valuemin="0" aria-valuemax="100"></div>
-                                    </div>
-                                    <div class="d-flex justify-content-between small mt-1">
-                                        <span>Abonado: ${{ "%.2f"|format(balance) }}</span>
-                                        <span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                             <div class="col-md-3 mb-4 text-center">
-                                <h6 class="mb-3">Acciones</h6>
-                                <div class="d-grid gap-2">
-                                    <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-primary btn-sm btn-action">Registrar Pago</a>
-                                    <a href="{{ url_for('registrar_oferta', client_id=cliente.id) }}" class="btn btn-info btn-sm btn-action text-white">Registrar Oferta</a>
-                                    <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-secondary btn-sm btn-action">Ver Contrato</a>
-                                    {% if g.admin and g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
-                                        <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-warning btn-sm btn-action">Editar</a>
-                                    {% endif %}
-                                    {% if g.admin and g.admin.rol == 'superadmin' %}
-                                        <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres eliminar a este cliente? Esta acción es irreversible.');" class="d-grid">
-                                            <button type="submit" class="btn btn-danger btn-sm btn-action">Eliminar</button>
-                                        </form>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
+    <div id="client-results">
+        {% for cliente in clientes %}
+        <div class="client-card-original">
+            <h3>{{ cliente.nombre_apellido }}</h3>
+            <p><strong>Proceso:</strong> {{ cliente.proceso or 'N/A' }}</p>
+            <p><strong>Grupo:</strong> {{ cliente.grupo or 'N/A' }}</p>
+            <p><strong>Plan:</strong> {{ cliente.plan_contratado or 'N/A' }}</p>
+            <p><strong>Cuotas Pagadas:</strong> {{ cliente.cuotas_pagadas_progresivas | int }} de {{ cliente.cuotas_totales | int }}</p>
+            <p><strong>Cédula:</strong> {{ cliente.cedula }}</p>
+            <p><strong>Contrato:</strong> {{ cliente.contrato_nro or 'N/A' }}</p>
+            <p><strong>Teléfono:</strong> {{ cliente.telefono or 'N/A' }}</p>
+            <p><strong>Asesor:</strong> {{ cliente.asesor or 'N/A' }}</p>
+            <p><strong>Inscripción:</strong> ${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</p>
 
-                        <hr>
-                        {% if cliente.pagos %}
-                        <div>
-                            <h6 class="mb-3">Historial de Pagos</h6>
-                            <ul class="list-group list-group-flush">
-                                {% for pago in cliente.pagos %}
-                                <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap pago-item">
-                                    <div class="me-auto">
-                                        <strong>{{ pago.tipo_pago }}</strong> - <span class="text-muted">{{ pago.por_concepto_de or 'N/A' }}</span><br>
-                                        <small>{{ pago.fecha_pago.strftime('%d/%m/%Y') }} | Ref: {{ pago.referencia or 'N/A' }}</small>
-                                    </div>
-                                    <div class="mx-3">
-                                        <strong class="fs-5">${{ "%.2f"|format(pago.monto) }}</strong>
-                                    </div>
-                                    <div>
-                                        {% if pago.estado_pago == 'Pendiente' %}
-                                            <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" class="d-inline">
-                                                <button type="submit" class="btn btn-warning btn-sm">Conciliar</button>
-                                            </form>
-                                        {% elif pago.estado_pago == 'Conciliado' %}
-                                            <span class="badge bg-success">{{ pago.estado_pago }}</span>
-                                            {% if pago.puntualidad %}
-                                                <span class="badge {{ 'bg-success' if pago.puntualidad == 'Puntual' else 'bg-danger' }}">{{ pago.puntualidad }}</span>
-                                            {% endif %}
-                                            <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-outline-primary btn-sm ms-2">Ver Recibo</a>
-                                        {% elif pago.estado_pago == 'Anulado' %}
-                                             <span class="badge bg-secondary">{{ pago.estado_pago }}</span>
-                                             <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-outline-secondary btn-sm ms-2">Ver Anulado</a>
-                                        {% endif %}
-                                    </div>
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
+            <hr>
+            
+            {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}
+            {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}
+            {% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}
+            {% set cuotas_totales = cliente.cuotas_totales or 0 %}
+            {% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+            
+            <h4>Progreso Total del Plan: {{ "%.0f"|format(progreso_total) }}%</h4>
+            <p>Pagadas: {{ cuotas_pagadas_total | int }}, Restantes: {{ (cuotas_totales | int) - (cuotas_pagadas_total | int) }}, Total: {{ cuotas_totales | int }}</p>
+            
+            <br>
+            
+            {% set balance = cliente.balance_regresivo|float or 0.0 %}
+            {% set valor_cuota = cliente.valor_cuota|float or 0.0 %}
+            {% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
+            {% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}
+
+            <h4>Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }}) - {{ "%.0f"|format(progreso_cuota_actual) }}%</h4>
+            <p>Abonado: ${{ "%.2f"|format(balance) }}, Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}, Valor Cuota: ${{ "%.2f"|format(valor_cuota) }}</p>
+
+            <hr>
+            
+            {% if cliente.pagos %}
+                <h4>Historial de Pagos</h4>
+                {% for pago in cliente.pagos %}
+                    <div style="border-bottom: 1px solid #eee; padding: 10px 0;">
+                        <p>
+                            <strong>{{ pago.tipo_pago }} - {{ pago.por_concepto_de }}</strong><br>
+                            Fecha: {{ pago.fecha_pago.strftime('%d/%m/%Y') }} | Ref: {{ pago.referencia or 'N/A' }}<br>
+                            Monto: <strong>${{ "%.2f"|format(pago.monto) }}</strong><br>
+                            Estado: {{ pago.estado_pago }} {% if pago.puntualidad %} ({{ pago.puntualidad }}) {% endif %}
+                        </p>
+                        {% if pago.estado_pago == 'Pendiente' %}
+                            <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-warning">Conciliar</button>
+                            </form>
+                        {% elif pago.estado_pago == 'Conciliado' %}
+                             <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-sm btn-success">Ver Recibo</a>
+                        {% elif pago.estado_pago == 'Anulado' %}
+                             <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-sm btn-secondary">Ver Anulado</a>
                         {% endif %}
                     </div>
-                </div>
                 {% endfor %}
+            {% endif %}
+
+            <hr>
+            
+            <div class="client-actions" style="margin-top: 20px;">
+                <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-primary">Registrar Pago</a>
+                <a href="{{ url_for('registrar_oferta', client_id=cliente.id) }}" class="btn btn-info text-white">Registrar Oferta</a>
+                <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-secondary" target="_blank">Ver Contrato</a>
+                {% if g.admin and g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
+                    <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-warning text-dark">Editar</a>
+                {% endif %}
+                {% if g.admin and g.admin.rol == 'superadmin' %}
+                    <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres eliminar a este cliente?');">
+                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                    </form>
+                {% endif %}
             </div>
         </div>
+        {% endfor %}
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
