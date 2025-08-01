@@ -76,10 +76,9 @@
             box-shadow: 0 8px 25px rgba(0,0,0,0.08); 
             height: 100%;
         }
-        /* Contenedor para el canvas para controlar su tamaño */
         .chart-wrapper {
             position: relative;
-            height: 350px; /* Altura fija para evitar el crecimiento infinito */
+            height: 350px;
             width: 100%;
         }
         .footer { 
@@ -93,7 +92,7 @@
 <body>
     
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
-        <div class="container-fluid">
+        <div class="container-fluid d-flex justify-content-between align-items-center">
             <a class="navbar-brand" href="{{ url_for('gestion_administrativa') }}">
                 <i class="bi bi-arrow-left"></i> Volver a Gestión
             </a>
