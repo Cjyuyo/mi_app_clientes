@@ -126,24 +126,28 @@
             <div class="card-header"><h5 class="mb-0"><i class="bi bi-filter-circle-fill me-2 text-primary"></i>Filtros del Reporte</h5></div>
             <div class="card-body p-4">
                 <form method="POST" action="{{ url_for('reporte_flujo_caja') }}" class="row g-3 align-items-end">
-                    <div class="col-md-5"><label for="fecha_reporte" class="form-label fw-bold">Fecha del Reporte</label><input type="date" class="form-control form-control-lg" id="fecha_reporte" name="fecha_reporte" value="{{ fecha_reporte }}" required></div>
-                    <div class="col-md-4"><label class="form-label fw-bold">Tasa BCV del Día</label>
-                        {% if tasa_actual_bcv > 0 %}<input type="text" class="form-control form-control-lg is-valid" value="{{ '{:,.4f}'.format(tasa_actual_bcv) }} Bs." readonly>
-                        {% else %}<div class="form-control form-control-lg is-invalid d-flex justify-content-between align-items-center"><span>No establecida</span>{% if g.admin and g.admin.rol == 'superadmin' %}<a href="{{ url_for('admin_tasa_bcv') }}" class="btn btn-sm btn-outline-primary">Configurar</a>{% endif %}</div>{% endif %}
+                    <div class="col-md-4"><label for="fecha_reporte" class="form-label fw-bold">Fecha del Reporte</label><input type="date" class="form-control form-control-lg" id="fecha_reporte" name="fecha_reporte" value="{{ fecha_reporte }}" required></div>
+                    <div class="col-md-3"><label class="form-label fw-bold">Tasa Dólar ($)</label>
+                        {% if tasas_del_dia.usd > 0 %}<input type="text" class="form-control form-control-lg is-valid" value="{{ '{:,.4f}'.format(tasas_del_dia.usd) }} Bs." readonly>
+                        {% else %}<div class="form-control form-control-lg is-invalid text-center">No establecida</div>{% endif %}
                     </div>
-                    <div class="col-md-3"><button type="submit" class="btn btn-primary btn-lg w-100"><i class="bi bi-arrow-clockwise"></i> Generar</button></div>
+                    <div class="col-md-3"><label class="form-label fw-bold">Tasa Euro (€)</label>
+                        {% if tasas_del_dia.eur > 0 %}<input type="text" class="form-control form-control-lg is-valid" value="{{ '{:,.4f}'.format(tasas_del_dia.eur) }} Bs." readonly>
+                        {% else %}<div class="form-control form-control-lg is-invalid text-center">No establecida</div>{% endif %}
+                    </div>
+                    <div class="col-md-2"><button type="submit" class="btn btn-primary btn-lg w-100"><i class="bi bi-arrow-clockwise"></i> Generar</button></div>
                 </form>
             </div>
         </div>
 
-        {% if mostrar_resultados and tasa_actual_bcv > 0 %}
+        {% if mostrar_resultados %}
         <!-- Saldos Acumulados -->
         <h2 class="mb-4 fw-bold">Saldos Totales Acumulados</h2>
         <div class="row g-4">
             <div class="col-12"><div class="content-card stat-card balance-card"><div class="card-body text-center p-4 p-md-5"><div class="stat-label">Balance General Consolidado (USD)</div><div class="stat-value">${{ "{:,.2f}".format(resumen.balance_general_consolidado_usd) }}</div></div></div></div>
             <div class="col-md-4"><div class="content-card stat-card"><div class="card-body p-4"><div class="d-flex align-items-center"><i class="bi bi-cash-stack fs-1 text-success me-3"></i><div><div class="stat-label">Efectivo (USD)</div><div class="stat-value text-success">${{ "{:,.2f}".format(resumen.balance_efectivo_usd) }}</div></div></div></div></div></div>
             <div class="col-md-4"><div class="content-card stat-card"><div class="card-body p-4"><div class="d-flex align-items-center"><i class="bi bi-currency-bitcoin fs-1 text-warning me-3"></i><div><div class="stat-label">Binance (USDT)</div><div class="stat-value text-warning">${{ "{:,.2f}".format(resumen.balance_binance_usdt) }}</div></div></div></div></div></div>
-            <div class="col-md-4"><div class="content-card stat-card"><div class="card-body p-4 d-flex flex-column justify-content-center"><div class="stat-label text-center">Saldo en Bolívares</div><div class="d-flex align-items-center justify-content-center mt-2 flex-wrap"><div class="stat-value" style="color: #6f42c1;">{{ "{:,.2f}".format(resumen.balance_bolivares_bs) }}</div><i class="bi bi-arrow-right-short fs-1 mx-2 text-muted"></i><div class="stat-value text-muted">${{ "{:,.2f}".format(resumen.balance_bolivares_usd) }}</div></div></div></div></div>
+            <div class="col-md-4"><div class="content-card stat-card"><div class="card-body p-4 text-center"><div class="stat-label">Saldo en Bolívares</div><div class="stat-value" style="color: #6f42c1;">{{ "{:,.2f}".format(resumen.balance_bolivares_bs) }} Bs</div><div class="sub-value mt-1 fw-bold">~ ${{ "{:,.2f}".format(resumen.balance_bolivares_usd) }}</div></div></div></div>
         </div>
 
         <!-- Análisis de Pérdidas -->
@@ -166,7 +170,7 @@
             </tbody></table></div></div></div></div>
         </div>
         {% elif request.method == 'POST' %}
-        <div class="alert alert-warning text-center p-5"><i class="bi bi-exclamation-triangle-fill fs-1"></i><h3 class="mt-3">No se puede generar el reporte</h3><p class="lead">La tasa BCV para el día <strong>{{ fecha_reporte | format_date }}</strong> no ha sido establecida.</p>{% if g.admin and g.admin.rol == 'superadmin' %}<a href="{{ url_for('admin_tasa_bcv') }}" class="btn btn-primary mt-3">Establecer Tasa Ahora</a>{% endif %}</div>
+        <div class="alert alert-warning text-center p-5"><i class="bi bi-exclamation-triangle-fill fs-1"></i><h3 class="mt-3">No se puede generar el reporte</h3><p class="lead">La tasa BCV del Dólar para el día <strong>{{ fecha_reporte | format_date }}</strong> no ha sido establecida.</p>{% if g.admin and g.admin.rol == 'superadmin' %}<a href="{{ url_for('admin_tasa_bcv') }}" class="btn btn-primary mt-3">Establecer Tasa Ahora</a>{% endif %}</div>
         {% endif %}
     </main>
 

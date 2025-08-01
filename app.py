@@ -434,8 +434,7 @@ def admin_tasa_bcv():
                             ON CONFLICT (fecha) DO UPDATE SET
                                 tasa = EXCLUDED.tasa,
                                 tasa_euro = EXCLUDED.tasa_euro,
-                                establecida_por_id = EXCLUDED.establecida_por_id,
-                                fecha_actualizacion = NOW();
+                                establecida_por_id = EXCLUDED.establecida_por_id;
                             """,
                             (today_str, tasa_usd, tasa_eur, g.admin['id'])
                         )
@@ -445,14 +444,12 @@ def admin_tasa_bcv():
                     else:
                         flash('Las tasas deben ser números positivos.', 'danger')
                 
-                # Cargar tasas del día actual
                 cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha = %s", (today_str,))
                 resultado = cur.fetchone()
                 if resultado:
                     tasas_de_hoy['usd'] = resultado['tasa']
                     tasas_de_hoy['eur'] = resultado['tasa_euro']
                 
-                # Cargar historial reciente
                 cur.execute("""
                     SELECT h.fecha, h.tasa, h.tasa_euro, a.usuario 
                     FROM historial_tasas_bcv h
@@ -484,19 +481,20 @@ def reporte_flujo_caja():
     
     fecha_reporte_str = request.form.get('fecha_reporte') or request.args.get('fecha_reporte') or today.strftime('%Y-%m-%d')
     
-    tasa_bcv_decimal = Decimal('0.0')
+    tasas_del_dia = {'usd': Decimal('0.0'), 'eur': Decimal('0.0')}
     mostrar_resultados = False
     resumen = {}
     historial_binance = []
 
     if conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha = %s", (fecha_reporte_str,))
+            cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha = %s", (fecha_reporte_str,))
             resultado_tasa = cur.fetchone()
             if resultado_tasa:
-                tasa_bcv_decimal = resultado_tasa['tasa']
+                tasas_del_dia['usd'] = resultado_tasa['tasa'] or Decimal('0.0')
+                tasas_del_dia['eur'] = resultado_tasa['tasa_euro'] or Decimal('0.0')
 
-    if tasa_bcv_decimal > 0:
+    if tasas_del_dia['usd'] > 0:
         mostrar_resultados = True
         try:
             with conn.cursor() as cur:
@@ -526,13 +524,11 @@ def reporte_flujo_caja():
                 egresos_bs_conversion = cur.fetchone()[0] or Decimal('0.0')
                 
                 resumen['balance_bolivares_bs'] = ingresos_bs_total - egresos_bs_conversion
-                resumen['balance_bolivares_usd'] = resumen['balance_bolivares_bs'] / tasa_bcv_decimal
+                resumen['balance_bolivares_usd'] = resumen['balance_bolivares_bs'] / tasas_del_dia['usd']
 
                 resumen['balance_general_consolidado_usd'] = resumen['balance_efectivo_usd'] + resumen['balance_binance_usdt'] + resumen['balance_bolivares_usd']
                 
                 # --- Cálculo de Pérdidas Acumuladas ---
-
-                # 1. Pérdida por Devaluación
                 cur.execute("""
                     SELECT COALESCE(SUM(CASE WHEN tasa_dia > 0 THEN monto_bs / tasa_dia ELSE 0 END), 0) 
                     FROM pagos 
@@ -550,7 +546,6 @@ def reporte_flujo_caja():
                 valor_teorico_saldo_bs_en_usd = valor_historico_ingresos_bs_en_usd - valor_historico_egresos_bs_en_usd
                 resumen['acumulado_perdida_devaluacion'] = valor_teorico_saldo_bs_en_usd - resumen['balance_bolivares_usd']
 
-                # 2. Pérdida por Conversión
                 cur.execute("""
                     SELECT COALESCE(SUM(perdida_cambiaria), 0) 
                     FROM operaciones_tesoreria 
@@ -558,10 +553,8 @@ def reporte_flujo_caja():
                 """, (fecha_fin_timestamp,))
                 resumen['acumulado_perdida_conversion'] = cur.fetchone()[0] or Decimal('0.0')
 
-                # 3. Total de Pérdidas
                 resumen['acumulado_total_perdidas'] = resumen['acumulado_perdida_devaluacion'] + resumen['acumulado_perdida_conversion']
 
-                # Historial de operaciones del día para la tabla
                 fecha_inicio_periodo = datetime.combine(fecha_reporte_dt, datetime.min.time())
                 cur.execute("SELECT * FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s ORDER BY fecha_operacion DESC", (fecha_inicio_periodo, fecha_fin_timestamp))
                 historial_binance = cur.fetchall()
@@ -571,12 +564,12 @@ def reporte_flujo_caja():
             logging.error(f"Error en reporte_flujo_caja: {e}", exc_info=True)
             mostrar_resultados = False
     elif request.method == 'POST':
-        flash(f"No se puede generar el reporte. La tasa BCV para el día {format_date_filter(fecha_reporte_str)} no ha sido establecida.", "warning")
+        flash(f"No se puede generar el reporte. La tasa BCV del Dólar para el día {format_date_filter(fecha_reporte_str)} no ha sido establecida.", "warning")
 
     return render_template(
         'reporte_flujo_caja.html',
         fecha_reporte=fecha_reporte_str,
-        tasa_actual_bcv=tasa_bcv_decimal,
+        tasas_del_dia=tasas_del_dia,
         mostrar_resultados=mostrar_resultados,
         resumen=resumen,
         historial_binance=historial_binance,
