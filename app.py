@@ -21,13 +21,20 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-desarrollo')
 
+# Definir la zona horaria de Venezuela
+VENEZUELA_TZ = pytz.timezone('America/Caracas')
+
+def get_venezuela_current_date():
+    """Devuelve la fecha actual en la zona horaria de Venezuela."""
+    return datetime.now(VENEZUELA_TZ).date()
+
 # =================================================================================
 # ===== FILTRO DE FECHA PARA PLANTILLAS JINJA2 =====
 # =================================================================================
 @app.template_filter('format_date')
 def format_date_filter(value, format='%d/%m/%Y'):
     if value == 'now':
-        return date.today().strftime(format)
+        return get_venezuela_current_date().strftime(format)
     if isinstance(value, str):
         try:
             value = datetime.strptime(value, '%Y-%m-%d').date()
@@ -157,7 +164,7 @@ def admin_login():
         conn = get_db()
         if not conn:
             flash('Error de conexión con la base de datos.', 'danger')
-            return render_template('admin_login.html', anio_actual=datetime.now().year)
+            return render_template('admin_login.html', anio_actual=get_venezuela_current_date().year)
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM administradores WHERE usuario = %s", (usuario,))
             admin = cur.fetchone()
@@ -170,7 +177,7 @@ def admin_login():
                 return redirect(url_for('hub'))
             else:
                 flash('Usuario o contraseña incorrectos.', 'danger')
-    return render_template('admin_login.html', anio_actual=datetime.now().year)
+    return render_template('admin_login.html', anio_actual=get_venezuela_current_date().year)
 
 @app.route('/admin/dashboard')
 @admin_required
@@ -211,14 +218,14 @@ def hub():
                 ORDER BY usuario
             """)
             usuarios = cur.fetchall()
-    return render_template('hub.html', anio_actual=datetime.now().year, usuarios=usuarios)
+    return render_template('hub.html', anio_actual=get_venezuela_current_date().year, usuarios=usuarios)
 
 # --- MÓDULO DE GESTIÓN ADMINISTRATIVA Y COBRANZA ---
 @app.route('/gestion_administrativa')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def gestion_administrativa():
-    return render_template('gestion_administrativa.html', anio_actual=date.today().year)
+    return render_template('gestion_administrativa.html', anio_actual=get_venezuela_current_date().year)
 
 @app.route('/mi_cartera')
 @admin_required
@@ -239,7 +246,7 @@ def mi_cartera():
         except psycopg2.Error as e:
             flash(f"No se pudo cargar tu cartera de clientes: {e}", "error")
             
-    return render_template('mi_cartera.html', clientes=clientes_asignados, anio_actual=date.today().year)
+    return render_template('mi_cartera.html', clientes=clientes_asignados, anio_actual=get_venezuela_current_date().year)
 
 
 @app.route('/reportes/metricas')
@@ -247,7 +254,7 @@ def mi_cartera():
 @rol_requerido('superadmin', 'gerente')
 def reporte_metricas():
     conn = get_db()
-    today = date.today()
+    today = get_venezuela_current_date()
     dashboard_metrics = {
         'clientes_activos': 0,
         'clientes_adjudicados': 0,
@@ -310,14 +317,14 @@ def reporte_metricas():
         except psycopg2.Error as e:
             flash(f"No se pudieron cargar las métricas del dashboard: {e}", "error")
 
-    return render_template('reporte_metricas.html', anio_actual=datetime.now().year, metrics=dashboard_metrics)
+    return render_template('reporte_metricas.html', anio_actual=get_venezuela_current_date().year, metrics=dashboard_metrics)
 
 @app.route('/reportes/morosidad')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def reporte_morosidad():
     conn = get_db()
-    today = date.today()
+    today = get_venezuela_current_date()
     clientes_en_mora = []
     gestores = []
     resumen = {'total_clientes_mora': 0, 'monto_total_mora': 0}
@@ -406,7 +413,7 @@ def asignar_gestor(cliente_id):
 @rol_requerido('superadmin')
 def admin_tasa_bcv():
     conn = get_db()
-    today_str = date.today().strftime('%Y-%m-%d')
+    today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
     tasa_de_hoy = None
     historial_tasas = []
 
@@ -457,7 +464,7 @@ def admin_tasa_bcv():
     return render_template('admin_tasa_bcv.html', 
                            tasa_de_hoy=tasa_de_hoy, 
                            historial_tasas=historial_tasas,
-                           anio_actual=date.today().year)
+                           anio_actual=get_venezuela_current_date().year)
 
 # =================================================================================
 # ===== LÓGICA DE FLUJO DE CAJA (CORREGIDA) =====
@@ -467,7 +474,7 @@ def admin_tasa_bcv():
 @rol_requerido('superadmin', 'gerente')
 def reporte_flujo_caja():
     conn = get_db()
-    today = date.today()
+    today = get_venezuela_current_date()
     
     fecha_reporte_str = request.form.get('fecha_reporte') or request.args.get('fecha_reporte')
     
@@ -591,7 +598,7 @@ def reporte_flujo_caja():
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def registrar_operacion_tesoreria():
-    fecha_reporte_redirect = request.form.get('fecha_reporte_hidden', date.today().strftime('%Y-%m-%d'))
+    fecha_reporte_redirect = request.form.get('fecha_reporte_hidden', get_venezuela_current_date().strftime('%Y-%m-%d'))
     
     try:
         monto_bs_str = request.form.get('monto_bs_convertido')
@@ -677,7 +684,7 @@ def perfil_cliente(cliente_id):
             flash(f"Error al cargar el perfil del cliente: {e}", "error")
             return redirect(url_for('consulta'))
 
-    return render_template('cliente_perfil.html', cliente=cliente, pagos=pagos, gestiones=gestiones, anio_actual=date.today().year)
+    return render_template('cliente_perfil.html', cliente=cliente, pagos=pagos, gestiones=gestiones, anio_actual=get_venezuela_current_date().year)
 
 @app.route('/agregar_gestion/<int:cliente_id>', methods=['POST'])
 @admin_required
@@ -791,7 +798,7 @@ def generar_contrato(client_id):
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('home'))
 
-    return render_template('contrato.html', cliente=cliente, anio_actual=datetime.now().year)
+    return render_template('contrato.html', cliente=cliente, anio_actual=get_venezuela_current_date().year)
 
 @app.route('/guardar_firma_cliente/<int:client_id>', methods=['POST'])
 @admin_required
@@ -842,7 +849,7 @@ def guardar_firma_empresa(client_id):
                 "UPDATE clientes SET firma_empresa = %s WHERE id = %s",
                 (firma_empresa, client_id)
             )
-            cur.execute("UPDATE clientes SET fecha_firma = %s WHERE id = %s AND fecha_firma IS NULL", (datetime.now(pytz.timezone('America/Caracas')), client_id))
+            cur.execute("UPDATE clientes SET fecha_firma = %s WHERE id = %s AND fecha_firma IS NULL", (datetime.now(VENEZUELA_TZ), client_id))
             conn.commit()
             flash('¡Firma de la empresa guardada exitosamente!', 'success')
     except (psycopg2.Error, ConnectionError) as e:
@@ -1096,7 +1103,7 @@ def verificar_recibo(pago_id):
         query = "SELECT p.id, p.monto, p.fecha_pago, p.estado_pago, p.tipo_pago, (c.nombre || ' ' || c.apellido) as nombre_apellido FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s;"
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
-    current_year = datetime.now().year
+    current_year = get_venezuela_current_date().year
     return render_template('verificacion_recibo.html', pago=pago, current_year=current_year)
 
 @app.route('/recibo_anulado/<int:pago_id>')
@@ -1223,7 +1230,7 @@ def guardar_oferta(client_id):
                 cedula_cliente = cliente_info['cedula']
                 nombre_cliente = cliente_info['nombre_apellido']
 
-            hoy = datetime.now().date()
+            hoy = get_venezuela_current_date()
             inicio_mes = hoy.replace(day=1)
             
             cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND puntualidad = 'Impuntual' AND fecha_pago >= %s", (client_id, inicio_mes))
@@ -1341,13 +1348,8 @@ def realizar_adjudicacion():
 def auditoria():
     conn = get_db()
     logs = []
-    try:
-        import pytz
-        vz_tz = pytz.timezone('America/Caracas')
-        fecha_actual_vet = datetime.now(vz_tz).strftime('%Y-%m-%d')
-    except ImportError:
-        fecha_actual_vet = datetime.now().strftime('%Y-%m-%d')
-
+    
+    fecha_actual_vet = get_venezuela_current_date().strftime('%Y-%m-%d')
     fecha_filtro_str = request.args.get('fecha', fecha_actual_vet)
     
     fecha_para_sql = fecha_filtro_str
@@ -1359,7 +1361,7 @@ def auditoria():
     
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
-        return render_template('auditoria.html', logs=logs, anio_actual=datetime.now().year, fecha_filtro=fecha_filtro_str)
+        return render_template('auditoria.html', logs=logs, anio_actual=get_venezuela_current_date().year, fecha_filtro=fecha_filtro_str)
     
     try:
         with conn.cursor() as cur:
@@ -1380,19 +1382,13 @@ def auditoria():
     except (Exception, psycopg2.Error) as e:
         flash(f"Error al consultar los registros de auditoría: {e}", "error")
 
-    return render_template('auditoria.html', logs=logs, anio_actual=datetime.now().year, fecha_filtro=fecha_filtro_str)
+    return render_template('auditoria.html', logs=logs, anio_actual=get_venezuela_current_date().year, fecha_filtro=fecha_filtro_str)
 
 @app.route('/descargar_reporte_auditoria')
 @admin_required
 @rol_requerido('superadmin')
 def descargar_reporte_auditoria():
-    try:
-        import pytz
-        vz_tz = pytz.timezone('America/Caracas')
-        fecha_actual_vet = datetime.now(vz_tz).strftime('%Y-%m-%d')
-    except ImportError:
-        fecha_actual_vet = datetime.now().strftime('%Y-%m-%d')
-        
+    fecha_actual_vet = get_venezuela_current_date().strftime('%Y-%m-%d')
     fecha_reporte_str = request.args.get('fecha', fecha_actual_vet)
 
     fecha_para_sql = fecha_reporte_str
@@ -1457,11 +1453,11 @@ def portal_login():
         contrato_nro = request.form.get('contrato_nro', '').strip().upper().replace('MP-', '')
         if not cedula or not contrato_nro:
             flash('La cédula y el número de contrato son obligatorios.', 'error')
-            return render_template('portal_login.html', anio_actual=datetime.now().year)
+            return render_template('portal_login.html', anio_actual=get_venezuela_current_date().year)
         conn = get_db()
         if not conn:
             flash('Error de conexión con el servidor. Intente más tarde.', 'error')
-            return render_template('portal_login.html', anio_actual=datetime.now().year)
+            return render_template('portal_login.html', anio_actual=get_venezuela_current_date().year)
         try:
             with conn.cursor() as cur:
                 sql_query = "SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE TRIM(cedula) = %s AND SPLIT_PART(REPLACE(TRIM(contrato_nro), 'MP-', ''), '.', 1) = %s;"
@@ -1476,7 +1472,7 @@ def portal_login():
                 flash('Credenciales incorrectas. Verifique sus datos e intente de nuevo.', 'error')
         except psycopg2.Error as e:
             flash(f'Error de base de datos: {e}', 'error')
-    return render_template('portal_login.html', anio_actual=datetime.now().year)
+    return render_template('portal_login.html', anio_actual=get_venezuela_current_date().year)
 
 @app.route('/portal/dashboard')
 def portal_dashboard():
@@ -1501,7 +1497,8 @@ def portal_dashboard():
             pagos = cur.fetchall()
             cliente_dict['pagos'] = pagos
 
-            hoy, dia_de_vencimiento = datetime.now().date(), 3
+            hoy = get_venezuela_current_date()
+            dia_de_vencimiento = 3
             pago_del_mes_realizado = any(pago['tipo_pago'] == 'Cuota' and pago['fecha_pago'].year == hoy.year and pago['fecha_pago'].month == hoy.month for pago in pagos)
             
             estado_cuota = {}
@@ -1534,7 +1531,7 @@ def portal_reportar_pago():
         flash('No se encontró su información de cliente.', 'error')
         return redirect(url_for('portal_login'))
 
-    mes_actual = get_nombre_mes(datetime.now().date().month)
+    mes_actual = get_nombre_mes(get_venezuela_current_date().month)
     if request.method == 'POST':
         pago_form = {k: v if v else None for k, v in request.form.items()}
         if not all(pago_form.get(key) for key in ['monto', 'fecha_pago', 'forma_pago']):
@@ -1574,7 +1571,7 @@ def portal_estado_cuenta():
                 return redirect(url_for('portal_login'))
             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago ASC, id ASC;", (session['cliente_id'],))
             pagos = cur.fetchall()
-            fecha_generacion = datetime.now().strftime('%d/%m/%Y')
+            fecha_generacion = get_venezuela_current_date().strftime('%d/%m/%Y')
             return render_template('estado_cuenta.html', cliente=cliente, pagos=pagos, fecha_generacion=fecha_generacion)
     except psycopg2.Error as e:
         flash(f'Ocurrió un error al generar el estado de cuenta: {e}', 'error')
