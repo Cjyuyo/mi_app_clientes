@@ -8,26 +8,67 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         body { 
-            background-color: #f8f9fa; 
+            background-color: #f4f7f9; 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
         }
         .navbar { 
             background-color: #ffffff; 
-            box-shadow: 0 2px 4px rgba(0,0,0,.1); 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
-        .card-balance .value {
-            font-size: 1.75rem;
+        .main-title {
+            color: #1a253c;
+        }
+        .card {
+            border: none;
+            border-radius: 0.75rem;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.07);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+        }
+        .card-header.gradient-primary {
+            background: linear-gradient(45deg, #0d6efd, #0dcaf0);
+        }
+        .card-header.gradient-success {
+            background: linear-gradient(45deg, #198754, #20c997);
+        }
+        .card-header.gradient-warning {
+            background: linear-gradient(45deg, #ffc107, #fd7e14);
+        }
+        .card-header.gradient-info {
+            background: linear-gradient(45deg, #0dcaf0, #6610f2);
+        }
+        .card-header.gradient-dark {
+            background: linear-gradient(45deg, #212529, #495057);
+        }
+
+        .stat-card .icon {
+            font-size: 2rem;
+            opacity: 0.2;
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .stat-card .stat-value {
+            font-size: 2.25rem;
             font-weight: 700;
+            color: #1a253c;
         }
-        .card-balance .sub-value {
+        .stat-card .stat-label {
             font-size: 0.9rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        .stat-card .sub-value {
+            font-size: 1rem;
             font-weight: 500;
             color: #6c757d;
         }
-        .card-performance .value {
-            font-size: 2rem;
-            font-weight: 700;
-        }
+
         .footer { 
             text-align: center; 
             padding: 20px; 
@@ -57,7 +98,7 @@
 
     <main class="container">
         <div class="text-center mb-5">
-            <h1 class="display-5 fw-bold">Reporte de Flujo de Caja</h1>
+            <h1 class="display-4 fw-bold main-title">Reporte de Flujo de Caja</h1>
             <p class="lead text-muted">Estado de saldos y análisis de rendimiento financiero.</p>
         </div>
 
@@ -73,9 +114,9 @@
         {% endwith %}
 
         <!-- Filtros -->
-        <div class="card shadow-sm mb-5">
-            <div class="card-header bg-dark text-white">
-                <i class="bi bi-filter"></i> Filtros del Reporte
+        <div class="card mb-5">
+            <div class="card-header gradient-dark text-white">
+                <h5 class="mb-0"><i class="bi bi-filter-circle-fill me-2"></i>Filtros del Reporte</h5>
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('reporte_flujo_caja') }}" class="row g-3 align-items-end">
@@ -88,10 +129,10 @@
                         {% if tasa_actual_bcv > 0 %}
                             <input type="text" class="form-control is-valid" value="{{ '{:,.4f}'.format(tasa_actual_bcv) }} Bs." readonly>
                         {% else %}
-                            <div class="form-control is-invalid">
-                                No establecida. 
+                            <div class="form-control is-invalid d-flex justify-content-between align-items-center">
+                                <span>No establecida.</span>
                                 {% if g.admin and g.admin.rol == 'superadmin' %}
-                                <a href="{{ url_for('admin_tasa_bcv') }}">Configurar</a>
+                                <a href="{{ url_for('admin_tasa_bcv') }}" class="btn btn-sm btn-outline-primary">Configurar</a>
                                 {% endif %}
                             </div>
                         {% endif %}
@@ -104,41 +145,42 @@
         </div>
 
         {% if mostrar_resultados and tasa_actual_bcv > 0 %}
-        <h2 class="mb-3">Saldos Totales Acumulados</h2>
+        <h2 class="mb-4 main-title fw-bold">Saldos Totales Acumulados</h2>
         <div class="row g-4">
             <div class="col-lg-4">
-                <div class="card shadow-sm h-100">
-                    <div class="card-header bg-primary text-white">
-                        <i class="bi bi-bank2"></i> Balance General Consolidado
-                    </div>
+                <div class="card stat-card h-100 text-white" style="background: linear-gradient(135deg, #37474f 0%, #263238 100%);">
                     <div class="card-body text-center d-flex flex-column justify-content-center">
-                        <h2 class="display-5 fw-bold">${{ "{:,.2f}".format(resumen.balance_general_consolidado_usd) }}</h2>
+                        <div class="stat-label text-white-50">Balance General Consolidado</div>
+                        <div class="stat-value text-white">${{ "{:,.2f}".format(resumen.balance_general_consolidado_usd) }}</div>
                     </div>
                 </div>
             </div>
             <div class="col-lg-8">
                 <div class="row g-4">
                     <div class="col-md-4">
-                        <div class="card card-balance text-center shadow-sm">
-                            <div class="card-header bg-success text-white"><i class="bi bi-cash-coin"></i> Efectivo</div>
-                            <div class="card-body">
-                                <div class="value">${{ "{:,.2f}".format(resumen.balance_efectivo_usd) }}</div>
+                        <div class="card stat-card">
+                            <div class="card-body position-relative">
+                                <i class="bi bi-cash-coin icon text-success"></i>
+                                <div class="stat-label">Efectivo</div>
+                                <div class="stat-value text-success">${{ "{:,.2f}".format(resumen.balance_efectivo_usd) }}</div>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="card card-balance text-center shadow-sm">
-                            <div class="card-header bg-warning text-dark"><i class="bi bi-currency-bitcoin"></i> Binance</div>
-                            <div class="card-body">
-                                <div class="value">${{ "{:,.2f}".format(resumen.balance_binance_usdt) }}</div>
+                        <div class="card stat-card">
+                            <div class="card-body position-relative">
+                                <i class="bi bi-currency-bitcoin icon text-warning"></i>
+                                <div class="stat-label">Binance</div>
+                                <div class="stat-value text-warning">${{ "{:,.2f}".format(resumen.balance_binance_usdt) }}</div>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="card card-balance text-center shadow-sm">
-                            <div class="card-header bg-info text-white"><i class="bi bi-bootstrap-fill"></i> Bolívares</div>
-                            <div class="card-body">
-                                <div class="value">{{ "{:,.2f}".format(resumen.balance_bolivares_bs) }} Bs</div>
+                        <div class="card stat-card">
+                            <div class="card-body position-relative">
+                                <i class="bi bi-bootstrap-fill icon text-info"></i>
+                                <div class="stat-label">Bolívares</div>
+                                <div class="stat-value text-info">{{ "{:,.2f}".format(resumen.balance_bolivares_bs) }} Bs</div>
                                 <div class="sub-value">(~ ${{ "{:,.2f}".format(resumen.balance_bolivares_usd) }})</div>
                             </div>
                         </div>
@@ -150,27 +192,26 @@
 
         <hr class="my-5">
 
-        <!-- OPERACIONES DE TESORERÍA (RESTAURADO) -->
-        <h2 class="mb-3">Operaciones de Tesorería</h2>
+        <h2 class="mb-4 main-title fw-bold">Operaciones de Tesorería</h2>
         <div class="row g-4">
             <div class="col-lg-5">
-                <div class="card shadow-sm h-100">
-                    <div class="card-header bg-dark text-white"><h5 class="mb-0"><i class="bi bi-send-plus"></i> Registrar Conversión a Binance</h5></div>
-                    <div class="card-body">
+                <div class="card h-100">
+                    <div class="card-header gradient-dark text-white"><h5 class="mb-0"><i class="bi bi-send-plus-fill me-2"></i> Registrar Conversión a Binance</h5></div>
+                    <div class="card-body p-4">
                         <form action="{{ url_for('registrar_operacion_tesoreria') }}" method="POST">
                             <input type="hidden" name="fecha_reporte_hidden" value="{{ fecha_reporte }}">
                             <div class="mb-3"><label for="monto_bs_convertido" class="form-label">Monto a Enviar (Bs.)</label><input type="number" step="any" class="form-control" id="monto_bs_convertido" name="monto_bs_convertido" required></div>
-                            <div class="mb-3"><label for="tasa_conversion_aplicada" class="form-label">Tasa de Conversión Aplicada (Bs. por $)</label><input type="number" step="any" class="form-control" id="tasa_conversion_aplicada" name="tasa_conversion_aplicada" required placeholder="Tasa real de la transacción"></div>
+                            <div class="mb-3"><label for="tasa_conversion_aplicada" class="form-label">Tasa de Conversión Aplicada</label><input type="number" step="any" class="form-control" id="tasa_conversion_aplicada" name="tasa_conversion_aplicada" required placeholder="Tasa real de la transacción"></div>
                             <div class="mb-3"><label for="monto_usdt_recibido" class="form-label">Monto Recibido (USDT)</label><input type="number" step="any" class="form-control" id="monto_usdt_recibido" name="monto_usdt_recibido" required></div>
                             <div class="mb-3"><label for="nota_conversion" class="form-label">Nota (Opcional)</label><input type="text" class="form-control" name="nota_conversion" placeholder="Ej: Conversión del día"></div>
-                            <button type="submit" class="btn btn-success w-100"><i class="bi bi-check-circle"></i> Registrar Operación</button>
+                            <button type="submit" class="btn btn-success w-100 mt-2"><i class="bi bi-check-circle-fill me-2"></i> Registrar Operación</button>
                         </form>
                     </div>
                 </div>
             </div>
             <div class="col-lg-7">
-                <div class="card shadow-sm h-100">
-                    <div class="card-header bg-dark text-white"><h5 class="mb-0"><i class="bi bi-clock-history"></i> Historial de Conversiones del Día</h5></div>
+                <div class="card h-100">
+                    <div class="card-header gradient-dark text-white"><h5 class="mb-0"><i class="bi bi-clock-history me-2"></i> Historial de Conversiones del Día</h5></div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table table-striped table-hover mb-0">
