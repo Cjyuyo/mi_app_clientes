@@ -476,21 +476,13 @@ def reporte_flujo_caja():
     conn = get_db()
     today = get_venezuela_current_date()
     
-    fecha_reporte_str = request.form.get('fecha_reporte') or request.args.get('fecha_reporte')
+    # Prioriza la fecha del formulario, luego de la URL, y si no, usa la de hoy.
+    fecha_reporte_str = request.form.get('fecha_reporte') or request.args.get('fecha_reporte') or today.strftime('%Y-%m-%d')
     
-    if not fecha_reporte_str:
-        return render_template(
-            'reporte_flujo_caja.html',
-            fecha_reporte=today.strftime('%Y-%m-%d'),
-            tasa_actual_bcv=Decimal('0.0'),
-            mostrar_resultados=False,
-            resumen={},
-            historial_binance=[],
-            anio_actual=today.year
-        )
-
-    mostrar_resultados = True
     tasa_bcv_decimal = Decimal('0.0')
+    mostrar_resultados = False
+    resumen = {}
+    historial_binance = []
 
     if conn:
         with conn.cursor() as cur:
@@ -498,17 +490,10 @@ def reporte_flujo_caja():
             resultado_tasa = cur.fetchone()
             if resultado_tasa:
                 tasa_bcv_decimal = resultado_tasa['tasa']
-    
-    resumen = {}
-    historial_binance = []
 
-    if not conn:
-        flash("Error de conexión a la base de datos.", "danger")
-        mostrar_resultados = False
-    elif tasa_bcv_decimal <= 0:
-        flash(f"No se puede generar el reporte. La tasa BCV para el día {format_date_filter(fecha_reporte_str)} no ha sido establecida.", "warning")
-        mostrar_resultados = False
-    else:
+    # Si hay una tasa válida, procede a generar el reporte automáticamente.
+    if tasa_bcv_decimal > 0:
+        mostrar_resultados = True
         try:
             with conn.cursor() as cur:
                 resumen = {
@@ -583,6 +568,9 @@ def reporte_flujo_caja():
             flash(f"Error al generar el reporte: {e}", "error")
             logging.error(f"Error en reporte_flujo_caja: {e}", exc_info=True)
             mostrar_resultados = False
+    elif request.method == 'POST':
+        # Si se hace POST pero la tasa es inválida, mostrar el error.
+        flash(f"No se puede generar el reporte. La tasa BCV para el día {format_date_filter(fecha_reporte_str)} no ha sido establecida.", "warning")
 
     return render_template(
         'reporte_flujo_caja.html',
