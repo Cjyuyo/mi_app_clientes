@@ -499,7 +499,6 @@ def reporte_flujo_caja():
         mostrar_resultados = True
         try:
             with conn.cursor() as cur:
-                # ### INICIO DE CAMBIO: Añadir nuevos campos al diccionario de resumen ###
                 resumen = {
                     'balance_efectivo_usd': Decimal('0.0'), 
                     'balance_binance_usdt': Decimal('0.0'),
@@ -515,7 +514,6 @@ def reporte_flujo_caja():
                     'acumulado_perdida_conversion': Decimal('0.0'),
                     'acumulado_total_perdidas': Decimal('0.0')
                 }
-                # ### FIN DE CAMBIO ###
                 
                 fecha_reporte_dt = datetime.strptime(fecha_reporte_str, '%Y-%m-%d').date()
                 fecha_fin_timestamp = datetime.combine(fecha_reporte_dt, datetime.max.time())
@@ -539,13 +537,11 @@ def reporte_flujo_caja():
                 resumen['balance_bs_eur_bs'] = ingresos_bs_eur_total
                 resumen['balance_bs_eur_eur'] = resumen['balance_bs_eur_bs'] / tasas_del_dia['eur'] if tasas_del_dia['eur'] > 0 else Decimal('0.0')
                 
-                # ### INICIO DE CAMBIO: Calcular los valores consolidados ###
                 resumen['balance_bs_consolidado_bs'] = resumen['balance_bs_usd_bs'] + resumen['balance_bs_eur_bs']
                 balance_bs_eur_en_usd = resumen['balance_bs_eur_bs'] / tasas_del_dia['usd'] if tasas_del_dia['usd'] > 0 else Decimal('0.0')
                 resumen['balance_bs_consolidado_usd'] = resumen['balance_bs_usd_usd'] + balance_bs_eur_en_usd
                 if resumen['balance_bs_consolidado_usd'] > 0:
                     resumen['tasa_ponderada_bs'] = resumen['balance_bs_consolidado_bs'] / resumen['balance_bs_consolidado_usd']
-                # ### FIN DE CAMBIO ###
 
                 resumen['balance_general_consolidado_usd'] = resumen['balance_efectivo_usd'] + resumen['balance_binance_usdt'] + resumen['balance_bs_consolidado_usd']
 
@@ -723,10 +719,7 @@ def agregar_gestion(cliente_id):
 @admin_required
 def registrar():
     return render_template('registrar.html')
-    
-# =================================================================================
-# ===== INICIO DE LA SECCIÓN MODIFICADA: registrar_cliente =========================
-# =================================================================================
+
 @app.route('/registrar_cliente', methods=['POST'])
 @admin_required
 def registrar_cliente():
@@ -736,9 +729,7 @@ def registrar_cliente():
         flash('Nombre, Cédula y N° de Contrato son obligatorios.', 'error')
         return redirect(url_for('registrar'))
 
-    # ===== INICIO DE LA CORRECCIÓN REFINADA: CONVERTIR STRINGS A NÚMEROS ======
     try:
-        # 1. Convertir montos de DINERO a Decimal
         if form_data.get('inscripcion_monto'):
             form_data['inscripcion_monto'] = Decimal(form_data['inscripcion_monto'].replace(',', '.'))
         else:
@@ -749,7 +740,6 @@ def registrar_cliente():
         else:
             form_data['valor_cuota'] = Decimal('0.00')
 
-        # 2. Convertir cantidades a Entero (Integer)
         if form_data.get('cuotas_totales'):
             form_data['cuotas_totales'] = int(form_data['cuotas_totales'])
         else:
@@ -758,9 +748,7 @@ def registrar_cliente():
     except (InvalidOperation, ValueError):
         flash('Los valores para inscripción, cuota o número de cuotas no son números válidos.', 'error')
         return redirect(url_for('registrar'))
-    # ====== FIN DE LA CORRECCIÓN REFINADA ======
 
-    # Convertir la fecha de string a objeto date
     if form_data.get('fecha_ingreso'):
         try:
             form_data['fecha_ingreso'] = datetime.strptime(form_data['fecha_ingreso'], '%Y-%m-%d').date()
@@ -768,17 +756,9 @@ def registrar_cliente():
             flash('El formato de la fecha de ingreso no es válido.', 'error')
             return redirect(url_for('registrar'))
 
-    # Pasar los datos del cliente a la plantilla del contrato para la firma.
     flash('Datos del cliente validados. Por favor, proceda con las firmas para finalizar el registro.', 'info')
     return render_template('contrato.html', cliente=form_data, modo_pre_registro=True, anio_actual=get_venezuela_current_date().year)
-# =================================================================================
-# ===== FIN DE LA SECCIÓN MODIFICADA: registrar_cliente ===========================
-# =================================================================================
 
-
-# =================================================================================
-# ===== INICIO DE LA SECCIÓN MODIFICADA: finalizar_registro ========================
-# =================================================================================
 @app.route('/finalizar_registro', methods=['POST'])
 @admin_required
 def finalizar_registro():
@@ -796,8 +776,6 @@ def finalizar_registro():
             flash('Ambas firmas son obligatorias para registrar al cliente.', 'error')
             return redirect(url_for('registrar'))
 
-        # ===== INICIO DE LA CORRECCIÓN REFINADA: CONVERTIR STRINGS A NÚMEROS ======
-        # Esta conversión es necesaria aquí también, ya que los datos vienen de un nuevo formulario.
         try:
             if form_data.get('inscripcion_monto'):
                 form_data['inscripcion_monto'] = Decimal(form_data['inscripcion_monto'].replace(',', '.'))
@@ -817,7 +795,6 @@ def finalizar_registro():
         except (InvalidOperation, ValueError):
             flash('Los valores numéricos del contrato (inscripción, cuota) no son válidos.', 'error')
             return redirect(url_for('registrar'))
-        # ====== FIN DE LA CORRECCIÓN REFINADA ======
 
         with conn.cursor() as cur:
             nombre_completo = form_data.get('nombre_apellido').split(' ', 1)
@@ -867,9 +844,6 @@ def finalizar_registro():
         flash(f"Registro fallido: Ocurrió un error de base de datos: {e}", 'error')
         
     return redirect(url_for('registrar'))
-# =================================================================================
-# ===== FIN DE LA SECCIÓN MODIFICADA: finalizar_registro ==========================
-# =================================================================================
 
 @app.route('/generar_contrato/<int:client_id>')
 def generar_contrato(client_id):
@@ -984,7 +958,6 @@ def consulta():
                 mensaje_error = f"Error al consultar la base de datos: {e}"
     return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda_raw)
 
-# ### INICIO DE LA SECCIÓN MODIFICADA ###
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 @admin_required
 def registrar_pago(client_id):
@@ -997,7 +970,6 @@ def registrar_pago(client_id):
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
 
-        # Se obtienen las tasas del día para pasarlas al formulario
         today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
         cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha = %s", (today_str,))
         tasas_hoy = cur.fetchone()
@@ -1053,7 +1025,6 @@ def registrar_pago(client_id):
             return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
 
     return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
-# ### FIN DE LA SECCIÓN MODIFICADA ###
 
 @app.route('/conciliar_pago/<int:pago_id>', methods=['POST'])
 @admin_required
@@ -1708,4 +1679,4 @@ def portal_logout():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=True
