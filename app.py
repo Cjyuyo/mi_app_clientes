@@ -41,7 +41,8 @@ def format_date_filter(value, format='%d/%m/%Y'):
 @app.before_request
 def setup_session_and_user():
     session.permanent = True
-    app.permanent_session_lifetime = timedelta(minutes=30)
+    # **CORRECCIÓN**: Se ajusta el tiempo de cierre de sesión por inactividad a 5 minutos.
+    app.permanent_session_lifetime = timedelta(minutes=5)
     g.admin = None
     g.cliente = None
     admin_id = session.get('admin_id')
