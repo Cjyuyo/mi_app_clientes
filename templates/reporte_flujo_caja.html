@@ -13,74 +13,70 @@
         }
         .navbar { 
             background-color: #ffffff; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
         }
-        .main-title {
-            color: #1a253c;
+        .page-header {
+            background-color: #343a40;
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+        .page-header h1 {
+            font-weight: 700;
+            font-size: 2.5rem;
+        }
+        .page-header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
         }
         .card {
+            background-color: white;
             border: none;
-            border-radius: 1rem;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.07);
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
+            height: 100%;
         }
         .card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            box-shadow: 0 12px 35px rgba(0,0,0,0.12);
         }
         .card-header {
-            border-top-left-radius: 1rem;
-            border-top-right-radius: 1rem;
+            background-color: transparent;
+            border-bottom: 1px solid #dee2e6;
             font-weight: 600;
-            padding: 1rem 1.5rem;
-        }
-        .gradient-dark {
-            background: linear-gradient(45deg, #343a40, #495057);
-            color: white;
-        }
-
-        .stat-card .icon {
-            font-size: 2.5rem;
-            opacity: 0.1;
-            position: absolute;
-            right: 20px;
-            bottom: 10px;
+            padding: 1.25rem 1.5rem;
         }
         .stat-card .stat-value {
-            font-size: 2.75rem;
+            font-size: 2.5rem;
             font-weight: 700;
         }
-        /* Estilo para la parte decimal de los números */
         .stat-card .stat-value .decimal-part {
-            font-size: 0.5em; /* 50% del tamaño del número principal */
+            font-size: 0.5em;
             font-weight: 500;
-            opacity: 0.75;
-            vertical-align: baseline; /* Alinea correctamente con el número principal */
+            opacity: 0.8;
+            vertical-align: baseline;
         }
         .stat-card .stat-label {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: #6c757d;
             text-transform: uppercase;
             font-weight: 600;
-        }
-        .stat-card .sub-value {
-            font-size: 1rem;
-            font-weight: 500;
-            color: #6c757d;
+            margin-bottom: 0.5rem;
         }
         .balance-card {
             background: #212529;
             color: white;
         }
         .balance-card .stat-value {
-            font-size: 3.5rem;
+            font-size: 3rem;
             color: white;
-            letter-spacing: -2px;
+            letter-spacing: -1px;
         }
         .balance-card .stat-label {
             color: rgba(255, 255, 255, 0.7);
         }
-
         .footer { 
             text-align: center; 
             padding: 20px; 
@@ -91,7 +87,7 @@
 </head>
 <body>
 
-    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm mb-5">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
         <div class="container-fluid">
             <a class="navbar-brand" href="{{ url_for('gestion_administrativa') }}">
                 <i class="bi bi-arrow-left"></i> Volver a Gestión
@@ -108,12 +104,12 @@
         </div>
     </nav>
 
-    <main class="container">
-        <div class="text-center mb-5">
-            <h1 class="display-4 fw-bold main-title">Reporte de Flujo de Caja</h1>
-            <p class="lead text-muted">Estado de saldos y análisis de rendimiento financiero.</p>
-        </div>
+    <div class="page-header">
+        <h1>Reporte de Flujo de Caja</h1>
+        <p>Estado de saldos y análisis de rendimiento financiero.</p>
+    </div>
 
+    <main class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -127,8 +123,8 @@
 
         <!-- Filtros -->
         <div class="card mb-5">
-            <div class="card-header gradient-dark">
-                <h5 class="mb-0"><i class="bi bi-filter-circle-fill me-2"></i>Filtros del Reporte</h5>
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-filter-circle-fill me-2 text-primary"></i>Filtros del Reporte</h5>
             </div>
             <div class="card-body p-4">
                 <form method="POST" action="{{ url_for('reporte_flujo_caja') }}" class="row g-3 align-items-end">
@@ -172,8 +168,7 @@
                 <div class="row g-4">
                     <div class="col-md-4">
                         <div class="card stat-card h-100">
-                            <div class="card-body position-relative p-4">
-                                <i class="bi bi-cash-coin icon text-success"></i>
+                            <div class="card-body p-4">
                                 <div class="stat-label">Efectivo</div>
                                 {% set parts = "{:,.2f}".format(resumen.balance_efectivo_usd).split('.') %}
                                 <div class="stat-value text-success">${{ parts[0] }}<span class="decimal-part">.{{ parts[1] }}</span></div>
@@ -182,8 +177,7 @@
                     </div>
                     <div class="col-md-4">
                         <div class="card stat-card h-100">
-                            <div class="card-body position-relative p-4">
-                                <i class="bi bi-currency-bitcoin icon text-warning"></i>
+                            <div class="card-body p-4">
                                 <div class="stat-label">Binance</div>
                                 {% set parts = "{:,.2f}".format(resumen.balance_binance_usdt).split('.') %}
                                 <div class="stat-value text-warning">${{ parts[0] }}<span class="decimal-part">.{{ parts[1] }}</span></div>
@@ -192,8 +186,7 @@
                     </div>
                     <div class="col-md-4">
                         <div class="card stat-card h-100">
-                            <div class="card-body position-relative p-4">
-                                <i class="bi bi-bootstrap-fill icon text-info"></i>
+                            <div class="card-body p-4">
                                 <div class="stat-label">Bolívares</div>
                                 {% set parts = "{:,.2f}".format(resumen.balance_bolivares_bs).split('.') %}
                                 <div class="stat-value text-info">{{ parts[0] }}<span class="decimal-part">.{{ parts[1] }}</span> Bs</div>
