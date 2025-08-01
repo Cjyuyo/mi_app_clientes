@@ -736,6 +736,15 @@ def registrar_cliente():
         flash('Nombre, Cédula y N° de Contrato son obligatorios.', 'error')
         return redirect(url_for('registrar'))
 
+    # INICIO DE CORRECCIÓN: Convertir la fecha de string a objeto date
+    if form_data.get('fecha_ingreso'):
+        try:
+            form_data['fecha_ingreso'] = datetime.strptime(form_data['fecha_ingreso'], '%Y-%m-%d').date()
+        except ValueError:
+            flash('El formato de la fecha de ingreso no es válido.', 'error')
+            return redirect(url_for('registrar'))
+    # FIN DE CORRECCIÓN
+
     # Pasar los datos del cliente a la plantilla del contrato para la firma.
     # El cliente aún no tiene ID porque no ha sido creado.
     flash('Datos del cliente validados. Por favor, proceda con las firmas para finalizar el registro.', 'info')
