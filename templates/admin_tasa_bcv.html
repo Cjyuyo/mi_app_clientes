@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Tasa BCV - Moto Plan Motors C.A.</title>
+    <title>Gestión de Tasas de Cambio - Moto Plan Motors C.A.</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
@@ -16,32 +16,20 @@
             box-shadow: 0 2px 4px rgba(0,0,0,.1);
         }
         .hub-header {
-            background-color: #0d6efd; /* Azul primario de Bootstrap */
+            background-color: #0d6efd;
             color: white;
             padding: 50px 20px;
             text-align: center;
             border-bottom: 5px solid #0a58ca;
         }
-        .hub-header h1 {
-            font-weight: 700;
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-        }
-        .hub-header .tagline {
-            font-size: 1.25rem;
-            opacity: 0.9;
-        }
+        .hub-header h1 { font-weight: 700; font-size: 2.5rem; }
+        .hub-header .tagline { font-size: 1.25rem; opacity: 0.9; }
         .content-card {
             background-color: white;
             border: none;
             border-radius: 12px;
             box-shadow: 0 8px 25px rgba(0,0,0,0.08);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
             height: 100%;
-        }
-        .content-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 35px rgba(0,0,0,0.12);
         }
         .content-card .card-header {
             background-color: transparent;
@@ -49,34 +37,25 @@
             font-weight: 600;
             padding: 1rem 1.5rem;
         }
-        .footer {
-            text-align: center;
-            padding: 20px;
-            margin-top: 40px;
-            color: #6c757d;
+        .rate-display {
+            border-radius: .5rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
         }
-        .current-rate-alert {
-            background-color: #e7f3ff;
-            border-left: 5px solid #0d6efd;
-            border-radius: 8px;
-        }
-        .current-rate-alert strong {
-            color: #0a58ca;
-        }
+        .rate-display.usd { background-color: #e6f7f0; border-left: 5px solid #198754; }
+        .rate-display.eur { background-color: #e7f3ff; border-left: 5px solid #0d6efd; }
+        .rate-display .value { font-size: 1.75rem; font-weight: 600; }
+        .footer { text-align: center; padding: 20px; margin-top: 40px; color: #6c757d; }
     </style>
 </head>
 <body>
 
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
         <div class="container-fluid d-flex justify-content-between align-items-center">
-            <a class="navbar-brand" href="{{ url_for('gestion_administrativa') }}">
-                <i class="bi bi-arrow-left"></i> Volver a Gestión
-            </a>
+            <a class="navbar-brand" href="{{ url_for('gestion_administrativa') }}"><i class="bi bi-arrow-left"></i> Volver a Gestión</a>
             <div class="d-flex align-items-center">
                  {% if g.admin %}
-                    <span class="navbar-text me-3 d-none d-md-inline">
-                        <i class="bi bi-person-circle"></i> {{ g.admin.usuario }}
-                    </span>
+                    <span class="navbar-text me-3 d-none d-md-inline"><i class="bi bi-person-circle"></i> {{ g.admin.usuario }}</span>
                     <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger btn-sm">Cerrar Sesión</a>
                  {% endif %}
             </div>
@@ -84,8 +63,8 @@
     </nav>
 
     <header class="hub-header">
-        <h1>Gestión de Tasa de Cambio</h1>
-        <p class="tagline">Establece la tasa BCV del día y consulta el historial.</p>
+        <h1>Gestión de Tasas de Cambio</h1>
+        <p class="tagline">Establece las tasas BCV del día y consulta el historial.</p>
     </header>
 
     <main class="container my-5">
@@ -100,65 +79,61 @@
             {% endif %}
         {% endwith %}
 
-        <div class="row justify-content-center g-4">
-            <!-- Card para Actualizar Tasa -->
-            <div class="col-lg-6">
+        <div class="row g-4">
+            <!-- Columna de Actualización -->
+            <div class="col-lg-5">
                 <div class="content-card">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Actualizar Tasa del Día</h5>
-                    </div>
+                    <div class="card-header"><h5 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Actualizar Tasas del Día</h5></div>
                     <div class="card-body p-4">
-                        {% if tasa_de_hoy %}
-                        <div class="alert current-rate-alert p-3 mb-4">
-                            Tasa de hoy ({{ "now" | format_date }}): 
-                            <strong class="fs-5 d-block mt-1">{{ "{:,.4f}".format(tasa_de_hoy) }} Bs.</strong>
+                        <div class="rate-display usd">
+                            <label class="form-label">Tasa Dólar (USD) de Hoy:</label>
+                            {% if tasas_de_hoy.usd %}<div class="value text-success">{{ "{:,.4f}".format(tasas_de_hoy.usd) }} Bs.</div>
+                            {% else %}<div class="text-muted">No establecida</div>{% endif %}
                         </div>
-                        {% else %}
-                        <div class="alert alert-warning p-3 mb-4">
-                            <i class="bi bi-exclamation-triangle-fill me-2"></i>La tasa para hoy aún no ha sido establecida.
+                        <div class="rate-display eur">
+                            <label class="form-label">Tasa Euro (EUR) de Hoy:</label>
+                            {% if tasas_de_hoy.eur %}<div class="value text-primary">{{ "{:,.4f}".format(tasas_de_hoy.eur) }} Bs.</div>
+                            {% else %}<div class="text-muted">No establecida</div>{% endif %}
                         </div>
-                        {% endif %}
-
                         <form action="{{ url_for('admin_tasa_bcv') }}" method="POST">
-                            <label for="tasa_bcv" class="form-label fw-bold">Nueva Tasa (Bs.)</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="bi bi-cash"></i></span>
-                                <input type="text" class="form-control form-control-lg" id="tasa_bcv" name="tasa_bcv" placeholder="Ej: 36.5432" required>
+                            <div class="mb-3">
+                                <label for="tasa_usd" class="form-label fw-bold">Nuevo Valor Dólar (USD)</label>
+                                <div class="input-group"><span class="input-group-text"><i class="bi bi-currency-dollar"></i></span><input type="text" class="form-control" id="tasa_usd" name="tasa_usd" placeholder="Ej: 36.5432"></div>
                             </div>
-                             <button class="btn btn-primary btn-lg w-100 mt-3" type="submit">
-                                <i class="bi bi-check-circle-fill"></i> Guardar Tasa
-                            </button>
+                            <div class="mb-3">
+                                <label for="tasa_eur" class="form-label fw-bold">Nuevo Valor Euro (EUR)</label>
+                                <div class="input-group"><span class="input-group-text"><i class="bi bi-currency-euro"></i></span><input type="text" class="form-control" id="tasa_eur" name="tasa_eur" placeholder="Ej: 39.1234"></div>
+                            </div>
+                            <button class="btn btn-primary btn-lg w-100 mt-2" type="submit"><i class="bi bi-check-circle-fill"></i> Guardar Tasas</button>
                         </form>
                     </div>
                 </div>
             </div>
-            <!-- Card para Historial -->
-            <div class="col-lg-6">
+            <!-- Columna de Historial -->
+            <div class="col-lg-7">
                 <div class="content-card">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Historial Reciente</h5>
-                    </div>
+                    <div class="card-header"><h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Historial Reciente</h5></div>
                     <div class="card-body p-0">
-                        <div class="table-responsive" style="max-height: 380px;">
+                        <div class="table-responsive">
                             <table class="table table-striped table-hover mb-0">
                                 <thead class="table-light">
                                     <tr>
                                         <th class="py-3 px-3">Fecha</th>
-                                        <th class="py-3 px-3">Tasa (Bs.)</th>
+                                        <th class="py-3 px-3">Tasa ($)</th>
+                                        <th class="py-3 px-3">Tasa (€)</th>
                                         <th class="py-3 px-3">Establecida por</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for tasa in historial_tasas %}
                                     <tr>
-                                        <td class="px-3">{{ tasa.fecha | format_date }}</td>
-                                        <td class="px-3 fw-bold">{{ "{:,.4f}".format(tasa.tasa) }}</td>
-                                        <td class="px-3"><span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">{{ tasa.usuario or 'N/A' }}</span></td>
+                                        <td class="px-3 align-middle">{{ tasa.fecha | format_date }}</td>
+                                        <td class="px-3 align-middle fw-bold text-success">{{ "{:,.4f}".format(tasa.tasa) if tasa.tasa else 'N/A' }}</td>
+                                        <td class="px-3 align-middle fw-bold text-primary">{{ "{:,.4f}".format(tasa.tasa_euro) if tasa.tasa_euro else 'N/A' }}</td>
+                                        <td class="px-3 align-middle"><span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">{{ tasa.usuario or 'N/A' }}</span></td>
                                     </tr>
                                     {% else %}
-                                    <tr>
-                                        <td colspan="3" class="text-center text-muted p-5">No hay historial disponible.</td>
-                                    </tr>
+                                    <tr><td colspan="4" class="text-center text-muted p-5">No hay historial disponible.</td></tr>
                                     {% endfor %}
                                 </tbody>
                             </table>

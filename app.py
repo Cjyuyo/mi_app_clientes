@@ -48,7 +48,6 @@ def format_date_filter(value, format='%d/%m/%Y'):
 @app.before_request
 def setup_session_and_user():
     session.permanent = True
-    # **CORRECCIÓN**: Se ajusta el tiempo de cierre de sesión por inactividad a 5 minutos.
     app.permanent_session_lifetime = timedelta(minutes=5)
     g.admin = None
     g.cliente = None
@@ -406,7 +405,7 @@ def asignar_gestor(cliente_id):
     return redirect(url_for('reporte_morosidad'))
 
 # =================================================================================
-# ===== RUTA DEDICADA PARA GESTIONAR TASA BCV =====
+# ===== RUTA DEDICADA PARA GESTIONAR TASAS BCV (USD Y EUR) =====
 # =================================================================================
 @app.route('/admin/tasa_bcv', methods=['GET', 'POST'])
 @admin_required
@@ -414,41 +413,48 @@ def asignar_gestor(cliente_id):
 def admin_tasa_bcv():
     conn = get_db()
     today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
-    tasa_de_hoy = None
+    tasas_de_hoy = {'usd': None, 'eur': None}
     historial_tasas = []
 
     if conn:
         try:
             with conn.cursor() as cur:
                 if request.method == 'POST':
-                    nueva_tasa_str = request.form.get('tasa_bcv')
-                    if nueva_tasa_str:
-                        tasa_decimal = Decimal(nueva_tasa_str.replace(',', '.'))
-                        if tasa_decimal > 0:
-                            cur.execute(
-                                """
-                                INSERT INTO historial_tasas_bcv (fecha, tasa, establecida_por_id) 
-                                VALUES (%s, %s, %s)
-                                ON CONFLICT (fecha) DO UPDATE SET
-                                    tasa = EXCLUDED.tasa,
-                                    establecida_por_id = EXCLUDED.establecida_por_id,
-                                    fecha_actualizacion = NOW();
-                                """,
-                                (today_str, tasa_decimal, g.admin['id'])
-                            )
-                            conn.commit()
-                            flash('Tasa BCV del día guardada/actualizada exitosamente.', 'success')
-                            return redirect(url_for('admin_tasa_bcv'))
-                        else:
-                            flash('La tasa debe ser un número positivo.', 'danger')
+                    tasa_usd_str = request.form.get('tasa_usd', '0').replace(',', '.')
+                    tasa_eur_str = request.form.get('tasa_eur', '0').replace(',', '.')
+                    
+                    tasa_usd = Decimal(tasa_usd_str) if tasa_usd_str else Decimal('0')
+                    tasa_eur = Decimal(tasa_eur_str) if tasa_eur_str else Decimal('0')
+
+                    if tasa_usd >= 0 and tasa_eur >= 0:
+                        cur.execute(
+                            """
+                            INSERT INTO historial_tasas_bcv (fecha, tasa, tasa_euro, establecida_por_id) 
+                            VALUES (%s, %s, %s, %s)
+                            ON CONFLICT (fecha) DO UPDATE SET
+                                tasa = EXCLUDED.tasa,
+                                tasa_euro = EXCLUDED.tasa_euro,
+                                establecida_por_id = EXCLUDED.establecida_por_id,
+                                fecha_actualizacion = NOW();
+                            """,
+                            (today_str, tasa_usd, tasa_eur, g.admin['id'])
+                        )
+                        conn.commit()
+                        flash('Tasas BCV del día guardadas/actualizadas exitosamente.', 'success')
+                        return redirect(url_for('admin_tasa_bcv'))
+                    else:
+                        flash('Las tasas deben ser números positivos.', 'danger')
                 
-                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha = %s", (today_str,))
+                # Cargar tasas del día actual
+                cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha = %s", (today_str,))
                 resultado = cur.fetchone()
                 if resultado:
-                    tasa_de_hoy = resultado['tasa']
+                    tasas_de_hoy['usd'] = resultado['tasa']
+                    tasas_de_hoy['eur'] = resultado['tasa_euro']
                 
+                # Cargar historial reciente
                 cur.execute("""
-                    SELECT h.fecha, h.tasa, a.usuario 
+                    SELECT h.fecha, h.tasa, h.tasa_euro, a.usuario 
                     FROM historial_tasas_bcv h
                     LEFT JOIN administradores a ON h.establecida_por_id = a.id
                     ORDER BY h.fecha DESC
@@ -456,13 +462,13 @@ def admin_tasa_bcv():
                 """)
                 historial_tasas = cur.fetchall()
         except InvalidOperation:
-            flash('Por favor, introduce un número válido para la tasa.', 'danger')
+            flash('Por favor, introduce un número válido para las tasas.', 'danger')
         except psycopg2.Error as e:
             if conn: conn.rollback()
             flash(f'Error al procesar la solicitud: {e}', 'danger')
 
     return render_template('admin_tasa_bcv.html', 
-                           tasa_de_hoy=tasa_de_hoy, 
+                           tasas_de_hoy=tasas_de_hoy, 
                            historial_tasas=historial_tasas,
                            anio_actual=get_venezuela_current_date().year)
 
@@ -527,7 +533,6 @@ def reporte_flujo_caja():
                 # --- Cálculo de Pérdidas Acumuladas ---
 
                 # 1. Pérdida por Devaluación
-                # Suma el valor en USD de todos los ingresos en Bs al momento en que ocurrieron
                 cur.execute("""
                     SELECT COALESCE(SUM(CASE WHEN tasa_dia > 0 THEN monto_bs / tasa_dia ELSE 0 END), 0) 
                     FROM pagos 
@@ -535,18 +540,14 @@ def reporte_flujo_caja():
                 """, (fecha_reporte_dt,))
                 valor_historico_ingresos_bs_en_usd = cur.fetchone()[0] or Decimal('0.0')
 
-                # Suma el valor en USD de todos los egresos (conversiones) en Bs al momento en que ocurrieron
                 cur.execute("""
                     SELECT COALESCE(SUM(CASE WHEN tasa_aplicada > 0 THEN monto_origen / tasa_aplicada ELSE 0 END), 0)
                     FROM operaciones_tesoreria
                     WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s
                 """, (fecha_fin_timestamp,))
                 valor_historico_egresos_bs_en_usd = cur.fetchone()[0] or Decimal('0.0')
-
-                # El valor teórico es la diferencia
-                valor_teorico_saldo_bs_en_usd = valor_historico_ingresos_bs_en_usd - valor_historico_egresos_bs_en_usd
                 
-                # La pérdida es la diferencia entre el valor teórico y el valor real de hoy
+                valor_teorico_saldo_bs_en_usd = valor_historico_ingresos_bs_en_usd - valor_historico_egresos_bs_en_usd
                 resumen['acumulado_perdida_devaluacion'] = valor_teorico_saldo_bs_en_usd - resumen['balance_bolivares_usd']
 
                 # 2. Pérdida por Conversión
