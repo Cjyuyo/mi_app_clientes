@@ -184,6 +184,20 @@
                         <span class="label">Pago Realizado En</span>
                         <span class="value">{{ pago.pago_en or 'N/A' }}</span>
                     </div>
+                    
+                    <!-- INICIO DE CAMBIO: Mostrar detalles de la conversión si aplica -->
+                    {% if pago.monto_bs and pago.monto_bs > 0 %}
+                    <div class="info-item">
+                        <span class="label">Tasa de Cambio Aplicada</span>
+                        <span class="value">{{ "{:,.2f}".format(pago.tasa_dia) }} Bs.</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Monto Pagado (Bs.)</span>
+                        <span class="value">{{ "{:,.2f}".format(pago.monto_bs) }} Bs.</span>
+                    </div>
+                    {% endif %}
+                    <!-- FIN DE CAMBIO -->
+                    
                     <div class="info-item">
                         <span class="label">Forma de Pago</span>
                         <span class="value">{{ pago.forma_pago }}</span>
