@@ -21,6 +21,19 @@
         .balance-card { background: linear-gradient(45deg, #0056b3, #004a99); color: white; }
         .balance-card .stat-value { font-size: 3.5rem; color: white; letter-spacing: -1px; }
         .balance-card .stat-label { color: rgba(255, 255, 255, 0.8); }
+        
+        /* --- INICIO DE CAMBIO: Nueva clase para tarjetas grises --- */
+        .stat-card-gray {
+            background-color: #e2e3e5;
+        }
+        .stat-card-gray .stat-value, .stat-card-gray .sub-value {
+            color: #212529; /* Texto oscuro para contraste */
+        }
+        .stat-card-gray .stat-label {
+            color: #495057; /* Etiqueta un poco más oscura */
+        }
+        /* --- FIN DE CAMBIO --- */
+
         .footer { text-align: center; padding: 20px; margin-top: 40px; color: #6c757d; }
     </style>
 </head>
@@ -82,14 +95,14 @@
         <div class="row g-4">
             <div class="col-12"><div class="content-card stat-card balance-card"><div class="card-body text-center p-4 p-md-5"><div class="stat-label">Balance General Consolidado (USD)</div><div class="stat-value">${{ "{:,.2f}".format(resumen.balance_general_consolidado_usd) }}</div></div></div></div>
             
-            <!-- INICIO DE CAMBIO: Reorganización y ajuste de columnas para un diseño limpio -->
-            <div class="col-lg-6 col-md-6"><div class="content-card stat-card"><div class="card-body p-4"><div class="d-flex align-items-center"><i class="bi bi-cash-stack fs-1 text-success me-3"></i><div><div class="stat-label">Efectivo (USD)</div><div class="stat-value text-success">${{ "{:,.2f}".format(resumen.balance_efectivo_usd) }}</div></div></div></div></div></div>
-            <div class="col-lg-6 col-md-6"><div class="content-card stat-card"><div class="card-body p-4"><div class="d-flex align-items-center"><i class="bi bi-currency-bitcoin fs-1 text-warning me-3"></i><div><div class="stat-label">Binance (USDT)</div><div class="stat-value text-warning">${{ "{:,.2f}".format(resumen.balance_binance_usdt) }}</div></div></div></div></div></div>
+            <!-- INICIO DE CAMBIO: Se aplica la clase .stat-card-gray a todas las tarjetas -->
+            <div class="col-lg-6 col-md-6"><div class="content-card stat-card stat-card-gray"><div class="card-body p-4"><div class="d-flex align-items-center"><i class="bi bi-cash-stack fs-1 text-success me-3"></i><div><div class="stat-label">Efectivo (USD)</div><div class="stat-value text-success">${{ "{:,.2f}".format(resumen.balance_efectivo_usd) }}</div></div></div></div></div></div>
+            <div class="col-lg-6 col-md-6"><div class="content-card stat-card stat-card-gray"><div class="card-body p-4"><div class="d-flex align-items-center"><i class="bi bi-currency-bitcoin fs-1 text-warning me-3"></i><div><div class="stat-label">Binance (USDT)</div><div class="stat-value text-warning">${{ "{:,.2f}".format(resumen.balance_binance_usdt) }}</div></div></div></div></div></div>
             
-            <div class="col-lg-4 col-md-6"><div class="content-card stat-card"><div class="card-body p-4 text-center"><div class="stat-label">Caja Dolar/BCV</div><div class="stat-value" style="color: #6f42c1;">{{ "{:,.2f}".format(resumen.balance_bs_usd_bs) }} Bs</div><div class="sub-value mt-1 fw-bold">~ ${{ "{:,.2f}".format(resumen.balance_bs_usd_usd) }}</div></div></div></div>
-            <div class="col-lg-4 col-md-6"><div class="content-card stat-card"><div class="card-body p-4 text-center"><div class="stat-label">Caja Euro/BCV</div><div class="stat-value" style="color: #0d6efd;">{{ "{:,.2f}".format(resumen.balance_bs_eur_bs) }} Bs</div><div class="sub-value mt-1 fw-bold">~ €{{ "{:,.2f}".format(resumen.balance_bs_eur_eur) }}</div></div></div></div>
+            <div class="col-lg-4 col-md-6"><div class="content-card stat-card stat-card-gray"><div class="card-body p-4 text-center"><div class="stat-label">Caja Dolar/BCV</div><div class="stat-value">{{ "{:,.2f}".format(resumen.balance_bs_usd_bs) }} Bs</div><div class="sub-value mt-1 fw-bold">~ ${{ "{:,.2f}".format(resumen.balance_bs_usd_usd) }}</div></div></div></div>
+            <div class="col-lg-4 col-md-6"><div class="content-card stat-card stat-card-gray"><div class="card-body p-4 text-center"><div class="stat-label">Caja Euro/BCV</div><div class="stat-value">{{ "{:,.2f}".format(resumen.balance_bs_eur_bs) }} Bs</div><div class="sub-value mt-1 fw-bold">~ €{{ "{:,.2f}".format(resumen.balance_bs_eur_eur) }}</div></div></div></div>
             
-            <div class="col-lg-4 col-md-12"><div class="content-card stat-card" style="background-color: #e2e3e5;"><div class="card-body p-4 text-center"><div class="stat-label">Caja Bs. Consolidada</div><div class="stat-value text-dark">{{ "{:,.2f}".format(resumen.balance_bs_consolidado_bs) }} Bs</div><div class="sub-value mt-1 fw-bold">~ ${{ "{:,.2f}".format(resumen.balance_bs_consolidado_usd) }}</div></div></div></div>
+            <div class="col-lg-4 col-md-12"><div class="content-card stat-card stat-card-gray"><div class="card-body p-4 text-center"><div class="stat-label">Caja Bs. Consolidada</div><div class="stat-value">{{ "{:,.2f}".format(resumen.balance_bs_consolidado_bs) }} Bs</div><div class="sub-value mt-1 fw-bold">~ ${{ "{:,.2f}".format(resumen.balance_bs_consolidado_usd) }}</div></div></div></div>
             <!-- FIN DE CAMBIO -->
         </div>
 

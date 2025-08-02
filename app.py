@@ -24,9 +24,13 @@ app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-des
 # Definir la zona horaria de Venezuela
 VENEZUELA_TZ = pytz.timezone('America/Caracas')
 
+def get_venezuela_current_datetime():
+    """Devuelve la fecha y hora actual en la zona horaria de Venezuela."""
+    return datetime.now(VENEZUELA_TZ)
+
 def get_venezuela_current_date():
-    """Devuelve la fecha actual en la zona horaria de Venezuela."""
-    return datetime.now(VENEZUELA_TZ).date()
+    """Devuelve solo la fecha actual en la zona horaria de Venezuela."""
+    return get_venezuela_current_datetime().date()
 
 # =================================================================================
 # ===== FUNCIONES DE UTILIDAD Y FILTROS JINJA =====
@@ -410,47 +414,55 @@ def asignar_gestor(cliente_id):
 @rol_requerido('superadmin', 'gerente')
 def admin_tasa_bcv():
     conn = get_db()
-    today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
+    now_vet = get_venezuela_current_datetime()
+    today_date = now_vet.date()
+    
     tasas_de_hoy = {'usd': None, 'eur': None}
     historial_tasas = []
 
     if conn:
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha = %s", (today_str,))
-                tasas_actuales = cur.fetchone()
-
                 if request.method == 'POST':
                     tasa_usd_str = request.form.get('tasa_usd', '').replace(',', '.')
                     tasa_eur_str = request.form.get('tasa_eur', '').replace(',', '.')
                     
-                    tasa_usd_final = Decimal(tasa_usd_str) if tasa_usd_str else (tasas_actuales['tasa'] if tasas_actuales and tasas_actuales['tasa'] is not None else Decimal('0'))
-                    tasa_eur_final = Decimal(tasa_eur_str) if tasa_eur_str else (tasas_actuales['tasa_euro'] if tasas_actuales and tasas_actuales['tasa_euro'] is not None else Decimal('0'))
+                    tasa_usd = Decimal(tasa_usd_str) if tasa_usd_str else Decimal('0')
+                    tasa_eur = Decimal(tasa_eur_str) if tasa_eur_str else Decimal('0')
 
-                    if tasa_usd_final >= 0 and tasa_eur_final >= 0:
-                        cur.execute(
-                            """
+                    if tasa_usd >= 0 and tasa_eur >= 0:
+                        sql_upsert = """
                             INSERT INTO historial_tasas_bcv (fecha, tasa, tasa_euro, establecida_por_id) 
                             VALUES (%s, %s, %s, %s)
                             ON CONFLICT (fecha) DO UPDATE SET
                                 tasa = EXCLUDED.tasa,
                                 tasa_euro = EXCLUDED.tasa_euro,
                                 establecida_por_id = EXCLUDED.establecida_por_id;
-                            """,
-                            (today_str, tasa_usd_final, tasa_eur_final, g.admin['id'])
-                        )
+                        """
+                        # Guardar para hoy
+                        cur.execute(sql_upsert, (today_date, tasa_usd, tasa_eur, g.admin['id']))
+                        
+                        # Si es después de las 5 PM, guardar también para mañana
+                        if now_vet.hour >= 17:
+                            tomorrow_date = today_date + timedelta(days=1)
+                            cur.execute(sql_upsert, (tomorrow_date, tasa_usd, tasa_eur, g.admin['id']))
+                            flash('Tasa guardada para hoy y mañana exitosamente.', 'success')
+                        else:
+                            flash('Tasa guardada para hoy exitosamente.', 'success')
+                        
                         conn.commit()
-                        flash('Tasas BCV del día guardadas/actualizadas exitosamente.', 'success')
                         return redirect(url_for('admin_tasa_bcv'))
                     else:
                         flash('Las tasas deben ser números positivos.', 'danger')
                 
-                cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha = %s", (today_str,))
+                # Obtener la tasa más reciente para hoy
+                cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_date,))
                 resultado = cur.fetchone()
                 if resultado:
                     tasas_de_hoy['usd'] = resultado['tasa']
                     tasas_de_hoy['eur'] = resultado['tasa_euro']
                 
+                # Obtener historial
                 cur.execute("""
                     SELECT h.fecha, h.tasa, h.tasa_euro, a.usuario 
                     FROM historial_tasas_bcv h
@@ -489,7 +501,9 @@ def reporte_flujo_caja():
 
     if conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha = %s", (fecha_reporte_str,))
+            # --- INICIO DE CAMBIO: Lógica de obtención de tasa mejorada ---
+            cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_reporte_str,))
+            # --- FIN DE CAMBIO ---
             resultado_tasa = cur.fetchone()
             if resultado_tasa:
                 tasas_del_dia['usd'] = resultado_tasa['tasa'] or Decimal('0.0')
@@ -812,7 +826,6 @@ def finalizar_registro():
                 'fecha_firma': datetime.now(VENEZUELA_TZ)
             }
             
-            # --- INICIO DE CAMBIO: Añadir nuevos campos a la lista ---
             optional_fields = [
                 'contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso', 
                 'grupo', 'plan_contratado', 'cuotas_totales', 'moneda_pago', 
@@ -821,7 +834,6 @@ def finalizar_registro():
                 'direccion', 'email', 'beneficiario_nombre', 
                 'beneficiario_cedula', 'beneficiario_telefono'
             ]
-            # --- FIN DE CAMBIO ---
             
             for field in optional_fields:
                 if form_data.get(field):
@@ -975,8 +987,10 @@ def registrar_pago(client_id):
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
 
+        # --- INICIO DE CAMBIO: Lógica de obtención de tasa mejorada ---
         today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
-        cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha = %s", (today_str,))
+        cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
+        # --- FIN DE CAMBIO ---
         tasas_hoy = cur.fetchone()
 
     if not cliente:
