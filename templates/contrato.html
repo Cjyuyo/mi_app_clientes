@@ -190,31 +190,36 @@
             <div class="client-info-card">
                 <h5 class="card-title">Resumen del Contrato</h5>
                 <div class="row">
-                    <div class="col-md-4">
+                    <!-- Columna Adherente -->
+                    <div class="col-lg-4 col-md-6 mb-4">
                         <div class="info-group">
                             <h6><i class="bi bi-person-fill"></i> Adherente</h6>
                             <div class="info-item"><span>Nombre:</span><strong>{{ cliente.nombre_apellido }}</strong></div>
                             <div class="info-item"><span>Cédula:</span><strong>V-{{ cliente.cedula }}</strong></div>
                             <div class="info-item"><span>Teléfono:</span><strong>{{ cliente.telefono }}</strong></div>
+                            <div class="info-item"><span>Email:</span><strong>{{ cliente.email or 'N/A' }}</strong></div>
+                            <div class="info-item"><span>Dirección:</span><strong>{{ cliente.direccion or 'N/A' }}</strong></div>
                             <div class="info-item"><span>Asesor:</span><strong>{{ cliente.asesor }}</strong></div>
                         </div>
                     </div>
-                    <div class="col-md-4 vertical-divider">
+                    <!-- Columna Plan -->
+                    <div class="col-lg-4 col-md-6 mb-4 vertical-divider">
                         <div class="info-group">
                             <h6><i class="bi bi-file-text-fill"></i> Plan y Contrato</h6>
                             <div class="info-item"><span>Nº Contrato:</span><strong>{{ cliente.contrato_nro }}</strong></div>
                             <div class="info-item"><span>Plan:</span><strong>{{ cliente.plan_contratado }}</strong></div>
                             <div class="info-item"><span>Cuotas:</span><strong>{{ cliente.cuotas_totales }}</strong></div>
                             <div class="info-item"><span>Fecha Ingreso:</span><strong>{{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</strong></div>
+                            <div class="info-item"><span>Ciclo Cobranza:</span><strong>{{ cliente.ciclo_cobranza }}</strong></div>
                         </div>
                     </div>
-                    <div class="col-md-4 vertical-divider">
+                    <!-- Columna Beneficiario -->
+                    <div class="col-lg-4 col-md-12 vertical-divider">
                         <div class="info-group">
-                            <h6><i class="bi bi-cash-coin"></i> Condiciones</h6>
-                            <div class="info-item"><span>Inscripción:</span><strong>${{ "%.2f"|format(cliente.inscripcion_monto) }}</strong></div>
-                            <div class="info-item"><span>Cuota Mensual:</span><strong>${{ "%.2f"|format(cliente.valor_cuota) }}</strong></div>
-                            <div class="info-item"><span>Moneda:</span><strong>{{ cliente.moneda_pago }}</strong></div>
-                            <div class="info-item"><span>Ciclo Cobranza:</span><strong>{{ cliente.ciclo_cobranza }}</strong></div>
+                            <h6><i class="bi bi-shield-lock-fill"></i> Beneficiario</h6>
+                            <div class="info-item"><span>Nombre:</span><strong>{{ cliente.beneficiario_nombre or 'N/A' }}</strong></div>
+                            <div class="info-item"><span>Cédula:</span><strong>{{ cliente.beneficiario_cedula or 'N/A' }}</strong></div>
+                            <div class="info-item"><span>Teléfono:</span><strong>{{ cliente.beneficiario_telefono or 'N/A' }}</strong></div>
                         </div>
                     </div>
                 </div>
@@ -435,23 +440,19 @@
             }
         }
 
-        // Inicializar los pads que existan en la página
         initializePad('cliente');
         initializePad('empresa');
 
         if (modoPreRegistro) {
-            // MODO PRE-REGISTRO: El submit es del formulario grande
             const formPrincipal = document.getElementById('form-finalizar-registro');
             if(formPrincipal) {
                 formPrincipal.addEventListener('submit', function(e) {
-                    // Validar que ambos pads tengan firma
                     if (pads['cliente'] && pads['cliente'].isEmpty() || pads['empresa'] && pads['empresa'].isEmpty()) {
                         alert("Ambas firmas son obligatorias para continuar.");
                         e.preventDefault();
                         return;
                     }
 
-                    // Asignar los valores de las firmas a los inputs ocultos
                     if(pads['cliente']) {
                         document.getElementById('firma_cliente_input').value = pads['cliente'].toDataURL('image/png');
                     }
@@ -461,7 +462,6 @@
                 });
             }
         } else {
-            // MODO NORMAL: El submit es para los formularios individuales de clientes existentes
             function setupExistingClientForm(padName, formId, inputId) {
                 const form = document.getElementById(formId);
                 if(form && pads[padName]) {
