@@ -442,13 +442,23 @@ def admin_tasa_bcv():
                         # Guardar para hoy
                         cur.execute(sql_upsert, (today_date, tasa_usd, tasa_eur, g.admin['id']))
                         
-                        # Si es después de las 5 PM, guardar también para mañana
-                        if now_vet.hour >= 17:
-                            tomorrow_date = today_date + timedelta(days=1)
-                            cur.execute(sql_upsert, (tomorrow_date, tasa_usd, tasa_eur, g.admin['id']))
-                            flash('Tasa guardada para hoy y mañana exitosamente.', 'success')
+                        # --- INICIO DE CAMBIO: Lógica de fin de semana ---
+                        # Si es después de las 5 PM en un día de semana
+                        if now_vet.hour >= 17 and now_vet.weekday() < 5: # Lunes (0) a Viernes (4)
+                            # Si es viernes, aplicar para sábado, domingo y lunes
+                            if now_vet.weekday() == 4: # Viernes
+                                for i in range(1, 4): # Sábado, Domingo, Lunes
+                                    next_day = today_date + timedelta(days=i)
+                                    cur.execute(sql_upsert, (next_day, tasa_usd, tasa_eur, g.admin['id']))
+                                flash('Tasa de Viernes guardada para todo el fin de semana y el Lunes.', 'success')
+                            # Si es de Lunes a Jueves, aplicar para el día siguiente
+                            else:
+                                tomorrow_date = today_date + timedelta(days=1)
+                                cur.execute(sql_upsert, (tomorrow_date, tasa_usd, tasa_eur, g.admin['id']))
+                                flash('Tasa guardada para hoy y mañana.', 'success')
                         else:
-                            flash('Tasa guardada para hoy exitosamente.', 'success')
+                            flash('Tasa guardada para hoy.', 'success')
+                        # --- FIN DE CAMBIO ---
                         
                         conn.commit()
                         return redirect(url_for('admin_tasa_bcv'))
@@ -501,9 +511,7 @@ def reporte_flujo_caja():
 
     if conn:
         with conn.cursor() as cur:
-            # --- INICIO DE CAMBIO: Lógica de obtención de tasa mejorada ---
             cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_reporte_str,))
-            # --- FIN DE CAMBIO ---
             resultado_tasa = cur.fetchone()
             if resultado_tasa:
                 tasas_del_dia['usd'] = resultado_tasa['tasa'] or Decimal('0.0')
@@ -987,10 +995,8 @@ def registrar_pago(client_id):
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
 
-        # --- INICIO DE CAMBIO: Lógica de obtención de tasa mejorada ---
         today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
         cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
-        # --- FIN DE CAMBIO ---
         tasas_hoy = cur.fetchone()
 
     if not cliente:
