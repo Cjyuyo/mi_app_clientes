@@ -8,4 +8,4 @@
 
 # Archivos compilados de Python
 __pycache__/
-*.pyc
+*.pyc.DS_Store

@@ -120,6 +120,68 @@ def rol_requerido(*roles):
     return wrapper
 
 # =================================================================================
+# --- FUNCIONES AUXILIARES PARA EL MÓDULO COMERCIAL ---
+# =================================================================================
+
+def registrar_ingreso_caja_inscripciones(contrato_nro, cliente_id, monto_inscripcion, responsable_cierre):
+    """
+    Registra un ingreso en una tabla separada para la caja de inscripciones.
+    """
+    conn = get_db()
+    if not conn:
+        logging.error("CAJA_INSCRIPCIONES: No se pudo obtener conexión a la base de datos.")
+        return
+
+    try:
+        with conn.cursor() as cur:
+            sql = """
+                INSERT INTO caja_inscripciones (contrato_nro, cliente_id, monto_inscripcion, responsable_cierre)
+                VALUES (%s, %s, %s, %s)
+            """
+            cur.execute(sql, (contrato_nro, cliente_id, monto_inscripcion, responsable_cierre))
+        logging.info(f"CAJA_INSCRIPCIONES: Pre-registro de ${monto_inscripcion} para contrato {contrato_nro}.")
+    except psycopg2.Error as e:
+        logging.error(f"CAJA_INSCRIPCIONES: Error al registrar ingreso: {e}")
+        raise e
+
+def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_dueno, responsable_cierre):
+    """
+    Calcula las comisiones según las reglas de negocio y las guarda para la nómina.
+    """
+    conn = get_db()
+    if not conn:
+        logging.error("COMISIONES: No se pudo obtener conexión a la base de datos.")
+        return
+
+    comisiones = {}
+    
+    if responsable_cierre:
+        # Comisión del 2% para el Asesor (dueño del cliente)
+        comision_asesor = monto_plan * Decimal('0.02')
+        comisiones[asesor_dueno] = {'monto': comisiones.get(asesor_dueno, {}).get('monto', Decimal('0.0')) + comision_asesor, 'concepto': 'Comisión Asesor'}
+
+        # Bono de $5 para el Responsable (quien cerró), si es diferente al dueño
+        if asesor_dueno != responsable_cierre:
+            bono_cierre = Decimal('5.0')
+            comisiones[responsable_cierre] = {'monto': comisiones.get(responsable_cierre, {}).get('monto', Decimal('0.0')) + bono_cierre, 'concepto': 'Bono Cierre'}
+    
+    if comisiones:
+        try:
+            with conn.cursor() as cur:
+                sql = """
+                    INSERT INTO comisiones_generadas (contrato_nro, cliente_id, nombre_beneficiario, monto_comision, concepto)
+                    VALUES (%s, %s, %s, %s, %s)
+                """
+                for beneficiario, data in comisiones.items():
+                    if data['monto'] > 0:
+                         cur.execute(sql, (contrato_nro, cliente_id, beneficiario, data['monto'], data['concepto']))
+            
+            logging.info(f"COMISIONES: Pre-registro de comisiones para contrato {contrato_nro}: {comisiones}")
+        except psycopg2.Error as e:
+            logging.error(f"COMISIONES: Error al guardar comisiones: {e}")
+            raise e
+
+# =================================================================================
 # ===== MÓDULO DE TESORERÍA Y REBALANCEO =====
 # =================================================================================
 
@@ -298,12 +360,12 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
                 """,
                 (g.admin['id'], g.admin['usuario'], accion, descripcion, cliente_id)
             )
-        conn.commit()
-        logging.info(f"AUDITORIA-REGISTRADA: Usuario '{g.admin['usuario']}' realizó '{accion}'.")
+        # No hacemos commit aquí para que sea parte de la transacción principal
+        logging.info(f"AUDITORIA-PRE-REGISTRADA: Usuario '{g.admin['usuario']}' realizó '{accion}'.")
     except Exception as e:
         logging.error(f"AUDITORIA-FALLO-INSERCION: {e}")
-        if conn:
-            conn.rollback()
+        # La transacción principal hará rollback
+        raise e
 
 # --- RUTAS DEL PORTAL DE ADMINISTRACIÓN ---
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -376,6 +438,86 @@ def hub():
 @rol_requerido('superadmin', 'gerente')
 def gestion_administrativa():
     return render_template('gestion_administrativa.html', anio_actual=get_venezuela_current_date().year)
+
+# --- INICIO DE CAMBIO: Nuevas rutas para el Módulo Comercial ---
+@app.route('/comercial/dashboard')
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def dashboard_comercial():
+    conn = get_db()
+    stats = {
+        'total_caja_inscripciones': Decimal('0.0'),
+        'comisiones_pendientes_monto': Decimal('0.0'),
+        'comisiones_pendientes_cantidad': 0
+    }
+    comisiones_pendientes = []
+
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                # 1. Calcular total de la caja de inscripciones
+                cur.execute("SELECT COALESCE(SUM(monto_inscripcion), 0) FROM caja_inscripciones;")
+                stats['total_caja_inscripciones'] = cur.fetchone()[0] or Decimal('0.0')
+
+                # 2. Obtener comisiones pendientes
+                cur.execute("""
+                    SELECT com.*, cli.nombre, cli.apellido 
+                    FROM comisiones_generadas com
+                    LEFT JOIN clientes cli ON com.cliente_id = cli.id
+                    WHERE com.estado_nomina = 'Pendiente'
+                    ORDER BY com.fecha_generacion ASC, com.nombre_beneficiario ASC;
+                """)
+                comisiones_pendientes = cur.fetchall()
+
+                if comisiones_pendientes:
+                    stats['comisiones_pendientes_monto'] = sum(c['monto_comision'] for c in comisiones_pendientes)
+                    stats['comisiones_pendientes_cantidad'] = len(comisiones_pendientes)
+
+        except psycopg2.Error as e:
+            flash(f"Error al cargar el dashboard comercial: {e}", "danger")
+
+    # Renderiza la nueva plantilla del dashboard comercial
+    return render_template('dashboard_comercial.html',
+                           stats=stats,
+                           comisiones=comisiones_pendientes,
+                           anio_actual=get_venezuela_current_date().year)
+
+@app.route('/comercial/pagar_nomina', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def pagar_nomina_comercial():
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", "danger")
+        return redirect(url_for('dashboard_comercial'))
+
+    try:
+        with conn.cursor() as cur:
+            # Obtener el monto total a pagar para la auditoría y validación
+            cur.execute("SELECT COALESCE(SUM(monto_comision), 0) FROM comisiones_generadas WHERE estado_nomina = 'Pendiente';")
+            monto_total_nomina = cur.fetchone()[0] or Decimal('0.0')
+
+            if monto_total_nomina <= 0:
+                flash("No hay comisiones pendientes para pagar.", "warning")
+                return redirect(url_for('dashboard_comercial'))
+
+            # Marcar todas las comisiones pendientes como pagadas
+            cur.execute("UPDATE comisiones_generadas SET estado_nomina = 'Pagada' WHERE estado_nomina = 'Pendiente';")
+            
+            # Registrar auditoría
+            descripcion_auditoria = f"Procesó el pago de la nómina comercial por un total de ${monto_total_nomina:,.2f}."
+            registrar_accion_auditoria('PAGO_NOMINA_COMERCIAL', descripcion_auditoria)
+            
+            conn.commit()
+            flash(f"Nómina por ${monto_total_nomina:,.2f} marcada como pagada exitosamente.", "success")
+
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error al procesar el pago de la nómina: {e}", "danger")
+
+    return redirect(url_for('dashboard_comercial'))
+# --- FIN DE CAMBIO ---
+
 
 @app.route('/mi_cartera')
 @admin_required
@@ -889,36 +1031,29 @@ def finalizar_registro():
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('registrar'))
 
+    form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
+
     try:
-        form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
-        
         firma_cliente = form_data.get('firma_cliente')
         firma_empresa = form_data.get('firma_empresa')
         if not firma_cliente or not firma_empresa:
             flash('Ambas firmas son obligatorias para registrar al cliente.', 'error')
             return redirect(url_for('registrar'))
 
-        try:
-            if form_data.get('inscripcion_monto'):
-                form_data['inscripcion_monto'] = Decimal(form_data['inscripcion_monto'].replace(',', '.'))
-            else:
-                form_data['inscripcion_monto'] = Decimal('0.00')
-
-            if form_data.get('valor_cuota'):
-                form_data['valor_cuota'] = Decimal(form_data['valor_cuota'].replace(',', '.'))
-            else:
-                form_data['valor_cuota'] = Decimal('0.00')
-                
-            if form_data.get('cuotas_totales'):
-                form_data['cuotas_totales'] = int(form_data['cuotas_totales']) if form_data['cuotas_totales'] else None
-            else:
-                 form_data['cuotas_totales'] = None
-
-        except (InvalidOperation, ValueError):
-            flash('Los valores numéricos del contrato (inscripción, cuota) no son válidos.', 'error')
-            return redirect(url_for('registrar'))
+        # --- Conversión de datos numéricos ---
+        form_data['inscripcion_monto'] = Decimal(form_data.get('inscripcion_monto', '0.00').replace(',', '.'))
+        form_data['valor_cuota'] = Decimal(form_data.get('valor_cuota', '0.00').replace(',', '.'))
+        form_data['cuotas_totales'] = int(form_data['cuotas_totales']) if form_data.get('cuotas_totales') else None
+        
+        # --- NUEVO --- Obtener datos para comisiones
+        monto_plan = Decimal(form_data.get('plan_contratado', '0.00'))
+        asesor_dueno = form_data.get('asesor')
+        responsable_cierre = form_data.get('responsable')
 
         with conn.cursor() as cur:
+            # --- Inicia Transacción ---
+            
+            # --- 1. Insertar el cliente (código existente) ---
             nombre_completo = form_data.get('nombre_apellido').split(' ', 1)
             nombre = nombre_completo[0]
             apellido = nombre_completo[1] if len(nombre_completo) > 1 else ''
@@ -954,19 +1089,42 @@ def finalizar_registro():
             cur.execute(query, values)
             new_client_id = cur.fetchone()[0]
             
+            # --- 2. NUEVO: Ejecutar lógica del módulo comercial ---
+            if monto_plan > 0 and form_data['inscripcion_monto'] > 0:
+                # 2.1. Registrar el ingreso en la caja de inscripciones
+                registrar_ingreso_caja_inscripciones(
+                    contrato_nro=form_data.get('contrato_nro'),
+                    cliente_id=new_client_id,
+                    monto_inscripcion=form_data['inscripcion_monto'],
+                    responsable_cierre=responsable_cierre
+                )
+                
+                # 2.2. Calcular y guardar las comisiones para la nómina
+                calcular_y_guardar_comisiones(
+                    contrato_nro=form_data.get('contrato_nro'),
+                    cliente_id=new_client_id,
+                    monto_plan=monto_plan,
+                    asesor_dueno=asesor_dueno,
+                    responsable_cierre=responsable_cierre
+                )
+                flash('¡Comisiones del contrato generadas y listas para la nómina!', 'success')
+
+            # --- 3. Registrar auditoría y finalizar ---
             descripcion_audit = f"Registró y firmó contrato para nuevo cliente: {form_data.get('nombre_apellido')} (C.I. {form_data.get('cedula')})."
             registrar_accion_auditoria('REGISTRO_CLIENTE_FIRMADO', descripcion_audit, new_client_id)
             
-            conn.commit()
+            conn.commit() # --- Finaliza Transacción ---
+            
             flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado y contrato guardado exitosamente!", 'success')
             return redirect(url_for('consulta', busqueda=form_data.get('cedula')))
 
     except psycopg2.IntegrityError:
         conn.rollback()
         flash(f"Registro fallido: La cédula '{form_data.get('cedula')}' ya existe.", 'error')
-    except (psycopg2.Error, ValueError, ConnectionError) as e:
+    except (psycopg2.Error, ValueError, ConnectionError, InvalidOperation) as e:
         conn.rollback()
-        flash(f"Registro fallido: Ocurrió un error de base de datos: {e}", 'error')
+        logging.error(f"Error en finalizar_registro: {e}")
+        flash(f"Registro fallido: Ocurrió un error inesperado: {e}", 'error')
         
     return redirect(url_for('registrar'))
 

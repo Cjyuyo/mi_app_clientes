@@ -86,7 +86,7 @@
                         Usuario: <strong>{{ g.admin.usuario }}</strong>
                     </span>
                     <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger">Cerrar Sesión</a>
-                 {% endif %}
+                {% endif %}
             </div>
         </div>
     </nav>
@@ -98,6 +98,21 @@
 
     <main class="container my-5">
         <div class="row g-4">
+
+            <!-- Tarjeta: Módulo Comercial (NUEVO) -->
+            <div class="col-lg-4 col-md-6">
+                <a href="{{ url_for('dashboard_comercial') }}" class="text-decoration-none">
+                    <div class="tool-card">
+                        <div>
+                            <div class="icon" style="color: #198754;"><i class="bi bi-briefcase-fill"></i></div>
+                            <h5 class="card-title">Módulo Comercial</h5>
+                            <p class="card-text text-muted">Gestiona la caja de inscripciones, calcula comisiones y procesa la nómina de asesores.</p>
+                        </div>
+                        <span class="btn btn-outline-success mt-3">Acceder al Módulo</span>
+                    </div>
+                </a>
+            </div>
+
             <!-- Tarjeta: Reporte de Morosidad -->
             <div class="col-lg-4 col-md-6">
                 <a href="{{ url_for('reporte_morosidad') }}" class="text-decoration-none">
