@@ -149,38 +149,36 @@
         /* --- INICIO: ESTILOS MEJORADOS PARA HISTORIAL DE PAGOS --- */
         .payment-history {
             padding: 20px;
-            background-color: #f8f9fa; /* Fondo sutil para enmarcar la sección */
+            background-color: #f8f9fa;
             border-top: 1px solid #e9ecef;
-            border-bottom-left-radius: 8px; /* Redondear esquinas inferiores */
+            border-bottom-left-radius: 8px;
             border-bottom-right-radius: 8px;
         }
         .payment-history h3 {
             margin-top: 0;
             margin-bottom: 15px;
             padding-bottom: 10px;
-            border-bottom: 2px solid #e0e0e0; /* Línea de separación más notable */
+            border-bottom: 2px solid #e0e0e0;
             color: #333;
         }
+        /* Se usa CSS Grid para alinear en columnas perfectas */
         .payment-row {
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: 1fr 100px 190px; /* Columna 1: flexible, Columna 2 y 3: fijas */
             align-items: center;
-            padding: 15px 10px; /* Más espacio vertical */
-            border-bottom: 1px solid #e9ecef; /* Borde sutil entre filas */
+            padding: 15px 10px;
+            border-bottom: 1px solid #e9ecef;
             gap: 15px;
             transition: background-color 0.2s ease;
         }
         .desktop-payment-list .payment-row:last-child {
-            border-bottom: none; /* Quitar el borde de la última fila */
+            border-bottom: none;
         }
         .desktop-payment-list .payment-row:nth-child(even) {
-            background-color: #ffffff; /* Filas pares blancas para contraste */
+            background-color: #ffffff;
         }
         .desktop-payment-list .payment-row:hover {
-            background-color: #e7f3ff; /* Resaltado al pasar el mouse */
-        }
-        .payment-info { 
-            flex-grow: 1; 
+            background-color: #e7f3ff;
         }
         .payment-info .payment-concept { 
             font-weight: 600; 
@@ -191,19 +189,16 @@
             color: #606770; 
         }
         .payment-amount { 
-            font-size: 1.1em; 
             font-weight: bold; 
-            text-align: right; 
-            min-width: 100px;
+            text-align: right; /* Alinear monto a la derecha de su columna */
             color: #1d2129;
+            padding-right: 10px; /* Espacio para que no se pegue a la siguiente columna */
         }
         .payment-actions { 
             display: flex; 
-            flex-wrap: wrap; 
             gap: 8px; 
             align-items: center; 
-            justify-content: flex-end; 
-            min-width: 180px; /* Asegurar espacio para los botones */
+            justify-content: flex-end; /* Alinear contenido a la derecha de su columna */
         }
         /* --- FIN: ESTILOS MEJORADOS --- */
         
@@ -244,17 +239,29 @@
         .error { color: #D8000C; background-color: #FFD2D2; }
         
         /* Estilos para Móviles */
-        @media (max-width: 600px) {
+        @media (max-width: 768px) { /* Ajustado el breakpoint para tabletas */
             body { padding: 10px; }
             .search-container form { flex-direction: column; align-items: stretch; }
             .client-details { grid-template-columns: 1fr 1fr; } 
             .progress-item { grid-column: 1 / -1; }
-            .payment-summary { display: flex; justify-content: space-between; align-items: center; padding: 12px 10px; cursor: pointer; }
-            .payment-details-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; padding: 0 10px; }
-            .payment-row { flex-direction: column; align-items: flex-start; }
+            
+            /* Ocultar la lista de escritorio y mostrar la de móvil */
             .desktop-payment-list { display: none; }
+            .mobile-payment-list { display: block; } /* Asegurarse que se muestre */
+
+            .payment-accordion-item { border-bottom: 1px solid #e9ecef; }
+            .payment-summary { display: flex; justify-content: space-between; align-items: center; padding: 12px 10px; cursor: pointer; }
+            .payment-details-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; background-color: #fff; }
+            .payment-details-content .payment-row {
+                display: flex; /* Revertir a flex para el detalle móvil */
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 15px;
+                gap: 10px;
+                border: 0;
+            }
         }
-        @media (min-width: 601px) {
+        @media (min-width: 769px) {
             .mobile-payment-list { display: none; }
         }
     </style>
@@ -368,7 +375,7 @@
             {% if cliente.pagos %}
             <div class="payment-history">
                 <h3>Historial de Pagos</h3>
-                <!-- VISTA DE ESCRITORIO -->
+                <!-- VISTA DE ESCRITORIO CON LAYOUT DE COLUMNAS -->
                 <div class="desktop-payment-list">
                     {% for pago in cliente.pagos %}
                     <div class="payment-row">
@@ -404,7 +411,7 @@
                     </div>
                     {% endfor %}
                 </div>
-                <!-- VISTA MÓVIL -->
+                <!-- VISTA MÓVIL (ACORDEÓN) -->
                 <div class="mobile-payment-list">
                     {% for pago in cliente.pagos %}
                     <div class="payment-accordion-item">
@@ -475,7 +482,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         // Lógica para el acordeón en móviles
-        if (window.innerWidth <= 600) {
+        if (window.innerWidth <= 768) {
             const paymentSummaries = document.querySelectorAll('.payment-summary');
             paymentSummaries.forEach(summary => {
                 summary.addEventListener('click', function() {
