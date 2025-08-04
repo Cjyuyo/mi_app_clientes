@@ -1,10 +1,3 @@
-Claro, entiendo perfectamente. Quieres fusionar los dos archivos: mantener toda la nueva lógica y funcionalidades del segundo código, pero aplicando el estilo visual de los botones del primer archivo que adjuntaste.
-
-He tomado tu código con las funcionalidades correctas y he ajustado únicamente el CSS y las clases de los botones para que se vean exactamente como en tu diseño original.
-
-Aquí tienes el código corregido y listo para usar:
-
-```html
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -14,47 +7,186 @@ Aquí tienes el código corregido y listo para usar:
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
-        .container { max-width: 900px; margin: auto; }
-        .search-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .search-container form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        .search-container input[type="text"] { flex-grow: 1; padding: 12px; font-size: 16px; border: 1px solid #dddfe2; border-radius: 6px; min-width: 150px; }
-        .search-container button, .search-container .btn { padding: 12px 20px; font-size: 16px; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .search-container button { background-color: #1877f2; color: white; }
-        
-        .client-card { background: white; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }
-        .client-header { background-color: #f5f6f7; padding: 15px 20px; border-bottom: 1px solid #dddfe2; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
-        .client-header h2 { margin: 0; font-size: 1.2em; color: #1c1e21; }
-        .client-header .proceso { font-size: 0.9em; font-weight: bold; padding: 5px 10px; border-radius: 15px; text-transform: uppercase; }
+        /* Estilos Generales */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background-color: #f0f2f5; 
+            margin: 0; 
+            padding: 20px; 
+        }
+        .container { 
+            max-width: 900px; 
+            margin: auto; 
+        }
+
+        /* Contenedor de Búsqueda */
+        .search-container { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            margin-bottom: 20px; 
+        }
+        .search-container form { 
+            display: flex; 
+            gap: 10px; 
+            align-items: center; 
+            flex-wrap: wrap; 
+        }
+        .search-container input[type="text"] { 
+            flex-grow: 1; 
+            padding: 12px; 
+            font-size: 16px; 
+            border: 1px solid #dddfe2; 
+            border-radius: 6px; 
+            min-width: 150px; 
+        }
+        .search-container button { 
+            padding: 12px 20px; 
+            font-size: 16px; 
+            font-weight: bold; 
+            border-radius: 6px; 
+            border: none; 
+            cursor: pointer; 
+            background-color: #1877f2; 
+            color: white; 
+        }
+
+        /* Tarjeta de Cliente */
+        .client-card { 
+            background: white; 
+            margin-bottom: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            overflow: hidden; 
+        }
+        .client-header { 
+            background-color: #f5f6f7; 
+            padding: 15px 20px; 
+            border-bottom: 1px solid #dddfe2; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            flex-wrap: wrap; 
+        }
+        .client-header h2 { 
+            margin: 0; 
+            font-size: 1.2em; 
+            color: #1c1e21; 
+        }
+        .client-header .proceso { 
+            font-size: 0.9em; 
+            font-weight: bold; 
+            padding: 5px 10px; 
+            border-radius: 15px; 
+            text-transform: uppercase; 
+        }
         .proceso.reserva { background-color: #fff3cd; color: #856404; }
         .proceso.inscrito { background-color: #d1ecf1; color: #0c5460; }
         .proceso.ahorrador { background-color: #d4edda; color: #155724; }
         .proceso.adjudicado { background-color: #cce5ff; color: #004085; }
         
-        .client-details { background-color: #e7f3ff; padding: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
-        .detail-item { background-color: #ffffff; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #dcebfc; }
-        .detail-item .label { display: block; font-size: 0.8em; font-weight: 600; color: #606770; margin-bottom: 5px; text-transform: uppercase; }
-        .detail-item .value { font-size: 1.1em; font-weight: bold; color: #0056b3; }
+        /* Detalles del Cliente */
+        .client-details { 
+            background-color: #e7f3ff; 
+            padding: 20px; 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
+            gap: 15px; 
+        }
+        .detail-item { 
+            background-color: #ffffff; 
+            padding: 15px; 
+            border-radius: 8px; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08); 
+            border: 1px solid #dcebfc; 
+        }
+        .detail-item .label { 
+            display: block; 
+            font-size: 0.8em; 
+            font-weight: 600; 
+            color: #606770; 
+            margin-bottom: 5px; 
+            text-transform: uppercase; 
+        }
+        .detail-item .value { 
+            font-size: 1.1em; 
+            font-weight: bold; 
+            color: #0056b3; 
+        }
         .detail-item .value.currency { color: #155724; }
 
+        /* Barras de Progreso */
         .progress-item { grid-column: 1 / -1; }
-        .progress-bar-container { background-color: #e9ecef; border-radius: .375rem; height: 1.25rem; overflow: hidden; width: 100%; margin-top: 5px; }
-        .progress-bar { background-color: #28a745; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold; transition: width 0.6s ease; }
+        .progress-bar-container { 
+            background-color: #e9ecef; 
+            border-radius: .375rem; 
+            height: 1.25rem; 
+            overflow: hidden; 
+            width: 100%; 
+            margin-top: 5px; 
+        }
+        .progress-bar { 
+            background-color: #28a745; 
+            height: 100%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            color: white; 
+            font-size: 0.8rem; 
+            font-weight: bold; 
+            transition: width 0.6s ease; 
+        }
         .progress-bar-secondary { background-color: #17a2b8; }
-        .progress-label { display: flex; justify-content: space-between; font-size: 0.9em; margin-top: 5px; }
+        .progress-label { 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 0.9em; 
+            margin-top: 5px; 
+        }
         .progress-label-detail { font-size: 0.9em; color: #606770; }
 
+        /* Historial de Pagos */
         .payment-history { padding: 0 20px 20px; }
-        .payment-history h3 { margin-top: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .payment-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 10px; border-bottom: 1px solid #f0f2f5; gap: 15px; }
+        .payment-history h3 { 
+            margin-top: 20px; 
+            border-bottom: 1px solid #eee; 
+            padding-bottom: 10px; 
+        }
+        .payment-row { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 12px 10px; 
+            border-bottom: 1px solid #f0f2f5; 
+            gap: 15px; 
+        }
         .payment-info { flex-grow: 1; }
         .payment-info span { display: block; }
         .payment-info .payment-concept { font-weight: 600; color: #050505; }
         .payment-info .payment-meta { font-size: 0.85em; color: #606770; }
-        .payment-amount { font-size: 1.1em; font-weight: bold; text-align: right; min-width: 90px; }
-        .payment-actions { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+        .payment-amount { 
+            font-size: 1.1em; 
+            font-weight: bold; 
+            text-align: right; 
+            min-width: 90px; 
+        }
+        .payment-actions { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 8px; /* Espacio uniforme entre botones */
+            align-items: center; 
+            justify-content: flex-end; 
+        }
         
-        .badge { font-size: 0.8em; font-weight: bold; padding: 4px 8px; border-radius: 6px; color: white; }
+        /* Badges de Estado */
+        .badge { 
+            font-size: 0.8em; 
+            font-weight: bold; 
+            padding: 4px 8px; 
+            border-radius: 6px; 
+            color: white; 
+        }
         .bg-reporte { background-color: #6610f2 !important; }
         .bg-inconsistente { background-color: #dc3545 !important; }
         .bg-aprobado { background-color: #198754 !important; }
@@ -62,20 +194,28 @@ Aquí tienes el código corregido y listo para usar:
         .bg-pendiente { background-color: #ffc107; color: #212529; }
         .bg-anulado { background-color: #dc3545; }
 
-        .client-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 15px 20px; background-color: #f5f6f7; border-top: 1px solid #dddfe2; }
+        /* Acciones del Cliente (sección inferior) */
+        .client-actions { 
+            display: flex; 
+            flex-wrap: wrap; 
+            justify-content: flex-end; 
+            gap: 10px; 
+            padding: 15px 20px; 
+            background-color: #f5f6f7; 
+            border-top: 1px solid #dddfe2; 
+        }
         
-        /* --- ESTILOS DE BOTONES CORREGIDOS --- */
-        .btn { text-decoration: none; color: white !important; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; }
-        .btn-primary { background-color: #28a745; }
-        .btn-secondary { background-color: #6c757d; color: white !important; }
-        .btn-warning { background-color: #ffc107; color: #212529 !important; }
-        .btn-danger { background-color: #dc3545; }
-        .btn-info { background-color: #17a2b8; }
-        /* --- FIN DE LA CORRECCIÓN DE ESTILOS --- */
-
-        .mensaje { margin: 0 0 20px 0; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
+        /* Mensajes de Alerta */
+        .mensaje { 
+            margin: 0 0 20px 0; 
+            font-weight: bold; 
+            padding: 15px; 
+            border-radius: 5px; 
+            text-align: center; 
+        }
         .error { color: #D8000C; background-color: #FFD2D2; }
         
+        /* Estilos para Móviles */
         @media (max-width: 600px) {
             body { padding: 10px; }
             .search-container form { flex-direction: column; align-items: stretch; }
@@ -200,6 +340,7 @@ Aquí tienes el código corregido y listo para usar:
             {% if cliente.pagos %}
             <div class="payment-history">
                 <h3>Historial de Pagos</h3>
+                <!-- VISTA DE ESCRITORIO -->
                 <div class="desktop-payment-list">
                     {% for pago in cliente.pagos %}
                     <div class="payment-row">
@@ -211,34 +352,31 @@ Aquí tienes el código corregido y listo para usar:
                         <div class="payment-actions">
                             {% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}
                                 <span class="badge bg-reporte">Reportado</span>
-                                <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info">Ver Reporte</a>
+                                <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">Ver Reporte</a>
                             {% elif pago.estado_reporte == 'Inconsistente' %}
                                 <span class="badge bg-inconsistente">Inconsistente</span>
-                                <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-secondary">Ver Reporte</a>
+                                <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Ver Reporte</a>
                             {% elif pago.estado_pago == 'Pendiente' %}
                                 {% if pago.estado_reporte == 'Aprobado' %}
                                     <span class="badge bg-aprobado">Aprobado</span>
                                 {% else %}
                                     <span class="badge bg-pendiente">Pendiente</span>
                                 {% endif %}
-                                <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');">
-                                    <button type="submit" class="btn btn-primary">Conciliar</button>
+                                <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');" style="display:inline;">
+                                    <button type="submit" class="btn btn-success btn-sm">Conciliar</button>
                                 </form>
                             {% elif pago.estado_pago == 'Conciliado' %}
                                 <span class="badge bg-conciliado">Conciliado</span>
-                                {% if pago.tipo_pago == 'Inscripción Finalizada' %}
-                                    <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
-                                {% else %}
-                                    <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
-                                {% endif %}
+                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Ver Recibo</a>
                             {% elif pago.estado_pago == 'Anulado' %}
                                 <span class="badge bg-anulado">Anulado</span>
-                                <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-danger">Detalles</a>
+                                <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Detalles</a>
                             {% endif %}
                         </div>
                     </div>
                     {% endfor %}
                 </div>
+                <!-- VISTA MÓVIL -->
                 <div class="mobile-payment-list">
                     {% for pago in cliente.pagos %}
                     <div class="payment-accordion-item">
@@ -259,29 +397,25 @@ Aquí tienes el código corregido y listo para usar:
                                 <div class="payment-actions">
                                     {% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}
                                         <span class="badge bg-reporte">Reportado</span>
-                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info">Ver Reporte</a>
+                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">Ver Reporte</a>
                                     {% elif pago.estado_reporte == 'Inconsistente' %}
                                         <span class="badge bg-inconsistente">Inconsistente</span>
-                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-secondary">Ver Reporte</a>
+                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Ver Reporte</a>
                                     {% elif pago.estado_pago == 'Pendiente' %}
                                         {% if pago.estado_reporte == 'Aprobado' %}
                                             <span class="badge bg-aprobado">Aprobado</span>
                                         {% else %}
                                             <span class="badge bg-pendiente">Pendiente</span>
                                         {% endif %}
-                                        <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');">
-                                            <button type="submit" class="btn btn-primary">Conciliar</button>
+                                        <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');" style="display:inline;">
+                                            <button type="submit" class="btn btn-success btn-sm">Conciliar</button>
                                         </form>
                                     {% elif pago.estado_pago == 'Conciliado' %}
                                         <span class="badge bg-conciliado">Conciliado</span>
-                                        {% if pago.tipo_pago == 'Inscripción Finalizada' %}
-                                            <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
-                                        {% else %}
-                                            <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
-                                        {% endif %}
+                                        <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Ver Recibo</a>
                                     {% elif pago.estado_pago == 'Anulado' %}
                                         <span class="badge bg-anulado">Anulado</span>
-                                        <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-danger">Detalles</a>
+                                        <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Detalles</a>
                                     {% endif %}
                                 </div>
                             </div>
@@ -292,16 +426,17 @@ Aquí tienes el código corregido y listo para usar:
             </div>
             {% endif %}
 
+            <!-- ACCIONES DEL CLIENTE -->
             <div class="client-actions">
-                <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-primary">Registrar Pago</a>
-                <a href="{{ url_for('registrar_oferta', client_id=cliente.id) }}" class="btn btn-info">Registrar Oferta</a>
-                <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-secondary" target="_blank"><i class="bi bi-file-earmark-pdf-fill me-1"></i> Contrato</a>
+                <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-success btn-sm">Registrar Pago</a>
+                <a href="{{ url_for('registrar_oferta', client_id=cliente.id) }}" class="btn btn-info btn-sm">Registrar Oferta</a>
+                <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-secondary btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf-fill me-1"></i> Contrato</a>
                 {% if g.admin and g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
-                <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-warning">Editar</a>
+                <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-warning btn-sm">Editar</a>
                 {% endif %}
                 {% if g.admin and g.admin.rol == 'superadmin' %}
                 <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro?');">
-                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                    <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
                 </form>
                 {% endif %}
             </div>
@@ -311,6 +446,7 @@ Aquí tienes el código corregido y listo para usar:
 </div>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // Lógica para el acordeón en móviles
         if (window.innerWidth <= 600) {
             const paymentSummaries = document.querySelectorAll('.payment-summary');
             paymentSummaries.forEach(summary => {
@@ -329,4 +465,3 @@ Aquí tienes el código corregido y listo para usar:
 </script>
 </body>
 </html>
-```
