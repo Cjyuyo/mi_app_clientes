@@ -113,6 +113,7 @@
     </header>
 
     <main class="container my-5">
+        <!-- INICIO DE CAMBIO v4: Fila de Métricas Principales -->
         <div class="row g-4">
             <div class="col-xl-3 col-md-6">
                 <div class="metric-card">
@@ -150,7 +151,7 @@
             <div class="col-xl-3 col-md-6">
                 <div class="metric-card">
                     <div class="card-body d-flex align-items-center">
-                        <div class="metric-icon bg-warning text-dark"><i class="bi bi-award-fill"></i></div>
+                        <div class="metric-icon bg-info"><i class="bi bi-award-fill"></i></div>
                         <div>
                             <div class="metric-label">Total Adjudicados</div>
                             <div class="metric-value">{{ metrics.clientes_adjudicados }}</div>
@@ -159,6 +160,46 @@
                 </div>
             </div>
         </div>
+        <!-- FIN DE CAMBIO v4 -->
+
+        <!-- INICIO DE CAMBIO v4: Fila de Métricas Secundarias -->
+        <div class="row g-4 mt-4">
+            <div class="col-xl-4 col-md-6">
+                <div class="metric-card">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="metric-icon bg-dark"><i class="bi bi-journal-bookmark-fill"></i></div>
+                        <div>
+                            <div class="metric-label">Total Clientes (Histórico)</div>
+                            <div class="metric-value">{{ metrics.total_clientes }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-4 col-md-6">
+                <div class="metric-card">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="metric-icon bg-secondary"><i class="bi bi-person-fill-slash"></i></div>
+                        <div>
+                            <div class="metric-label">Clientes Inactivos</div>
+                            <div class="metric-value">{{ metrics.clientes_inactivos }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-4 col-md-6">
+                <div class="metric-card">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="metric-icon bg-warning text-dark"><i class="bi bi-box-arrow-left"></i></div>
+                        <div>
+                            <div class="metric-label">Clientes Retirados</div>
+                            <div class="metric-value">{{ metrics.clientes_retirados }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- FIN DE CAMBIO v4 -->
+
 
         <div class="row g-4 mt-4">
             <div class="col-lg-7">

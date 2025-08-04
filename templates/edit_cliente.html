@@ -89,17 +89,12 @@
             text-align: center;
         }
         .btn-primary {
-            background-color: #ffc107;
-            color: #212529;
+            background-color: #0056b3;
+            color: white;
         }
         .btn-secondary {
             background-color: #6c757d;
             color: white;
-        }
-        @media (max-width: 768px) {
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
         }
     </style>
 </head>
@@ -109,21 +104,28 @@
         <h1>Editar Cliente</h1>
         <p>{{ cliente.nombre_apellido }}</p>
     </div>
+
     <form action="{{ url_for('edit_client', client_id=cliente.id) }}" method="POST">
+        <input type="hidden" name="id" value="{{ cliente.id }}">
+
         <div class="section">
-            <h3>Información Personal</h3>
+            <h3>Información Personal y de Contrato</h3>
             <div class="form-grid">
                 <div class="form-group">
                     <label for="nombre_apellido">Nombre y Apellido</label>
-                    <input type="text" id="nombre_apellido" name="nombre_apellido" value="{{ cliente.nombre_apellido or '' }}" required>
+                    <input type="text" id="nombre_apellido" name="nombre_apellido" value="{{ cliente.nombre_apellido }}">
                 </div>
                 <div class="form-group">
-                    <label for="cedula">Nº Cédula</label>
-                    <input type="text" id="cedula" name="cedula" value="{{ cliente.cedula or '' }}" required>
+                    <label for="cedula">Cédula</label>
+                    <input type="text" id="cedula" name="cedula" value="{{ cliente.cedula }}">
                 </div>
                 <div class="form-group">
                     <label for="telefono">Teléfono</label>
                     <input type="text" id="telefono" name="telefono" value="{{ cliente.telefono or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="contrato_nro">N° de Contrato</label>
+                    <input type="text" id="contrato_nro" name="contrato_nro" value="{{ cliente.contrato_nro or '' }}">
                 </div>
                 <div class="form-group">
                     <label for="fecha_ingreso">Fecha de Ingreso</label>
@@ -133,63 +135,46 @@
         </div>
 
         <div class="section">
-            <h3>Detalles del Plan</h3>
+            <h3>Detalles del Plan y Financieros</h3>
             <div class="form-grid">
-                <div class="form-group">
-                    <label for="contrato_nro">Nº Contrato</label>
-                    <input type="text" id="contrato_nro" name="contrato_nro" value="{{ cliente.contrato_nro or '' }}">
-                </div>
                 <div class="form-group">
                     <label for="plan_contratado">Plan Contratado</label>
                     <input type="text" id="plan_contratado" name="plan_contratado" value="{{ cliente.plan_contratado or '' }}">
                 </div>
                 <div class="form-group">
+                    <label for="inscripcion_monto">Monto de Inscripción (USD)</label>
+                    <input type="number" step="0.01" id="inscripcion_monto" name="inscripcion_monto" value="{{ cliente.inscripcion_monto or '0.00' }}">
+                </div>
+                <div class="form-group">
+                    <label for="valor_cuota">Valor de Cuota (USD)</label>
+                    <input type="number" step="0.01" id="valor_cuota" name="valor_cuota" value="{{ cliente.valor_cuota or '0.00' }}">
+                </div>
+                <div class="form-group">
                     <label for="cuotas_totales">Cuotas Totales</label>
-                    <select id="cuotas_totales" name="cuotas_totales">
-                        <option value="24" {% if cliente.cuotas_totales == 24 %}selected{% endif %}>24</option>
-                        <option value="36" {% if cliente.cuotas_totales == 36 %}selected{% endif %}>36</option>
-                        <option value="48" {% if cliente.cuotas_totales == 48 %}selected{% endif %}>48</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="valor_cuota">Cuota Mensual (USD)</label>
-                    <input type="number" id="valor_cuota" step="0.01" name="valor_cuota" value="{{ cliente.valor_cuota or '' }}">
-                </div>
-                <div class="form-group">
-                    <label for="inscripcion_monto">Monto Inscripción (USD)</label>
-                    <input type="number" id="inscripcion_monto" step="0.01" name="inscripcion_monto" value="{{ cliente.inscripcion_monto or '' }}">
+                    <input type="number" id="cuotas_totales" name="cuotas_totales" value="{{ cliente.cuotas_totales or '0' }}">
                 </div>
             </div>
         </div>
 
         <div class="section">
-            <h3>Estado del Cliente</h3>
+            <h3>Estado y Proceso del Cliente</h3>
             <div class="form-grid">
-                 <div class="form-group">
-                    <label for="asesor">Asesor</label>
-                    <input type="text" id="asesor" name="asesor" value="{{ cliente.asesor or '' }}">
-                </div>
                 <div class="form-group">
                     <label for="proceso">Proceso</label>
                     <select id="proceso" name="proceso">
-                        <option value="RESERVA" {% if cliente.proceso == 'RESERVA' %}selected{% endif %}>Reserva</option>
-                        <option value="INSCRITO" {% if cliente.proceso == 'INSCRITO' %}selected{% endif %}>Inscrito</option>
-                        <option value="AHORRADOR" {% if cliente.proceso == 'AHORRADOR' %}selected{% endif %}>Ahorrador</option>
-                        <option value="ADJUDICADO" {% if cliente.proceso == 'ADJUDICADO' %}selected{% endif %}>Adjudicado</option>
+                        {% set procesos = ['ADJUDICADO', 'AHORRADOR', 'COBRANZA DIFERIDA', 'INSCRITO', 'PENDIENTE', 'RESERVA', 'RETIRO'] %}
+                        {% for p in procesos %}
+                            <option value="{{ p }}" {% if cliente.proceso and cliente.proceso.upper() == p %}selected{% endif %}>{{ p.replace('_', ' ') | title }}</option>
+                        {% endfor %}
                     </select>
                 </div>
                 <div class="form-group">
                     <label for="estatus">Estatus</label>
                     <select id="estatus" name="estatus">
-                        <option value="ACTIVO" {% if cliente.estatus == 'ACTIVO' %}selected{% endif %}>Activo</option>
-                        <option value="INACTIVO" {% if cliente.estatus == 'INACTIVO' %}selected{% endif %}>Inactivo</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="estatus_1">Estatus Detallado</label>
-                    <select id="estatus_1" name="estatus_1">
-                        <option value="SOLVENTE" {% if cliente.estatus_1 == 'SOLVENTE' %}selected{% endif %}>Solvente</option>
-                        <option value="MORA" {% if cliente.estatus_1 == 'MORA' %}selected{% endif %}>Mora</option>
+                        {% set estatuses = ['ACTIVO', 'COMPLETADO', 'CONGELADO', 'DIFERIDO EN RESERVA', 'INACTIVO', 'RESERVA', 'RETIRO'] %}
+                        {% for e in estatuses %}
+                            <option value="{{ e }}" {% if cliente.estatus and cliente.estatus.upper() == e %}selected{% endif %}>{{ e.replace('_', ' ') | title }}</option>
+                        {% endfor %}
                     </select>
                 </div>
             </div>
@@ -203,21 +188,16 @@
 </div>
 <script>
     (function() {
-        const forms = document.querySelectorAll('form');
-        forms.forEach(form => {
-            form.addEventListener('submit', function(e) {
-                if (form.getAttribute('data-submitted') === 'true') {
-                    e.preventDefault();
-                    return;
-                }
-                form.setAttribute('data-submitted', 'true');
-
-                const submitButtons = form.querySelectorAll('button[type="submit"]');
-                submitButtons.forEach(button => {
-                    button.setAttribute('disabled', 'disabled');
-                    button.innerHTML = 'Procesando...';
-                });
-            });
+        const form = document.querySelector('form');
+        form.addEventListener('submit', function(e) {
+            if (form.getAttribute('data-submitted') === 'true') {
+                e.preventDefault();
+                return;
+            }
+            form.setAttribute('data-submitted', 'true');
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.setAttribute('disabled', 'disabled');
+            submitButton.innerHTML = 'Procesando...';
         });
     })();
 </script>
