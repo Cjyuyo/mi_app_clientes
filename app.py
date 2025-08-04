@@ -275,20 +275,22 @@ def reporte_metricas():
     if conn:
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT COUNT(*) FROM clientes WHERE estatus = 'activo'")
+                # --- INICIO DE LA CORRECCIÓN v3 ---
+                # Se usa TRIM y UPPER para una búsqueda robusta e insensible a mayúsculas/minúsculas.
+                cur.execute("SELECT COUNT(*) FROM clientes WHERE TRIM(UPPER(estatus)) = 'ACTIVO'")
                 dashboard_metrics['clientes_activos'] = cur.fetchone()[0]
                 
-                cur.execute("SELECT COUNT(*) FROM clientes WHERE proceso = 'ADJUDICADO'")
+                cur.execute("SELECT COUNT(*) FROM clientes WHERE TRIM(UPPER(proceso)) = 'ADJUDICADO'")
                 dashboard_metrics['clientes_adjudicados'] = cur.fetchone()[0]
 
                 first_day_of_month = today.replace(day=1)
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
                 dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
 
-                cur.execute("SELECT COUNT(*) FROM clientes WHERE proceso = 'Ahorrador' AND estatus = 'activo'")
+                cur.execute("SELECT COUNT(*) FROM clientes WHERE TRIM(UPPER(proceso)) = 'AHORRADOR' AND TRIM(UPPER(estatus)) = 'ACTIVO'")
                 total_ahorradores = cur.fetchone()[0]
                 if total_ahorradores > 0:
-                    cur.execute("SELECT COUNT(DISTINCT p.cliente_id) FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.tipo_pago = 'Cuota' AND p.estado_pago = 'Conciliado' AND c.proceso = 'Ahorrador' AND c.estatus = 'activo' AND p.fecha_pago >= %s", (first_day_of_month,))
+                    cur.execute("SELECT COUNT(DISTINCT p.cliente_id) FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.tipo_pago = 'Cuota' AND p.estado_pago = 'Conciliado' AND TRIM(UPPER(c.proceso)) = 'AHORRADOR' AND TRIM(UPPER(c.estatus)) = 'ACTIVO' AND p.fecha_pago >= %s", (first_day_of_month,))
                     ahorradores_al_dia = cur.fetchone()[0]
                     clientes_en_mora = total_ahorradores - ahorradores_al_dia
                     dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100 if total_ahorradores > 0 else 0
@@ -310,10 +312,9 @@ def reporte_metricas():
 
                 dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
 
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se modifica la consulta para manejar clientes activos sin un proceso definido.
-                cur.execute("SELECT COALESCE(proceso, 'Sin Proceso Definido') as proceso, COUNT(*) FROM clientes WHERE estatus = 'activo' GROUP BY proceso")
-                # --- FIN DE LA CORRECCIÓN ---
+                # Se combina la corrección anterior con la nueva para máxima compatibilidad.
+                cur.execute("SELECT COALESCE(TRIM(UPPER(proceso)), 'SIN PROCESO') as proceso, COUNT(*) FROM clientes WHERE TRIM(UPPER(estatus)) = 'ACTIVO' GROUP BY proceso")
+                # --- FIN DE LA CORRECCIÓN v3 ---
                 
                 client_composition = cur.fetchall()
                 comp_labels = [row['proceso'].capitalize() for row in client_composition]
@@ -344,6 +345,8 @@ def reporte_morosidad():
                 first_day_of_month = today.replace(day=1)
                 
                 subquery_pagaron_mes = "SELECT DISTINCT cliente_id FROM pagos WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s"
+                
+                # --- INICIO DE LA CORRECCIÓN v3 ---
                 query_morosos = f"""
                     SELECT 
                         c.id, c.nombre, c.apellido, c.cedula, c.telefono, c.valor_cuota, c.gestor_id,
@@ -351,11 +354,12 @@ def reporte_morosidad():
                         (SELECT MAX(p.fecha_pago) FROM pagos p WHERE p.cliente_id = c.id AND p.estado_pago = 'Conciliado') as ultimo_pago_fecha
                     FROM clientes c
                     LEFT JOIN administradores a ON c.gestor_id = a.id
-                    WHERE c.proceso = 'Ahorrador' 
-                    AND c.estatus = 'activo'
+                    WHERE TRIM(UPPER(c.proceso)) = 'AHORRADOR' 
+                    AND TRIM(UPPER(c.estatus)) = 'ACTIVO'
                     AND c.id NOT IN ({subquery_pagaron_mes})
                     ORDER BY c.nombre, c.apellido;
                 """
+                # --- FIN DE LA CORRECCIÓN v3 ---
                 
                 cur.execute(query_morosos, (first_day_of_month,))
                 clientes_en_mora = cur.fetchall()
@@ -1386,11 +1390,13 @@ def adjudicacion():
         return render_template('adjudicacion.html', clientes_elegibles_ahorro=[], ofertas_activas=[], historial=[])
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega FROM clientes WHERE proceso ILIKE 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega) AND estatus ILIKE 'activo' ORDER BY nombre, apellido;")
+            # --- INICIO DE LA CORRECCIÓN v3 ---
+            cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega FROM clientes WHERE TRIM(UPPER(proceso)) = 'AHORRADOR' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega) AND TRIM(UPPER(estatus)) = 'ACTIVO' ORDER BY nombre, apellido;")
             clientes_elegibles_ahorro = cur.fetchall()
             
-            cur.execute("SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador' ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;")
+            cur.execute("SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND TRIM(UPPER(c.proceso)) = 'AHORRADOR' ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;")
             ofertas_activas = cur.fetchall()
+            # --- FIN DE LA CORRECCIÓN v3 ---
             
             cur.execute("SELECT a.id, a.fecha_adjudicacion, (gs.nombre || ' ' || gs.apellido) as nombre_ganador_sorteo, (go.nombre || ' ' || go.apellido) as nombre_ganador_oferta FROM adjudicaciones a LEFT JOIN clientes gs ON a.ganador_sorteo_id = gs.id LEFT JOIN clientes go ON a.ganador_oferta_id = go.id ORDER BY a.fecha_adjudicacion DESC;")
             historial = cur.fetchall()
@@ -1412,13 +1418,15 @@ def realizar_adjudicacion():
             cur.execute("UPDATE clientes SET ignorar_penalidad_puntualidad = FALSE;")
             ids_ya_ganadores = set()
             
-            cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE proceso ILIKE 'Ahorrador' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega) AND estatus ILIKE 'activo';")
+            # --- INICIO DE LA CORRECCIÓN v3 ---
+            cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE TRIM(UPPER(proceso)) = 'AHORRADOR' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega) AND TRIM(UPPER(estatus)) = 'ACTIVO';")
             ganadores_ahorro = cur.fetchall()
             ids_ganadores_ahorro = [g['id'] for g in ganadores_ahorro]
             ids_ya_ganadores.update(ids_ganadores_ahorro)
             
             ganador_oferta = None
-            cur.execute("SELECT c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND c.proceso ILIKE 'Ahorrador' AND c.id NOT IN %s;", (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
+            cur.execute("SELECT c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND TRIM(UPPER(c.proceso)) = 'AHORRADOR' AND c.id NOT IN %s;", (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
+            # --- FIN DE LA CORRECCIÓN v3 ---
             candidatos_oferta_raw = cur.fetchall()
             
             candidatos_oferta = []
