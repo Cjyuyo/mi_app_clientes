@@ -146,38 +146,66 @@
         }
         .progress-label-detail { font-size: 0.9em; color: #606770; }
 
-        /* Historial de Pagos */
-        .payment-history { padding: 0 20px 20px; }
-        .payment-history h3 { 
-            margin-top: 20px; 
-            border-bottom: 1px solid #eee; 
-            padding-bottom: 10px; 
+        /* --- INICIO: ESTILOS MEJORADOS PARA HISTORIAL DE PAGOS --- */
+        .payment-history {
+            padding: 20px;
+            background-color: #f8f9fa; /* Fondo sutil para enmarcar la sección */
+            border-top: 1px solid #e9ecef;
+            border-bottom-left-radius: 8px; /* Redondear esquinas inferiores */
+            border-bottom-right-radius: 8px;
         }
-        .payment-row { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            padding: 12px 10px; 
-            border-bottom: 1px solid #f0f2f5; 
-            gap: 15px; 
+        .payment-history h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0; /* Línea de separación más notable */
+            color: #333;
         }
-        .payment-info { flex-grow: 1; }
-        .payment-info span { display: block; }
-        .payment-info .payment-concept { font-weight: 600; color: #050505; }
-        .payment-info .payment-meta { font-size: 0.85em; color: #606770; }
+        .payment-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 10px; /* Más espacio vertical */
+            border-bottom: 1px solid #e9ecef; /* Borde sutil entre filas */
+            gap: 15px;
+            transition: background-color 0.2s ease;
+        }
+        .desktop-payment-list .payment-row:last-child {
+            border-bottom: none; /* Quitar el borde de la última fila */
+        }
+        .desktop-payment-list .payment-row:nth-child(even) {
+            background-color: #ffffff; /* Filas pares blancas para contraste */
+        }
+        .desktop-payment-list .payment-row:hover {
+            background-color: #e7f3ff; /* Resaltado al pasar el mouse */
+        }
+        .payment-info { 
+            flex-grow: 1; 
+        }
+        .payment-info .payment-concept { 
+            font-weight: 600; 
+            color: #050505; 
+        }
+        .payment-info .payment-meta { 
+            font-size: 0.85em; 
+            color: #606770; 
+        }
         .payment-amount { 
             font-size: 1.1em; 
             font-weight: bold; 
             text-align: right; 
-            min-width: 90px; 
+            min-width: 100px;
+            color: #1d2129;
         }
         .payment-actions { 
             display: flex; 
             flex-wrap: wrap; 
-            gap: 8px; /* Espacio uniforme entre botones */
+            gap: 8px; 
             align-items: center; 
             justify-content: flex-end; 
+            min-width: 180px; /* Asegurar espacio para los botones */
         }
+        /* --- FIN: ESTILOS MEJORADOS --- */
         
         /* Badges de Estado */
         .badge { 
