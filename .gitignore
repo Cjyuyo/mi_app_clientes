@@ -1,11 +1,3 @@
-# Archivos del sistema operativo
 .DS_Store
-
-# Archivos temporales de Microsoft Office
-~$*.xlsx
-~$*.docx
-~$*.pptx
-
-# Archivos compilados de Python
+~.xlsx
 __pycache__/
-*.pyc
