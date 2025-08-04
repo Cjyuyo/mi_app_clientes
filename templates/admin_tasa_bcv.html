@@ -27,35 +27,28 @@
         .content-card {
             background-color: white;
             border: none;
-            border-radius: 12px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
-            height: 100%;
+            border-radius: .75rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
         }
-        .content-card .card-header {
-            background-color: transparent;
-            border-bottom: 1px solid #e9ecef;
-            font-weight: 600;
-            padding: 1rem 1.5rem;
+        .footer {
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+            color: #6c757d;
         }
-        .rate-display {
-            border-radius: .5rem;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-        }
-        .rate-display.usd { background-color: #e6f7f0; border-left: 5px solid #198754; }
-        .rate-display.eur { background-color: #e7f3ff; border-left: 5px solid #0d6efd; }
-        .rate-display .value { font-size: 1.75rem; font-weight: 600; }
-        .footer { text-align: center; padding: 20px; margin-top: 40px; color: #6c757d; }
     </style>
 </head>
 <body>
-
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
         <div class="container-fluid d-flex justify-content-between align-items-center">
-            <a class="navbar-brand" href="{{ url_for('gestion_administrativa') }}"><i class="bi bi-arrow-left"></i> Volver a Gestión</a>
+            <a class="navbar-brand" href="{{ url_for('gestion_administrativa') }}">
+                <i class="bi bi-arrow-left-circle-fill"></i> Volver a Gestión
+            </a>
             <div class="d-flex align-items-center">
                  {% if g.admin %}
-                    <span class="navbar-text me-3 d-none d-md-inline"><i class="bi bi-person-circle"></i> {{ g.admin.usuario }}</span>
+                    <span class="navbar-text me-3 d-none d-md-inline">
+                        <i class="bi bi-person-circle"></i> {{ g.admin.usuario }}
+                    </span>
                     <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger btn-sm">Cerrar Sesión</a>
                  {% endif %}
             </div>
@@ -63,65 +56,57 @@
     </nav>
 
     <header class="hub-header">
-        <h1>Gestión de Tasas de Cambio</h1>
-        <p class="tagline">Establece las tasas BCV del día y consulta el historial.</p>
+        <h1><i class="bi bi-currency-exchange"></i> Gestión de Tasas de Cambio</h1>
+        <p class="tagline">Establece la tasa del día y consulta el historial de cambios.</p>
     </header>
 
     <main class="container my-5">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
         <div class="row g-4">
-            <!-- Columna de Actualización -->
+            <!-- Columna del formulario -->
             <div class="col-lg-5">
-                <div class="content-card">
-                    <div class="card-header"><h5 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Actualizar Tasas del Día</h5></div>
+                <div class="card content-card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Establecer Tasa del Día</h5>
+                    </div>
                     <div class="card-body p-4">
-                        <div class="rate-display usd">
-                            <label class="form-label">Tasa Dólar (USD) de Hoy:</label>
-                            {% if tasas_de_hoy.usd %}<div class="value text-success">{{ "{:,.4f}".format(tasas_de_hoy.usd) }} Bs.</div>
-                            {% else %}<div class="text-muted">No establecida</div>{% endif %}
-                        </div>
-                        <div class="rate-display eur">
-                            <label class="form-label">Tasa Euro (EUR) de Hoy:</label>
-                            {% if tasas_de_hoy.eur %}<div class="value text-primary">{{ "{:,.4f}".format(tasas_de_hoy.eur) }} Bs.</div>
-                            {% else %}<div class="text-muted">No establecida</div>{% endif %}
-                        </div>
-                        <form action="{{ url_for('admin_tasa_bcv') }}" method="POST">
+                        <form method="POST" action="{{ url_for('admin_tasa_bcv') }}">
                             <div class="mb-3">
-                                <label for="tasa_usd" class="form-label fw-bold">Nuevo Valor Dólar (USD)</label>
-                                <div class="input-group"><span class="input-group-text"><i class="bi bi-currency-dollar"></i></span><input type="text" class="form-control" id="tasa_usd" name="tasa_usd" placeholder="Ej: 36.5432"></div>
+                                <label for="tasa_usd" class="form-label fw-bold">Tasa Dólar (USD)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">Bs.</span>
+                                    <input type="text" class="form-control" id="tasa_usd" name="tasa_usd" value="{{ tasas_de_hoy.usd if tasas_de_hoy.usd is not none else '' }}" placeholder="Ej: 36.50" required>
+                                </div>
                             </div>
-                            <div class="mb-3">
-                                <label for="tasa_eur" class="form-label fw-bold">Nuevo Valor Euro (EUR)</label>
-                                <div class="input-group"><span class="input-group-text"><i class="bi bi-currency-euro"></i></span><input type="text" class="form-control" id="tasa_eur" name="tasa_eur" placeholder="Ej: 39.1234"></div>
+                            <div class="mb-4">
+                                <label for="tasa_eur" class="form-label fw-bold">Tasa Euro (EUR)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">Bs.</span>
+                                    <input type="text" class="form-control" id="tasa_eur" name="tasa_eur" value="{{ tasas_de_hoy.eur if tasas_de_hoy.eur is not none else '' }}" placeholder="Ej: 40.20" required>
+                                </div>
                             </div>
-                            <button class="btn btn-primary btn-lg w-100 mt-2" type="submit"><i class="bi bi-check-circle-fill"></i> Guardar Tasas</button>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg">Guardar Tasa</button>
+                            </div>
                         </form>
                     </div>
                 </div>
             </div>
-            <!-- Columna de Historial -->
+
+            <!-- Columna del historial -->
             <div class="col-lg-7">
-                <div class="content-card">
-                    <div class="card-header"><h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Historial Reciente</h5></div>
+                <div class="card content-card">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">Historial Reciente (Últimos 30 días)</h5>
+                    </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table table-striped table-hover mb-0">
                                 <thead class="table-light">
                                     <tr>
-                                        <th class="py-3 px-3">Fecha</th>
-                                        <th class="py-3 px-3">Tasa ($)</th>
-                                        <th class="py-3 px-3">Tasa (€)</th>
-                                        <th class="py-3 px-3">Establecida por</th>
+                                        <th class="p-3">Fecha</th>
+                                        <th class="p-3">Tasa USD</th>
+                                        <th class="p-3">Tasa EUR</th>
+                                        <th class="p-3">Establecida por</th>
                                     </tr>
                                 </thead>
                                 <tbody>

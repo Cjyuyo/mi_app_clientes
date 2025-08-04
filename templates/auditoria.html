@@ -16,21 +16,16 @@
             box-shadow: 0 2px 4px rgba(0,0,0,.1);
         }
         .hub-header {
-            background-color: #0056b3;
+            background-color: #6c757d; /* Color Gris para Auditoría */
             color: white;
             padding: 50px 20px;
             text-align: center;
-            border-bottom: 5px solid #004a99;
+            border-bottom: 5px solid #5a6268;
         }
         .hub-header h1 {
             font-weight: 700;
             font-size: 2.5rem;
             margin-bottom: 0.5rem;
-        }
-        .hub-header .company-name {
-            font-size: 1.75rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
         }
         .hub-header .tagline {
             font-size: 1.25rem;
@@ -46,17 +41,17 @@
 </head>
 <body>
     
-    <nav class="navbar navbar-expand-lg navbar-light">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('hub') }}">
-                <strong>Panel de Control</strong>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div class="container-fluid d-flex justify-content-between align-items-center">
+            <a class="navbar-brand" href="{{ url_for('gestion_administrativa') }}">
+                <i class="bi bi-arrow-left-circle-fill"></i> Volver a Gestión
             </a>
-            <div class="d-flex">
+            <div class="d-flex align-items-center">
                  {% if g.admin %}
-                    <span class="navbar-text me-3">
-                        Usuario: <strong>{{ g.admin.usuario }}</strong>
+                    <span class="navbar-text me-3 d-none d-md-inline">
+                        <i class="bi bi-person-circle"></i> {{ g.admin.usuario }}
                     </span>
-                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger">Cerrar Sesión</a>
+                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger btn-sm">Cerrar Sesión</a>
                  {% endif %}
             </div>
         </div>
@@ -64,29 +59,23 @@
     
     <div class="hub-header">
         <h1>Registro de Auditoría</h1>
-        <p class="company-name">Moto Plan Motors C.A.</p>
         <p class="tagline">Trazabilidad completa de las acciones en el sistema.</p>
     </div>
 
     <div class="container my-5">
         <div class="card shadow-sm border-0 rounded-lg mb-4">
-            <div class="card-body">
-                <form method="GET" action="{{ url_for('auditoria') }}" class="row g-3 align-items-center">
-                    <div class="col-md-3">
+            <div class="card-body d-flex justify-content-center">
+                <form method="GET" action="{{ url_for('auditoria') }}" class="row g-3 align-items-end">
+                    <div class="col-auto">
                         <label for="fecha" class="form-label">Filtrar por fecha:</label>
                         <input type="date" id="fecha" name="fecha" class="form-control" value="{{ fecha_filtro }}">
                     </div>
-                    <div class="col-md-3">
-                        <button type="submit" class="btn btn-primary w-100 mt-4"><i class="bi bi-funnel-fill me-2"></i>Filtrar</button>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-funnel-fill me-2"></i>Filtrar</button>
                     </div>
-                    <div class="col-md-3">
-                        <a href="{{ url_for('descargar_reporte_auditoria', fecha=fecha_filtro) }}" class="btn btn-success w-100 mt-4" target="_blank">
+                    <div class="col-auto">
+                        <a href="{{ url_for('descargar_reporte_auditoria', fecha=fecha_filtro) }}" class="btn btn-success" target="_blank">
                             <i class="bi bi-download me-2"></i>Descargar Reporte
-                        </a>
-                    </div>
-                    <div class="col-md-3">
-                        <a href="{{ url_for('hub') }}" class="btn btn-secondary w-100 mt-4">
-                            <i class="bi bi-arrow-left-circle me-2"></i>Volver al Hub
                         </a>
                     </div>
                 </form>

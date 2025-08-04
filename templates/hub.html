@@ -153,19 +153,6 @@
             </div>
             {% endif %}
             
-            {% if g.admin and g.admin.rol == 'superadmin' %}
-            <div class="col-lg-4 col-md-6">
-                <div class="hub-card">
-                    <div>
-                        <div class="icon" style="color: #dc3545;"><i class="bi bi-shield-lock-fill"></i></div>
-                        <h3>Registro de Auditoría</h3>
-                        <p>Visualiza el historial y descarga reportes de todas las acciones del sistema.</p>
-                    </div>
-                    <a href="{{ url_for('auditoria') }}" class="btn btn-danger">Revisar</a>
-                </div>
-            </div>
-            {% endif %}
-
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
                     <div>
