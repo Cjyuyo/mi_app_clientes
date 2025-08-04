@@ -119,6 +119,152 @@ def rol_requerido(*roles):
         return decorated_function
     return wrapper
 
+# =================================================================================
+# ===== MÓDULO DE TESORERÍA Y REBALANCEO =====
+# =================================================================================
+
+def calcular_balances_tesoreria(fecha_hasta=None):
+    """
+    Calcula los balances actuales de todas las cajas de la tesorería hasta una fecha dada.
+    Si fecha_hasta es None, calcula los balances totales hasta el momento actual.
+    """
+    conn = get_db()
+    balances = {
+        'EFECTIVO_USD': Decimal('0.0'),
+        'BINANCE_USDT': Decimal('0.0'),
+        'CAJA_BS_USD': Decimal('0.0'),
+        'CAJA_BS_EUR': Decimal('0.0'),
+        'CAJA_BS_TOTAL': Decimal('0.0')
+    }
+    if not conn:
+        return balances
+
+    # Si no se provee fecha, se usa la fecha actual para asegurar que se incluya todo.
+    if fecha_hasta is None:
+        fecha_hasta = get_venezuela_current_date()
+    
+    # Convertir a datetime para incluir todo el día
+    fecha_fin_timestamp = datetime.combine(fecha_hasta, datetime.max.time())
+
+    try:
+        with conn.cursor() as cur:
+            # 1. CALCULAR INGRESOS TOTALES HASTA LA FECHA
+            cur.execute("""
+                SELECT COALESCE(SUM(monto), 0) FROM pagos 
+                WHERE estado_pago = 'Conciliado' AND pago_en = 'Efectivo USD' AND fecha_pago <= %s
+            """, (fecha_hasta,))
+            balances['EFECTIVO_USD'] += cur.fetchone()[0] or Decimal('0.0')
+
+            cur.execute("""
+                SELECT COALESCE(SUM(monto_bs), 0) FROM pagos 
+                WHERE estado_pago = 'Conciliado' AND moneda_referencia = 'USD' AND monto_bs > 0 AND fecha_pago <= %s
+            """, (fecha_hasta,))
+            balances['CAJA_BS_USD'] += cur.fetchone()[0] or Decimal('0.0')
+
+            cur.execute("""
+                SELECT COALESCE(SUM(monto_bs), 0) FROM pagos 
+                WHERE estado_pago = 'Conciliado' AND moneda_referencia = 'EUR' AND monto_bs > 0 AND fecha_pago <= %s
+            """, (fecha_hasta,))
+            balances['CAJA_BS_EUR'] += cur.fetchone()[0] or Decimal('0.0')
+
+            # 2. PROCESAR MOVIMIENTOS INTERNOS (INGRESOS Y EGRESOS) HASTA LA FECHA
+            cur.execute("""
+                SELECT caja_origen, caja_destino, monto_origen, monto_destino FROM operaciones_tesoreria
+                WHERE fecha_operacion <= %s
+            """, (fecha_fin_timestamp,))
+            movimientos = cur.fetchall()
+
+            for mov in movimientos:
+                if mov['caja_origen'] in balances:
+                    balances[mov['caja_origen']] -= mov['monto_origen']
+                
+                if mov['caja_destino'] in balances:
+                    balances[mov['caja_destino']] += mov['monto_destino']
+
+            balances['CAJA_BS_TOTAL'] = balances['CAJA_BS_USD'] + balances['CAJA_BS_EUR']
+
+    except psycopg2.Error as e:
+        flash(f"Error calculando balances de tesorería: {e}", "danger")
+
+    return balances
+
+@app.route('/tesoreria/rebalanceo', methods=['GET', 'POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def tesoreria_rebalanceo():
+    conn = get_db()
+    # Para esta vista, siempre calculamos el balance total actual (sin fecha)
+    balances_actuales = calcular_balances_tesoreria() 
+    
+    historial_movimientos = []
+    if conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT op.*, admin.usuario as nombre_admin
+                FROM operaciones_tesoreria op
+                LEFT JOIN administradores admin ON op.realizada_por = admin.id
+                ORDER BY op.fecha_operacion DESC LIMIT 30
+            """)
+            historial_movimientos = cur.fetchall()
+
+    if request.method == 'POST':
+        try:
+            form = request.form
+            tipo_operacion = form.get('tipo_operacion')
+            caja_origen = form.get('caja_origen')
+            monto_origen_str = form.get('monto_origen', '0').replace(',', '.')
+            moneda_origen = form.get('moneda_origen')
+            caja_destino = form.get('caja_destino')
+            monto_destino_str = form.get('monto_destino', '0').replace(',', '.')
+            moneda_destino = form.get('moneda_destino')
+            tasa_aplicada_str = form.get('tasa_aplicada', '0').replace(',', '.')
+            nota = form.get('nota')
+            
+            monto_origen = Decimal(monto_origen_str)
+            monto_destino = Decimal(monto_destino_str) if monto_destino_str else None
+            tasa_aplicada = Decimal(tasa_aplicada_str) if tasa_aplicada_str else None
+
+            if not all([tipo_operacion, caja_origen, monto_origen > 0, moneda_origen, caja_destino, nota]):
+                flash("Error: Todos los campos son obligatorios, y el monto debe ser mayor a cero.", 'danger')
+                return redirect(url_for('tesoreria_rebalanceo'))
+
+            if balances_actuales.get(caja_origen, Decimal('0.0')) < monto_origen:
+                flash(f"Error: Fondos insuficientes en la caja '{caja_origen}'. Saldo actual: {balances_actuales.get(caja_origen, 0):,.2f}", 'danger')
+                return redirect(url_for('tesoreria_rebalanceo'))
+            
+            if caja_destino == 'GASTO_OPERATIVO' and not monto_destino:
+                monto_destino = monto_origen
+                moneda_destino = moneda_origen
+
+            if not monto_destino:
+                 flash("Error: El monto destino es obligatorio para transferencias.", 'danger')
+                 return redirect(url_for('tesoreria_rebalanceo'))
+
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO operaciones_tesoreria 
+                    (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, tasa_aplicada, nota, realizada_por, fecha_operacion, perdida_cambiaria)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), 0)
+                """, (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, tasa_aplicada, nota, g.admin['id']))
+            
+            descripcion = f"Tesoreria: {tipo_operacion} de {monto_origen:,.2f} {moneda_origen} desde {caja_origen} hacia {caja_destino}."
+            registrar_accion_auditoria('MOVIMIENTO_TESORERIA', descripcion)
+
+            conn.commit()
+            flash('Movimiento de tesorería registrado exitosamente.', 'success')
+        except (InvalidOperation, ValueError):
+            flash("Error: Verifique que los montos y tasas sean números válidos.", 'danger')
+        except psycopg2.Error as e:
+            conn.rollback()
+            flash(f"Error de base de datos: {e}", "danger")
+        
+        return redirect(url_for('tesoreria_rebalanceo'))
+
+    return render_template('tesoreria_rebalanceo.html', 
+                           balances=balances_actuales, 
+                           historial=historial_movimientos,
+                           anio_actual=get_venezuela_current_date().year)
+
 # --- Funciones de utilidad ---
 def get_feriados_venezuela(year):
     return [datetime(year, 1, 1).date(), datetime(year, 4, 19).date(), datetime(year, 5, 1).date(), datetime(year, 6, 24).date(), datetime(year, 7, 5).date(), datetime(year, 7, 24).date(), datetime(year, 10, 12).date(), datetime(year, 12, 24).date(), datetime(year, 12, 25).date(), datetime(year, 12, 31).date()]
@@ -500,7 +646,7 @@ def admin_tasa_bcv():
                            anio_actual=get_venezuela_current_date().year)
 
 # =================================================================================
-# ===== LÓGICA DE FLUJO DE CAJA (CORREGIDA Y AMPLIADA) =====
+# ===== LÓGICA DE FLUJO DE CAJA (REFACTORIZADA) =====
 # =================================================================================
 @app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
 @admin_required
@@ -509,171 +655,45 @@ def reporte_flujo_caja():
     conn = get_db()
     today = get_venezuela_current_date()
     
+    # Obtener la fecha del formulario o usar la fecha actual como predeterminada
     fecha_reporte_str = request.form.get('fecha_reporte') or request.args.get('fecha_reporte') or today.strftime('%Y-%m-%d')
     
-    tasas_del_dia = {'usd': Decimal('0.0'), 'eur': Decimal('0.0')}
-    mostrar_resultados = False
-    resumen = {}
-    historial_binance = []
+    try:
+        fecha_reporte_dt = datetime.strptime(fecha_reporte_str, '%Y-%m-%d').date()
+    except ValueError:
+        flash("Formato de fecha inválido. Usando fecha actual.", "warning")
+        fecha_reporte_str = today.strftime('%Y-%m-%d')
+        fecha_reporte_dt = today
 
+    # Calcular los balances de tesorería HASTA la fecha del reporte
+    balances = calcular_balances_tesoreria(fecha_hasta=fecha_reporte_dt)
+    
+    # Obtener el historial de movimientos de tesorería PARA la fecha del reporte
+    historial_movimientos = []
     if conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_reporte_str,))
-            resultado_tasa = cur.fetchone()
-            if resultado_tasa:
-                tasas_del_dia['usd'] = resultado_tasa['tasa'] or Decimal('0.0')
-                tasas_del_dia['eur'] = resultado_tasa['tasa_euro'] or Decimal('0.0')
-
-    if tasas_del_dia['usd'] > 0 or tasas_del_dia['eur'] > 0:
-        mostrar_resultados = True
         try:
             with conn.cursor() as cur:
-                resumen = {
-                    'balance_efectivo_usd': Decimal('0.0'), 
-                    'balance_binance_usdt': Decimal('0.0'),
-                    'balance_bs_usd_bs': Decimal('0.0'), 
-                    'balance_bs_usd_usd': Decimal('0.0'),
-                    'balance_bs_eur_bs': Decimal('0.0'), 
-                    'balance_bs_eur_eur': Decimal('0.0'),
-                    'balance_bs_consolidado_bs': Decimal('0.0'),
-                    'balance_bs_consolidado_usd': Decimal('0.0'),
-                    'tasa_ponderada_bs': Decimal('0.0'),
-                    'balance_general_consolidado_usd': Decimal('0.0'),
-                    'acumulado_perdida_devaluacion': Decimal('0.0'),
-                    'acumulado_perdida_conversion': Decimal('0.0'),
-                    'acumulado_total_perdidas': Decimal('0.0')
-                }
-                
-                fecha_reporte_dt = datetime.strptime(fecha_reporte_str, '%Y-%m-%d').date()
-                fecha_fin_timestamp = datetime.combine(fecha_reporte_dt, datetime.max.time())
-
-                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND pago_en = 'Efectivo USD' AND fecha_pago <= %s", (fecha_reporte_dt,))
-                resumen['balance_efectivo_usd'] = cur.fetchone()[0] or Decimal('0.0')
-
-                cur.execute("SELECT COALESCE(SUM(monto_destino), 0) FROM operaciones_tesoreria WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s", (fecha_fin_timestamp,))
-                resumen['balance_binance_usdt'] = cur.fetchone()[0] or Decimal('0.0')
-
-                cur.execute("SELECT COALESCE(SUM(monto_origen), 0) FROM operaciones_tesoreria WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s", (fecha_fin_timestamp,))
-                egresos_bs_conversion = cur.fetchone()[0] or Decimal('0.0')
-
-                cur.execute("SELECT COALESCE(SUM(monto_bs), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND moneda_referencia = 'USD' AND fecha_pago <= %s", (fecha_reporte_dt,))
-                ingresos_bs_usd_total = cur.fetchone()[0] or Decimal('0.0')
-                resumen['balance_bs_usd_bs'] = ingresos_bs_usd_total - egresos_bs_conversion
-                resumen['balance_bs_usd_usd'] = resumen['balance_bs_usd_bs'] / tasas_del_dia['usd'] if tasas_del_dia['usd'] > 0 else Decimal('0.0')
-                
-                cur.execute("SELECT COALESCE(SUM(monto_bs), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND moneda_referencia = 'EUR' AND fecha_pago <= %s", (fecha_reporte_dt,))
-                ingresos_bs_eur_total = cur.fetchone()[0] or Decimal('0.0')
-                resumen['balance_bs_eur_bs'] = ingresos_bs_eur_total
-                resumen['balance_bs_eur_eur'] = resumen['balance_bs_eur_bs'] / tasas_del_dia['eur'] if tasas_del_dia['eur'] > 0 else Decimal('0.0')
-                
-                resumen['balance_bs_consolidado_bs'] = resumen['balance_bs_usd_bs'] + resumen['balance_bs_eur_bs']
-                balance_bs_eur_en_usd = resumen['balance_bs_eur_bs'] / tasas_del_dia['usd'] if tasas_del_dia['usd'] > 0 else Decimal('0.0')
-                resumen['balance_bs_consolidado_usd'] = resumen['balance_bs_usd_usd'] + balance_bs_eur_en_usd
-                if resumen['balance_bs_consolidado_usd'] > 0:
-                    resumen['tasa_ponderada_bs'] = resumen['balance_bs_consolidado_bs'] / resumen['balance_bs_consolidado_usd']
-
-                resumen['balance_general_consolidado_usd'] = resumen['balance_efectivo_usd'] + resumen['balance_binance_usdt'] + resumen['balance_bs_consolidado_usd']
-
-                cur.execute("""
-                    SELECT COALESCE(SUM(CASE WHEN tasa_dia > 0 THEN monto_bs / tasa_dia ELSE 0 END), 0) 
-                    FROM pagos 
-                    WHERE estado_pago = 'Conciliado' AND monto_bs > 0 AND moneda_referencia = 'USD' AND fecha_pago <= %s
-                """, (fecha_reporte_dt,))
-                valor_historico_ingresos_bs_usd_en_usd = cur.fetchone()[0] or Decimal('0.0')
-
-                cur.execute("""
-                    SELECT COALESCE(SUM(CASE WHEN tasa_aplicada > 0 THEN monto_origen / tasa_aplicada ELSE 0 END), 0)
-                    FROM operaciones_tesoreria
-                    WHERE tipo_operacion = 'CONVERSION_BS_BINANCE' AND fecha_operacion <= %s
-                """, (fecha_fin_timestamp,))
-                valor_historico_egresos_bs_en_usd = cur.fetchone()[0] or Decimal('0.0')
-                
-                valor_teorico_saldo_bs_usd_en_usd = valor_historico_ingresos_bs_usd_en_usd - valor_historico_egresos_bs_en_usd
-                resumen['acumulado_perdida_devaluacion'] = valor_teorico_saldo_bs_usd_en_usd - resumen['balance_bs_usd_usd']
-
-                cur.execute("""
-                    SELECT COALESCE(SUM(perdida_cambiaria), 0) 
-                    FROM operaciones_tesoreria 
-                    WHERE fecha_operacion <= %s
-                """, (fecha_fin_timestamp,))
-                resumen['acumulado_perdida_conversion'] = cur.fetchone()[0] or Decimal('0.0')
-
-                resumen['acumulado_total_perdidas'] = resumen['acumulado_perdida_devaluacion'] + resumen['acumulado_perdida_conversion']
-
                 fecha_inicio_periodo = datetime.combine(fecha_reporte_dt, datetime.min.time())
-                cur.execute("SELECT * FROM operaciones_tesoreria WHERE fecha_operacion BETWEEN %s AND %s ORDER BY fecha_operacion DESC", (fecha_inicio_periodo, fecha_fin_timestamp))
-                historial_binance = cur.fetchall()
-        
-        except (psycopg2.Error, ValueError, TypeError) as e:
-            flash(f"Error al generar el reporte: {e}", "error")
-            logging.error(f"Error en reporte_flujo_caja: {e}", exc_info=True)
-            mostrar_resultados = False
-    elif request.method == 'POST':
-        flash(f"No se puede generar el reporte. Ninguna tasa (USD o EUR) ha sido establecida para el día {format_date_filter(fecha_reporte_str)}.", "warning")
+                fecha_fin_periodo = datetime.combine(fecha_reporte_dt, datetime.max.time())
+                
+                cur.execute("""
+                    SELECT op.*, admin.usuario as nombre_admin
+                    FROM operaciones_tesoreria op
+                    LEFT JOIN administradores admin ON op.realizada_por = admin.id
+                    WHERE op.fecha_operacion BETWEEN %s AND %s
+                    ORDER BY op.fecha_operacion DESC
+                """, (fecha_inicio_periodo, fecha_fin_periodo))
+                historial_movimientos = cur.fetchall()
+        except (psycopg2.Error, ValueError) as e:
+            flash(f"Error al obtener historial de movimientos: {e}", "error")
 
     return render_template(
         'reporte_flujo_caja.html',
         fecha_reporte=fecha_reporte_str,
-        tasas_del_dia=tasas_del_dia,
-        mostrar_resultados=mostrar_resultados,
-        resumen=resumen,
-        historial_binance=historial_binance,
+        balances=balances,
+        historial=historial_movimientos,
         anio_actual=today.year
     )
-
-@app.route('/registrar_operacion_tesoreria', methods=['POST'])
-@admin_required
-@rol_requerido('superadmin', 'gerente')
-def registrar_operacion_tesoreria():
-    fecha_reporte_redirect = request.form.get('fecha_reporte_hidden', get_venezuela_current_date().strftime('%Y-%m-%d'))
-    
-    try:
-        monto_bs_str = request.form.get('monto_bs_convertido')
-        monto_usdt_str = request.form.get('monto_usdt_recibido')
-        tasa_conversion_str = request.form.get('tasa_conversion_aplicada')
-        nota = request.form.get('nota_conversion', '')
-        
-        if not all([monto_bs_str, monto_usdt_str, tasa_conversion_str]):
-            flash("Todos los campos monetarios y la tasa son obligatorios.", "warning")
-            return redirect(url_for('reporte_flujo_caja', fecha_reporte=fecha_reporte_redirect))
-
-        monto_bs = Decimal(monto_bs_str)
-        monto_usdt = Decimal(monto_usdt_str)
-        tasa_conversion = Decimal(tasa_conversion_str)
-
-        if monto_bs <= 0 or monto_usdt <= 0 or tasa_conversion <= 0:
-            flash("Los montos y la tasa de conversión deben ser valores positivos.", "danger")
-            return redirect(url_for('reporte_flujo_caja', fecha_reporte=fecha_reporte_redirect))
-        
-        valor_real_bs_en_usd = monto_bs / tasa_conversion
-        perdida = valor_real_bs_en_usd - monto_usdt
-
-        conn = get_db()
-        if not conn or not g.admin:
-            flash("Error crítico: No se pudo obtener la conexión a la BD o la sesión del administrador.", "danger")
-            logging.error("Fallo al obtener 'conn' o 'g.admin' antes de la transacción.")
-            return redirect(url_for('reporte_flujo_caja', fecha_reporte=fecha_reporte_redirect))
-
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO operaciones_tesoreria 
-                (tipo_operacion, monto_origen, monto_destino, perdida_cambiaria, nota, realizada_por, tasa_aplicada, fecha_operacion)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
-                """,
-                ('CONVERSION_BS_BINANCE', monto_bs, monto_usdt, perdida, nota, g.admin['id'], tasa_conversion)
-            )
-        conn.commit()
-        flash("¡Operación de conversión registrada exitosamente!", "success")
-
-    except Exception as e:
-        logging.error(f"FALLA CRÍTICA EN REGISTRO DE OPERACIÓN: {e}", exc_info=True)
-        flash(f"Ocurrió un error crítico al procesar la operación: {e}", "danger")
-        db = get_db()
-        if db:
-            db.rollback()
-
-    return redirect(url_for('reporte_flujo_caja', fecha_reporte=fecha_reporte_redirect))
     
 # --- GESTIÓN DE CLIENTES Y PAGOS ---
 
@@ -1668,7 +1688,6 @@ def portal_reportar_pago():
             return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual)
         try:
             with conn.cursor() as cur:
-                # --- INICIO DE CAMBIO v4: Marcar pago como reportado por cliente ---
                 pago_query = """
                     INSERT INTO pagos (
                         cliente_id, monto, tipo_pago, forma_pago, fecha_pago, pago_en, 
@@ -1676,7 +1695,6 @@ def portal_reportar_pago():
                         estado_pago, cuotas_cubiertas, reportado_por_cliente, estado_reporte
                     ) VALUES (%s, %s, 'Cuota', %s, %s, %s, %s, %s, %s, 'Acarigua', %s, %s, 'Pendiente', 0, TRUE, 'Pendiente de Revision');
                 """
-                # --- FIN DE CAMBIO v4 ---
                 cur.execute(pago_query, (
                     session['cliente_id'], pago_form['monto'], pago_form['forma_pago'], pago_form['fecha_pago'], 
                     pago_form.get('pago_en'), pago_form.get('por_concepto_de'), pago_form.get('referencia'), 

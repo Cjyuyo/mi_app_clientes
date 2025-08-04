@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Herramienta de Rebalanceo de Tesorería</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f8f9fa; }
+        .card-balance { text-align: center; }
+        .balance-amount { font-size: 2.2rem; font-weight: bold; }
+        .balance-label { font-size: 1rem; color: #6c757d; }
+        .form-section { background-color: white; padding: 2rem; border-radius: 0.5rem; box-shadow: 0 0 15px rgba(0,0,0,0.05); }
+        .history-table { font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3"><i class="bi bi-arrow-left-right"></i> Rebalanceo de Tesorería</h1>
+            <a href="{{ url_for('hub') }}" class="btn btn-outline-secondary"><i class="bi bi-house-door-fill"></i> Volver al Hub</a>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row mb-4 g-4">
+            <div class="col-lg-4 col-md-6">
+                <div class="card card-balance">
+                    <div class="card-body">
+                        <div class="balance-amount text-success">${{ "{:,.2f}".format(balances.EFECTIVO_USD) }}</div>
+                        <div class="balance-label">Efectivo USD</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <div class="card card-balance">
+                    <div class="card-body">
+                        <div class="balance-amount text-primary">${{ "{:,.2f}".format(balances.BINANCE_USDT) }}</div>
+                        <div class="balance-label">Binance USDT</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-12">
+                <div class="card card-balance">
+                    <div class="card-body">
+                        <div class="balance-amount text-info">Bs. {{ "{:,.2f}".format(balances.CAJA_BS_TOTAL) }}</div>
+                        <div class="balance-label">Caja Total en Bolívares</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section mb-5">
+            <h2 class="h4 border-bottom pb-2 mb-3">Registrar Nuevo Movimiento</h2>
+            <form action="{{ url_for('tesoreria_rebalanceo') }}" method="POST">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="tipo_operacion" class="form-label fw-bold">Tipo de Operación</label>
+                        <select id="tipo_operacion" name="tipo_operacion" class="form-select" required>
+                            <option value="" selected disabled>-- Seleccione --</option>
+                            <option value="TRANSFERENCIA_INTERNA">Transferencia Interna</option>
+                            <option value="COMPRA_DIVISAS">Compra de Divisas</option>
+                            <option value="PAGO_GASTO">Pago de Gasto/Servicio</option>
+                        </select>
+                    </div>
+                     <div class="col-md-6">
+                        <label for="nota" class="form-label fw-bold">Nota / Descripción (Obligatorio)</label>
+                        <input type="text" id="nota" name="nota" class="form-control" required placeholder="Ej: Pago de nómina, Compra de USD a Tasa X">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="caja_origen" class="form-label">Desde (Caja Origen)</label>
+                        <select id="caja_origen" name="caja_origen" class="form-select" required>
+                           <option value="EFECTIVO_USD">Efectivo USD</option>
+                           <option value="BINANCE_USDT">Binance USDT</option>
+                           <option value="CAJA_BS_USD">Caja Bs (USD Ref)</option>
+                           <option value="CAJA_BS_EUR">Caja Bs (EUR Ref)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="monto_origen" class="form-label">Monto Origen</label>
+                        <input type="text" inputmode="decimal" id="monto_origen" name="monto_origen" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="moneda_origen" class="form-label">Moneda Origen</label>
+                        <input type="text" id="moneda_origen" name="moneda_origen" class="form-control" required placeholder="Ej: USD, USDT, BS">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="caja_destino" class="form-label">Hacia (Caja Destino)</label>
+                        <select id="caja_destino" name="caja_destino" class="form-select" required>
+                           <option value="EFECTIVO_USD">Efectivo USD</option>
+                           <option value="BINANCE_USDT">Binance USDT</option>
+                           <option value="CAJA_BS_USD">Caja Bs (USD Ref)</option>
+                           <option value="CAJA_BS_EUR">Caja Bs (EUR Ref)</option>
+                           <option value="GASTO_OPERATIVO">GASTO / EGRESO FINAL</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="monto_destino" class="form-label">Monto Destino</label>
+                        <input type="text" inputmode="decimal" id="monto_destino" name="monto_destino" class="form-control" placeholder="(Obligatorio si no es gasto)">
+                    </div>
+                     <div class="col-md-4">
+                        <label for="moneda_destino" class="form-label">Moneda Destino</label>
+                        <input type="text" id="moneda_destino" name="moneda_destino" class="form-control" placeholder="Ej: USD, USDT, BS">
+                    </div>
+                     <div class="col-md-12">
+                        <label for="tasa_aplicada" class="form-label">Tasa de Cambio Aplicada (Si aplica)</label>
+                        <input type="text" inputmode="decimal" id="tasa_aplicada" name="tasa_aplicada" class="form-control">
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check-circle-fill"></i> Registrar Movimiento</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="mb-5">
+             <h2 class="h4 border-bottom pb-2 mb-3">Historial de Movimientos Recientes</h2>
+             <div class="table-responsive">
+                 <table class="table table-striped table-hover history-table align-middle">
+                     <thead class="table-dark">
+                         <tr>
+                             <th>Fecha</th>
+                             <th>Tipo Operación</th>
+                             <th>Origen</th>
+                             <th>Monto Origen</th>
+                             <th>Destino</th>
+                             <th>Monto Destino</th>
+                             <th>Nota</th>
+                             <th>Usuario</th>
+                         </tr>
+                     </thead>
+                     <tbody>
+                        {% for mov in historial %}
+                         <tr>
+                             <td>{{ mov.fecha_operacion.strftime('%d/%m/%Y %H:%M') }}</td>
+                             <td><span class="badge bg-secondary">{{ mov.tipo_operacion.replace('_', ' ')|title }}</span></td>
+                             <td>{{ mov.caja_origen.replace('_', ' ')|title }}</td>
+                             <td class="text-danger fw-bold">- {{ mov.moneda_origen }} {{ "{:,.2f}".format(mov.monto_origen) }}</td>
+                             <td>{{ mov.caja_destino.replace('_', ' ')|title }}</td>
+                             <td class="text-success fw-bold">+ {{ mov.moneda_destino }} {{ "{:,.2f}".format(mov.monto_destino) }}</td>
+                             <td>{{ mov.nota }}</td>
+                             <td>{{ mov.nombre_admin }}</td>
+                         </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center">No hay movimientos registrados.</td>
+                        </tr>
+                        {% endfor %}
+                     </tbody>
+                 </table>
+             </div>
+        </div>
+
+        <footer class="text-center text-muted py-4">
+            <p>&copy; {{ anio_actual }} - Mi Proyecto. Todos los derechos reservados.</p>
+        </footer>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

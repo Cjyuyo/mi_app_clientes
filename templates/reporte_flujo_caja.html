@@ -10,128 +10,136 @@
         body { background-color: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         .navbar { background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,.1); }
         .hub-header { background-color: #0056b3; color: white; padding: 50px 20px; text-align: center; border-bottom: 5px solid #004a99; }
-        .hub-header h1 { font-weight: 700; font-size: 2.5rem; margin-bottom: 0.5rem; }
-        .hub-header .tagline { font-size: 1.25rem; opacity: 0.9; }
-        .content-card { background-color: white; border: none; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.08); transition: transform 0.3s ease, box-shadow 0.3s ease; height: 100%; }
-        .content-card:hover { transform: translateY(-5px); box-shadow: 0 12px 35px rgba(0,0,0,0.12); }
-        .content-card .card-header { background-color: transparent; border-bottom: 1px solid #e9ecef; font-weight: 600; padding: 1.25rem 1.5rem; }
-        .stat-card .stat-value { font-size: 2.2rem; font-weight: 700; white-space: nowrap; letter-spacing: -0.5px; }
-        .stat-card .stat-label { font-size: 0.9rem; color: #6c757d; text-transform: uppercase; font-weight: 600; margin-bottom: 0.5rem; }
-        .stat-card .sub-value { font-size: 1.1rem; color: #6c757d; font-weight: 500; }
-        .balance-card { background: linear-gradient(45deg, #0056b3, #004a99); color: white; }
-        .balance-card .stat-value { font-size: 3.5rem; color: white; letter-spacing: -1px; }
-        .balance-card .stat-label { color: rgba(255, 255, 255, 0.8); }
-        
-        /* --- INICIO DE CAMBIO: Nueva clase para tarjetas grises --- */
-        .stat-card-gray {
-            background-color: #e2e3e5;
-        }
-        .stat-card-gray .stat-value, .stat-card-gray .sub-value {
-            color: #212529; /* Texto oscuro para contraste */
-        }
-        .stat-card-gray .stat-label {
-            color: #495057; /* Etiqueta un poco más oscura */
-        }
-        /* --- FIN DE CAMBIO --- */
-
-        .footer { text-align: center; padding: 20px; margin-top: 40px; color: #6c757d; }
+        .hub-header h1 { font-weight: 700; font-size: 2.5rem; }
+        .content-card { background-color: white; border: none; border-radius: .75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        .balance-card { text-align: center; padding: 2rem; }
+        .balance-card .amount { font-size: 2.5rem; font-weight: 700; }
+        .balance-card .label { font-size: 1rem; color: #6c757d; }
+        .footer { text-align: center; padding: 2rem 0; color: #6c757d; font-size: 0.9rem; }
     </style>
 </head>
 <body>
-
-    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
-        <div class="container-fluid d-flex justify-content-between align-items-center">
-            <a class="navbar-brand" href="{{ url_for('gestion_administrativa') }}">
-                <i class="bi bi-arrow-left"></i> Volver a Gestión
-            </a>
-            <div class="d-flex align-items-center">
-                 {% if g.admin %}
-                    <span class="navbar-text me-3 d-none d-md-inline">
-                        <i class="bi bi-person-circle"></i> {{ g.admin.usuario }}
-                    </span>
-                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger btn-sm">Cerrar Sesión</a>
-                 {% endif %}
+    <nav class="navbar navbar-expand-lg navbar-light sticky-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="{{ url_for('hub') }}">Moto Plan Motors C.A.</a>
+            <div class="d-flex">
+                <a href="{{ url_for('hub') }}" class="btn btn-outline-secondary me-2"><i class="bi bi-house-door-fill"></i> Hub</a>
+                <a href="{{ url_for('admin_logout') }}" class="btn btn-danger"><i class="bi bi-box-arrow-right"></i> Salir</a>
             </div>
         </div>
     </nav>
 
     <header class="hub-header">
-        <h1>Reporte de Flujo de Caja</h1>
-        <p class="tagline">Estado de saldos y análisis de rendimiento financiero.</p>
+        <h1><i class="bi bi-wallet2"></i> Reporte de Flujo de Caja</h1>
+        <p class="lead tagline">Análisis de balances y movimientos de tesorería.</p>
     </header>
 
     <main class="container my-5">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <!-- Formulario de Filtro por Fecha -->
+        <div class="card content-card mb-4">
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('reporte_flujo_caja') }}" class="d-flex justify-content-center align-items-end gap-3">
+                    <div>
+                        <label for="fecha_reporte" class="form-label fw-bold">Consultar Balances al Cierre del Día:</label>
+                        <input type="date" id="fecha_reporte" name="fecha_reporte" value="{{ fecha_reporte }}" class="form-control form-control-lg">
                     </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <div class="content-card mb-5">
-            <div class="card-header"><h5 class="mb-0"><i class="bi bi-filter-circle-fill me-2 text-primary"></i>Filtros del Reporte</h5></div>
-            <div class="card-body p-4">
-                <form method="POST" action="{{ url_for('reporte_flujo_caja') }}" class="row g-3 align-items-end">
-                    <div class="col-md-4"><label for="fecha_reporte" class="form-label fw-bold">Fecha del Reporte</label><input type="date" class="form-control form-control-lg" id="fecha_reporte" name="fecha_reporte" value="{{ fecha_reporte }}" required></div>
-                    <div class="col-md-3"><label class="form-label fw-bold">Tasa Dólar ($)</label>
-                        {% if tasas_del_dia.usd > 0 %}<input type="text" class="form-control form-control-lg is-valid" value="{{ '{:,.4f}'.format(tasas_del_dia.usd) }} Bs." readonly>
-                        {% else %}<div class="form-control form-control-lg is-invalid text-center">No establecida</div>{% endif %}
-                    </div>
-                    <div class="col-md-3"><label class="form-label fw-bold">Tasa Euro (€)</label>
-                        {% if tasas_del_dia.eur > 0 %}<input type="text" class="form-control form-control-lg is-valid" value="{{ '{:,.4f}'.format(tasas_del_dia.eur) }} Bs." readonly>
-                        {% else %}<div class="form-control form-control-lg is-invalid text-center">No establecida</div>{% endif %}
-                    </div>
-                    <div class="col-md-2"><button type="submit" class="btn btn-primary btn-lg w-100"><i class="bi bi-arrow-clockwise"></i> Generar</button></div>
+                    <button type="submit" class="btn btn-primary btn-lg">Generar Reporte</button>
                 </form>
             </div>
         </div>
 
-        {% if mostrar_resultados %}
-        <h2 class="mb-4 fw-bold">Saldos Totales Acumulados</h2>
-        <div class="row g-4">
-            <div class="col-12"><div class="content-card stat-card balance-card"><div class="card-body text-center p-4 p-md-5"><div class="stat-label">Balance General Consolidado (USD)</div><div class="stat-value">${{ "{:,.2f}".format(resumen.balance_general_consolidado_usd) }}</div></div></div></div>
-            
-            <!-- INICIO DE CAMBIO: Se aplica la clase .stat-card-gray a todas las tarjetas -->
-            <div class="col-lg-6 col-md-6"><div class="content-card stat-card stat-card-gray"><div class="card-body p-4"><div class="d-flex align-items-center"><i class="bi bi-cash-stack fs-1 text-success me-3"></i><div><div class="stat-label">Efectivo (USD)</div><div class="stat-value text-success">${{ "{:,.2f}".format(resumen.balance_efectivo_usd) }}</div></div></div></div></div></div>
-            <div class="col-lg-6 col-md-6"><div class="content-card stat-card stat-card-gray"><div class="card-body p-4"><div class="d-flex align-items-center"><i class="bi bi-currency-bitcoin fs-1 text-warning me-3"></i><div><div class="stat-label">Binance (USDT)</div><div class="stat-value text-warning">${{ "{:,.2f}".format(resumen.balance_binance_usdt) }}</div></div></div></div></div></div>
-            
-            <div class="col-lg-4 col-md-6"><div class="content-card stat-card stat-card-gray"><div class="card-body p-4 text-center"><div class="stat-label">Caja Dolar/BCV</div><div class="stat-value">{{ "{:,.2f}".format(resumen.balance_bs_usd_bs) }} Bs</div><div class="sub-value mt-1 fw-bold">~ ${{ "{:,.2f}".format(resumen.balance_bs_usd_usd) }}</div></div></div></div>
-            <div class="col-lg-4 col-md-6"><div class="content-card stat-card stat-card-gray"><div class="card-body p-4 text-center"><div class="stat-label">Caja Euro/BCV</div><div class="stat-value">{{ "{:,.2f}".format(resumen.balance_bs_eur_bs) }} Bs</div><div class="sub-value mt-1 fw-bold">~ €{{ "{:,.2f}".format(resumen.balance_bs_eur_eur) }}</div></div></div></div>
-            
-            <div class="col-lg-4 col-md-12"><div class="content-card stat-card stat-card-gray"><div class="card-body p-4 text-center"><div class="stat-label">Caja Bs. Consolidada</div><div class="stat-value">{{ "{:,.2f}".format(resumen.balance_bs_consolidado_bs) }} Bs</div><div class="sub-value mt-1 fw-bold">~ ${{ "{:,.2f}".format(resumen.balance_bs_consolidado_usd) }}</div></div></div></div>
-            <!-- FIN DE CAMBIO -->
+        <!-- Alertas -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Sección de Balances -->
+        <div class="card content-card mb-4">
+            <div class="card-header bg-dark text-white">
+                <h4 class="mb-0">Balances al Cierre del {{ fecha_reporte | format_date }}</h4>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="balance-card bg-light rounded">
+                            <div class="amount text-success">${{ "{:,.2f}".format(balances.EFECTIVO_USD) }}</div>
+                            <div class="label">Efectivo en Dólares (USD)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="balance-card bg-light rounded">
+                            <div class="amount text-primary">${{ "{:,.2f}".format(balances.BINANCE_USDT) }}</div>
+                            <div class="label">Binance (USDT)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="balance-card bg-light rounded">
+                            <div class="amount text-info">Bs. {{ "{:,.2f}".format(balances.CAJA_BS_TOTAL) }}</div>
+                            <div class="label">Total en Bolívares (BS)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <hr class="my-5">
-        <h2 class="mb-4 fw-bold">Análisis de Pérdidas Acumuladas</h2>
-        <div class="row g-4">
-            <div class="col-md-4"><div class="content-card stat-card"><div class="card-body text-center"><i class="bi bi-graph-down-arrow fs-1 text-danger"></i><div class="stat-label mt-2">Pérdida por Devaluación</div><div class="stat-value text-danger">(${{ "{:,.2f}".format(resumen.acumulado_perdida_devaluacion) }})</div><div class="sub-value mt-1 small">Por diferencia de valor del saldo en Bs.</div></div></div></div>
-            <div class="col-md-4"><div class="content-card stat-card"><div class="card-body text-center"><i class="bi bi-arrow-down-up fs-1 text-danger"></i><div class="stat-label mt-2">Pérdida por Conversión</div><div class="stat-value text-danger">(${{ "{:,.2f}".format(resumen.acumulado_perdida_conversion) }})</div><div class="sub-value mt-1 small">Por comisiones y diferenciales a USDT.</div></div></div></div>
-            <div class="col-md-4"><div class="content-card stat-card"><div class="card-body text-center"><i class="bi bi-shield-fill-exclamation fs-1 text-danger"></i><div class="stat-label mt-2">Total de Pérdidas</div><div class="stat-value text-danger">(${{ "{:,.2f}".format(resumen.acumulado_total_perdidas) }})</div><div class="sub-value mt-1 small">Suma de Devaluación y Conversión.</div></div></div></div>
+        <!-- Historial de Movimientos del Día -->
+        <div class="card content-card">
+            <div class="card-header bg-secondary text-white">
+                <h4 class="mb-0">Historial de Movimientos del Día: {{ fecha_reporte | format_date }}</h4>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="p-3">Hora</th>
+                                <th class="p-3">Tipo</th>
+                                <th class="p-3">Origen</th>
+                                <th class="p-3">Monto Origen</th>
+                                <th class="p-3">Destino</th>
+                                <th class="p-3">Monto Destino</th>
+                                <th class="p-3">Nota</th>
+                                <th class="p-3">Usuario</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mov in historial %}
+                            <tr>
+                                <td class="p-3">{{ mov.fecha_operacion.strftime('%H:%M:%S') }}</td>
+                                <td class="p-3"><span class="badge bg-secondary">{{ mov.tipo_operacion.replace('_', ' ')|title }}</span></td>
+                                <td class="p-3">{{ mov.caja_origen.replace('_', ' ')|title }}</td>
+                                <td class="p-3 text-danger fw-bold">- {{ mov.moneda_origen }} {{ "{:,.2f}".format(mov.monto_origen) }}</td>
+                                <td class="p-3">{{ mov.caja_destino.replace('_', ' ')|title }}</td>
+                                <td class="p-3 text-success fw-bold">+ {{ mov.moneda_destino }} {{ "{:,.2f}".format(mov.monto_destino) }}</td>
+                                <td class="p-3">{{ mov.nota }}</td>
+                                <td class="p-3">{{ mov.nombre_admin }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center text-muted p-5">
+                                    <i class="bi bi-folder2-open fs-1"></i>
+                                    <p class="mt-2 mb-0">No se registraron movimientos de tesorería en esta fecha.</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
-
-        <hr class="my-5">
-        <h2 class="mb-4 fw-bold">Operaciones de Tesorería</h2>
-        <div class="row g-4">
-            <div class="col-lg-5"><div class="content-card h-100"><div class="card-header"><h5 class="mb-0"><i class="bi bi-send-plus-fill me-2 text-primary"></i>Registrar Conversión a Binance</h5></div><div class="card-body p-4"><form action="{{ url_for('registrar_operacion_tesoreria') }}" method="POST"><input type="hidden" name="fecha_reporte_hidden" value="{{ fecha_reporte }}"><div class="mb-3"><label for="monto_bs_convertido" class="form-label">Monto a Enviar (Bs.)</label><input type="number" step="any" class="form-control" id="monto_bs_convertido" name="monto_bs_convertido" required></div><div class="mb-3"><label for="tasa_conversion_aplicada" class="form-label">Tasa de Conversión Aplicada</label><input type="number" step="any" class="form-control" id="tasa_conversion_aplicada" name="tasa_conversion_aplicada" required placeholder="Tasa real de la transacción"></div><div class="mb-3"><label for="monto_usdt_recibido" class="form-label">Monto Recibido (USDT)</label><input type="number" step="any" class="form-control" id="monto_usdt_recibido" name="monto_usdt_recibido" required></div><div class="mb-3"><label for="nota_conversion" class="form-label">Nota (Opcional)</label><input type="text" class="form-control" name="nota_conversion" placeholder="Ej: Conversión del día"></div><button type="submit" class="btn btn-primary w-100 mt-2"><i class="bi bi-check-circle-fill me-2"></i>Registrar Operación</button></form></div></div></div>
-            <div class="col-lg-7"><div class="content-card h-100"><div class="card-header"><h5 class="mb-0"><i class="bi bi-clock-history me-2 text-primary"></i>Historial de Conversiones del Día</h5></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-striped table-hover mb-0"><thead class="table-light"><tr><th class="p-3">Fecha</th><th class="p-3">Enviado (Bs)</th><th class="p-3">Recibido (USDT)</th><th class="p-3">Tasa</th><th class="p-3">Pérdida ($)</th></tr></thead><tbody>
-                                    {% for op in historial_binance %}<tr><td class="p-3 align-middle">{{ op.fecha_operacion.strftime('%H:%M') }}</td><td class="p-3 align-middle">{{ "{:,.2f}".format(op.monto_origen) }}</td><td class="p-3 align-middle fw-bold text-success">${{ "{:,.2f}".format(op.monto_destino) }}</td><td class="p-3 align-middle">{% if op.tasa_aplicada is not none %}{{ "{:,.4f}".format(op.tasa_aplicada) }}{% else %}<span class="text-muted">N/A</span>{% endif %}</td><td class="p-3 align-middle text-danger">(${{ "{:,.2f}".format(op.perdida_cambiaria) }})</td></tr>
-                                    {% else %}<tr><td colspan="5" class="text-center text-muted p-5">No hay operaciones de tesorería registradas hoy.</td></tr>{% endfor %}
-            </tbody></table></div></div></div></div>
-        </div>
-        {% elif request.method == 'POST' %}
-        <div class="alert alert-warning text-center p-5"><i class="bi bi-exclamation-triangle-fill fs-1"></i><h3 class="mt-3">No se puede generar el reporte</h3><p class="lead">Alguna de las tasas BCV para el día <strong>{{ fecha_reporte | format_date }}</strong> no ha sido establecida.</p>{% if g.admin and g.admin.rol in ['superadmin', 'gerente'] %}<a href="{{ url_for('admin_tasa_bcv') }}" class="btn btn-primary mt-3">Establecer Tasas Ahora</a>{% endif %}</div>
-        {% endif %}
     </main>
 
     <footer class="footer">
         <p>&copy; {{ anio_actual }} Moto Plan Motors C.A.</p>
     </footer>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
