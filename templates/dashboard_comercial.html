@@ -69,7 +69,6 @@
     </header>
 
     <main class="container my-4">
-        <!-- Tarjetas de Estadísticas -->
         <div class="row g-4 mb-4">
             <div class="col-lg-4 col-md-6">
                 <div class="stat-card">
@@ -91,14 +90,11 @@
             </div>
         </div>
 
-        <!-- Tabla de Nómina Pendiente -->
         <div class="card shadow-sm">
             <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                 <h4 class="mb-0"><i class="bi bi-people-fill me-2"></i>Nómina Semanal Pendiente</h4>
-                <!-- ===== INICIO DE CAMBIO: Botón activado ===== -->
-                <a href="{{ url_for('reporte_flujo_caja_inscripciones') }}" class="btn btn-outline-primary">Ver Flujo de Caja de Inscripciones</a>
-                <!-- ===== FIN DE CAMBIO ===== -->
-            </div>
+                <a href="{{ url_for('flujo_caja_comercial') }}" class="btn btn-outline-primary">Ver Flujo de Caja de Inscripciones</a>
+                </div>
             <div class="card-body">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
