@@ -126,7 +126,7 @@ def rol_requerido(*roles):
 def calcular_balances_tesoreria(fecha_hasta=None):
     """
     Calcula los balances actuales de todas las cajas de la tesorería hasta una fecha dada.
-    Si fecha_hasta es None, calcula los balances totales hasta el momento actual.
+    Si fecha_hasta es None, calcula los saldos totales hasta el momento actual.
     """
     conn = get_db()
     balances = {
@@ -139,11 +139,9 @@ def calcular_balances_tesoreria(fecha_hasta=None):
     if not conn:
         return balances
 
-    # Si no se provee fecha, se usa la fecha actual para asegurar que se incluya todo.
     if fecha_hasta is None:
         fecha_hasta = get_venezuela_current_date()
     
-    # Convertir a datetime para incluir todo el día
     fecha_fin_timestamp = datetime.combine(fecha_hasta, datetime.max.time())
 
     try:
@@ -175,10 +173,11 @@ def calcular_balances_tesoreria(fecha_hasta=None):
             movimientos = cur.fetchall()
 
             for mov in movimientos:
-                if mov['caja_origen'] in balances:
+                # CORRECCIÓN: Verificar que las cajas no sean None antes de operar
+                if mov['caja_origen'] and mov['caja_origen'] in balances:
                     balances[mov['caja_origen']] -= mov['monto_origen']
                 
-                if mov['caja_destino'] in balances:
+                if mov['caja_destino'] and mov['caja_destino'] in balances:
                     balances[mov['caja_destino']] += mov['monto_destino']
 
             balances['CAJA_BS_TOTAL'] = balances['CAJA_BS_USD'] + balances['CAJA_BS_EUR']
@@ -193,7 +192,6 @@ def calcular_balances_tesoreria(fecha_hasta=None):
 @rol_requerido('superadmin', 'gerente')
 def tesoreria_rebalanceo():
     conn = get_db()
-    # Para esta vista, siempre calculamos el balance total actual (sin fecha)
     balances_actuales = calcular_balances_tesoreria() 
     
     historial_movimientos = []
@@ -655,7 +653,6 @@ def reporte_flujo_caja():
     conn = get_db()
     today = get_venezuela_current_date()
     
-    # Obtener la fecha del formulario o usar la fecha actual como predeterminada
     fecha_reporte_str = request.form.get('fecha_reporte') or request.args.get('fecha_reporte') or today.strftime('%Y-%m-%d')
     
     try:
@@ -665,9 +662,84 @@ def reporte_flujo_caja():
         fecha_reporte_str = today.strftime('%Y-%m-%d')
         fecha_reporte_dt = today
 
-    # Calcular los balances de tesorería HASTA la fecha del reporte
+    # Obtener tasas del día del reporte
+    tasas_del_dia = {'usd': Decimal('0.0'), 'eur': Decimal('0.0')}
+    if conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_reporte_dt,))
+            resultado_tasa = cur.fetchone()
+            if resultado_tasa:
+                tasas_del_dia['usd'] = resultado_tasa['tasa'] or Decimal('0.0')
+                tasas_del_dia['eur'] = resultado_tasa['tasa_euro'] or Decimal('0.0')
+
+    # Calcular balances de tesorería HASTA la fecha del reporte
     balances = calcular_balances_tesoreria(fecha_hasta=fecha_reporte_dt)
     
+    # Preparar el resumen detallado para la plantilla
+    resumen = {}
+    resumen.update(balances) # Copia los balances base
+    
+    tasa_usd = tasas_del_dia['usd']
+    tasa_eur = tasas_del_dia['eur']
+
+    resumen['balance_bs_usd_usd'] = balances['CAJA_BS_USD'] / tasa_usd if tasa_usd > 0 else Decimal('0.0')
+    resumen['balance_bs_eur_eur'] = balances['CAJA_BS_EUR'] / tasa_eur if tasa_eur > 0 else Decimal('0.0')
+    
+    resumen['balance_bs_consolidado_bs'] = balances['CAJA_BS_TOTAL']
+    
+    balance_bs_eur_en_usd = balances['CAJA_BS_EUR'] / tasa_usd if tasa_usd > 0 else Decimal('0.0')
+    resumen['balance_bs_consolidado_usd'] = resumen['balance_bs_usd_usd'] + balance_bs_eur_en_usd
+    
+    if resumen['balance_bs_consolidado_usd'] > 0:
+        resumen['tasa_ponderada_bs'] = resumen['balance_bs_consolidado_bs'] / resumen['balance_bs_consolidado_usd']
+    else:
+        resumen['tasa_ponderada_bs'] = Decimal('0.0')
+        
+    resumen['balance_general_consolidado_usd'] = balances['EFECTIVO_USD'] + balances['BINANCE_USDT'] + resumen['balance_bs_consolidado_usd']
+
+    # --- INICIO CÁLCULO DE PÉRDIDAS ---
+    resumen['acumulado_perdida_devaluacion'] = Decimal('0.0')
+    resumen['acumulado_perdida_conversion'] = Decimal('0.0')
+
+    if conn and tasa_usd > 0:
+        try:
+            with conn.cursor() as cur:
+                fecha_fin_timestamp = datetime.combine(fecha_reporte_dt, datetime.max.time())
+
+                # 1. Valor histórico en USD de todos los ingresos en Bs (Ref. USD)
+                cur.execute("""
+                    SELECT COALESCE(SUM(CASE WHEN tasa_dia > 0 THEN monto_bs / tasa_dia ELSE 0 END), 0)
+                    FROM pagos
+                    WHERE estado_pago = 'Conciliado' AND monto_bs > 0 AND moneda_referencia = 'USD' AND fecha_pago <= %s
+                """, (fecha_reporte_dt,))
+                valor_historico_ingresos_bs_usd = cur.fetchone()[0] or Decimal('0.0')
+
+                # 2. Valor histórico en USD de todos los egresos de la caja Bs (Ref. USD)
+                cur.execute("""
+                    SELECT COALESCE(SUM(CASE WHEN tasa_aplicada > 0 THEN monto_origen / tasa_aplicada ELSE 0 END), 0)
+                    FROM operaciones_tesoreria
+                    WHERE caja_origen = 'CAJA_BS_USD' AND fecha_operacion <= %s
+                """, (fecha_fin_timestamp,))
+                valor_historico_egresos_bs_usd = cur.fetchone()[0] or Decimal('0.0')
+                
+                # 3. Saldo teórico en USD si no hubiera habido devaluación
+                saldo_teorico_bs_usd_en_usd = valor_historico_ingresos_bs_usd - valor_historico_egresos_bs_usd
+                
+                # 4. Pérdida por devaluación es la diferencia entre el valor teórico y el valor real actual
+                resumen['acumulado_perdida_devaluacion'] = saldo_teorico_bs_usd_en_usd - resumen['balance_bs_usd_usd']
+
+                # 5. Pérdida por conversión (spread cambiario)
+                cur.execute("""
+                    SELECT COALESCE(SUM(perdida_cambiaria), 0) 
+                    FROM operaciones_tesoreria 
+                    WHERE fecha_operacion <= %s
+                """, (fecha_fin_timestamp,))
+                resumen['acumulado_perdida_conversion'] = cur.fetchone()[0] or Decimal('0.0')
+                
+        except psycopg2.Error as e:
+            flash(f"Error calculando las pérdidas financieras: {e}", "warning")
+    # --- FIN CÁLCULO DE PÉRDIDAS ---
+
     # Obtener el historial de movimientos de tesorería PARA la fecha del reporte
     historial_movimientos = []
     if conn:
@@ -690,7 +762,8 @@ def reporte_flujo_caja():
     return render_template(
         'reporte_flujo_caja.html',
         fecha_reporte=fecha_reporte_str,
-        balances=balances,
+        resumen=resumen,
+        tasas_del_dia=tasas_del_dia,
         historial=historial_movimientos,
         anio_actual=today.year
     )

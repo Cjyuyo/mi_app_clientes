@@ -12,10 +12,12 @@
         .hub-header { background-color: #0056b3; color: white; padding: 50px 20px; text-align: center; border-bottom: 5px solid #004a99; }
         .hub-header h1 { font-weight: 700; font-size: 2.5rem; }
         .content-card { background-color: white; border: none; border-radius: .75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
-        .balance-card { text-align: center; padding: 2rem; }
-        .balance-card .amount { font-size: 2.5rem; font-weight: 700; }
-        .balance-card .label { font-size: 1rem; color: #6c757d; }
+        .balance-card { text-align: center; padding: 1.5rem; background-color: #f8f9fa; border-radius: .5rem; height: 100%; }
+        .balance-card .amount { font-size: 2rem; font-weight: 700; }
+        .balance-card .label { font-size: 0.9rem; color: #6c757d; }
+        .sub-balance { font-size: 0.85rem; color: #495057; }
         .footer { text-align: center; padding: 2rem 0; color: #6c757d; font-size: 0.9rem; }
+        .loss-card .amount { color: #dc3545; }
     </style>
 </head>
 <body>
@@ -62,27 +64,72 @@
 
         <!-- Sección de Balances -->
         <div class="card content-card mb-4">
-            <div class="card-header bg-dark text-white">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
                 <h4 class="mb-0">Balances al Cierre del {{ fecha_reporte | format_date }}</h4>
+                <div class="text-end">
+                    <span class="badge bg-light text-dark fs-6">USD: {{ "{:,.2f}".format(tasas_del_dia.usd) }} Bs</span>
+                    <span class="badge bg-light text-dark fs-6 ms-2">EUR: {{ "{:,.2f}".format(tasas_del_dia.eur) }} Bs</span>
+                </div>
             </div>
-            <div class="card-body">
+            <div class="card-body p-4">
                 <div class="row g-4">
-                    <div class="col-md-4">
-                        <div class="balance-card bg-light rounded">
-                            <div class="amount text-success">${{ "{:,.2f}".format(balances.EFECTIVO_USD) }}</div>
+                    <!-- Balance General Consolidado -->
+                    <div class="col-12">
+                        <div class="balance-card bg-primary-subtle border border-primary-subtle">
+                            <div class="amount text-primary">${{ "{:,.2f}".format(resumen.balance_general_consolidado_usd) }}</div>
+                            <div class="label">Balance General Consolidado (USD)</div>
+                        </div>
+                    </div>
+
+                    <!-- Balances en Moneda Fuerte -->
+                    <div class="col-md-6">
+                        <div class="balance-card">
+                            <div class="amount text-success">${{ "{:,.2f}".format(resumen.EFECTIVO_USD) }}</div>
                             <div class="label">Efectivo en Dólares (USD)</div>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="balance-card bg-light rounded">
-                            <div class="amount text-primary">${{ "{:,.2f}".format(balances.BINANCE_USDT) }}</div>
+                    <div class="col-md-6">
+                        <div class="balance-card">
+                            <div class="amount text-info">${{ "{:,.2f}".format(resumen.BINANCE_USDT) }}</div>
                             <div class="label">Binance (USDT)</div>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="balance-card bg-light rounded">
-                            <div class="amount text-info">Bs. {{ "{:,.2f}".format(balances.CAJA_BS_TOTAL) }}</div>
-                            <div class="label">Total en Bolívares (BS)</div>
+
+                    <!-- Balances en Bolívares -->
+                    <div class="col-12">
+                        <div class="balance-card">
+                            <div class="amount text-secondary">Bs. {{ "{:,.2f}".format(resumen.balance_bs_consolidado_bs) }}</div>
+                            <div class="label mb-2">Total en Caja de Bolívares (BS)</div>
+                            <div class="sub-balance">
+                                <strong>Equivalente en USD:</strong> ${{ "{:,.2f}".format(resumen.balance_bs_consolidado_usd) }}
+                                <br>
+                                <small class="text-muted">Tasa Ponderada: {{ "{:,.2f}".format(resumen.tasa_ponderada_bs) }} Bs/USD</small>
+                            </div>
+                            <hr class="my-3">
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="label">Caja Bs. (Ref. USD)</div>
+                                    <div class="sub-balance">Bs. {{ "{:,.2f}".format(resumen.CAJA_BS_USD) }}</div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="label">Caja Bs. (Ref. EUR)</div>
+                                    <div class="sub-balance">Bs. {{ "{:,.2f}".format(resumen.CAJA_BS_EUR) }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                     <!-- Sección de Pérdidas -->
+                    <div class="col-md-6">
+                        <div class="balance-card loss-card">
+                            <div class="amount">(${{ "{:,.2f}".format(resumen.acumulado_perdida_devaluacion) }})</div>
+                            <div class="label">Pérdida por Devaluación Acumulada</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="balance-card loss-card">
+                            <div class="amount">(${{ "{:,.2f}".format(resumen.acumulado_perdida_conversion) }})</div>
+                            <div class="label">Pérdida por Conversión Cambiaria</div>
                         </div>
                     </div>
                 </div>
@@ -114,10 +161,10 @@
                             <tr>
                                 <td class="p-3">{{ mov.fecha_operacion.strftime('%H:%M:%S') }}</td>
                                 <td class="p-3"><span class="badge bg-secondary">{{ mov.tipo_operacion.replace('_', ' ')|title }}</span></td>
-                                <td class="p-3">{{ mov.caja_origen.replace('_', ' ')|title }}</td>
-                                <td class="p-3 text-danger fw-bold">- {{ mov.moneda_origen }} {{ "{:,.2f}".format(mov.monto_origen) }}</td>
-                                <td class="p-3">{{ mov.caja_destino.replace('_', ' ')|title }}</td>
-                                <td class="p-3 text-success fw-bold">+ {{ mov.moneda_destino }} {{ "{:,.2f}".format(mov.monto_destino) }}</td>
+                                <td class="p-3">{{ (mov.caja_origen or 'N/A').replace('_', ' ')|title }}</td>
+                                <td class="p-3 text-danger fw-bold">- {{ mov.moneda_origen or 'N/A' }} {{ "{:,.2f}".format(mov.monto_origen or 0) }}</td>
+                                <td class="p-3">{{ (mov.caja_destino or 'N/A').replace('_', ' ')|title }}</td>
+                                <td class="p-3 text-success fw-bold">+ {{ mov.moneda_destino or 'N/A' }} {{ "{:,.2f}".format(mov.monto_destino or 0) }}</td>
                                 <td class="p-3">{{ mov.nota }}</td>
                                 <td class="p-3">{{ mov.nombre_admin }}</td>
                             </tr>
