@@ -22,6 +22,7 @@
             <a href="{{ url_for('hub') }}" class="btn btn-outline-secondary"><i class="bi bi-house-door-fill"></i> Volver al Hub</a>
         </div>
         
+        <!-- Alertas de Flash -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -33,6 +34,7 @@
             {% endif %}
         {% endwith %}
 
+        <!-- Dashboard de Balances -->
         <div class="row mb-4 g-4">
             <div class="col-lg-4 col-md-6">
                 <div class="card card-balance">
@@ -60,6 +62,7 @@
             </div>
         </div>
 
+        <!-- Formulario de Registro de Movimiento -->
         <div class="form-section mb-5">
             <h2 class="h4 border-bottom pb-2 mb-3">Registrar Nuevo Movimiento</h2>
             <form action="{{ url_for('tesoreria_rebalanceo') }}" method="POST">
@@ -123,6 +126,7 @@
             </form>
         </div>
 
+        <!-- Historial de Movimientos -->
         <div class="mb-5">
              <h2 class="h4 border-bottom pb-2 mb-3">Historial de Movimientos Recientes</h2>
              <div class="table-responsive">
@@ -143,11 +147,12 @@
                         {% for mov in historial %}
                          <tr>
                              <td>{{ mov.fecha_operacion.strftime('%d/%m/%Y %H:%M') }}</td>
-                             <td><span class="badge bg-secondary">{{ mov.tipo_operacion.replace('_', ' ')|title }}</span></td>
-                             <td>{{ mov.caja_origen.replace('_', ' ')|title }}</td>
-                             <td class="text-danger fw-bold">- {{ mov.moneda_origen }} {{ "{:,.2f}".format(mov.monto_origen) }}</td>
-                             <td>{{ mov.caja_destino.replace('_', ' ')|title }}</td>
-                             <td class="text-success fw-bold">+ {{ mov.moneda_destino }} {{ "{:,.2f}".format(mov.monto_destino) }}</td>
+                             <td><span class="badge bg-secondary">{{ (mov.tipo_operacion or 'N/A').replace('_', ' ')|title }}</span></td>
+                             <!-- CORRECCIÓN: Se añade 'or "N/A"' para manejar valores nulos -->
+                             <td>{{ (mov.caja_origen or 'N/A').replace('_', ' ')|title }}</td>
+                             <td class="text-danger fw-bold">- {{ mov.moneda_origen or 'N/A' }} {{ "{:,.2f}".format(mov.monto_origen or 0) }}</td>
+                             <td>{{ (mov.caja_destino or 'N/A').replace('_', ' ')|title }}</td>
+                             <td class="text-success fw-bold">+ {{ mov.moneda_destino or 'N/A' }} {{ "{:,.2f}".format(mov.monto_destino or 0) }}</td>
                              <td>{{ mov.nota }}</td>
                              <td>{{ mov.nombre_admin }}</td>
                          </tr>
