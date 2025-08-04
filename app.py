@@ -516,6 +516,67 @@ def pagar_nomina_comercial():
         flash(f"Error al procesar el pago de la nómina: {e}", "danger")
 
     return redirect(url_for('dashboard_comercial'))
+
+@app.route('/comercial/flujo_caja_comercial')
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def flujo_caja_comercial():
+    conn = get_db()
+    resumen = {
+        'ingresos_brutos': Decimal('0.0'),
+        'egresos_nomina': Decimal('0.0'),
+        'balance_neto': Decimal('0.0')
+    }
+    historial = []
+
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                # 1. Obtener todos los ingresos de inscripciones
+                cur.execute("""
+                    SELECT 
+                        fecha_registro as fecha, 
+                        monto_inscripcion as monto,
+                        'Ingreso' as tipo,
+                        'Inscripción Contrato' as concepto,
+                        responsable_cierre as responsable,
+                        contrato_nro
+                    FROM caja_inscripciones
+                """)
+                ingresos = cur.fetchall()
+                resumen['ingresos_brutos'] = sum(i['monto'] for i in ingresos)
+
+                # 2. Obtener todos los egresos de comisiones pagadas
+                cur.execute("""
+                    SELECT 
+                        fecha_pago_nomina as fecha,
+                        monto_comision as monto,
+                        'Egreso' as tipo,
+                        concepto,
+                        nombre_beneficiario as responsable,
+                        contrato_nro
+                    FROM comisiones_generadas
+                    WHERE estado_nomina = 'Pagada' AND fecha_pago_nomina IS NOT NULL
+                """)
+                egresos = cur.fetchall()
+                resumen['egresos_nomina'] = sum(e['monto'] for e in egresos)
+
+                # 3. Calcular balance y combinar historial
+                resumen['balance_neto'] = resumen['ingresos_brutos'] - resumen['egresos_nomina']
+                
+                historial.extend(ingresos)
+                historial.extend(egresos)
+                
+                # 4. Ordenar el historial por fecha
+                historial.sort(key=lambda x: x['fecha'], reverse=True)
+
+        except psycopg2.Error as e:
+            flash(f"Error al generar el flujo de caja de inscripciones: {e}", "danger")
+
+    return render_template('flujo_caja_comercial.html',
+                           resumen=resumen,
+                           historial=historial,
+                           anio_actual=get_venezuela_current_date().year)
 # --- FIN DE CAMBIO ---
 
 
