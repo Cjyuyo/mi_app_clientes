@@ -268,19 +268,16 @@ def reporte_metricas():
         'anio_actual': today.year,
         'ingresos_ultimos_meses': {'labels': [], 'values': []},
         'composicion_clientes': {'labels': [], 'values': []},
-        # --- INICIO DE CAMBIO v4: Nuevas métricas ---
         'total_clientes': 0,
         'clientes_activos': 0,
         'clientes_inactivos': 0,
         'clientes_retirados': 0,
         'clientes_adjudicados': 0
-        # --- FIN DE CAMBIO v4 ---
     }
 
     if conn:
         try:
             with conn.cursor() as cur:
-                # --- INICIO DE CAMBIO v4: Consultas para nuevas métricas ---
                 cur.execute("SELECT COUNT(*) FROM clientes")
                 dashboard_metrics['total_clientes'] = cur.fetchone()[0]
                 
@@ -295,7 +292,6 @@ def reporte_metricas():
                 
                 cur.execute("SELECT COUNT(*) FROM clientes WHERE TRIM(UPPER(proceso)) = 'ADJUDICADO'")
                 dashboard_metrics['clientes_adjudicados'] = cur.fetchone()[0]
-                # --- FIN DE CAMBIO v4 ---
 
                 first_day_of_month = today.replace(day=1)
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
@@ -460,37 +456,30 @@ def admin_tasa_bcv():
                         # Guardar para hoy
                         cur.execute(sql_upsert, (today_date, tasa_usd, tasa_eur, g.admin['id']))
                         
-                        # --- INICIO DE CAMBIO: Lógica de fin de semana ---
-                        # Si es después de las 5 PM en un día de semana
-                        if now_vet.hour >= 17 and now_vet.weekday() < 5: # Lunes (0) a Viernes (4)
-                            # Si es viernes, aplicar para sábado, domingo y lunes
-                            if now_vet.weekday() == 4: # Viernes
-                                for i in range(1, 4): # Sábado, Domingo, Lunes
+                        if now_vet.hour >= 17 and now_vet.weekday() < 5: 
+                            if now_vet.weekday() == 4: 
+                                for i in range(1, 4): 
                                     next_day = today_date + timedelta(days=i)
                                     cur.execute(sql_upsert, (next_day, tasa_usd, tasa_eur, g.admin['id']))
                                 flash('Tasa de Viernes guardada para todo el fin de semana y el Lunes.', 'success')
-                            # Si es de Lunes a Jueves, aplicar para el día siguiente
                             else:
                                 tomorrow_date = today_date + timedelta(days=1)
                                 cur.execute(sql_upsert, (tomorrow_date, tasa_usd, tasa_eur, g.admin['id']))
                                 flash('Tasa guardada para hoy y mañana.', 'success')
                         else:
                             flash('Tasa guardada para hoy.', 'success')
-                        # --- FIN DE CAMBIO ---
                         
                         conn.commit()
                         return redirect(url_for('admin_tasa_bcv'))
                     else:
                         flash('Las tasas deben ser números positivos.', 'danger')
                 
-                # Obtener la tasa más reciente para hoy
                 cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_date,))
                 resultado = cur.fetchone()
                 if resultado:
                     tasas_de_hoy['usd'] = resultado['tasa']
                     tasas_de_hoy['eur'] = resultado['tasa_euro']
                 
-                # Obtener historial
                 cur.execute("""
                     SELECT h.fecha, h.tasa, h.tasa_euro, a.usuario 
                     FROM historial_tasas_bcv h
@@ -1679,8 +1668,20 @@ def portal_reportar_pago():
             return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual)
         try:
             with conn.cursor() as cur:
-                pago_query = "INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, lugar_emision, tasa_dia, monto_bs, estado_pago, cuotas_cubiertas) VALUES (%s, %s, 'Cuota', %s, %s, %s, %s, %s, %s, 'Acarigua', %s, %s, 'Pendiente', 0);"
-                cur.execute(pago_query, (session['cliente_id'], pago_form['monto'], pago_form['forma_pago'], pago_form['fecha_pago'], pago_form.get('pago_en'), pago_form.get('por_concepto_de'), pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('tasa_dia'), pago_form.get('monto_bs')))
+                # --- INICIO DE CAMBIO v4: Marcar pago como reportado por cliente ---
+                pago_query = """
+                    INSERT INTO pagos (
+                        cliente_id, monto, tipo_pago, forma_pago, fecha_pago, pago_en, 
+                        por_concepto_de, referencia, banco, lugar_emision, tasa_dia, monto_bs, 
+                        estado_pago, cuotas_cubiertas, reportado_por_cliente, estado_reporte
+                    ) VALUES (%s, %s, 'Cuota', %s, %s, %s, %s, %s, %s, 'Acarigua', %s, %s, 'Pendiente', 0, TRUE, 'Pendiente de Revision');
+                """
+                # --- FIN DE CAMBIO v4 ---
+                cur.execute(pago_query, (
+                    session['cliente_id'], pago_form['monto'], pago_form['forma_pago'], pago_form['fecha_pago'], 
+                    pago_form.get('pago_en'), pago_form.get('por_concepto_de'), pago_form.get('referencia'), 
+                    pago_form.get('banco'), pago_form.get('tasa_dia'), pago_form.get('monto_bs')
+                ))
                 conn.commit()
                 flash('¡Pago reportado exitosamente! Será verificado a la brevedad.', 'success')
                 return redirect(url_for('portal_dashboard'))
@@ -1719,6 +1720,77 @@ def portal_logout():
     session.clear()
     flash('Has cerrado sesión exitosamente.', 'success')
     return redirect(url_for('portal_login'))
+
+# --- INICIO DE CAMBIO v4: Nuevas rutas para el flujo de verificación ---
+@app.route('/ver_reporte/<int:pago_id>')
+@admin_required
+def ver_reporte(pago_id):
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('consulta'))
+    
+    with conn.cursor() as cur:
+        query = """
+            SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula
+            FROM pagos p JOIN clientes c ON p.cliente_id = c.id
+            WHERE p.id = %s;
+        """
+        cur.execute(query, (pago_id,))
+        pago = cur.fetchone()
+
+    if not pago:
+        flash('El reporte de pago no fue encontrado.', 'error')
+        return redirect(url_for('consulta'))
+
+    return render_template('ver_reporte.html', pago=pago)
+
+@app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora')
+def procesar_reporte(pago_id):
+    conn = get_db()
+    accion = request.form.get('accion')
+    cedula_cliente = request.form.get('cedula_cliente', '')
+
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('consulta', busqueda=cedula_cliente))
+
+    nuevo_estado = ''
+    if accion == 'aprobar':
+        nuevo_estado = 'Aprobado'
+    elif accion == 'rechazar':
+        nuevo_estado = 'Inconsistente'
+    else:
+        flash('Acción no válida.', 'error')
+        return redirect(url_for('consulta', busqueda=cedula_cliente))
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE pagos 
+                SET estado_reporte = %s, revisado_por_id = %s, fecha_revision = NOW()
+                WHERE id = %s
+                """,
+                (nuevo_estado, g.admin['id'], pago_id)
+            )
+            
+            cur.execute("SELECT cliente_id FROM pagos WHERE id = %s", (pago_id,))
+            cliente_id = cur.fetchone()['cliente_id']
+
+            descripcion_audit = f"Revisó el reporte de pago N° {pago_id} y lo marcó como '{nuevo_estado}'."
+            registrar_accion_auditoria('REVISION_REPORTE_PAGO', descripcion_audit, cliente_id)
+            
+            conn.commit()
+            flash(f"El reporte de pago ha sido marcado como '{nuevo_estado}' exitosamente.", 'success')
+    except (psycopg2.Error, ValueError) as e:
+        conn.rollback()
+        flash(f"Error al procesar el reporte: {e}", "error")
+    
+    return redirect(url_for('consulta', busqueda=cedula_cliente))
+# --- FIN DE CAMBIO v4 ---
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

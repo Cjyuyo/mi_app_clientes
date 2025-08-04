@@ -46,13 +46,16 @@
         .payment-info .payment-concept { font-weight: 600; color: #050505; }
         .payment-info .payment-meta { font-size: 0.85em; color: #606770; }
         .payment-amount { font-size: 1.1em; font-weight: bold; text-align: right; min-width: 90px; }
-        .payment-status-badge { font-size: 0.8em; font-weight: bold; padding: 4px 8px; border-radius: 6px; color: white; }
-        .status-conciliado { background-color: #28a745; }
-        .status-pendiente { background-color: #ffc107; color: #212529; }
-        .status-anulado { background-color: #dc3545; }
-        .status-puntualidad { font-size: 0.8em; font-weight: bold; padding: 4px 8px; border-radius: 6px; margin-left: 5px; }
-        .puntualidad-Puntual { background-color: #d4edda; color: #155724; }
-        .puntualidad-Impuntual { background-color: #f8d7da; color: #721c24; }
+        .payment-actions { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+        
+        .badge { font-size: 0.8em; font-weight: bold; padding: 4px 8px; border-radius: 6px; }
+        .bg-reporte { background-color: #6610f2 !important; color: white; }
+        .bg-inconsistente { background-color: #dc3545 !important; color: white; }
+        .bg-aprobado { background-color: #198754 !important; color: white; }
+        .bg-conciliado { background-color: #28a745; color: white; }
+        .bg-pendiente { background-color: #ffc107; color: #212529; }
+        .bg-anulado { background-color: #dc3545; color: white; }
+
         .client-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 15px 20px; background-color: #f5f6f7; border-top: 1px solid #dddfe2; }
         .btn { text-decoration: none; color: white !important; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; }
         .btn-primary { background-color: #28a745; }
@@ -84,7 +87,7 @@
             <input type="text" name="busqueda" placeholder="Buscar por Nombre o Cédula..." value="{{ busqueda or '' }}">
             <button type="submit">Buscar</button>
             <a href="{{ url_for('hub') }}" class="btn btn-secondary">
-                <i class="bi bi-house-door-fill me-2"></i>Finalizar y Volver al Hub
+                <i class="bi bi-house-door-fill me-2"></i>Volver al Hub
             </a>
         </form>
     </div>
@@ -116,7 +119,6 @@
                 </div>
                 <div class="detail-item">
                     <span class="label">Plan</span>
-                    <!-- CORREGIDO: Se elimina el filtro |int -->
                     <span class="value">{{ cliente.plan_contratado or 'N/A' }}</span>
                 </div>
                 <div class="detail-item">
@@ -129,7 +131,6 @@
                 </div>
                 <div class="detail-item">
                     <span class="label">Contrato</span>
-                    <!-- CORREGIDO: Se elimina el filtro |int -->
                     <span class="value">{{ cliente.contrato_nro or 'N/A' }}</span>
                 </div>
                 <div class="detail-item">
@@ -192,21 +193,36 @@
                     {% for pago in cliente.pagos %}
                     <div class="payment-row">
                         <div class="payment-info">
-                            <span class="payment-concept">{{ pago.tipo_pago }} - {{ pago.por_concepto_de }}</span>
+                            <span class="payment-concept">{{ pago.tipo_pago }}</span>
                             <span class="payment-meta">{{ pago.fecha_pago.strftime('%d/%m/%Y') }} | Ref: {{ pago.referencia or 'N/A' }}</span>
                         </div>
                         <div class="payment-amount">${{ "%.2f"|format(pago.monto) }}</div>
-                        <div class="payment-status">
-                            <span class="payment-status-badge status-{{ pago.estado_pago.lower() }}">{{ pago.estado_pago }}</span>
-                            {% if pago.puntualidad %}<span class="status-puntualidad puntualidad-{{ pago.puntualidad }}">{{ pago.puntualidad }}</span>{% endif %}
-                        </div>
                         <div class="payment-actions">
-                             {% if pago.estado_pago == 'Pendiente' %}
-                            <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;"><button type="submit" class="btn btn-primary">Conciliar</button></form>
+                            {% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}
+                                <span class="badge bg-reporte">Reportado</span>
+                                <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">Ver Reporte</a>
+                            {% elif pago.estado_reporte == 'Inconsistente' %}
+                                <span class="badge bg-inconsistente">Inconsistente</span>
+                                <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Ver Reporte</a>
+                            {% elif pago.estado_pago == 'Pendiente' %}
+                                {% if pago.estado_reporte == 'Aprobado' %}
+                                    <span class="badge bg-aprobado">Aprobado</span>
+                                {% else %}
+                                    <span class="badge bg-pendiente">Pendiente</span>
+                                {% endif %}
+                                <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');">
+                                    <button type="submit" class="btn btn-success btn-sm">Conciliar</button>
+                                </form>
                             {% elif pago.estado_pago == 'Conciliado' %}
-                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
+                                <span class="badge bg-conciliado">Conciliado</span>
+                                {% if pago.tipo_pago == 'Inscripción Finalizada' %}
+                                    <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-outline-primary btn-sm">Ver Recibo</a>
+                                {% else %}
+                                    <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-outline-primary btn-sm">Ver Recibo</a>
+                                {% endif %}
                             {% elif pago.estado_pago == 'Anulado' %}
-                                <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-danger">Ver Anulado</a>
+                                <span class="badge bg-anulado">Anulado</span>
+                                <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-outline-secondary btn-sm">Detalles</a>
                             {% endif %}
                         </div>
                     </div>
@@ -229,17 +245,32 @@
                                     <span class="payment-concept">{{ pago.por_concepto_de }}</span>
                                     <span class="payment-meta">Ref: {{ pago.referencia or 'N/A' }}</span>
                                 </div>
-                                <div class="payment-status">
-                                    <span class="payment-status-badge status-{{ pago.estado_pago.lower() }}">{{ pago.estado_pago }}</span>
-                                    {% if pago.puntualidad %}<span class="status-puntualidad puntualidad-{{ pago.puntualidad }}">{{ pago.puntualidad }}</span>{% endif %}
-                                </div>
                                 <div class="payment-actions">
-                                    {% if pago.estado_pago == 'Pendiente' %}
-                                    <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" style="display:inline;"><button type="submit" class="btn btn-primary">Conciliar</button></form>
+                                    {% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}
+                                        <span class="badge bg-reporte">Reportado</span>
+                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">Ver Reporte</a>
+                                    {% elif pago.estado_reporte == 'Inconsistente' %}
+                                        <span class="badge bg-inconsistente">Inconsistente</span>
+                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Ver Reporte</a>
+                                    {% elif pago.estado_pago == 'Pendiente' %}
+                                        {% if pago.estado_reporte == 'Aprobado' %}
+                                            <span class="badge bg-aprobado">Aprobado</span>
+                                        {% else %}
+                                            <span class="badge bg-pendiente">Pendiente</span>
+                                        {% endif %}
+                                        <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');">
+                                            <button type="submit" class="btn btn-success btn-sm">Conciliar</button>
+                                        </form>
                                     {% elif pago.estado_pago == 'Conciliado' %}
-                                        <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary">Ver Recibo</a>
+                                        <span class="badge bg-conciliado">Conciliado</span>
+                                        {% if pago.tipo_pago == 'Inscripción Finalizada' %}
+                                            <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.id) }}" class="btn btn-outline-primary btn-sm">Ver Recibo</a>
+                                        {% else %}
+                                            <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-outline-primary btn-sm">Ver Recibo</a>
+                                        {% endif %}
                                     {% elif pago.estado_pago == 'Anulado' %}
-                                        <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-danger">Ver Anulado</a>
+                                        <span class="badge bg-anulado">Anulado</span>
+                                        <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-outline-secondary btn-sm">Detalles</a>
                                     {% endif %}
                                 </div>
                             </div>
@@ -251,9 +282,9 @@
             {% endif %}
 
             <div class="client-actions">
-                <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-primary">Registrar Pago</a>
+                <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-success">Registrar Pago</a>
                 <a href="{{ url_for('registrar_oferta', client_id=cliente.id) }}" class="btn btn-info">Registrar Oferta</a>
-                <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-secondary" target="_blank"><i class="bi bi-file-earmark-pdf-fill me-1"></i> Ver Contrato</a>
+                <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-secondary" target="_blank"><i class="bi bi-file-earmark-pdf-fill me-1"></i> Contrato</a>
                 {% if g.admin and g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
                 <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-warning">Editar</a>
                 {% endif %}

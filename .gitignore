@@ -1,12 +1,11 @@
-# Archivos de configuración local (¡No subir!)
-.env
+# Archivos del sistema operativo
+.DS_Store
 
-# Carpeta del entorno virtual de Python
-venv/
+# Archivos temporales de Microsoft Office
+~$*.xlsx
+~$*.docx
+~$*.pptx
 
 # Archivos compilados de Python
-*.pyc
 __pycache__/
-
-# Archivo del sistema macOS
-.DS_Store
+*.pyc
