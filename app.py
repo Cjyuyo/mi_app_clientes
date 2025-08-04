@@ -310,7 +310,11 @@ def reporte_metricas():
 
                 dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
 
-                cur.execute("SELECT proceso, COUNT(*) FROM clientes WHERE estatus = 'activo' GROUP BY proceso")
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se modifica la consulta para manejar clientes activos sin un proceso definido.
+                cur.execute("SELECT COALESCE(proceso, 'Sin Proceso Definido') as proceso, COUNT(*) FROM clientes WHERE estatus = 'activo' GROUP BY proceso")
+                # --- FIN DE LA CORRECCIÓN ---
+                
                 client_composition = cur.fetchall()
                 comp_labels = [row['proceso'].capitalize() for row in client_composition]
                 comp_values = [row['count'] for row in client_composition]
