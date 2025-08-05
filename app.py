@@ -1208,11 +1208,6 @@ def finalizar_registro():
         form_data['valor_cuota'] = Decimal(form_data.get('valor_cuota', '0.00').replace(',', '.'))
         form_data['cuotas_totales'] = int(form_data['cuotas_totales']) if form_data.get('cuotas_totales') else None
         
-        # --- NUEVO --- Obtener datos para comisiones
-        monto_plan = Decimal(form_data.get('plan_contratado', '0.00'))
-        asesor_dueno = form_data.get('asesor')
-        responsable_cierre = form_data.get('responsable')
-
         with conn.cursor() as cur:
             # --- Inicia Transacción ---
             
@@ -1273,21 +1268,12 @@ def finalizar_registro():
                 flash(f'Error al crear el registro de pago de inscripción: {e}', 'warning')
                 raise e
             
-            # --- 3. La lógica de comisiones y 'caja_inscripciones' (para registro) no cambia ---
-            if monto_plan > 0 and form_data['inscripcion_monto'] > 0:
+            # --- 3. Registrar en 'caja_inscripciones' (para cálculo de sobrante) ---
+            if form_data['inscripcion_monto'] > 0:
                 cur.execute("""
                     INSERT INTO caja_inscripciones (contrato_nro, cliente_id, monto_inscripcion, responsable_cierre)
                     VALUES (%s, %s, %s, %s)
-                """, (form_data.get('contrato_nro'), new_client_id, form_data['inscripcion_monto'], responsable_cierre))
-
-                calcular_y_guardar_comisiones(
-                    contrato_nro=form_data.get('contrato_nro'),
-                    cliente_id=new_client_id,
-                    monto_plan=monto_plan,
-                    asesor_dueno=asesor_dueno,
-                    responsable_cierre=responsable_cierre
-                )
-                flash('¡Comisiones del contrato generadas y listas para la nómina!', 'success')
+                """, (form_data.get('contrato_nro'), new_client_id, form_data['inscripcion_monto'], form_data.get('responsable')))
 
             # --- 4. Registrar auditoría y finalizar ---
             descripcion_audit = f"Registró y firmó contrato para nuevo cliente: {form_data.get('nombre_apellido')} (C.I. {form_data.get('cedula')})."
@@ -1516,6 +1502,25 @@ def conciliar_pago(pago_id):
                 inscripcion_pagada_actual = Decimal(cliente.get('inscripcion_pagada') or 0)
                 inscripcion_total = Decimal(cliente.get('inscripcion_monto') or 0)
                 nueva_inscripcion_pagada = inscripcion_pagada_actual + monto_pagado
+
+                # --- INICIO LÓGICA DE COMISIONES POR UMBRAL ---
+                if inscripcion_total > 0:
+                    umbral_pago_comision = inscripcion_total * Decimal('7.7') / Decimal('16')
+                    cur.execute("SELECT comisiones_generadas FROM caja_inscripciones WHERE cliente_id = %s", (cliente['id'],))
+                    comisiones_ya_generadas = cur.fetchone()[0]
+
+                    if nueva_inscripcion_pagada >= umbral_pago_comision and not comisiones_ya_generadas:
+                        calcular_y_guardar_comisiones(
+                            contrato_nro=cliente['contrato_nro'],
+                            cliente_id=cliente['id'],
+                            monto_plan=Decimal(cliente['plan_contratado']),
+                            asesor_dueno=cliente['asesor'],
+                            responsable_cierre=cliente['responsable']
+                        )
+                        cur.execute("UPDATE caja_inscripciones SET comisiones_generadas = TRUE WHERE cliente_id = %s", (cliente['id'],))
+                        flash('¡Umbral de inscripción alcanzado! Comisiones generadas para la nómina.', 'success')
+                # --- FIN LÓGICA DE COMISIONES POR UMBRAL ---
+
                 if inscripcion_total > 0 and nueva_inscripcion_pagada >= inscripcion_total:
                     if cliente['proceso'] == 'RESERVA':
                         cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],))
