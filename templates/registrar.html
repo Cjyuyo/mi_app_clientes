@@ -234,6 +234,7 @@
                     <label for="responsable-placeholder">3. Responsable</label>
                     <input type="text" id="responsable-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>
                 </div>
+                
                 <div class="form-group">
                     <label for="ciclo_cobranza">Ciclo de Cobranza</label>
                     <select id="ciclo_cobranza" name="ciclo_cobranza" class="form-control-validate" required>
@@ -251,9 +252,36 @@
     </form>
 </div>
 
-<div class="modal fade" id="cameraModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cameraModalLabel">Capturar Foto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <div class="live-view">
+            <video id="video-feed" autoplay playsinline muted class="bg-dark rounded"></video>
+        </div>
+        <div class="confirmation-view">
+            <p><strong>¿Desea usar esta foto?</strong></p>
+            <canvas id="capture-canvas" class="rounded"></canvas>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="live-view-footer w-100 d-grid gap-2 d-sm-flex justify-content-sm-between">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" id="flip-camera-btn" class="btn btn-info"><i class="bi bi-arrow-repeat"></i></button>
+            <button type="button" id="capture-btn" class="btn btn-primary"><i class="bi bi-camera-fill"></i> Capturar</button>
+        </div>
+        <div class="confirmation-view-footer w-100 d-grid gap-2 d-sm-flex justify-content-sm-between">
+            <button type="button" class="btn btn-secondary" id="retake-btn"><i class="bi bi-arrow-clockwise"></i> Volver a Tomar</button>
+            <button type="button" class="btn btn-success" id="save-photo-btn"><i class="bi bi-check-circle-fill"></i> Guardar Foto</button>
+        </div>
+      </div>
     </div>
-
+  </div>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -276,7 +304,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // ===== INICIO DE LÓGICA DEFINITIVA PARA ESCENARIOS v3 =====
+    // Lógica definitiva para escenarios
     const escenarioSelect = document.getElementById('escenario_cierre');
     const asesorContainer = document.getElementById('asesor-container');
     const responsableContainer = document.getElementById('responsable-container');
@@ -286,7 +314,6 @@ document.addEventListener('DOMContentLoaded', function() {
     escenarioSelect.addEventListener('change', function() {
         const escenario = this.value;
 
-        // --- Limpiar contenedores y valores ocultos ---
         asesorContainer.innerHTML = '';
         responsableContainer.innerHTML = '';
         asesorHiddenInput.value = '';
@@ -302,7 +329,6 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         if (!escenario) {
-            // Estado por defecto: todo deshabilitado
             asesorContainer.innerHTML = `<label for="asesor-placeholder">2. Asesor</label><input type="text" id="asesor-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>`;
             responsableContainer.innerHTML = `<label for="responsable-placeholder">3. Responsable</label><input type="text" id="responsable-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>`;
             updateAsesorHidden('');
@@ -310,9 +336,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // --- LÓGICA PARA CONSTRUIR DINÁMICAMENTE LOS CAMPOS ---
-        
-        // El campo Responsable es SIEMPRE un campo de texto libre
         responsableContainer.innerHTML = `
             <label for="responsable-text">3. Responsable</label>
             <input type="text" id="responsable-text" class="form-control form-control-validate" required>
@@ -321,7 +344,6 @@ document.addEventListener('DOMContentLoaded', function() {
         responsableText.addEventListener('input', () => updateResponsableHidden(responsableText.value));
         
         if (escenario === 'Asesor') {
-            // -- Asesor es TEXTO --
             asesorContainer.innerHTML = `
                 <label for="asesor-text">2. Asesor</label>
                 <input type="text" id="asesor-text" class="form-control form-control-validate" required>
@@ -331,7 +353,6 @@ document.addEventListener('DOMContentLoaded', function() {
             asesorText.focus();
 
         } else if (escenario === 'Gerencia') {
-            // -- Asesor es DESPLEGABLE --
             asesorContainer.innerHTML = `
                 <label for="asesor-select">2. Asesor</label>
                 <select id="asesor-select" class="form-select form-control-validate" required>
@@ -342,7 +363,6 @@ document.addEventListener('DOMContentLoaded', function() {
             responsableText.focus();
 
         } else if (escenario === 'Presidencia') {
-            // -- Asesor es DESPLEGABLE --
             let asesorOptions = '<option value="" selected disabled>Seleccione presidente...</option>';
             ['Carlos Ramirez', 'Karielsy Rios'].forEach(p => {
                 asesorOptions += `<option value="${p}">${p}</option>`;
@@ -355,16 +375,12 @@ document.addEventListener('DOMContentLoaded', function() {
             asesorSelect.addEventListener('change', () => updateAsesorHidden(asesorSelect.value));
         }
         
-        // Disparar la validación inicial para actualizar el estado del botón
         updateAsesorHidden(asesorHiddenInput.value);
         updateResponsableHidden(responsableHiddenInput.value);
     });
-    // ===== FIN DE CAMBIO =====
 
-
-    // Lógica de la cámara y validación del formulario (sin cambios)
+    // Lógica de la cámara y validación del formulario
     const cameraModal = document.getElementById('cameraModal');
-    // ... (El resto del script de la cámara permanece idéntico) ...
     const video = document.getElementById('video-feed');
     const canvas = document.getElementById('capture-canvas');
     const captureBtn = document.getElementById('capture-btn');
