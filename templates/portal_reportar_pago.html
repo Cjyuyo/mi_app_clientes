@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reportar Pago - Moto Plan</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -124,6 +126,13 @@
           {% endif %}
         {% endwith %}
 
+        <div class="alert alert-info d-flex justify-content-between align-items-center">
+            <span>¿Necesitas los datos para realizar un Pago Móvil?</span>
+            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#paymentInfoModal">
+                <i class="bi bi-wallet2 me-1"></i> Ver Datos de Pago
+            </button>
+        </div>
+
         <div class="section">
             <h3>Detalles del Monto</h3>
             <div class="form-grid">
@@ -137,7 +146,7 @@
                 </div>
                 <div class="form-group">
                     <label for="tasa_dia">Tasa del Día (BCV)</label>
-                    <input type="number" id="tasa_dia" step="0.01" name="tasa_dia">
+                    <input type="number" id="tasa_dia" step="0.01" name="tasa_dia" value="{{ tasas_hoy.tasa if tasas_hoy and tasas_hoy.tasa else '' }}" readonly>
                 </div>
                 <div class="form-group">
                     <label for="monto_bs_calculado">Monto en Bs (Calculado)</label>
@@ -187,8 +196,54 @@
         </div>
     </form>
 </div>
+
+<div class="modal fade" id="paymentInfoModal" tabindex="-1" aria-labelledby="paymentInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="paymentInfoModalLabel">Datos para Pago Móvil</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Utiliza los siguientes datos para realizar tu pago. Haz clic en el icono para copiar.</p>
+                <ul class="list-group">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted">Banco</small>
+                            <div id="pm-banco">Banesco (0134)</div>
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm copy-btn" data-clipboard-text="0134">
+                            <i class="bi bi-clipboard"></i> Copiar
+                        </button>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted">Cédula</small>
+                            <div id="pm-cedula">V-17559595</div>
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm copy-btn" data-clipboard-text="17559595">
+                            <i class="bi bi-clipboard"></i> Copiar
+                        </button>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted">Teléfono</small>
+                            <div id="pm-telefono">0412-0344774</div>
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm copy-btn" data-clipboard-text="04120344774">
+                            <i class="bi bi-clipboard"></i> Copiar
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Lógica para cálculo de montos
         const montoUsdInput = document.getElementById('monto_usd');
         const tasaDiaInput = document.getElementById('tasa_dia');
         const montoBsCalculadoInput = document.getElementById('monto_bs_calculado');
@@ -208,6 +263,26 @@
         
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('fecha_pago').value = today;
+
+        // Lógica para copiar al portapapeles
+        const copyButtons = document.querySelectorAll('.copy-btn');
+        copyButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const textToCopy = this.getAttribute('data-clipboard-text');
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    const originalText = this.innerHTML;
+                    this.innerHTML = '<i class="bi bi-check-lg"></i> Copiado';
+                    setTimeout(() => {
+                        this.innerHTML = originalText;
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Error al copiar: ', err);
+                });
+            });
+        });
+
+        // Pre-calcular el monto en Bs si la tasa ya está cargada
+        calcularMontoBs();
     });
 </script>
 <script>

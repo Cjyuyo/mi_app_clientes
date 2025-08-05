@@ -1917,7 +1917,7 @@ def realizar_adjudicacion():
             ids_ya_ganadores.update(ids_ganadores_ahorro)
             
             ganador_oferta = None
-            cur.execute("SELECT c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND TRIM(UPPER(c.proceso)) = 'AHORRADOR' AND c.id NOT IN %s;", (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
+            cur.execute("SELECT c.id, (c.nombre || ' ' || apellido) as nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND TRIM(UPPER(c.proceso)) = 'AHORRADOR' AND c.id NOT IN %s;", (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
             candidatos_oferta_raw = cur.fetchall()
             
             candidatos_oferta = []
@@ -2142,12 +2142,17 @@ def portal_reportar_pago():
         flash('Debe iniciar sesión para acceder a su portal.', 'error')
         return redirect(url_for('portal_login'))
     conn = get_db()
+    tasas_hoy = None
     if not conn:
         flash('No se pudo conectar con la base de datos.', 'error')
         return redirect(url_for('portal_dashboard'))
     with conn.cursor() as cur:
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
         cliente = cur.fetchone()
+        today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
+        cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
+        tasas_hoy = cur.fetchone()
+
     if not cliente:
         session.clear()
         flash('No se encontró su información de cliente.', 'error')
@@ -2158,10 +2163,10 @@ def portal_reportar_pago():
         pago_form = {k: v if v else None for k, v in request.form.items()}
         if not all(pago_form.get(key) for key in ['monto', 'fecha_pago', 'forma_pago']):
             flash('Error: Monto, fecha y forma de pago son campos obligatorios.', 'error')
-            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual)
+            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, tasas_hoy=tasas_hoy)
         if pago_form.get('forma_pago') != 'Efectivo' and not pago_form.get('referencia'):
             flash('Error: La referencia es obligatoria para pagos que no son en efectivo.', 'error')
-            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual)
+            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, tasas_hoy=tasas_hoy)
         try:
             with conn.cursor() as cur:
                 pago_query = """
@@ -2182,7 +2187,7 @@ def portal_reportar_pago():
         except (psycopg2.Error, ValueError, TypeError) as e:
             conn.rollback()
             flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
-    return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual)
+    return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, tasas_hoy=tasas_hoy)
 
 @app.route('/portal/estado_cuenta')
 def portal_estado_cuenta():
