@@ -80,7 +80,7 @@
             border-radius: 6px;
             box-sizing: border-box;
         }
-        input:disabled {
+        input:disabled, select:disabled {
             background-color: #e9ecef;
             cursor: not-allowed;
         }
@@ -151,8 +151,8 @@
 
         <input type="hidden" name="foto_cliente" id="foto_cliente" class="form-control-validate" required>
         <input type="hidden" name="foto_cedula" id="foto_cedula" class="form-control-validate" required>
+        <input type="hidden" name="asesor" id="asesor-hidden-input" class="form-control-validate" required>
         <input type="hidden" name="responsable" id="responsable-hidden-input" class="form-control-validate" required>
-
 
         <div class="section">
             <h3>Información Personal y de Contacto</h3>
@@ -179,22 +179,18 @@
             <h3>Detalles del Plan y Contrato</h3>
             <div class="form-grid">
                 <div class="form-group"><label for="contrato_nro">Nº Contrato</label><input type="text" id="contrato_nro" name="contrato_nro" class="form-control-validate" required></div>
-                
                 <div class="form-group">
                     <label for="plan_contratado">Plan Contratado (USD)</label>
                     <select id="plan_contratado" name="plan_contratado" class="form-control-validate" required>
                         <option value="" disabled selected>-- Seleccione un Plan --</option>
                     </select>
                 </div>
-
                 <div class="form-group"><label for="cuotas_totales">Cuotas Totales</label><select id="cuotas_totales" name="cuotas_totales" class="form-control-validate" required><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
                 <div class="form-group"><label for="valor_cuota">Cuota Mensual (USD)</label><input type="number" id="valor_cuota" step="0.01" name="valor_cuota" class="form-control-validate" required></div>
-                
                 <div class="form-group">
                     <label for="inscripcion_monto">Monto Inscripción (USD) - 16% del Plan</label>
                     <input type="number" id="inscripcion_monto" step="0.01" name="inscripcion_monto" class="form-control-validate" required readonly style="background-color: #e9ecef;">
                 </div>
-
                 <div class="form-group"><label for="moneda_pago">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="form-control-validate" required><option value="USD">USD</option><option value="BsBCV">BsBCV</option></select></div>
             </div>
         </div>
@@ -202,7 +198,6 @@
         <div class="section">
             <h3>Verificación de Identidad</h3>
             <div class="alert alert-info"><i class="bi bi-camera-video-fill"></i> Use los siguientes botones para capturar las fotos requeridas.</div>
-            
             <div class="row">
                 <div class="col-md-6 text-center mb-3">
                     <h6>Foto del Cliente</h6>
@@ -220,11 +215,9 @@
         <div class="section">
             <h3>Información Administrativa (Uso Interno)</h3>
             <div class="form-grid">
-                <div class="form-group"><label for="asesor">Asesor</label><input type="text" id="asesor" name="asesor" class="form-control-validate" required></div>
-
                 <div class="form-group">
-                    <label for="escenario_cierre">Escenario de Cierre</label>
-                    <select id="escenario_cierre" name="escenario_cierre" class="form-control-validate" required>
+                    <label for="escenario_cierre">1. Escenario de Cierre</label>
+                    <select id="escenario_cierre" name="escenario_cierre_selector" class="form-control-validate" required>
                         <option value="" selected>-- Seleccione un escenario --</option>
                         <option value="Asesor">Cierre por Asesor</option>
                         <option value="Gerencia">Cierre por Gerencia</option>
@@ -232,8 +225,13 @@
                     </select>
                 </div>
 
+                <div class="form-group" id="asesor-container">
+                    <label for="asesor-placeholder">2. Asesor (Dueño del Cliente)</label>
+                    <input type="text" id="asesor-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>
+                </div>
+
                 <div class="form-group" id="responsable-container">
-                    <label for="responsable-placeholder">Responsable</label>
+                    <label for="responsable-placeholder">3. Responsable (Quién cerró)</label>
                     <input type="text" id="responsable-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>
                 </div>
                 <div class="form-group">
@@ -262,16 +260,7 @@
         <div class="confirmation-view"><p><strong>¿Desea usar esta foto?</strong></p><canvas id="capture-canvas" class="rounded"></canvas></div>
       </div>
       <div class="modal-footer">
-        <div class="live-view-footer w-100 d-grid gap-2 d-sm-flex justify-content-sm-between">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="button" id="flip-camera-btn" class="btn btn-info"><i class="bi bi-arrow-repeat"></i></button>
-            <button type="button" id="capture-btn" class="btn btn-primary"><i class="bi bi-camera-fill"></i> Capturar</button>
         </div>
-        <div class="confirmation-view-footer w-100 d-grid gap-2 d-sm-flex justify-content-sm-between">
-            <button type="button" class="btn btn-secondary" id="retake-btn"><i class="bi bi-arrow-clockwise"></i> Volver a Tomar</button>
-            <button type="button" class="btn btn-success" id="save-photo-btn"><i class="bi bi-check-circle-fill"></i> Guardar Foto</button>
-        </div>
-      </div>
     </div>
   </div>
 </div>
@@ -280,106 +269,120 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     
-    // Lógica para el desplegable de planes y cálculo de inscripción
+    // Lógica para el desplegable de planes (sin cambios)
     const planSelect = document.getElementById('plan_contratado');
     const inscripcionInput = document.getElementById('inscripcion_monto');
-    const valorCuotaInput = document.getElementById('valor_cuota');
-
-    const montoInicial = 1100;
-    const montoFinal = 4000;
-    const incremento = 50;
-
+    const montoInicial = 1100, montoFinal = 4000, incremento = 50;
     for (let monto = montoInicial; monto <= montoFinal; monto += incremento) {
         const option = document.createElement('option');
         option.value = monto;
         option.textContent = `$${monto.toLocaleString('es-CO')}`;
         planSelect.appendChild(option);
     }
-
     planSelect.addEventListener('change', function() {
         const valorPlan = parseFloat(this.value);
         if (!isNaN(valorPlan)) {
-            const montoInscripcion = valorPlan * 0.16;
-            inscripcionInput.value = montoInscripcion.toFixed(2);
+            inscripcionInput.value = (valorPlan * 0.16).toFixed(2);
             inscripcionInput.dispatchEvent(new Event('input', { bubbles: true }));
-        } else {
-            inscripcionInput.value = '';
         }
     });
 
-    // ===== INICIO DE CAMBIO: LÓGICA AVANZADA PARA "RESPONSABLE" =====
+    // ===== INICIO DE CAMBIO: LÓGICA DEFINITIVA PARA ESCENARIOS =====
     const escenarioSelect = document.getElementById('escenario_cierre');
+    const asesorContainer = document.getElementById('asesor-container');
     const responsableContainer = document.getElementById('responsable-container');
+    const asesorHiddenInput = document.getElementById('asesor-hidden-input');
     const responsableHiddenInput = document.getElementById('responsable-hidden-input');
+    
+    // Lista de asesores (esto debería venir del backend en el futuro)
+    const listaAsesores = ["Gabriel", "Sugey", "Pedro", "Maria", "Otro"];
 
     escenarioSelect.addEventListener('change', function() {
         const escenario = this.value;
-        responsableContainer.innerHTML = ''; // Limpiar el contenedor
-        let newElementHTML = '';
-        
-        // Función para actualizar el campo oculto y disparar la validación
-        const updateHiddenInput = (value) => {
+
+        // Limpiar contenedores y valores ocultos
+        asesorContainer.innerHTML = '';
+        responsableContainer.innerHTML = '';
+        asesorHiddenInput.value = '';
+        responsableHiddenInput.value = '';
+
+        const updateAsesorHidden = (value) => {
+            asesorHiddenInput.value = value;
+            asesorHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+        const updateResponsableHidden = (value) => {
             responsableHiddenInput.value = value;
             responsableHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
         };
-        
-        // Crear el nuevo elemento basado en la selección
-        switch(escenario) {
-            case 'Asesor':
-                newElementHTML = `
-                    <label for="responsable-text">Responsable</label>
-                    <input type="text" id="responsable-text" class="form-control form-control-validate" required>
-                `;
-                responsableContainer.innerHTML = newElementHTML;
-                
-                const responsableText = document.getElementById('responsable-text');
-                responsableText.addEventListener('input', () => updateHiddenInput(responsableText.value));
-                responsableText.focus();
-                updateHiddenInput(''); // Limpiar al inicio
-                break;
-                
-            case 'Gerencia':
-                newElementHTML = `
-                    <label for="responsable-select">Responsable</label>
-                    <select id="responsable-select" class="form-select form-control-validate" required>
-                        <option value="Yusbelis Espinoza">Yusbelis Espinoza</option>
-                    </select>
-                `;
-                responsableContainer.innerHTML = newElementHTML;
-                updateHiddenInput('Yusbelis Espinoza'); // Asignar valor por defecto
-                break;
 
-            case 'Presidencia':
-                newElementHTML = `
-                    <label for="responsable-select">Responsable</label>
-                    <select id="responsable-select" class="form-select form-control-validate" required>
-                        <option value="" selected disabled>Seleccione...</option>
-                        <option value="Karielsy Rios">Karielsy Rios</option>
-                        <option value="Carlos Ramirez">Carlos Ramirez</option>
-                    </select>
-                `;
-                responsableContainer.innerHTML = newElementHTML;
-                
-                const responsableSelect = document.getElementById('responsable-select');
-                responsableSelect.addEventListener('change', () => updateHiddenInput(responsableSelect.value));
-                updateHiddenInput(''); // Limpiar al inicio
-                break;
-
-            default:
-                newElementHTML = `
-                    <label for="responsable-placeholder">Responsable</label>
-                    <input type="text" id="responsable-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>
-                `;
-                responsableContainer.innerHTML = newElementHTML;
-                updateHiddenInput(''); // Limpiar si no hay selección
-                break;
+        if (!escenario) {
+            // Estado por defecto: todo deshabilitado
+            asesorContainer.innerHTML = `<label for="asesor-placeholder">2. Asesor (Dueño del Cliente)</label><input type="text" id="asesor-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>`;
+            responsableContainer.innerHTML = `<label for="responsable-placeholder">3. Responsable (Quién cerró)</label><input type="text" id="responsable-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>`;
+            updateAsesorHidden('');
+            updateResponsableHidden('');
+            return;
         }
+
+        // Lógica para el campo ASESOR
+        if (escenario === 'Asesor') {
+            asesorContainer.innerHTML = `
+                <label for="asesor-text">2. Asesor (Dueño del Cliente)</label>
+                <input type="text" id="asesor-text" class="form-control form-control-validate" required>
+            `;
+            const asesorText = document.getElementById('asesor-text');
+            asesorText.addEventListener('input', () => updateAsesorHidden(asesorText.value));
+            asesorText.focus();
+        } else { // Gerencia o Presidencia
+            let asesorOptions = '<option value="" selected disabled>Seleccione un asesor...</option>';
+            listaAsesores.forEach(asesor => {
+                asesorOptions += `<option value="${asesor}">${asesor}</option>`;
+            });
+            asesorContainer.innerHTML = `
+                <label for="asesor-select">2. Asesor (Dueño del Cliente)</label>
+                <select id="asesor-select" class="form-select form-control-validate" required>${asesorOptions}</select>
+            `;
+            const asesorSelect = document.getElementById('asesor-select');
+            asesorSelect.addEventListener('change', () => updateAsesorHidden(asesorSelect.value));
+        }
+
+        // Lógica para el campo RESPONSABLE
+        if (escenario === 'Asesor') {
+            responsableContainer.innerHTML = `
+                <label for="responsable-text">3. Responsable (Quién cerró)</label>
+                <input type="text" id="responsable-text" class="form-control form-control-validate" required>
+            `;
+            const responsableText = document.getElementById('responsable-text');
+            responsableText.addEventListener('input', () => updateResponsableHidden(responsableText.value));
+        } else if (escenario === 'Gerencia') {
+            responsableContainer.innerHTML = `
+                <label for="responsable-text-gerencia">3. Responsable (Quién cerró)</label>
+                <input type="text" id="responsable-text-gerencia" class="form-control" value="Yusbelis Espinoza" disabled>
+            `;
+            updateResponsableHidden('Yusbelis Espinoza');
+        } else if (escenario === 'Presidencia') {
+            responsableContainer.innerHTML = `
+                <label for="responsable-select-presidencia">3. Responsable (Quién cerró)</label>
+                <select id="responsable-select-presidencia" class="form-select form-control-validate" required>
+                    <option value="" selected disabled>Seleccione...</option>
+                    <option value="Karielsy Rios">Karielsy Rios</option>
+                    <option value="Carlos Ramirez">Carlos Ramirez</option>
+                </select>
+            `;
+            const responsableSelect = document.getElementById('responsable-select-presidencia');
+            responsableSelect.addEventListener('change', () => updateResponsableHidden(responsableSelect.value));
+        }
+        
+        // Disparar la validación inicial
+        asesorHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
+        responsableHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
     // ===== FIN DE CAMBIO =====
 
 
     // Lógica de la cámara (sin cambios)
     const cameraModal = document.getElementById('cameraModal');
+    // ... (El resto del script de la cámara permanece idéntico) ...
     const video = document.getElementById('video-feed');
     const canvas = document.getElementById('capture-canvas');
     const captureBtn = document.getElementById('capture-btn');
@@ -445,7 +448,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('registroForm');
     
     const validateForm = () => {
-        // Re-seleccionar los campos validables cada vez, porque el de "Responsable" es dinámico
         const fieldsToValidate = form.querySelectorAll('.form-control-validate');
         for (const field of fieldsToValidate) {
             if (field.hasAttribute('required') && (!field.value || field.value.trim() === '')) {
@@ -467,7 +469,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
     
-    // Escuchar cambios en todo el formulario
     form.addEventListener('input', updateButtonState);
     form.addEventListener('change', updateButtonState);
     
