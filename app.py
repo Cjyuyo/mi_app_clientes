@@ -123,27 +123,6 @@ def rol_requerido(*roles):
 # --- FUNCIONES AUXILIARES PARA EL MÓDULO COMERCIAL ---
 # =================================================================================
 
-def registrar_ingreso_caja_inscripciones(contrato_nro, cliente_id, monto_inscripcion, responsable_cierre):
-    """
-    Registra un ingreso en una tabla separada para la caja de inscripciones.
-    """
-    conn = get_db()
-    if not conn:
-        logging.error("CAJA_INSCRIPCIONES: No se pudo obtener conexión a la base de datos.")
-        return
-
-    try:
-        with conn.cursor() as cur:
-            sql = """
-                INSERT INTO caja_inscripciones (contrato_nro, cliente_id, monto_inscripcion, responsable_cierre)
-                VALUES (%s, %s, %s, %s)
-            """
-            cur.execute(sql, (contrato_nro, cliente_id, monto_inscripcion, responsable_cierre))
-        logging.info(f"CAJA_INSCRIPCIONES: Pre-registro de ${monto_inscripcion} para contrato {contrato_nro}.")
-    except psycopg2.Error as e:
-        logging.error(f"CAJA_INSCRIPCIONES: Error al registrar ingreso: {e}")
-        raise e
-
 def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_dueno, responsable_cierre):
     """
     Calcula las comisiones según las reglas de negocio dinámicas (v2.3) y las guarda para la nómina.
@@ -256,7 +235,7 @@ def calcular_balances_tesoreria(fecha_hasta=None):
 
     try:
         with conn.cursor() as cur:
-            # 1. CALCULAR INGRESOS POR CUOTAS
+            # 1. CALCULAR INGRESOS POR PAGOS (INSCRIPCIONES Y CUOTAS)
             cur.execute("""
                 SELECT COALESCE(SUM(monto), 0) FROM pagos 
                 WHERE estado_pago = 'Conciliado' AND pago_en = 'Efectivo USD' AND fecha_pago <= %s
@@ -292,52 +271,6 @@ def calcular_balances_tesoreria(fecha_hasta=None):
 
     except psycopg2.Error as e:
         flash(f"Error calculando balances de tesorería: {e}", "danger")
-
-    return balances
-
-def calcular_balances_comercial(fecha_hasta=None):
-    """
-    Calcula los balances actuales de las cajas del área COMERCIAL hasta una fecha dada.
-    """
-    conn = get_db()
-    # Define las cajas que pertenecen exclusivamente al área comercial
-    cajas_comerciales = ['COMERCIAL_EFECTIVO_USD', 'COMERCIAL_BINANCE_USDT']
-    balances = {caja: Decimal('0.0') for caja in cajas_comerciales}
-    
-    if not conn:
-        return balances
-
-    if fecha_hasta is None:
-        fecha_hasta = get_venezuela_current_date()
-    
-    fecha_fin_timestamp = datetime.combine(fecha_hasta, datetime.max.time())
-
-    try:
-        with conn.cursor() as cur:
-            # 1. INGRESOS: Sumar todas las inscripciones como ingresos a la caja principal comercial.
-            # ASUNCIÓN: Todos los ingresos por inscripción entran a 'COMERCIAL_EFECTIVO_USD'.
-            cur.execute("""
-                SELECT COALESCE(SUM(monto_inscripcion), 0) FROM caja_inscripciones
-                WHERE fecha_registro <= %s
-            """, (fecha_fin_timestamp,))
-            balances['COMERCIAL_EFECTIVO_USD'] += cur.fetchone()[0] or Decimal('0.0')
-
-            # 2. MOVIMIENTOS: Procesar rebalanceos y gastos que afecten a las cajas comerciales.
-            cur.execute("""
-                SELECT caja_origen, caja_destino, monto_origen, monto_destino FROM operaciones_tesoreria
-                WHERE fecha_operacion <= %s AND (caja_origen = ANY(%s) OR caja_destino = ANY(%s))
-            """, (fecha_fin_timestamp, cajas_comerciales, cajas_comerciales))
-            
-            movimientos = cur.fetchall()
-
-            for mov in movimientos:
-                if mov['caja_origen'] in balances:
-                    balances[mov['caja_origen']] -= mov['monto_origen']
-                if mov['caja_destino'] in balances:
-                    balances[mov['caja_destino']] += mov['monto_destino']
-
-    except psycopg2.Error as e:
-        flash(f"Error calculando balances comerciales: {e}", "danger")
 
     return balances
 
@@ -533,7 +466,6 @@ def gestion_administrativa():
 
 # --- INICIO DE CAMBIO: Nuevas rutas para el Módulo Comercial ---
 
-# ===== INICIO RUTA MODIFICADA (v2.2) =====
 @app.route('/comercial/dashboard')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -543,7 +475,7 @@ def dashboard_comercial():
     resumen_asesores = []
     
     stats = {
-        'total_caja_inscripciones': Decimal('0.0'),
+        'ingresos_brutos_inscripciones': Decimal('0.0'),
         'total_comisiones_pendientes': Decimal('0.0'),
         'total_sobrante_pendiente': Decimal('0.0')
     }
@@ -588,8 +520,9 @@ def dashboard_comercial():
                 """)
                 resumen_asesores = cur.fetchall()
                 
+                # Usamos la misma tabla para obtener los ingresos brutos, ya que es un registro histórico
                 if contratos:
-                    stats['total_caja_inscripciones'] = sum(c['monto_inscripcion'] for c in contratos)
+                    stats['ingresos_brutos_inscripciones'] = sum(c['monto_inscripcion'] for c in contratos)
                     stats['total_sobrante_pendiente'] = sum(c['sobrante_empresa'] or Decimal('0.0') for c in contratos)
 
                 if resumen_asesores:
@@ -603,14 +536,15 @@ def dashboard_comercial():
                            contratos=contratos,
                            resumen_asesores=resumen_asesores,
                            anio_actual=get_venezuela_current_date().year)
-# ===== FIN RUTA MODIFICADA =====
 
 @app.route('/comercial/pagar_nomina', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def pagar_nomina_comercial():
     conn = get_db()
-    caja_origen = request.form.get('caja_origen') # Obtenemos la caja seleccionada en el formulario
+    # Esta ruta ahora es para el pago por lotes, pero por ahora mantenemos el pago único
+    # La Fase 2 reemplazará esta lógica
+    caja_origen = request.form.get('caja_origen') 
 
     if not caja_origen:
         flash("Error: Debe seleccionar una caja de origen para pagar la nómina.", "danger")
@@ -630,15 +564,15 @@ def pagar_nomina_comercial():
                 flash("No hay comisiones pendientes para pagar.", "warning")
                 return redirect(url_for('dashboard_comercial'))
 
-            # 2. Verificar fondos en la caja comercial seleccionada
-            balances_comerciales = calcular_balances_comercial()
-            if balances_comerciales.get(caja_origen, Decimal('0.0')) < monto_total_nomina:
-                flash(f"Fondos insuficientes en '{caja_origen}'. Se requieren ${monto_total_nomina:,.2f} pero solo hay ${balances_comerciales.get(caja_origen, 0):,.2f}.", "danger")
+            # 2. Verificar fondos en la caja GENERAL seleccionada
+            balances_generales = calcular_balances_tesoreria()
+            if balances_generales.get(caja_origen, Decimal('0.0')) < monto_total_nomina:
+                flash(f"Fondos insuficientes en '{caja_origen}'. Se requieren ${monto_total_nomina:,.2f} pero solo hay ${balances_generales.get(caja_origen, 0):,.2f}.", "danger")
                 return redirect(url_for('dashboard_comercial'))
 
             # --- INICIA TRANSACCIÓN ---
             
-            # 3. Registrar el egreso en la tesorería como un gasto operativo
+            # 3. Registrar el egreso en la tesorería GENERAL
             nota_gasto = f"Pago de nómina de comisiones (semana del {get_venezuela_current_date().strftime('%d-%m-%Y')})"
             cur.execute("""
                 INSERT INTO operaciones_tesoreria 
@@ -664,78 +598,6 @@ def pagar_nomina_comercial():
 
     return redirect(url_for('dashboard_comercial'))
 
-@app.route('/comercial/flujo_caja_comercial', methods=['GET', 'POST'])
-@admin_required
-@rol_requerido('superadmin', 'gerente')
-def flujo_caja_comercial():
-    conn = get_db()
-    today = get_venezuela_current_date()
-    
-    fecha_reporte_str = request.form.get('fecha_reporte') or request.args.get('fecha_reporte') or today.strftime('%Y-%m-%d')
-    
-    try:
-        fecha_reporte_dt = datetime.strptime(fecha_reporte_str, '%Y-%m-%d').date()
-    except ValueError:
-        flash("Formato de fecha inválido. Usando fecha actual.", "warning")
-        fecha_reporte_str = today.strftime('%Y-%m-%d')
-        fecha_reporte_dt = today
-
-    # Obtener tasas del día del reporte (necesario si hubiera cajas en Bs.)
-    tasas_del_dia = {'usd': Decimal('0.0'), 'eur': Decimal('0.0')}
-    if conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_reporte_dt,))
-            resultado_tasa = cur.fetchone()
-            if resultado_tasa:
-                tasas_del_dia['usd'] = resultado_tasa['tasa'] or Decimal('0.0')
-                tasas_del_dia['eur'] = resultado_tasa['tasa_euro'] or Decimal('0.0')
-
-    # ¡AQUÍ ESTÁ LA MAGIA! Llamamos a la nueva función de balances comerciales
-    balances = calcular_balances_comercial(fecha_hasta=fecha_reporte_dt)
-    
-    # Preparar el resumen detallado para la plantilla (imitando el flujo general)
-    resumen = {}
-    resumen.update(balances)
-    
-    # Cálculos de consolidación (simplificado ya que no hay cajas en Bs por ahora)
-    resumen['balance_general_consolidado_usd'] = balances.get('COMERCIAL_EFECTIVO_USD', Decimal(0)) + balances.get('COMERCIAL_BINANCE_USDT', Decimal(0))
-    
-    # Aquí iría la lógica para pérdidas si se manejaran cajas en Bs. en el área comercial.
-    # Por ahora se inicializan en cero para que la plantilla no falle.
-    resumen['acumulado_perdida_devaluacion'] = Decimal('0.0')
-    resumen['acumulado_perdida_conversion'] = Decimal('0.0')
-    
-    # Obtener el historial de movimientos de tesorería del área comercial para el día del reporte
-    historial_movimientos = []
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                fecha_inicio_periodo = datetime.combine(fecha_reporte_dt, datetime.min.time())
-                fecha_fin_periodo = datetime.combine(fecha_reporte_dt, datetime.max.time())
-                
-                cajas_comerciales = ['COMERCIAL_EFECTIVO_USD', 'COMERCIAL_BINANCE_USDT']
-                cur.execute("""
-                    SELECT op.*, admin.usuario as nombre_admin
-                    FROM operaciones_tesoreria op
-                    LEFT JOIN administradores admin ON op.realizada_por = admin.id
-                    WHERE op.fecha_operacion BETWEEN %s AND %s
-                    AND (op.caja_origen = ANY(%s) OR op.caja_destino = ANY(%s))
-                    ORDER BY op.fecha_operacion DESC
-                """, (fecha_inicio_periodo, fecha_fin_periodo, cajas_comerciales, cajas_comerciales))
-                historial_movimientos = cur.fetchall()
-        except (psycopg2.Error, ValueError) as e:
-            flash(f"Error al obtener historial de movimientos comerciales: {e}", "error")
-
-    return render_template(
-        'flujo_caja_comercial.html', # Usaremos una plantilla que vamos a crear ahora
-        fecha_reporte=fecha_reporte_str,
-        resumen=resumen,
-        tasas_del_dia=tasas_del_dia,
-        historial=historial_movimientos,
-        anio_actual=today.year
-    )
-
-# ===== INICIO RUTA MODIFICADA (v2.1) =====
 @app.route('/comercial/split_contrato/<string:contrato_nro>')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -796,87 +658,6 @@ def get_split_contrato(contrato_nro):
     except psycopg2.Error as e:
         logging.error(f"Error en get_split_contrato para {contrato_nro}: {e}")
         return jsonify({'error': 'Error al consultar la base de datos'}), 500
-# ===== FIN RUTA MODIFICADA =====
-
-
-@app.route('/comercial/rebalanceo', methods=['GET', 'POST'])
-@admin_required
-@rol_requerido('superadmin', 'gerente')
-def comercial_rebalanceo():
-    conn = get_db()
-    # Llama a la función de balances específica del área comercial
-    balances_actuales = calcular_balances_comercial() 
-    
-    cajas_comerciales = ['COMERCIAL_EFECTIVO_USD', 'COMERCIAL_BINANCE_USDT']
-    historial_movimientos = []
-    if conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT op.*, admin.usuario as nombre_admin
-                FROM operaciones_tesoreria op
-                LEFT JOIN administradores admin ON op.realizada_por = admin.id
-                WHERE op.caja_origen = ANY(%s) OR op.caja_destino = ANY(%s)
-                ORDER BY op.fecha_operacion DESC LIMIT 30
-            """, (cajas_comerciales, cajas_comerciales))
-            historial_movimientos = cur.fetchall()
-
-    if request.method == 'POST':
-        try:
-            # La lógica del POST es idéntica a la de tesorería,
-            # ya que la tabla operaciones_tesoreria es la misma.
-            form = request.form
-            tipo_operacion = form.get('tipo_operacion')
-            caja_origen = form.get('caja_origen')
-            monto_origen_str = form.get('monto_origen', '0').replace(',', '.')
-            moneda_origen = form.get('moneda_origen')
-            caja_destino = form.get('caja_destino')
-            monto_destino_str = form.get('monto_destino', '0').replace(',', '.')
-            moneda_destino = form.get('moneda_destino')
-            tasa_aplicada_str = form.get('tasa_aplicada', '0').replace(',', '.')
-            nota = form.get('nota')
-            
-            monto_origen = Decimal(monto_origen_str)
-            monto_destino = Decimal(monto_destino_str) if monto_destino_str else None
-            tasa_aplicada = Decimal(tasa_aplicada_str) if tasa_aplicada_str else None
-
-            if not all([tipo_operacion, caja_origen, monto_origen > 0, moneda_origen, caja_destino, nota]):
-                flash("Error: Todos los campos son obligatorios.", 'danger')
-                return redirect(url_for('comercial_rebalanceo'))
-
-            if balances_actuales.get(caja_origen, Decimal('0.0')) < monto_origen:
-                flash(f"Error: Fondos insuficientes en la caja '{caja_origen}'.", 'danger')
-                return redirect(url_for('comercial_rebalanceo'))
-            
-            if not monto_destino:
-                 monto_destino = monto_origen
-                 moneda_destino = moneda_origen
-
-            with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO operaciones_tesoreria 
-                    (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, tasa_aplicada, nota, realizada_por, fecha_operacion, perdida_cambiaria)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), 0)
-                """, (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, tasa_aplicada, nota, g.admin['id']))
-            
-            descripcion = f"Tesoreria COMERCIAL: {tipo_operacion} de {monto_origen:,.2f} {moneda_origen} desde {caja_origen}."
-            registrar_accion_auditoria('MOVIMIENTO_TESORERIA_COMERCIAL', descripcion)
-
-            conn.commit()
-            flash('Movimiento de tesorería comercial registrado exitosamente.', 'success')
-        except (InvalidOperation, ValueError):
-            flash("Error: Verifique que los montos sean válidos.", 'danger')
-        except psycopg2.Error as e:
-            conn.rollback()
-            flash(f"Error de base de datos: {e}", "danger")
-        
-        return redirect(url_for('comercial_rebalanceo'))
-
-    # Pasamos las cajas específicas del módulo para que el formulario sepa cuáles mostrar
-    return render_template('comercial_rebalanceo.html', 
-                           balances=balances_actuales, 
-                           historial=historial_movimientos,
-                           cajas_comerciales=cajas_comerciales,
-                           anio_actual=get_venezuela_current_date().year)
 
 # --- FIN DE CAMBIO ---
 
@@ -1449,18 +1230,35 @@ def finalizar_registro():
             query = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))}) RETURNING id"
             cur.execute(query, values)
             new_client_id = cur.fetchone()[0]
+
+            # --- 2. MODIFICADO: Generar registro de pago para la inscripción ---
+            try:
+                monto_inscripcion = Decimal(form_data.get('inscripcion_monto', '0.00'))
+                if monto_inscripcion > 0:
+                    cur.execute("""
+                        INSERT INTO pagos (
+                            cliente_id, monto, tipo_pago, forma_pago, fecha_pago, 
+                            por_concepto_de, estado_pago, reportado_por_cliente, estado_reporte,
+                            lugar_emision
+                        ) VALUES (%s, %s, 'Inscripción', 'Efectivo', %s, %s, 'Pendiente', FALSE, 'Aprobado', 'Acarigua');
+                    """, (
+                        new_client_id, 
+                        monto_inscripcion, 
+                        form_data.get('fecha_ingreso'),
+                        'Pago inicial de inscripción al registrar'
+                    ))
+                    flash('Se generó el registro de pago de inscripción. Debe ser conciliado.', 'info')
+            except (InvalidOperation, psycopg2.Error) as e:
+                flash(f'Error al crear el registro de pago de inscripción: {e}', 'warning')
+                raise e
             
-            # --- 2. NUEVO: Ejecutar lógica del módulo comercial ---
+            # --- 3. La lógica de comisiones y 'caja_inscripciones' (para registro) no cambia ---
             if monto_plan > 0 and form_data['inscripcion_monto'] > 0:
-                # 2.1. Registrar el ingreso en la caja de inscripciones
-                registrar_ingreso_caja_inscripciones(
-                    contrato_nro=form_data.get('contrato_nro'),
-                    cliente_id=new_client_id,
-                    monto_inscripcion=form_data['inscripcion_monto'],
-                    responsable_cierre=responsable_cierre
-                )
-                
-                # 2.2. Calcular y guardar las comisiones para la nómina
+                cur.execute("""
+                    INSERT INTO caja_inscripciones (contrato_nro, cliente_id, monto_inscripcion, responsable_cierre)
+                    VALUES (%s, %s, %s, %s)
+                """, (form_data.get('contrato_nro'), new_client_id, form_data['inscripcion_monto'], responsable_cierre))
+
                 calcular_y_guardar_comisiones(
                     contrato_nro=form_data.get('contrato_nro'),
                     cliente_id=new_client_id,
@@ -1470,7 +1268,7 @@ def finalizar_registro():
                 )
                 flash('¡Comisiones del contrato generadas y listas para la nómina!', 'success')
 
-            # --- 3. Registrar auditoría y finalizar ---
+            # --- 4. Registrar auditoría y finalizar ---
             descripcion_audit = f"Registró y firmó contrato para nuevo cliente: {form_data.get('nombre_apellido')} (C.I. {form_data.get('cedula')})."
             registrar_accion_auditoria('REGISTRO_CLIENTE_FIRMADO', descripcion_audit, new_client_id)
             
@@ -1488,6 +1286,7 @@ def finalizar_registro():
         flash(f"Registro fallido: Ocurrió un error inesperado: {e}", 'error')
         
     return redirect(url_for('registrar'))
+
 
 @app.route('/generar_contrato/<int:client_id>')
 def generar_contrato(client_id):
