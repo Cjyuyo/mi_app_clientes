@@ -100,7 +100,7 @@
                 <div class="card shadow-sm">
                     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                         <h4 class="mb-0"><i class="bi bi-file-earmark-text-fill me-2"></i>Contratos Registrados</h4>
-                        <a href="{{ url_for('flujo_caja_comercial') }}" class="btn btn-sm btn-outline-primary">Ver Flujo de Caja de Inscripciones</a>
+                        <a href="{{ url_for('flujo_caja_comercial') }}" class="btn btn-sm btn-outline-primary">Ver Flujo de Caja Comercial</a>
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
@@ -126,7 +126,7 @@
                                         <td class="text-end fw-bold">${{ "{:,.2f}".format(contrato.monto_inscripcion) }}</td>
                                         <td>{{ contrato.responsable_cierre }}</td>
                                         <td class="text-center">
-                                            <button class="btn btn-sm btn-info ver-split-btn" data-contrato-nro="{{ contrato.contrato_nro }}">
+                                            <button class="btn btn-sm btn-info ver-split-btn" data-bs-toggle="modal" data-bs-target="#splitModal" data-contrato-nro="{{ contrato.contrato_nro }}">
                                                 Ver Split
                                             </button>
                                         </td>
@@ -163,15 +163,23 @@
                         {% endfor %}
                     </ul>
                     {% if resumen_asesores %}
-                    <div class="card-footer text-center">
-                         <form action="{{ url_for('pagar_nomina_comercial') }}" method="POST" onsubmit="return confirm('¿Está seguro de que desea marcar TODAS las comisiones pendientes como pagadas? Esta acción registrará el egreso.');">
+                    <div class="card-footer">
+                         <form action="{{ url_for('pagar_nomina_comercial') }}" method="POST" onsubmit="return confirm('¿Está seguro de que desea pagar la nómina? Esta acción generará un egreso en la tesorería comercial.');">
+                            <div class="mb-2">
+                                <label for="caja_origen" class="form-label fw-bold">Pagar desde:</label>
+                                <select id="caja_origen" name="caja_origen" class="form-select" required>
+                                    <option value="">Seleccione caja de origen...</option>
+                                    <option value="COMERCIAL_EFECTIVO_USD">Efectivo Comercial (USD)</option>
+                                    <option value="COMERCIAL_BINANCE_USDT">Binance Comercial (USDT)</option>
+                                </select>
+                            </div>
                             <button type="submit" class="btn btn-success w-100">
-                                <i class="bi bi-check-circle-fill me-2"></i>Pagar Nómina Total (${{ "{:,.2f}".format(stats.total_comisiones_pendientes) }})
+                                <i class="bi bi-check-circle-fill me-2"></i>Pagar Nómina (${{ "{:,.2f}".format(stats.total_comisiones_pendientes) }})
                             </button>
                         </form>
                     </div>
                     {% endif %}
-                </div>
+                    </div>
             </div>
         </div>
     </main>
@@ -203,68 +211,25 @@
             const modalTitle = document.getElementById('splitModalTitle');
             const modalBody = document.getElementById('splitModalBody');
 
-            // Usamos delegación de eventos para manejar los clics
             document.body.addEventListener('click', function(event) {
-                if (event.target.classList.contains('ver-split-btn')) {
-                    const button = event.target;
+                const button = event.target.closest('.ver-split-btn');
+                if (button) {
                     const contratoNro = button.dataset.contratoNro;
 
-                    // 1. Preparamos y mostramos el modal con un estado de carga
                     modalTitle.textContent = `Desglose del Contrato: ${contratoNro}`;
                     modalBody.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
-                    // No es necesario llamar a splitModal.show() si el botón ya tiene los atributos data-bs-toggle
-
-                    // 2. Hacemos la petición al servidor (AJAX)
+                    
                     fetch(`/comercial/split_contrato/${contratoNro}`)
                         .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Error al obtener los datos del contrato.');
-                            }
+                            if (!response.ok) { throw new Error('Error al obtener los datos del contrato.'); }
                             return response.json();
                         })
                         .then(data => {
-                            // 3. Construimos el HTML con los datos recibidos
-                            let content = `
-                                <div class="table-responsive">
-                                    <table class="table">
-                                        <thead>
-                                            <tr>
-                                                <th>Beneficiario</th>
-                                                <th>Concepto</th>
-                                                <th class="text-end">Monto</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                            `;
+                            let content = `<div class="table-responsive"><table class="table"><thead><tr><th>Beneficiario</th><th>Concepto</th><th class="text-end">Monto</th></tr></thead><tbody>`;
                             data.comisiones.forEach(c => {
-                                content += `
-                                    <tr>
-                                        <td>${c.beneficiario}</td>
-                                        <td>${c.concepto}</td>
-                                        <td class="text-end">$${c.monto}</td>
-                                    </tr>
-                                `;
+                                content += `<tr><td>${c.beneficiario}</td><td>${c.concepto}</td><td class="text-end">$${c.monto}</td></tr>`;
                             });
-                            content += `
-                                        </tbody>
-                                        <tfoot>
-                                            <tr class="summary-row table-light">
-                                                <td colspan="2">Pool Comisiones (16%)</td>
-                                                <td class="text-end">$${data.resumen.pool_total}</td>
-                                            </tr>
-                                            <tr class="summary-row table-light">
-                                                <td colspan="2">Total Comisiones y Bonos</td>
-                                                <td class="text-end text-danger">-$${data.resumen.total_comisiones}</td>
-                                            </tr>
-                                            <tr class="summary-row table-success">
-                                                <td colspan="2">Sobrante para la Empresa</td>
-                                                <td class="text-end">$${data.resumen.sobrante_empresa}</td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
-                            `;
-                            // 4. Inyectamos el contenido en el modal
+                            content += `</tbody><tfoot><tr class="summary-row table-light"><td colspan="2">Pool Comisiones (16%)</td><td class="text-end">$${data.resumen.pool_total}</td></tr><tr class="summary-row table-light"><td colspan="2">Total Comisiones y Bonos</td><td class="text-end text-danger">-$${data.resumen.total_comisiones}</td></tr><tr class="summary-row table-success"><td colspan="2">Sobrante para la Empresa</td><td class="text-end">$${data.resumen.sobrante_empresa}</td></tr></tfoot></table></div>`;
                             modalBody.innerHTML = content;
                         })
                         .catch(error => {

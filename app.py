@@ -144,7 +144,6 @@ def registrar_ingreso_caja_inscripciones(contrato_nro, cliente_id, monto_inscrip
         logging.error(f"CAJA_INSCRIPCIONES: Error al registrar ingreso: {e}")
         raise e
 
-# REEMPLAZO 1: LÓGICA DE COMISIONES MEJORADA
 def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_dueno, responsable_cierre):
     """
     Calcula las comisiones según las reglas de negocio dinámicas (v2.0) y las guarda para la nómina.
@@ -237,17 +236,13 @@ def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_d
 
 def calcular_balances_tesoreria(fecha_hasta=None):
     """
-    Calcula los balances actuales de todas las cajas de la tesorería hasta una fecha dada.
-    Si fecha_hasta es None, calcula los saldos totales hasta el momento actual.
+    Calcula los balances actuales de todas las cajas de la tesorería GENERAL hasta una fecha dada.
     """
     conn = get_db()
-    balances = {
-        'EFECTIVO_USD': Decimal('0.0'),
-        'BINANCE_USDT': Decimal('0.0'),
-        'CAJA_BS_USD': Decimal('0.0'),
-        'CAJA_BS_EUR': Decimal('0.0'),
-        'CAJA_BS_TOTAL': Decimal('0.0')
-    }
+    cajas_generales = ['EFECTIVO_USD', 'BINANCE_USDT', 'CAJA_BS_USD', 'CAJA_BS_EUR']
+    balances = {caja: Decimal('0.0') for caja in cajas_generales}
+    balances['CAJA_BS_TOTAL'] = Decimal('0.0')
+    
     if not conn:
         return balances
 
@@ -258,7 +253,7 @@ def calcular_balances_tesoreria(fecha_hasta=None):
 
     try:
         with conn.cursor() as cur:
-            # 1. CALCULAR INGRESOS TOTALES HASTA LA FECHA
+            # 1. CALCULAR INGRESOS POR CUOTAS
             cur.execute("""
                 SELECT COALESCE(SUM(monto), 0) FROM pagos 
                 WHERE estado_pago = 'Conciliado' AND pago_en = 'Efectivo USD' AND fecha_pago <= %s
@@ -277,7 +272,7 @@ def calcular_balances_tesoreria(fecha_hasta=None):
             """, (fecha_hasta,))
             balances['CAJA_BS_EUR'] += cur.fetchone()[0] or Decimal('0.0')
 
-            # 2. PROCESAR MOVIMIENTOS INTERNOS (INGRESOS Y EGRESOS) HASTA LA FECHA
+            # 2. PROCESAR MOVIMIENTOS INTERNOS que afecten a las cajas generales
             cur.execute("""
                 SELECT caja_origen, caja_destino, monto_origen, monto_destino FROM operaciones_tesoreria
                 WHERE fecha_operacion <= %s
@@ -285,17 +280,61 @@ def calcular_balances_tesoreria(fecha_hasta=None):
             movimientos = cur.fetchall()
 
             for mov in movimientos:
-                # CORRECCIÓN: Verificar que las cajas no sean None antes de operar
-                if mov['caja_origen'] and mov['caja_origen'] in balances:
+                if mov['caja_origen'] in balances:
                     balances[mov['caja_origen']] -= mov['monto_origen']
-                
-                if mov['caja_destino'] and mov['caja_destino'] in balances:
+                if mov['caja_destino'] in balances:
                     balances[mov['caja_destino']] += mov['monto_destino']
 
             balances['CAJA_BS_TOTAL'] = balances['CAJA_BS_USD'] + balances['CAJA_BS_EUR']
 
     except psycopg2.Error as e:
         flash(f"Error calculando balances de tesorería: {e}", "danger")
+
+    return balances
+
+def calcular_balances_comercial(fecha_hasta=None):
+    """
+    Calcula los balances actuales de las cajas del área COMERCIAL hasta una fecha dada.
+    """
+    conn = get_db()
+    # Define las cajas que pertenecen exclusivamente al área comercial
+    cajas_comerciales = ['COMERCIAL_EFECTIVO_USD', 'COMERCIAL_BINANCE_USDT']
+    balances = {caja: Decimal('0.0') for caja in cajas_comerciales}
+    
+    if not conn:
+        return balances
+
+    if fecha_hasta is None:
+        fecha_hasta = get_venezuela_current_date()
+    
+    fecha_fin_timestamp = datetime.combine(fecha_hasta, datetime.max.time())
+
+    try:
+        with conn.cursor() as cur:
+            # 1. INGRESOS: Sumar todas las inscripciones como ingresos a la caja principal comercial.
+            # ASUNCIÓN: Todos los ingresos por inscripción entran a 'COMERCIAL_EFECTIVO_USD'.
+            cur.execute("""
+                SELECT COALESCE(SUM(monto_inscripcion), 0) FROM caja_inscripciones
+                WHERE fecha_registro <= %s
+            """, (fecha_fin_timestamp,))
+            balances['COMERCIAL_EFECTIVO_USD'] += cur.fetchone()[0] or Decimal('0.0')
+
+            # 2. MOVIMIENTOS: Procesar rebalanceos y gastos que afecten a las cajas comerciales.
+            cur.execute("""
+                SELECT caja_origen, caja_destino, monto_origen, monto_destino FROM operaciones_tesoreria
+                WHERE fecha_operacion <= %s AND (caja_origen = ANY(%s) OR caja_destino = ANY(%s))
+            """, (fecha_fin_timestamp, cajas_comerciales, cajas_comerciales))
+            
+            movimientos = cur.fetchall()
+
+            for mov in movimientos:
+                if mov['caja_origen'] in balances:
+                    balances[mov['caja_origen']] -= mov['monto_origen']
+                if mov['caja_destino'] in balances:
+                    balances[mov['caja_destino']] += mov['monto_destino']
+
+    except psycopg2.Error as e:
+        flash(f"Error calculando balances comerciales: {e}", "danger")
 
     return balances
 
@@ -491,7 +530,6 @@ def gestion_administrativa():
 
 # --- INICIO DE CAMBIO: Nuevas rutas para el Módulo Comercial ---
 
-# REEMPLAZO 2: RUTA DEL DASHBOARD COMERCIAL MEJORADA
 @app.route('/comercial/dashboard')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -590,68 +628,77 @@ def pagar_nomina_comercial():
 
     return redirect(url_for('dashboard_comercial'))
 
-@app.route('/comercial/flujo_caja_comercial')
+@app.route('/comercial/flujo_caja_comercial', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def flujo_caja_comercial():
     conn = get_db()
-    resumen = {
-        'ingresos_brutos': Decimal('0.0'),
-        'egresos_nomina': Decimal('0.0'),
-        'balance_neto': Decimal('0.0')
-    }
-    historial = []
+    today = get_venezuela_current_date()
+    
+    fecha_reporte_str = request.form.get('fecha_reporte') or request.args.get('fecha_reporte') or today.strftime('%Y-%m-%d')
+    
+    try:
+        fecha_reporte_dt = datetime.strptime(fecha_reporte_str, '%Y-%m-%d').date()
+    except ValueError:
+        flash("Formato de fecha inválido. Usando fecha actual.", "warning")
+        fecha_reporte_str = today.strftime('%Y-%m-%d')
+        fecha_reporte_dt = today
 
+    # Obtener tasas del día del reporte (necesario si hubiera cajas en Bs.)
+    tasas_del_dia = {'usd': Decimal('0.0'), 'eur': Decimal('0.0')}
+    if conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_reporte_dt,))
+            resultado_tasa = cur.fetchone()
+            if resultado_tasa:
+                tasas_del_dia['usd'] = resultado_tasa['tasa'] or Decimal('0.0')
+                tasas_del_dia['eur'] = resultado_tasa['tasa_euro'] or Decimal('0.0')
+
+    # ¡AQUÍ ESTÁ LA MAGIA! Llamamos a la nueva función de balances comerciales
+    balances = calcular_balances_comercial(fecha_hasta=fecha_reporte_dt)
+    
+    # Preparar el resumen detallado para la plantilla (imitando el flujo general)
+    resumen = {}
+    resumen.update(balances)
+    
+    # Cálculos de consolidación (simplificado ya que no hay cajas en Bs por ahora)
+    resumen['balance_general_consolidado_usd'] = balances.get('COMERCIAL_EFECTIVO_USD', Decimal(0)) + balances.get('COMERCIAL_BINANCE_USDT', Decimal(0))
+    
+    # Aquí iría la lógica para pérdidas si se manejaran cajas en Bs. en el área comercial.
+    # Por ahora se inicializan en cero para que la plantilla no falle.
+    resumen['acumulado_perdida_devaluacion'] = Decimal('0.0')
+    resumen['acumulado_perdida_conversion'] = Decimal('0.0')
+    
+    # Obtener el historial de movimientos de tesorería del área comercial para el día del reporte
+    historial_movimientos = []
     if conn:
         try:
             with conn.cursor() as cur:
-                # 1. Obtener todos los ingresos de inscripciones
-                cur.execute("""
-                    SELECT 
-                        fecha_registro as fecha, 
-                        monto_inscripcion as monto,
-                        'Ingreso' as tipo,
-                        'Inscripción Contrato' as concepto,
-                        responsable_cierre as responsable,
-                        contrato_nro
-                    FROM caja_inscripciones
-                """)
-                ingresos = cur.fetchall()
-                resumen['ingresos_brutos'] = sum(i['monto'] for i in ingresos)
-
-                # 2. Obtener todos los egresos de comisiones pagadas
-                cur.execute("""
-                    SELECT 
-                        fecha_pago_nomina as fecha,
-                        monto_comision as monto,
-                        'Egreso' as tipo,
-                        concepto,
-                        nombre_beneficiario as responsable,
-                        contrato_nro
-                    FROM comisiones_generadas
-                    WHERE estado_nomina = 'Pagada' AND fecha_pago_nomina IS NOT NULL
-                """)
-                egresos = cur.fetchall()
-                resumen['egresos_nomina'] = sum(e['monto'] for e in egresos)
-
-                # 3. Calcular balance y combinar historial
-                resumen['balance_neto'] = resumen['ingresos_brutos'] - resumen['egresos_nomina']
+                fecha_inicio_periodo = datetime.combine(fecha_reporte_dt, datetime.min.time())
+                fecha_fin_periodo = datetime.combine(fecha_reporte_dt, datetime.max.time())
                 
-                historial.extend(ingresos)
-                historial.extend(egresos)
-                
-                # 4. Ordenar el historial por fecha
-                historial.sort(key=lambda x: x['fecha'], reverse=True)
+                cajas_comerciales = ['COMERCIAL_EFECTIVO_USD', 'COMERCIAL_BINANCE_USDT']
+                cur.execute("""
+                    SELECT op.*, admin.usuario as nombre_admin
+                    FROM operaciones_tesoreria op
+                    LEFT JOIN administradores admin ON op.realizada_por = admin.id
+                    WHERE op.fecha_operacion BETWEEN %s AND %s
+                    AND (op.caja_origen = ANY(%s) OR op.caja_destino = ANY(%s))
+                    ORDER BY op.fecha_operacion DESC
+                """, (fecha_inicio_periodo, fecha_fin_periodo, cajas_comerciales, cajas_comerciales))
+                historial_movimientos = cur.fetchall()
+        except (psycopg2.Error, ValueError) as e:
+            flash(f"Error al obtener historial de movimientos comerciales: {e}", "error")
 
-        except psycopg2.Error as e:
-            flash(f"Error al generar el flujo de caja de inscripciones: {e}", "danger")
+    return render_template(
+        'flujo_caja_comercial.html', # Usaremos una plantilla que vamos a crear ahora
+        fecha_reporte=fecha_reporte_str,
+        resumen=resumen,
+        tasas_del_dia=tasas_del_dia,
+        historial=historial_movimientos,
+        anio_actual=today.year
+    )
 
-    return render_template('flujo_caja_comercial.html',
-                           resumen=resumen,
-                           historial=historial,
-                           anio_actual=get_venezuela_current_date().year)
-
-# ADICIÓN 1: NUEVA RUTA PARA OBTENER EL SPLIT DE COMISIONES (AJAX)
 @app.route('/comercial/split_contrato/<string:contrato_nro>')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
