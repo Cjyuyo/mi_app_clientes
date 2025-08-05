@@ -1244,6 +1244,11 @@ def finalizar_registro():
         form_data['valor_cuota'] = Decimal(form_data.get('valor_cuota', '0.00').replace(',', '.'))
         form_data['cuotas_totales'] = int(form_data['cuotas_totales']) if form_data.get('cuotas_totales') else None
         
+        # --- **INICIO DE CORRECCIÓN** ---
+        # Asegurar que 'responsable' tenga un valor para evitar el error NotNullViolation
+        responsable_cierre = form_data.get('responsable', '') # Asigna '' si no existe
+        # --- **FIN DE CORRECCIÓN** ---
+
         with conn.cursor() as cur:
             # --- Inicia Transacción ---
             
@@ -1309,7 +1314,7 @@ def finalizar_registro():
                 cur.execute("""
                     INSERT INTO caja_inscripciones (contrato_nro, cliente_id, monto_inscripcion, responsable_cierre)
                     VALUES (%s, %s, %s, %s)
-                """, (form_data.get('contrato_nro'), new_client_id, form_data['inscripcion_monto'], form_data.get('responsable')))
+                """, (form_data.get('contrato_nro'), new_client_id, form_data['inscripcion_monto'], responsable_cierre))
 
             # --- 4. Registrar auditoría y finalizar ---
             descripcion_audit = f"Registró y firmó contrato para nuevo cliente: {form_data.get('nombre_apellido')} (C.I. {form_data.get('cedula')})."
@@ -1807,14 +1812,23 @@ def delete_client(client_id):
                 flash('El cliente que intenta eliminar no existe.', 'warning')
                 return redirect(url_for('consulta'))
 
-            descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']})."
-            
+            # --- **INICIO DE CORRECCIÓN** ---
+            # Limpieza completa de datos relacionados
+            cur.execute("DELETE FROM pagos WHERE cliente_id = %s", (client_id,))
+            cur.execute("DELETE FROM comisiones_generadas WHERE cliente_id = %s", (client_id,))
+            cur.execute("DELETE FROM caja_inscripciones WHERE cliente_id = %s", (client_id,))
+            cur.execute("DELETE FROM ofertas WHERE cliente_id = %s", (client_id,))
+            cur.execute("DELETE FROM gestiones_cobranza WHERE cliente_id = %s", (client_id,))
+            # --- **FIN DE CORRECCIÓN** ---
+
+            descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']}) y todos sus datos asociados."
             registrar_accion_auditoria('ELIMINACION_CLIENTE', descripcion_audit, client_id)
             
+            # Finalmente, eliminar al cliente de la tabla principal
             cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
             
             conn.commit()
-            flash('¡Cliente y sus registros asociados han sido eliminados exitosamente!', 'success')
+            flash('¡Cliente y todos sus registros asociados han sido eliminados exitosamente!', 'success')
     except (psycopg2.Error, ConnectionError) as e:
         conn.rollback()
         flash(f'Ocurrió un error al eliminar: {e}', 'error')
@@ -1917,7 +1931,7 @@ def realizar_adjudicacion():
             ids_ya_ganadores.update(ids_ganadores_ahorro)
             
             ganador_oferta = None
-            cur.execute("SELECT c.id, (c.nombre || ' ' || apellido) as nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND TRIM(UPPER(c.proceso)) = 'AHORRADOR' AND c.id NOT IN %s;", (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
+            cur.execute("SELECT c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.ignorar_penalidad_puntualidad, o.cuotas_ofertadas FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND TRIM(UPPER(c.proceso)) = 'AHORRADOR' AND c.id NOT IN %s;", (tuple(ids_ya_ganadores) if ids_ya_ganadores else (0,),))
             candidatos_oferta_raw = cur.fetchall()
             
             candidatos_oferta = []
