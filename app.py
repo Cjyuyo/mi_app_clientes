@@ -1505,7 +1505,7 @@ def conciliar_pago(pago_id):
 
                 # --- INICIO LÓGICA DE COMISIONES POR UMBRAL ---
                 if inscripcion_total > 0:
-                    umbral_pago_comision = inscripcion_total * Decimal('7.7') / Decimal('16')
+                    umbral_pago_comision = inscripcion_total * (Decimal('7.7') / Decimal('16'))
                     cur.execute("SELECT comisiones_generadas FROM caja_inscripciones WHERE cliente_id = %s", (cliente['id'],))
                     comisiones_ya_generadas = cur.fetchone()[0]
 
@@ -1521,9 +1521,24 @@ def conciliar_pago(pago_id):
                         flash('¡Umbral de inscripción alcanzado! Comisiones generadas para la nómina.', 'success')
                 # --- FIN LÓGICA DE COMISIONES POR UMBRAL ---
 
-                if inscripcion_total > 0 and nueva_inscripcion_pagada >= inscripcion_total:
+                # --- INICIO LÓGICA DE RECIBO DE INSCRIPCIÓN ---
+                # CASO B: Pago único que cubre el 100% o más
+                if inscripcion_total > 0 and monto_pagado >= inscripcion_total and inscripcion_pagada_actual == 0:
                     if cliente['proceso'] == 'RESERVA':
                         cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],))
+                    cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (inscripcion_total, cliente['id']))
+                    # Convertir este mismo pago en el final
+                    cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', tipo_pago = 'Inscripción Finalizada', monto = %s WHERE id = %s", (inscripcion_total, pago_id))
+                    pago_final_id = pago_id
+                    descripcion_audit = f"Concilió pago único de inscripción (N°{pago_id}) por ${monto_pagado} para {cliente['nombre_apellido']}."
+                    registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
+                    flash_msg = "¡Inscripción completada en un solo pago! Se generó el recibo final."
+                
+                # CASO A: Pago parcial que completa el 100%
+                elif inscripcion_total > 0 and nueva_inscripcion_pagada >= inscripcion_total:
+                    if cliente['proceso'] == 'RESERVA':
+                        cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],))
+                    # Anular abonos anteriores y crear el recibo final
                     cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente['id'],))
                     cur.execute("INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, por_concepto_de, estado_pago, cuotas_cubiertas, lugar_emision) VALUES (%s, %s, 'Inscripción Finalizada', %s, %s, %s, 'Conciliado', 0, %s) RETURNING id;", (cliente['id'], inscripcion_total, pago['forma_pago'], pago['fecha_pago'], 'Pago total de inscripción', pago['lugar_emision']))
                     pago_final_id = cur.fetchone()[0]
@@ -1532,12 +1547,16 @@ def conciliar_pago(pago_id):
                     descripcion_audit = f"Concilió pago final de inscripción (N°{pago_id}) por ${monto_pagado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
                     flash_msg = "¡Inscripción completada! Se generó el recibo final."
+                
+                # CASO C: Pago parcial que NO completa el 100%
                 else:
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
                     cur.execute("UPDATE pagos SET estado_pago = 'Conciliado' WHERE id = %s", (pago_id,))
                     descripcion_audit = f"Concilió abono de inscripción N° {pago_id} por ${monto_pagado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
                     flash_msg = f"Abono de inscripción N° {pago_id} conciliado."
+                # --- FIN LÓGICA DE RECIBO DE INSCRIPCIÓN ---
+
             elif pago['tipo_pago'] == 'Cuota':
                 puntualidad, fecha_vencimiento = 'Puntual', get_fecha_vencimiento_ajustada(pago['fecha_pago'])
                 if pago['fecha_pago'] > fecha_vencimiento:
