@@ -531,9 +531,6 @@ def dashboard_comercial():
 
             # OBTENER BALANCES DE TESORERÍA GENERAL PARA EL FORMULARIO
             balances_generales = calcular_balances_tesoreria()
-            # Filtrar solo cajas en USD para el pago de nómina
-            balances_generales = {k: v for k, v in balances_generales.items() if k in ['EFECTIVO_USD', 'BINANCE_USDT']}
-
 
         except psycopg2.Error as e:
             flash(f"Error al cargar el dashboard comercial: {e}", "danger")
@@ -594,11 +591,14 @@ def pagar_nomina_comercial():
         with conn.cursor() as cur:
             for pago in pagos_planificados:
                 nota_gasto = f"Pago de nómina a {pago['beneficiario']}"
+                # Determinar la moneda del pago basado en la caja de origen
+                moneda = 'BS' if 'BS' in pago['caja'] else 'USD'
+                
                 cur.execute("""
                     INSERT INTO operaciones_tesoreria 
                     (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, nota, realizada_por, fecha_operacion)
-                    VALUES ('GASTO_OPERATIVO', %s, 'USD', %s, 'GASTO_NOMINA', 'USD', %s, %s, %s, NOW())
-                """, (pago['caja'], pago['monto'], pago['monto'], nota_gasto, g.admin['id']))
+                    VALUES ('GASTO_OPERATIVO', %s, %s, %s, 'GASTO_NOMINA', %s, %s, %s, %s, NOW())
+                """, (pago['caja'], moneda, pago['monto'], moneda, pago['monto'], nota_gasto, g.admin['id']))
 
                 cur.execute("UPDATE comisiones_generadas SET estado_nomina = 'Pagada', fecha_pago_nomina = NOW() WHERE estado_nomina = 'Pendiente' AND nombre_beneficiario = %s;", (pago['beneficiario'],))
             
@@ -607,7 +607,7 @@ def pagar_nomina_comercial():
             registrar_accion_auditoria('PAGO_NOMINA_COMERCIAL_LOTE', descripcion_auditoria)
             
             conn.commit()
-            flash(f"Nómina pagada exitosamente por un total de ${total_pagado_general:,.2f}.", "success")
+            flash(f"Nómina pagada exitosamente.", "success")
 
     except psycopg2.Error as e:
         conn.rollback()
