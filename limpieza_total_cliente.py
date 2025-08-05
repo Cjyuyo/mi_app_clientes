@@ -4,13 +4,13 @@ from dotenv import load_dotenv
 
 # =============================================================================
 # --- CONFIGURACIÓN ---
-# Agrega aquí las cédulas de los clientes que quieres eliminar por completo.
+# Cédulas a eliminar.
 # =============================================================================
 CEDULAS_A_ELIMINAR = [
-    "V12345678",  # EJEMPLO 1: Reemplaza con la primera cédula
-    "V87654321",  # EJEMPLO 2: Reemplaza con la segunda cédula
-    "E99999999"   # EJEMPLO 3: Reemplaza con la tercera cédula
-    # Puedes agregar más cédulas a la lista si es necesario
+    "17559595",
+    "17881898",
+    "20810454",
+    "31356606"
 ]
 # =============================================================================
 
@@ -30,14 +30,16 @@ def limpiar_clientes_por_cedula(cedulas):
         with conn.cursor() as cur:
             
             for cedula in cedulas:
-                print(f"\n procesando Cédula: {cedula}...")
+                # Normalizar cédula para buscar con y sin prefijo 'V-'
+                cedula_norm = cedula.replace('V-', '').replace('v-', '')
+                print(f"\n procesando Cédula: {cedula_norm}...")
                 
                 # 1. Encontrar el ID del cliente
-                cur.execute("SELECT id FROM clientes WHERE cedula = %s;", (cedula,))
+                cur.execute("SELECT id FROM clientes WHERE cedula = %s OR cedula = %s;", (cedula_norm, f'V-{cedula_norm}'))
                 cliente_record = cur.fetchone()
                 
                 if not cliente_record:
-                    print(f"   - 🟡 AVISO: No se encontró ningún cliente con la cédula {cedula}. Saltando al siguiente.")
+                    print(f"   - 🟡 AVISO: No se encontró ningún cliente con la cédula {cedula_norm}. Saltando al siguiente.")
                     continue
                 
                 cliente_id = cliente_record[0]
@@ -62,7 +64,7 @@ def limpiar_clientes_por_cedula(cedulas):
                 cur.execute("DELETE FROM clientes WHERE id = %s;", (cliente_id,))
                 print(f"       {cur.rowcount} registros eliminados.")
                 
-                print(f"   - ✅ ¡Limpieza completa para la cédula {cedula}!")
+                print(f"   - ✅ ¡Limpieza completa para la cédula {cedula_norm}!")
 
             # Si todo sale bien, confirmar todos los cambios.
             conn.commit()
@@ -79,15 +81,8 @@ def limpiar_clientes_por_cedula(cedulas):
             print("   Conexión a la base de datos cerrada.")
 
 if __name__ == '__main__':
-    if not CEDULAS_A_ELIMINAR or CEDULAS_A_ELIMINAR[0].startswith("V123"):
-        print("====================================================================")
-        print("  AVISO: Por favor, edita este script (`limpieza_total_cliente.py`)")
-        print("         y añade las cédulas que deseas eliminar en la lista")
-        print("         `CEDULAS_A_ELIMINAR` antes de ejecutarlo.")
-        print("====================================================================")
+    confirmacion = input(f"ADVERTENCIA: Estás a punto de eliminar permanentemente a {len(CEDULAS_A_ELIMINAR)} cliente(s) y todos sus datos asociados.\nEsta acción NO se puede deshacer.\n\nEscribe 'CONFIRMAR' para proceder: ")
+    if confirmacion == "CONFIRMAR":
+        limpiar_clientes_por_cedula(CEDULAS_A_ELIMINAR)
     else:
-        confirmacion = input(f"ADVERTENCIA: Estás a punto de eliminar permanentemente a {len(CEDULAS_A_ELIMINAR)} cliente(s) y todos sus datos asociados.\nEsta acción NO se puede deshacer.\n\nEscribe 'CONFIRMAR' para proceder: ")
-        if confirmacion == "CONFIRMAR":
-            limpiar_clientes_por_cedula(CEDULAS_A_ELIMINAR)
-        else:
-            print("\nOperación cancelada por el usuario.")
+        print("\nOperación cancelada por el usuario.")
