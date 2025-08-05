@@ -473,6 +473,7 @@ def dashboard_comercial():
     conn = get_db()
     contratos = []
     resumen_asesores = []
+    balances_generales = {}
     
     stats = {
         'ingresos_brutos_inscripciones': Decimal('0.0'),
@@ -528,6 +529,12 @@ def dashboard_comercial():
                 if resumen_asesores:
                     stats['total_comisiones_pendientes'] = sum(a['total_pendiente'] for a in resumen_asesores)
 
+            # OBTENER BALANCES DE TESORERÍA GENERAL PARA EL FORMULARIO
+            balances_generales = calcular_balances_tesoreria()
+            # Filtrar solo cajas en USD para el pago de nómina
+            balances_generales = {k: v for k, v in balances_generales.items() if k in ['EFECTIVO_USD', 'BINANCE_USDT']}
+
+
         except psycopg2.Error as e:
             flash(f"Error al cargar el dashboard comercial: {e}", "danger")
 
@@ -535,6 +542,7 @@ def dashboard_comercial():
                            stats=stats,
                            contratos=contratos,
                            resumen_asesores=resumen_asesores,
+                           balances_generales=balances_generales,
                            anio_actual=get_venezuela_current_date().year)
 
 @app.route('/comercial/pagar_nomina', methods=['POST'])
@@ -542,61 +550,71 @@ def dashboard_comercial():
 @rol_requerido('superadmin', 'gerente')
 def pagar_nomina_comercial():
     conn = get_db()
-    # Esta ruta ahora es para el pago por lotes, pero por ahora mantenemos el pago único
-    # La Fase 2 reemplazará esta lógica
-    caja_origen = request.form.get('caja_origen') 
-
-    if not caja_origen:
-        flash("Error: Debe seleccionar una caja de origen para pagar la nómina.", "danger")
-        return redirect(url_for('dashboard_comercial'))
-
     if not conn:
         flash("Error de conexión a la base de datos.", "danger")
         return redirect(url_for('dashboard_comercial'))
 
     try:
+        # 1. Recibir datos del formulario por lotes
+        beneficiarios_a_pagar = request.form.getlist('beneficiarios')
+        cajas_origen_seleccionadas = request.form.getlist('cajas_origen')
+
+        if not beneficiarios_a_pagar or len(beneficiarios_a_pagar) != len(cajas_origen_seleccionadas):
+            flash("Error en los datos del formulario. Intente de nuevo.", "danger")
+            return redirect(url_for('dashboard_comercial'))
+
+        # 2. Fase de Pre-validación (sin tocar la BD)
+        pagos_planificados = []
+        deducciones_por_caja = {}
         with conn.cursor() as cur:
-            # 1. Obtener el monto total a pagar
-            cur.execute("SELECT COALESCE(SUM(monto_comision), 0) FROM comisiones_generadas WHERE estado_nomina = 'Pendiente';")
-            monto_total_nomina = cur.fetchone()[0] or Decimal('0.0')
+            for i, nombre_beneficiario in enumerate(beneficiarios_a_pagar):
+                caja_origen = cajas_origen_seleccionadas[i]
+                if not caja_origen:  # Si para un beneficiario no se seleccionó caja, se omite
+                    continue
 
-            if monto_total_nomina <= 0:
-                flash("No hay comisiones pendientes para pagar.", "warning")
+                cur.execute("SELECT COALESCE(SUM(monto_comision), 0) FROM comisiones_generadas WHERE estado_nomina = 'Pendiente' AND nombre_beneficiario = %s;", (nombre_beneficiario,))
+                monto_a_pagar = cur.fetchone()[0] or Decimal('0.0')
+
+                if monto_a_pagar > 0:
+                    pagos_planificados.append({'beneficiario': nombre_beneficiario, 'monto': monto_a_pagar, 'caja': caja_origen})
+                    deducciones_por_caja[caja_origen] = deducciones_por_caja.get(caja_origen, Decimal('0.0')) + monto_a_pagar
+        
+        if not pagos_planificados:
+            flash("No se seleccionó ninguna operación de pago válida.", "warning")
+            return redirect(url_for('dashboard_comercial'))
+
+        # 3. Verificación de Fondos
+        balances_reales = calcular_balances_tesoreria()
+        for caja, monto_deducir in deducciones_por_caja.items():
+            if balances_reales.get(caja, Decimal('0.0')) < monto_deducir:
+                flash(f"Fondos insuficientes en la caja '{caja}'. Se necesita ${monto_deducir:,.2f} pero solo hay ${balances_reales.get(caja, 0):,.2f}. Operación cancelada.", "danger")
                 return redirect(url_for('dashboard_comercial'))
 
-            # 2. Verificar fondos en la caja GENERAL seleccionada
-            balances_generales = calcular_balances_tesoreria()
-            if balances_generales.get(caja_origen, Decimal('0.0')) < monto_total_nomina:
-                flash(f"Fondos insuficientes en '{caja_origen}'. Se requieren ${monto_total_nomina:,.2f} pero solo hay ${balances_generales.get(caja_origen, 0):,.2f}.", "danger")
-                return redirect(url_for('dashboard_comercial'))
+        # 4. Fase de Ejecución (Transacción Atómica)
+        with conn.cursor() as cur:
+            for pago in pagos_planificados:
+                nota_gasto = f"Pago de nómina a {pago['beneficiario']}"
+                cur.execute("""
+                    INSERT INTO operaciones_tesoreria 
+                    (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, nota, realizada_por, fecha_operacion)
+                    VALUES ('GASTO_OPERATIVO', %s, 'USD', %s, 'GASTO_NOMINA', 'USD', %s, %s, %s, NOW())
+                """, (pago['caja'], pago['monto'], pago['monto'], nota_gasto, g.admin['id']))
 
-            # --- INICIA TRANSACCIÓN ---
+                cur.execute("UPDATE comisiones_generadas SET estado_nomina = 'Pagada', fecha_pago_nomina = NOW() WHERE estado_nomina = 'Pendiente' AND nombre_beneficiario = %s;", (pago['beneficiario'],))
             
-            # 3. Registrar el egreso en la tesorería GENERAL
-            nota_gasto = f"Pago de nómina de comisiones (semana del {get_venezuela_current_date().strftime('%d-%m-%Y')})"
-            cur.execute("""
-                INSERT INTO operaciones_tesoreria 
-                (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, nota, realizada_por, fecha_operacion)
-                VALUES ('GASTO_OPERATIVO', %s, 'USD', %s, 'GASTO_NOMINA', 'USD', %s, %s, %s, NOW())
-            """, (caja_origen, monto_total_nomina, monto_total_nomina, nota_gasto, g.admin['id']))
-
-            # 4. Marcar todas las comisiones pendientes como pagadas
-            cur.execute("UPDATE comisiones_generadas SET estado_nomina = 'Pagada', fecha_pago_nomina = NOW() WHERE estado_nomina = 'Pendiente';")
-            
-            # 5. Registrar auditoría
-            descripcion_auditoria = f"Procesó pago de nómina comercial por ${monto_total_nomina:,.2f} desde la caja '{caja_origen}'."
-            registrar_accion_auditoria('PAGO_NOMINA_COMERCIAL', descripcion_auditoria)
+            total_pagado_general = sum(p['monto'] for p in pagos_planificados)
+            descripcion_auditoria = f"Procesó pago de nómina por lotes por un total de ${total_pagado_general:,.2f}."
+            registrar_accion_auditoria('PAGO_NOMINA_COMERCIAL_LOTE', descripcion_auditoria)
             
             conn.commit()
-            # --- FIN TRANSACCIÓN ---
-            
-            flash(f"Nómina por ${monto_total_nomina:,.2f} pagada exitosamente desde '{caja_origen}'.", "success")
+            flash(f"Nómina pagada exitosamente por un total de ${total_pagado_general:,.2f}.", "success")
 
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"Error al procesar el pago de la nómina: {e}", "danger")
 
     return redirect(url_for('dashboard_comercial'))
+
 
 @app.route('/comercial/split_contrato/<string:contrato_nro>')
 @admin_required

@@ -77,12 +77,11 @@
     </header>
 
     <main class="container my-5">
-        <!-- SECCIÓN DE ESTADÍSTICAS GENERALES -->
         <div class="row g-4 mb-5">
             <div class="col-lg-4 col-md-6">
                 <div class="stat-card">
-                    <div class="stat-title">Caja de Inscripciones (Bruto)</div>
-                    <div class="stat-value text-success">${{ "{:,.2f}".format(stats.total_caja_inscripciones) }}</div>
+                    <div class="stat-title">Ingresos Brutos (Inscripciones)</div>
+                    <div class="stat-value text-success">${{ "{:,.2f}".format(stats.ingresos_brutos_inscripciones) }}</div>
                 </div>
             </div>
             <div class="col-lg-4 col-md-6">
@@ -100,12 +99,10 @@
         </div>
 
         <div class="row g-4">
-            <!-- SECCIÓN PRINCIPAL: LISTA DE CONTRATOS -->
             <div class="col-lg-8">
                 <div class="card shadow-sm">
                     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                        <h4 class="mb-0"><i class="bi bi-file-earmark-text-fill me-2"></i>Contratos Registrados</h4>
-                        <a href="{{ url_for('flujo_caja_comercial') }}" class="btn btn-sm btn-outline-primary">Ver Flujo de Caja Comercial</a>
+                        <h4 class="mb-0"><i class="bi bi-file-earmark-text-fill me-2"></i>Contratos Registrados (para cálculo de comisiones)</h4>
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
@@ -153,47 +150,61 @@
                 </div>
             </div>
 
-            <!-- SECCIÓN SECUNDARIA: RESUMEN POR ASESOR Y ACCIONES -->
             <div class="col-lg-4">
                 <div class="card shadow-sm">
                     <div class="card-header bg-white py-3">
                         <h4 class="mb-0"><i class="bi bi-people-fill me-2"></i>Nómina Pendiente por Beneficiario</h4>
                     </div>
-                    <ul class="list-group list-group-flush">
-                        {% for beneficiario in resumen_asesores %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            {{ beneficiario.nombre_beneficiario }}
-                            <span class="badge bg-danger rounded-pill">${{ "{:,.2f}".format(beneficiario.total_pendiente) }}</span>
-                        </li>
-                        {% else %}
-                        <li class="list-group-item text-center text-muted p-4">
-                            ¡Excelente! No hay comisiones pendientes por pagar.
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    {% if resumen_asesores %}
-                    <div class="card-footer">
-                         <form action="{{ url_for('pagar_nomina_comercial') }}" method="POST" onsubmit="return confirm('¿Está seguro de que desea pagar la nómina? Esta acción generará un egreso en la tesorería comercial.');">
-                            <div class="mb-2">
-                                <label for="caja_origen" class="form-label fw-bold">Pagar desde:</label>
-                                <select id="caja_origen" name="caja_origen" class="form-select" required>
-                                    <option value="">Seleccione caja de origen...</option>
-                                    <option value="COMERCIAL_EFECTIVO_USD">Efectivo Comercial (USD)</option>
-                                    <option value="COMERCIAL_BINANCE_USDT">Binance Comercial (USDT)</option>
-                                </select>
+                    <div class="card-body">
+                        {% if resumen_asesores %}
+                        <form action="{{ url_for('pagar_nomina_comercial') }}" method="POST" onsubmit="return confirm('¿Confirma que desea procesar todos los pagos de nómina seleccionados?');">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Beneficiario</th>
+                                        <th class="text-end">Monto</th>
+                                        <th>Pagar Desde</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for beneficiario in resumen_asesores %}
+                                    <tr>
+                                        <td class="align-middle">
+                                            {{ beneficiario.nombre_beneficiario }}
+                                            <input type="hidden" name="beneficiarios" value="{{ beneficiario.nombre_beneficiario }}">
+                                        </td>
+                                        <td class="text-end align-middle">
+                                            <strong>${{ "{:,.2f}".format(beneficiario.total_pendiente) }}</strong>
+                                        </td>
+                                        <td>
+                                            <select class="form-select form-select-sm" name="cajas_origen" required>
+                                                <option value="">Seleccione caja...</option>
+                                                {% for caja, balance in balances_generales.items() %}
+                                                <option value="{{ caja }}">{{ caja.replace('_', ' ') }} (${{ "{:,.2f}".format(balance) }})</option>
+                                                {% endfor %}
+                                            </select>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                            <div class="d-grid mt-3">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-check-circle-fill me-2"></i>Pagar Nómina Seleccionada (${{ "{:,.2f}".format(stats.total_comisiones_pendientes) }})
+                                </button>
                             </div>
-                            <button type="submit" class="btn btn-success w-100">
-                                <i class="bi bi-check-circle-fill me-2"></i>Pagar Nómina (${{ "{:,.2f}".format(stats.total_comisiones_pendientes) }})
-                            </button>
                         </form>
+                        {% else %}
+                        <div class="text-center text-muted p-4">
+                            ¡Excelente! No hay comisiones pendientes por pagar.
+                        </div>
+                        {% endif %}
                     </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- MODAL PARA "VER SPLIT" -->
     <div class="modal fade" id="splitModal" tabindex="-1" aria-labelledby="splitModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
