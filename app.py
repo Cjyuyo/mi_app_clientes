@@ -144,10 +144,11 @@ def registrar_ingreso_caja_inscripciones(contrato_nro, cliente_id, monto_inscrip
         logging.error(f"CAJA_INSCRIPCIONES: Error al registrar ingreso: {e}")
         raise e
 
+# ===== INICIO DE FUNCIÓN MODIFICADA (v2.2) =====
 def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_dueno, responsable_cierre):
     """
-    Calcula las comisiones según las reglas de negocio dinámicas (v2.0) y las guarda para la nómina.
-    El pool de comisiones es del 16% del monto del plan.
+    Calcula las comisiones según las reglas de negocio dinámicas (v2.2) y las guarda para la nómina.
+    Insensible a mayúsculas/minúsculas y con nombres de beneficiarios corregidos.
     """
     conn = get_db()
     if not conn or monto_plan <= 0:
@@ -156,53 +157,54 @@ def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_d
 
     # --- Definición de constantes y actores clave ---
     POOL_COMISIONES = monto_plan * Decimal('0.16')
-    PRESIDENCIA = ['Carlos', 'Kary'] # Nombres exactos como aparecen en el campo 'responsable'
+    PRESIDENCIA = ['Carlos', 'Karielsy'] # Nombre corregido
     YUSBELIS = 'Yusbelis'
     
     comisiones_a_registrar = []
 
-    # --- Lógica de Escenarios ---
+    # Estandarización de nombres de entrada para evitar errores de mayúsculas o espacios
+    asesor_dueno_std = asesor_dueno.strip().title() if asesor_dueno else ''
+    responsable_cierre_std = responsable_cierre.strip().title() if responsable_cierre else ''
 
-    # Escenario 2: El contrato lo cierra Presidencia (Carlos o Kary)
-    if responsable_cierre in PRESIDENCIA:
+    # --- Lógica de Escenarios (usando los nombres estandarizados) ---
+
+    # Escenario 2: El contrato lo cierra Presidencia
+    if responsable_cierre_std in PRESIDENCIA:
         logging.info(f"Contrato {contrato_nro}: Aplicando Escenario 2 (Cierre Presidencia).")
         monto_presidencia = monto_plan * Decimal('0.055')
         comisiones_a_registrar.append({'beneficiario': 'Carlos', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
-        comisiones_a_registrar.append({'beneficiario': 'Kary', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
+        comisiones_a_registrar.append({'beneficiario': 'Karielsy', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
         
         monto_yusbelis = monto_plan * Decimal('0.005')
         comisiones_a_registrar.append({'beneficiario': YUSBELIS, 'monto': monto_yusbelis, 'concepto': 'Comisión Staff'})
         
-        # Bono fijo de $5 para el asesor dueño del cliente
-        comisiones_a_registrar.append({'beneficiario': asesor_dueno, 'monto': Decimal('5.0'), 'concepto': 'Bono Asesor Dueño'})
+        comisiones_a_registrar.append({'beneficiario': asesor_dueno_std, 'monto': Decimal('5.0'), 'concepto': 'Bono Asesor Dueño'})
 
     # Escenario 3: El contrato lo cierra Yusbelis
-    elif responsable_cierre == YUSBELIS:
+    elif responsable_cierre_std == YUSBELIS:
         logging.info(f"Contrato {contrato_nro}: Aplicando Escenario 3 (Cierre Yusbelis).")
         monto_presidencia = monto_plan * Decimal('0.055')
         comisiones_a_registrar.append({'beneficiario': 'Carlos', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
-        comisiones_a_registrar.append({'beneficiario': 'Kary', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
+        comisiones_a_registrar.append({'beneficiario': 'Karielsy', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
         
         monto_yusbelis = monto_plan * Decimal('0.01')
         comisiones_a_registrar.append({'beneficiario': YUSBELIS, 'monto': monto_yusbelis, 'concepto': 'Comisión Cierre Staff'})
-        # El asesor dueño no participa en este escenario.
 
-    # Escenario 1: El contrato lo cierra un Asesor
+    # Escenario 1: El contrato lo cierra otro Asesor
     else:
         logging.info(f"Contrato {contrato_nro}: Aplicando Escenario 1 (Cierre Asesor).")
         monto_presidencia = monto_plan * Decimal('0.03')
         comisiones_a_registrar.append({'beneficiario': 'Carlos', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
-        comisiones_a_registrar.append({'beneficiario': 'Kary', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
+        comisiones_a_registrar.append({'beneficiario': 'Karielsy', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
         
         monto_yusbelis = monto_plan * Decimal('0.01')
         comisiones_a_registrar.append({'beneficiario': YUSBELIS, 'monto': monto_yusbelis, 'concepto': 'Comisión Staff'})
 
         monto_asesor_dueno = monto_plan * Decimal('0.02')
-        comisiones_a_registrar.append({'beneficiario': asesor_dueno, 'monto': monto_asesor_dueno, 'concepto': 'Comisión Asesor Dueño'})
+        comisiones_a_registrar.append({'beneficiario': asesor_dueno_std, 'monto': monto_asesor_dueno, 'concepto': 'Comisión Asesor Dueño'})
 
-        # Sub-escenario: Si el que cierra es DIFERENTE al dueño, se paga el bono de $5
-        if asesor_dueno != responsable_cierre:
-            comisiones_a_registrar.append({'beneficiario': responsable_cierre, 'monto': Decimal('5.0'), 'concepto': 'Bono Cierre Asesor'})
+        if asesor_dueno_std != responsable_cierre_std:
+            comisiones_a_registrar.append({'beneficiario': responsable_cierre_std, 'monto': Decimal('5.0'), 'concepto': 'Bono Cierre Asesor'})
 
     # --- Guardado en Base de Datos ---
     if comisiones_a_registrar:
@@ -219,16 +221,16 @@ def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_d
                     if comision['monto'] > 0:
                          cur.execute(sql_comisiones, (contrato_nro, cliente_id, comision['beneficiario'], comision['monto'], comision['concepto']))
                 
-                # Guardamos el sobrante en la tabla principal para análisis
                 sql_sobrante = """
                     UPDATE caja_inscripciones SET sobrante_empresa = %s WHERE contrato_nro = %s
                 """
                 cur.execute(sql_sobrante, (sobrante_empresa, contrato_nro))
 
-            logging.info(f"COMISIONES v2.0: Contrato {contrato_nro} procesado. Total a pagar: ${total_comisiones_pagadas:,.2f}. Sobrante: ${sobrante_empresa:,.2f}.")
+            logging.info(f"COMISIONES v2.2: Contrato {contrato_nro} procesado. Total a pagar: ${total_comisiones_pagadas:,.2f}. Sobrante: ${sobrante_empresa:,.2f}.")
         except psycopg2.Error as e:
-            logging.error(f"COMISIONES v2.0: Error al guardar comisiones para contrato {contrato_nro}: {e}")
+            logging.error(f"COMISIONES v2.2: Error al guardar comisiones para contrato {contrato_nro}: {e}")
             raise e
+# ===== FIN DE FUNCIÓN MODIFICADA =====
 
 # =================================================================================
 # ===== MÓDULO DE TESORERÍA Y REBALANCEO =====
@@ -593,7 +595,6 @@ def dashboard_comercial():
                            resumen_asesores=resumen_asesores,
                            anio_actual=get_venezuela_current_date().year)
 
-# === INICIO RUTA PAGAR NOMINA MODIFICADA ===
 @app.route('/comercial/pagar_nomina', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -652,7 +653,6 @@ def pagar_nomina_comercial():
         flash(f"Error al procesar el pago de la nómina: {e}", "danger")
 
     return redirect(url_for('dashboard_comercial'))
-# === FIN RUTA PAGAR NOMINA MODIFICADA ===
 
 @app.route('/comercial/flujo_caja_comercial', methods=['GET', 'POST'])
 @admin_required
@@ -2385,3 +2385,7 @@ def procesar_reporte(pago_id):
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+}
+,
+  "user_query": "Aplica los cambios por mi"
+}
