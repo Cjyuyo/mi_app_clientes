@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Comercial - Moto Plan Motors C.A.</title>
+    <title>Dashboard Comercial v2.0 - Moto Plan Motors C.A.</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
@@ -39,17 +39,22 @@
             color: #6c757d;
             font-weight: 500;
             margin-bottom: 0.5rem;
+            text-transform: uppercase;
         }
         .stat-card .stat-value {
-            font-size: 2.5rem;
+            font-size: 2.2rem;
             font-weight: 700;
             color: #212529;
         }
-        .footer {
-            text-align: center;
-            padding: 20px;
-            margin-top: 40px;
-            color: #6c757d;
+        .table-responsive {
+            max-height: 600px;
+        }
+        .modal-body .table {
+            margin-bottom: 0;
+        }
+        .summary-row td {
+            font-weight: bold;
+            border-top: 2px solid #dee2e6;
         }
     </style>
 </head>
@@ -65,85 +70,209 @@
     </nav>
 
     <header class="hub-header">
-        <h1><i class="bi bi-briefcase-fill"></i> Dashboard Comercial</h1>
+        <h1><i class="bi bi-briefcase-fill"></i> Dashboard Comercial v2.0</h1>
     </header>
 
     <main class="container my-4">
         <div class="row g-4 mb-4">
             <div class="col-lg-4 col-md-6">
                 <div class="stat-card">
-                    <div class="stat-title">CAJA DE INSCRIPCIONES (BRUTO)</div>
+                    <div class="stat-title">Caja de Inscripciones (Bruto)</div>
                     <div class="stat-value text-success">${{ "{:,.2f}".format(stats.total_caja_inscripciones) }}</div>
                 </div>
             </div>
             <div class="col-lg-4 col-md-6">
                 <div class="stat-card">
-                    <div class="stat-title">NÓMINA PENDIENTE POR PAGAR</div>
-                    <div class="stat-value text-danger">${{ "{:,.2f}".format(stats.comisiones_pendientes_monto) }}</div>
+                    <div class="stat-title">Nómina Pendiente por Pagar</div>
+                    <div class="stat-value text-danger">${{ "{:,.2f}".format(stats.total_comisiones_pendientes) }}</div>
                 </div>
             </div>
             <div class="col-lg-4 col-md-12">
                 <div class="stat-card">
-                    <div class="stat-title">COMISIONES PENDIENTES</div>
-                    <div class="stat-value">{{ stats.comisiones_pendientes_cantidad }}</div>
+                    <div class="stat-title">Sobrante Empresa (Potencial)</div>
+                    <div class="stat-value text-primary">${{ "{:,.2f}".format(stats.total_sobrante_pendiente) }}</div>
                 </div>
             </div>
         </div>
 
-        <div class="card shadow-sm">
-            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                <h4 class="mb-0"><i class="bi bi-people-fill me-2"></i>Nómina Semanal Pendiente</h4>
-                <a href="{{ url_for('flujo_caja_comercial') }}" class="btn btn-outline-primary">Ver Flujo de Caja de Inscripciones</a>
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0"><i class="bi bi-file-earmark-text-fill me-2"></i>Contratos Registrados</h4>
+                        <a href="{{ url_for('flujo_caja_comercial') }}" class="btn btn-sm btn-outline-primary">Ver Flujo de Caja de Inscripciones</a>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Contrato N°</th>
+                                        <th>Cliente</th>
+                                        <th class="text-end">Plan</th>
+                                        <th class="text-end">Pagado ($)</th>
+                                        <th>Cierre</th>
+                                        <th class="text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for contrato in contratos %}
+                                    <tr>
+                                        <td>{{ contrato.fecha_registro | format_date }}</td>
+                                        <td>{{ contrato.contrato_nro }}</td>
+                                        <td><a href="{{ url_for('perfil_cliente', cliente_id=contrato.cliente_id) }}" class="text-decoration-none">{{ contrato.nombre }} {{ contrato.apellido }}</a></td>
+                                        <td class="text-end">${{ "{:,.2f}".format(contrato.plan_contratado) }}</td>
+                                        <td class="text-end fw-bold">${{ "{:,.2f}".format(contrato.monto_inscripcion) }}</td>
+                                        <td>{{ contrato.responsable_cierre }}</td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm btn-info ver-split-btn" data-contrato-nro="{{ contrato.contrato_nro }}">
+                                                Ver Split
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted p-5">
+                                            <p class="mb-0">No hay contratos registrados en la caja de inscripciones.</p>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Fecha Gen.</th>
-                                <th>Beneficiario</th>
-                                <th>Concepto</th>
-                                <th class="text-end">Monto</th>
-                                <th>Contrato N°</th>
-                                <th>Cliente</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for comision in comisiones %}
-                            <tr>
-                                <td>{{ comision.fecha_generacion | format_date }}</td>
-                                <td>{{ comision.nombre_beneficiario }}</td>
-                                <td><span class="badge bg-info-subtle text-info-emphasis">{{ comision.concepto }}</span></td>
-                                <td class="text-end fw-bold">${{ "{:,.2f}".format(comision.monto_comision) }}</td>
-                                <td>{{ comision.contrato_nro }}</td>
-                                <td><a href="{{ url_for('perfil_cliente', cliente_id=comision.cliente_id) }}" class="btn btn-sm btn-link">Ver Cliente</a></td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="6" class="text-center text-muted p-5">
-                                    <i class="bi bi-check-circle-fill fs-1 text-success"></i>
-                                    <p class="mt-2 mb-0">¡Excelente! No hay comisiones pendientes por pagar.</p>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white py-3">
+                        <h4 class="mb-0"><i class="bi bi-people-fill me-2"></i>Nómina Pendiente por Asesor</h4>
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        {% for asesor in resumen_asesores %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ asesor.nombre_beneficiario }}
+                            <span class="badge bg-danger rounded-pill">${{ "{:,.2f}".format(asesor.total_pendiente) }}</span>
+                        </li>
+                        {% else %}
+                        <li class="list-group-item text-center text-muted p-4">
+                            ¡Excelente! No hay comisiones pendientes por pagar.
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% if resumen_asesores %}
+                    <div class="card-footer text-center">
+                         <form action="{{ url_for('pagar_nomina_comercial') }}" method="POST" onsubmit="return confirm('¿Está seguro de que desea marcar TODAS las comisiones pendientes como pagadas? Esta acción registrará el egreso.');">
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="bi bi-check-circle-fill me-2"></i>Pagar Nómina Total (${{ "{:,.2f}".format(stats.total_comisiones_pendientes) }})
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
                 </div>
-                {% if comisiones %}
-                <div class="mt-3 text-end">
-                    <form action="{{ url_for('pagar_nomina_comercial') }}" method="POST" onsubmit="return confirm('¿Está seguro de que desea marcar TODAS las comisiones pendientes como pagadas? Esta acción registrará el egreso.');">
-                        <button type="submit" class="btn btn-success btn-lg">
-                            <i class="bi bi-check-circle-fill me-2"></i>Pagar Nómina Pendiente (${{ "{:,.2f}".format(stats.comisiones_pendientes_monto) }})
-                        </button>
-                    </form>
-                </div>
-                {% endif %}
             </div>
         </div>
     </main>
 
+    <div class="modal fade" id="splitModal" tabindex="-1" aria-labelledby="splitModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="splitModalTitle">Desglose del Contrato</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="splitModalBody">
+                    <p class="text-center">Cargando detalles...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <footer class="footer">
         <p>&copy; {{ anio_actual }} Moto Plan Motors C.A.</p>
     </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const splitModalEl = document.getElementById('splitModal');
+            const splitModal = new bootstrap.Modal(splitModalEl);
+            const modalTitle = document.getElementById('splitModalTitle');
+            const modalBody = document.getElementById('splitModalBody');
+
+            // Usamos delegación de eventos para manejar los clics
+            document.body.addEventListener('click', function(event) {
+                if (event.target.classList.contains('ver-split-btn')) {
+                    const button = event.target;
+                    const contratoNro = button.dataset.contratoNro;
+
+                    // 1. Preparamos y mostramos el modal con un estado de carga
+                    modalTitle.textContent = `Desglose del Contrato: ${contratoNro}`;
+                    modalBody.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+                    // No es necesario llamar a splitModal.show() si el botón ya tiene los atributos data-bs-toggle
+
+                    // 2. Hacemos la petición al servidor (AJAX)
+                    fetch(`/comercial/split_contrato/${contratoNro}`)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Error al obtener los datos del contrato.');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            // 3. Construimos el HTML con los datos recibidos
+                            let content = `
+                                <div class="table-responsive">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Beneficiario</th>
+                                                <th>Concepto</th>
+                                                <th class="text-end">Monto</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                            `;
+                            data.comisiones.forEach(c => {
+                                content += `
+                                    <tr>
+                                        <td>${c.beneficiario}</td>
+                                        <td>${c.concepto}</td>
+                                        <td class="text-end">$${c.monto}</td>
+                                    </tr>
+                                `;
+                            });
+                            content += `
+                                        </tbody>
+                                        <tfoot>
+                                            <tr class="summary-row table-light">
+                                                <td colspan="2">Pool Comisiones (16%)</td>
+                                                <td class="text-end">$${data.resumen.pool_total}</td>
+                                            </tr>
+                                            <tr class="summary-row table-light">
+                                                <td colspan="2">Total Comisiones y Bonos</td>
+                                                <td class="text-end text-danger">-$${data.resumen.total_comisiones}</td>
+                                            </tr>
+                                            <tr class="summary-row table-success">
+                                                <td colspan="2">Sobrante para la Empresa</td>
+                                                <td class="text-end">$${data.resumen.sobrante_empresa}</td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            `;
+                            // 4. Inyectamos el contenido en el modal
+                            modalBody.innerHTML = content;
+                        })
+                        .catch(error => {
+                            modalBody.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+                        });
+                }
+            });
+        });
+    </script>
 </body>
 </html>

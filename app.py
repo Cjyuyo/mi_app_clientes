@@ -1,7 +1,7 @@
 import os
 import psycopg2
 import psycopg2.extras
-from flask import Flask, render_template, request, g, flash, redirect, url_for, session, Response
+from flask import Flask, render_template, request, g, flash, redirect, url_for, session, Response, jsonify
 from dotenv import load_dotenv
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta, date
@@ -144,41 +144,91 @@ def registrar_ingreso_caja_inscripciones(contrato_nro, cliente_id, monto_inscrip
         logging.error(f"CAJA_INSCRIPCIONES: Error al registrar ingreso: {e}")
         raise e
 
+# REEMPLAZO 1: LÓGICA DE COMISIONES MEJORADA
 def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_dueno, responsable_cierre):
     """
-    Calcula las comisiones según las reglas de negocio y las guarda para la nómina.
+    Calcula las comisiones según las reglas de negocio dinámicas (v2.0) y las guarda para la nómina.
+    El pool de comisiones es del 16% del monto del plan.
     """
     conn = get_db()
-    if not conn:
-        logging.error("COMISIONES: No se pudo obtener conexión a la base de datos.")
+    if not conn or monto_plan <= 0:
+        logging.error(f"COMISIONES: No se pudo conectar a la BD o el monto del plan es cero para contrato {contrato_nro}.")
         return
 
-    comisiones = {}
+    # --- Definición de constantes y actores clave ---
+    POOL_COMISIONES = monto_plan * Decimal('0.16')
+    PRESIDENCIA = ['Carlos', 'Kary'] # Nombres exactos como aparecen en el campo 'responsable'
+    YUSBELIS = 'Yusbelis'
     
-    if responsable_cierre:
-        # Comisión del 2% para el Asesor (dueño del cliente)
-        comision_asesor = monto_plan * Decimal('0.02')
-        comisiones[asesor_dueno] = {'monto': comisiones.get(asesor_dueno, {}).get('monto', Decimal('0.0')) + comision_asesor, 'concepto': 'Comisión Asesor'}
+    comisiones_a_registrar = []
 
-        # Bono de $5 para el Responsable (quien cerró), si es diferente al dueño
+    # --- Lógica de Escenarios ---
+
+    # Escenario 2: El contrato lo cierra Presidencia (Carlos o Kary)
+    if responsable_cierre in PRESIDENCIA:
+        logging.info(f"Contrato {contrato_nro}: Aplicando Escenario 2 (Cierre Presidencia).")
+        monto_presidencia = monto_plan * Decimal('0.055')
+        comisiones_a_registrar.append({'beneficiario': 'Carlos', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
+        comisiones_a_registrar.append({'beneficiario': 'Kary', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
+        
+        monto_yusbelis = monto_plan * Decimal('0.005')
+        comisiones_a_registrar.append({'beneficiario': YUSBELIS, 'monto': monto_yusbelis, 'concepto': 'Comisión Staff'})
+        
+        # Bono fijo de $5 para el asesor dueño del cliente
+        comisiones_a_registrar.append({'beneficiario': asesor_dueno, 'monto': Decimal('5.0'), 'concepto': 'Bono Asesor Dueño'})
+
+    # Escenario 3: El contrato lo cierra Yusbelis
+    elif responsable_cierre == YUSBELIS:
+        logging.info(f"Contrato {contrato_nro}: Aplicando Escenario 3 (Cierre Yusbelis).")
+        monto_presidencia = monto_plan * Decimal('0.055')
+        comisiones_a_registrar.append({'beneficiario': 'Carlos', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
+        comisiones_a_registrar.append({'beneficiario': 'Kary', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
+        
+        monto_yusbelis = monto_plan * Decimal('0.01')
+        comisiones_a_registrar.append({'beneficiario': YUSBELIS, 'monto': monto_yusbelis, 'concepto': 'Comisión Cierre Staff'})
+        # El asesor dueño no participa en este escenario.
+
+    # Escenario 1: El contrato lo cierra un Asesor
+    else:
+        logging.info(f"Contrato {contrato_nro}: Aplicando Escenario 1 (Cierre Asesor).")
+        monto_presidencia = monto_plan * Decimal('0.03')
+        comisiones_a_registrar.append({'beneficiario': 'Carlos', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
+        comisiones_a_registrar.append({'beneficiario': 'Kary', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
+        
+        monto_yusbelis = monto_plan * Decimal('0.01')
+        comisiones_a_registrar.append({'beneficiario': YUSBELIS, 'monto': monto_yusbelis, 'concepto': 'Comisión Staff'})
+
+        monto_asesor_dueno = monto_plan * Decimal('0.02')
+        comisiones_a_registrar.append({'beneficiario': asesor_dueno, 'monto': monto_asesor_dueno, 'concepto': 'Comisión Asesor Dueño'})
+
+        # Sub-escenario: Si el que cierra es DIFERENTE al dueño, se paga el bono de $5
         if asesor_dueno != responsable_cierre:
-            bono_cierre = Decimal('5.0')
-            comisiones[responsable_cierre] = {'monto': comisiones.get(responsable_cierre, {}).get('monto', Decimal('0.0')) + bono_cierre, 'concepto': 'Bono Cierre'}
-    
-    if comisiones:
+            comisiones_a_registrar.append({'beneficiario': responsable_cierre, 'monto': Decimal('5.0'), 'concepto': 'Bono Cierre Asesor'})
+
+    # --- Guardado en Base de Datos ---
+    if comisiones_a_registrar:
+        total_comisiones_pagadas = sum(c['monto'] for c in comisiones_a_registrar)
+        sobrante_empresa = POOL_COMISIONES - total_comisiones_pagadas
+
         try:
             with conn.cursor() as cur:
-                sql = """
-                    INSERT INTO comisiones_generadas (contrato_nro, cliente_id, nombre_beneficiario, monto_comision, concepto)
-                    VALUES (%s, %s, %s, %s, %s)
+                sql_comisiones = """
+                    INSERT INTO comisiones_generadas (contrato_nro, cliente_id, nombre_beneficiario, monto_comision, concepto, estado_nomina)
+                    VALUES (%s, %s, %s, %s, %s, 'Pendiente')
                 """
-                for beneficiario, data in comisiones.items():
-                    if data['monto'] > 0:
-                         cur.execute(sql, (contrato_nro, cliente_id, beneficiario, data['monto'], data['concepto']))
-            
-            logging.info(f"COMISIONES: Pre-registro de comisiones para contrato {contrato_nro}: {comisiones}")
+                for comision in comisiones_a_registrar:
+                    if comision['monto'] > 0:
+                         cur.execute(sql_comisiones, (contrato_nro, cliente_id, comision['beneficiario'], comision['monto'], comision['concepto']))
+                
+                # Guardamos el sobrante en la tabla principal para análisis
+                sql_sobrante = """
+                    UPDATE caja_inscripciones SET sobrante_empresa = %s WHERE contrato_nro = %s
+                """
+                cur.execute(sql_sobrante, (sobrante_empresa, contrato_nro))
+
+            logging.info(f"COMISIONES v2.0: Contrato {contrato_nro} procesado. Total a pagar: ${total_comisiones_pagadas:,.2f}. Sobrante: ${sobrante_empresa:,.2f}.")
         except psycopg2.Error as e:
-            logging.error(f"COMISIONES: Error al guardar comisiones: {e}")
+            logging.error(f"COMISIONES v2.0: Error al guardar comisiones para contrato {contrato_nro}: {e}")
             raise e
 
 # =================================================================================
@@ -440,46 +490,69 @@ def gestion_administrativa():
     return render_template('gestion_administrativa.html', anio_actual=get_venezuela_current_date().year)
 
 # --- INICIO DE CAMBIO: Nuevas rutas para el Módulo Comercial ---
+
+# REEMPLAZO 2: RUTA DEL DASHBOARD COMERCIAL MEJORADA
 @app.route('/comercial/dashboard')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def dashboard_comercial():
     conn = get_db()
+    contratos = []
+    resumen_asesores = []
+    
+    # Nuevo diccionario de estadísticas generales
     stats = {
         'total_caja_inscripciones': Decimal('0.0'),
-        'comisiones_pendientes_monto': Decimal('0.0'),
-        'comisiones_pendientes_cantidad': 0
+        'total_comisiones_pendientes': Decimal('0.0'),
+        'total_sobrante_pendiente': Decimal('0.0')
     }
-    comisiones_pendientes = []
 
     if conn:
         try:
             with conn.cursor() as cur:
-                # 1. Calcular total de la caja de inscripciones
-                cur.execute("SELECT COALESCE(SUM(monto_inscripcion), 0) FROM caja_inscripciones;")
-                stats['total_caja_inscripciones'] = cur.fetchone()[0] or Decimal('0.0')
-
-                # 2. Obtener comisiones pendientes
+                # 1. Obtener la lista de contratos registrados en la caja de inscripciones
                 cur.execute("""
-                    SELECT com.*, cli.nombre, cli.apellido 
-                    FROM comisiones_generadas com
-                    LEFT JOIN clientes cli ON com.cliente_id = cli.id
-                    WHERE com.estado_nomina = 'Pendiente'
-                    ORDER BY com.fecha_generacion ASC, com.nombre_beneficiario ASC;
+                    SELECT 
+                        ci.contrato_nro,
+                        ci.fecha_registro,
+                        ci.monto_inscripcion,
+                        ci.responsable_cierre,
+                        ci.sobrante_empresa,
+                        cli.nombre,
+                        cli.apellido,
+                        cli.plan_contratado,
+                        cli.id as cliente_id
+                    FROM caja_inscripciones ci
+                    JOIN clientes cli ON ci.cliente_id = cli.id
+                    ORDER BY ci.fecha_registro DESC;
                 """)
-                comisiones_pendientes = cur.fetchall()
+                contratos = cur.fetchall()
 
-                if comisiones_pendientes:
-                    stats['comisiones_pendientes_monto'] = sum(c['monto_comision'] for c in comisiones_pendientes)
-                    stats['comisiones_pendientes_cantidad'] = len(comisiones_pendientes)
+                # 2. Obtener el resumen de deudas por asesor (comisiones pendientes)
+                cur.execute("""
+                    SELECT nombre_beneficiario, SUM(monto_comision) as total_pendiente
+                    FROM comisiones_generadas
+                    WHERE estado_nomina = 'Pendiente'
+                    GROUP BY nombre_beneficiario
+                    ORDER BY total_pendiente DESC;
+                """)
+                resumen_asesores = cur.fetchall()
+                
+                # 3. Calcular las estadísticas generales
+                if contratos:
+                    stats['total_caja_inscripciones'] = sum(c['monto_inscripcion'] for c in contratos)
+                    stats['total_sobrante_pendiente'] = sum(c['sobrante_empresa'] for c in contratos if c['sobrante_empresa'] is not None)
+
+                if resumen_asesores:
+                    stats['total_comisiones_pendientes'] = sum(a['total_pendiente'] for a in resumen_asesores)
 
         except psycopg2.Error as e:
             flash(f"Error al cargar el dashboard comercial: {e}", "danger")
 
-    # Renderiza la nueva plantilla del dashboard comercial
     return render_template('dashboard_comercial.html',
                            stats=stats,
-                           comisiones=comisiones_pendientes,
+                           contratos=contratos,
+                           resumen_asesores=resumen_asesores,
                            anio_actual=get_venezuela_current_date().year)
 
 @app.route('/comercial/pagar_nomina', methods=['POST'])
@@ -502,7 +575,7 @@ def pagar_nomina_comercial():
                 return redirect(url_for('dashboard_comercial'))
 
             # Marcar todas las comisiones pendientes como pagadas
-            cur.execute("UPDATE comisiones_generadas SET estado_nomina = 'Pagada' WHERE estado_nomina = 'Pendiente';")
+            cur.execute("UPDATE comisiones_generadas SET estado_nomina = 'Pagada', fecha_pago_nomina = NOW() WHERE estado_nomina = 'Pendiente';")
             
             # Registrar auditoría
             descripcion_auditoria = f"Procesó el pago de la nómina comercial por un total de ${monto_total_nomina:,.2f}."
@@ -577,8 +650,61 @@ def flujo_caja_comercial():
                            resumen=resumen,
                            historial=historial,
                            anio_actual=get_venezuela_current_date().year)
-# --- FIN DE CAMBIO ---
 
+# ADICIÓN 1: NUEVA RUTA PARA OBTENER EL SPLIT DE COMISIONES (AJAX)
+@app.route('/comercial/split_contrato/<string:contrato_nro>')
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def get_split_contrato(contrato_nro):
+    conn = get_db()
+    if not conn:
+        return jsonify({'error': 'Error de conexión'}), 500
+
+    try:
+        with conn.cursor() as cur:
+            # Obtener el desglose de comisiones
+            cur.execute("""
+                SELECT nombre_beneficiario, concepto, monto_comision
+                FROM comisiones_generadas
+                WHERE contrato_nro = %s
+                ORDER BY monto_comision DESC;
+            """, (contrato_nro,))
+            comisiones = cur.fetchall()
+
+            # Obtener datos del contrato para calcular el sobrante
+            cur.execute("""
+                SELECT cli.plan_contratado, ci.sobrante_empresa
+                FROM caja_inscripciones ci
+                JOIN clientes cli ON ci.cliente_id = cli.id
+                WHERE ci.contrato_nro = %s;
+            """, (contrato_nro,))
+            contrato_info = cur.fetchone()
+
+            if not contrato_info:
+                return jsonify({'error': 'Contrato no encontrado'}), 404
+
+            # Preparar la respuesta JSON
+            pool_total = contrato_info['plan_contratado'] * Decimal('0.16')
+            total_pagado = sum(c['monto_comision'] for c in comisiones)
+            
+            # Formatear para JSON
+            comisiones_json = [{'beneficiario': c['nombre_beneficiario'], 'concepto': c['concepto'], 'monto': f"{c['monto_comision']:,.2f}"} for c in comisiones]
+
+            response_data = {
+                'comisiones': comisiones_json,
+                'resumen': {
+                    'pool_total': f"{pool_total:,.2f}",
+                    'total_comisiones': f"{total_pagado:,.2f}",
+                    'sobrante_empresa': f"{contrato_info['sobrante_empresa']:,.2f}" if contrato_info['sobrante_empresa'] is not None else "N/A"
+                }
+            }
+            return jsonify(response_data)
+
+    except psycopg2.Error as e:
+        logging.error(f"Error en get_split_contrato para {contrato_nro}: {e}")
+        return jsonify({'error': 'Error al consultar la base de datos'}), 500
+
+# --- FIN DE CAMBIO ---
 
 @app.route('/mi_cartera')
 @admin_required
