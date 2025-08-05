@@ -296,34 +296,37 @@ def tesoreria_rebalanceo():
         try:
             form = request.form
             tipo_operacion = form.get('tipo_operacion')
+            nota = form.get('nota')
             caja_origen = form.get('caja_origen')
             monto_origen_str = form.get('monto_origen', '0').replace(',', '.')
-            moneda_origen = form.get('moneda_origen')
-            caja_destino = form.get('caja_destino')
-            monto_destino_str = form.get('monto_destino', '0').replace(',', '.')
-            moneda_destino = form.get('moneda_destino')
-            tasa_aplicada_str = form.get('tasa_aplicada', '0').replace(',', '.')
-            nota = form.get('nota')
+            moneda_origen = form.get('moneda_origen') # Auto-completado por JS
             
             monto_origen = Decimal(monto_origen_str)
-            monto_destino = Decimal(monto_destino_str) if monto_destino_str else None
-            tasa_aplicada = Decimal(tasa_aplicada_str) if tasa_aplicada_str else None
 
-            if not all([tipo_operacion, caja_origen, monto_origen > 0, moneda_origen, caja_destino, nota]):
-                flash("Error: Todos los campos son obligatorios, y el monto debe ser mayor a cero.", 'danger')
+            if not all([tipo_operacion, caja_origen, monto_origen > 0, nota]):
+                flash("Error: Tipo, Nota, Caja Origen y Monto son obligatorios.", 'danger')
                 return redirect(url_for('tesoreria_rebalanceo'))
 
             if balances_actuales.get(caja_origen, Decimal('0.0')) < monto_origen:
-                flash(f"Error: Fondos insuficientes en la caja '{caja_origen}'. Saldo actual: {balances_actuales.get(caja_origen, 0):,.2f}", 'danger')
+                flash(f"Error: Fondos insuficientes en '{caja_origen}'.", 'danger')
                 return redirect(url_for('tesoreria_rebalanceo'))
             
-            if caja_destino == 'GASTO_OPERATIVO' and not monto_destino:
+            caja_destino = form.get('caja_destino')
+            monto_destino_str = form.get('monto_destino', '0').replace(',', '.')
+            moneda_destino = form.get('moneda_destino') # Auto-completado por JS
+            tasa_aplicada_str = form.get('tasa_aplicada', '0').replace(',', '.')
+
+            monto_destino = Decimal(monto_destino_str) if monto_destino_str and monto_destino_str != '0' else None
+            tasa_aplicada = Decimal(tasa_aplicada_str) if tasa_aplicada_str and tasa_aplicada_str != '0' else None
+
+            if tipo_operacion == 'PAGO_GASTO':
+                caja_destino = 'GASTO_OPERATIVO'
                 monto_destino = monto_origen
                 moneda_destino = moneda_origen
-
-            if not monto_destino:
-                 flash("Error: El monto destino es obligatorio para transferencias.", 'danger')
-                 return redirect(url_for('tesoreria_rebalanceo'))
+            
+            if not caja_destino or not monto_destino or not moneda_destino:
+                flash("Error: Para transferencias, el destino es obligatorio.", 'danger')
+                return redirect(url_for('tesoreria_rebalanceo'))
 
             with conn.cursor() as cur:
                 cur.execute("""
@@ -332,7 +335,7 @@ def tesoreria_rebalanceo():
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), 0)
                 """, (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, tasa_aplicada, nota, g.admin['id']))
             
-            descripcion = f"Tesoreria: {tipo_operacion} de {monto_origen:,.2f} {moneda_origen} desde {caja_origen} hacia {caja_destino}."
+            descripcion = f"Tesoreria: {tipo_operacion} de {monto_origen:,.2f} {moneda_origen} desde {caja_origen}."
             registrar_accion_auditoria('MOVIMIENTO_TESORERIA', descripcion)
 
             conn.commit()
