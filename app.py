@@ -144,7 +144,6 @@ def registrar_ingreso_caja_inscripciones(contrato_nro, cliente_id, monto_inscrip
         logging.error(f"CAJA_INSCRIPCIONES: Error al registrar ingreso: {e}")
         raise e
 
-# ===== INICIO DE FUNCIÓN MODIFICADA (v2.3) =====
 def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_dueno, responsable_cierre):
     """
     Calcula las comisiones según las reglas de negocio dinámicas (v2.3) y las guarda para la nómina.
@@ -233,7 +232,6 @@ def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_d
         except psycopg2.Error as e:
             logging.error(f"COMISIONES v2.3: Error al guardar comisiones para contrato {contrato_nro}: {e}")
             raise e
-# ===== FIN DE FUNCIÓN MODIFICADA =====
 
 # =================================================================================
 # ===== MÓDULO DE TESORERÍA Y REBALANCEO =====
@@ -535,7 +533,7 @@ def gestion_administrativa():
 
 # --- INICIO DE CAMBIO: Nuevas rutas para el Módulo Comercial ---
 
-# ===== INICIO RUTA MODIFICADA (v2.1) =====
+# ===== INICIO RUTA MODIFICADA (v2.2) =====
 @app.route('/comercial/dashboard')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -553,11 +551,13 @@ def dashboard_comercial():
     if conn:
         try:
             with conn.cursor() as cur:
+                # Se añade cli.asesor y ci.responsable_cierre a la consulta
                 cur.execute("""
                     SELECT 
                         ci.contrato_nro,
                         ci.fecha_registro,
                         ci.monto_inscripcion,
+                        cli.asesor,
                         ci.responsable_cierre,
                         ci.sobrante_empresa,
                         cli.nombre,
@@ -735,6 +735,7 @@ def flujo_caja_comercial():
         anio_actual=today.year
     )
 
+# ===== INICIO RUTA MODIFICADA (v2.1) =====
 @app.route('/comercial/split_contrato/<string:contrato_nro>')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -754,7 +755,7 @@ def get_split_contrato(contrato_nro):
             """, (contrato_nro,))
             comisiones = cur.fetchall()
 
-            # Obtener datos del contrato para calcular el sobrante
+            # Obtener datos del contrato
             cur.execute("""
                 SELECT cli.plan_contratado, ci.sobrante_empresa
                 FROM caja_inscripciones ci
@@ -766,8 +767,17 @@ def get_split_contrato(contrato_nro):
             if not contrato_info:
                 return jsonify({'error': 'Contrato no encontrado'}), 404
 
+            # ===== INICIO DE CORRECCIÓN: CONVERSIÓN SEGURA DE DATOS =====
+            try:
+                # Nos aseguramos de que el valor del plan sea un número decimal
+                plan_contratado_decimal = Decimal(contrato_info['plan_contratado'])
+            except (TypeError, InvalidOperation, ValueError):
+                # Si falla la conversión, lo tratamos como 0 para evitar que la app se caiga
+                plan_contratado_decimal = Decimal('0.00')
+            # ===== FIN DE CORRECCIÓN =====
+
             # Preparar la respuesta JSON
-            pool_total = contrato_info['plan_contratado'] * Decimal('0.16')
+            pool_total = plan_contratado_decimal * Decimal('0.16')
             total_pagado = sum(c['monto_comision'] for c in comisiones)
             
             # Formatear para JSON
@@ -786,6 +796,8 @@ def get_split_contrato(contrato_nro):
     except psycopg2.Error as e:
         logging.error(f"Error en get_split_contrato para {contrato_nro}: {e}")
         return jsonify({'error': 'Error al consultar la base de datos'}), 500
+# ===== FIN RUTA MODIFICADA =====
+
 
 @app.route('/comercial/rebalanceo', methods=['GET', 'POST'])
 @admin_required
@@ -1971,7 +1983,7 @@ def guardar_oferta(client_id):
             cur.execute("INSERT INTO ofertas (cliente_id, cuotas_ofertadas, fecha_oferta, estado_oferta) VALUES (%s, %s, %s, 'activa')", (client_id, int(cuotas_ofertadas), hoy))
             
             descripcion_audit = f"Registró una oferta de {cuotas_ofertadas} cuotas para el cliente {nombre_cliente}."
-            registrar_accion_auditoria('REGISTRO_OFERTA', descripcion_audit, client_id)
+            registrar_accion_auditoria('REGISTRO_OFERTA', descripcion_audit, cliente_id)
             
             conn.commit()
             flash(f"¡Oferta de {cuotas_ofertadas} cuotas registrada exitosamente!", 'success')

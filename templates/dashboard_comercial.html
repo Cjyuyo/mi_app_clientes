@@ -56,6 +56,9 @@
             font-weight: bold;
             border-top: 2px solid #dee2e6;
         }
+        .actions-cell {
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -73,8 +76,9 @@
         <h1><i class="bi bi-briefcase-fill"></i> Dashboard Comercial v2.0</h1>
     </header>
 
-    <main class="container my-4">
-        <div class="row g-4 mb-4">
+    <main class="container my-5">
+        <!-- SECCIÓN DE ESTADÍSTICAS GENERALES -->
+        <div class="row g-4 mb-5">
             <div class="col-lg-4 col-md-6">
                 <div class="stat-card">
                     <div class="stat-title">Caja de Inscripciones (Bruto)</div>
@@ -96,6 +100,7 @@
         </div>
 
         <div class="row g-4">
+            <!-- SECCIÓN PRINCIPAL: LISTA DE CONTRATOS -->
             <div class="col-lg-8">
                 <div class="card shadow-sm">
                     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
@@ -111,8 +116,8 @@
                                         <th>Contrato N°</th>
                                         <th>Cliente</th>
                                         <th class="text-end">Plan</th>
-                                        <th class="text-end">Pagado ($)</th>
-                                        <th>Cierre</th>
+                                        <th>Asesor</th>
+                                        <th>Responsable</th>
                                         <th class="text-center">Acciones</th>
                                     </tr>
                                 </thead>
@@ -121,14 +126,17 @@
                                     <tr>
                                         <td>{{ contrato.fecha_registro | format_date }}</td>
                                         <td>{{ contrato.contrato_nro }}</td>
-                                        <td><a href="{{ url_for('perfil_cliente', cliente_id=contrato.cliente_id) }}" class="text-decoration-none">{{ contrato.nombre }} {{ contrato.apellido }}</a></td>
+                                        <td>{{ contrato.nombre }} {{ contrato.apellido }}</td>
                                         <td class="text-end">${{ "{:,.2f}".format(contrato.plan_contratado) }}</td>
-                                        <td class="text-end fw-bold">${{ "{:,.2f}".format(contrato.monto_inscripcion) }}</td>
+                                        <td>{{ contrato.asesor }}</td>
                                         <td>{{ contrato.responsable_cierre }}</td>
-                                        <td class="text-center">
+                                        <td class="text-center actions-cell">
                                             <button class="btn btn-sm btn-info ver-split-btn" data-bs-toggle="modal" data-bs-target="#splitModal" data-contrato-nro="{{ contrato.contrato_nro }}">
-                                                Ver Split
+                                                Split
                                             </button>
+                                            <a href="{{ url_for('perfil_cliente', cliente_id=contrato.cliente_id) }}" class="btn btn-sm btn-outline-secondary">
+                                                Ver
+                                            </a>
                                         </td>
                                     </tr>
                                     {% else %}
@@ -145,16 +153,17 @@
                 </div>
             </div>
 
+            <!-- SECCIÓN SECUNDARIA: RESUMEN POR ASESOR Y ACCIONES -->
             <div class="col-lg-4">
                 <div class="card shadow-sm">
                     <div class="card-header bg-white py-3">
-                        <h4 class="mb-0"><i class="bi bi-people-fill me-2"></i>Nómina Pendiente por Asesor</h4>
+                        <h4 class="mb-0"><i class="bi bi-people-fill me-2"></i>Nómina Pendiente por Beneficiario</h4>
                     </div>
                     <ul class="list-group list-group-flush">
-                        {% for asesor in resumen_asesores %}
+                        {% for beneficiario in resumen_asesores %}
                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                            {{ asesor.nombre_beneficiario }}
-                            <span class="badge bg-danger rounded-pill">${{ "{:,.2f}".format(asesor.total_pendiente) }}</span>
+                            {{ beneficiario.nombre_beneficiario }}
+                            <span class="badge bg-danger rounded-pill">${{ "{:,.2f}".format(beneficiario.total_pendiente) }}</span>
                         </li>
                         {% else %}
                         <li class="list-group-item text-center text-muted p-4">
@@ -179,11 +188,12 @@
                         </form>
                     </div>
                     {% endif %}
-                    </div>
+                </div>
             </div>
         </div>
     </main>
 
+    <!-- MODAL PARA "VER SPLIT" -->
     <div class="modal fade" id="splitModal" tabindex="-1" aria-labelledby="splitModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
