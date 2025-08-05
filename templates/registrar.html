@@ -226,12 +226,12 @@
                 </div>
 
                 <div class="form-group" id="asesor-container">
-                    <label for="asesor-placeholder">2. Asesor (Dueño del Cliente)</label>
+                    <label for="asesor-placeholder">2. Asesor</label>
                     <input type="text" id="asesor-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>
                 </div>
 
                 <div class="form-group" id="responsable-container">
-                    <label for="responsable-placeholder">3. Responsable (Quién cerró)</label>
+                    <label for="responsable-placeholder">3. Responsable</label>
                     <input type="text" id="responsable-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>
                 </div>
                 <div class="form-group">
@@ -251,25 +251,14 @@
     </form>
 </div>
 
-<div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title" id="cameraModalLabel">Capturar Foto</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
-      <div class="modal-body text-center">
-        <div class="live-view"><video id="video-feed" autoplay playsinline muted class="bg-dark rounded"></video></div>
-        <div class="confirmation-view"><p><strong>¿Desea usar esta foto?</strong></p><canvas id="capture-canvas" class="rounded"></canvas></div>
-      </div>
-      <div class="modal-footer">
-        </div>
+<div class="modal fade" id="cameraModal" tabindex="-1" aria-hidden="true">
     </div>
-  </div>
-</div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     
-    // Lógica para el desplegable de planes (sin cambios)
+    // Lógica para el desplegable de planes
     const planSelect = document.getElementById('plan_contratado');
     const inscripcionInput = document.getElementById('inscripcion_monto');
     const montoInicial = 1100, montoFinal = 4000, incremento = 50;
@@ -287,25 +276,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // ===== INICIO DE CAMBIO: LÓGICA DEFINITIVA PARA ESCENARIOS =====
+    // ===== INICIO DE LÓGICA DEFINITIVA PARA ESCENARIOS v3 =====
     const escenarioSelect = document.getElementById('escenario_cierre');
     const asesorContainer = document.getElementById('asesor-container');
     const responsableContainer = document.getElementById('responsable-container');
     const asesorHiddenInput = document.getElementById('asesor-hidden-input');
     const responsableHiddenInput = document.getElementById('responsable-hidden-input');
-    
-    // Lista de asesores (esto debería venir del backend en el futuro)
-    const listaAsesores = ["Gabriel", "Sugey", "Pedro", "Maria", "Otro"];
 
     escenarioSelect.addEventListener('change', function() {
         const escenario = this.value;
 
-        // Limpiar contenedores y valores ocultos
+        // --- Limpiar contenedores y valores ocultos ---
         asesorContainer.innerHTML = '';
         responsableContainer.innerHTML = '';
         asesorHiddenInput.value = '';
         responsableHiddenInput.value = '';
-
+        
         const updateAsesorHidden = (value) => {
             asesorHiddenInput.value = value;
             asesorHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -317,70 +303,66 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (!escenario) {
             // Estado por defecto: todo deshabilitado
-            asesorContainer.innerHTML = `<label for="asesor-placeholder">2. Asesor (Dueño del Cliente)</label><input type="text" id="asesor-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>`;
-            responsableContainer.innerHTML = `<label for="responsable-placeholder">3. Responsable (Quién cerró)</label><input type="text" id="responsable-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>`;
+            asesorContainer.innerHTML = `<label for="asesor-placeholder">2. Asesor</label><input type="text" id="asesor-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>`;
+            responsableContainer.innerHTML = `<label for="responsable-placeholder">3. Responsable</label><input type="text" id="responsable-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>`;
             updateAsesorHidden('');
             updateResponsableHidden('');
             return;
         }
 
-        // Lógica para el campo ASESOR
+        // --- LÓGICA PARA CONSTRUIR DINÁMICAMENTE LOS CAMPOS ---
+        
+        // El campo Responsable es SIEMPRE un campo de texto libre
+        responsableContainer.innerHTML = `
+            <label for="responsable-text">3. Responsable</label>
+            <input type="text" id="responsable-text" class="form-control form-control-validate" required>
+        `;
+        const responsableText = document.getElementById('responsable-text');
+        responsableText.addEventListener('input', () => updateResponsableHidden(responsableText.value));
+        
         if (escenario === 'Asesor') {
+            // -- Asesor es TEXTO --
             asesorContainer.innerHTML = `
-                <label for="asesor-text">2. Asesor (Dueño del Cliente)</label>
+                <label for="asesor-text">2. Asesor</label>
                 <input type="text" id="asesor-text" class="form-control form-control-validate" required>
             `;
             const asesorText = document.getElementById('asesor-text');
             asesorText.addEventListener('input', () => updateAsesorHidden(asesorText.value));
             asesorText.focus();
-        } else { // Gerencia o Presidencia
-            let asesorOptions = '<option value="" selected disabled>Seleccione un asesor...</option>';
-            listaAsesores.forEach(asesor => {
-                asesorOptions += `<option value="${asesor}">${asesor}</option>`;
+
+        } else if (escenario === 'Gerencia') {
+            // -- Asesor es DESPLEGABLE --
+            asesorContainer.innerHTML = `
+                <label for="asesor-select">2. Asesor</label>
+                <select id="asesor-select" class="form-select form-control-validate" required>
+                    <option value="Yusbelis Espinoza" selected>Yusbelis Espinoza</option>
+                </select>
+            `;
+            updateAsesorHidden('Yusbelis Espinoza');
+            responsableText.focus();
+
+        } else if (escenario === 'Presidencia') {
+            // -- Asesor es DESPLEGABLE --
+            let asesorOptions = '<option value="" selected disabled>Seleccione presidente...</option>';
+            ['Carlos Ramirez', 'Karielsy Rios'].forEach(p => {
+                asesorOptions += `<option value="${p}">${p}</option>`;
             });
             asesorContainer.innerHTML = `
-                <label for="asesor-select">2. Asesor (Dueño del Cliente)</label>
+                <label for="asesor-select">2. Asesor</label>
                 <select id="asesor-select" class="form-select form-control-validate" required>${asesorOptions}</select>
             `;
             const asesorSelect = document.getElementById('asesor-select');
             asesorSelect.addEventListener('change', () => updateAsesorHidden(asesorSelect.value));
         }
-
-        // Lógica para el campo RESPONSABLE
-        if (escenario === 'Asesor') {
-            responsableContainer.innerHTML = `
-                <label for="responsable-text">3. Responsable (Quién cerró)</label>
-                <input type="text" id="responsable-text" class="form-control form-control-validate" required>
-            `;
-            const responsableText = document.getElementById('responsable-text');
-            responsableText.addEventListener('input', () => updateResponsableHidden(responsableText.value));
-        } else if (escenario === 'Gerencia') {
-            responsableContainer.innerHTML = `
-                <label for="responsable-text-gerencia">3. Responsable (Quién cerró)</label>
-                <input type="text" id="responsable-text-gerencia" class="form-control" value="Yusbelis Espinoza" disabled>
-            `;
-            updateResponsableHidden('Yusbelis Espinoza');
-        } else if (escenario === 'Presidencia') {
-            responsableContainer.innerHTML = `
-                <label for="responsable-select-presidencia">3. Responsable (Quién cerró)</label>
-                <select id="responsable-select-presidencia" class="form-select form-control-validate" required>
-                    <option value="" selected disabled>Seleccione...</option>
-                    <option value="Karielsy Rios">Karielsy Rios</option>
-                    <option value="Carlos Ramirez">Carlos Ramirez</option>
-                </select>
-            `;
-            const responsableSelect = document.getElementById('responsable-select-presidencia');
-            responsableSelect.addEventListener('change', () => updateResponsableHidden(responsableSelect.value));
-        }
         
-        // Disparar la validación inicial
-        asesorHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
-        responsableHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
+        // Disparar la validación inicial para actualizar el estado del botón
+        updateAsesorHidden(asesorHiddenInput.value);
+        updateResponsableHidden(responsableHiddenInput.value);
     });
     // ===== FIN DE CAMBIO =====
 
 
-    // Lógica de la cámara (sin cambios)
+    // Lógica de la cámara y validación del formulario (sin cambios)
     const cameraModal = document.getElementById('cameraModal');
     // ... (El resto del script de la cámara permanece idéntico) ...
     const video = document.getElementById('video-feed');
