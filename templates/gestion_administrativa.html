@@ -43,6 +43,7 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            position: relative; /* Para la notificación */
         }
         .tool-card:hover {
             transform: translateY(-8px);
@@ -66,12 +67,40 @@
             padding: 10px 30px;
             border-radius: 50px;
         }
+        .notification-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            height: 30px;
+            width: 30px;
+            background-color: #dc3545;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            border: 2px solid white;
+        }
         .footer {
             text-align: center;
             padding: 20px;
             margin-top: 40px;
             color: #6c757d;
         }
+        /* --- INICIO DE CAMBIO: Estilos para nuevos colores de botones --- */
+        .btn-outline-purple {
+            --bs-btn-color: #6f42c1;
+            --bs-btn-border-color: #6f42c1;
+            --bs-btn-hover-color: #fff;
+            --bs-btn-hover-bg: #6f42c1;
+            --bs-btn-hover-border-color: #6f42c1;
+            --bs-btn-active-color: #fff;
+            --bs-btn-active-bg: #6f42c1;
+            --bs-btn-active-border-color: #6f42c1;
+        }
+        /* --- FIN DE CAMBIO --- */
     </style>
 </head>
 <body>
@@ -99,18 +128,7 @@
     <main class="container my-5">
         <div class="row g-4">
 
-            <div class="col-lg-4 col-md-6">
-                <a href="{{ url_for('dashboard_comercial') }}" class="text-decoration-none">
-                    <div class="tool-card">
-                        <div>
-                            <div class="icon" style="color: #198754;"><i class="bi bi-briefcase-fill"></i></div>
-                            <h5 class="card-title">Módulo Comercial</h5>
-                            <p class="card-text text-muted">Gestiona comisiones, sobrantes y la nómina de asesores.</p>
-                        </div>
-                        <span class="btn btn-outline-success mt-3">Gestionar Comisiones</span>
-                    </div>
-                </a>
-            </div>
+            <!-- 1. Tesorería General -->
             <div class="col-lg-4 col-md-6">
                 <a href="{{ url_for('reporte_flujo_caja') }}" class="text-decoration-none">
                     <div class="tool-card">
@@ -123,31 +141,39 @@
                     </div>
                 </a>
             </div>
+
+            <!-- 2. Movimientos de Tesorería -->
             <div class="col-lg-4 col-md-6">
                 <a href="{{ url_for('tesoreria_rebalanceo') }}" class="text-decoration-none">
                     <div class="tool-card">
                         <div>
-                            <div class="icon" style="color: #198754;"><i class="bi bi-arrow-left-right"></i></div>
+                            <div class="icon" style="color: #0dcaf0;"><i class="bi bi-arrow-left-right"></i></div>
                             <h5 class="card-title">Movimientos de Tesorería</h5>
                             <p class="card-text text-muted">Registra transferencias internas, compra/venta de divisas y gastos.</p>
                         </div>
-                        <span class="btn btn-outline-success mt-3">Registrar Movimiento</span>
+                        <span class="btn btn-outline-info mt-3">Registrar Movimiento</span>
                     </div>
                 </a>
             </div>
 
+            <!-- 3. Pagos por Conciliar -->
             <div class="col-lg-4 col-md-6">
-                <a href="{{ url_for('mi_cartera') }}" class="text-decoration-none">
+                <a href="{{ url_for('pagos_por_conciliar') }}" class="text-decoration-none">
                     <div class="tool-card">
+                        {% if pagos_pendientes_count > 0 %}
+                            <span class="notification-badge">{{ pagos_pendientes_count }}</span>
+                        {% endif %}
                         <div>
-                            <div class="icon" style="color: #0d6efd;"><i class="bi bi-person-badge-fill"></i></div>
-                            <h5 class="card-title">Mi Cartera</h5>
-                            <p class="card-text text-muted">Visualiza y gestiona los clientes que te han sido asignados.</p>
+                            <div class="icon" style="color: #ffc107;"><i class="bi bi-clock-history"></i></div>
+                            <h5 class="card-title">Pagos por Conciliar</h5>
+                            <p class="card-text text-muted">Revisa y procesa todos los pagos pendientes de aprobación.</p>
                         </div>
-                        <span class="btn btn-outline-primary mt-3">Ver Mi Cartera</span>
+                        <span class="btn btn-outline-warning mt-3">Ir a Conciliación</span>
                     </div>
                 </a>
             </div>
+
+            <!-- 4. Reporte de Morosidad -->
             <div class="col-lg-4 col-md-6">
                 <a href="{{ url_for('reporte_morosidad') }}" class="text-decoration-none">
                     <div class="tool-card">
@@ -161,27 +187,58 @@
                 </a>
             </div>
 
+            <!-- 5. Mi Cartera -->
+            <div class="col-lg-4 col-md-6">
+                <a href="{{ url_for('mi_cartera') }}" class="text-decoration-none">
+                    <div class="tool-card">
+                        <div>
+                            <div class="icon" style="color: #0d6efd;"><i class="bi bi-person-badge-fill"></i></div>
+                            <h5 class="card-title">Mi Cartera</h5>
+                            <p class="card-text text-muted">Visualiza y gestiona los clientes que te han sido asignados.</p>
+                        </div>
+                        <span class="btn btn-outline-primary mt-3">Ver Mi Cartera</span>
+                    </div>
+                </a>
+            </div>
+            
+            <!-- 6. Módulo Comercial -->
+            <div class="col-lg-4 col-md-6">
+                <a href="{{ url_for('dashboard_comercial') }}" class="text-decoration-none">
+                    <div class="tool-card">
+                        <div>
+                            <div class="icon" style="color: #6f42c1;"><i class="bi bi-briefcase-fill"></i></div>
+                            <h5 class="card-title">Módulo Comercial</h5>
+                            <p class="card-text text-muted">Gestiona comisiones, sobrantes y la nómina de asesores.</p>
+                        </div>
+                        <span class="btn btn-outline-purple mt-3">Gestionar Comisiones</span>
+                    </div>
+                </a>
+            </div>
+
+            <!-- 7. Métricas del Negocio -->
             <div class="col-lg-4 col-md-6">
                 <a href="{{ url_for('reporte_metricas') }}" class="text-decoration-none">
                     <div class="tool-card">
                         <div>
-                            <div class="icon" style="color: #343a40;"><i class="bi bi-bar-chart-line-fill"></i></div>
+                            <div class="icon" style="color: #fd7e14;"><i class="bi bi-bar-chart-line-fill"></i></div>
                             <h5 class="card-title">Métricas del Negocio</h5>
                             <p class="card-text text-muted">Visualiza el dashboard 360° con los indicadores clave de rendimiento (KPIs).</p>
                         </div>
-                        <span class="btn btn-outline-dark mt-3">Ver Dashboard</span>
+                        <span class="btn btn-outline-warning mt-3">Ver Dashboard</span>
                     </div>
                 </a>
             </div>
+
+            <!-- 8. Visor de Auditoría -->
             <div class="col-lg-4 col-md-6">
                 <a href="{{ url_for('auditoria') }}" class="text-decoration-none">
                     <div class="tool-card">
                         <div>
-                            <div class="icon" style="color: #343a40;"><i class="bi bi-journal-check"></i></div>
+                            <div class="icon" style="color: #6c757d;"><i class="bi bi-journal-check"></i></div>
                             <h5 class="card-title">Visor de Auditoría</h5>
                             <p class="card-text text-muted">Consulta el registro de todas las acciones críticas realizadas en el sistema.</p>
                         </div>
-                        <span class="btn btn-outline-dark mt-3">Consultar Logs</span>
+                        <span class="btn btn-outline-secondary mt-3">Consultar Logs</span>
                     </div>
                 </a>
             </div>

@@ -4,7 +4,7 @@ import psycopg2.extras
 from flask import Flask, render_template, request, g, flash, redirect, url_for, session, Response, jsonify
 from dotenv import load_dotenv
 from decimal import Decimal, InvalidOperation
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, time
 from calendar import monthrange
 import random
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -35,6 +35,28 @@ def get_venezuela_current_date():
 # =================================================================================
 # ===== FUNCIONES DE UTILIDAD Y FILTROS JINJA =====
 # =================================================================================
+
+# --- INICIO DE CAMBIO: Función para próximo día hábil y filtro de fecha/hora ---
+def get_proximo_dia_habil(fecha):
+    """Calcula el próximo día hábil a partir de una fecha dada, saltando fines de semana."""
+    proximo_dia = fecha + timedelta(days=1)
+    while proximo_dia.weekday() >= 5:  # 5 = Sábado, 6 = Domingo
+        proximo_dia += timedelta(days=1)
+    return proximo_dia
+
+@app.template_filter('format_datetime')
+def format_datetime_filter(value, format='%d/%m/%Y %I:%M %p'):
+    """Filtro de Jinja para formatear fechas y horas a la zona horaria de Venezuela."""
+    if isinstance(value, (datetime, date)):
+        # Si el datetime es 'naive' (sin zona horaria), se asume UTC y se convierte a VET
+        if value.tzinfo is None:
+            value = pytz.utc.localize(value).astimezone(VENEZUELA_TZ)
+        else:
+            # Si ya tiene zona horaria, solo se convierte a VET
+            value = value.astimezone(VENEZUELA_TZ)
+        return value.strftime(format)
+    return value
+# --- FIN DE CAMBIO ---
 
 def get_nombre_mes(month_number):
     """Convierte el número de un mes a su nombre en español."""
@@ -484,7 +506,97 @@ def hub():
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def gestion_administrativa():
-    return render_template('gestion_administrativa.html', anio_actual=get_venezuela_current_date().year)
+    # --- INICIO DE CAMBIO: Conteo de pagos pendientes ---
+    conn = get_db()
+    pagos_pendientes_count = 0
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM pagos WHERE estado_pago = 'Pendiente'")
+                pagos_pendientes_count = cur.fetchone()[0]
+        except psycopg2.Error as e:
+            logging.error(f"Error al contar pagos pendientes: {e}")
+            flash("No se pudo obtener el contador de pagos pendientes.", "warning")
+            
+    return render_template('gestion_administrativa.html', 
+                           anio_actual=get_venezuela_current_date().year,
+                           pagos_pendientes_count=pagos_pendientes_count)
+    # --- FIN DE CAMBIO ---
+
+# --- INICIO DE CAMBIO: Nueva ruta para el Centro de Conciliación ---
+@app.route('/pagos_por_conciliar')
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora')
+def pagos_por_conciliar():
+    conn = get_db()
+    pagos_a_procesar = []
+    if not conn:
+        flash("Error de conexión con la base de datos.", "danger")
+        return render_template('pagos_por_conciliar.html', pagos=[], anio_actual=get_venezuela_current_date().year)
+
+    try:
+        with conn.cursor() as cur:
+            # Se obtiene la información necesaria, incluyendo el nombre del admin que registró (si aplica)
+            cur.execute("""
+                SELECT 
+                    p.id, p.monto, p.tipo_pago, p.fecha_creacion AS fecha_reporte,
+                    p.reportado_por_cliente, p.estado_reporte,
+                    c.nombre, c.apellido, c.cedula,
+                    COALESCE(a.usuario, 'Cliente') as registrado_por
+                FROM pagos p
+                JOIN clientes c ON p.cliente_id = c.id
+                LEFT JOIN administradores a ON p.registrado_por_id = a.id
+                WHERE p.estado_pago = 'Pendiente'
+                ORDER BY p.fecha_creacion ASC;
+            """)
+            pagos_pendientes = cur.fetchall()
+            
+            now_vet = get_venezuela_current_datetime()
+            hora_corte = time(16, 0) # 4:00 PM
+
+            for pago_row in pagos_pendientes:
+                pago = dict(pago_row)
+                
+                # Asegurar que la fecha de reporte (fecha_creacion) tenga la zona horaria correcta
+                fecha_reporte_naive = pago['fecha_reporte']
+                if fecha_reporte_naive:
+                    fecha_reporte_vet = VENEZUELA_TZ.localize(fecha_reporte_naive) if fecha_reporte_naive.tzinfo is None else fecha_reporte_naive.astimezone(VENEZUELA_TZ)
+                    pago['fecha_reporte'] = fecha_reporte_vet
+
+                    # Lógica de estado de conciliación
+                    if pago['estado_reporte'] == 'Inconsistente':
+                        pago['habilitado'] = False
+                        pago['estado_conciliacion'] = 'Reporte inconsistente'
+                    elif fecha_reporte_vet.date() < now_vet.date():
+                        pago['habilitado'] = True
+                        pago['estado_conciliacion'] = 'Habilitado para conciliar hoy'
+                    elif fecha_reporte_vet.date() == now_vet.date():
+                        if fecha_reporte_vet.time() < hora_corte:
+                            pago['habilitado'] = True
+                            pago['estado_conciliacion'] = 'Habilitado para conciliar hoy'
+                        else:
+                            pago['habilitado'] = False
+                            proximo_dia = get_proximo_dia_habil(now_vet.date())
+                            pago['estado_conciliacion'] = f"Se habilitará el {proximo_dia.strftime('%d/%m')}"
+                    else:
+                        pago['habilitado'] = False
+                        pago['estado_conciliacion'] = 'Fecha de reporte futura'
+                else:
+                    # Caso para pagos antiguos sin fecha_creacion
+                    pago['habilitado'] = True
+                    pago['estado_conciliacion'] = 'Habilitado (legado)'
+
+                pagos_a_procesar.append(pago)
+
+    except psycopg2.Error as e:
+        logging.error(f"Error al obtener pagos por conciliar: {e}")
+        flash("Error al cargar la lista de pagos pendientes.", "danger")
+
+    return render_template('pagos_por_conciliar.html', 
+                           pagos=pagos_a_procesar, 
+                           anio_actual=get_venezuela_current_date().year)
+# --- FIN DE CAMBIO ---
+
 
 # --- INICIO DE CAMBIO: Nuevas rutas para el Módulo Comercial ---
 
@@ -1485,18 +1597,22 @@ def registrar_pago(client_id):
         
         try:
             with conn.cursor() as cur:
+                # --- INICIO DE CAMBIO: Se añade fecha_creacion y registrado_por_id ---
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, 
                                         pago_en, por_concepto_de, referencia, banco, lugar_emision,
-                                        tasa_dia, monto_bs, estado_pago, cuotas_cubiertas, moneda_referencia)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, %s);
+                                        tasa_dia, monto_bs, estado_pago, cuotas_cubiertas, moneda_referencia,
+                                        fecha_creacion, registrado_por_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, %s, %s, %s);
                 """
                 cur.execute(pago_query, (
                     client_id, pago_form['monto'], tipo_pago, pago_form['forma_pago'], 
                     pago_form['fecha_pago'], pago_form.get('pago_en'), pago_form.get('por_concepto_de'), 
                     pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('lugar_emision'), 
-                    pago_form.get('tasa_dia'), pago_form.get('monto_bs'), moneda_referencia
+                    pago_form.get('tasa_dia'), pago_form.get('monto_bs'), moneda_referencia,
+                    get_venezuela_current_datetime(), g.admin['id']
                 ))
+                # --- FIN DE CAMBIO ---
                 conn.commit()
                 flash(f"¡Pago de {tipo_pago} registrado como PENDIENTE! Ahora debe ser conciliado.", 'success')
                 return redirect(url_for('consulta', busqueda=cliente['cedula']))
@@ -1520,7 +1636,26 @@ def conciliar_pago(pago_id):
             pago = cur.fetchone()
             if not pago or pago['estado_pago'] != 'Pendiente':
                 flash("El pago no se puede conciliar (ya está conciliado, anulado o no existe).", 'error')
-                return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
+                return redirect(url_for('pagos_por_conciliar'))
+            
+            # --- INICIO DE CAMBIO: Lógica de restricción de horario ---
+            now_vet = get_venezuela_current_datetime()
+            hora_corte = time(16, 0)
+            fecha_reporte_naive = pago['fecha_creacion']
+            
+            habilitado_para_conciliar = False
+            if fecha_reporte_naive:
+                fecha_reporte_vet = VENEZUELA_TZ.localize(fecha_reporte_naive) if fecha_reporte_naive.tzinfo is None else fecha_reporte_naive.astimezone(VENEZUELA_TZ)
+                if fecha_reporte_vet.date() < now_vet.date() or (fecha_reporte_vet.date() == now_vet.date() and fecha_reporte_vet.time() < hora_corte):
+                    habilitado_para_conciliar = True
+            else: # Pagos antiguos sin fecha de creación se pueden conciliar
+                habilitado_para_conciliar = True
+
+            if not habilitado_para_conciliar:
+                flash("Este pago no puede ser conciliado hoy debido a la hora de su reporte.", 'danger')
+                return redirect(url_for('pagos_por_conciliar'))
+            # --- FIN DE CAMBIO ---
+
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s FOR UPDATE", (pago['cliente_id'],))
             cliente = cur.fetchone()
             if not cliente:
@@ -1620,7 +1755,7 @@ def conciliar_pago(pago_id):
     except (psycopg2.Error, ValueError, TypeError, ConnectionError) as e:
         if conn: conn.rollback()
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
-    return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
+    return redirect(url_for('pagos_por_conciliar'))
 
 @app.route('/recibo/<int:pago_id>')
 def ver_recibo(pago_id):
@@ -2166,33 +2301,50 @@ def portal_reportar_pago():
     mes_actual = get_nombre_mes(get_venezuela_current_date().month)
     if request.method == 'POST':
         pago_form = {k: v if v else None for k, v in request.form.items()}
+        # --- INICIO DE CAMBIO: Validación de campos del formulario del cliente ---
         if not all(pago_form.get(key) for key in ['monto', 'fecha_pago', 'forma_pago']):
             flash('Error: Monto, fecha y forma de pago son campos obligatorios.', 'error')
-            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, tasas_hoy=tasas_hoy)
-        if pago_form.get('forma_pago') != 'Efectivo' and not pago_form.get('referencia'):
-            flash('Error: La referencia es obligatoria para pagos que no son en efectivo.', 'error')
-            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, tasas_hoy=tasas_hoy)
+            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, tasas_hoy=tasas_hoy, anio_actual=get_venezuela_current_date().year)
+        if pago_form.get('forma_pago') not in ['Efectivo', 'Zelle'] and not pago_form.get('referencia'):
+            flash('Error: La referencia es obligatoria para pagos que no son en efectivo o Zelle.', 'error')
+            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, tasas_hoy=tasas_hoy, anio_actual=get_venezuela_current_date().year)
+        # --- FIN DE CAMBIO ---
         try:
             with conn.cursor() as cur:
+                # --- INICIO DE CAMBIO: Se añade fecha_creacion al INSERT ---
                 pago_query = """
                     INSERT INTO pagos (
                         cliente_id, monto, tipo_pago, forma_pago, fecha_pago, pago_en, 
-                        por_concepto_de, referencia, banco, lugar_emision, tasa_dia, monto_bs, 
-                        estado_pago, cuotas_cubiertas, reportado_por_cliente, estado_reporte
-                    ) VALUES (%s, %s, 'Cuota', %s, %s, %s, %s, %s, %s, 'Acarigua', %s, %s, 'Pendiente', 0, TRUE, 'Pendiente de Revision');
+                        por_concepto_de, referencia, banco, tasa_dia, monto_bs, 
+                        estado_pago, cuotas_cubiertas, reportado_por_cliente, estado_reporte, fecha_creacion
+                    ) VALUES (%s, %s, 'Cuota', %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, TRUE, 'Pendiente de Revision', %s);
                 """
+                fecha_actual_vet = get_venezuela_current_datetime()
+                
                 cur.execute(pago_query, (
-                    session['cliente_id'], pago_form['monto'], pago_form['forma_pago'], pago_form['fecha_pago'], 
-                    pago_form.get('pago_en'), pago_form.get('por_concepto_de'), pago_form.get('referencia'), 
-                    pago_form.get('banco'), pago_form.get('tasa_dia'), pago_form.get('monto_bs')
+                    session['cliente_id'], pago_form['monto'], pago_form['forma_pago'], 
+                    pago_form['fecha_pago'], pago_form.get('pago_en'), pago_form.get('por_concepto_de'), 
+                    pago_form.get('referencia'), pago_form.get('banco'), 
+                    pago_form.get('tasa_dia'), pago_form.get('monto_bs'),
+                    fecha_actual_vet # Guardamos la hora exacta del reporte
                 ))
                 conn.commit()
-                flash('¡Pago reportado exitosamente! Será verificado a la brevedad.', 'success')
+
+                # --- INICIO DE CAMBIO: Lógica de alerta automática al cliente ---
+                hora_corte = time(16, 0) # 4:00 PM
+                if fecha_actual_vet.time() < hora_corte:
+                    flash('✅ ¡Pago reportado a tiempo! Su reporte fue recibido y el recibo podrá generarse el día de hoy una vez sea verificado.', 'success')
+                else:
+                    proximo_dia = get_proximo_dia_habil(fecha_actual_vet.date())
+                    flash(f'⚠️ ¡Pago reportado fuera de horario! Su reporte fue recibido, pero el recibo podrá generarse a partir del próximo día hábil ({proximo_dia.strftime("%d/%m/%Y")}).', 'warning')
+                # --- FIN DE CAMBIO ---
+                
                 return redirect(url_for('portal_dashboard'))
         except (psycopg2.Error, ValueError, TypeError) as e:
             conn.rollback()
             flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
-    return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, tasas_hoy=tasas_hoy)
+    
+    return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, tasas_hoy=tasas_hoy, anio_actual=get_venezuela_current_date().year)
 
 @app.route('/portal/estado_cuenta')
 def portal_estado_cuenta():
