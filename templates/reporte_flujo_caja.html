@@ -54,7 +54,7 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
                     {{ message }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
@@ -138,41 +138,50 @@
 
         <!-- Historial de Movimientos del Día -->
         <div class="card content-card">
-            <div class="card-header bg-secondary text-white">
+            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
                 <h4 class="mb-0">Historial de Movimientos del Día: {{ fecha_reporte | format_date }}</h4>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-light btn-sm" data-filter="todos">Ver Todos</button>
+                    <button type="button" class="btn btn-light btn-sm" data-filter="ingreso">Solo Ingresos</button>
+                    <button type="button" class="btn btn-light btn-sm" data-filter="egreso">Solo Egresos</button>
+                </div>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover mb-0 align-middle">
+                    <table class="table table-striped table-hover mb-0 align-middle" id="historial-table">
                         <thead class="table-light">
                             <tr>
                                 <th class="p-3">Hora</th>
                                 <th class="p-3">Tipo</th>
-                                <th class="p-3">Origen</th>
-                                <th class="p-3">Monto Origen</th>
-                                <th class="p-3">Destino</th>
-                                <th class="p-3">Monto Destino</th>
-                                <th class="p-3">Nota</th>
+                                <th class="p-3">Detalle / Nota</th>
+                                <th class="p-3 text-end">Ingreso</th>
+                                <th class="p-3 text-end">Egreso</th>
                                 <th class="p-3">Usuario</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for mov in historial %}
-                            <tr>
-                                <td class="p-3">{{ mov.fecha_operacion.strftime('%H:%M:%S') }}</td>
+                            <tr data-tipo="{{ mov.tipo_movimiento.lower() }}">
+                                <td class="p-3">{{ mov.timestamp.strftime('%H:%M:%S') }}</td>
                                 <td class="p-3"><span class="badge bg-secondary">{{ mov.tipo_operacion.replace('_', ' ')|title }}</span></td>
-                                <td class="p-3">{{ (mov.caja_origen or 'N/A').replace('_', ' ')|title }}</td>
-                                <td class="p-3 text-danger fw-bold">- {{ mov.moneda_origen or 'N/A' }} {{ "{:,.2f}".format(mov.monto_origen or 0) }}</td>
-                                <td class="p-3">{{ (mov.caja_destino or 'N/A').replace('_', ' ')|title }}</td>
-                                <td class="p-3 text-success fw-bold">+ {{ mov.moneda_destino or 'N/A' }} {{ "{:,.2f}".format(mov.monto_destino or 0) }}</td>
-                                <td class="p-3">{{ mov.nota }}</td>
-                                <td class="p-3">{{ mov.nombre_admin }}</td>
+                                <td class="p-3">{{ mov.detalle }}</td>
+                                <td class="p-3 text-end text-success fw-bold">
+                                    {% if mov.monto_ingreso and mov.monto_ingreso > 0 %}
+                                    + {{ mov.moneda_ingreso }} {{ "{:,.2f}".format(mov.monto_ingreso) }}
+                                    {% endif %}
+                                </td>
+                                <td class="p-3 text-end text-danger fw-bold">
+                                    {% if mov.monto_egreso and mov.monto_egreso > 0 %}
+                                    - {{ mov.moneda_egreso }} {{ "{:,.2f}".format(mov.monto_egreso) }}
+                                    {% endif %}
+                                </td>
+                                <td class="p-3">{{ mov.usuario }}</td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="8" class="text-center text-muted p-5">
+                                <td colspan="6" class="text-center text-muted p-5">
                                     <i class="bi bi-folder2-open fs-1"></i>
-                                    <p class="mt-2 mb-0">No se registraron movimientos de tesorería en esta fecha.</p>
+                                    <p class="mt-2 mb-0">No se registraron movimientos en esta fecha.</p>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -188,5 +197,37 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const filterButtons = document.querySelectorAll('[data-filter]');
+            const tableRows = document.querySelectorAll('#historial-table tbody tr');
+
+            filterButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const filter = this.dataset.filter;
+
+                    tableRows.forEach(row => {
+                        const rowType = row.dataset.tipo;
+                        
+                        if (filter === 'todos' || !rowType) {
+                            row.style.display = '';
+                        } else if (filter === 'ingreso') {
+                            if (rowType === 'ingreso' || (rowType === 'movimiento' && row.querySelector('.text-success').innerText.trim() !== '')) {
+                                row.style.display = '';
+                            } else {
+                                row.style.display = 'none';
+                            }
+                        } else if (filter === 'egreso') {
+                            if (rowType === 'egreso' || (rowType === 'movimiento' && row.querySelector('.text-danger').innerText.trim() !== '')) {
+                                row.style.display = '';
+                            } else {
+                                row.style.display = 'none';
+                            }
+                        }
+                    });
+                });
+            });
+        });
+    </script>
 </body>
 </html>
