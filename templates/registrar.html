@@ -80,6 +80,10 @@
             border-radius: 6px;
             box-sizing: border-box;
         }
+        input:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+        }
         .button-group {
             display: flex;
             justify-content: flex-end;
@@ -136,10 +140,7 @@
         <a href="{{ url_for('consulta') }}">Consultar Cliente</a>
     </div>
 
-    <!-- ===== CORRECCIÓN INICIA: La acción del formulario apuntaba a una ruta inexistente ===== -->
     <form id="registroForm" action="{{ url_for('registrar_cliente') }}" method="POST">
-    <!-- ===== CORRECCIÓN TERMINA ===== -->
-
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
@@ -215,10 +216,19 @@
         </div>
 
         <div class="section">
-            <h3>Información Administrativa</h3>
+            <h3>Información Administrativa (Uso Interno)</h3>
             <div class="form-grid">
-                <div class="form-group"><label for="asesor">Asesor (Dueño del Cliente)</label><input type="text" id="asesor" name="asesor" class="form-control-validate" required></div>
-                <div class="form-group"><label for="responsable">Responsable (Quién cerró)</label><input type="text" id="responsable" name="responsable" class="form-control-validate" required></div>
+                <div class="form-group">
+                    <label for="escenario_cierre">Escenario de Cierre (para nómina)</label>
+                    <select id="escenario_cierre" name="escenario_cierre" class="form-control-validate" required>
+                        <option value="" selected>-- Seleccione un escenario --</option>
+                        <option value="Asesor">Cierre por Asesor</option>
+                        <option value="Gerencia">Cierre por Gerencia</option>
+                        <option value="Presidencia">Cierre por Presidencia</option>
+                    </select>
+                </div>
+                <div class="form-group"><label for="asesor">Asesor</label><input type="text" id="asesor" name="asesor" class="form-control-validate" required disabled></div>
+                <div class="form-group"><label for="responsable">Responsable</label><input type="text" id="responsable" name="responsable" class="form-control-validate" required disabled></div>
                 <div class="form-group">
                     <label for="ciclo_cobranza">Ciclo de Cobranza</label>
                     <select id="ciclo_cobranza" name="ciclo_cobranza" class="form-control-validate" required>
@@ -236,7 +246,6 @@
     </form>
 </div>
 
-<!-- Modal de la Cámara (sin cambios) -->
 <div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -290,6 +299,47 @@ document.addEventListener('DOMContentLoaded', function() {
             inscripcionInput.value = '';
         }
     });
+
+    const escenarioSelect = document.getElementById('escenario_cierre');
+    const asesorInput = document.getElementById('asesor');
+    const responsableInput = document.getElementById('responsable');
+
+    escenarioSelect.addEventListener('change', function() {
+        const escenario = this.value;
+
+        // Limpiar y habilitar campos por defecto
+        asesorInput.value = '';
+        responsableInput.value = '';
+        asesorInput.disabled = false;
+        responsableInput.disabled = false;
+        
+        // Disparar evento para revalidar el formulario
+        asesorInput.dispatchEvent(new Event('input', { bubbles: true }));
+        responsableInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+        switch(escenario) {
+            case 'Asesor':
+                // Ambos campos son editables
+                asesorInput.focus();
+                break;
+            case 'Gerencia':
+                // Se autocompleta el responsable
+                responsableInput.value = 'Yusbelis';
+                asesorInput.focus();
+                break;
+            case 'Presidencia':
+                // Se autocompleta el responsable (se puede cambiar si es necesario)
+                responsableInput.value = 'Carlos'; // O 'Kary'
+                asesorInput.focus();
+                break;
+            default:
+                // Si no se selecciona nada, se bloquean
+                asesorInput.disabled = true;
+                responsableInput.disabled = true;
+                break;
+        }
+    });
+
 
     // Lógica de la cámara (sin cambios)
     const cameraModal = document.getElementById('cameraModal');
