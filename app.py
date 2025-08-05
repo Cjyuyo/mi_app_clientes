@@ -284,12 +284,14 @@ def tesoreria_rebalanceo():
     historial_movimientos = []
     if conn:
         with conn.cursor() as cur:
+            # INICIO DE CAMBIO: Se añade la columna 'perdida_cambiaria'
             cur.execute("""
-                SELECT op.*, admin.usuario as nombre_admin
+                SELECT op.*, admin.usuario as nombre_admin, op.perdida_cambiaria
                 FROM operaciones_tesoreria op
                 LEFT JOIN administradores admin ON op.realizada_por = admin.id
                 ORDER BY op.fecha_operacion DESC LIMIT 30
             """)
+            # FIN DE CAMBIO
             historial_movimientos = cur.fetchall()
 
     if request.method == 'POST':
@@ -299,7 +301,7 @@ def tesoreria_rebalanceo():
             nota = form.get('nota')
             caja_origen = form.get('caja_origen')
             monto_origen_str = form.get('monto_origen', '0').replace(',', '.')
-            moneda_origen = form.get('moneda_origen') # Auto-completado por JS
+            moneda_origen = form.get('moneda_origen')
             
             monto_origen = Decimal(monto_origen_str)
 
@@ -313,7 +315,7 @@ def tesoreria_rebalanceo():
             
             caja_destino = form.get('caja_destino')
             monto_destino_str = form.get('monto_destino', '0').replace(',', '.')
-            moneda_destino = form.get('moneda_destino') # Auto-completado por JS
+            moneda_destino = form.get('moneda_destino')
             tasa_aplicada_str = form.get('tasa_aplicada', '0').replace(',', '.')
 
             monto_destino = Decimal(monto_destino_str) if monto_destino_str and monto_destino_str != '0' else None
@@ -328,12 +330,29 @@ def tesoreria_rebalanceo():
                 flash("Error: Para transferencias, el destino es obligatorio.", 'danger')
                 return redirect(url_for('tesoreria_rebalanceo'))
 
+            # INICIO DE CAMBIO: Cálculo de pérdida cambiaria por transacción
+            perdida_cambiaria = Decimal('0.0')
+            if tipo_operacion == 'COMPRA_DIVISAS' and moneda_origen == 'BS' and 'USD' in moneda_destino:
+                with conn.cursor() as cur_tasa:
+                    cur_tasa.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
+                    tasa_bcv_row = cur_tasa.fetchone()
+                    tasa_bcv = tasa_bcv_row['tasa'] if tasa_bcv_row and tasa_bcv_row['tasa'] else None
+                
+                if tasa_bcv and tasa_bcv > 0:
+                    valor_real_en_usd_bcv = monto_origen / tasa_bcv
+                    valor_obtenido_en_usd = monto_destino
+                    # La pérdida es la diferencia entre lo que se debió recibir a tasa oficial y lo que se recibió
+                    perdida_cambiaria = valor_real_en_usd_bcv - valor_obtenido_en_usd
+            # FIN DE CAMBIO
+
             with conn.cursor() as cur:
+                # INICIO DE CAMBIO: Se añade 'perdida_cambiaria' al INSERT
                 cur.execute("""
                     INSERT INTO operaciones_tesoreria 
                     (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, tasa_aplicada, nota, realizada_por, fecha_operacion, perdida_cambiaria)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), 0)
-                """, (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, tasa_aplicada, nota, g.admin['id']))
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s)
+                """, (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, tasa_aplicada, nota, g.admin['id'], perdida_cambiaria))
+                # FIN DE CAMBIO
             
             descripcion = f"Tesoreria: {tipo_operacion} de {monto_origen:,.2f} {moneda_origen} desde {caja_origen}."
             registrar_accion_auditoria('MOVIMIENTO_TESORERIA', descripcion)
@@ -1053,12 +1072,11 @@ def reporte_flujo_caja():
                 fecha_inicio_periodo = datetime.combine(fecha_reporte_dt, datetime.min.time())
                 fecha_fin_periodo = datetime.combine(fecha_reporte_dt, datetime.max.time())
                 
-                # Consulta para unificar ingresos de pagos y movimientos de tesorería
+                # INICIO DE CAMBIO: Consulta unificada y simplificada para el historial
                 query_unificada = """
                     -- INGRESOS POR PAGOS
                     SELECT 
                         p.fecha_pago AS timestamp,
-                        'INGRESO' AS tipo_movimiento,
                         'Pago Conciliado' AS tipo_operacion,
                         (c.nombre || ' ' || c.apellido || ' (Ref: ' || COALESCE(p.referencia, 'N/A') || ')') AS detalle,
                         CASE WHEN p.monto_bs > 0 THEN p.monto_bs ELSE p.monto END AS monto_ingreso,
@@ -1075,15 +1093,10 @@ def reporte_flujo_caja():
                     -- MOVIMIENTOS DE TESORERIA
                     SELECT
                         ot.fecha_operacion AS timestamp,
-                        CASE 
-                            WHEN ot.caja_destino = 'GASTO_OPERATIVO' THEN 'EGRESO' 
-                            WHEN ot.tipo_operacion = 'PAGO_GASTO' THEN 'EGRESO'
-                            ELSE 'MOVIMIENTO' 
-                        END AS tipo_movimiento,
                         ot.tipo_operacion,
                         ot.nota AS detalle,
-                        ot.monto_destino AS monto_ingreso,
-                        ot.moneda_destino AS moneda_ingreso,
+                        CASE WHEN ot.tipo_operacion != 'PAGO_GASTO' THEN ot.monto_destino ELSE NULL END AS monto_ingreso,
+                        CASE WHEN ot.tipo_operacion != 'PAGO_GASTO' THEN ot.moneda_destino ELSE NULL END AS moneda_ingreso,
                         ot.monto_origen AS monto_egreso,
                         ot.moneda_origen AS moneda_egreso,
                         adm.usuario
@@ -1093,6 +1106,7 @@ def reporte_flujo_caja():
 
                     ORDER BY timestamp ASC;
                 """
+                # FIN DE CAMBIO
                 cur.execute(query_unificada, (fecha_reporte_dt, fecha_inicio_periodo, fecha_fin_periodo))
                 historial_unificado = cur.fetchall()
 
@@ -1858,7 +1872,7 @@ def guardar_oferta(client_id):
             cur.execute("INSERT INTO ofertas (cliente_id, cuotas_ofertadas, fecha_oferta, estado_oferta) VALUES (%s, %s, %s, 'activa')", (client_id, int(cuotas_ofertadas), hoy))
             
             descripcion_audit = f"Registró una oferta de {cuotas_ofertadas} cuotas para el cliente {nombre_cliente}."
-            registrar_accion_auditoria('REGISTRO_OFERTA', descripcion_audit, cliente_id)
+            registrar_accion_auditoria('REGISTRO_OFERTA', descripcion_audit, client_id)
             
             conn.commit()
             flash(f"¡Oferta de {cuotas_ofertadas} cuotas registrada exitosamente!", 'success')

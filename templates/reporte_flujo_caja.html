@@ -140,15 +140,10 @@
         <div class="card content-card">
             <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
                 <h4 class="mb-0">Historial de Movimientos del Día: {{ fecha_reporte | format_date }}</h4>
-                <div class="btn-group" role="group">
-                    <button type="button" class="btn btn-light btn-sm" data-filter="todos">Ver Todos</button>
-                    <button type="button" class="btn btn-light btn-sm" data-filter="ingreso">Solo Ingresos</button>
-                    <button type="button" class="btn btn-light btn-sm" data-filter="egreso">Solo Egresos</button>
-                </div>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover mb-0 align-middle" id="historial-table">
+                    <table class="table table-striped table-hover mb-0 align-middle">
                         <thead class="table-light">
                             <tr>
                                 <th class="p-3">Hora</th>
@@ -161,9 +156,9 @@
                         </thead>
                         <tbody>
                             {% for mov in historial %}
-                            <tr data-tipo="{{ mov.tipo_movimiento.lower() }}">
+                            <tr>
                                 <td class="p-3">{{ mov.timestamp.strftime('%H:%M:%S') }}</td>
-                                <td class="p-3"><span class="badge bg-secondary">{{ mov.tipo_operacion.replace('_', ' ')|title }}</span></td>
+                                <td class="p-3"><span class="badge bg-dark">{{ (mov.tipo_operacion or '').replace('_', ' ')|title }}</span></td>
                                 <td class="p-3">{{ mov.detalle }}</td>
                                 <td class="p-3 text-end text-success fw-bold">
                                     {% if mov.monto_ingreso and mov.monto_ingreso > 0 %}
@@ -197,37 +192,5 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const filterButtons = document.querySelectorAll('[data-filter]');
-            const tableRows = document.querySelectorAll('#historial-table tbody tr');
-
-            filterButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const filter = this.dataset.filter;
-
-                    tableRows.forEach(row => {
-                        const rowType = row.dataset.tipo;
-                        
-                        if (filter === 'todos' || !rowType) {
-                            row.style.display = '';
-                        } else if (filter === 'ingreso') {
-                            if (rowType === 'ingreso' || (rowType === 'movimiento' && row.querySelector('.text-success').innerText.trim() !== '')) {
-                                row.style.display = '';
-                            } else {
-                                row.style.display = 'none';
-                            }
-                        } else if (filter === 'egreso') {
-                            if (rowType === 'egreso' || (rowType === 'movimiento' && row.querySelector('.text-danger').innerText.trim() !== '')) {
-                                row.style.display = '';
-                            } else {
-                                row.style.display = 'none';
-                            }
-                        }
-                    });
-                });
-            });
-        });
-    </script>
 </body>
 </html>
