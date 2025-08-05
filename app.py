@@ -1242,17 +1242,14 @@ def finalizar_registro():
         # --- Conversión de datos numéricos ---
         form_data['inscripcion_monto'] = Decimal(form_data.get('inscripcion_monto', '0.00').replace(',', '.'))
         form_data['valor_cuota'] = Decimal(form_data.get('valor_cuota', '0.00').replace(',', '.'))
-        form_data['cuotas_totales'] = int(form_data['cuotas_totales']) if form_data.get('cuotas_totales') else None
+        form_data['cuotas_totales'] = int(form_data.get('cuotas_totales')) if form_data.get('cuotas_totales') else None
         
-        # --- **INICIO DE CORRECCIÓN** ---
-        # Asegurar que 'responsable' tenga un valor para evitar el error NotNullViolation
-        responsable_cierre = form_data.get('responsable', '') # Asigna '' si no existe
-        # --- **FIN DE CORRECCIÓN** ---
+        responsable_cierre = form_data.get('responsable', '') 
 
         with conn.cursor() as cur:
             # --- Inicia Transacción ---
             
-            # --- 1. Insertar el cliente (código existente) ---
+            # --- 1. Insertar el cliente ---
             nombre_completo = form_data.get('nombre_apellido').split(' ', 1)
             nombre = nombre_completo[0]
             apellido = nombre_completo[1] if len(nombre_completo) > 1 else ''
@@ -1265,13 +1262,14 @@ def finalizar_registro():
                 'cuotas_pagadas_regresivas': 0,
                 'firma_digital': firma_cliente,
                 'firma_empresa': firma_empresa,
-                'fecha_firma': datetime.now(VENEZUELA_TZ)
+                'fecha_firma': datetime.now(VENEZUELA_TZ),
+                'proceso': 'RESERVA'
             }
             
             optional_fields = [
                 'contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso', 
                 'grupo', 'plan_contratado', 'cuotas_totales', 'moneda_pago', 
-                'valor_cuota', 'inscripcion_monto', 'proceso', 'ciclo_cobranza',
+                'valor_cuota', 'inscripcion_monto', 'ciclo_cobranza',
                 'foto_cliente', 'foto_cedula',
                 'direccion', 'email', 'beneficiario_nombre', 
                 'beneficiario_cedula', 'beneficiario_telefono'
@@ -1287,47 +1285,25 @@ def finalizar_registro():
             query = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))}) RETURNING id"
             cur.execute(query, values)
             new_client_id = cur.fetchone()[0]
-
-            # --- 2. MODIFICADO: Generar registro de pago para la inscripción ---
-            try:
-                monto_inscripcion = Decimal(form_data.get('inscripcion_monto', '0.00'))
-                if monto_inscripcion > 0:
-                    cur.execute("""
-                        INSERT INTO pagos (
-                            cliente_id, monto, tipo_pago, forma_pago, fecha_pago, 
-                            por_concepto_de, estado_pago, reportado_por_cliente, estado_reporte,
-                            lugar_emision
-                        ) VALUES (%s, %s, 'Inscripción', 'Efectivo', %s, %s, 'Pendiente', FALSE, 'Aprobado', 'Acarigua');
-                    """, (
-                        new_client_id, 
-                        monto_inscripcion, 
-                        form_data.get('fecha_ingreso'),
-                        'Pago inicial de inscripción al registrar'
-                    ))
-                    flash('Se generó el registro de pago de inscripción. Debe ser conciliado.', 'info')
-            except (InvalidOperation, psycopg2.Error) as e:
-                flash(f'Error al crear el registro de pago de inscripción: {e}', 'warning')
-                raise e
             
-            # --- 3. Registrar en 'caja_inscripciones' (para cálculo de sobrante) ---
             if form_data['inscripcion_monto'] > 0:
                 cur.execute("""
                     INSERT INTO caja_inscripciones (contrato_nro, cliente_id, monto_inscripcion, responsable_cierre)
                     VALUES (%s, %s, %s, %s)
                 """, (form_data.get('contrato_nro'), new_client_id, form_data['inscripcion_monto'], responsable_cierre))
 
-            # --- 4. Registrar auditoría y finalizar ---
             descripcion_audit = f"Registró y firmó contrato para nuevo cliente: {form_data.get('nombre_apellido')} (C.I. {form_data.get('cedula')})."
             registrar_accion_auditoria('REGISTRO_CLIENTE_FIRMADO', descripcion_audit, new_client_id)
             
-            conn.commit() # --- Finaliza Transacción ---
+            conn.commit()
             
-            flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado y contrato guardado exitosamente!", 'success')
+            flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado exitosamente como RESERVA! Ahora puede registrar su primer pago desde la consulta.", 'success')
             return redirect(url_for('consulta', busqueda=form_data.get('cedula')))
 
     except psycopg2.IntegrityError:
         conn.rollback()
         flash(f"Registro fallido: La cédula '{form_data.get('cedula')}' ya existe.", 'error')
+        return redirect(url_for('registrar'))
     except (psycopg2.Error, ValueError, ConnectionError, InvalidOperation) as e:
         conn.rollback()
         logging.error(f"Error en finalizar_registro: {e}")
@@ -1814,11 +1790,12 @@ def delete_client(client_id):
 
             # --- **INICIO DE CORRECCIÓN** ---
             # Limpieza completa de datos relacionados
-            cur.execute("DELETE FROM pagos WHERE cliente_id = %s", (client_id,))
-            cur.execute("DELETE FROM comisiones_generadas WHERE cliente_id = %s", (client_id,))
-            cur.execute("DELETE FROM caja_inscripciones WHERE cliente_id = %s", (client_id,))
-            cur.execute("DELETE FROM ofertas WHERE cliente_id = %s", (client_id,))
-            cur.execute("DELETE FROM gestiones_cobranza WHERE cliente_id = %s", (client_id,))
+            tablas_relacionadas = [
+                "pagos", "comisiones_generadas", "caja_inscripciones", 
+                "ofertas", "gestiones_cobranza"
+            ]
+            for tabla in tablas_relacionadas:
+                cur.execute(f"DELETE FROM {tabla} WHERE cliente_id = %s", (client_id,))
             # --- **FIN DE CORRECCIÓN** ---
 
             descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']}) y todos sus datos asociados."
