@@ -1065,7 +1065,7 @@ def reporte_flujo_caja():
                         CASE WHEN p.monto_bs > 0 THEN 'BS' ELSE 'USD' END AS moneda_ingreso,
                         NULL AS monto_egreso,
                         NULL AS moneda_egreso,
-                        (SELECT usuario FROM administradores WHERE id = p.revisado_por_id) AS usuario
+                        (SELECT usuario FROM administradores WHERE id = p.conciliado_por_id) AS usuario
                     FROM pagos p
                     JOIN clientes c ON p.cliente_id = c.id
                     WHERE p.estado_pago = 'Conciliado' AND p.fecha_pago = %s
@@ -1075,7 +1075,11 @@ def reporte_flujo_caja():
                     -- MOVIMIENTOS DE TESORERIA
                     SELECT
                         ot.fecha_operacion AS timestamp,
-                        CASE WHEN ot.caja_destino = 'GASTO_OPERATIVO' THEN 'EGRESO' ELSE 'MOVIMIENTO' END AS tipo_movimiento,
+                        CASE 
+                            WHEN ot.caja_destino = 'GASTO_OPERATIVO' THEN 'EGRESO' 
+                            WHEN ot.tipo_operacion = 'PAGO_GASTO' THEN 'EGRESO'
+                            ELSE 'MOVIMIENTO' 
+                        END AS tipo_movimiento,
                         ot.tipo_operacion,
                         ot.nota AS detalle,
                         ot.monto_destino AS monto_ingreso,
@@ -1530,6 +1534,10 @@ def conciliar_pago(pago_id):
                 return redirect(url_for('consulta', busqueda=cedula_cliente_fallback))
 
             monto_pagado, pago_final_id, flash_msg = Decimal(pago['monto']), None, ""
+            
+            # --- GUARDAR QUIÉN CONCILIÓ ---
+            admin_id = g.admin['id'] if g.admin else None
+            
             if pago['tipo_pago'] == 'Inscripción':
                 inscripcion_pagada_actual = Decimal(cliente.get('inscripcion_pagada') or 0)
                 inscripcion_total = Decimal(cliente.get('inscripcion_monto') or 0)
@@ -1560,7 +1568,7 @@ def conciliar_pago(pago_id):
                         cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],))
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (inscripcion_total, cliente['id']))
                     # Convertir este mismo pago en el final
-                    cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', tipo_pago = 'Inscripción Finalizada', monto = %s WHERE id = %s", (inscripcion_total, pago_id))
+                    cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', tipo_pago = 'Inscripción Finalizada', monto = %s, conciliado_por_id = %s WHERE id = %s", (inscripcion_total, admin_id, pago_id))
                     pago_final_id = pago_id
                     descripcion_audit = f"Concilió pago único de inscripción (N°{pago_id}) por ${monto_pagado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
@@ -1572,7 +1580,7 @@ def conciliar_pago(pago_id):
                         cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],))
                     # Anular abonos anteriores y crear el recibo final
                     cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente['id'],))
-                    cur.execute("INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, por_concepto_de, estado_pago, cuotas_cubiertas, lugar_emision) VALUES (%s, %s, 'Inscripción Finalizada', %s, %s, %s, 'Conciliado', 0, %s) RETURNING id;", (cliente['id'], inscripcion_total, pago['forma_pago'], pago['fecha_pago'], 'Pago total de inscripción', pago['lugar_emision']))
+                    cur.execute("INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, por_concepto_de, estado_pago, cuotas_cubiertas, lugar_emision, conciliado_por_id) VALUES (%s, %s, 'Inscripción Finalizada', %s, %s, %s, 'Conciliado', 0, %s, %s) RETURNING id;", (cliente['id'], inscripcion_total, pago['forma_pago'], pago['fecha_pago'], 'Pago total de inscripción', pago['lugar_emision'], admin_id))
                     pago_final_id = cur.fetchone()[0]
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (inscripcion_total, cliente['id']))
                     cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
@@ -1583,7 +1591,7 @@ def conciliar_pago(pago_id):
                 # CASO C: Pago parcial que NO completa el 100%
                 else:
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
-                    cur.execute("UPDATE pagos SET estado_pago = 'Conciliado' WHERE id = %s", (pago_id,))
+                    cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
                     descripcion_audit = f"Concilió abono de inscripción N° {pago_id} por ${monto_pagado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
                     flash_msg = f"Abono de inscripción N° {pago_id} conciliado."
@@ -1605,7 +1613,7 @@ def conciliar_pago(pago_id):
                 while bp >= valor_cuota: rph, bp = rph + 1, bp - valor_cuota
                 nbf, ncpp, ncpr, cch = bp, cpp + pph, cpr + rph, pph + rph
                 cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s;", (ncpp, ncpr, nbf, cliente['id']))
-                cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', puntualidad = %s, cuotas_cubiertas = %s, progresivas_cubiertas = %s, regresivas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s WHERE id = %s;", (puntualidad, cch, pph, rph, ncpp, ncpr, nbf, pago_id))
+                cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', puntualidad = %s, cuotas_cubiertas = %s, progresivas_cubiertas = %s, regresivas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s, conciliado_por_id = %s WHERE id = %s;", (puntualidad, cch, pph, rph, ncpp, ncpr, nbf, admin_id, pago_id))
                 descripcion_audit = f"Concilió pago de cuota N° {pago_id} por ${monto_pagado} como '{puntualidad}' para {cliente['nombre_apellido']}."
                 registrar_accion_auditoria('CONCILIACION_CUOTA', descripcion_audit, cliente['id'])
                 flash_msg = f"¡Pago de cuota N° {pago_id} conciliado como '{puntualidad}'!"
