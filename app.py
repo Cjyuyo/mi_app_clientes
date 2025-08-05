@@ -593,18 +593,25 @@ def dashboard_comercial():
                            resumen_asesores=resumen_asesores,
                            anio_actual=get_venezuela_current_date().year)
 
+# === INICIO RUTA PAGAR NOMINA MODIFICADA ===
 @app.route('/comercial/pagar_nomina', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def pagar_nomina_comercial():
     conn = get_db()
+    caja_origen = request.form.get('caja_origen') # Obtenemos la caja seleccionada en el formulario
+
+    if not caja_origen:
+        flash("Error: Debe seleccionar una caja de origen para pagar la nómina.", "danger")
+        return redirect(url_for('dashboard_comercial'))
+
     if not conn:
         flash("Error de conexión a la base de datos.", "danger")
         return redirect(url_for('dashboard_comercial'))
 
     try:
         with conn.cursor() as cur:
-            # Obtener el monto total a pagar para la auditoría y validación
+            # 1. Obtener el monto total a pagar
             cur.execute("SELECT COALESCE(SUM(monto_comision), 0) FROM comisiones_generadas WHERE estado_nomina = 'Pendiente';")
             monto_total_nomina = cur.fetchone()[0] or Decimal('0.0')
 
@@ -612,21 +619,40 @@ def pagar_nomina_comercial():
                 flash("No hay comisiones pendientes para pagar.", "warning")
                 return redirect(url_for('dashboard_comercial'))
 
-            # Marcar todas las comisiones pendientes como pagadas
+            # 2. Verificar fondos en la caja comercial seleccionada
+            balances_comerciales = calcular_balances_comercial()
+            if balances_comerciales.get(caja_origen, Decimal('0.0')) < monto_total_nomina:
+                flash(f"Fondos insuficientes en '{caja_origen}'. Se requieren ${monto_total_nomina:,.2f} pero solo hay ${balances_comerciales.get(caja_origen, 0):,.2f}.", "danger")
+                return redirect(url_for('dashboard_comercial'))
+
+            # --- INICIA TRANSACCIÓN ---
+            
+            # 3. Registrar el egreso en la tesorería como un gasto operativo
+            nota_gasto = f"Pago de nómina de comisiones (semana del {get_venezuela_current_date().strftime('%d-%m-%Y')})"
+            cur.execute("""
+                INSERT INTO operaciones_tesoreria 
+                (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, nota, realizada_por, fecha_operacion)
+                VALUES ('GASTO_OPERATIVO', %s, 'USD', %s, 'GASTO_NOMINA', 'USD', %s, %s, %s, NOW())
+            """, (caja_origen, monto_total_nomina, monto_total_nomina, nota_gasto, g.admin['id']))
+
+            # 4. Marcar todas las comisiones pendientes como pagadas
             cur.execute("UPDATE comisiones_generadas SET estado_nomina = 'Pagada', fecha_pago_nomina = NOW() WHERE estado_nomina = 'Pendiente';")
             
-            # Registrar auditoría
-            descripcion_auditoria = f"Procesó el pago de la nómina comercial por un total de ${monto_total_nomina:,.2f}."
+            # 5. Registrar auditoría
+            descripcion_auditoria = f"Procesó pago de nómina comercial por ${monto_total_nomina:,.2f} desde la caja '{caja_origen}'."
             registrar_accion_auditoria('PAGO_NOMINA_COMERCIAL', descripcion_auditoria)
             
             conn.commit()
-            flash(f"Nómina por ${monto_total_nomina:,.2f} marcada como pagada exitosamente.", "success")
+            # --- FIN TRANSACCIÓN ---
+            
+            flash(f"Nómina por ${monto_total_nomina:,.2f} pagada exitosamente desde '{caja_origen}'.", "success")
 
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"Error al procesar el pago de la nómina: {e}", "danger")
 
     return redirect(url_for('dashboard_comercial'))
+# === FIN RUTA PAGAR NOMINA MODIFICADA ===
 
 @app.route('/comercial/flujo_caja_comercial', methods=['GET', 'POST'])
 @admin_required
@@ -750,6 +776,87 @@ def get_split_contrato(contrato_nro):
     except psycopg2.Error as e:
         logging.error(f"Error en get_split_contrato para {contrato_nro}: {e}")
         return jsonify({'error': 'Error al consultar la base de datos'}), 500
+
+# === INICIO NUEVA RUTA REBALANCEO COMERCIAL ===
+@app.route('/comercial/rebalanceo', methods=['GET', 'POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def comercial_rebalanceo():
+    conn = get_db()
+    # Llama a la función de balances específica del área comercial
+    balances_actuales = calcular_balances_comercial() 
+    
+    cajas_comerciales = ['COMERCIAL_EFECTIVO_USD', 'COMERCIAL_BINANCE_USDT']
+    historial_movimientos = []
+    if conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT op.*, admin.usuario as nombre_admin
+                FROM operaciones_tesoreria op
+                LEFT JOIN administradores admin ON op.realizada_por = admin.id
+                WHERE op.caja_origen = ANY(%s) OR op.caja_destino = ANY(%s)
+                ORDER BY op.fecha_operacion DESC LIMIT 30
+            """, (cajas_comerciales, cajas_comerciales))
+            historial_movimientos = cur.fetchall()
+
+    if request.method == 'POST':
+        try:
+            # La lógica del POST es idéntica a la de tesorería,
+            # ya que la tabla operaciones_tesoreria es la misma.
+            form = request.form
+            tipo_operacion = form.get('tipo_operacion')
+            caja_origen = form.get('caja_origen')
+            monto_origen_str = form.get('monto_origen', '0').replace(',', '.')
+            moneda_origen = form.get('moneda_origen')
+            caja_destino = form.get('caja_destino')
+            monto_destino_str = form.get('monto_destino', '0').replace(',', '.')
+            moneda_destino = form.get('moneda_destino')
+            tasa_aplicada_str = form.get('tasa_aplicada', '0').replace(',', '.')
+            nota = form.get('nota')
+            
+            monto_origen = Decimal(monto_origen_str)
+            monto_destino = Decimal(monto_destino_str) if monto_destino_str else None
+            tasa_aplicada = Decimal(tasa_aplicada_str) if tasa_aplicada_str else None
+
+            if not all([tipo_operacion, caja_origen, monto_origen > 0, moneda_origen, caja_destino, nota]):
+                flash("Error: Todos los campos son obligatorios.", 'danger')
+                return redirect(url_for('comercial_rebalanceo'))
+
+            if balances_actuales.get(caja_origen, Decimal('0.0')) < monto_origen:
+                flash(f"Error: Fondos insuficientes en la caja '{caja_origen}'.", 'danger')
+                return redirect(url_for('comercial_rebalanceo'))
+            
+            if not monto_destino:
+                 monto_destino = monto_origen
+                 moneda_destino = moneda_origen
+
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO operaciones_tesoreria 
+                    (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, tasa_aplicada, nota, realizada_por, fecha_operacion, perdida_cambiaria)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), 0)
+                """, (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, tasa_aplicada, nota, g.admin['id']))
+            
+            descripcion = f"Tesoreria COMERCIAL: {tipo_operacion} de {monto_origen:,.2f} {moneda_origen} desde {caja_origen}."
+            registrar_accion_auditoria('MOVIMIENTO_TESORERIA_COMERCIAL', descripcion)
+
+            conn.commit()
+            flash('Movimiento de tesorería comercial registrado exitosamente.', 'success')
+        except (InvalidOperation, ValueError):
+            flash("Error: Verifique que los montos sean válidos.", 'danger')
+        except psycopg2.Error as e:
+            conn.rollback()
+            flash(f"Error de base de datos: {e}", "danger")
+        
+        return redirect(url_for('comercial_rebalanceo'))
+
+    # Pasamos las cajas específicas del módulo para que el formulario sepa cuáles mostrar
+    return render_template('comercial_rebalanceo.html', 
+                           balances=balances_actuales, 
+                           historial=historial_movimientos,
+                           cajas_comerciales=cajas_comerciales,
+                           anio_actual=get_venezuela_current_date().year)
+# === FIN NUEVA RUTA REBALANCEO COMERCIAL ===
 
 # --- FIN DE CAMBIO ---
 
