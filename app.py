@@ -1045,31 +1045,63 @@ def reporte_flujo_caja():
             flash(f"Error calculando las pérdidas financieras: {e}", "warning")
     # --- FIN CÁLCULO DE PÉRDIDAS ---
 
-    # Obtener el historial de movimientos de tesorería PARA la fecha del reporte
-    historial_movimientos = []
+    # --- INICIO HISTORIAL UNIFICADO ---
+    historial_unificado = []
     if conn:
         try:
             with conn.cursor() as cur:
                 fecha_inicio_periodo = datetime.combine(fecha_reporte_dt, datetime.min.time())
                 fecha_fin_periodo = datetime.combine(fecha_reporte_dt, datetime.max.time())
                 
-                cur.execute("""
-                    SELECT op.*, admin.usuario as nombre_admin
-                    FROM operaciones_tesoreria op
-                    LEFT JOIN administradores admin ON op.realizada_por = admin.id
-                    WHERE op.fecha_operacion BETWEEN %s AND %s
-                    ORDER BY op.fecha_operacion DESC
-                """, (fecha_inicio_periodo, fecha_fin_periodo))
-                historial_movimientos = cur.fetchall()
+                # Consulta para unificar ingresos de pagos y movimientos de tesorería
+                query_unificada = """
+                    -- INGRESOS POR PAGOS
+                    SELECT 
+                        p.fecha_pago AS timestamp,
+                        'INGRESO' AS tipo_movimiento,
+                        'Pago Conciliado' AS tipo_operacion,
+                        (c.nombre || ' ' || c.apellido || ' (Ref: ' || COALESCE(p.referencia, 'N/A') || ')') AS detalle,
+                        CASE WHEN p.monto_bs > 0 THEN p.monto_bs ELSE p.monto END AS monto_ingreso,
+                        CASE WHEN p.monto_bs > 0 THEN 'BS' ELSE 'USD' END AS moneda_ingreso,
+                        NULL AS monto_egreso,
+                        NULL AS moneda_egreso,
+                        (SELECT usuario FROM administradores WHERE id = p.revisado_por_id) AS usuario
+                    FROM pagos p
+                    JOIN clientes c ON p.cliente_id = c.id
+                    WHERE p.estado_pago = 'Conciliado' AND p.fecha_pago = %s
+
+                    UNION ALL
+
+                    -- MOVIMIENTOS DE TESORERIA
+                    SELECT
+                        ot.fecha_operacion AS timestamp,
+                        CASE WHEN ot.caja_destino = 'GASTO_OPERATIVO' THEN 'EGRESO' ELSE 'MOVIMIENTO' END AS tipo_movimiento,
+                        ot.tipo_operacion,
+                        ot.nota AS detalle,
+                        ot.monto_destino AS monto_ingreso,
+                        ot.moneda_destino AS moneda_ingreso,
+                        ot.monto_origen AS monto_egreso,
+                        ot.moneda_origen AS moneda_egreso,
+                        adm.usuario
+                    FROM operaciones_tesoreria ot
+                    JOIN administradores adm ON ot.realizada_por = adm.id
+                    WHERE ot.fecha_operacion BETWEEN %s AND %s
+
+                    ORDER BY timestamp ASC;
+                """
+                cur.execute(query_unificada, (fecha_reporte_dt, fecha_inicio_periodo, fecha_fin_periodo))
+                historial_unificado = cur.fetchall()
+
         except (psycopg2.Error, ValueError) as e:
             flash(f"Error al obtener historial de movimientos: {e}", "error")
+    # --- FIN HISTORIAL UNIFICADO ---
 
     return render_template(
         'reporte_flujo_caja.html',
         fecha_reporte=fecha_reporte_str,
         resumen=resumen,
         tasas_del_dia=tasas_del_dia,
-        historial=historial_movimientos,
+        historial=historial_unificado,
         anio_actual=today.year
     )
     
