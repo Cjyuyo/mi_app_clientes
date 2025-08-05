@@ -144,61 +144,64 @@ def registrar_ingreso_caja_inscripciones(contrato_nro, cliente_id, monto_inscrip
         logging.error(f"CAJA_INSCRIPCIONES: Error al registrar ingreso: {e}")
         raise e
 
-# ===== INICIO DE FUNCIÓN MODIFICADA (v2.2) =====
+# ===== INICIO DE FUNCIÓN MODIFICADA (v2.3) =====
 def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_dueno, responsable_cierre):
     """
-    Calcula las comisiones según las reglas de negocio dinámicas (v2.2) y las guarda para la nómina.
-    Insensible a mayúsculas/minúsculas y con nombres de beneficiarios corregidos.
+    Calcula las comisiones según las reglas de negocio dinámicas (v2.3) y las guarda para la nómina.
+    Maneja nombres completos y es insensible a mayúsculas/minúsculas.
     """
     conn = get_db()
     if not conn or monto_plan <= 0:
         logging.error(f"COMISIONES: No se pudo conectar a la BD o el monto del plan es cero para contrato {contrato_nro}.")
         return
 
-    # --- Definición de constantes y actores clave ---
+    # --- Definición de constantes y actores clave (solo primer nombre para lógica) ---
     POOL_COMISIONES = monto_plan * Decimal('0.16')
-    PRESIDENCIA = ['Carlos', 'Karielsy'] # Nombre corregido
+    PRESIDENCIA = ['Carlos', 'Karielsy']
     YUSBELIS = 'Yusbelis'
     
     comisiones_a_registrar = []
 
-    # Estandarización de nombres de entrada para evitar errores de mayúsculas o espacios
+    # Estandarización de nombres de entrada para evitar errores
     asesor_dueno_std = asesor_dueno.strip().title() if asesor_dueno else ''
     responsable_cierre_std = responsable_cierre.strip().title() if responsable_cierre else ''
+    
+    # Extraer el primer nombre del responsable para la comparación de escenarios
+    primer_nombre_responsable = responsable_cierre_std.split(' ')[0]
 
-    # --- Lógica de Escenarios (usando los nombres estandarizados) ---
+    # --- Lógica de Escenarios (usando solo el primer nombre para la lógica) ---
 
     # Escenario 2: El contrato lo cierra Presidencia
-    if responsable_cierre_std in PRESIDENCIA:
+    if primer_nombre_responsable in PRESIDENCIA:
         logging.info(f"Contrato {contrato_nro}: Aplicando Escenario 2 (Cierre Presidencia).")
         monto_presidencia = monto_plan * Decimal('0.055')
-        comisiones_a_registrar.append({'beneficiario': 'Carlos', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
-        comisiones_a_registrar.append({'beneficiario': 'Karielsy', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
+        comisiones_a_registrar.append({'beneficiario': 'Carlos Ramirez', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
+        comisiones_a_registrar.append({'beneficiario': 'Karielsy Rios', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
         
         monto_yusbelis = monto_plan * Decimal('0.005')
-        comisiones_a_registrar.append({'beneficiario': YUSBELIS, 'monto': monto_yusbelis, 'concepto': 'Comisión Staff'})
+        comisiones_a_registrar.append({'beneficiario': 'Yusbelis Espinoza', 'monto': monto_yusbelis, 'concepto': 'Comisión Staff'})
         
         comisiones_a_registrar.append({'beneficiario': asesor_dueno_std, 'monto': Decimal('5.0'), 'concepto': 'Bono Asesor Dueño'})
 
     # Escenario 3: El contrato lo cierra Yusbelis
-    elif responsable_cierre_std == YUSBELIS:
+    elif primer_nombre_responsable == YUSBELIS:
         logging.info(f"Contrato {contrato_nro}: Aplicando Escenario 3 (Cierre Yusbelis).")
         monto_presidencia = monto_plan * Decimal('0.055')
-        comisiones_a_registrar.append({'beneficiario': 'Carlos', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
-        comisiones_a_registrar.append({'beneficiario': 'Karielsy', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
+        comisiones_a_registrar.append({'beneficiario': 'Carlos Ramirez', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
+        comisiones_a_registrar.append({'beneficiario': 'Karielsy Rios', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
         
         monto_yusbelis = monto_plan * Decimal('0.01')
-        comisiones_a_registrar.append({'beneficiario': YUSBELIS, 'monto': monto_yusbelis, 'concepto': 'Comisión Cierre Staff'})
+        comisiones_a_registrar.append({'beneficiario': 'Yusbelis Espinoza', 'monto': monto_yusbelis, 'concepto': 'Comisión Cierre Staff'})
 
     # Escenario 1: El contrato lo cierra otro Asesor
     else:
         logging.info(f"Contrato {contrato_nro}: Aplicando Escenario 1 (Cierre Asesor).")
         monto_presidencia = monto_plan * Decimal('0.03')
-        comisiones_a_registrar.append({'beneficiario': 'Carlos', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
-        comisiones_a_registrar.append({'beneficiario': 'Karielsy', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
+        comisiones_a_registrar.append({'beneficiario': 'Carlos Ramirez', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
+        comisiones_a_registrar.append({'beneficiario': 'Karielsy Rios', 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
         
         monto_yusbelis = monto_plan * Decimal('0.01')
-        comisiones_a_registrar.append({'beneficiario': YUSBELIS, 'monto': monto_yusbelis, 'concepto': 'Comisión Staff'})
+        comisiones_a_registrar.append({'beneficiario': 'Yusbelis Espinoza', 'monto': monto_yusbelis, 'concepto': 'Comisión Staff'})
 
         monto_asesor_dueno = monto_plan * Decimal('0.02')
         comisiones_a_registrar.append({'beneficiario': asesor_dueno_std, 'monto': monto_asesor_dueno, 'concepto': 'Comisión Asesor Dueño'})
@@ -226,9 +229,9 @@ def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_d
                 """
                 cur.execute(sql_sobrante, (sobrante_empresa, contrato_nro))
 
-            logging.info(f"COMISIONES v2.2: Contrato {contrato_nro} procesado. Total a pagar: ${total_comisiones_pagadas:,.2f}. Sobrante: ${sobrante_empresa:,.2f}.")
+            logging.info(f"COMISIONES v2.3: Contrato {contrato_nro} procesado. Total a pagar: ${total_comisiones_pagadas:,.2f}. Sobrante: ${sobrante_empresa:,.2f}.")
         except psycopg2.Error as e:
-            logging.error(f"COMISIONES v2.2: Error al guardar comisiones para contrato {contrato_nro}: {e}")
+            logging.error(f"COMISIONES v2.3: Error al guardar comisiones para contrato {contrato_nro}: {e}")
             raise e
 # ===== FIN DE FUNCIÓN MODIFICADA =====
 
@@ -532,6 +535,7 @@ def gestion_administrativa():
 
 # --- INICIO DE CAMBIO: Nuevas rutas para el Módulo Comercial ---
 
+# ===== INICIO RUTA MODIFICADA (v2.1) =====
 @app.route('/comercial/dashboard')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -540,7 +544,6 @@ def dashboard_comercial():
     contratos = []
     resumen_asesores = []
     
-    # Nuevo diccionario de estadísticas generales
     stats = {
         'total_caja_inscripciones': Decimal('0.0'),
         'total_comisiones_pendientes': Decimal('0.0'),
@@ -550,7 +553,6 @@ def dashboard_comercial():
     if conn:
         try:
             with conn.cursor() as cur:
-                # 1. Obtener la lista de contratos registrados en la caja de inscripciones
                 cur.execute("""
                     SELECT 
                         ci.contrato_nro,
@@ -566,9 +568,17 @@ def dashboard_comercial():
                     JOIN clientes cli ON ci.cliente_id = cli.id
                     ORDER BY ci.fecha_registro DESC;
                 """)
-                contratos = cur.fetchall()
+                db_contratos = cur.fetchall()
 
-                # 2. Obtener el resumen de deudas por asesor (comisiones pendientes)
+                contratos = []
+                for contrato_row in db_contratos:
+                    contrato_dict = dict(contrato_row)
+                    try:
+                        contrato_dict['plan_contratado'] = Decimal(contrato_dict['plan_contratado'])
+                    except (TypeError, InvalidOperation, ValueError):
+                        contrato_dict['plan_contratado'] = Decimal('0.00')
+                    contratos.append(contrato_dict)
+
                 cur.execute("""
                     SELECT nombre_beneficiario, SUM(monto_comision) as total_pendiente
                     FROM comisiones_generadas
@@ -578,10 +588,9 @@ def dashboard_comercial():
                 """)
                 resumen_asesores = cur.fetchall()
                 
-                # 3. Calcular las estadísticas generales
                 if contratos:
                     stats['total_caja_inscripciones'] = sum(c['monto_inscripcion'] for c in contratos)
-                    stats['total_sobrante_pendiente'] = sum(c['sobrante_empresa'] for c in contratos if c['sobrante_empresa'] is not None)
+                    stats['total_sobrante_pendiente'] = sum(c['sobrante_empresa'] or Decimal('0.0') for c in contratos)
 
                 if resumen_asesores:
                     stats['total_comisiones_pendientes'] = sum(a['total_pendiente'] for a in resumen_asesores)
@@ -594,6 +603,7 @@ def dashboard_comercial():
                            contratos=contratos,
                            resumen_asesores=resumen_asesores,
                            anio_actual=get_venezuela_current_date().year)
+# ===== FIN RUTA MODIFICADA =====
 
 @app.route('/comercial/pagar_nomina', methods=['POST'])
 @admin_required
@@ -777,7 +787,6 @@ def get_split_contrato(contrato_nro):
         logging.error(f"Error en get_split_contrato para {contrato_nro}: {e}")
         return jsonify({'error': 'Error al consultar la base de datos'}), 500
 
-# === INICIO NUEVA RUTA REBALANCEO COMERCIAL ===
 @app.route('/comercial/rebalanceo', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -856,7 +865,6 @@ def comercial_rebalanceo():
                            historial=historial_movimientos,
                            cajas_comerciales=cajas_comerciales,
                            anio_actual=get_venezuela_current_date().year)
-# === FIN NUEVA RUTA REBALANCEO COMERCIAL ===
 
 # --- FIN DE CAMBIO ---
 
