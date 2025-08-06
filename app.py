@@ -536,7 +536,6 @@ def pagos_por_conciliar():
 
     try:
         with conn.cursor() as cur:
-            # Se cambia a LEFT JOIN para incluir pagos de clientes que pudieron ser eliminados
             cur.execute("""
                 SELECT 
                     p.id, p.monto, p.tipo_pago, p.fecha_creacion AS fecha_reporte,
@@ -556,29 +555,39 @@ def pagos_por_conciliar():
 
             for pago_row in pagos_pendientes:
                 pago = dict(pago_row)
+                fecha_reporte_naive = pago['fecha_reporte']
 
-                # --- INICIO DE LA LÓGICA DE ESTADO MODIFICADA ---
+                # --- Lógica de Estado y Acción ---
 
-                # 1. Estado por defecto si no hay otras condiciones
-                pago['estado_display'] = 'Pendiente de Revisión'
-
-                # 2. Si un admin ya lo marcó como 'Inconsistente'
+                # 1. ESTADO VISUAL
                 if pago['estado_reporte'] == 'Inconsistente':
-                    pago['estado_display'] = 'Inconsistente'
-                
-                # 3. Si un admin ya lo 'Aprobó', está listo para conciliar
-                elif pago['estado_reporte'] == 'Aprobado':
-                    pago['estado_display'] = 'Listo para Conciliar'
+                    pago['status_display'] = 'Inconsistente'
+                    pago['status_class'] = 'danger' # Para el color del badge
+                else:
+                    pago['status_display'] = 'Pendiente'
+                    pago['status_class'] = 'warning' # Para el color del badge
 
-                # 4. Si está pendiente de revisión y fue reportado hoy después de la hora de corte
-                elif pago['reportado_por_cliente'] and pago['fecha_reporte']:
-                    fecha_reporte_vet = VENEZUELA_TZ.localize(pago['fecha_reporte']) if pago['fecha_reporte'].tzinfo is None else pago['fecha_reporte'].astimezone(VENEZUELA_TZ)
+                # 2. TIPO DE ACCIÓN Y HABILITACIÓN
+                pago['disabled_reason'] = ''
+
+                if not pago.get('nombre'):
+                    pago['action_type'] = 'Ninguna'
+                    pago['disabled_reason'] = 'El cliente asociado fue eliminado.'
+                elif pago['estado_reporte'] == 'Inconsistente':
+                    pago['action_type'] = 'Rechazado'
+                    pago['disabled_reason'] = 'Este reporte fue marcado como inconsistente y no puede ser procesado.'
+                elif fecha_reporte_naive:
+                    fecha_reporte_vet = VENEZUELA_TZ.localize(fecha_reporte_naive)
                     if fecha_reporte_vet.date() == now_vet.date() and fecha_reporte_vet.time() >= hora_corte:
+                        pago['action_type'] = 'Diferido'
                         proximo_dia = get_proximo_dia_habil(now_vet.date())
-                        # Asigna un estado especial para los diferidos
-                        pago['estado_display'] = f"Diferido (Revisar el {proximo_dia.strftime('%d/%m')})"
-                
-                # --- FIN DE LA LÓGICA DE ESTADO MODIFICADA ---
+                        pago['disabled_reason'] = f'Reportado fuera de horario. Se habilitará el {proximo_dia.strftime("%d/%m")}.'
+                    elif pago['reportado_por_cliente'] and pago['estado_reporte'] != 'Aprobado':
+                        pago['action_type'] = 'Ver Reporte'
+                    else:
+                        pago['action_type'] = 'Conciliar'
+                else: # Pagos antiguos sin fecha de creación o registrados por admin
+                    pago['action_type'] = 'Conciliar'
 
                 pagos_a_procesar.append(pago)
 
@@ -1646,7 +1655,7 @@ def registrar_pago(client_id):
                                         pago_en, por_concepto_de, referencia, banco, lugar_emision,
                                         tasa_dia, monto_bs, estado_pago, cuotas_cubiertas, moneda_referencia,
                                         fecha_creacion, registrado_por_id)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, %s, %s, %s);
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, %s, %s, %s);
                 """
                 cur.execute(pago_query, (
                     client_id, pago_form['monto'], tipo_pago, pago_form['forma_pago'], 
