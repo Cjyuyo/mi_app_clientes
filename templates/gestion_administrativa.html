@@ -126,6 +126,16 @@
         <div class="row g-4 justify-content-center">
             <!-- Fila 1 -->
             <div class="col-lg-3 col-md-6">
+                <div class="tool-card" style="border-top-color: #0d6efd;">
+                    <div>
+                        <div class="icon" style="color: #0d6efd;"><i class="bi bi-calculator-fill"></i></div>
+                        <h5>Flujo de Caja</h5>
+                        <p class="card-text text-muted">Analiza ingresos, egresos y balances.</p>
+                    </div>
+                    <a href="{{ url_for('reporte_flujo_caja') }}" class="btn btn-primary mt-3">Analizar</a>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
                 <div class="tool-card" style="border-top-color: #28a745;">
                     <div>
                         <div class="icon" style="color: #28a745;"><i class="bi bi-check2-circle"></i></div>
@@ -133,6 +143,16 @@
                         <p class="card-text text-muted">Valida y procesa los pagos pendientes.</p>
                     </div>
                     <a href="{{ url_for('pagos_por_conciliar') }}" class="btn mt-3" style="background-color: #28a745; color: white;">Conciliar</a>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="tool-card" style="border-top-color: var(--naranja-corporativo);">
+                    <div>
+                        <div class="icon" style="color: var(--naranja-corporativo);"><i class="bi bi-currency-exchange"></i></div>
+                        <h5>Tasa de Cambio (BCV)</h5>
+                        <p class="card-text text-muted">Establece la tasa del día y consulta el historial.</p>
+                    </div>
+                    <a href="{{ url_for('admin_tasa_bcv') }}" class="btn mt-3" style="background-color: var(--naranja-corporativo); color: white;">Configurar</a>
                 </div>
             </div>
             <div class="col-lg-3 col-md-6">
@@ -145,6 +165,8 @@
                     <a href="{{ url_for('dashboard_comercial') }}" class="btn btn-info text-white mt-3">Ver Comisiones</a>
                 </div>
             </div>
+
+            <!-- Fila 2 -->
             <div class="col-lg-3 col-md-6">
                 <div class="tool-card" style="border-top-color: #dc3545;">
                     <div>
@@ -163,27 +185,6 @@
                         <p class="card-text text-muted">Gestiona los clientes que te han sido asignados.</p>
                     </div>
                     <a href="{{ url_for('mi_cartera') }}" class="btn btn-warning mt-3">Gestionar</a>
-                </div>
-            </div>
-            <!-- Fila 2 -->
-            <div class="col-lg-3 col-md-6">
-                <div class="tool-card" style="border-top-color: #0d6efd;">
-                    <div>
-                        <div class="icon" style="color: #0d6efd;"><i class="bi bi-calculator-fill"></i></div>
-                        <h5>Flujo de Caja</h5>
-                        <p class="card-text text-muted">Analiza ingresos, egresos y balances.</p>
-                    </div>
-                    <a href="{{ url_for('reporte_flujo_caja') }}" class="btn btn-primary mt-3">Analizar</a>
-                </div>
-            </div>
-            <div class="col-lg-3 col-md-6">
-                <div class="tool-card" style="border-top-color: var(--naranja-corporativo);">
-                    <div>
-                        <div class="icon" style="color: var(--naranja-corporativo);"><i class="bi bi-currency-exchange"></i></div>
-                        <h5>Tasa de Cambio (BCV)</h5>
-                        <p class="card-text text-muted">Establece la tasa del día y consulta el historial.</p>
-                    </div>
-                    <a href="{{ url_for('admin_tasa_bcv') }}" class="btn mt-3" style="background-color: var(--naranja-corporativo); color: white;">Configurar</a>
                 </div>
             </div>
             <div class="col-lg-3 col-md-6">
