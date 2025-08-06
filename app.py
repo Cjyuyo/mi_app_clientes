@@ -805,6 +805,55 @@ def get_split_contrato(contrato_nro):
         logging.error(f"Error en get_split_contrato para {contrato_nro}: {e}")
         return jsonify({'error': 'Error al consultar la base de datos'}), 500
 
+# --- INICIO DE NUEVA RUTA PARA HISTORIAL DE ASESOR ---
+@app.route('/comercial/historial_asesor/<string:nombre_beneficiario>')
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def get_historial_asesor(nombre_beneficiario):
+    conn = get_db()
+    if not conn:
+        return jsonify({'error': 'Error de conexión'}), 500
+    
+    try:
+        with conn.cursor() as cur:
+            # Consulta para obtener el desglose detallado de comisiones pendientes
+            cur.execute("""
+                SELECT 
+                    cg.concepto,
+                    cg.monto_comision,
+                    cg.contrato_nro,
+                    c.nombre,
+                    c.apellido,
+                    c.plan_contratado,
+                    ci.responsable_cierre
+                FROM comisiones_generadas cg
+                JOIN clientes c ON cg.cliente_id = c.id
+                JOIN caja_inscripciones ci ON cg.contrato_nro = ci.contrato_nro
+                WHERE cg.nombre_beneficiario = %s AND cg.estado_nomina = 'Pendiente'
+                ORDER BY cg.id DESC;
+            """, (nombre_beneficiario,))
+            
+            historial = cur.fetchall()
+            
+            # Formatear los datos para la respuesta JSON
+            historial_json = []
+            for item in historial:
+                historial_json.append({
+                    'concepto': item['concepto'],
+                    'monto': f"{item['monto_comision']:,.2f}",
+                    'contrato_nro': item['contrato_nro'],
+                    'cliente': f"{item['nombre']} {item['apellido']}",
+                    'plan_contratado': f"{Decimal(item['plan_contratado']):,.2f}",
+                    'responsable_cierre': item['responsable_cierre']
+                })
+            
+            return jsonify(historial_json)
+
+    except psycopg2.Error as e:
+        logging.error(f"Error en get_historial_asesor para {nombre_beneficiario}: {e}")
+        return jsonify({'error': 'Error al consultar la base de datos'}), 500
+# --- FIN DE NUEVA RUTA ---
+
 # --- FIN DE CAMBIO ---
 
 @app.route('/mi_cartera')
