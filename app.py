@@ -536,7 +536,7 @@ def pagos_por_conciliar():
 
     try:
         with conn.cursor() as cur:
-            # Se obtiene la información necesaria, incluyendo el nombre del admin que registró (si aplica)
+            # Se cambia a LEFT JOIN para incluir pagos de clientes que pudieron ser eliminados
             cur.execute("""
                 SELECT 
                     p.id, p.monto, p.tipo_pago, p.fecha_creacion AS fecha_reporte,
@@ -544,7 +544,7 @@ def pagos_por_conciliar():
                     c.nombre, c.apellido, c.cedula,
                     COALESCE(a.usuario, 'Cliente') as registrado_por
                 FROM pagos p
-                JOIN clientes c ON p.cliente_id = c.id
+                LEFT JOIN clientes c ON p.cliente_id = c.id
                 LEFT JOIN administradores a ON p.registrado_por_id = a.id
                 WHERE p.estado_pago = 'Pendiente'
                 ORDER BY p.fecha_creacion ASC;

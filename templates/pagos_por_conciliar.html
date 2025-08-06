@@ -91,9 +91,17 @@
                             <tr>
                                 <td>{{ pago.fecha_reporte | format_datetime }}</td>
                                 <td>
-                                    {{ pago.nombre }} {{ pago.apellido }}
-                                    <br>
-                                    <small class="text-muted">C.I. {{ pago.cedula }}</small>
+                                    <!-- INICIO DE CAMBIO: Manejo de cliente no encontrado -->
+                                    {% if pago.nombre %}
+                                        {{ pago.nombre }} {{ pago.apellido }}
+                                        <br>
+                                        <small class="text-muted">C.I. {{ pago.cedula }}</small>
+                                    {% else %}
+                                        <span class="text-danger fw-bold">Cliente no encontrado</span>
+                                        <br>
+                                        <small class="text-muted">ID de pago: {{ pago.id }}</small>
+                                    {% endif %}
+                                    <!-- FIN DE CAMBIO -->
                                 </td>
                                 <td class="fw-bold">${{ "%.2f"|format(pago.monto) }}</td>
                                 <td>{{ pago.tipo_pago }}</td>
@@ -125,7 +133,7 @@
                                         </a>
                                     {% endif %}
                                     <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=pago.cedula) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');">
-                                        <button type="submit" class="btn btn-success btn-sm" {% if not pago.habilitado %}disabled{% endif %}>
+                                        <button type="submit" class="btn btn-success btn-sm" {% if not pago.habilitado or not pago.nombre %}disabled{% endif %}>
                                             <i class="bi bi-check-circle-fill"></i> Conciliar
                                         </button>
                                     </form>
