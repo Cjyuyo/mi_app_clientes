@@ -577,7 +577,17 @@ def pagos_por_conciliar():
                     pago['action_type'] = 'Rechazado'
                     pago['disabled_reason'] = 'Este reporte fue marcado como inconsistente y no puede ser procesado.'
                 elif fecha_reporte_naive:
-                    fecha_reporte_vet = VENEZUELA_TZ.localize(fecha_reporte_naive)
+                    # --- INICIO CORRECCIÓN DE ERROR DE TIMEZONE ---
+                    # El datetime de la BD ya viene con timezone (aware), por lo que no se puede usar .localize()
+                    # Se comprueba si es 'naive' por seguridad, pero lo normal es que solo se convierta la zona horaria.
+                    if fecha_reporte_naive.tzinfo is None:
+                        # Es naive, se asume UTC y se convierte a VET
+                        fecha_reporte_vet = pytz.utc.localize(fecha_reporte_naive).astimezone(VENEZUELA_TZ)
+                    else:
+                        # Ya es aware, solo se convierte a VET
+                        fecha_reporte_vet = fecha_reporte_naive.astimezone(VENEZUELA_TZ)
+                    # --- FIN CORRECCIÓN ---
+                    
                     if fecha_reporte_vet.date() == now_vet.date() and fecha_reporte_vet.time() >= hora_corte:
                         pago['action_type'] = 'Diferido'
                         proximo_dia = get_proximo_dia_habil(now_vet.date())
@@ -646,6 +656,7 @@ def dashboard_comercial():
                     try:
                         contrato_dict['plan_contratado'] = Decimal(contrato_dict['plan_contratado'])
                     except (TypeError, InvalidOperation, ValueError):
+                        # Si falla la conversión, lo tratamos como 0 para evitar que la app se caiga
                         contrato_dict['plan_contratado'] = Decimal('0.00')
                     contratos.append(contrato_dict)
 
@@ -1655,7 +1666,7 @@ def registrar_pago(client_id):
                                         pago_en, por_concepto_de, referencia, banco, lugar_emision,
                                         tasa_dia, monto_bs, estado_pago, cuotas_cubiertas, moneda_referencia,
                                         fecha_creacion, registrado_por_id)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, %s, %s, %s);
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, %s, %s, %s);
                 """
                 cur.execute(pago_query, (
                     client_id, pago_form['monto'], tipo_pago, pago_form['forma_pago'], 
