@@ -540,7 +540,7 @@ def pagos_por_conciliar():
             cur.execute("""
                 SELECT 
                     p.id, p.monto, p.tipo_pago, p.fecha_creacion AS fecha_reporte,
-                    p.reportado_por_cliente, p.estado_reporte,
+                    p.reportado_por_cliente, p.estado_reporte, p.cliente_id,
                     c.nombre, c.apellido, c.cedula,
                     COALESCE(a.usuario, 'Cliente') as registrado_por
                 FROM pagos p
@@ -556,35 +556,29 @@ def pagos_por_conciliar():
 
             for pago_row in pagos_pendientes:
                 pago = dict(pago_row)
-                
-                # Asegurar que la fecha de reporte (fecha_creacion) tenga la zona horaria correcta
-                fecha_reporte_naive = pago['fecha_reporte']
-                if fecha_reporte_naive:
-                    fecha_reporte_vet = VENEZUELA_TZ.localize(fecha_reporte_naive) if fecha_reporte_naive.tzinfo is None else fecha_reporte_naive.astimezone(VENEZUELA_TZ)
-                    pago['fecha_reporte'] = fecha_reporte_vet
 
-                    # Lógica de estado de conciliación
-                    if pago['estado_reporte'] == 'Inconsistente':
-                        pago['habilitado'] = False
-                        pago['estado_conciliacion'] = 'Reporte inconsistente'
-                    elif fecha_reporte_vet.date() < now_vet.date():
-                        pago['habilitado'] = True
-                        pago['estado_conciliacion'] = 'Habilitado para conciliar hoy'
-                    elif fecha_reporte_vet.date() == now_vet.date():
-                        if fecha_reporte_vet.time() < hora_corte:
-                            pago['habilitado'] = True
-                            pago['estado_conciliacion'] = 'Habilitado para conciliar hoy'
-                        else:
-                            pago['habilitado'] = False
-                            proximo_dia = get_proximo_dia_habil(now_vet.date())
-                            pago['estado_conciliacion'] = f"Se habilitará el {proximo_dia.strftime('%d/%m')}"
-                    else:
-                        pago['habilitado'] = False
-                        pago['estado_conciliacion'] = 'Fecha de reporte futura'
-                else:
-                    # Caso para pagos antiguos sin fecha_creacion
-                    pago['habilitado'] = True
-                    pago['estado_conciliacion'] = 'Habilitado (legado)'
+                # --- INICIO DE LA LÓGICA DE ESTADO MODIFICADA ---
+
+                # 1. Estado por defecto si no hay otras condiciones
+                pago['estado_display'] = 'Pendiente de Revisión'
+
+                # 2. Si un admin ya lo marcó como 'Inconsistente'
+                if pago['estado_reporte'] == 'Inconsistente':
+                    pago['estado_display'] = 'Inconsistente'
+                
+                # 3. Si un admin ya lo 'Aprobó', está listo para conciliar
+                elif pago['estado_reporte'] == 'Aprobado':
+                    pago['estado_display'] = 'Listo para Conciliar'
+
+                # 4. Si está pendiente de revisión y fue reportado hoy después de la hora de corte
+                elif pago['reportado_por_cliente'] and pago['fecha_reporte']:
+                    fecha_reporte_vet = VENEZUELA_TZ.localize(pago['fecha_reporte']) if pago['fecha_reporte'].tzinfo is None else pago['fecha_reporte'].astimezone(VENEZUELA_TZ)
+                    if fecha_reporte_vet.date() == now_vet.date() and fecha_reporte_vet.time() >= hora_corte:
+                        proximo_dia = get_proximo_dia_habil(now_vet.date())
+                        # Asigna un estado especial para los diferidos
+                        pago['estado_display'] = f"Diferido (Revisar el {proximo_dia.strftime('%d/%m')})"
+                
+                # --- FIN DE LA LÓGICA DE ESTADO MODIFICADA ---
 
                 pagos_a_procesar.append(pago)
 
