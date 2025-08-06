@@ -2,16 +2,14 @@ import os
 import psycopg2
 from dotenv import load_dotenv
 
-def limpiar_registros_de_prueba_v2():
+def limpiar_solo_comisiones_de_prueba():
     """
-    Elimina de forma completa y en cascada todos los clientes y sus datos asociados
-    que fueron creados a través de la aplicación.
+    Elimina únicamente las comisiones generadas por los registros de prueba,
+    dejando intactos los clientes y sus pagos para mantener un balance de referencia.
     
     Identifica los registros de prueba si cumplen CUALQUIERA de estas condiciones:
     1. Tienen una firma digital (registros nuevos).
     2. Tienen una entrada en la tabla 'caja_inscripciones' (registros antiguos y nuevos).
-    
-    Esto asegura que NO se afecten los datos migrados desde Excel.
     """
     load_dotenv()
     DATABASE_URL = os.getenv('DATABASE_URL')
@@ -24,56 +22,40 @@ def limpiar_registros_de_prueba_v2():
         conn = psycopg2.connect(DATABASE_URL)
         with conn.cursor() as cur:
             
-            # 1. Identificar a TODOS los clientes de prueba usando la lógica mejorada
-            print("Buscando clientes de prueba registrados a través de la aplicación (método robusto)...")
+            # 1. Identificar a los clientes de prueba para saber qué comisiones borrar
+            print("Buscando clientes de prueba para identificar sus comisiones asociadas...")
             cur.execute("""
                 SELECT DISTINCT c.id, c.nombre, c.apellido, c.cedula
                 FROM clientes c
                 LEFT JOIN caja_inscripciones ci ON c.id = ci.cliente_id
                 WHERE c.firma_digital IS NOT NULL OR ci.id IS NOT NULL;
             """)
-            clientes_a_eliminar = cur.fetchall()
+            clientes_de_prueba = cur.fetchall()
             
-            if not clientes_a_eliminar:
-                print("\n✅ No se encontraron registros de prueba para eliminar. La base de datos está limpia.")
+            if not clientes_de_prueba:
+                print("\n✅ No se encontraron clientes de prueba, por lo tanto no hay comisiones que limpiar.")
                 return
 
-            print(f"\nSe encontraron {len(clientes_a_eliminar)} clientes de prueba para eliminar:")
-            for cliente in clientes_a_eliminar:
-                print(f"  - ID: {cliente[0]}, Nombre: {cliente[1]} {cliente[2]}, C.I: {cliente[3]}")
+            print(f"\nSe limpiarán las comisiones asociadas a los siguientes {len(clientes_de_prueba)} clientes de prueba:")
+            for cliente in clientes_de_prueba:
+                print(f"  - ID: {cliente[0]}, Nombre: {cliente[1]} {cliente[2]}")
 
             # 2. Confirmación del usuario
-            confirmacion = input("\nADVERTENCIA: Estás a punto de eliminar permanentemente estos clientes y TODOS sus datos asociados (pagos, comisiones, etc.).\nEsta acción NO se puede deshacer.\n\nEscribe 'CONFIRMAR' para proceder: ")
+            confirmacion = input("\nADVERTENCIA: Estás a punto de eliminar permanentemente SOLO las comisiones generadas por estos clientes.\nLos clientes y sus pagos NO serán eliminados.\n\nEscribe 'CONFIRMAR' para proceder: ")
             if confirmacion != "CONFIRMAR":
                 print("\nOperación cancelada por el usuario.")
                 return
 
-            # 3. Proceder con la eliminación en cascada
-            print("\nIniciando limpieza completa...")
-            ids_a_eliminar = [cliente[0] for cliente in clientes_a_eliminar]
+            # 3. Proceder con la eliminación de las comisiones
+            print("\nIniciando limpieza de comisiones...")
+            ids_clientes_prueba = [cliente[0] for cliente in clientes_de_prueba]
             
-            # Eliminar de tablas relacionadas en orden de dependencia para evitar errores
-            tablas_relacionadas = [
-                "gestiones_cobranza",
-                "ofertas",
-                "comisiones_generadas",
-                "caja_inscripciones",
-                "pagos"
-            ]
-            
-            for tabla in tablas_relacionadas:
-                print(f"  - Limpiando de la tabla '{tabla}'...")
-                cur.execute(f"DELETE FROM {tabla} WHERE cliente_id = ANY(%s);", (ids_a_eliminar,))
-                print(f"    {cur.rowcount} registros eliminados.")
+            cur.execute(f"DELETE FROM comisiones_generadas WHERE cliente_id = ANY(%s);", (ids_clientes_prueba,))
+            print(f"  - {cur.rowcount} registros de comisiones eliminados.")
 
-            # Finalmente, eliminar los registros principales de los clientes
-            print("  - Limpiando de la tabla 'clientes'...")
-            cur.execute("DELETE FROM clientes WHERE id = ANY(%s);", (ids_a_eliminar,))
-            print(f"    {cur.rowcount} registros eliminados.")
-            
-            # Confirmar todos los cambios en la base de datos
+            # Confirmar los cambios en la base de datos
             conn.commit()
-            print("\n\n🎉 ¡PROCESO FINALIZADO! Todos los registros de prueba han sido eliminados exitosamente.")
+            print("\n\n🎉 ¡PROCESO FINALIZADO! Todas las comisiones de prueba han sido eliminadas exitosamente.")
 
     except psycopg2.Error as e:
         print(f"\n\n❌ ERROR CRÍTICO: Se ha producido un error en la base de datos. Se revertirán todos los cambios.")
@@ -86,4 +68,4 @@ def limpiar_registros_de_prueba_v2():
             print("   Conexión a la base de datos cerrada.")
 
 if __name__ == '__main__':
-    limpiar_registros_de_prueba_v2()
+    limpiar_solo_comisiones_de_prueba()
