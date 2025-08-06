@@ -551,7 +551,7 @@ def pagos_por_conciliar():
             pagos_pendientes = cur.fetchall()
             
             now_vet = get_venezuela_current_datetime()
-            hora_corte = time(16, 0) # 4:00 PM
+            hora_corte = time(16, 30) # <-- HORA AJUSTADA
 
             for pago_row in pagos_pendientes:
                 pago = dict(pago_row)
@@ -1696,28 +1696,44 @@ def conciliar_pago(pago_id):
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM pagos WHERE id = %s", (pago_id,))
-            pago = cur.fetchone()
-            if not pago or pago['estado_pago'] != 'Pendiente':
+            pago_original = cur.fetchone()
+            if not pago_original or pago_original['estado_pago'] != 'Pendiente':
                 flash("El pago no se puede conciliar (ya está conciliado, anulado o no existe).", 'error')
                 return redirect(url_for('pagos_por_conciliar'))
             
-            # --- INICIO DE CAMBIO: Lógica de restricción de horario ---
+            # Convertir la fila a un diccionario para poder modificarla
+            pago = dict(pago_original)
+
+            # --- INICIO DE CORRECCIÓN LÓGICA DE HORARIO Y FECHA EFECTIVA ---
             now_vet = get_venezuela_current_datetime()
-            hora_corte = time(16, 0)
+            hora_corte = time(16, 30) # <-- HORA AJUSTADA
+            fecha_conciliacion_actual = now_vet.date()
             fecha_reporte_naive = pago['fecha_creacion']
             
             habilitado_para_conciliar = False
             if fecha_reporte_naive:
+                # Convertir la fecha del reporte a la zona horaria de Venezuela
                 fecha_reporte_vet = VENEZUELA_TZ.localize(fecha_reporte_naive) if fecha_reporte_naive.tzinfo is None else fecha_reporte_naive.astimezone(VENEZUELA_TZ)
-                if fecha_reporte_vet.date() < now_vet.date() or (fecha_reporte_vet.date() == now_vet.date() and fecha_reporte_vet.time() < hora_corte):
+                
+                # Habilitado si fue reportado antes de la hora de corte el día de hoy, o en cualquier momento de un día anterior.
+                if fecha_reporte_vet.date() < fecha_conciliacion_actual or (fecha_reporte_vet.date() == fecha_conciliacion_actual and fecha_reporte_vet.time() < hora_corte):
                     habilitado_para_conciliar = True
-            else: # Pagos antiguos sin fecha de creación se pueden conciliar
+
+                # **LÓGICA CLAVE: AJUSTE DE FECHA DE PAGO**
+                # Si el pago fue reportado ayer (o antes) Y después de la hora de corte de ESE día,
+                # se ajusta su fecha de pago a HOY para que la contabilidad sea correcta.
+                if fecha_reporte_vet.time() >= hora_corte and fecha_reporte_vet.date() < fecha_conciliacion_actual:
+                    logging.info(f"AJUSTE DE FECHA: El pago {pago['id']} fue reportado el {fecha_reporte_vet.strftime('%Y-%m-%d')} fuera de horario. Se conciliará con fecha del día hábil: {fecha_conciliacion_actual.strftime('%Y-%m-%d')}.")
+                    pago['fecha_pago'] = fecha_conciliacion_actual # <-- ¡AQUÍ OCURRE LA MAGIA!
+                    habilitado_para_conciliar = True # Se asegura que se pueda conciliar
+
+            else: # Pagos antiguos sin fecha de creación se pueden conciliar siempre
                 habilitado_para_conciliar = True
 
             if not habilitado_para_conciliar:
                 flash("Este pago no puede ser conciliado hoy debido a la hora de su reporte.", 'danger')
                 return redirect(url_for('pagos_por_conciliar'))
-            # --- FIN DE CAMBIO ---
+            # --- FIN DE CORRECCIÓN ---
 
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s FOR UPDATE", (pago['cliente_id'],))
             cliente = cur.fetchone()
@@ -1728,7 +1744,6 @@ def conciliar_pago(pago_id):
 
             monto_pagado, pago_final_id, flash_msg = Decimal(pago['monto']), None, ""
             
-            # --- GUARDAR QUIÉN CONCILIÓ ---
             admin_id = g.admin['id'] if g.admin else None
             
             if pago['tipo_pago'] == 'Inscripción':
@@ -1736,7 +1751,6 @@ def conciliar_pago(pago_id):
                 inscripcion_total = Decimal(cliente.get('inscripcion_monto') or 0)
                 nueva_inscripcion_pagada = inscripcion_pagada_actual + monto_pagado
 
-                # --- INICIO LÓGICA DE COMISIONES POR UMBRAL ---
                 if inscripcion_total > 0:
                     umbral_pago_comision = inscripcion_total * (Decimal('7.7') / Decimal('16'))
                     cur.execute("SELECT comisiones_generadas FROM caja_inscripciones WHERE cliente_id = %s", (cliente['id'],))
@@ -1752,45 +1766,38 @@ def conciliar_pago(pago_id):
                         )
                         cur.execute("UPDATE caja_inscripciones SET comisiones_generadas = TRUE WHERE cliente_id = %s", (cliente['id'],))
                         flash('¡Umbral de inscripción alcanzado! Comisiones generadas para la nómina.', 'success')
-                # --- FIN LÓGICA DE COMISIONES POR UMBRAL ---
 
-                # --- INICIO LÓGICA DE RECIBO DE INSCRIPCIÓN ---
-                # CASO B: Pago único que cubre el 100% o más
                 if inscripcion_total > 0 and monto_pagado >= inscripcion_total and inscripcion_pagada_actual == 0:
                     if cliente['proceso'] == 'RESERVA':
                         cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],))
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (inscripcion_total, cliente['id']))
-                    # Convertir este mismo pago en el final
-                    cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', tipo_pago = 'Inscripción Finalizada', monto = %s, conciliado_por_id = %s WHERE id = %s", (inscripcion_total, admin_id, pago_id))
+                    cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', tipo_pago = 'Inscripción Finalizada', monto = %s, conciliado_por_id = %s, fecha_pago = %s WHERE id = %s", (inscripcion_total, admin_id, pago['fecha_pago'], pago_id))
                     pago_final_id = pago_id
                     descripcion_audit = f"Concilió pago único de inscripción (N°{pago_id}) por ${monto_pagado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
                     flash_msg = "¡Inscripción completada en un solo pago! Se generó el recibo final."
                 
-                # CASO A: Pago parcial que completa el 100%
                 elif inscripcion_total > 0 and nueva_inscripcion_pagada >= inscripcion_total:
                     if cliente['proceso'] == 'RESERVA':
                         cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],))
-                    # Anular abonos anteriores y crear el recibo final
                     cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente['id'],))
                     cur.execute("INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, por_concepto_de, estado_pago, cuotas_cubiertas, lugar_emision, conciliado_por_id) VALUES (%s, %s, 'Inscripción Finalizada', %s, %s, %s, 'Conciliado', 0, %s, %s) RETURNING id;", (cliente['id'], inscripcion_total, pago['forma_pago'], pago['fecha_pago'], 'Pago total de inscripción', pago['lugar_emision'], admin_id))
                     pago_final_id = cur.fetchone()[0]
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (inscripcion_total, cliente['id']))
-                    cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
+                    cur.execute("UPDATE pagos SET estado_pago = 'Anulado', fecha_pago = %s WHERE id = %s", (pago['fecha_pago'], pago_id,))
                     descripcion_audit = f"Concilió pago final de inscripción (N°{pago_id}) por ${monto_pagado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
                     flash_msg = "¡Inscripción completada! Se generó el recibo final."
                 
-                # CASO C: Pago parcial que NO completa el 100%
                 else:
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
-                    cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
+                    cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_pago = %s WHERE id = %s", (admin_id, pago['fecha_pago'], pago_id))
                     descripcion_audit = f"Concilió abono de inscripción N° {pago_id} por ${monto_pagado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
                     flash_msg = f"Abono de inscripción N° {pago_id} conciliado."
-                # --- FIN LÓGICA DE RECIBO DE INSCRIPCIÓN ---
 
             elif pago['tipo_pago'] == 'Cuota':
+                # Usa la fecha de pago (posiblemente actualizada) para el cálculo de vencimiento
                 puntualidad, fecha_vencimiento = 'Puntual', get_fecha_vencimiento_ajustada(pago['fecha_pago'])
                 if pago['fecha_pago'] > fecha_vencimiento:
                     puntualidad = 'Impuntual'
@@ -1806,7 +1813,8 @@ def conciliar_pago(pago_id):
                 while bp >= valor_cuota: rph, bp = rph + 1, bp - valor_cuota
                 nbf, ncpp, ncpr, cch = bp, cpp + pph, cpr + rph, pph + rph
                 cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s;", (ncpp, ncpr, nbf, cliente['id']))
-                cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', puntualidad = %s, cuotas_cubiertas = %s, progresivas_cubiertas = %s, regresivas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s, conciliado_por_id = %s WHERE id = %s;", (puntualidad, cch, pph, rph, ncpp, ncpr, nbf, admin_id, pago_id))
+                # Actualiza el pago con la fecha correcta
+                cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', fecha_pago = %s, puntualidad = %s, cuotas_cubiertas = %s, progresivas_cubiertas = %s, regresivas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s, conciliado_por_id = %s WHERE id = %s;", (pago['fecha_pago'], puntualidad, cch, pph, rph, ncpp, ncpr, nbf, admin_id, pago_id))
                 descripcion_audit = f"Concilió pago de cuota N° {pago_id} por ${monto_pagado} como '{puntualidad}' para {cliente['nombre_apellido']}."
                 registrar_accion_auditoria('CONCILIACION_CUOTA', descripcion_audit, cliente['id'])
                 flash_msg = f"¡Pago de cuota N° {pago_id} conciliado como '{puntualidad}'!"
@@ -2394,7 +2402,7 @@ def portal_reportar_pago():
                 conn.commit()
 
                 # --- INICIO DE CAMBIO: Lógica de alerta automática al cliente ---
-                hora_corte = time(16, 0) # 4:00 PM
+                hora_corte = time(16, 30) # <-- HORA AJUSTADA
                 if fecha_actual_vet.time() < hora_corte:
                     flash('✅ ¡Pago reportado a tiempo! Su reporte fue recibido y el recibo podrá generarse el día de hoy una vez sea verificado.', 'success')
                 else:

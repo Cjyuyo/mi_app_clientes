@@ -3,335 +3,319 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Comercial v3.0 - Moto Plan Motors C.A.</title>
+    <title>Dashboard Comercial - Sistema de Gestión</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         body {
-            background-color: #f0f2f5;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f8f9fa;
         }
-        .navbar {
-            background-color: #ffffff;
-            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+        .card-stat {
+            border-left: 5px solid;
+            transition: transform 0.2s;
         }
-        .hub-header {
-            background-color: #198754; /* Verde para Comercial */
-            color: white;
-            padding: 50px 20px;
-            text-align: center;
-            border-bottom: 5px solid #146c43;
+        .card-stat:hover {
+            transform: translateY(-5px);
         }
-        .hub-header h1 {
-            font-weight: 700;
-            font-size: 2.5rem;
-        }
-        .stat-card {
-            background-color: white;
-            border: none;
-            border-radius: .75rem;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            padding: 1.5rem;
-            text-align: center;
-        }
-        .stat-card .stat-title {
-            font-size: 1rem;
-            color: #6c757d;
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-        }
-        .stat-card .stat-value {
-            font-size: 2.2rem;
-            font-weight: 700;
-            color: #212529;
-        }
+        .border-primary { border-left-color: #0d6efd !important; }
+        .border-success { border-left-color: #198754 !important; }
+        .border-warning { border-left-color: #ffc107 !important; }
         .table-responsive {
-            max-height: 600px;
+            max-height: 500px;
         }
-        .modal-body .table {
-            margin-bottom: 0;
-        }
-        .summary-row td {
-            font-weight: bold;
-            border-top: 2px solid #dee2e6;
-        }
-        .actions-cell {
-            white-space: nowrap;
-        }
-        .historial-btn-cell {
-            width: 1%;
-            padding-right: 0.5rem;
+        .modal-body-fixed-height {
+            max-height: 60vh;
+            overflow-y: auto;
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('hub') }}"><strong>Moto Plan Motors</strong></a>
-            <div class="d-flex">
-                 <a href="{{ url_for('gestion_administrativa') }}" class="btn btn-outline-secondary me-2">Volver a Gestión</a>
-                <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger">Cerrar Sesión</a>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('hub') }}">Sistema de Gestión v3.5</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('hub') }}"><i class="bi bi-house-door-fill"></i> Hub</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    {% if g.admin %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle"></i> {{ g.admin.usuario }} ({{ g.admin.rol }})
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('admin_logout') }}">Cerrar Sesión</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+                </ul>
             </div>
         </div>
     </nav>
 
-    <header class="hub-header">
-        <h1><i class="bi bi-briefcase-fill"></i> Dashboard Comercial v3.0</h1>
-    </header>
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-shop"></i> Dashboard Comercial</h1>
+        </div>
 
-    <main class="container my-5">
-        <div class="row g-4 mb-5">
-            <div class="col-lg-4 col-md-6">
-                <div class="stat-card">
-                    <div class="stat-title">Ingresos Brutos (Inscripciones)</div>
-                    <div class="stat-value text-success">${{ "{:,.2f}".format(stats.ingresos_brutos_inscripciones) }}</div>
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card card-stat border-primary shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title text-primary">Ingresos Brutos (Inscripciones)</h5>
+                        <p class="card-text fs-3">${{ "{:,.2f}".format(stats.ingresos_brutos_inscripciones or 0) }}</p>
+                    </div>
                 </div>
             </div>
-            <div class="col-lg-4 col-md-6">
-                <div class="stat-card">
-                    <div class="stat-title">Nómina Pendiente por Pagar</div>
-                    <div class="stat-value text-danger">${{ "{:,.2f}".format(stats.total_comisiones_pendientes) }}</div>
+            <div class="col-md-4">
+                <div class="card card-stat border-warning shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title text-warning">Nómina Pendiente por Pagar</h5>
+                        <p class="card-text fs-3">${{ "{:,.2f}".format(stats.total_comisiones_pendientes or 0) }}</p>
+                    </div>
                 </div>
             </div>
-            <div class="col-lg-4 col-md-12">
-                <div class="stat-card">
-                    <div class="stat-title">Sobrante Empresa (Potencial)</div>
-                    <div class="stat-value text-primary">${{ "{:,.2f}".format(stats.total_sobrante_pendiente) }}</div>
+            <div class="col-md-4">
+                <div class="card card-stat border-success shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title text-success">Sobrante de Empresa (Inscripciones)</h5>
+                        <p class="card-text fs-3">${{ "{:,.2f}".format(stats.total_sobrante_pendiente or 0) }}</p>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="row g-4">
-            <div class="col-lg-8">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                        <h4 class="mb-0"><i class="bi bi-file-earmark-text-fill me-2"></i>Contratos Registrados (para cálculo de comisiones)</h4>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Fecha</th>
-                                        <th>Contrato N°</th>
-                                        <th>Cliente</th>
-                                        <th class="text-end">Plan</th>
-                                        <th>Asesor</th>
-                                        <th>Responsable</th>
-                                        <th class="text-center">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for contrato in contratos %}
-                                    <tr>
-                                        <td>{{ contrato.fecha_registro | format_date }}</td>
-                                        <td>{{ contrato.contrato_nro }}</td>
-                                        <td>{{ contrato.nombre }} {{ contrato.apellido }}</td>
-                                        <td class="text-end">${{ "{:,.2f}".format(contrato.plan_contratado) }}</td>
-                                        <td>{{ contrato.asesor }}</td>
-                                        <td>{{ contrato.responsable_cierre }}</td>
-                                        <td class="text-center actions-cell">
-                                            <button class="btn btn-sm btn-info ver-split-btn" data-bs-toggle="modal" data-bs-target="#splitModal" data-contrato-nro="{{ contrato.contrato_nro }}">
-                                                Split
-                                            </button>
-                                            <a href="{{ url_for('perfil_cliente', cliente_id=contrato.cliente_id) }}" class="btn btn-sm btn-outline-secondary">
-                                                Ver
-                                            </a>
-                                        </td>
-                                    </tr>
-                                    {% else %}
-                                    <tr>
-                                        <td colspan="7" class="text-center text-muted p-5">
-                                            <p class="mb-0">No hay contratos registrados en la caja de inscripciones.</p>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h3><i class="bi bi-wallet2"></i> Nóminas Pendientes por Asesor</h3>
             </div>
-
-            <div class="col-lg-4">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-white py-3">
-                        <h4 class="mb-0"><i class="bi bi-people-fill me-2"></i>Nómina Pendiente por Asesor</h4>
-                    </div>
-                    <div class="card-body">
-                        {% if resumen_asesores %}
-                        <form action="{{ url_for('pagar_nomina_comercial') }}" method="POST" onsubmit="return confirm('¿Confirma que desea procesar todos los pagos de nómina seleccionados?');">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>Asesor</th>
-                                        <th colspan="2" class="text-end">Monto</th>
-                                        <th>Pagar Desde</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                {% for beneficiario in resumen_asesores %}
-                                    <tr>
-                                        <td class="align-middle">
-                                            {{ beneficiario.nombre_beneficiario }}
-                                            <input type="hidden" name="beneficiarios" value="{{ beneficiario.nombre_beneficiario }}">
-                                        </td>
-                                        <td class="text-end align-middle historial-btn-cell">
-                                            <button type="button" class="btn btn-sm btn-outline-info ver-historial-btn" data-bs-toggle="modal" data-bs-target="#historialModal" data-asesor-nombre="{{ beneficiario.nombre_beneficiario }}" title="Ver desglose de comisiones">
-                                                <i class="bi bi-clock-history"></i>
-                                            </button>
-                                        </td>
-                                        <td class="text-end align-middle">
-                                            <strong>${{ "{:,.2f}".format(beneficiario.total_pendiente) }}</strong>
-                                        </td>
-                                        <td>
-                                            <select class="form-select form-select-sm" name="cajas_origen" required>
-                                                <option value="">Seleccione caja...</option>
-                                                {% for caja, balance in balances_generales.items() %}
-                                                <option value="{{ caja }}">{{ caja.replace('_', ' ') }} (${{ "{:,.2f}".format(balance) }})</option>
-                                                {% endfor %}
-                                            </select>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                                </tbody>
-                            </table>
-                            <div class="d-grid mt-3">
-                                <button type="submit" class="btn btn-success">
-                                    <i class="bi bi-check-circle-fill me-2"></i>Pagar Nómina Seleccionada (${{ "{:,.2f}".format(stats.total_comisiones_pendientes) }})
-                                </button>
+            <div class="card-body">
+                {% if resumen_asesores %}
+                <form action="{{ url_for('pagar_nomina_comercial') }}" method="POST">
+                    <ul class="list-group mb-3">
+                        {% for asesor in resumen_asesores %}
+                        <li class="list-group-item d-flex align-items-center py-3">
+                            <div class="flex-grow-1 d-flex align-items-center">
+                                <input type="checkbox" name="beneficiarios" value="{{ asesor.nombre_beneficiario }}" class="form-check-input me-3" style="transform: scale(1.5);">
+                                <label class="fw-bold">{{ asesor.nombre_beneficiario }}</label>
                             </div>
-                        </form>
-                        {% else %}
-                        <div class="text-center text-muted p-4">
-                            ¡Excelente! No hay comisiones pendientes por pagar.
-                        </div>
-                        {% endif %}
-                    </div>
+
+                            <div class="text-end" style="width: 120px;">
+                                <strong class="text-success fs-5">${{ "{:,.2f}".format(asesor.total_pendiente) }}</strong>
+                            </div>
+
+                            <div class="text-center" style="width: 130px;">
+                                <a href="#" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#historialModal" data-beneficiario="{{ asesor.nombre_beneficiario }}">
+                                    <i class="bi bi-card-list"></i> Desglose
+                                </a>
+                            </div>
+                            
+                            <div style="width: 180px;">
+                                <select name="cajas_origen" class="form-select form-select-sm">
+                                    <option value="" selected>Pagar desde...</option>
+                                    <option value="EFECTIVO_USD">Efectivo USD (${{ "{:,.2f}".format(balances_generales.EFECTIVO_USD or 0) }})</option>
+                                    <option value="BINANCE_USDT">Binance USDT (${{ "{:,.2f}".format(balances_generales.BINANCE_USDT or 0) }})</option>
+                                    <option value="CAJA_BS_USD">Caja Bs (Ref. $) (${{ "{:,.2f}".format(balances_generales.CAJA_BS_USD / (1 if balances_generales.tasa_ponderada_bs == 0 else balances_generales.tasa_ponderada_bs)) if balances_generales.CAJA_BS_USD else '0.00' }})</option>
+                                </select>
+                            </div>
+                        </li>
+                        {% endfor %}
+                        </ul>
+                    <button type="submit" class="btn btn-success w-100"><i class="bi bi-cash-stack"></i> Pagar Nóminas Seleccionadas</button>
+                </form>
+                {% else %}
+                <div class="alert alert-info">No hay nóminas pendientes por pagar en este momento.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h3><i class="bi bi-file-earmark-text"></i> Historial de Contratos Registrados</h3>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Contrato</th>
+                                <th>Cliente</th>
+                                <th>Fecha Reg.</th>
+                                <th>Plan ($)</th>
+                                <th>Monto Insc. ($)</th>
+                                <th>Asesor Dueño</th>
+                                <th>Cierre</th>
+                                <th>Sobrante ($)</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for contrato in contratos %}
+                            <tr>
+                                <td>{{ contrato.contrato_nro }}</td>
+                                <td><a href="{{ url_for('perfil_cliente', cliente_id=contrato.cliente_id) }}">{{ contrato.nombre }} {{ contrato.apellido }}</a></td>
+                                <td>{{ contrato.fecha_registro | format_date }}</td>
+                                <td>{{ "{:,.2f}".format(contrato.plan_contratado) }}</td>
+                                <td>{{ "{:,.2f}".format(contrato.monto_inscripcion) }}</td>
+                                <td>{{ contrato.asesor }}</td>
+                                <td>{{ contrato.responsable_cierre }}</td>
+                                <td>{{ "{:,.2f}".format(contrato.sobrante_empresa or 0) }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-info" onclick="verSplit('{{ contrato.contrato_nro }}')">
+                                        Ver Split
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center">No hay contratos registrados.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
-    </main>
+    </div>
 
-    <!-- Modal para Split de Contrato -->
-    <div class="modal fade" id="splitModal" tabindex="-1" aria-labelledby="splitModalLabel" aria-hidden="true">
+    <div class="modal fade" id="splitModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="splitModalTitle">Split de Comisiones</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="splitModalBody">
+                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="historialModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h1 class="modal-title fs-5" id="splitModalTitle">Desglose del Contrato</h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title" id="historialModalTitle">Desglose de Comisiones Pendientes</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body" id="splitModalBody">
-                    <p class="text-center">Cargando detalles...</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal para Historial de Asesor -->
-    <div class="modal fade" id="historialModal" tabindex="-1" aria-labelledby="historialModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h1 class="modal-title fs-5" id="historialModalTitle">Historial de Comisiones Pendientes</h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="historialModalBody">
-                    <p class="text-center">Cargando historial...</p>
+                <div class="modal-body modal-body-fixed-height" id="historialModalBody">
+                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <footer class="footer">
-        <p>&copy; {{ anio_actual }} Moto Plan Motors C.A.</p>
+    <footer class="text-center text-muted py-4">
+        <p>&copy; {{ anio_actual }} - Sistema de Gestión Integral. Todos los derechos reservados.</p>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    
     <script>
+        function verSplit(contratoNro) {
+            const modalTitle = document.getElementById('splitModalTitle');
+            const modalBody = document.getElementById('splitModalBody');
+            const splitModal = new bootstrap.Modal(document.getElementById('splitModal'));
+
+            modalTitle.textContent = `Split de Comisiones - Contrato: ${contratoNro}`;
+            modalBody.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Cargando...</span></div></div>';
+            splitModal.show();
+
+            fetch(`/comercial/split_contrato/${contratoNro}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        modalBody.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                        return;
+                    }
+                    
+                    let content = `<h5>Resumen General</h5>
+                                   <ul class="list-group mb-3">
+                                       <li class="list-group-item"><strong>Pool Total (16%):</strong> $${data.resumen.pool_total}</li>
+                                       <li class="list-group-item"><strong>Total Comisiones Pagadas:</strong> $${data.resumen.total_comisiones}</li>
+                                       <li class="list-group-item"><strong>Sobrante para Empresa:</strong> $${data.resumen.sobrante_empresa}</li>
+                                   </ul>
+                                   <h5>Desglose de Comisiones</h5>`;
+                    
+                    if (data.comisiones.length > 0) {
+                        content += '<ul class="list-group">';
+                        data.comisiones.forEach(c => {
+                            content += `<li class="list-group-item d-flex justify-content-between">
+                                            <span>${c.concepto} (<b>${c.beneficiario}</b>)</span>
+                                            <strong>$${c.monto}</strong>
+                                        </li>`;
+                        });
+                        content += '</ul>';
+                    } else {
+                        content += '<div class="alert alert-info">No se encontraron comisiones para este contrato.</div>';
+                    }
+                    modalBody.innerHTML = content;
+                })
+                .catch(error => {
+                    modalBody.innerHTML = `<div class="alert alert-danger">Error al cargar los datos: ${error}</div>`;
+                });
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
-            // --- Lógica para Modal de Split de Contrato ---
-            const splitModalEl = document.getElementById('splitModal');
-            if (splitModalEl) {
-                const splitModal = new bootstrap.Modal(splitModalEl);
-                const modalTitle = document.getElementById('splitModalTitle');
-                const modalBody = document.getElementById('splitModalBody');
+            const historialModal = document.getElementById('historialModal');
+            historialModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                const beneficiario = button.getAttribute('data-beneficiario');
+                
+                const modalTitle = document.getElementById('historialModalTitle');
+                const modalBody = document.getElementById('historialModalBody');
 
-                document.body.addEventListener('click', function(event) {
-                    const button = event.target.closest('.ver-split-btn');
-                    if (button) {
-                        const contratoNro = button.dataset.contratoNro;
-                        modalTitle.textContent = `Desglose del Contrato: ${contratoNro}`;
-                        modalBody.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
-                        
-                        fetch(`/comercial/split_contrato/${contratoNro}`)
-                            .then(response => {
-                                if (!response.ok) { throw new Error('Error al obtener los datos del contrato.'); }
-                                return response.json();
-                            })
-                            .then(data => {
-                                let content = `<div class="table-responsive"><table class="table"><thead><tr><th>Beneficiario</th><th>Concepto</th><th class="text-end">Monto</th></tr></thead><tbody>`;
-                                data.comisiones.forEach(c => {
-                                    content += `<tr><td>${c.beneficiario}</td><td>${c.concepto}</td><td class="text-end">$${c.monto}</td></tr>`;
-                                });
-                                content += `</tbody><tfoot><tr class="summary-row table-light"><td colspan="2">Pool Comisiones (16%)</td><td class="text-end">$${data.resumen.pool_total}</td></tr><tr class="summary-row table-light"><td colspan="2">Total Comisiones y Bonos</td><td class="text-end text-danger">-$${data.resumen.total_comisiones}</td></tr><tr class="summary-row table-success"><td colspan="2">Sobrante para la Empresa</td><td class="text-end">$${data.resumen.sobrante_empresa}</td></tr></tfoot></table></div>`;
-                                modalBody.innerHTML = content;
-                            })
-                            .catch(error => {
-                                modalBody.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+                modalTitle.textContent = `Desglose de Comisiones Pendientes para: ${beneficiario}`;
+                modalBody.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Cargando...</span></div></div>';
+
+                fetch(`/comercial/historial_asesor/${beneficiario}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            modalBody.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                            return;
+                        }
+
+                        if (data.length > 0) {
+                            let tableContent = `<table class="table table-sm table-bordered">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Concepto</th>
+                                                            <th>Cliente</th>
+                                                            <th>Plan ($)</th>
+                                                            <th>Cierre</th>
+                                                            <th>Monto ($)</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>`;
+                            data.forEach(item => {
+                                tableContent += `<tr>
+                                                    <td>${item.concepto}</td>
+                                                    <td>${item.cliente}</td>
+                                                    <td>${item.plan_contratado}</td>
+                                                    <td>${item.responsable_cierre}</td>
+                                                    <td class="text-end"><strong>${item.monto}</strong></td>
+                                                 </tr>`;
                             });
-                    }
-                });
-            }
-
-            // --- Lógica para Modal de Historial de Asesor ---
-            const historialModalEl = document.getElementById('historialModal');
-            if (historialModalEl) {
-                const historialModal = new bootstrap.Modal(historialModalEl);
-                const historialTitle = document.getElementById('historialModalTitle');
-                const historialBody = document.getElementById('historialModalBody');
-
-                document.body.addEventListener('click', function(event) {
-                    const button = event.target.closest('.ver-historial-btn');
-                    if (button) {
-                        const asesorNombre = button.dataset.asesorNombre;
-                        historialTitle.textContent = `Desglose de Comisiones Pendientes para: ${asesorNombre}`;
-                        historialBody.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
-                        
-                        fetch(`/comercial/historial_asesor/${asesorNombre}`)
-                            .then(response => {
-                                if (!response.ok) { throw new Error('Error al obtener el historial del asesor.'); }
-                                return response.json();
-                            })
-                            .then(data => {
-                                if (data.length === 0) {
-                                    historialBody.innerHTML = '<p class="text-center text-muted">No hay comisiones pendientes para este asesor.</p>';
-                                    return;
-                                }
-                                let content = `<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Concepto</th><th>Monto</th><th>Contrato N°</th><th>Cliente</th><th>Monto Plan</th><th>Cierre por</th></tr></thead><tbody>`;
-                                let total = 0;
-                                data.forEach(item => {
-                                    content += `<tr>
-                                        <td>${item.concepto}</td>
-                                        <td class="text-end">$${item.monto}</td>
-                                        <td>${item.contrato_nro}</td>
-                                        <td>${item.cliente}</td>
-                                        <td class="text-end">$${item.plan_contratado}</td>
-                                        <td>${item.responsable_cierre}</td>
-                                    </tr>`;
-                                    total += parseFloat(item.monto.replace(/,/g, ''));
-                                });
-                                content += `</tbody><tfoot><tr class="table-light"><td colspan="1" class="fw-bold">Total Pendiente</td><td class="text-end fw-bold">$${total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td><td colspan="4"></td></tr></tfoot></table></div>`;
-                                historialBody.innerHTML = content;
-                            })
-                            .catch(error => {
-                                historialBody.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
-                            });
-                    }
-                });
-            }
+                            tableContent += '</tbody></table>';
+                            modalBody.innerHTML = tableContent;
+                        } else {
+                            modalBody.innerHTML = '<div class="alert alert-info">No hay desglose de comisiones pendientes para este asesor.</div>';
+                        }
+                    })
+                    .catch(error => {
+                        modalBody.innerHTML = `<div class="alert alert-danger">Error al cargar el historial: ${error}</div>`;
+                    });
+            });
         });
     </script>
 </body>
