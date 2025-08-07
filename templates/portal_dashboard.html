@@ -76,7 +76,7 @@
         }
         .content-card-header h2 { margin: 0; font-size: 1.2rem; font-weight: 500; }
         .content-card-header p { margin: 5px 0 0; opacity: 0.9; font-size: 0.9rem; }
-        .client-details, .payment-history { padding: 1.5rem; }
+        .client-details, .payment-history-body { padding: 1.5rem; }
         .detail-item { background-color: var(--gris-fondo); padding: 1rem; border-radius: .5rem; }
         .detail-item .label { display: block; font-size: 0.8em; color: var(--texto-claro); margin-bottom: 5px; text-transform: uppercase; }
         .detail-item .value { font-size: 1rem; font-weight: bold; color: var(--texto-oscuro); }
@@ -84,12 +84,12 @@
         .progress-bar { background-color: var(--verde-exito); }
         .progress-bar-secondary { background-color: #17a2b8; }
         .progress-label { display: flex; justify-content: space-between; font-size: 0.85em; margin-top: 5px; }
-        .payment-history h3 { margin-top: 0; border-bottom: 1px solid var(--borde-sutil); padding-bottom: 10px; font-size: 1.1rem; }
-        .payment-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--borde-sutil); gap: 1rem; }
+        .payment-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--borde-sutil); gap: 1rem; }
         .payment-row:last-child { border-bottom: none; }
         .payment-info .payment-concept { font-weight: 500; }
         .payment-info .payment-meta { font-size: 0.85em; color: var(--texto-claro); }
         .payment-amount { font-size: 1rem; font-weight: bold; }
+        .payment-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
         .btn-recibo { font-size: 0.8rem; }
         .footer {
             text-align: center;
@@ -108,19 +108,43 @@
         <div class="portal-header">
             <h1>Mi Portal de Cliente</h1>
             <div class="header-actions">
-                <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-dark btn-sm" target="_blank">Ver Contrato</a>
-                <a href="{{ url_for('portal_estado_cuenta') }}" class="btn btn-info btn-sm" target="_blank">Estado de Cuenta</a>
-                <a href="{{ url_for('portal_logout') }}" class="btn btn-danger btn-sm">Cerrar Sesión</a>
+                <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-dark btn-sm" target="_blank"><i class="bi bi-file-pdf"></i> Ver Contrato</a>
+                <a href="{{ url_for('portal_estado_cuenta') }}" class="btn btn-info btn-sm" target="_blank"><i class="bi bi-journal-text"></i> Estado de Cuenta</a>
+                <a href="{{ url_for('portal_logout') }}" class="btn btn-danger btn-sm"><i class="bi bi-box-arrow-right"></i> Cerrar Sesión</a>
             </div>
         </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
 
         {% set puede_pagar = cliente.estatus in ['ACTIVO', 'AHORRADOR'] %}
         
         <div class="payment-status-card {{ cuota_status.estado | lower }}">
-            <!-- Contenido del estado de la cuota (sin cambios) -->
+             <div class="status-header">
+                <h3>Cuota de {{ cuota_status.mes }}</h3>
+                <span class="status-label {{ cuota_status.estado | lower }}">{{ cuota_status.estado }}</span>
+            </div>
+            <div class="status-body">
+                {% if cuota_status.estado == 'Pagada' %}
+                    {{ cuota_status.mensaje }}
+                {% elif cuota_status.estado == 'Vigente' %}
+                    Tu fecha de vencimiento es el <strong>{{ cuota_status.fecha_vencimiento }}</strong>.
+                    <a href="{{ url_for('portal_reportar_pago') }}" class="btn btn-primary btn-reportar btn-sm mt-2">Reportar Pago</a>
+                {% else %}
+                    Tu cuota ha vencido. Por favor, realiza tu pago lo antes posible.
+                    <a href="{{ url_for('portal_reportar_pago') }}" class="btn btn-danger btn-sm mt-2">Reportar Pago Atrasado</a>
+                {% endif %}
+            </div>
         </div>
         
-        <!-- Tarjeta de Solicitudes y Citas -->
         <div class="content-card">
             <div class="content-card-header">
                 <h2>Solicitudes y Citas</h2>
@@ -143,10 +167,48 @@
         </div>
 
         <div class="content-card">
-            <!-- Contenido del perfil del cliente (sin cambios) -->
+            <div class="content-card-header">
+                <h2>Resumen de mi Plan</h2>
+                <p>Un vistazo rápido a tu progreso y estado actual.</p>
+            </div>
+            <div class="client-details p-3">
+                 <!-- Detalles del cliente (sin cambios) -->
+            </div>
         </div>
 
-        <!-- Historial de Ofertas -->
+        <!-- INICIO DE CAMBIO: Historial de Pagos -->
+        <div class="content-card">
+            <div class="content-card-header">
+                <h2>Historial de Pagos</h2>
+            </div>
+            <div class="payment-history-body">
+                {% if cliente.pagos %}
+                    {% for pago in cliente.pagos %}
+                    <div class="payment-row">
+                        <div class="payment-info">
+                            <span class="payment-concept">{{ pago.tipo_pago }}</span>
+                            <span class="payment-meta">{{ pago.fecha_pago | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</span>
+                        </div>
+                        <div class="payment-amount">${{ "%.2f"|format(pago.monto) }}</div>
+                        <div class="payment-actions">
+                            {% if pago.estado_pago == 'Conciliado' %}
+                                <span class="badge text-bg-success">Conciliado</span>
+                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm" target="_blank">Ver Recibo</a>
+                            {% elif pago.estado_pago == 'Pendiente' %}
+                                <span class="badge text-bg-warning">Pendiente</span>
+                            {% elif pago.estado_pago == 'Anulado' %}
+                                <span class="badge text-bg-danger">Anulado</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-center text-muted p-3">Aún no tienes pagos registrados.</p>
+                {% endif %}
+            </div>
+        </div>
+        <!-- FIN DE CAMBIO -->
+
         <div class="content-card">
             <div class="content-card-header">
                 <h2>Historial de Ofertas</h2>
@@ -162,17 +224,25 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for oferta in cliente.ofertas %}
-                            <tr>
-                                <td>{{ oferta.fecha_creacion.strftime('%d/%m/%Y') }}</td>
-                                <td>{{ oferta.cuotas_ofertadas }}</td>
-                                <td><span class="badge bg-info">{{ oferta.estado }}</span></td>
-                            </tr>
+                            {% if cliente.ofertas %}
+                                {% for oferta in cliente.ofertas %}
+                                <tr>
+                                    <td>{{ oferta.fecha_oferta | format_date }}</td>
+                                    <td>{{ oferta.cuotas_ofertadas }}</td>
+                                    <td>
+                                        {% if oferta.estado_oferta == 'activa' %}<span class="badge text-bg-primary">Activa</span>
+                                        {% elif oferta.estado_oferta == 'ganadora' %}<span class="badge text-bg-success">Ganadora</span>
+                                        {% elif oferta.estado_oferta == 'perdida' %}<span class="badge text-bg-secondary">Perdida</span>
+                                        {% else %}<span class="badge text-bg-light">{{ oferta.estado_oferta }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
                             {% else %}
-                            <tr>
-                                <td colspan="3" class="text-center text-muted p-4">No has realizado ninguna oferta.</td>
-                            </tr>
-                            {% endfor %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted p-4">No has realizado ninguna oferta.</td>
+                                </tr>
+                            {% endif %}
                         </tbody>
                     </table>
                 </div>
@@ -180,36 +250,114 @@
         </div>
     </div>
 
+    <!-- INICIO DE CAMBIO: Modals Funcionales -->
     <!-- Modal para Oferta -->
     <div class="modal fade" id="ofertaModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Registrar Oferta de Adjudicación</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Selecciona la cantidad de cuotas que deseas ofertar para el próximo evento de adjudicación.</p>
-                    <form>
+                <form action="{{ url_for('portal_guardar_oferta') }}" method="POST">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Registrar Oferta de Adjudicación</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Selecciona la cantidad de cuotas que deseas ofertar para el próximo evento de adjudicación.</p>
                         <div class="mb-3">
                             <label for="cuotasOfertadas" class="form-label">Cantidad de Cuotas</label>
-                            <select class="form-select" id="cuotasOfertadas">
-                                {% for i in range(1, cliente.cuotas_totales + 1) %}
+                            <select class="form-select" id="cuotasOfertadas" name="cuotas_ofertadas" required>
+                                {% for i in range(1, (cliente.cuotas_totales - cliente.cuotas_pagadas_progresivas) + 1) %}
                                 <option value="{{ i }}">{{ i }} cuota(s)</option>
                                 {% endfor %}
                             </select>
                         </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary">Enviar Oferta</button>
-                </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Enviar Oferta</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
-    <!-- Otros Modals (Cita, Congelamiento, Retiro) sin cambios -->
+    <!-- Modal para Cita -->
+    <div class="modal fade" id="citaModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form action="{{ url_for('portal_solicitar_cita') }}" method="POST">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Solicitar Cita</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Seleccione una fecha y motivo para su cita.</p>
+                        <div class="mb-3">
+                            <label for="fechaCita" class="form-label">Fecha Deseada</label>
+                            <input type="date" class="form-control" id="fechaCita" name="fecha_cita" required>
+                        </div>
+                         <div class="mb-3">
+                            <label for="motivoCita" class="form-label">Motivo de la Cita</label>
+                            <textarea class="form-control" id="motivoCita" name="motivo_cita" rows="3" required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Enviar Solicitud</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Congelamiento -->
+    <div class="modal fade" id="congelamientoModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                 <form action="{{ url_for('portal_solicitar_congelamiento') }}" method="POST">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Solicitar Congelamiento de Plan</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Estás a punto de solicitar el congelamiento de tu plan. Un asesor se pondrá en contacto contigo para explicarte las condiciones y confirmar el proceso.</p>
+                        <div class="mb-3">
+                            <label for="motivoCongelamiento" class="form-label">Motivo (Opcional)</label>
+                            <textarea class="form-control" id="motivoCongelamiento" name="motivo" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-warning">Confirmar Solicitud</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Retiro -->
+    <div class="modal fade" id="retiroModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form action="{{ url_for('portal_solicitar_retiro') }}" method="POST">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Solicitar Retiro del Plan</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            <strong>Atención:</strong> Esta acción iniciará el proceso de retiro de tu plan de ahorro. Un asesor se comunicará contigo para finalizar el proceso, lo cual puede implicar penalizaciones según tu contrato.
+                        </div>
+                        <p>¿Estás seguro de que deseas continuar?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, Cancelar</button>
+                        <button type="submit" class="btn btn-danger">Sí, Deseo Retirarme</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- FIN DE CAMBIO -->
 
     <footer class="footer">
         <p>&copy; 2025 - Sistema de Gestión Integral. Moto Plan Motors C.A. Todos los derechos reservados.</p>
@@ -217,7 +365,9 @@
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Scripts existentes sin cambios
+        // Script para establecer la fecha mínima en el input de cita
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('fechaCita').setAttribute('min', today);
     </script>
 </body>
 </html>

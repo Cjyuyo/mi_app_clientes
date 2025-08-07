@@ -10,158 +10,61 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* --- GUÍA DE ESTILO MAESTRA --- */
+        /* --- GUÍA DE ESTILO MAESTRA (SIN CAMBIOS) --- */
         :root {
-            /* Paleta Corporativa */
             --azul-corporativo: #2B3A55;
             --naranja-corporativo: #F99417;
-            
-            /* Colores de Soporte */
             --gris-fondo: #f8f9fa;
             --blanco-tarjetas: #FFFFFF;
             --texto-oscuro: #212529;
             --texto-claro: #6c757d;
             --borde-sutil: #e9ecef;
-
-            /* Color temático de esta página */
             --theme-color: var(--naranja-corporativo);
         }
-
-        /* --- ESTILOS GLOBALES --- */
-        body { 
-            font-family: 'Roboto', sans-serif; 
-            background-color: var(--gris-fondo); 
-            color: var(--texto-oscuro);
-        }
-        .container-main { 
-            max-width: 900px; 
-            margin: auto;
-            padding: 1.5rem 1rem;
-        }
-
-        /* --- COMPONENTES --- */
-        .search-container { 
-            background: var(--blanco-tarjetas); 
-            padding: 1.5rem; 
-            border-radius: .75rem; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.07); 
-            margin-bottom: 1.5rem; 
-        }
-        .search-container form { 
-            display: flex; 
-            gap: 10px; 
-            align-items: center; 
-            flex-wrap: wrap; 
-        }
-        .search-container input[type="text"] { 
-            flex-grow: 1; 
-            padding: .75rem 1rem; 
-            font-size: 1rem; 
-            border: 1px solid var(--borde-sutil); 
-            border-radius: .5rem; 
-        }
-        .btn-theme-primary {
-            background-color: var(--theme-color);
-            border-color: var(--theme-color);
-            color: white;
-            font-weight: 500;
-        }
-        .btn-theme-primary:hover {
-            filter: brightness(90%);
-            background-color: var(--theme-color);
-            border-color: var(--theme-color);
-            color: white;
-        }
-
-        .client-card { 
-            background: var(--blanco-tarjetas); 
-            margin-bottom: 1.5rem; 
-            border-radius: .75rem; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.07); 
-            overflow: hidden; 
-        }
-        .client-header { 
-            background-color: var(--azul-corporativo); 
-            color: var(--blanco-tarjetas);
-            padding: 1rem 1.5rem; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            flex-wrap: wrap; 
-        }
-        .client-header h2 { 
-            margin: 0; 
-            font-size: 1.25rem; 
-            font-weight: 500;
-        }
-        
-        .client-details { 
-            padding: 1.5rem; 
-            display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); 
-            gap: 1rem; 
-        }
-        .detail-item { 
-            background-color: var(--gris-fondo); 
-            padding: 1rem; 
-            border-radius: .5rem; 
-            border: 1px solid var(--borde-sutil);
-        }
-        .detail-item .label { 
-            display: block; 
-            font-size: 0.8rem; 
-            font-weight: 500; 
-            color: var(--texto-claro); 
-            margin-bottom: 0.25rem; 
-            text-transform: uppercase; 
-        }
-        .detail-item .value { 
-            font-size: 1rem; 
-            font-weight: 700; 
-            color: var(--texto-oscuro); 
-        }
+        body { font-family: 'Roboto', sans-serif; background-color: var(--gris-fondo); color: var(--texto-oscuro); }
+        .container-main { max-width: 900px; margin: auto; padding: 1.5rem 1rem; }
+        .search-container { background: var(--blanco-tarjetas); padding: 1.5rem; border-radius: .75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.07); margin-bottom: 1.5rem; }
+        .search-container form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .search-container input[type="text"] { flex-grow: 1; padding: .75rem 1rem; font-size: 1rem; border: 1px solid var(--borde-sutil); border-radius: .5rem; }
+        .btn-theme-primary { background-color: var(--theme-color); border-color: var(--theme-color); color: white; font-weight: 500; }
+        .btn-theme-primary:hover { filter: brightness(90%); background-color: var(--theme-color); border-color: var(--theme-color); color: white; }
+        .client-card { background: var(--blanco-tarjetas); margin-bottom: 1.5rem; border-radius: .75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.07); overflow: hidden; }
+        .client-header { background-color: var(--azul-corporativo); color: var(--blanco-tarjetas); padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+        .client-header h2 { margin: 0; font-size: 1.25rem; font-weight: 500; }
+        .client-details { padding: 1.5rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+        .detail-item { background-color: var(--gris-fondo); padding: 1rem; border-radius: .5rem; border: 1px solid var(--borde-sutil); }
+        .detail-item .label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--texto-claro); margin-bottom: 0.25rem; text-transform: uppercase; }
+        .detail-item .value { font-size: 1rem; font-weight: 700; color: var(--texto-oscuro); }
         .detail-item .value.currency { color: #198754; }
-
         .progress-item { grid-column: 1 / -1; }
-        .progress-bar-container { 
-            background-color: var(--borde-sutil); 
-            border-radius: .5rem; 
-            height: 1.25rem; 
-            overflow: hidden; 
-            width: 100%; 
-            margin-top: 5px; 
-        }
-        .progress-bar { 
-            background-color: #28a745; 
-            height: 100%; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            color: white; 
-            font-size: 0.8rem; 
-            font-weight: bold; 
-        }
+        .progress-bar-container { background-color: var(--borde-sutil); border-radius: .5rem; height: 1.25rem; overflow: hidden; width: 100%; margin-top: 5px; }
+        .progress-bar { background-color: #28a745; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold; }
         .progress-bar-secondary { background-color: #17a2b8; }
-        .progress-label { 
-            display: flex; 
-            justify-content: space-between; 
-            font-size: 0.85rem; 
-            margin-top: 5px; 
-            color: var(--texto-claro);
-        }
-
-        .payment-history {
-            padding: 1.5rem;
+        .progress-label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 5px; color: var(--texto-claro); }
+        
+        /* --- INICIO DE CAMBIO: Estilos para pestañas e historial --- */
+        .history-section {
+            padding: 0 1.5rem 1.5rem 1.5rem;
             background-color: #fcfcfc;
             border-top: 1px solid var(--borde-sutil);
         }
-        .payment-history h3 {
-            margin-top: 0;
-            margin-bottom: 1rem;
-            padding-bottom: 0.75rem;
+        .nav-tabs {
             border-bottom: 1px solid var(--borde-sutil);
-            font-size: 1.1rem;
+            margin-bottom: 1rem;
+        }
+        .nav-tabs .nav-link {
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: var(--texto-claro);
             font-weight: 500;
+        }
+        .nav-tabs .nav-link.active {
+            color: var(--azul-corporativo);
+            border-bottom-color: var(--theme-color);
+            background-color: transparent;
+        }
+        .tab-content {
+            padding-top: 0.5rem;
         }
         .payment-row {
             display: grid;
@@ -176,26 +79,19 @@
         .payment-info .payment-meta { font-size: 0.85em; color: var(--texto-claro); }
         .payment-amount { font-weight: bold; }
         .payment-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
-        
-        .client-actions { 
-            display: flex; 
-            flex-wrap: wrap; 
-            justify-content: flex-end; 
-            gap: 10px; 
-            padding: 1rem 1.5rem; 
-            background-color: var(--gris-fondo); 
-            border-top: 1px solid var(--borde-sutil); 
-        }
+        /* --- FIN DE CAMBIO --- */
+
+        .client-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 1rem 1.5rem; background-color: var(--gris-fondo); border-top: 1px solid var(--borde-sutil); }
     </style>
 </head>
 <body>
 <div class="container-main">
     <div class="search-container">
         <form method="POST" action="{{ url_for('consulta') }}">
-            <input type="text" name="busqueda" placeholder="Buscar por Nombre o Cédula..." value="{{ busqueda or '' }}">
-            <button type="submit" class="btn btn-theme-primary">Buscar</button>
+            <input type="text" name="busqueda" placeholder="Buscar por Nombre o Cédula..." value="{{ busqueda or '' }}" class="form-control">
+            <button type="submit" class="btn btn-theme-primary"><i class="bi bi-search"></i> Buscar</button>
             <a href="{{ url_for('hub') }}" class="btn btn-secondary">
-                <i class="bi bi-house-door-fill me-1"></i>Volver al Hub
+                <i class="bi bi-house-door-fill"></i> Hub
             </a>
         </form>
     </div>
@@ -203,13 +99,16 @@
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
-          <div class="alert alert-{{ category }}">{{ message }}</div>
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
         {% endfor %}
       {% endif %}
     {% endwith %}
 
     {% if mensaje_error %}
-        <div class="alert alert-danger">{{ mensaje_error }}</div>
+        <div class="alert alert-warning">{{ mensaje_error }}</div>
     {% endif %}
 
     <div id="client-results">
@@ -221,140 +120,133 @@
             </div>
             
             <div class="client-details">
-                <div class="detail-item">
-                    <span class="label">Grupo</span>
-                    <span class="value">{{ cliente.grupo or 'N/A' }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Plan</span>
-                    <span class="value">{{ cliente.plan_contratado or 'N/A' }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Cuotas Pagadas</span>
-                    <span class="value">{{ cliente.cuotas_pagadas_progresivas | int }} de {{ cliente.cuotas_totales | int }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Cédula</span>
-                    <span class="value">{{ cliente.cedula }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Contrato</span>
-                    <span class="value">{{ cliente.contrato_nro or 'N/A' }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Teléfono</span>
-                    <span class="value">{{ cliente.telefono or 'N/A' }}</span>
-                </div>
-                 <div class="detail-item">
-                    <span class="label">Asesor</span>
-                    <span class="value">{{ cliente.asesor or 'N/A' }}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Inscripción</span>
-                    <span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span>
-                </div>
-
-                {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}
-                {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}
-                {% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}
-                {% set cuotas_totales = cliente.cuotas_totales or 0 %}
-                {% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
-
-                <div class="detail-item progress-item">
-                    <span class="label">Progreso Total del Plan</span>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar" style="width: {{ progreso_total }}%;">
-                            {{ "%.0f"|format(progreso_total) }}%
-                        </div>
-                    </div>
-                    <div class="progress-label">
-                        <span>Pagadas: {{ cuotas_pagadas_total | int }}</span>
-                        <span>Restantes: {{ (cuotas_totales | int) - (cuotas_pagadas_total | int) }}</span>
-                        <span>Total: {{ cuotas_totales | int }}</span>
-                    </div>
-                </div>
-
-                {% set balance = cliente.balance_regresivo|float or 0.0 %}
-                {% set valor_cuota = cliente.valor_cuota|float or 0.0 %}
-                {% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
+                <!-- Detalles del cliente (sin cambios) -->
+                <div class="detail-item"><span class="label">Grupo</span><span class="value">{{ cliente.grupo or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Plan</span><span class="value">{{ cliente.plan_contratado or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Cuotas Pagadas</span><span class="value">{{ cliente.cuotas_pagadas_progresivas | int }} de {{ cliente.cuotas_totales | int }}</span></div>
+                <div class="detail-item"><span class="label">Cédula</span><span class="value">{{ cliente.cedula }}</span></div>
+                <div class="detail-item"><span class="label">Contrato</span><span class="value">{{ cliente.contrato_nro or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Teléfono</span><span class="value">{{ cliente.telefono or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Asesor</span><span class="value">{{ cliente.asesor or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Inscripción</span><span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span></div>
                 
-                <div class="detail-item progress-item">
-                    {% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}
-                    <span class="label">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span>
-                     <div class="progress-bar-container">
-                        <div class="progress-bar progress-bar-secondary" style="width: {{ progreso_cuota_actual }}%;">
-                            {{ "%.0f"|format(progreso_cuota_actual) }}%
-                        </div>
-                    </div>
-                    <div class="progress-label">
-                        <span>Abonado: ${{ "%.2f"|format(balance) }}</span>
-                        <span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}</span>
-                        <span>Valor Cuota: ${{ "%.2f"|format(valor_cuota) }}</span>
-                    </div>
-                </div>
+                <!-- Barras de progreso (sin cambios) -->
+                {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                <div class="detail-item progress-item"><span class="label">Progreso Total del Plan</span><div class="progress-bar-container"><div class="progress-bar" style="width: {{ progreso_total }}%;">{{ "%.0f"|format(progreso_total) }}%</div></div><div class="progress-label"><span>Pagadas: {{ cuotas_pagadas_total | int }}</span><span>Restantes: {{ (cuotas_totales | int) - (cuotas_pagadas_total | int) }}</span><span>Total: {{ cuotas_totales | int }}</span></div></div>
+                {% set balance = cliente.balance_regresivo|float or 0.0 %}{% set valor_cuota = cliente.valor_cuota|float or 0.0 %}{% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
+                <div class="detail-item progress-item">{% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}<span class="label">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span><div class="progress-bar-container"><div class="progress-bar progress-bar-secondary" style="width: {{ progreso_cuota_actual }}%;">{{ "%.0f"|format(progreso_cuota_actual) }}%</div></div><div class="progress-label"><span>Abonado: ${{ "%.2f"|format(balance) }}</span><span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}</span><span>Valor Cuota: ${{ "%.2f"|format(valor_cuota) }}</span></div></div>
             </div>
 
-            {% if cliente.pagos %}
-            <div class="payment-history">
-                <h3>Historial de Pagos</h3>
-                <div class="desktop-payment-list">
-                    {% for pago in cliente.pagos %}
-                    <div class="payment-row">
-                        <div class="payment-info">
-                            <span class="payment-concept">{{ pago.tipo_pago }}</span>
-                            <span class="payment-meta">{{ pago.fecha_pago.strftime('%d/%m/%Y') }} | Ref: {{ pago.referencia or 'N/A' }}</span>
-                        </div>
-                        <div class="payment-amount">${{ "%.2f"|format(pago.monto) }}</div>
-                        <div class="payment-actions">
-                            {% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}
-                                <span class="badge text-bg-info">Reportado</span>
-                                <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">Ver Reporte</a>
-                            {% elif pago.estado_reporte == 'Inconsistente' %}
-                                <span class="badge text-bg-danger">Inconsistente</span>
-                                <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Ver Reporte</a>
-                            {% elif pago.estado_pago == 'Pendiente' %}
-                                {% if pago.estado_reporte == 'Aprobado' %}
-                                    <span class="badge text-bg-light">Aprobado</span>
-                                {% else %}
-                                    <span class="badge text-bg-warning">Pendiente</span>
-                                {% endif %}
-                                <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');" style="display:inline;">
-                                    <button type="submit" class="btn btn-success btn-sm">Conciliar</button>
-                                </form>
-                            {% elif pago.estado_pago == 'Conciliado' %}
-                                <span class="badge text-bg-success">Conciliado</span>
-                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Ver Recibo</a>
-                            {% elif pago.estado_pago == 'Anulado' %}
-                                <span class="badge text-bg-danger">Anulado</span>
-                                <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Detalles</a>
-                            {% endif %}
-                        </div>
+            <!-- --- INICIO DE CAMBIO: Pestañas de Historial --- -->
+            <div class="history-section">
+                <ul class="nav nav-tabs" id="historyTabs-{{ cliente.id }}" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="pagos-tab-{{ cliente.id }}" data-bs-toggle="tab" data-bs-target="#pagos-content-{{ cliente.id }}" type="button" role="tab" aria-controls="pagos-content-{{ cliente.id }}" aria-selected="true">Historial de Pagos</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="ofertas-tab-{{ cliente.id }}" data-bs-toggle="tab" data-bs-target="#ofertas-content-{{ cliente.id }}" type="button" role="tab" aria-controls="ofertas-content-{{ cliente.id }}" aria-selected="false">Historial de Ofertas</button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="historyTabsContent-{{ cliente.id }}">
+                    <!-- Pestaña de Pagos -->
+                    <div class="tab-pane fade show active" id="pagos-content-{{ cliente.id }}" role="tabpanel" aria-labelledby="pagos-tab-{{ cliente.id }}">
+                        {% if cliente.pagos %}
+                            {% for pago in cliente.pagos %}
+                            <div class="payment-row">
+                                <div class="payment-info">
+                                    <span class="payment-concept">{{ pago.tipo_pago }}</span>
+                                    <span class="payment-meta">{{ pago.fecha_pago | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</span>
+                                </div>
+                                <div class="payment-amount">${{ "%.2f"|format(pago.monto) }}</div>
+                                <div class="payment-actions">
+                                    {% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}<span class="badge text-bg-info">Reportado</span><a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">Ver Reporte</a>
+                                    {% elif pago.estado_reporte == 'Inconsistente' %}<span class="badge text-bg-danger">Inconsistente</span><a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Ver Reporte</a>
+                                    {% elif pago.estado_pago == 'Pendiente' %}{% if pago.estado_reporte == 'Aprobado' %}<span class="badge text-bg-light">Aprobado</span>{% else %}<span class="badge text-bg-warning">Pendiente</span>{% endif %}<form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');" style="display:inline;"><button type="submit" class="btn btn-success btn-sm">Conciliar</button></form>
+                                    {% elif pago.estado_pago == 'Conciliado' %}<span class="badge text-bg-success">Conciliado</span><a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Ver Recibo</a>
+                                    {% elif pago.estado_pago == 'Anulado' %}<span class="badge text-bg-danger">Anulado</span><a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Detalles</a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-center text-muted p-3">No hay pagos registrados.</p>
+                        {% endif %}
                     </div>
-                    {% endfor %}
+                    <!-- Pestaña de Ofertas -->
+                    <div class="tab-pane fade" id="ofertas-content-{{ cliente.id }}" role="tabpanel" aria-labelledby="ofertas-tab-{{ cliente.id }}">
+                        {% if cliente.ofertas %}
+                            {% for oferta in cliente.ofertas %}
+                            <div class="payment-row">
+                                <div class="payment-info">
+                                    <span class="payment-concept">Oferta de Adjudicación</span>
+                                    <span class="payment-meta">{{ oferta.fecha_oferta | format_date }}</span>
+                                </div>
+                                <div class="payment-amount">{{ oferta.cuotas_ofertadas }} Cuotas</div>
+                                <div class="payment-actions">
+                                    {% if oferta.estado_oferta == 'activa' %}<span class="badge text-bg-primary">Activa</span>
+                                    {% elif oferta.estado_oferta == 'ganadora' %}<span class="badge text-bg-success">Ganadora</span>
+                                    {% elif oferta.estado_oferta == 'perdida' %}<span class="badge text-bg-secondary">Perdida</span>
+                                    {% else %}<span class="badge text-bg-light">{{ oferta.estado_oferta }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-center text-muted p-3">No hay ofertas registradas.</p>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
-            {% endif %}
+            <!-- --- FIN DE CAMBIO --- -->
 
             <div class="client-actions">
-                <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-success btn-sm">Registrar Pago</a>
-                <a href="{{ url_for('registrar_oferta', client_id=cliente.id) }}" class="btn btn-info btn-sm">Registrar Oferta</a>
+                <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-success btn-sm"><i class="bi bi-cash-coin me-1"></i> Registrar Pago</a>
+                <!-- --- INICIO DE CAMBIO: Botón para abrir modal --- -->
+                <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#ofertaModal-{{ cliente.id }}">
+                    <i class="bi bi-gem me-1"></i> Registrar Oferta
+                </button>
+                <!-- --- FIN DE CAMBIO --- -->
                 <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-secondary btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf-fill me-1"></i> Contrato</a>
                 {% if g.admin and g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
-                <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-warning btn-sm">Editar</a>
+                <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-warning btn-sm"><i class="bi bi-pencil-square me-1"></i> Editar</a>
                 {% endif %}
                 {% if g.admin and g.admin.rol == 'superadmin' %}
-                <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro?');">
-                    <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
+                <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('ADVERTENCIA: Esta acción eliminará al cliente y TODOS sus registros asociados (pagos, ofertas, etc.) de forma permanente. ¿Está absolutamente seguro?');">
+                    <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-trash-fill me-1"></i> Eliminar</button>
                 </form>
                 {% endif %}
             </div>
         </div>
+
+        <!-- --- INICIO DE CAMBIO: Modal de Registro de Oferta --- -->
+        <div class="modal fade" id="ofertaModal-{{ cliente.id }}" tabindex="-1" aria-labelledby="ofertaModalLabel-{{ cliente.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" method="POST">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="ofertaModalLabel-{{ cliente.id }}">Registrar Oferta para {{ cliente.nombre_apellido }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="cuotas_ofertadas-{{ cliente.id }}" class="form-label">Número de Cuotas a Ofertar</label>
+                                <input type="number" class="form-control" id="cuotas_ofertadas-{{ cliente.id }}" name="cuotas_ofertadas" placeholder="Ej: 5" min="1" required>
+                                <div class="form-text">Ingrese la cantidad de cuotas que el cliente desea adelantar para el próximo acto de adjudicación.</div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Guardar Oferta</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <!-- --- FIN DE CAMBIO --- -->
         {% endfor %}
     </div>
 </div>
-<script>
-    // No JS needed for this redesign
-</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
 
