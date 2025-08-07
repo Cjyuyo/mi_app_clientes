@@ -124,8 +124,26 @@
                 <div class="detail-item"><span class="label">Contrato</span><span class="value">{{ cliente.contrato_nro or 'N/A' }}</span></div>
                 <div class="detail-item"><span class="label">Teléfono</span><span class="value">{{ cliente.telefono or 'N/A' }}</span></div>
                 <div class="detail-item"><span class="label">Asesor</span><span class="value">{{ cliente.asesor or 'N/A' }}</span></div>
-                <div class="detail-item"><span class="label">Inscripción / Estatus</span><span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }} <span class="badge bg-info text-dark ms-2">{{ cliente.estatus }}</span></span></div>
                 
+                <div class="detail-item">
+                    <span class="label">Inscripción</span>
+                    <span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Estatus</span>
+                    <span class="value">
+                        {% set estatus = cliente.estatus | upper if cliente.estatus else '' %}
+                        {% if estatus == 'ACTIVO' or estatus == 'AHORRADOR' or estatus == 'ADJUDICADO' %}
+                            <span class="badge fs-6 bg-success">{{ cliente.estatus }}</span>
+                        {% elif estatus == 'INACTIVO' or estatus == 'RETIRO' %}
+                            <span class="badge fs-6 bg-danger">{{ cliente.estatus }}</span>
+                        {% elif estatus == 'RESERVA' or estatus == 'INSCRITO' %}
+                            <span class="badge fs-6 bg-warning text-dark">{{ cliente.estatus }}</span>
+                        {% else %}
+                            <span class="badge fs-6 bg-secondary">{{ cliente.estatus }}</span>
+                        {% endif %}
+                    </span>
+                </div>
                 {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
                 <div class="detail-item progress-item"><span class="label">Progreso Total del Plan</span><div class="progress-bar-container"><div class="progress-bar" style="width: {{ progreso_total }}%;">{{ "%.0f"|format(progreso_total) }}%</div></div><div class="progress-label"><span>Pagadas: {{ cuotas_pagadas_total | int }}</span><span>Restantes: {{ (cuotas_totales | int) - (cuotas_pagadas_total | int) }}</span><span>Total: {{ cuotas_totales | int }}</span></div></div>
                 {% set balance = cliente.balance_regresivo|float or 0.0 %}{% set valor_cuota = cliente.valor_cuota|float or 0.0 %}{% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
