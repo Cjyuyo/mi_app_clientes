@@ -239,20 +239,26 @@
             </div>
             
             <div class="final-section">
-                </div>
+                <!-- Firmas y Fotos -->
+            </div>
 
+            <!-- INICIO DEL CAMBIO -->
+            {% if not modo_pre_registro %}
             <div class="qr-section">
                 <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('generar_contrato', client_id=cliente.id, _external=True) }}&size=120x120&q=M" alt="Código QR de Verificación del Contrato">
                 <p style="font-size: 12px; color: #606770; margin-top: 10px;">Escanee para verificar la validez de este contrato</p>
             </div>
+            {% endif %}
+            <!-- FIN DEL CAMBIO -->
 
             <div class="final-actions-container no-print text-center mt-5">
-                </div>
+                <!-- Botones de acción -->
+            </div>
         </div>
     </div>
     
     <footer class="footer no-print">
-        <p>&copy; 2025 - Sistema de Gestión Integral. Moto Plan Motors C.A. Todos los derechos reservados.</p>
+        <p>&copy; {{ anio_actual }} - Sistema de Gestión Integral. Moto Plan Motors C.A. Todos los derechos reservados.</p>
     </footer>
     
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
