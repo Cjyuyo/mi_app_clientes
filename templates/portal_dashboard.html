@@ -147,12 +147,12 @@
             {% endif %}
         {% endwith %}
 
-        {% set puede_interactuar = cliente.estatus in ['ACTIVO', 'AHORRADOR', 'INSCRITO', 'RESERVA'] %}
+        {% set puede_interactuar = cliente.estatus in ['ACTIVO', 'AHORRADOR'] %}
         
         <div class="payment-status-card {{ cuota_status.estado | lower }}">
              <div class="status-header">
-                <h3>Cuota de {{ cuota_status.mes }}</h3>
-                <span class="status-label {{ cuota_status.estado | lower }}">{{ cuota_status.estado }}</span>
+                 <h3>Cuota de {{ cuota_status.mes }}</h3>
+                 <span class="status-label {{ cuota_status.estado | lower }}">{{ cuota_status.estado }}</span>
             </div>
             <div class="status-body">
                 {% if cuota_status.estado == 'Pagada' %}
@@ -288,7 +288,6 @@
         </div>
     </div>
 
-    <!-- Modals (sin cambios) -->
     <div class="modal fade" id="ofertaModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -471,7 +470,7 @@
                     try {
                         const response = await fetch(`${availabilityUrl}?fecha=${fechaSeleccionada}`);
                         if (!response.ok) {
-                           throw new Error(`Error de red: ${response.statusText}`);
+                            throw new Error(`Error de red: ${response.statusText}`);
                         }
                         const data = await response.json();
                         timeSlotContainer.innerHTML = ''; 

@@ -425,7 +425,8 @@ def gestion_administrativa():
     if conn:
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT COUNT(*) FROM pagos WHERE estado_pago = 'Pendiente'")
+                # CAMBIO: La consulta ahora excluye los pagos inconsistentes
+                cur.execute("SELECT COUNT(*) FROM pagos WHERE estado_pago = 'Pendiente' AND (estado_reporte IS NULL OR estado_reporte != 'Inconsistente')")
                 counts['pagos_pendientes'] = cur.fetchone()[0]
                 
                 cur.execute("SELECT tipo_solicitud, COUNT(*) as total FROM solicitudes WHERE estado = 'Pendiente' GROUP BY tipo_solicitud")
@@ -674,7 +675,9 @@ def pagar_nomina_comercial():
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"Error al procesar el pago de la nómina: {e}", "danger")
-    return redirect(url_for('dashboard_comercial'))
+        return redirect(url_for('dashboard_comercial'))
+    
+    return redirect(url_for('reporte_flujo_caja'))
 # FIN DE CAMBIO
 
 @app.route('/comercial/split_contrato/<string:contrato_nro>')

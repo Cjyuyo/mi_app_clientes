@@ -23,8 +23,8 @@
         body { font-family: 'Roboto', sans-serif; background-color: var(--gris-fondo); color: var(--texto-oscuro); }
         .container-main { max-width: 900px; margin: auto; padding: 1.5rem 1rem; }
         .search-container { background: var(--blanco-tarjetas); padding: 1.5rem; border-radius: .75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.07); margin-bottom: 1.5rem; }
-        .search-container form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        .search-container input[type="search"] { flex-grow: 1; }
+        .search-container form { display: flex; gap: 10px; }
+        .search-container .input-group { flex-grow: 1; }
         .btn-theme-primary { background-color: var(--theme-color); border-color: var(--theme-color); color: white; font-weight: 500; }
         .btn-theme-primary:hover { filter: brightness(90%); background-color: var(--theme-color); border-color: var(--theme-color); color: white; }
         .client-card { background: var(--blanco-tarjetas); margin-bottom: 1.5rem; border-radius: .75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.07); overflow: hidden; }
@@ -83,11 +83,13 @@
 <div class="container-main">
     <div class="search-container">
         <form method="POST" action="{{ url_for('consulta') }}" class="d-flex gap-2">
-            <input type="search" name="busqueda" class="form-control form-control-lg" placeholder="Buscar por nombre, apellido o cédula..." value="{{ busqueda or '' }}">
-            <button type="submit" class="btn btn-theme-primary btn-lg"><i class="bi bi-search"></i> Buscar</button>
-            <a href="{{ url_for('hub') }}" class="btn btn-secondary btn-lg">
-                <i class="bi bi-house-door-fill"></i> Hub
-            </a>
+            <div class="input-group">
+                <input type="search" name="busqueda" class="form-control form-control-lg" placeholder="Buscar por Nombre o Cédula..." value="{{ busqueda or '' }}">
+                <button type="submit" class="btn btn-theme-primary btn-lg"><i class="bi bi-search"></i> Buscar</button>
+                <a href="{{ url_for('hub') }}" class="btn btn-secondary btn-lg">
+                    <i class="bi bi-house-door-fill"></i> Hub
+                </a>
+            </div>
         </form>
     </div>
 
@@ -234,35 +236,3 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
-```
-
-
-### Otros Cambios y Guía de Implementación
-
-Aquí tienes un resumen de los cambios adicionales y las instrucciones para completar la implementación.
-
----
-
-#### 1. Comando SQL Requerido
-Para que el sistema pueda guardar los detalles de los pagos rechazados, necesitas añadir una nueva columna a tu tabla `pagos`.
-
-**Ejecuta este comando en tu base de datos una sola vez:**
-```sql
-ALTER TABLE pagos ADD COLUMN IF NOT EXISTS detalles_reporte JSONB;
-```
-
----
-
-#### 2. Cláusulas del Contrato
-El archivo `contrato.html` estaba incompleto. Aquí tienes el bloque de las cláusulas corregido. Simplemente busca la sección de cláusulas en tu archivo y reemplázala con este código:
-
-```html
-<div class="clausulas">
-    <h5>CLÁUSULAS</h5>
-    <p><strong>PRIMERA:</strong> EL ASOCIADO se afilia a un sistema de autofinanciamiento comercial para la adquisición de una motocicleta, cuyo valor se establece en el presente contrato.</p>
-    <p><strong>SEGUNDA:</strong> EL ASOCIADO se compromete a pagar una cuota inicial de inscripción y posteriormente cuotas mensuales, fijas y consecutivas, cuyo monto y número se especifican en este documento.</p>
-    <p><strong>TERCERA:</strong> La adjudicación de la motocicleta se realizará mediante actos mensuales, bajo las modalidades de sorteo entre los asociados al día con sus pagos, o por oferta, donde se adjudicará al asociado que ofrezca el mayor número de cuotas por adelantado.</p>
-    <p><strong>CUARTA:</strong> El incumplimiento en el pago de tres (3) cuotas consecutivas dará lugar a la resolución del contrato, aplicando las penalizaciones correspondientes.</p>
-    <p><strong>QUINTA:</strong> LA EMPRESA se reserva el derecho de ajustar el valor de la motocicleta y, por ende, el de las cuotas, en caso de variaciones significativas en el mercado, previa notificación a EL ASOCIADO.</p>
-    <p><strong>SEXTA:</strong> Para todos los efectos de este contrato, las partes eligen como domicilio especial la ciudad de [Ciudad de la Empresa], a cuyos tribunales declaran someterse.</p>
-</div>
