@@ -128,7 +128,7 @@
     <main class="container my-5">
         <div class="row g-4 justify-content-center">
             <!-- Fila 1 -->
-            <div class="col-lg-3 col-md-6">
+            <div class="col-lg-4 col-md-6">
                 <div class="tool-card" style="border-top-color: var(--azul-profundo-finanzas);">
                     <div>
                         <div class="icon" style="color: var(--azul-profundo-finanzas);"><i class="bi bi-calculator-fill"></i></div>
@@ -138,7 +138,17 @@
                     <a href="{{ url_for('reporte_flujo_caja') }}" class="btn btn-tool mt-3" style="background-color: var(--azul-profundo-finanzas);">Analizar</a>
                 </div>
             </div>
-            <div class="col-lg-3 col-md-6">
+            <div class="col-lg-4 col-md-6">
+                <div class="tool-card" style="border-top-color: var(--azul-profundo-finanzas);">
+                    <div>
+                        <div class="icon" style="color: var(--azul-profundo-finanzas);"><i class="bi bi-shuffle"></i></div>
+                        <h5>Rebalanceo de Tesorería</h5>
+                        <p class="card-text text-muted">Mueve fondos entre cajas y registra gastos.</p>
+                    </div>
+                    <a href="{{ url_for('tesoreria_rebalanceo') }}" class="btn btn-tool mt-3" style="background-color: var(--azul-profundo-finanzas);">Operar</a>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
                 <div class="tool-card" style="border-top-color: var(--verde-azulado-operaciones);">
                     <div>
                         <div class="icon" style="color: var(--verde-azulado-operaciones);"><i class="bi bi-check2-circle"></i></div>
@@ -148,7 +158,9 @@
                     <a href="{{ url_for('pagos_por_conciliar') }}" class="btn btn-tool mt-3" style="background-color: var(--verde-azulado-operaciones);">Conciliar</a>
                 </div>
             </div>
-            <div class="col-lg-3 col-md-6">
+
+            <!-- Fila 2 -->
+            <div class="col-lg-4 col-md-6">
                 <div class="tool-card" style="border-top-color: var(--naranja-corporativo);">
                     <div>
                         <div class="icon" style="color: var(--naranja-corporativo);"><i class="bi bi-currency-exchange"></i></div>
@@ -158,7 +170,7 @@
                     <a href="{{ url_for('admin_tasa_bcv') }}" class="btn btn-tool mt-3" style="background-color: var(--naranja-corporativo);">Configurar</a>
                 </div>
             </div>
-            <div class="col-lg-3 col-md-6">
+            <div class="col-lg-4 col-md-6">
                 <div class="tool-card" style="border-top-color: var(--ambar-calido-comercial);">
                     <div>
                         <div class="icon" style="color: var(--ambar-calido-comercial);"><i class="bi bi-wallet2"></i></div>
@@ -168,9 +180,7 @@
                     <a href="{{ url_for('dashboard_comercial') }}" class="btn btn-tool mt-3" style="background-color: var(--ambar-calido-comercial);">Ver Comisiones</a>
                 </div>
             </div>
-
-            <!-- Fila 2 -->
-            <div class="col-lg-3 col-md-6">
+            <div class="col-lg-4 col-md-6">
                 <div class="tool-card" style="border-top-color: var(--rojo-terracota-alertas);">
                     <div>
                         <div class="icon" style="color: var(--rojo-terracota-alertas);"><i class="bi bi-file-earmark-ruled-fill"></i></div>
@@ -180,7 +190,9 @@
                     <a href="{{ url_for('reporte_morosidad') }}" class="btn btn-tool mt-3" style="background-color: var(--rojo-terracota-alertas);">Ver Reporte</a>
                 </div>
             </div>
-             <div class="col-lg-3 col-md-6">
+            
+            <!-- Fila 3 -->
+             <div class="col-lg-4 col-md-6">
                 <div class="tool-card" style="border-top-color: var(--amarillo-claro-gestion);">
                     <div>
                         <div class="icon" style="color: var(--amarillo-claro-gestion);"><i class="bi bi-briefcase-fill"></i></div>
@@ -190,7 +202,7 @@
                     <a href="{{ url_for('mi_cartera') }}" class="btn btn-tool mt-3" style="background-color: var(--amarillo-claro-gestion);">Gestionar</a>
                 </div>
             </div>
-            <div class="col-lg-3 col-md-6">
+            <div class="col-lg-4 col-md-6">
                 <div class="tool-card" style="border-top-color: var(--azul-cielo-metricas);">
                     <div>
                         <div class="icon" style="color: var(--azul-cielo-metricas);"><i class="bi bi-pie-chart-fill"></i></div>
@@ -200,7 +212,7 @@
                     <a href="{{ url_for('reporte_metricas') }}" class="btn btn-tool mt-3" style="background-color: var(--azul-cielo-metricas);">Ver Dashboard</a>
                 </div>
             </div>
-            <div class="col-lg-3 col-md-6">
+            <div class="col-lg-4 col-md-6">
                 <div class="tool-card" style="border-top-color: var(--gris-neutro-auditoria);">
                     <div>
                         <div class="icon" style="color: var(--gris-neutro-auditoria);"><i class="bi bi-journal-check"></i></div>
