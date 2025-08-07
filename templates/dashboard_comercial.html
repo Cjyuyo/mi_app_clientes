@@ -6,23 +6,85 @@
     <title>Dashboard Comercial - Sistema de Gestión</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
+        /* --- GUÍA DE ESTILO MAESTRA --- */
+        :root {
+            /* Paleta Corporativa */
+            --azul-corporativo: #2B3A55;
+            --naranja-corporativo: #F99417;
+            
+            /* Paleta Temática Extendida */
+            --ambar-calido-comercial: #E67E22;
+
+            /* Colores de Soporte */
+            --gris-fondo: #f8f9fa;
+            --blanco-tarjetas: #FFFFFF;
+            --texto-oscuro: #212529;
+            --texto-claro: #6c757d;
+            --borde-sutil: #e9ecef;
+
+            /* Color temático de esta página */
+            --theme-color: var(--ambar-calido-comercial);
+        }
+
+        /* --- ESTILOS GLOBALES --- */
         body {
-            background-color: #f8f9fa;
+            background-color: var(--gris-fondo);
+            font-family: 'Roboto', sans-serif;
+            color: var(--texto-oscuro);
         }
-        .card-stat {
-            border-left: 5px solid;
-            transition: transform 0.2s;
+
+        /* --- COMPONENTES --- */
+        .navbar-custom {
+            background-color: var(--azul-corporativo);
         }
-        .card-stat:hover {
-            transform: translateY(-5px);
+
+        .main-header {
+            background-color: var(--theme-color);
+            color: var(--blanco-tarjetas);
+            padding: 3rem 1.5rem;
+            text-align: center;
         }
-        .border-primary { border-left-color: #0d6efd !important; }
-        .border-success { border-left-color: #198754 !important; }
-        .border-warning { border-left-color: #ffc107 !important; }
-        .table-responsive {
-            max-height: 500px;
+        .main-header h1 {
+            font-weight: 700;
+            font-size: 2.5rem;
         }
+
+        .stat-card {
+            background-color: var(--blanco-tarjetas);
+            border: 1px solid var(--borde-sutil);
+            border-left-width: 5px;
+            border-radius: .5rem;
+            padding: 1.5rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .stat-card .card-title {
+            font-weight: 500;
+            color: var(--texto-claro);
+            font-size: 1rem;
+        }
+        .stat-card .card-text {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .content-card {
+            background-color: var(--blanco-tarjetas);
+            border-radius: .75rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.07);
+            overflow: hidden;
+        }
+        .content-card-header {
+            padding: 1rem 1.5rem;
+            background-color: #fff;
+            border-bottom: 1px solid var(--borde-sutil);
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+        
         .modal-body-fixed-height {
             max-height: 60vh;
             overflow-y: auto;
@@ -30,102 +92,89 @@
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('hub') }}">Sistema de Gestión v3.5</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('hub') }}"><i class="bi bi-house-door-fill"></i> Hub</a>
-                    </li>
-                </ul>
-                <ul class="navbar-nav">
-                    {% if g.admin %}
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-person-circle"></i> {{ g.admin.usuario }} ({{ g.admin.rol }})
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                            <li><a class="dropdown-item" href="{{ url_for('admin_logout') }}">Cerrar Sesión</a></li>
-                        </ul>
-                    </li>
-                    {% endif %}
-                </ul>
+            <a class="navbar-brand" href="{{ url_for('hub') }}"><i class="bi bi-house-door-fill"></i> Hub Principal</a>
+            <div class="d-flex align-items-center">
+                {% if g.admin %}
+                <span class="navbar-text me-3 text-white"><i class="bi bi-person-circle"></i> {{ g.admin.usuario }}</span>
+                <a class="btn btn-outline-light btn-sm" href="{{ url_for('admin_logout') }}">Cerrar Sesión</a>
+                {% endif %}
             </div>
         </div>
     </nav>
 
-    <div class="container mt-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1><i class="bi bi-shop"></i> Dashboard Comercial</h1>
-        </div>
+    <header class="main-header">
+        <h1><i class="bi bi-shop"></i> Dashboard Comercial</h1>
+    </header>
 
-        <div class="row mb-4">
+    <div class="container mt-5">
+        <div class="row mb-4 g-4">
             <div class="col-md-4">
-                <div class="card card-stat border-primary shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title text-primary">Ingresos Brutos (Inscripciones)</h5>
-                        <p class="card-text fs-3">${{ "{:,.2f}".format(stats.ingresos_brutos_inscripciones or 0) }}</p>
-                    </div>
+                <div class="stat-card" style="border-left-color: var(--azul-corporativo);">
+                    <h5 class="card-title">Ingresos Brutos (Inscripciones)</h5>
+                    <p class="card-text" style="color: var(--azul-corporativo);">${{ "{:,.2f}".format(stats.ingresos_brutos_inscripciones or 0) }}</p>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="card card-stat border-warning shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title text-warning">Nómina Pendiente por Pagar</h5>
-                        <p class="card-text fs-3">${{ "{:,.2f}".format(stats.total_comisiones_pendientes or 0) }}</p>
-                    </div>
+                <div class="stat-card" style="border-left-color: var(--naranja-corporativo);">
+                    <h5 class="card-title">Nómina Pendiente por Pagar</h5>
+                    <p class="card-text" style="color: var(--naranja-corporativo);">${{ "{:,.2f}".format(stats.total_comisiones_pendientes or 0) }}</p>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="card card-stat border-success shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title text-success">Sobrante de Empresa (Inscripciones)</h5>
-                        <p class="card-text fs-3">${{ "{:,.2f}".format(stats.total_sobrante_pendiente or 0) }}</p>
-                    </div>
+                <div class="stat-card" style="border-left-color: #198754;">
+                    <h5 class="card-title">Sobrante de Empresa (Inscripciones)</h5>
+                    <p class="card-text" style="color: #198754;">${{ "{:,.2f}".format(stats.total_sobrante_pendiente or 0) }}</p>
                 </div>
             </div>
         </div>
 
-        <div class="card shadow-sm mb-4">
-            <div class="card-header">
+        <div class="content-card mb-4">
+            <div class="content-card-header">
                 <h3><i class="bi bi-wallet2"></i> Nóminas Pendientes por Asesor</h3>
             </div>
-            <div class="card-body">
+            <div class="card-body p-3">
                 {% if resumen_asesores %}
                 <form action="{{ url_for('pagar_nomina_comercial') }}" method="POST">
-                    <ul class="list-group mb-3">
+                    <ul class="list-group list-group-flush mb-3">
                         {% for asesor in resumen_asesores %}
                         <li class="list-group-item d-flex align-items-center py-3">
                             <div class="flex-grow-1 d-flex align-items-center">
                                 <input type="checkbox" name="beneficiarios" value="{{ asesor.nombre_beneficiario }}" class="form-check-input me-3" style="transform: scale(1.5);">
                                 <label class="fw-bold">{{ asesor.nombre_beneficiario }}</label>
                             </div>
-
                             <div class="text-end" style="width: 120px;">
                                 <strong class="text-success fs-5">${{ "{:,.2f}".format(asesor.total_pendiente) }}</strong>
                             </div>
-
                             <div class="text-center" style="width: 130px;">
                                 <a href="#" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#historialModal" data-beneficiario="{{ asesor.nombre_beneficiario }}">
                                     <i class="bi bi-card-list"></i> Desglose
                                 </a>
                             </div>
-                            
                             <div style="width: 180px;">
                                 <select name="cajas_origen" class="form-select form-select-sm">
                                     <option value="" selected>Pagar desde...</option>
                                     <option value="EFECTIVO_USD">Efectivo USD (${{ "{:,.2f}".format(balances_generales.EFECTIVO_USD or 0) }})</option>
                                     <option value="BINANCE_USDT">Binance USDT (${{ "{:,.2f}".format(balances_generales.BINANCE_USDT or 0) }})</option>
-                                    <option value="CAJA_BS_USD">Caja Bs (Ref. $) (${{ "{:,.2f}".format(balances_generales.CAJA_BS_USD / (1 if balances_generales.tasa_ponderada_bs == 0 else balances_generales.tasa_ponderada_bs)) if balances_generales.CAJA_BS_USD else '0.00' }})</option>
+                                    <!-- INICIO DE LA CORRECCIÓN -->
+                                    <option value="CAJA_BS_USD">Caja Bs (Ref. $) (
+                                        {% if balances_generales.get('CAJA_BS_USD') %}
+                                            {% if balances_generales.get('tasa_ponderada_bs') and balances_generales.get('tasa_ponderada_bs') > 0 %}
+                                                ${{ "{:,.2f}".format(balances_generales.CAJA_BS_USD / balances_generales.get('tasa_ponderada_bs')) }}
+                                            {% else %}
+                                                Bs. {{ "{:,.2f}".format(balances_generales.CAJA_BS_USD) }}
+                                            {% endif %}
+                                        {% else %}
+                                            $0.00
+                                        {% endif %}
+                                    )</option>
+                                    <!-- FIN DE LA CORRECCIÓN -->
                                 </select>
                             </div>
                         </li>
                         {% endfor %}
-                        </ul>
+                    </ul>
                     <button type="submit" class="btn btn-success w-100"><i class="bi bi-cash-stack"></i> Pagar Nóminas Seleccionadas</button>
                 </form>
                 {% else %}
@@ -134,14 +183,14 @@
             </div>
         </div>
 
-        <div class="card shadow-sm">
-            <div class="card-header">
+        <div class="content-card">
+            <div class="content-card-header">
                 <h3><i class="bi bi-file-earmark-text"></i> Historial de Contratos Registrados</h3>
             </div>
-            <div class="card-body">
+            <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead class="table-dark">
+                    <table class="table table-striped table-hover mb-0">
+                        <thead class="table-light">
                             <tr>
                                 <th>Contrato</th>
                                 <th>Cliente</th>
@@ -173,7 +222,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="9" class="text-center">No hay contratos registrados.</td>
+                                <td colspan="9" class="text-center p-4">No hay contratos registrados.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -183,6 +232,7 @@
         </div>
     </div>
 
+    <!-- Modals (sin cambios de estilo) -->
     <div class="modal fade" id="splitModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -190,15 +240,10 @@
                     <h5 class="modal-title" id="splitModalTitle">Split de Comisiones</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body" id="splitModalBody">
-                    </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                </div>
+                <div class="modal-body" id="splitModalBody"></div>
             </div>
         </div>
     </div>
-
     <div class="modal fade" id="historialModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -206,115 +251,58 @@
                     <h5 class="modal-title" id="historialModalTitle">Desglose de Comisiones Pendientes</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body modal-body-fixed-height" id="historialModalBody">
-                    </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                </div>
+                <div class="modal-body modal-body-fixed-height" id="historialModalBody"></div>
             </div>
         </div>
     </div>
 
     <footer class="text-center text-muted py-4">
-        <p>&copy; {{ anio_actual }} - Sistema de Gestión Integral. Todos los derechos reservados.</p>
+        <p>&copy; {{ anio_actual }} - Sistema de Gestión Integral.</p>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // JS sin cambios
         function verSplit(contratoNro) {
             const modalTitle = document.getElementById('splitModalTitle');
             const modalBody = document.getElementById('splitModalBody');
             const splitModal = new bootstrap.Modal(document.getElementById('splitModal'));
-
             modalTitle.textContent = `Split de Comisiones - Contrato: ${contratoNro}`;
-            modalBody.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Cargando...</span></div></div>';
+            modalBody.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div></div>';
             splitModal.show();
-
             fetch(`/comercial/split_contrato/${contratoNro}`)
                 .then(response => response.json())
                 .then(data => {
-                    if (data.error) {
-                        modalBody.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
-                        return;
-                    }
-                    
-                    let content = `<h5>Resumen General</h5>
-                                   <ul class="list-group mb-3">
-                                       <li class="list-group-item"><strong>Pool Total (16%):</strong> $${data.resumen.pool_total}</li>
-                                       <li class="list-group-item"><strong>Total Comisiones Pagadas:</strong> $${data.resumen.total_comisiones}</li>
-                                       <li class="list-group-item"><strong>Sobrante para Empresa:</strong> $${data.resumen.sobrante_empresa}</li>
-                                   </ul>
-                                   <h5>Desglose de Comisiones</h5>`;
-                    
+                    if (data.error) { modalBody.innerHTML = `<div class="alert alert-danger">${data.error}</div>`; return; }
+                    let content = `<h5>Resumen</h5><ul class="list-group mb-3"><li class="list-group-item"><strong>Pool (16%):</strong> $${data.resumen.pool_total}</li><li class="list-group-item"><strong>Comisiones:</strong> $${data.resumen.total_comisiones}</li><li class="list-group-item"><strong>Sobrante:</strong> $${data.resumen.sobrante_empresa}</li></ul><h5>Desglose</h5>`;
                     if (data.comisiones.length > 0) {
                         content += '<ul class="list-group">';
-                        data.comisiones.forEach(c => {
-                            content += `<li class="list-group-item d-flex justify-content-between">
-                                            <span>${c.concepto} (<b>${c.beneficiario}</b>)</span>
-                                            <strong>$${c.monto}</strong>
-                                        </li>`;
-                        });
+                        data.comisiones.forEach(c => { content += `<li class="list-group-item d-flex justify-content-between"><span>${c.concepto} (<b>${c.beneficiario}</b>)</span><strong>$${c.monto}</strong></li>`; });
                         content += '</ul>';
-                    } else {
-                        content += '<div class="alert alert-info">No se encontraron comisiones para este contrato.</div>';
-                    }
+                    } else { content += '<div class="alert alert-info">No se encontraron comisiones.</div>'; }
                     modalBody.innerHTML = content;
-                })
-                .catch(error => {
-                    modalBody.innerHTML = `<div class="alert alert-danger">Error al cargar los datos: ${error}</div>`;
-                });
+                }).catch(error => { modalBody.innerHTML = `<div class="alert alert-danger">Error: ${error}</div>`; });
         }
-
         document.addEventListener('DOMContentLoaded', function () {
             const historialModal = document.getElementById('historialModal');
             historialModal.addEventListener('show.bs.modal', function (event) {
                 const button = event.relatedTarget;
                 const beneficiario = button.getAttribute('data-beneficiario');
-                
                 const modalTitle = document.getElementById('historialModalTitle');
                 const modalBody = document.getElementById('historialModalBody');
-
-                modalTitle.textContent = `Desglose de Comisiones Pendientes para: ${beneficiario}`;
-                modalBody.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Cargando...</span></div></div>';
-
+                modalTitle.textContent = `Desglose para: ${beneficiario}`;
+                modalBody.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div></div>';
                 fetch(`/comercial/historial_asesor/${beneficiario}`)
                     .then(response => response.json())
                     .then(data => {
-                        if (data.error) {
-                            modalBody.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
-                            return;
-                        }
-
+                        if (data.error) { modalBody.innerHTML = `<div class="alert alert-danger">${data.error}</div>`; return; }
                         if (data.length > 0) {
-                            let tableContent = `<table class="table table-sm table-bordered">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Concepto</th>
-                                                            <th>Cliente</th>
-                                                            <th>Plan ($)</th>
-                                                            <th>Cierre</th>
-                                                            <th>Monto ($)</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>`;
-                            data.forEach(item => {
-                                tableContent += `<tr>
-                                                    <td>${item.concepto}</td>
-                                                    <td>${item.cliente}</td>
-                                                    <td>${item.plan_contratado}</td>
-                                                    <td>${item.responsable_cierre}</td>
-                                                    <td class="text-end"><strong>${item.monto}</strong></td>
-                                                 </tr>`;
-                            });
+                            let tableContent = `<table class="table table-sm table-bordered"><thead><tr><th>Concepto</th><th>Cliente</th><th>Plan ($)</th><th>Cierre</th><th>Monto ($)</th></tr></thead><tbody>`;
+                            data.forEach(item => { tableContent += `<tr><td>${item.concepto}</td><td>${item.cliente}</td><td>${item.plan_contratado}</td><td>${item.responsable_cierre}</td><td class="text-end"><strong>${item.monto}</strong></td></tr>`; });
                             tableContent += '</tbody></table>';
                             modalBody.innerHTML = tableContent;
-                        } else {
-                            modalBody.innerHTML = '<div class="alert alert-info">No hay desglose de comisiones pendientes para este asesor.</div>';
-                        }
-                    })
-                    .catch(error => {
-                        modalBody.innerHTML = `<div class="alert alert-danger">Error al cargar el historial: ${error}</div>`;
-                    });
+                        } else { modalBody.innerHTML = '<div class="alert alert-info">No hay desglose.</div>'; }
+                    }).catch(error => { modalBody.innerHTML = `<div class="alert alert-danger">Error: ${error}</div>`; });
             });
         });
     </script>

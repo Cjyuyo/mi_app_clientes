@@ -10,25 +10,32 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
+        /* --- GUÍA DE ESTILO MAESTRA --- */
         :root {
+            /* Paleta Corporativa */
             --azul-corporativo: #2B3A55;
             --naranja-corporativo: #F99417;
+            
+            /* Colores de Soporte */
             --gris-fondo: #f8f9fa;
-            --blanco: #FFFFFF;
+            --blanco-tarjetas: #FFFFFF;
             --texto-oscuro: #212529;
             --texto-claro: #6c757d;
+            --borde-sutil: #e9ecef;
         }
 
+        /* --- ESTILOS GLOBALES --- */
         body {
             background-color: var(--gris-fondo);
             font-family: 'Roboto', sans-serif;
         }
         .navbar-custom {
             background-color: var(--azul-corporativo);
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
         }
         .main-header {
             background-color: var(--azul-corporativo);
-            color: var(--blanco);
+            color: var(--blanco-tarjetas);
             padding: 3rem 1.5rem;
             text-align: center;
         }
@@ -40,9 +47,11 @@
             font-size: 1.2rem;
             opacity: 0.9;
         }
+
+        /* --- TARJETAS DEL HUB --- */
         .hub-card {
-            background-color: var(--blanco);
-            border: 1px solid #e0e0e0;
+            background-color: var(--blanco-tarjetas);
+            border: 1px solid var(--borde-sutil);
             border-top: 4px solid var(--naranja-corporativo);
             border-radius: .75rem;
             box-shadow: 0 2px 10px rgba(0,0,0,.05);
@@ -77,20 +86,20 @@
         .btn-corporate-primary {
             background-color: var(--azul-corporativo);
             border-color: var(--azul-corporativo);
-            color: var(--blanco);
+            color: var(--blanco-tarjetas);
+            font-weight: 500;
         }
         .btn-corporate-primary:hover {
             background-color: #1e2a40;
             border-color: #1e2a40;
-            color: var(--blanco);
+            color: var(--blanco-tarjetas);
         }
 
+        /* --- LISTA DE USUARIOS --- */
         .users-card {
-            background-color: var(--blanco);
+            background-color: var(--blanco-tarjetas);
             border-radius: .75rem;
-        }
-        .users-list li {
-            padding: 0.75rem 1.25rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,.05);
         }
         .online-dot {
             height: 10px;
@@ -98,7 +107,6 @@
             background-color: #28a745;
             border-radius: 50%;
             display: inline-block;
-            margin-right: 12px;
             animation: pulse 1.5s infinite;
         }
         @keyframes pulse {
@@ -110,7 +118,7 @@
 </head>
 <body>
     
-    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom shadow-sm">
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
         <div class="container-fluid">
             <a class="navbar-brand fw-bold" href="{{ url_for('hub') }}">Sistema de Gestión v3.5</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -139,7 +147,6 @@
     </header>
 
     <main class="container my-5">
-        <!-- Contenedor Único para todas las tarjetas en una cuadrícula 3x2 -->
         <div class="row g-4">
             <div class="col-lg-4 col-md-6">
                 <div class="hub-card">
@@ -213,12 +220,11 @@
         
         <hr class="my-5">
 
-        <!-- Lista de Usuarios -->
         <div class="row justify-content-center">
             <div class="col-lg-8">
                 <h2 class="text-center mb-4 text-muted fw-light">Equipo en Tiempo Real</h2>
-                <div class="card users-card shadow-sm">
-                    <ul class="list-group list-group-flush users-list">
+                <div class="users-card">
+                    <ul class="list-group list-group-flush">
                         {% for usuario in usuarios %}
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             <div>

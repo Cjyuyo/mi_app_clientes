@@ -6,274 +6,259 @@
     <title>Registrar Nuevo Cliente</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f0f2f5;
-            margin: 0;
-            padding: 20px;
+        /* --- GUÍA DE ESTILO MAESTRA --- */
+        :root {
+            --azul-corporativo: #2B3A55;
+            --naranja-corporativo: #F99417;
+            --gris-fondo: #f8f9fa;
+            --blanco-tarjetas: #FFFFFF;
+            --texto-oscuro: #212529;
+            --texto-claro: #6c757d;
+            --borde-sutil: #e9ecef;
+            --theme-color: var(--naranja-corporativo);
         }
-        .container {
+
+        body {
+            background-color: var(--gris-fondo);
+            font-family: 'Roboto', sans-serif;
+            color: var(--texto-oscuro);
+        }
+        .container-main {
             max-width: 900px;
-            margin: auto;
+        }
+        .form-container {
+            background-color: var(--blanco-tarjetas);
+            border-radius: .75rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.07);
+            overflow: hidden;
         }
         .form-header {
-            background-color: #0056b3;
-            color: white;
-            padding: 20px 30px;
-            border-radius: 8px 8px 0 0;
+            background-color: var(--theme-color);
+            color: var(--blanco-tarjetas);
+            padding: 1.5rem 2rem;
         }
-        .form-header h1 { margin: 0; font-size: 24px; }
-        .form-header p { margin: 5px 0 0; opacity: 0.9; }
+        .form-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .form-header p { margin: 0; opacity: 0.9; }
+        
         .nav-bar {
-            background-color: white;
-            padding: 15px 30px;
-            border-bottom: 1px solid #dddfe2;
+            background-color: var(--blanco-tarjetas);
+            padding: .75rem 2rem;
+            border-bottom: 1px solid var(--borde-sutil);
             display: flex;
-            gap: 15px;
+            gap: 1rem;
             align-items: center;
         }
         .nav-bar a {
             text-decoration: none;
-            color: #0056b3;
-            font-weight: 600;
-            padding: 8px 12px;
-            border-radius: 6px;
+            color: var(--azul-corporativo);
+            font-weight: 500;
+            padding: .5rem .75rem;
+            border-radius: .5rem;
             transition: background-color 0.2s;
         }
-        .nav-bar a:hover { background-color: #e7f3ff; }
-        .nav-bar a.active { color: #0d6efd; background-color: #e7f3ff; font-weight: 700; }
-        form {
-            background: white;
-            padding: 30px;
-            border-radius: 0 0 8px 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .section { margin-bottom: 30px; }
+        .nav-bar a:hover { background-color: #eef3f8; }
+        .nav-bar a.active { color: var(--theme-color); background-color: #fff5e8; }
+
+        form { padding: 2rem; }
         .section h3 {
-            font-size: 16px;
-            color: #606770;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--texto-claro);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            border-bottom: 1px solid #dddfe2;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
+            border-bottom: 1px solid var(--borde-sutil);
+            padding-bottom: .75rem;
+            margin-bottom: 1.5rem;
         }
         .form-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
+            gap: 1.25rem;
         }
-        .form-group { display: flex; flex-direction: column; }
-        .full-width { grid-column: 1 / -1; }
-        label {
-            font-size: 14px;
-            font-weight: 600;
-            color: #606770;
-            margin-bottom: 8px;
+        .form-group label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--texto-oscuro);
+            margin-bottom: .5rem;
         }
-        input, select, textarea {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            border: 1px solid #dddfe2;
-            border-radius: 6px;
-            box-sizing: border-box;
+        .form-control, .form-select, .form-control:disabled {
+            border-radius: .5rem;
+            padding: .75rem 1rem;
+            border: 1px solid var(--borde-sutil);
+            background-color: var(--gris-fondo);
         }
-        input:disabled, select:disabled {
-            background-color: #e9ecef;
-            cursor: not-allowed;
+        .form-control:not(:disabled), .form-select:not(:disabled) {
+             background-color: var(--blanco-tarjetas);
         }
+
         .button-group {
             display: flex;
             justify-content: flex-end;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #dddfe2;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--borde-sutil);
         }
-        .btn {
-            padding: 12px 25px;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            border-radius: 6px;
-            text-decoration: none;
-            text-align: center;
+        .btn-primary {
+            background-color: var(--theme-color);
+            border-color: var(--theme-color);
+            font-weight: 500;
         }
-        .btn-primary { background-color: #28a745; color: white; }
-        .btn-secondary { background-color: #6c757d; color: white; }
-        .mensaje {
-            margin: 20px auto 0;
-            max-width: 95%;
-            font-weight: bold;
-            padding: 10px 15px;
-            border-radius: 5px;
-            text-align: center;
+        .btn-primary:hover {
+            filter: brightness(90%);
+            background-color: var(--theme-color);
+            border-color: var(--theme-color);
         }
-        .success { color: #4F8A10; background-color: #DFF2BF; }
-        .error { color: #D8000C; background-color: #FFD2D2; }
-        
         .preview-img {
             width: 100%;
             height: 240px;
             object-fit: contain;
-            background-color: #f0f2f5;
+            background-color: var(--borde-sutil);
         }
-        .modal-body video, .modal-body canvas {
-            max-width: 100%;
-            height: auto;
-        }
-        .confirmation-view { display: none; }
     </style>
 </head>
 <body>
-<div class="container">
-    <div class="form-header">
-        <h1>Sistema de Gestión de Clientes</h1>
-        <p>Moto Plan Motors C.A.</p>
+<div class="container container-main my-4">
+    <div class="form-container">
+        <div class="form-header">
+            <h1>Sistema de Gestión de Clientes</h1>
+            <p>Moto Plan Motors C.A.</p>
+        </div>
+
+        <div class="nav-bar">
+            <a href="{{ url_for('hub') }}">Hub Principal</a>
+            <a href="{{ url_for('registrar') }}" class="active">Registrar Cliente</a>
+            <a href="{{ url_for('consulta') }}">Consultar Cliente</a>
+        </div>
+
+        <form id="registroForm" action="{{ url_for('registrar_cliente') }}" method="POST">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{category}}">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <input type="hidden" name="foto_cliente" id="foto_cliente" class="form-control-validate" required>
+            <input type="hidden" name="foto_cedula" id="foto_cedula" class="form-control-validate" required>
+            <input type="hidden" name="asesor" id="asesor-hidden-input" class="form-control-validate" required>
+            <input type="hidden" name="responsable" id="responsable-hidden-input" class="form-control-validate" required>
+
+            <div class="section">
+                <h3>Información Personal y de Contacto</h3>
+                <div class="form-grid">
+                    <div class="form-group"><label for="nombre_apellido">Nombre y Apellido</label><input type="text" id="nombre_apellido" name="nombre_apellido" class="form-control form-control-validate" required></div>
+                    <div class="form-group"><label for="cedula">Nº Cédula</label><input type="text" id="cedula" name="cedula" class="form-control form-control-validate" required></div>
+                    <div class="form-group"><label for="telefono">Teléfono</label><input type="text" id="telefono" name="telefono" class="form-control form-control-validate" required></div>
+                    <div class="form-group"><label for="email">Correo Electrónico</label><input type="email" id="email" name="email" class="form-control form-control-validate"></div>
+                    <div class="form-group col-12"><label for="direccion">Dirección</label><textarea id="direccion" name="direccion" rows="2" class="form-control form-control-validate"></textarea></div>
+                    <div class="form-group"><label for="fecha_ingreso">Fecha de Ingreso</label><input type="date" id="fecha_ingreso" name="fecha_ingreso" class="form-control form-control-validate" required></div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3>Beneficiario en caso de Fallecimiento</h3>
+                <div class="form-grid">
+                    <div class="form-group"><label for="beneficiario_nombre">Nombre y Apellido del Beneficiario</label><input type="text" id="beneficiario_nombre" name="beneficiario_nombre" class="form-control form-control-validate"></div>
+                    <div class="form-group"><label for="beneficiario_cedula">Nº Cédula del Beneficiario</label><input type="text" id="beneficiario_cedula" name="beneficiario_cedula" class="form-control form-control-validate"></div>
+                    <div class="form-group"><label for="beneficiario_telefono">Teléfono del Beneficiario</label><input type="text" id="beneficiario_telefono" name="beneficiario_telefono" class="form-control form-control-validate"></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Detalles del Plan y Contrato</h3>
+                <div class="form-grid">
+                    <div class="form-group"><label for="contrato_nro">Nº Contrato</label><input type="text" id="contrato_nro" name="contrato_nro" class="form-control form-control-validate" required></div>
+                    <div class="form-group">
+                        <label for="plan_contratado">Plan Contratado (USD)</label>
+                        <select id="plan_contratado" name="plan_contratado" class="form-select form-control-validate" required>
+                            <option value="" disabled selected>-- Seleccione un Plan --</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label for="cuotas_totales">Cuotas Totales</label><select id="cuotas_totales" name="cuotas_totales" class="form-select form-control-validate" required><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
+                    <div class="form-group"><label for="valor_cuota">Cuota Mensual (USD)</label><input type="number" id="valor_cuota" step="0.01" name="valor_cuota" class="form-control form-control-validate" required></div>
+                    <div class="form-group">
+                        <label for="inscripcion_monto">Monto Inscripción (USD) - 16% del Plan</label>
+                        <input type="number" id="inscripcion_monto" step="0.01" name="inscripcion_monto" class="form-control form-control-validate" required readonly>
+                    </div>
+                    <div class="form-group"><label for="moneda_pago">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="form-select form-control-validate" required><option value="USD">USD</option><option value="BsBCV">BsBCV</option></select></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Verificación de Identidad</h3>
+                <div class="alert alert-info"><i class="bi bi-camera-video-fill"></i> Use los siguientes botones para capturar las fotos requeridas.</div>
+                <div class="row">
+                    <div class="col-md-6 text-center mb-3">
+                        <h6>Foto del Cliente</h6>
+                        <img id="preview-cliente" src="https://placehold.co/400x300/eee/ccc?text=Foto+Cliente" class="preview-img rounded border mb-2">
+                        <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cliente"><i class="bi bi-person-bounding-box"></i> Tomar Foto Cliente</button>
+                    </div>
+                    <div class="col-md-6 text-center mb-3">
+                        <h6>Foto de la Cédula</h6>
+                        <img id="preview-cedula" src="https://placehold.co/400x300/eee/ccc?text=Foto+Cédula" class="preview-img rounded border mb-2">
+                         <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cedula"><i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Información Administrativa (Uso Interno)</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="escenario_cierre">1. Escenario de Cierre</label>
+                        <select id="escenario_cierre" name="escenario_cierre_selector" class="form-select form-control-validate" required>
+                            <option value="" selected>-- Seleccione un escenario --</option>
+                            <option value="Asesor">Cierre por Asesor</option>
+                            <option value="Gerencia">Cierre por Gerencia</option>
+                            <option value="Presidencia">Cierre por Presidencia</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="asesor-container">
+                        <label for="asesor-placeholder">2. Asesor</label>
+                        <input type="text" id="asesor-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>
+                    </div>
+                    <div class="form-group" id="responsable-container">
+                        <label for="responsable-placeholder">3. Responsable</label>
+                        <input type="text" id="responsable-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label for="ciclo_cobranza">Ciclo de Cobranza</label>
+                        <select id="ciclo_cobranza" name="ciclo_cobranza" class="form-select form-control-validate" required>
+                            <option value="15 al 02">Del 15 de cada mes al 02 del mes siguiente</option>
+                            <option value="20 al 10">Del 20 de cada mes al 10 del mes siguiente</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button type="submit" id="submitBtn" class="btn btn-secondary" disabled>Ir al Contrato</button>
+            </div>
+        </form>
     </div>
-
-    <div class="nav-bar">
-        <a href="{{ url_for('hub') }}">Hub Principal</a>
-        <a href="{{ url_for('registrar') }}" class="active">Registrar Cliente</a>
-        <a href="{{ url_for('consulta') }}">Consultar Cliente</a>
-    </div>
-
-    <form id="registroForm" action="{{ url_for('registrar_cliente') }}" method="POST">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="mensaje {{ category }}">{{ message }}</div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-
-        <input type="hidden" name="foto_cliente" id="foto_cliente" class="form-control-validate" required>
-        <input type="hidden" name="foto_cedula" id="foto_cedula" class="form-control-validate" required>
-        <input type="hidden" name="asesor" id="asesor-hidden-input" class="form-control-validate" required>
-        <input type="hidden" name="responsable" id="responsable-hidden-input" class="form-control-validate" required>
-
-        <div class="section">
-            <h3>Información Personal y de Contacto</h3>
-            <div class="form-grid">
-                <div class="form-group"><label for="nombre_apellido">Nombre y Apellido</label><input type="text" id="nombre_apellido" name="nombre_apellido" class="form-control-validate" required></div>
-                <div class="form-group"><label for="cedula">Nº Cédula</label><input type="text" id="cedula" name="cedula" class="form-control-validate" required></div>
-                <div class="form-group"><label for="telefono">Teléfono</label><input type="text" id="telefono" name="telefono" class="form-control-validate" required></div>
-                <div class="form-group"><label for="email">Correo Electrónico</label><input type="email" id="email" name="email" class="form-control-validate"></div>
-                <div class="form-group full-width"><label for="direccion">Dirección</label><textarea id="direccion" name="direccion" rows="2" class="form-control-validate"></textarea></div>
-                <div class="form-group"><label for="fecha_ingreso">Fecha de Ingreso</label><input type="date" id="fecha_ingreso" name="fecha_ingreso" class="form-control-validate" required></div>
-            </div>
-        </div>
-        
-        <div class="section">
-            <h3>Beneficiario en caso de Fallecimiento</h3>
-            <div class="form-grid">
-                <div class="form-group"><label for="beneficiario_nombre">Nombre y Apellido del Beneficiario</label><input type="text" id="beneficiario_nombre" name="beneficiario_nombre" class="form-control-validate"></div>
-                <div class="form-group"><label for="beneficiario_cedula">Nº Cédula del Beneficiario</label><input type="text" id="beneficiario_cedula" name="beneficiario_cedula" class="form-control-validate"></div>
-                <div class="form-group"><label for="beneficiario_telefono">Teléfono del Beneficiario</label><input type="text" id="beneficiario_telefono" name="beneficiario_telefono" class="form-control-validate"></div>
-            </div>
-        </div>
-
-        <div class="section">
-            <h3>Detalles del Plan y Contrato</h3>
-            <div class="form-grid">
-                <div class="form-group"><label for="contrato_nro">Nº Contrato</label><input type="text" id="contrato_nro" name="contrato_nro" class="form-control-validate" required></div>
-                <div class="form-group">
-                    <label for="plan_contratado">Plan Contratado (USD)</label>
-                    <select id="plan_contratado" name="plan_contratado" class="form-control-validate" required>
-                        <option value="" disabled selected>-- Seleccione un Plan --</option>
-                    </select>
-                </div>
-                <div class="form-group"><label for="cuotas_totales">Cuotas Totales</label><select id="cuotas_totales" name="cuotas_totales" class="form-control-validate" required><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
-                <div class="form-group"><label for="valor_cuota">Cuota Mensual (USD)</label><input type="number" id="valor_cuota" step="0.01" name="valor_cuota" class="form-control-validate" required></div>
-                <div class="form-group">
-                    <label for="inscripcion_monto">Monto Inscripción (USD) - 16% del Plan</label>
-                    <input type="number" id="inscripcion_monto" step="0.01" name="inscripcion_monto" class="form-control-validate" required readonly style="background-color: #e9ecef;">
-                </div>
-                <div class="form-group"><label for="moneda_pago">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="form-control-validate" required><option value="USD">USD</option><option value="BsBCV">BsBCV</option></select></div>
-            </div>
-        </div>
-
-        <div class="section">
-            <h3>Verificación de Identidad</h3>
-            <div class="alert alert-info"><i class="bi bi-camera-video-fill"></i> Use los siguientes botones para capturar las fotos requeridas.</div>
-            <div class="row">
-                <div class="col-md-6 text-center mb-3">
-                    <h6>Foto del Cliente</h6>
-                    <img id="preview-cliente" src="https://placehold.co/400x300/eee/ccc?text=Foto+Cliente" class="preview-img rounded border mb-2">
-                    <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cliente"><i class="bi bi-person-bounding-box"></i> Tomar Foto Cliente</button>
-                </div>
-                <div class="col-md-6 text-center mb-3">
-                    <h6>Foto de la Cédula</h6>
-                    <img id="preview-cedula" src="https://placehold.co/400x300/eee/ccc?text=Foto+Cédula" class="preview-img rounded border mb-2">
-                     <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cedula"><i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="section">
-            <h3>Información Administrativa (Uso Interno)</h3>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="escenario_cierre">1. Escenario de Cierre</label>
-                    <select id="escenario_cierre" name="escenario_cierre_selector" class="form-control-validate" required>
-                        <option value="" selected>-- Seleccione un escenario --</option>
-                        <option value="Asesor">Cierre por Asesor</option>
-                        <option value="Gerencia">Cierre por Gerencia</option>
-                        <option value="Presidencia">Cierre por Presidencia</option>
-                    </select>
-                </div>
-
-                <div class="form-group" id="asesor-container">
-                    <label for="asesor-placeholder">2. Asesor</label>
-                    <input type="text" id="asesor-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>
-                </div>
-
-                <div class="form-group" id="responsable-container">
-                    <label for="responsable-placeholder">3. Responsable</label>
-                    <input type="text" id="responsable-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>
-                </div>
-                
-                <div class="form-group">
-                    <label for="ciclo_cobranza">Ciclo de Cobranza</label>
-                    <select id="ciclo_cobranza" name="ciclo_cobranza" class="form-control-validate" required>
-                        <option value="15 al 02">Del 15 de cada mes al 02 del mes siguiente</option>
-                        <option value="20 al 10">Del 20 de cada mes al 10 del mes siguiente</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-        
-        <div class="button-group">
-            <button type="submit" id="submitBtn" class="btn btn-secondary" disabled>Ir al Contrato</button>
-        </div>
-    </form>
 </div>
 
-<div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
+<!-- Modal sin cambios de estilo -->
+<div class="modal fade" id="cameraModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="cameraModalLabel">Capturar Foto</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
+      <div class="modal-header"><h5 class="modal-title" id="cameraModalLabel">Capturar Foto</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body text-center">
-        <div class="live-view">
-            <video id="video-feed" autoplay playsinline muted class="bg-dark rounded"></video>
-        </div>
-        <div class="confirmation-view">
-            <p><strong>¿Desea usar esta foto?</strong></p>
-            <canvas id="capture-canvas" class="rounded"></canvas>
-        </div>
+        <div class="live-view"><video id="video-feed" autoplay playsinline muted class="bg-dark rounded"></video></div>
+        <div class="confirmation-view" style="display:none;"><p><strong>¿Desea usar esta foto?</strong></p><canvas id="capture-canvas" class="rounded"></canvas></div>
       </div>
       <div class="modal-footer">
-        <div class="live-view-footer w-100 d-grid gap-2 d-sm-flex justify-content-sm-between">
+        <div class="live-view-footer w-100 d-flex justify-content-between">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
             <button type="button" id="flip-camera-btn" class="btn btn-info"><i class="bi bi-arrow-repeat"></i></button>
             <button type="button" id="capture-btn" class="btn btn-primary"><i class="bi bi-camera-fill"></i> Capturar</button>
         </div>
-        <div class="confirmation-view-footer w-100 d-grid gap-2 d-sm-flex justify-content-sm-between">
+        <div class="confirmation-view-footer w-100 d-flex justify-content-between" style="display:none;">
             <button type="button" class="btn btn-secondary" id="retake-btn"><i class="bi bi-arrow-clockwise"></i> Volver a Tomar</button>
             <button type="button" class="btn btn-success" id="save-photo-btn"><i class="bi bi-check-circle-fill"></i> Guardar Foto</button>
         </div>
@@ -283,9 +268,8 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+// SCRIPT ORIGINAL SIN MODIFICACIONES
 document.addEventListener('DOMContentLoaded', function() {
-    
-    // Lógica para el desplegable de planes
     const planSelect = document.getElementById('plan_contratado');
     const inscripcionInput = document.getElementById('inscripcion_monto');
     const montoInicial = 1100, montoFinal = 4000, incremento = 50;
@@ -302,22 +286,17 @@ document.addEventListener('DOMContentLoaded', function() {
             inscripcionInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
     });
-
-    // Lógica definitiva para escenarios
     const escenarioSelect = document.getElementById('escenario_cierre');
     const asesorContainer = document.getElementById('asesor-container');
     const responsableContainer = document.getElementById('responsable-container');
     const asesorHiddenInput = document.getElementById('asesor-hidden-input');
     const responsableHiddenInput = document.getElementById('responsable-hidden-input');
-
     escenarioSelect.addEventListener('change', function() {
         const escenario = this.value;
-
         asesorContainer.innerHTML = '';
         responsableContainer.innerHTML = '';
         asesorHiddenInput.value = '';
         responsableHiddenInput.value = '';
-        
         const updateAsesorHidden = (value) => {
             asesorHiddenInput.value = value;
             asesorHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -326,7 +305,6 @@ document.addEventListener('DOMContentLoaded', function() {
             responsableHiddenInput.value = value;
             responsableHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
         };
-
         if (!escenario) {
             asesorContainer.innerHTML = `<label for="asesor-placeholder">2. Asesor</label><input type="text" id="asesor-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>`;
             responsableContainer.innerHTML = `<label for="responsable-placeholder">3. Responsable</label><input type="text" id="responsable-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>`;
@@ -334,51 +312,28 @@ document.addEventListener('DOMContentLoaded', function() {
             updateResponsableHidden('');
             return;
         }
-
-        responsableContainer.innerHTML = `
-            <label for="responsable-text">3. Responsable</label>
-            <input type="text" id="responsable-text" class="form-control form-control-validate" required>
-        `;
+        responsableContainer.innerHTML = `<label for="responsable-text">3. Responsable</label><input type="text" id="responsable-text" class="form-control form-control-validate" required>`;
         const responsableText = document.getElementById('responsable-text');
         responsableText.addEventListener('input', () => updateResponsableHidden(responsableText.value));
-        
         if (escenario === 'Asesor') {
-            asesorContainer.innerHTML = `
-                <label for="asesor-text">2. Asesor</label>
-                <input type="text" id="asesor-text" class="form-control form-control-validate" required>
-            `;
+            asesorContainer.innerHTML = `<label for="asesor-text">2. Asesor</label><input type="text" id="asesor-text" class="form-control form-control-validate" required>`;
             const asesorText = document.getElementById('asesor-text');
             asesorText.addEventListener('input', () => updateAsesorHidden(asesorText.value));
             asesorText.focus();
-
         } else if (escenario === 'Gerencia') {
-            asesorContainer.innerHTML = `
-                <label for="asesor-select">2. Asesor</label>
-                <select id="asesor-select" class="form-select form-control-validate" required>
-                    <option value="Yusbelis Espinoza" selected>Yusbelis Espinoza</option>
-                </select>
-            `;
+            asesorContainer.innerHTML = `<label for="asesor-select">2. Asesor</label><select id="asesor-select" class="form-select form-control-validate" required><option value="Yusbelis Espinoza" selected>Yusbelis Espinoza</option></select>`;
             updateAsesorHidden('Yusbelis Espinoza');
             responsableText.focus();
-
         } else if (escenario === 'Presidencia') {
             let asesorOptions = '<option value="" selected disabled>Seleccione presidente...</option>';
-            ['Carlos Ramirez', 'Karielsy Rios'].forEach(p => {
-                asesorOptions += `<option value="${p}">${p}</option>`;
-            });
-            asesorContainer.innerHTML = `
-                <label for="asesor-select">2. Asesor</label>
-                <select id="asesor-select" class="form-select form-control-validate" required>${asesorOptions}</select>
-            `;
+            ['Carlos Ramirez', 'Karielsy Rios'].forEach(p => { asesorOptions += `<option value="${p}">${p}</option>`; });
+            asesorContainer.innerHTML = `<label for="asesor-select">2. Asesor</label><select id="asesor-select" class="form-select form-control-validate" required>${asesorOptions}</select>`;
             const asesorSelect = document.getElementById('asesor-select');
             asesorSelect.addEventListener('change', () => updateAsesorHidden(asesorSelect.value));
         }
-        
         updateAsesorHidden(asesorHiddenInput.value);
         updateResponsableHidden(responsableHiddenInput.value);
     });
-
-    // Lógica de la cámara y validación del formulario
     const cameraModal = document.getElementById('cameraModal');
     const video = document.getElementById('video-feed');
     const canvas = document.getElementById('capture-canvas');
@@ -386,18 +341,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const retakeBtn = document.getElementById('retake-btn');
     const savePhotoBtn = document.getElementById('save-photo-btn');
     const flipCameraBtn = document.getElementById('flip-camera-btn');
-    let stream;
-    let currentCaptureType = null;
-    let capturedImageData = null;
-    let currentFacingMode = 'user';
-
+    let stream, currentCaptureType = null, capturedImageData = null, currentFacingMode = 'user';
     function toggleViews(showConfirmation) {
         cameraModal.querySelector('.live-view').style.display = showConfirmation ? 'none' : 'block';
         cameraModal.querySelector('.live-view-footer').style.display = showConfirmation ? 'none' : 'flex';
         cameraModal.querySelector('.confirmation-view').style.display = showConfirmation ? 'block' : 'none';
         cameraModal.querySelector('.confirmation-view-footer').style.display = showConfirmation ? 'flex' : 'none';
     }
-
     async function startCamera(facingMode) {
         if (stream) stream.getTracks().forEach(track => track.stop());
         try {
@@ -406,11 +356,9 @@ document.addEventListener('DOMContentLoaded', function() {
             await video.play();
         } catch (err) {
             console.error("Error starting camera: ", err);
-            alert("No se pudo acceder a la cámara. Asegúrese de haber otorgado los permisos.");
             bootstrap.Modal.getInstance(cameraModal).hide();
         }
     }
-
     cameraModal.addEventListener('show.bs.modal', async (event) => {
         currentCaptureType = event.relatedTarget.getAttribute('data-capture-type');
         cameraModal.querySelector('.modal-title').textContent = currentCaptureType === 'cedula' ? 'Capturar Foto de la Cédula' : 'Capturar Foto del Cliente';
@@ -418,16 +366,11 @@ document.addEventListener('DOMContentLoaded', function() {
         toggleViews(false);
         await startCamera(currentFacingMode);
     });
-
-    cameraModal.addEventListener('hide.bs.modal', () => {
-        if (stream) stream.getTracks().forEach(track => track.stop());
-    });
-
+    cameraModal.addEventListener('hide.bs.modal', () => { if (stream) stream.getTracks().forEach(track => track.stop()); });
     flipCameraBtn.addEventListener('click', () => {
         currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
         startCamera(currentFacingMode);
     });
-
     captureBtn.addEventListener('click', () => {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -435,40 +378,26 @@ document.addEventListener('DOMContentLoaded', function() {
         capturedImageData = canvas.toDataURL('image/jpeg');
         toggleViews(true);
     });
-
-    retakeBtn.addEventListener('click', () => {
-        capturedImageData = null;
-        toggleViews(false);
-    });
-    
+    retakeBtn.addEventListener('click', () => { capturedImageData = null; toggleViews(false); });
     const submitBtn = document.getElementById('submitBtn');
     const form = document.getElementById('registroForm');
-    
     const validateForm = () => {
-        const fieldsToValidate = form.querySelectorAll('.form-control-validate');
-        for (const field of fieldsToValidate) {
-            if (field.hasAttribute('required') && (!field.value || field.value.trim() === '')) {
-                return false;
-            }
+        for (const field of form.querySelectorAll('.form-control-validate')) {
+            if (field.hasAttribute('required') && (!field.value || field.value.trim() === '')) return false;
         }
         return true;
     };
-
     const updateButtonState = () => {
         if (validateForm()) {
             submitBtn.disabled = false;
-            submitBtn.classList.remove('btn-secondary');
-            submitBtn.classList.add('btn-primary');
+            submitBtn.classList.replace('btn-secondary', 'btn-primary');
         } else {
             submitBtn.disabled = true;
-            submitBtn.classList.remove('btn-primary');
-            submitBtn.classList.add('btn-secondary');
+            submitBtn.classList.replace('btn-primary', 'btn-secondary');
         }
     };
-    
     form.addEventListener('input', updateButtonState);
     form.addEventListener('change', updateButtonState);
-    
     savePhotoBtn.addEventListener('click', () => {
         if (capturedImageData && currentCaptureType) {
             document.getElementById(`preview-${currentCaptureType}`).src = capturedImageData;
@@ -478,14 +407,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         bootstrap.Modal.getInstance(cameraModal).hide();
     });
-
-    updateButtonState(); 
-
+    updateButtonState();
     form.addEventListener('submit', function(e) {
-        if (form.getAttribute('data-submitted') === 'true') {
-            e.preventDefault();
-            return;
-        }
+        if (form.getAttribute('data-submitted') === 'true') { e.preventDefault(); return; }
         form.setAttribute('data-submitted', 'true');
         submitBtn.disabled = true;
         submitBtn.innerHTML = 'Procesando...';

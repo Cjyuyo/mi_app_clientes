@@ -6,26 +6,46 @@
     <title>Consulta de Clientes</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* Estilos Generales */
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            background-color: #f0f2f5; 
-            margin: 0; 
-            padding: 20px; 
-        }
-        .container { 
-            max-width: 900px; 
-            margin: auto; 
+        /* --- GUÍA DE ESTILO MAESTRA --- */
+        :root {
+            /* Paleta Corporativa */
+            --azul-corporativo: #2B3A55;
+            --naranja-corporativo: #F99417;
+            
+            /* Colores de Soporte */
+            --gris-fondo: #f8f9fa;
+            --blanco-tarjetas: #FFFFFF;
+            --texto-oscuro: #212529;
+            --texto-claro: #6c757d;
+            --borde-sutil: #e9ecef;
+
+            /* Color temático de esta página */
+            --theme-color: var(--naranja-corporativo);
         }
 
-        /* Contenedor de Búsqueda */
+        /* --- ESTILOS GLOBALES --- */
+        body { 
+            font-family: 'Roboto', sans-serif; 
+            background-color: var(--gris-fondo); 
+            color: var(--texto-oscuro);
+        }
+        .container-main { 
+            max-width: 900px; 
+            margin: auto;
+            padding: 1.5rem 1rem;
+        }
+
+        /* --- COMPONENTES --- */
         .search-container { 
-            background: white; 
-            padding: 20px; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
-            margin-bottom: 20px; 
+            background: var(--blanco-tarjetas); 
+            padding: 1.5rem; 
+            border-radius: .75rem; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.07); 
+            margin-bottom: 1.5rem; 
         }
         .search-container form { 
             display: flex; 
@@ -35,35 +55,35 @@
         }
         .search-container input[type="text"] { 
             flex-grow: 1; 
-            padding: 12px; 
-            font-size: 16px; 
-            border: 1px solid #dddfe2; 
-            border-radius: 6px; 
-            min-width: 150px; 
+            padding: .75rem 1rem; 
+            font-size: 1rem; 
+            border: 1px solid var(--borde-sutil); 
+            border-radius: .5rem; 
         }
-        .search-container button { 
-            padding: 12px 20px; 
-            font-size: 16px; 
-            font-weight: bold; 
-            border-radius: 6px; 
-            border: none; 
-            cursor: pointer; 
-            background-color: #1877f2; 
-            color: white; 
+        .btn-theme-primary {
+            background-color: var(--theme-color);
+            border-color: var(--theme-color);
+            color: white;
+            font-weight: 500;
+        }
+        .btn-theme-primary:hover {
+            filter: brightness(90%);
+            background-color: var(--theme-color);
+            border-color: var(--theme-color);
+            color: white;
         }
 
-        /* Tarjeta de Cliente */
         .client-card { 
-            background: white; 
-            margin-bottom: 20px; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            background: var(--blanco-tarjetas); 
+            margin-bottom: 1.5rem; 
+            border-radius: .75rem; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.07); 
             overflow: hidden; 
         }
         .client-header { 
-            background-color: #f5f6f7; 
-            padding: 15px 20px; 
-            border-bottom: 1px solid #dddfe2; 
+            background-color: var(--azul-corporativo); 
+            color: var(--blanco-tarjetas);
+            padding: 1rem 1.5rem; 
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
@@ -71,56 +91,41 @@
         }
         .client-header h2 { 
             margin: 0; 
-            font-size: 1.2em; 
-            color: #1c1e21; 
+            font-size: 1.25rem; 
+            font-weight: 500;
         }
-        .client-header .proceso { 
-            font-size: 0.9em; 
-            font-weight: bold; 
-            padding: 5px 10px; 
-            border-radius: 15px; 
-            text-transform: uppercase; 
-        }
-        .proceso.reserva { background-color: #fff3cd; color: #856404; }
-        .proceso.inscrito { background-color: #d1ecf1; color: #0c5460; }
-        .proceso.ahorrador { background-color: #d4edda; color: #155724; }
-        .proceso.adjudicado { background-color: #cce5ff; color: #004085; }
         
-        /* Detalles del Cliente */
         .client-details { 
-            background-color: #e7f3ff; 
-            padding: 20px; 
+            padding: 1.5rem; 
             display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
-            gap: 15px; 
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); 
+            gap: 1rem; 
         }
         .detail-item { 
-            background-color: #ffffff; 
-            padding: 15px; 
-            border-radius: 8px; 
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08); 
-            border: 1px solid #dcebfc; 
+            background-color: var(--gris-fondo); 
+            padding: 1rem; 
+            border-radius: .5rem; 
+            border: 1px solid var(--borde-sutil);
         }
         .detail-item .label { 
             display: block; 
-            font-size: 0.8em; 
-            font-weight: 600; 
-            color: #606770; 
-            margin-bottom: 5px; 
+            font-size: 0.8rem; 
+            font-weight: 500; 
+            color: var(--texto-claro); 
+            margin-bottom: 0.25rem; 
             text-transform: uppercase; 
         }
         .detail-item .value { 
-            font-size: 1.1em; 
-            font-weight: bold; 
-            color: #0056b3; 
+            font-size: 1rem; 
+            font-weight: 700; 
+            color: var(--texto-oscuro); 
         }
-        .detail-item .value.currency { color: #155724; }
+        .detail-item .value.currency { color: #198754; }
 
-        /* Barras de Progreso */
         .progress-item { grid-column: 1 / -1; }
         .progress-bar-container { 
-            background-color: #e9ecef; 
-            border-radius: .375rem; 
+            background-color: var(--borde-sutil); 
+            border-radius: .5rem; 
             height: 1.25rem; 
             overflow: hidden; 
             width: 100%; 
@@ -135,145 +140,62 @@
             color: white; 
             font-size: 0.8rem; 
             font-weight: bold; 
-            transition: width 0.6s ease; 
         }
         .progress-bar-secondary { background-color: #17a2b8; }
         .progress-label { 
             display: flex; 
             justify-content: space-between; 
-            font-size: 0.9em; 
+            font-size: 0.85rem; 
             margin-top: 5px; 
+            color: var(--texto-claro);
         }
-        .progress-label-detail { font-size: 0.9em; color: #606770; }
 
-        /* --- INICIO: ESTILOS MEJORADOS PARA HISTORIAL DE PAGOS --- */
         .payment-history {
-            padding: 20px;
-            background-color: #f8f9fa;
-            border-top: 1px solid #e9ecef;
-            border-bottom-left-radius: 8px;
-            border-bottom-right-radius: 8px;
+            padding: 1.5rem;
+            background-color: #fcfcfc;
+            border-top: 1px solid var(--borde-sutil);
         }
         .payment-history h3 {
             margin-top: 0;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #e0e0e0;
-            color: #333;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--borde-sutil);
+            font-size: 1.1rem;
+            font-weight: 500;
         }
-        /* Se usa CSS Grid para alinear en columnas perfectas */
         .payment-row {
             display: grid;
-            grid-template-columns: 1fr 100px 190px; /* Columna 1: flexible, Columna 2 y 3: fijas */
+            grid-template-columns: 1fr auto auto;
             align-items: center;
-            padding: 15px 10px;
-            border-bottom: 1px solid #e9ecef;
-            gap: 15px;
-            transition: background-color 0.2s ease;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--borde-sutil);
+            gap: 1rem;
         }
-        .desktop-payment-list .payment-row:last-child {
-            border-bottom: none;
-        }
-        .desktop-payment-list .payment-row:nth-child(even) {
-            background-color: #ffffff;
-        }
-        .desktop-payment-list .payment-row:hover {
-            background-color: #e7f3ff;
-        }
-        .payment-info .payment-concept { 
-            font-weight: 600; 
-            color: #050505; 
-        }
-        .payment-info .payment-meta { 
-            font-size: 0.85em; 
-            color: #606770; 
-        }
-        .payment-amount { 
-            font-weight: bold; 
-            text-align: right; /* Alinear monto a la derecha de su columna */
-            color: #1d2129;
-            padding-right: 10px; /* Espacio para que no se pegue a la siguiente columna */
-        }
-        .payment-actions { 
-            display: flex; 
-            gap: 8px; 
-            align-items: center; 
-            justify-content: flex-end; /* Alinear contenido a la derecha de su columna */
-        }
-        /* --- FIN: ESTILOS MEJORADOS --- */
+        .payment-row:last-child { border-bottom: none; }
+        .payment-info .payment-concept { font-weight: 500; }
+        .payment-info .payment-meta { font-size: 0.85em; color: var(--texto-claro); }
+        .payment-amount { font-weight: bold; }
+        .payment-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
         
-        /* Badges de Estado */
-        .badge { 
-            font-size: 0.8em; 
-            font-weight: bold; 
-            padding: 4px 8px; 
-            border-radius: 6px; 
-            color: white; 
-        }
-        .bg-reporte { background-color: #6610f2 !important; }
-        .bg-inconsistente { background-color: #dc3545 !important; }
-        .bg-aprobado { background-color: #198754 !important; }
-        .bg-conciliado { background-color: #28a745; }
-        .bg-pendiente { background-color: #ffc107; color: #212529; }
-        .bg-anulado { background-color: #dc3545; }
-
-        /* Acciones del Cliente (sección inferior) */
         .client-actions { 
             display: flex; 
             flex-wrap: wrap; 
             justify-content: flex-end; 
             gap: 10px; 
-            padding: 15px 20px; 
-            background-color: #f5f6f7; 
-            border-top: 1px solid #dddfe2; 
-        }
-        
-        /* Mensajes de Alerta */
-        .mensaje { 
-            margin: 0 0 20px 0; 
-            font-weight: bold; 
-            padding: 15px; 
-            border-radius: 5px; 
-            text-align: center; 
-        }
-        .error { color: #D8000C; background-color: #FFD2D2; }
-        
-        /* Estilos para Móviles */
-        @media (max-width: 768px) { /* Ajustado el breakpoint para tabletas */
-            body { padding: 10px; }
-            .search-container form { flex-direction: column; align-items: stretch; }
-            .client-details { grid-template-columns: 1fr 1fr; } 
-            .progress-item { grid-column: 1 / -1; }
-            
-            /* Ocultar la lista de escritorio y mostrar la de móvil */
-            .desktop-payment-list { display: none; }
-            .mobile-payment-list { display: block; } /* Asegurarse que se muestre */
-
-            .payment-accordion-item { border-bottom: 1px solid #e9ecef; }
-            .payment-summary { display: flex; justify-content: space-between; align-items: center; padding: 12px 10px; cursor: pointer; }
-            .payment-details-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; background-color: #fff; }
-            .payment-details-content .payment-row {
-                display: flex; /* Revertir a flex para el detalle móvil */
-                flex-direction: column;
-                align-items: flex-start;
-                padding: 15px;
-                gap: 10px;
-                border: 0;
-            }
-        }
-        @media (min-width: 769px) {
-            .mobile-payment-list { display: none; }
+            padding: 1rem 1.5rem; 
+            background-color: var(--gris-fondo); 
+            border-top: 1px solid var(--borde-sutil); 
         }
     </style>
 </head>
 <body>
-<div class="container">
+<div class="container-main">
     <div class="search-container">
         <form method="POST" action="{{ url_for('consulta') }}">
             <input type="text" name="busqueda" placeholder="Buscar por Nombre o Cédula..." value="{{ busqueda or '' }}">
-            <button type="submit">Buscar</button>
+            <button type="submit" class="btn btn-theme-primary">Buscar</button>
             <a href="{{ url_for('hub') }}" class="btn btn-secondary">
-                <i class="bi bi-house-door-fill me-2"></i>Volver al Hub
+                <i class="bi bi-house-door-fill me-1"></i>Volver al Hub
             </a>
         </form>
     </div>
@@ -287,7 +209,7 @@
     {% endwith %}
 
     {% if mensaje_error %}
-        <div class="mensaje error">{{ mensaje_error }}</div>
+        <div class="alert alert-danger">{{ mensaje_error }}</div>
     {% endif %}
 
     <div id="client-results">
@@ -295,7 +217,7 @@
         <div class="client-card">
             <div class="client-header">
                 <h2>{{ cliente.nombre_apellido }}</h2>
-                <span class="proceso {{ cliente.proceso.lower() if cliente.proceso else '' }}">{{ cliente.proceso or 'N/A' }}</span>
+                <span class="badge text-bg-light">{{ cliente.proceso or 'N/A' }}</span>
             </div>
             
             <div class="client-details">
@@ -346,9 +268,9 @@
                         </div>
                     </div>
                     <div class="progress-label">
-                        <span class="progress-label-detail">Pagadas: {{ cuotas_pagadas_total | int }}</span>
-                        <span class="progress-label-detail">Restantes: {{ (cuotas_totales | int) - (cuotas_pagadas_total | int) }}</span>
-                        <span class="progress-label-detail">Total: {{ cuotas_totales | int }}</span>
+                        <span>Pagadas: {{ cuotas_pagadas_total | int }}</span>
+                        <span>Restantes: {{ (cuotas_totales | int) - (cuotas_pagadas_total | int) }}</span>
+                        <span>Total: {{ cuotas_totales | int }}</span>
                     </div>
                 </div>
 
@@ -375,7 +297,6 @@
             {% if cliente.pagos %}
             <div class="payment-history">
                 <h3>Historial de Pagos</h3>
-                <!-- VISTA DE ESCRITORIO CON LAYOUT DE COLUMNAS -->
                 <div class="desktop-payment-list">
                     {% for pago in cliente.pagos %}
                     <div class="payment-row">
@@ -386,74 +307,27 @@
                         <div class="payment-amount">${{ "%.2f"|format(pago.monto) }}</div>
                         <div class="payment-actions">
                             {% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}
-                                <span class="badge bg-reporte">Reportado</span>
+                                <span class="badge text-bg-info">Reportado</span>
                                 <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">Ver Reporte</a>
                             {% elif pago.estado_reporte == 'Inconsistente' %}
-                                <span class="badge bg-inconsistente">Inconsistente</span>
+                                <span class="badge text-bg-danger">Inconsistente</span>
                                 <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Ver Reporte</a>
                             {% elif pago.estado_pago == 'Pendiente' %}
                                 {% if pago.estado_reporte == 'Aprobado' %}
-                                    <span class="badge bg-aprobado">Aprobado</span>
+                                    <span class="badge text-bg-light">Aprobado</span>
                                 {% else %}
-                                    <span class="badge bg-pendiente">Pendiente</span>
+                                    <span class="badge text-bg-warning">Pendiente</span>
                                 {% endif %}
                                 <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');" style="display:inline;">
                                     <button type="submit" class="btn btn-success btn-sm">Conciliar</button>
                                 </form>
                             {% elif pago.estado_pago == 'Conciliado' %}
-                                <span class="badge bg-conciliado">Conciliado</span>
+                                <span class="badge text-bg-success">Conciliado</span>
                                 <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Ver Recibo</a>
                             {% elif pago.estado_pago == 'Anulado' %}
-                                <span class="badge bg-anulado">Anulado</span>
+                                <span class="badge text-bg-danger">Anulado</span>
                                 <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Detalles</a>
                             {% endif %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                <!-- VISTA MÓVIL (ACORDEÓN) -->
-                <div class="mobile-payment-list">
-                    {% for pago in cliente.pagos %}
-                    <div class="payment-accordion-item">
-                        <div class="payment-summary">
-                             <div class="payment-info">
-                                <span class="payment-concept">Recibo N° {{ pago.id }} - {{ pago.tipo_pago }}</span>
-                                <span class="payment-meta">{{ pago.fecha_pago.strftime('%d/%m/%Y') }}</span>
-                            </div>
-                            <div class="payment-amount">${{ "%.2f"|format(pago.monto) }}</div>
-                            <span class="accordion-arrow"><i class="bi bi-chevron-down"></i></span>
-                        </div>
-                        <div class="payment-details-content">
-                            <div class="payment-row">
-                                <div class="payment-info">
-                                    <span class="payment-concept">{{ pago.por_concepto_de }}</span>
-                                    <span class="payment-meta">Ref: {{ pago.referencia or 'N/A' }}</span>
-                                </div>
-                                <div class="payment-actions">
-                                    {% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}
-                                        <span class="badge bg-reporte">Reportado</span>
-                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">Ver Reporte</a>
-                                    {% elif pago.estado_reporte == 'Inconsistente' %}
-                                        <span class="badge bg-inconsistente">Inconsistente</span>
-                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Ver Reporte</a>
-                                    {% elif pago.estado_pago == 'Pendiente' %}
-                                        {% if pago.estado_reporte == 'Aprobado' %}
-                                            <span class="badge bg-aprobado">Aprobado</span>
-                                        {% else %}
-                                            <span class="badge bg-pendiente">Pendiente</span>
-                                        {% endif %}
-                                        <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');" style="display:inline;">
-                                            <button type="submit" class="btn btn-success btn-sm">Conciliar</button>
-                                        </form>
-                                    {% elif pago.estado_pago == 'Conciliado' %}
-                                        <span class="badge bg-conciliado">Conciliado</span>
-                                        <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Ver Recibo</a>
-                                    {% elif pago.estado_pago == 'Anulado' %}
-                                        <span class="badge bg-anulado">Anulado</span>
-                                        <a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Detalles</a>
-                                    {% endif %}
-                                </div>
-                            </div>
                         </div>
                     </div>
                     {% endfor %}
@@ -461,7 +335,6 @@
             </div>
             {% endif %}
 
-            <!-- ACCIONES DEL CLIENTE -->
             <div class="client-actions">
                 <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-success btn-sm">Registrar Pago</a>
                 <a href="{{ url_for('registrar_oferta', client_id=cliente.id) }}" class="btn btn-info btn-sm">Registrar Oferta</a>
@@ -480,23 +353,8 @@
     </div>
 </div>
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        // Lógica para el acordeón en móviles
-        if (window.innerWidth <= 768) {
-            const paymentSummaries = document.querySelectorAll('.payment-summary');
-            paymentSummaries.forEach(summary => {
-                summary.addEventListener('click', function() {
-                    this.classList.toggle('active');
-                    const detailContent = this.nextElementSibling;
-                    if (detailContent.style.maxHeight) {
-                        detailContent.style.maxHeight = null;
-                    } else {
-                        detailContent.style.maxHeight = detailContent.scrollHeight + "px";
-                    } 
-                });
-            });
-        }
-    });
+    // No JS needed for this redesign
 </script>
 </body>
 </html>
+

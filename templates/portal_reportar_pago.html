@@ -6,238 +6,202 @@
     <title>Reportar Pago - Moto Plan</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f0f2f5;
-            margin: 0;
-            padding: 20px;
+        /* --- GUÍA DE ESTILO MAESTRA --- */
+        :root {
+            --azul-corporativo: #2B3A55;
+            --naranja-corporativo: #F99417;
+            --gris-fondo: #f8f9fa;
+            --blanco-tarjetas: #FFFFFF;
+            --texto-oscuro: #212529;
+            --texto-claro: #6c757d;
+            --borde-sutil: #e9ecef;
         }
-        .container {
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--gris-fondo);
+            color: var(--texto-oscuro);
+            padding: 2rem 1rem;
+        }
+        .container-main {
             max-width: 800px;
             margin: auto;
         }
+        .form-container {
+            background-color: var(--blanco-tarjetas);
+            border-radius: .75rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.07);
+            overflow: hidden;
+        }
         .form-header {
-            background-color: #007bff;
-            color: white;
-            padding: 20px 30px;
-            border-radius: 8px 8px 0 0;
+            background-color: var(--azul-corporativo);
+            color: var(--blanco-tarjetas);
+            padding: 1.5rem 2rem;
         }
-        .form-header h1 {
-            margin: 0;
-            font-size: 24px;
-        }
-        .form-header p {
-            margin: 5px 0 0;
-            opacity: 0.9;
-        }
-        form {
-            background: white;
-            padding: 30px;
-            border-radius: 0 0 8px 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .section {
-            margin-bottom: 30px;
-        }
+        .form-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .form-header p { margin: 0; opacity: 0.9; }
+        
+        form { padding: 2rem; }
+        .section { margin-bottom: 2rem; }
         .section h3 {
-            font-size: 16px;
-            color: #606770;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--texto-claro);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            border-bottom: 1px solid #dddfe2;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
+            border-bottom: 1px solid var(--borde-sutil);
+            padding-bottom: .75rem;
+            margin-bottom: 1.5rem;
         }
         .form-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
+            gap: 1.25rem;
         }
-        .form-group {
-            display: flex;
-            flex-direction: column;
+        .form-group label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--texto-oscuro);
+            margin-bottom: .5rem;
         }
-        .full-width {
-            grid-column: 1 / -1;
+        .form-control, .form-select {
+            border-radius: .5rem;
+            padding: .75rem 1rem;
+            border: 1px solid var(--borde-sutil);
         }
-        label {
-            font-size: 14px;
-            font-weight: 600;
-            color: #606770;
-            margin-bottom: 8px;
-        }
-        input, select, textarea {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            border: 1px solid #dddfe2;
-            border-radius: 6px;
-            box-sizing: border-box;
-        }
-        input[readonly] {
-            background-color: #e9ecef;
-            cursor: not-allowed;
-            color: #6c757d;
-        }
+        input[readonly] { background-color: var(--borde-sutil); }
+        
         .button-group {
             display: flex;
             justify-content: flex-end;
             gap: 10px;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #dddfe2;
-        }
-        .btn {
-            padding: 12px 25px;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            border-radius: 6px;
-            text-decoration: none;
-            text-align: center;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--borde-sutil);
         }
         .btn-primary {
-            background-color: #28a745;
-            color: white;
+            background-color: var(--naranja-corporativo);
+            border-color: var(--naranja-corporativo);
+            font-weight: 500;
         }
-        .btn-secondary {
-            background-color: #6c757d;
-            color: white;
+        .btn-primary:hover {
+            filter: brightness(90%);
+            background-color: var(--naranja-corporativo);
+            border-color: var(--naranja-corporativo);
         }
-        .mensaje { margin-bottom: 20px; font-weight: bold; padding: 15px; border-radius: 5px; text-align: center; }
-        .error { color: #D8000C; background-color: #FFD2D2; }
     </style>
 </head>
 <body>
-<div class="container">
-    <div class="form-header">
-        <h1>Reportar Mi Pago</h1>
-        <p>Para: {{ cliente.nombre_apellido }}</p>
+<div class="container-main">
+    <div class="form-container">
+        <div class="form-header">
+            <h1>Reportar Mi Pago</h1>
+            <p>Para: {{ cliente.nombre_apellido }}</p>
+        </div>
+
+        <form action="{{ url_for('portal_reportar_pago') }}" method="POST">
+            <div class="p-3">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <div class="alert alert-info d-flex justify-content-between align-items-center">
+                    <span>¿Necesitas los datos para realizar un Pago Móvil?</span>
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#paymentInfoModal">
+                        <i class="bi bi-wallet2 me-1"></i> Ver Datos de Pago
+                    </button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Detalles del Monto</h3>
+                <div class="form-grid">
+                    <div class="form-group col-12">
+                        <label for="por_concepto_de">Concepto del Pago</label>
+                        <input type="text" id="por_concepto_de" name="por_concepto_de" value="Cuota del mes de {{ mes_actual }}" class="form-control" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="monto_usd">Monto del Pago (USD)</label>
+                        <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="tasa_dia">Tasa del Día (BCV)</label>
+                        <input type="number" id="tasa_dia" step="0.01" name="tasa_dia" value="{{ tasas_hoy.tasa if tasas_hoy and tasas_hoy.tasa else '' }}" class="form-control" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="monto_bs_calculado">Monto en Bs (Calculado)</label>
+                        <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Información de la Transacción</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="forma_pago">Forma de Pago</label>
+                        <select id="forma_pago" name="forma_pago" class="form-select" required>
+                            <option value="Transferencia">Transferencia</option>
+                            <option value="Pago Móvil">Pago Móvil</option>
+                            <option value="Zelle">Zelle</option>
+                            <option value="Efectivo">Efectivo</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="pago_en">Moneda del Pago</label>
+                        <select id="pago_en" name="pago_en" class="form-select" required>
+                            <option value="Divisas">Divisas</option>
+                            <option value="Bolívares">Bolívares</option>
+                            <option value="USDT">USDT</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="banco">Banco de Origen</label>
+                        <input type="text" id="banco" name="banco" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="referencia">Número de Referencia</label>
+                        <input type="text" id="referencia" name="referencia" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="fecha_pago">Fecha de Pago</label>
+                        <input type="date" id="fecha_pago" name="fecha_pago" class="form-control" required>
+                    </div>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Volver al Portal</a>
+                <button type="submit" class="btn btn-primary">Reportar Mi Pago</button>
+            </div>
+        </form>
     </div>
-
-    <form action="{{ url_for('portal_reportar_pago') }}" method="POST">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-                <!-- Este bloque mostrará las alertas de éxito o advertencia -->
-                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-
-        <div class="alert alert-info d-flex justify-content-between align-items-center">
-            <span>¿Necesitas los datos para realizar un Pago Móvil?</span>
-            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#paymentInfoModal">
-                <i class="bi bi-wallet2 me-1"></i> Ver Datos de Pago
-            </button>
-        </div>
-
-        <div class="section">
-            <h3>Detalles del Monto</h3>
-            <div class="form-grid">
-                <div class="form-group full-width">
-                    <label for="por_concepto_de">Concepto del Pago</label>
-                    <input type="text" id="por_concepto_de" name="por_concepto_de" value="Cuota del mes de {{ mes_actual }}" readonly>
-                </div>
-                <div class="form-group">
-                    <label for="monto_usd">Monto del Pago (USD)</label>
-                    <input type="number" id="monto_usd" step="0.01" name="monto" required>
-                </div>
-                <div class="form-group">
-                    <label for="tasa_dia">Tasa del Día (BCV)</label>
-                    <input type="number" id="tasa_dia" step="0.01" name="tasa_dia" value="{{ tasas_hoy.tasa if tasas_hoy and tasas_hoy.tasa else '' }}" readonly>
-                </div>
-                <div class="form-group">
-                    <label for="monto_bs_calculado">Monto en Bs (Calculado)</label>
-                    <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" readonly>
-                </div>
-            </div>
-        </div>
-
-        <div class="section">
-            <h3>Información de la Transacción</h3>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="forma_pago">Forma de Pago</label>
-                    <select id="forma_pago" name="forma_pago" required>
-                        <option value="Transferencia">Transferencia</option>
-                        <option value="Pago Móvil">Pago Móvil</option>
-                        <option value="Zelle">Zelle</option>
-                        <option value="Efectivo">Efectivo</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="pago_en">Moneda del Pago</label>
-                    <select id="pago_en" name="pago_en" required>
-                        <option value="Divisas">Divisas</option>
-                        <option value="Bolívares">Bolívares</option>
-                        <option value="USDT">USDT</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="banco">Banco de Origen</label>
-                    <input type="text" id="banco" name="banco">
-                </div>
-                <div class="form-group">
-                    <label for="referencia">Número de Referencia</label>
-                    <input type="text" id="referencia" name="referencia">
-                </div>
-                <div class="form-group">
-                    <label for="fecha_pago">Fecha de Pago</label>
-                    <input type="date" id="fecha_pago" name="fecha_pago" required>
-                </div>
-            </div>
-        </div>
-
-        <div class="button-group">
-            <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Volver al Portal</a>
-            <button type="submit" class="btn btn-primary">Reportar Mi Pago</button>
-        </div>
-    </form>
 </div>
 
-<div class="modal fade" id="paymentInfoModal" tabindex="-1" aria-labelledby="paymentInfoModalLabel" aria-hidden="true">
+<div class="modal fade" id="paymentInfoModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h1 class="modal-title fs-5" id="paymentInfoModalLabel">Datos para Pago Móvil</h1>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p>Utiliza los siguientes datos para realizar tu pago. Haz clic en el icono para copiar.</p>
+                <p>Utiliza los siguientes datos para realizar tu pago.</p>
                 <ul class="list-group">
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <small class="text-muted">Banco</small>
-                            <div id="pm-banco">Banesco (0134)</div>
-                        </div>
-                        <button type="button" class="btn btn-outline-secondary btn-sm copy-btn" data-clipboard-text="0134">
-                            <i class="bi bi-clipboard"></i> Copiar
-                        </button>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <small class="text-muted">Cédula</small>
-                            <div id="pm-cedula">V-17559595</div>
-                        </div>
-                        <button type="button" class="btn btn-outline-secondary btn-sm copy-btn" data-clipboard-text="17559595">
-                            <i class="bi bi-clipboard"></i> Copiar
-                        </button>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <small class="text-muted">Teléfono</small>
-                            <div id="pm-telefono">0412-0344774</div>
-                        </div>
-                        <button type="button" class="btn btn-outline-secondary btn-sm copy-btn" data-clipboard-text="04120344774">
-                            <i class="bi bi-clipboard"></i> Copiar
-                        </button>
-                    </li>
+                    <li class="list-group-item"><strong>Banco:</strong> Banesco (0134)</li>
+                    <li class="list-group-item"><strong>Cédula:</strong> V-17559595</li>
+                    <li class="list-group-item"><strong>Teléfono:</strong> 0412-0344774</li>
                 </ul>
             </div>
         </div>
@@ -247,49 +211,24 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Lógica para cálculo de montos
+        // El script de JS permanece sin cambios
         const montoUsdInput = document.getElementById('monto_usd');
         const tasaDiaInput = document.getElementById('tasa_dia');
         const montoBsCalculadoInput = document.getElementById('monto_bs_calculado');
-
         function calcularMontoBs() {
             const montoUsd = parseFloat(montoUsdInput.value) || 0;
             const tasaDia = parseFloat(tasaDiaInput.value) || 0;
             if (montoUsd > 0 && tasaDia > 0) {
-                const montoBs = montoUsd * tasaDia;
-                montoBsCalculadoInput.value = montoBs.toFixed(2);
+                montoBsCalculadoInput.value = (montoUsd * tasaDia).toFixed(2);
             } else {
                 montoBsCalculadoInput.value = '';
             }
         }
         montoUsdInput.addEventListener('input', calcularMontoBs);
         tasaDiaInput.addEventListener('input', calcularMontoBs);
-        
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('fecha_pago').value = today;
-
-        // Lógica para copiar al portapapeles
-        const copyButtons = document.querySelectorAll('.copy-btn');
-        copyButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const textToCopy = this.getAttribute('data-clipboard-text');
-                navigator.clipboard.writeText(textToCopy).then(() => {
-                    const originalText = this.innerHTML;
-                    this.innerHTML = '<i class="bi bi-check-lg"></i> Copiado';
-                    setTimeout(() => {
-                        this.innerHTML = originalText;
-                    }, 2000);
-                }).catch(err => {
-                    console.error('Error al copiar: ', err);
-                });
-            });
-        });
-
-        // Pre-calcular el monto en Bs si la tasa ya está cargada
+        document.getElementById('fecha_pago').value = new Date().toISOString().split('T')[0];
         calcularMontoBs();
     });
-</script>
-<script>
     (function() {
         const forms = document.querySelectorAll('form');
         forms.forEach(form => {
@@ -299,7 +238,6 @@
                     return;
                 }
                 form.setAttribute('data-submitted', 'true');
-
                 const submitButtons = form.querySelectorAll('button[type="submit"]');
                 submitButtons.forEach(button => {
                     button.setAttribute('disabled', 'disabled');

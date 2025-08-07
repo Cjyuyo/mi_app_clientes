@@ -10,19 +10,33 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
+        /* --- GUÍA DE ESTILO MAESTRA --- */
         :root {
+            /* Paleta Corporativa */
             --azul-corporativo: #2B3A55;
             --naranja-corporativo: #F99417;
+            
+            /* Paleta Temática Extendida */
+            --azul-profundo-finanzas: #364766;
+            --verde-azulado-operaciones: #3B8788;
+            --ambar-calido-comercial: #E67E22;
+            --rojo-terracota-alertas: #C0392B;
+            --gris-neutro-auditoria: #7f8c8d;
+            --amarillo-claro-gestion: #F39C12;
+            --azul-cielo-metricas: #3498DB;
+
+            /* Colores de Soporte */
             --gris-fondo: #f8f9fa;
-            --blanco: #FFFFFF;
+            --blanco-tarjetas: #FFFFFF;
             --texto-oscuro: #212529;
             --texto-claro: #6c757d;
+            --borde-sutil: #e9ecef;
 
-            /* Paleta Temática */
-            --theme-color: #17a2b8; /* Cian Analítico por defecto para esta página */
-            --theme-color-dark: #107586;
+            /* Color temático de esta página (neutral para un hub de herramientas) */
+            --theme-color: var(--azul-cielo-metricas);
         }
 
+        /* --- ESTILOS GLOBALES --- */
         body {
             background-color: var(--gris-fondo);
             font-family: 'Roboto', sans-serif;
@@ -32,7 +46,7 @@
         }
         .main-header {
             background-color: var(--theme-color);
-            color: var(--blanco);
+            color: var(--blanco-tarjetas);
             padding: 3rem 1.5rem;
             text-align: center;
         }
@@ -44,10 +58,12 @@
             font-size: 1.2rem;
             opacity: 0.9;
         }
+
+        /* --- TARJETAS DE HERRAMIENTAS --- */
         .tool-card {
-            background-color: var(--blanco);
-            border: 1px solid #e0e0e0;
-            border-top: 4px solid var(--theme-color);
+            background-color: var(--blanco-tarjetas);
+            border: 1px solid var(--borde-sutil);
+            border-top-width: 4px;
             border-radius: .75rem;
             box-shadow: 0 2px 10px rgba(0,0,0,.05);
             transition: transform 0.2s, box-shadow 0.2s;
@@ -65,7 +81,6 @@
         .tool-card .icon {
             font-size: 3.5rem;
             margin-bottom: 1rem;
-            color: var(--theme-color);
         }
         .tool-card h5 {
             font-size: 1.25rem;
@@ -77,16 +92,13 @@
             flex-grow: 1;
             margin-bottom: 1.5rem;
         }
-        
-        .btn-theme-primary {
-            background-color: var(--theme-color);
-            border-color: var(--theme-color);
-            color: var(--blanco);
+        .btn-tool {
+            color: var(--blanco-tarjetas);
+            font-weight: 500;
         }
-        .btn-theme-primary:hover {
-            background-color: var(--theme-color-dark);
-            border-color: var(--theme-color-dark);
-            color: var(--blanco);
+        .btn-tool:hover {
+            color: var(--blanco-tarjetas);
+            filter: brightness(90%);
         }
     </style>
 </head>
@@ -126,23 +138,23 @@
         <div class="row g-4 justify-content-center">
             <!-- Fila 1 -->
             <div class="col-lg-3 col-md-6">
-                <div class="tool-card" style="border-top-color: #0d6efd;">
+                <div class="tool-card" style="border-top-color: var(--azul-profundo-finanzas);">
                     <div>
-                        <div class="icon" style="color: #0d6efd;"><i class="bi bi-calculator-fill"></i></div>
+                        <div class="icon" style="color: var(--azul-profundo-finanzas);"><i class="bi bi-calculator-fill"></i></div>
                         <h5>Flujo de Caja</h5>
                         <p class="card-text text-muted">Analiza ingresos, egresos y balances.</p>
                     </div>
-                    <a href="{{ url_for('reporte_flujo_caja') }}" class="btn btn-primary mt-3">Analizar</a>
+                    <a href="{{ url_for('reporte_flujo_caja') }}" class="btn btn-tool mt-3" style="background-color: var(--azul-profundo-finanzas);">Analizar</a>
                 </div>
             </div>
             <div class="col-lg-3 col-md-6">
-                <div class="tool-card" style="border-top-color: #28a745;">
+                <div class="tool-card" style="border-top-color: var(--verde-azulado-operaciones);">
                     <div>
-                        <div class="icon" style="color: #28a745;"><i class="bi bi-check2-circle"></i></div>
+                        <div class="icon" style="color: var(--verde-azulado-operaciones);"><i class="bi bi-check2-circle"></i></div>
                         <h5>Centro de Conciliación</h5>
                         <p class="card-text text-muted">Valida y procesa los pagos pendientes.</p>
                     </div>
-                    <a href="{{ url_for('pagos_por_conciliar') }}" class="btn mt-3" style="background-color: #28a745; color: white;">Conciliar</a>
+                    <a href="{{ url_for('pagos_por_conciliar') }}" class="btn btn-tool mt-3" style="background-color: var(--verde-azulado-operaciones);">Conciliar</a>
                 </div>
             </div>
             <div class="col-lg-3 col-md-6">
@@ -152,59 +164,59 @@
                         <h5>Tasa de Cambio (BCV)</h5>
                         <p class="card-text text-muted">Establece la tasa del día y consulta el historial.</p>
                     </div>
-                    <a href="{{ url_for('admin_tasa_bcv') }}" class="btn mt-3" style="background-color: var(--naranja-corporativo); color: white;">Configurar</a>
+                    <a href="{{ url_for('admin_tasa_bcv') }}" class="btn btn-tool mt-3" style="background-color: var(--naranja-corporativo);">Configurar</a>
                 </div>
             </div>
             <div class="col-lg-3 col-md-6">
-                <div class="tool-card" style="border-top-color: #0dcaf0;">
+                <div class="tool-card" style="border-top-color: var(--ambar-calido-comercial);">
                     <div>
-                        <div class="icon" style="color: #0dcaf0;"><i class="bi bi-wallet2"></i></div>
+                        <div class="icon" style="color: var(--ambar-calido-comercial);"><i class="bi bi-wallet2"></i></div>
                         <h5>Dashboard Comercial</h5>
                         <p class="card-text text-muted">Gestiona comisiones y nóminas de ventas.</p>
                     </div>
-                    <a href="{{ url_for('dashboard_comercial') }}" class="btn btn-info text-white mt-3">Ver Comisiones</a>
+                    <a href="{{ url_for('dashboard_comercial') }}" class="btn btn-tool mt-3" style="background-color: var(--ambar-calido-comercial);">Ver Comisiones</a>
                 </div>
             </div>
 
             <!-- Fila 2 -->
             <div class="col-lg-3 col-md-6">
-                <div class="tool-card" style="border-top-color: #dc3545;">
+                <div class="tool-card" style="border-top-color: var(--rojo-terracota-alertas);">
                     <div>
-                        <div class="icon" style="color: #dc3545;"><i class="bi bi-file-earmark-ruled-fill"></i></div>
+                        <div class="icon" style="color: var(--rojo-terracota-alertas);"><i class="bi bi-file-earmark-ruled-fill"></i></div>
                         <h5>Reporte de Morosidad</h5>
                         <p class="card-text text-muted">Identifica clientes con pagos vencidos.</p>
                     </div>
-                    <a href="{{ url_for('reporte_morosidad') }}" class="btn btn-danger mt-3">Ver Reporte</a>
+                    <a href="{{ url_for('reporte_morosidad') }}" class="btn btn-tool mt-3" style="background-color: var(--rojo-terracota-alertas);">Ver Reporte</a>
                 </div>
             </div>
              <div class="col-lg-3 col-md-6">
-                <div class="tool-card" style="border-top-color: #ffc107;">
+                <div class="tool-card" style="border-top-color: var(--amarillo-claro-gestion);">
                     <div>
-                        <div class="icon" style="color: #ffc107;"><i class="bi bi-briefcase-fill"></i></div>
+                        <div class="icon" style="color: var(--amarillo-claro-gestion);"><i class="bi bi-briefcase-fill"></i></div>
                         <h5>Mi Cartera de Cobranza</h5>
                         <p class="card-text text-muted">Gestiona los clientes que te han sido asignados.</p>
                     </div>
-                    <a href="{{ url_for('mi_cartera') }}" class="btn btn-warning mt-3">Gestionar</a>
+                    <a href="{{ url_for('mi_cartera') }}" class="btn btn-tool mt-3" style="background-color: var(--amarillo-claro-gestion);">Gestionar</a>
                 </div>
             </div>
             <div class="col-lg-3 col-md-6">
-                <div class="tool-card" style="border-top-color: #6f42c1;">
+                <div class="tool-card" style="border-top-color: var(--azul-cielo-metricas);">
                     <div>
-                        <div class="icon" style="color: #6f42c1;"><i class="bi bi-pie-chart-fill"></i></div>
+                        <div class="icon" style="color: var(--azul-cielo-metricas);"><i class="bi bi-pie-chart-fill"></i></div>
                         <h5>Métricas del Negocio</h5>
                         <p class="card-text text-muted">Visualiza el dashboard 360° con los KPIs.</p>
                     </div>
-                    <a href="{{ url_for('reporte_metricas') }}" class="btn mt-3" style="background-color: #6f42c1; color: white;">Ver Dashboard</a>
+                    <a href="{{ url_for('reporte_metricas') }}" class="btn btn-tool mt-3" style="background-color: var(--azul-cielo-metricas);">Ver Dashboard</a>
                 </div>
             </div>
             <div class="col-lg-3 col-md-6">
-                <div class="tool-card" style="border-top-color: #6c757d;">
+                <div class="tool-card" style="border-top-color: var(--gris-neutro-auditoria);">
                     <div>
-                        <div class="icon" style="color: #6c757d;"><i class="bi bi-journal-check"></i></div>
+                        <div class="icon" style="color: var(--gris-neutro-auditoria);"><i class="bi bi-journal-check"></i></div>
                         <h5>Visor de Auditoría</h5>
                         <p class="card-text text-muted">Consulta el registro de acciones críticas.</p>
                     </div>
-                    <a href="{{ url_for('auditoria') }}" class="btn btn-secondary mt-3">Consultar</a>
+                    <a href="{{ url_for('auditoria') }}" class="btn btn-tool mt-3" style="background-color: var(--gris-neutro-auditoria);">Consultar</a>
                 </div>
             </div>
         </div>

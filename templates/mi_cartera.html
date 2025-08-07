@@ -6,65 +6,105 @@
     <title>Mi Cartera de Cobranza - Moto Plan Motors C.A.</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
+        /* --- GUÍA DE ESTILO MAESTRA --- */
+        :root {
+            /* Paleta Corporativa */
+            --azul-corporativo: #2B3A55;
+            --naranja-corporativo: #F99417;
+            
+            /* Paleta Temática Extendida */
+            --amarillo-claro-gestion: #F39C12;
+
+            /* Colores de Soporte */
+            --gris-fondo: #f8f9fa;
+            --blanco-tarjetas: #FFFFFF;
+            --texto-oscuro: #212529;
+            --texto-claro: #6c757d;
+            --borde-sutil: #e9ecef;
+
+            /* Color temático de esta página */
+            --theme-color: var(--amarillo-claro-gestion);
+        }
+
+        /* --- ESTILOS GLOBALES --- */
         body {
-            background-color: #f0f2f5;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--gris-fondo);
+            font-family: 'Roboto', sans-serif;
+            color: var(--texto-oscuro);
         }
-        .navbar {
-            background-color: #ffffff;
-            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+
+        /* --- COMPONENTES --- */
+        .navbar-custom {
+            background-color: var(--azul-corporativo);
         }
-        .hub-header {
-            background-color: #ffc107; /* Color amarillo para cartera */
-            color: #000;
-            padding: 50px 20px;
+
+        .main-header {
+            background-color: var(--theme-color);
+            color: var(--blanco-tarjetas);
+            padding: 3rem 1.5rem;
             text-align: center;
-            border-bottom: 5px solid #e0a800;
         }
-        .hub-header h1 {
+        .main-header h1 {
             font-weight: 700;
             font-size: 2.5rem;
-            margin-bottom: 0.5rem;
         }
-        .hub-header .tagline {
-            font-size: 1.25rem;
+        .main-header p {
+            font-size: 1.2rem;
             opacity: 0.9;
         }
+
+        .content-card {
+            background-color: var(--blanco-tarjetas);
+            border-radius: .75rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.07);
+            overflow: hidden;
+        }
+        .content-card-header {
+            padding: 1rem 1.5rem;
+            background-color: #fff;
+            border-bottom: 1px solid var(--borde-sutil);
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+        
         .footer {
             text-align: center;
             padding: 20px;
             margin-top: 40px;
-            color: #6c757d;
+            color: var(--texto-claro);
         }
     </style>
 </head>
 <body>
 
-    <nav class="navbar navbar-expand-lg navbar-light">
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('gestion_administrativa') }}">
                 <i class="bi bi-arrow-left"></i> Volver a Gestión
             </a>
             <div class="d-flex">
                  {% if g.admin %}
-                    <span class="navbar-text me-3">
+                    <span class="navbar-text me-3 text-white">
                         Usuario: <strong>{{ g.admin.usuario }}</strong>
                     </span>
-                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger">Cerrar Sesión</a>
+                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-light">Cerrar Sesión</a>
                  {% endif %}
             </div>
         </div>
     </nav>
     
-    <div class="hub-header">
-        <h1>Mi Cartera de Cobranza</h1>
-        <p class="tagline">Listado de clientes asignados para tu gestión.</p>
-    </div>
+    <header class="main-header">
+        <h1><i class="bi bi-briefcase-fill"></i> Mi Cartera de Cobranza</h1>
+        <p class="lead">Listado de clientes asignados para tu gestión.</p>
+    </header>
 
     <main class="container my-5">
-        <div class="card shadow-sm">
-            <div class="card-header bg-white">
+        <div class="content-card">
+            <div class="content-card-header">
                 <h5 class="mb-0">Clientes Asignados ({{ clientes|length }})</h5>
             </div>
             <div class="card-body p-0">
@@ -72,30 +112,31 @@
                     <table class="table table-hover table-striped mb-0 align-middle">
                         <thead class="table-light">
                             <tr>
-                                <th scope="col">Cliente</th>
-                                <th scope="col">Cédula</th>
-                                <th scope="col">Teléfono</th>
-                                <th scope="col">Proceso Actual</th>
-                                <th scope="col">Acciones</th>
+                                <th class="p-3">Cliente</th>
+                                <th class="p-3">Cédula</th>
+                                <th class="p-3">Teléfono</th>
+                                <th class="p-3">Proceso Actual</th>
+                                <th class="p-3">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for cliente in clientes %}
                             <tr>
-                                <td>{{ cliente.nombre }} {{ cliente.apellido }}</td>
-                                <td>{{ cliente.cedula }}</td>
-                                <td>{{ cliente.telefono or 'N/A' }}</td>
-                                <td><span class="badge bg-primary">{{ cliente.proceso }}</span></td>
-                                <td>
-                                    <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="btn btn-outline-primary btn-sm" title="Ver Perfil Completo y Gestiones">
+                                <td class="p-3">{{ cliente.nombre }} {{ cliente.apellido }}</td>
+                                <td class="p-3">{{ cliente.cedula }}</td>
+                                <td class="p-3">{{ cliente.telefono or 'N/A' }}</td>
+                                <td class="p-3"><span class="badge" style="background-color: var(--azul-corporativo);">{{ cliente.proceso }}</span></td>
+                                <td class="p-3">
+                                    <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="btn btn-outline-dark btn-sm" title="Ver Perfil Completo y Gestiones">
                                         <i class="bi bi-person-lines-fill"></i> Ver Perfil
                                     </a>
                                 </td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="5" class="text-center text-muted py-4">
-                                    <i class="bi bi-folder2-open me-2"></i> No tienes clientes asignados en tu cartera actualmente.
+                                <td colspan="5" class="text-center text-muted p-5">
+                                    <i class="bi bi-folder2-open fs-2"></i>
+                                    <p class="mt-2 mb-0">No tienes clientes asignados en tu cartera actualmente.</p>
                                 </td>
                             </tr>
                             {% endfor %}
