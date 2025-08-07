@@ -10,13 +10,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* --- GUÍA DE ESTILO MAESTRA --- */
         :root {
-            /* Paleta Corporativa */
             --azul-corporativo: #2B3A55;
             --naranja-corporativo: #F99417;
-            
-            /* Paleta Temática Extendida */
             --azul-profundo-finanzas: #364766;
             --verde-azulado-operaciones: #3B8788;
             --ambar-calido-comercial: #E67E22;
@@ -24,19 +20,13 @@
             --gris-neutro-auditoria: #7f8c8d;
             --amarillo-claro-gestion: #F39C12;
             --azul-cielo-metricas: #3498DB;
-
-            /* Colores de Soporte */
             --gris-fondo: #f8f9fa;
             --blanco-tarjetas: #FFFFFF;
             --texto-oscuro: #212529;
             --texto-claro: #6c757d;
             --borde-sutil: #e9ecef;
-
-            /* Color temático de esta página (neutral para un hub de herramientas) */
             --theme-color: var(--azul-cielo-metricas);
         }
-
-        /* --- ESTILOS GLOBALES --- */
         body {
             background-color: var(--gris-fondo);
             font-family: 'Roboto', sans-serif;
@@ -58,8 +48,6 @@
             font-size: 1.2rem;
             opacity: 0.9;
         }
-
-        /* --- TARJETAS DE HERRAMIENTAS --- */
         .tool-card {
             background-color: var(--blanco-tarjetas);
             border: 1px solid var(--borde-sutil);
@@ -73,6 +61,7 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            position: relative; /* Para el badge de notificación */
         }
         .tool-card:hover {
             transform: translateY(-5px);
@@ -99,6 +88,11 @@
         .btn-tool:hover {
             color: var(--blanco-tarjetas);
             filter: brightness(90%);
+        }
+        .notification-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
         }
     </style>
 </head>
@@ -150,6 +144,11 @@
             </div>
             <div class="col-lg-4 col-md-6">
                 <div class="tool-card" style="border-top-color: var(--verde-azulado-operaciones);">
+                    {% if counts.pagos_pendientes > 0 %}
+                    <span class="notification-badge badge rounded-pill bg-danger">
+                        {{ counts.pagos_pendientes }} <span class="visually-hidden">pagos pendientes</span>
+                    </span>
+                    {% endif %}
                     <div>
                         <div class="icon" style="color: var(--verde-azulado-operaciones);"><i class="bi bi-check2-circle"></i></div>
                         <h5>Centro de Conciliación</h5>
@@ -160,6 +159,22 @@
             </div>
 
             <!-- Fila 2 -->
+            <div class="col-lg-4 col-md-6">
+                <div class="tool-card" style="border-top-color: #6f42c1;">
+                    {% set total_solicitudes = counts.citas + counts.congelamientos + counts.retiros %}
+                    {% if total_solicitudes > 0 %}
+                    <span class="notification-badge badge rounded-pill bg-danger">
+                        {{ total_solicitudes }} <span class="visually-hidden">solicitudes pendientes</span>
+                    </span>
+                    {% endif %}
+                    <div>
+                        <div class="icon" style="color: #6f42c1;"><i class="bi bi-inbox-fill"></i></div>
+                        <h5>Gestión de Solicitudes</h5>
+                        <p class="card-text text-muted">Revisa y procesa las solicitudes de los clientes.</p>
+                    </div>
+                    <a href="{{ url_for('solicitudes_pendientes') }}" class="btn btn-tool mt-3" style="background-color: #6f42c1;">Revisar</a>
+                </div>
+            </div>
             <div class="col-lg-4 col-md-6">
                 <div class="tool-card" style="border-top-color: var(--naranja-corporativo);">
                     <div>
@@ -180,6 +195,8 @@
                     <a href="{{ url_for('dashboard_comercial') }}" class="btn btn-tool mt-3" style="background-color: var(--ambar-calido-comercial);">Ver Comisiones</a>
                 </div>
             </div>
+            
+            <!-- Fila 3 -->
             <div class="col-lg-4 col-md-6">
                 <div class="tool-card" style="border-top-color: var(--rojo-terracota-alertas);">
                     <div>
@@ -190,8 +207,6 @@
                     <a href="{{ url_for('reporte_morosidad') }}" class="btn btn-tool mt-3" style="background-color: var(--rojo-terracota-alertas);">Ver Reporte</a>
                 </div>
             </div>
-            
-            <!-- Fila 3 -->
              <div class="col-lg-4 col-md-6">
                 <div class="tool-card" style="border-top-color: var(--amarillo-claro-gestion);">
                     <div>
@@ -212,6 +227,8 @@
                     <a href="{{ url_for('reporte_metricas') }}" class="btn btn-tool mt-3" style="background-color: var(--azul-cielo-metricas);">Ver Dashboard</a>
                 </div>
             </div>
+            
+            <!-- Fila 4 -->
             <div class="col-lg-4 col-md-6">
                 <div class="tool-card" style="border-top-color: var(--gris-neutro-auditoria);">
                     <div>
