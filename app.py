@@ -77,7 +77,8 @@ def format_date_filter(value, format='%d/%m/%Y'):
 @app.before_request
 def setup_session_and_user():
     session.permanent = True
-    app.permanent_session_lifetime = timedelta(minutes=5)
+    # CAMBIO: Aumentado el tiempo de sesión a 10 minutos
+    app.permanent_session_lifetime = timedelta(minutes=10)
     g.admin = None
     g.cliente = None
     admin_id = session.get('admin_id')
@@ -618,6 +619,7 @@ def dashboard_comercial():
             flash(f"Error al cargar el dashboard comercial: {e}", "danger")
     return render_template('dashboard_comercial.html', stats=stats, contratos=contratos, resumen_asesores=resumen_asesores, balances_generales=balances_generales, anio_actual=get_venezuela_current_date().year)
 
+# INICIO DE CAMBIO: CORRECCIÓN EN PAGO DE NÓMINA
 @app.route('/comercial/pagar_nomina', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -653,20 +655,27 @@ def pagar_nomina_comercial():
         with conn.cursor() as cur:
             for pago in pagos_planificados:
                 nota_gasto, moneda = f"Pago de nómina a {pago['beneficiario']}", 'BS' if 'BS' in pago['caja'] else 'USD'
+                
+                # CORRECCIÓN: Añadir perdida_cambiaria con valor 0.0 para evitar el error de not-null
                 cur.execute("""
-                    INSERT INTO operaciones_tesoreria (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, nota, realizada_por, fecha_operacion)
-                    VALUES ('GASTO_OPERATIVO', %s, %s, %s, 'GASTO_NOMINA', %s, %s, %s, %s, NOW())
-                """, (pago['caja'], moneda, pago['monto'], moneda, pago['monto'], nota_gasto, g.admin['id']))
+                    INSERT INTO operaciones_tesoreria 
+                    (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, nota, realizada_por, fecha_operacion, perdida_cambiaria)
+                    VALUES ('GASTO_OPERATIVO', %s, %s, %s, 'GASTO_NOMINA', %s, %s, %s, %s, NOW(), %s)
+                """, (pago['caja'], moneda, pago['monto'], moneda, pago['monto'], nota_gasto, g.admin['id'], Decimal('0.0')))
+
                 cur.execute("UPDATE comisiones_generadas SET estado_nomina = 'Pagada', fecha_pago_nomina = NOW() WHERE estado_nomina = 'Pendiente' AND nombre_beneficiario = %s;", (pago['beneficiario'],))
+            
             total_pagado_general = sum(p['monto'] for p in pagos_planificados)
             descripcion_auditoria = f"Procesó pago de nómina por lotes por un total de ${total_pagado_general:,.2f}."
             registrar_accion_auditoria('PAGO_NOMINA_COMERCIAL_LOTE', descripcion_auditoria)
+            
             conn.commit()
             flash(f"Nómina pagada exitosamente.", "success")
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"Error al procesar el pago de la nómina: {e}", "danger")
     return redirect(url_for('dashboard_comercial'))
+# FIN DE CAMBIO
 
 @app.route('/comercial/split_contrato/<string:contrato_nro>')
 @admin_required
@@ -1322,11 +1331,16 @@ def conciliar_pago(pago_id):
                     registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
                     flash_msg = f"Abono de inscripción N° {pago_id} conciliado."
             elif pago['tipo_pago'] == 'Cuota':
+                # CAMBIO: Actualizar estatus del cliente al pagar la primera cuota
+                if cliente['proceso'] == 'INSCRITO':
+                    cur.execute("UPDATE clientes SET proceso = 'Ahorrador', estatus = 'ACTIVO' WHERE id = %s", (cliente['id'],))
+                    flash_msg += "¡Cliente actualizado a Ahorrador Activo!"
+
                 puntualidad, fecha_vencimiento = 'Puntual', get_fecha_vencimiento_ajustada(pago['fecha_pago'])
                 if pago['fecha_pago'] > fecha_vencimiento:
                     puntualidad = 'Impuntual'
                     cur.execute("UPDATE clientes SET meses_retraso_entrega = meses_retraso_entrega + 1 WHERE id = %s;", (cliente['id'],))
-                if cliente['proceso'] == 'INSCRITO': cur.execute("UPDATE clientes SET proceso = 'Ahorrador' WHERE id = %s", (cliente['id'],))
+                
                 valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
                 if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
                 cpp, cpr, br = cliente.get('cuotas_pagadas_progresivas', 0), cliente.get('cuotas_pagadas_regresivas', 0), Decimal(cliente.get('balance_regresivo', 0))
@@ -1339,7 +1353,7 @@ def conciliar_pago(pago_id):
                 cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', fecha_pago = %s, puntualidad = %s, cuotas_cubiertas = %s, progresivas_cubiertas = %s, regresivas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s, conciliado_por_id = %s WHERE id = %s;", (pago['fecha_pago'], puntualidad, cch, pph, rph, ncpp, ncpr, nbf, admin_id, pago_id))
                 descripcion_audit = f"Concilió pago de cuota N° {pago_id} por ${monto_pagado} como '{puntualidad}' para {cliente['nombre_apellido']}."
                 registrar_accion_auditoria('CONCILIACION_CUOTA', descripcion_audit, cliente['id'])
-                flash_msg = f"¡Pago de cuota N° {pago_id} conciliado como '{puntualidad}'!"
+                flash_msg += f"¡Pago de cuota N° {pago_id} conciliado como '{puntualidad}'!"
             conn.commit()
             flash(flash_msg, 'success')
             if pago_final_id: return redirect(url_for('ver_recibo_inscripcion', pago_id=pago_final_id))
@@ -1748,12 +1762,19 @@ def portal_dashboard():
                 flash('No se encontró su información de cliente.', 'error')
                 return redirect(url_for('portal_login'))
             cliente_dict = dict(cliente)
-            cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC;", (session['cliente_id'],))
+            
+            # CAMBIO: Se añade la columna 'detalles_reporte' para mostrarla al cliente
+            cur.execute("SELECT *, detalles_reporte FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC;", (session['cliente_id'],))
             pagos = cur.fetchall()
             cliente_dict['pagos'] = pagos
+            
             cur.execute("SELECT * FROM ofertas WHERE cliente_id = %s ORDER BY fecha_oferta DESC", (session['cliente_id'],))
             ofertas = cur.fetchall()
             cliente_dict['ofertas'] = ofertas
+            
+            # CAMBIO: Lógica para deshabilitar el botón de reportar pago
+            pago_pendiente_existente = any(pago['estado_pago'] == 'Pendiente' for pago in pagos)
+            
             hoy, dia_de_vencimiento = get_venezuela_current_date(), 3
             pago_del_mes_realizado = any(pago['tipo_pago'] == 'Cuota' and pago['fecha_pago'].year == hoy.year and pago['fecha_pago'].month == hoy.month and pago['estado_pago'] == 'Conciliado' for pago in pagos)
             estado_cuota = {}
@@ -1763,7 +1784,8 @@ def portal_dashboard():
                 estado_cuota = {'estado': 'Vigente', 'mes': get_nombre_mes(hoy.month), 'fecha_vencimiento': f"{dia_de_vencimiento:02d}/{hoy.month:02d}/{hoy.year}"}
             else:
                 estado_cuota = {'estado': 'En Mora', 'mes': get_nombre_mes(hoy.month), 'fecha_vencimiento': f"{dia_de_vencimiento:02d}/{hoy.month:02d}/{hoy.year}"}
-            return render_template('portal_dashboard.html', cliente=cliente_dict, cuota_status=estado_cuota)
+            
+            return render_template('portal_dashboard.html', cliente=cliente_dict, cuota_status=estado_cuota, puede_reportar_pago=(not pago_pendiente_existente))
     except psycopg2.Error as e:
         flash(f'Ocurrió un error al cargar su información: {e}', 'error')
         return redirect(url_for('portal_login'))
@@ -1998,34 +2020,80 @@ def ver_reporte(pago_id):
         return redirect(url_for('consulta'))
     return render_template('ver_reporte.html', pago=pago)
 
+# CAMBIO: Lógica mejorada para procesar reportes con inconsistencias
 @app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def procesar_reporte(pago_id):
     conn = get_db()
-    accion, cedula_cliente = request.form.get('accion'), request.form.get('cedula_cliente', '')
+    accion = request.form.get('accion')
+    cedula_cliente = request.form.get('cedula_cliente', '')
+
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente))
-    nuevo_estado = ''
-    if accion == 'aprobar': nuevo_estado = 'Aprobado'
-    elif accion == 'rechazar': nuevo_estado = 'Inconsistente'
-    else:
-        flash('Acción no válida.', 'error')
-        return redirect(url_for('consulta', busqueda=cedula_cliente))
+
     try:
         with conn.cursor() as cur:
-            cur.execute("UPDATE pagos SET estado_reporte = %s, revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s", (nuevo_estado, g.admin['id'], pago_id))
             cur.execute("SELECT cliente_id FROM pagos WHERE id = %s", (pago_id,))
-            cliente_id = cur.fetchone()['cliente_id']
-            descripcion_audit = f"Revisó el reporte de pago N° {pago_id} y lo marcó como '{nuevo_estado}'."
+            pago = cur.fetchone()
+            if not pago:
+                flash("El pago no existe.", "error")
+                return redirect(url_for('pagos_por_conciliar'))
+            cliente_id = pago['cliente_id']
+
+            nuevo_estado_reporte = ''
+            detalles_json = None
+            descripcion_audit = ''
+
+            if accion == 'aprobar':
+                nuevo_estado_reporte = 'Aprobado'
+                descripcion_audit = f"Aprobó el reporte de pago N° {pago_id}."
+
+            elif accion == 'rechazar':
+                nuevo_estado_reporte = 'Inconsistente'
+                motivo = request.form.get('motivo_rechazo')
+                diferencia_str = request.form.get('diferencia_monto', '0').replace(',', '.')
+                diferencia = Decimal(diferencia_str) if diferencia_str else Decimal('0')
+                
+                detalles_rechazo = {'motivo': motivo, 'diferencia': str(diferencia)}
+                detalles_json = jsonify(detalles_rechazo).get_data(as_text=True)
+                descripcion_audit = f"Marcó el reporte N° {pago_id} como Inconsistente. Motivo: {motivo}."
+
+                if motivo == 'Diferencia de Monto' and diferencia > 0:
+                    # Crea una nueva solicitud de pago por la diferencia
+                    cur.execute("""
+                        INSERT INTO pagos (cliente_id, monto, tipo_pago, por_concepto_de, estado_pago, reportado_por_cliente, estado_reporte, fecha_creacion, registrado_por_id)
+                        VALUES (%s, %s, 'Ajuste', %s, 'Pendiente', FALSE, 'Generado por Sistema', %s, %s)
+                    """, (cliente_id, diferencia, f"Diferencia del pago N° {pago_id}", get_venezuela_current_datetime(), g.admin['id']))
+                    flash(f"Se ha generado una nueva solicitud de pago por la diferencia de ${diferencia}.", "info")
+                    descripcion_audit += f" Se generó orden de pago por diferencia de ${diferencia}."
+
+            else:
+                flash('Acción no válida.', 'error')
+                return redirect(url_for('pagos_por_conciliar'))
+
+            cur.execute(
+                """
+                UPDATE pagos SET 
+                    estado_reporte = %s, 
+                    revisado_por_id = %s, 
+                    fecha_revision = NOW(),
+                    detalles_reporte = %s::jsonb
+                WHERE id = %s
+                """,
+                (nuevo_estado_reporte, g.admin['id'], detalles_json, pago_id)
+            )
+            
             registrar_accion_auditoria('REVISION_REPORTE_PAGO', descripcion_audit, cliente_id)
             conn.commit()
-            flash(f"El reporte de pago ha sido marcado como '{nuevo_estado}' exitosamente.", 'success')
+            flash(f"El reporte de pago ha sido procesado exitosamente.", 'success')
+
     except (psycopg2.Error, ValueError) as e:
         conn.rollback()
         flash(f"Error al procesar el reporte: {e}", "error")
-    return redirect(url_for('consulta', busqueda=cedula_cliente))
+    
+    return redirect(url_for('pagos_por_conciliar'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

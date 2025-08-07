@@ -159,10 +159,13 @@
                     {{ cuota_status.mensaje }}
                 {% elif cuota_status.estado == 'Vigente' %}
                     Tu fecha de vencimiento es el <strong>{{ cuota_status.fecha_vencimiento }}</strong>.
-                    <a href="{{ url_for('portal_reportar_pago') }}" class="btn btn-primary btn-reportar btn-sm mt-2">Reportar Pago</a>
+                    <a href="{{ url_for('portal_reportar_pago') }}" class="btn btn-primary btn-reportar btn-sm mt-2 {% if not puede_reportar_pago %}disabled{% endif %}">Reportar Pago</a>
                 {% else %}
                     Tu cuota ha vencido. Por favor, realiza tu pago lo antes posible.
-                    <a href="{{ url_for('portal_reportar_pago') }}" class="btn btn-danger btn-sm mt-2">Reportar Pago Atrasado</a>
+                    <a href="{{ url_for('portal_reportar_pago') }}" class="btn btn-danger btn-sm mt-2 {% if not puede_reportar_pago %}disabled{% endif %}">Reportar Pago Atrasado</a>
+                {% endif %}
+                {% if not puede_reportar_pago %}
+                <small class="d-block text-muted mt-1">Tienes un pago pendiente de revisión y no puedes reportar otro hasta que sea procesado.</small>
                 {% endif %}
             </div>
         </div>
@@ -200,7 +203,7 @@
                 <div class="detail-item"><span class="label">Cédula</span><span class="value">{{ cliente.cedula }}</span></div>
                 <div class="detail-item"><span class="label">Contrato</span><span class="value">{{ cliente.contrato_nro or 'N/A' }}</span></div>
                 <div class="detail-item"><span class="label">Asesor</span><span class="value">{{ cliente.asesor or 'N/A' }}</span></div>
-                <div class="detail-item"><span class="label">Inscripción</span><span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span></div>
+                <div class="detail-item"><span class="label">Inscripción / Estatus</span><span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }} <span class="badge bg-info text-dark ms-2">{{ cliente.estatus }}</span></span></div>
                 
                 {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
                 <div class="detail-item progress-item"><span class="label">Progreso Total del Plan</span><div class="progress-bar-container"><div class="progress-bar" style="width: {{ progreso_total }}%;">{{ "%.0f"|format(progreso_total) }}%</div></div><div class="progress-label"><span>Pagadas: {{ cuotas_pagadas_total | int }}</span><span>Restantes: {{ (cuotas_totales | int) - (cuotas_pagadas_total | int) }}</span><span>Total: {{ cuotas_totales | int }}</span></div></div>
@@ -227,7 +230,11 @@
                                 <span class="badge text-bg-success">Conciliado</span>
                                 <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm" target="_blank">Ver Recibo</a>
                             {% elif pago.estado_pago == 'Pendiente' %}
-                                <span class="badge text-bg-warning">Pendiente</span>
+                                {% if pago.estado_reporte == 'Inconsistente' and pago.detalles_reporte %}
+                                    <span class="badge text-bg-danger" title="{{ pago.detalles_reporte.motivo }}">Inconsistente</span>
+                                {% else %}
+                                    <span class="badge text-bg-warning">Pendiente</span>
+                                {% endif %}
                             {% elif pago.estado_pago == 'Anulado' %}
                                 <span class="badge text-bg-danger">Anulado</span>
                             {% endif %}
@@ -281,7 +288,7 @@
         </div>
     </div>
 
-    <!-- Modal para Oferta -->
+    <!-- Modals (sin cambios) -->
     <div class="modal fade" id="ofertaModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -309,8 +316,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Modal para Cita -->
     <div class="modal fade" id="citaModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -335,7 +340,6 @@
                         <label class="form-label mt-3">3. Seleccione la hora disponible</label>
                         <div id="cita-feedback" class="text-center text-muted">Seleccione una fecha para ver los horarios.</div>
                         <div class="time-slot-grid" id="time-slot-container">
-                            <!-- Los horarios se generarán aquí con JavaScript -->
                         </div>
                         <input type="hidden" id="hora_cita_seleccionada" name="hora_cita" required>
 
@@ -348,8 +352,6 @@
             </div>
         </div>
     </div>
-    
-    <!-- Modal para Congelamiento -->
     <div class="modal fade" id="congelamientoModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -373,8 +375,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Modal para Retiro -->
     <div class="modal fade" id="retiroModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -423,7 +423,7 @@
             </div>
         </div>
     </div>
-
+    
     <footer class="footer">
         <p>&copy; 2025 - Sistema de Gestión Integral. Moto Plan Motors C.A. Todos los derechos reservados.</p>
     </footer>

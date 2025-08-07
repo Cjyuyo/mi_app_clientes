@@ -91,23 +91,53 @@
                             </li>
                         </ul>
 
-                        <div class="d-flex justify-content-end gap-2 mt-4 pt-4 border-top">
+                        <div class="d-flex flex-column gap-2 mt-4 pt-4 border-top">
                             <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Está seguro de que los datos son correctos y desea APROBAR este reporte?');">
                                 <input type="hidden" name="accion" value="aprobar">
                                 <input type="hidden" name="cedula_cliente" value="{{ pago.cedula }}">
-                                <button type="submit" class="btn btn-success"><i class="bi bi-check-circle-fill me-2"></i>Aprobar para Conciliar</button>
+                                <button type="submit" class="btn btn-success w-100"><i class="bi bi-check-circle-fill me-2"></i>Aprobar para Conciliar</button>
                             </form>
-                            <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Está seguro de que los datos son incorrectos y desea marcar este reporte como INCONSISTENTE?');">
+                            
+                            <hr>
+
+                            <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST">
                                 <input type="hidden" name="accion" value="rechazar">
                                 <input type="hidden" name="cedula_cliente" value="{{ pago.cedula }}">
-                                <button type="submit" class="btn btn-danger"><i class="bi bi-x-circle-fill me-2"></i>Marcar como Inconsistente</button>
+                                <div class="mb-3">
+                                    <label for="motivo_rechazo" class="form-label fw-bold">Marcar como Inconsistente</label>
+                                    <select class="form-select" name="motivo_rechazo" id="motivo_rechazo" required>
+                                        <option value="" selected disabled>Seleccione un motivo...</option>
+                                        <option value="Referencia inválida">Referencia inválida</option>
+                                        <option value="Diferencia de Monto">Diferencia de Monto</option>
+                                        <option value="Error en Cédula/Teléfono">Error en Cédula/Teléfono</option>
+                                        <option value="Otro">Otro</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3" id="campo_diferencia" style="display: none;">
+                                    <label for="diferencia_monto" class="form-label">Monto Faltante ($)</label>
+                                    <input type="number" step="0.01" class="form-control" name="diferencia_monto" id="diferencia_monto" placeholder="Ej: 5.50">
+                                </div>
+                                <button type="submit" class="btn btn-danger w-100"><i class="bi bi-x-circle-fill me-2"></i>Confirmar Inconsistencia</button>
                             </form>
-                             <a href="{{ url_for('consulta', busqueda=pago.cedula) }}" class="btn btn-secondary">Volver</a>
+                             <a href="{{ url_for('consulta', busqueda=pago.cedula) }}" class="btn btn-secondary w-100 mt-2">Volver</a>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+    <script>
+        document.getElementById('motivo_rechazo').addEventListener('change', function() {
+            const campoDiferencia = document.getElementById('campo_diferencia');
+            const inputDiferencia = document.getElementById('diferencia_monto');
+            if (this.value === 'Diferencia de Monto') {
+                campoDiferencia.style.display = 'block';
+                inputDiferencia.required = true;
+            } else {
+                campoDiferencia.style.display = 'none';
+                inputDiferencia.required = false;
+            }
+        });
+    </script>
 </body>
 </html>

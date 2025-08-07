@@ -10,7 +10,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* --- GUÍA DE ESTILO MAESTRA (SIN CAMBIOS) --- */
         :root {
             --azul-corporativo: #2B3A55;
             --naranja-corporativo: #F99417;
@@ -25,7 +24,7 @@
         .container-main { max-width: 900px; margin: auto; padding: 1.5rem 1rem; }
         .search-container { background: var(--blanco-tarjetas); padding: 1.5rem; border-radius: .75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.07); margin-bottom: 1.5rem; }
         .search-container form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        .search-container input[type="text"] { flex-grow: 1; padding: .75rem 1rem; font-size: 1rem; border: 1px solid var(--borde-sutil); border-radius: .5rem; }
+        .search-container input[type="search"] { flex-grow: 1; }
         .btn-theme-primary { background-color: var(--theme-color); border-color: var(--theme-color); color: white; font-weight: 500; }
         .btn-theme-primary:hover { filter: brightness(90%); background-color: var(--theme-color); border-color: var(--theme-color); color: white; }
         .client-card { background: var(--blanco-tarjetas); margin-bottom: 1.5rem; border-radius: .75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.07); overflow: hidden; }
@@ -41,8 +40,6 @@
         .progress-bar { background-color: #28a745; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold; }
         .progress-bar-secondary { background-color: #17a2b8; }
         .progress-label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 5px; color: var(--texto-claro); }
-        
-        /* --- INICIO DE CAMBIO: Estilos para pestañas e historial --- */
         .history-section {
             padding: 0 1.5rem 1.5rem 1.5rem;
             background-color: #fcfcfc;
@@ -79,18 +76,16 @@
         .payment-info .payment-meta { font-size: 0.85em; color: var(--texto-claro); }
         .payment-amount { font-weight: bold; }
         .payment-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
-        /* --- FIN DE CAMBIO --- */
-
         .client-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 1rem 1.5rem; background-color: var(--gris-fondo); border-top: 1px solid var(--borde-sutil); }
     </style>
 </head>
 <body>
 <div class="container-main">
     <div class="search-container">
-        <form method="POST" action="{{ url_for('consulta') }}">
-            <input type="text" name="busqueda" placeholder="Buscar por Nombre o Cédula..." value="{{ busqueda or '' }}" class="form-control">
-            <button type="submit" class="btn btn-theme-primary"><i class="bi bi-search"></i> Buscar</button>
-            <a href="{{ url_for('hub') }}" class="btn btn-secondary">
+        <form method="POST" action="{{ url_for('consulta') }}" class="d-flex gap-2">
+            <input type="search" name="busqueda" class="form-control form-control-lg" placeholder="Buscar por nombre, apellido o cédula..." value="{{ busqueda or '' }}">
+            <button type="submit" class="btn btn-theme-primary btn-lg"><i class="bi bi-search"></i> Buscar</button>
+            <a href="{{ url_for('hub') }}" class="btn btn-secondary btn-lg">
                 <i class="bi bi-house-door-fill"></i> Hub
             </a>
         </form>
@@ -120,7 +115,6 @@
             </div>
             
             <div class="client-details">
-                <!-- Detalles del cliente (sin cambios) -->
                 <div class="detail-item"><span class="label">Grupo</span><span class="value">{{ cliente.grupo or 'N/A' }}</span></div>
                 <div class="detail-item"><span class="label">Plan</span><span class="value">{{ cliente.plan_contratado or 'N/A' }}</span></div>
                 <div class="detail-item"><span class="label">Cuotas Pagadas</span><span class="value">{{ cliente.cuotas_pagadas_progresivas | int }} de {{ cliente.cuotas_totales | int }}</span></div>
@@ -128,16 +122,14 @@
                 <div class="detail-item"><span class="label">Contrato</span><span class="value">{{ cliente.contrato_nro or 'N/A' }}</span></div>
                 <div class="detail-item"><span class="label">Teléfono</span><span class="value">{{ cliente.telefono or 'N/A' }}</span></div>
                 <div class="detail-item"><span class="label">Asesor</span><span class="value">{{ cliente.asesor or 'N/A' }}</span></div>
-                <div class="detail-item"><span class="label">Inscripción</span><span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span></div>
+                <div class="detail-item"><span class="label">Inscripción / Estatus</span><span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }} <span class="badge bg-info text-dark ms-2">{{ cliente.estatus }}</span></span></div>
                 
-                <!-- Barras de progreso (sin cambios) -->
                 {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
                 <div class="detail-item progress-item"><span class="label">Progreso Total del Plan</span><div class="progress-bar-container"><div class="progress-bar" style="width: {{ progreso_total }}%;">{{ "%.0f"|format(progreso_total) }}%</div></div><div class="progress-label"><span>Pagadas: {{ cuotas_pagadas_total | int }}</span><span>Restantes: {{ (cuotas_totales | int) - (cuotas_pagadas_total | int) }}</span><span>Total: {{ cuotas_totales | int }}</span></div></div>
                 {% set balance = cliente.balance_regresivo|float or 0.0 %}{% set valor_cuota = cliente.valor_cuota|float or 0.0 %}{% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
                 <div class="detail-item progress-item">{% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}<span class="label">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span><div class="progress-bar-container"><div class="progress-bar progress-bar-secondary" style="width: {{ progreso_cuota_actual }}%;">{{ "%.0f"|format(progreso_cuota_actual) }}%</div></div><div class="progress-label"><span>Abonado: ${{ "%.2f"|format(balance) }}</span><span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}</span><span>Valor Cuota: ${{ "%.2f"|format(valor_cuota) }}</span></div></div>
             </div>
 
-            <!-- --- INICIO DE CAMBIO: Pestañas de Historial --- -->
             <div class="history-section">
                 <ul class="nav nav-tabs" id="historyTabs-{{ cliente.id }}" role="tablist">
                     <li class="nav-item" role="presentation">
@@ -148,7 +140,6 @@
                     </li>
                 </ul>
                 <div class="tab-content" id="historyTabsContent-{{ cliente.id }}">
-                    <!-- Pestaña de Pagos -->
                     <div class="tab-pane fade show active" id="pagos-content-{{ cliente.id }}" role="tabpanel" aria-labelledby="pagos-tab-{{ cliente.id }}">
                         {% if cliente.pagos %}
                             {% for pago in cliente.pagos %}
@@ -172,7 +163,6 @@
                             <p class="text-center text-muted p-3">No hay pagos registrados.</p>
                         {% endif %}
                     </div>
-                    <!-- Pestaña de Ofertas -->
                     <div class="tab-pane fade" id="ofertas-content-{{ cliente.id }}" role="tabpanel" aria-labelledby="ofertas-tab-{{ cliente.id }}">
                         {% if cliente.ofertas %}
                             {% for oferta in cliente.ofertas %}
@@ -197,15 +187,12 @@
                     </div>
                 </div>
             </div>
-            <!-- --- FIN DE CAMBIO --- -->
 
             <div class="client-actions">
                 <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-success btn-sm"><i class="bi bi-cash-coin me-1"></i> Registrar Pago</a>
-                <!-- --- INICIO DE CAMBIO: Botón para abrir modal --- -->
                 <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#ofertaModal-{{ cliente.id }}">
                     <i class="bi bi-gem me-1"></i> Registrar Oferta
                 </button>
-                <!-- --- FIN DE CAMBIO --- -->
                 <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-secondary btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf-fill me-1"></i> Contrato</a>
                 {% if g.admin and g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
                 <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-warning btn-sm"><i class="bi bi-pencil-square me-1"></i> Editar</a>
@@ -218,7 +205,6 @@
             </div>
         </div>
 
-        <!-- --- INICIO DE CAMBIO: Modal de Registro de Oferta --- -->
         <div class="modal fade" id="ofertaModal-{{ cliente.id }}" tabindex="-1" aria-labelledby="ofertaModalLabel-{{ cliente.id }}" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
@@ -242,11 +228,41 @@
                 </div>
             </div>
         </div>
-        <!-- --- FIN DE CAMBIO --- -->
         {% endfor %}
     </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+```
 
+
+### Otros Cambios y Guía de Implementación
+
+Aquí tienes un resumen de los cambios adicionales y las instrucciones para completar la implementación.
+
+---
+
+#### 1. Comando SQL Requerido
+Para que el sistema pueda guardar los detalles de los pagos rechazados, necesitas añadir una nueva columna a tu tabla `pagos`.
+
+**Ejecuta este comando en tu base de datos una sola vez:**
+```sql
+ALTER TABLE pagos ADD COLUMN IF NOT EXISTS detalles_reporte JSONB;
+```
+
+---
+
+#### 2. Cláusulas del Contrato
+El archivo `contrato.html` estaba incompleto. Aquí tienes el bloque de las cláusulas corregido. Simplemente busca la sección de cláusulas en tu archivo y reemplázala con este código:
+
+```html
+<div class="clausulas">
+    <h5>CLÁUSULAS</h5>
+    <p><strong>PRIMERA:</strong> EL ASOCIADO se afilia a un sistema de autofinanciamiento comercial para la adquisición de una motocicleta, cuyo valor se establece en el presente contrato.</p>
+    <p><strong>SEGUNDA:</strong> EL ASOCIADO se compromete a pagar una cuota inicial de inscripción y posteriormente cuotas mensuales, fijas y consecutivas, cuyo monto y número se especifican en este documento.</p>
+    <p><strong>TERCERA:</strong> La adjudicación de la motocicleta se realizará mediante actos mensuales, bajo las modalidades de sorteo entre los asociados al día con sus pagos, o por oferta, donde se adjudicará al asociado que ofrezca el mayor número de cuotas por adelantado.</p>
+    <p><strong>CUARTA:</strong> El incumplimiento en el pago de tres (3) cuotas consecutivas dará lugar a la resolución del contrato, aplicando las penalizaciones correspondientes.</p>
+    <p><strong>QUINTA:</strong> LA EMPRESA se reserva el derecho de ajustar el valor de la motocicleta y, por ende, el de las cuotas, en caso de variaciones significativas en el mercado, previa notificación a EL ASOCIADO.</p>
+    <p><strong>SEXTA:</strong> Para todos los efectos de este contrato, las partes eligen como domicilio especial la ciudad de [Ciudad de la Empresa], a cuyos tribunales declaran someterse.</p>
+</div>
