@@ -77,13 +77,20 @@
         .content-card-header h2 { margin: 0; font-size: 1.2rem; font-weight: 500; }
         .content-card-header p { margin: 5px 0 0; opacity: 0.9; font-size: 0.9rem; }
         .client-details, .payment-history-body { padding: 1.5rem; }
-        .detail-item { background-color: var(--gris-fondo); padding: 1rem; border-radius: .5rem; }
-        .detail-item .label { display: block; font-size: 0.8em; color: var(--texto-claro); margin-bottom: 5px; text-transform: uppercase; }
-        .detail-item .value { font-size: 1rem; font-weight: bold; color: var(--texto-oscuro); }
-        .progress-bar-container { background-color: var(--borde-sutil); border-radius: .5rem; height: 1.25rem; overflow: hidden; margin-top: 5px; }
-        .progress-bar { background-color: var(--verde-exito); }
+        .client-details {
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); 
+            gap: 1rem; 
+        }
+        .detail-item { background-color: var(--gris-fondo); padding: 1rem; border-radius: .5rem; border: 1px solid var(--borde-sutil); }
+        .detail-item .label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--texto-claro); margin-bottom: 0.25rem; text-transform: uppercase; }
+        .detail-item .value { font-size: 1rem; font-weight: 700; color: var(--texto-oscuro); }
+        .detail-item .value.currency { color: #198754; }
+        .progress-item { grid-column: 1 / -1; }
+        .progress-bar-container { background-color: var(--borde-sutil); border-radius: .5rem; height: 1.25rem; overflow: hidden; width: 100%; margin-top: 5px; }
+        .progress-bar { background-color: var(--verde-exito); height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold; }
         .progress-bar-secondary { background-color: #17a2b8; }
-        .progress-label { display: flex; justify-content: space-between; font-size: 0.85em; margin-top: 5px; }
+        .progress-label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 5px; color: var(--texto-claro); }
         .payment-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--borde-sutil); gap: 1rem; }
         .payment-row:last-child { border-bottom: none; }
         .payment-info .payment-concept { font-weight: 500; }
@@ -100,6 +107,21 @@
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
             gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        .time-slot-grid .btn-check:disabled+.btn-outline-primary {
+            background-color: var(--gris-fondo);
+            border-color: var(--borde-sutil);
+            color: var(--texto-claro);
+            cursor: not-allowed;
+            text-decoration: line-through;
+        }
+        .time-slot-grid .btn-check:checked+.btn-outline-primary {
+            background-color: var(--azul-corporativo);
+            color: white;
+        }
+        #cita-feedback {
+            margin-top: 1rem;
         }
     </style>
 </head>
@@ -125,7 +147,7 @@
             {% endif %}
         {% endwith %}
 
-        {% set puede_pagar = cliente.estatus in ['ACTIVO', 'AHORRADOR'] %}
+        {% set puede_interactuar = cliente.estatus in ['ACTIVO', 'AHORRADOR', 'INSCRITO', 'RESERVA'] %}
         
         <div class="payment-status-card {{ cuota_status.estado | lower }}">
              <div class="status-header">
@@ -151,16 +173,16 @@
                 <p>Gestiona tu plan o agenda una cita con nosotros.</p>
             </div>
             <div class="card-body d-flex flex-wrap justify-content-center gap-2 p-3">
-                <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#ofertaModal" {% if not puede_pagar %}disabled{% endif %}>
+                <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#ofertaModal" {% if not puede_interactuar %}disabled{% endif %}>
                     <i class="bi bi-gem"></i> Registrar Oferta
                 </button>
                 <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#citaModal">
                     <i class="bi bi-calendar-check"></i> Solicitar Cita
                 </button>
-                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#congelamientoModal" {% if not puede_pagar %}disabled{% endif %}>
+                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#congelamientoModal" {% if not puede_interactuar %}disabled{% endif %}>
                     <i class="bi bi-snow"></i> Congelar Plan
                 </button>
-                <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#retiroModal" {% if not puede_pagar %}disabled{% endif %}>
+                <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#retiroModal" {% if not puede_interactuar %}disabled{% endif %}>
                     <i class="bi bi-box-arrow-left"></i> Solicitar Retiro
                 </button>
             </div>
@@ -171,8 +193,19 @@
                 <h2>Resumen de mi Plan</h2>
                 <p>Un vistazo rápido a tu progreso y estado actual.</p>
             </div>
-            <div class="client-details p-3">
-                 <!-- Detalles del cliente (sin cambios) -->
+            <div class="client-details">
+                <div class="detail-item"><span class="label">Grupo</span><span class="value">{{ cliente.grupo or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Plan</span><span class="value">{{ cliente.plan_contratado or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Cuotas Pagadas</span><span class="value">{{ cliente.cuotas_pagadas_progresivas | int }} de {{ cliente.cuotas_totales | int }}</span></div>
+                <div class="detail-item"><span class="label">Cédula</span><span class="value">{{ cliente.cedula }}</span></div>
+                <div class="detail-item"><span class="label">Contrato</span><span class="value">{{ cliente.contrato_nro or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Asesor</span><span class="value">{{ cliente.asesor or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Inscripción</span><span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span></div>
+                
+                {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                <div class="detail-item progress-item"><span class="label">Progreso Total del Plan</span><div class="progress-bar-container"><div class="progress-bar" style="width: {{ progreso_total }}%;">{{ "%.0f"|format(progreso_total) }}%</div></div><div class="progress-label"><span>Pagadas: {{ cuotas_pagadas_total | int }}</span><span>Restantes: {{ (cuotas_totales | int) - (cuotas_pagadas_total | int) }}</span><span>Total: {{ cuotas_totales | int }}</span></div></div>
+                {% set balance = cliente.balance_regresivo|float or 0.0 %}{% set valor_cuota = cliente.valor_cuota|float or 0.0 %}{% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
+                <div class="detail-item progress-item">{% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}<span class="label">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span><div class="progress-bar-container"><div class="progress-bar progress-bar-secondary" style="width: {{ progreso_cuota_actual }}%;">{{ "%.0f"|format(progreso_cuota_actual) }}%</div></div><div class="progress-label"><span>Abonado: ${{ "%.2f"|format(balance) }}</span><span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}</span><span>Valor Cuota: ${{ "%.2f"|format(valor_cuota) }}</span></div></div>
             </div>
         </div>
 
@@ -248,7 +281,6 @@
         </div>
     </div>
 
-    <!-- INICIO DE CAMBIO: Modals con formularios completos -->
     <!-- Modal para Oferta -->
     <div class="modal fade" id="ofertaModal" tabindex="-1">
         <div class="modal-dialog">
@@ -280,39 +312,43 @@
 
     <!-- Modal para Cita -->
     <div class="modal fade" id="citaModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <form action="{{ url_for('portal_solicitar_cita') }}" method="POST">
+                <form action="{{ url_for('portal_solicitar_cita') }}" method="POST" id="formCita" data-availability-url="{{ url_for('citas_disponibilidad') }}">
                     <div class="modal-header">
                         <h5 class="modal-title">Solicitar Cita</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <p>Seleccione una fecha y motivo para su cita.</p>
-                        <div class="mb-3">
-                            <label for="fechaCita" class="form-label">Fecha Deseada</label>
-                            <input type="date" class="form-control" id="fechaCita" name="fecha_cita" required>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="fechaCita" class="form-label">1. Seleccione la fecha</label>
+                                <input type="date" class="form-control" id="fechaCita" name="fecha_cita" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">2. Motivo de la cita</label>
+                                 <textarea class="form-control" id="motivoCita" name="motivo_cita" rows="3" required></textarea>
+                            </div>
                         </div>
-                         <div class="mb-3">
-                            <label for="horaCita" class="form-label">Hora Deseada</label>
-                            <select class="form-select" id="horaCita" name="hora_cita" required disabled>
-                                <option value="">Seleccione una fecha primero</option>
-                            </select>
+                        
+                        <hr>
+                        <label class="form-label mt-3">3. Seleccione la hora disponible</label>
+                        <div id="cita-feedback" class="text-center text-muted">Seleccione una fecha para ver los horarios.</div>
+                        <div class="time-slot-grid" id="time-slot-container">
+                            <!-- Los horarios se generarán aquí con JavaScript -->
                         </div>
-                         <div class="mb-3">
-                            <label for="motivoCita" class="form-label">Motivo de la Cita</label>
-                            <textarea class="form-control" id="motivoCita" name="motivo_cita" rows="3" required></textarea>
-                        </div>
+                        <input type="hidden" id="hora_cita_seleccionada" name="hora_cita" required>
+
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Enviar Solicitud</button>
+                        <button type="submit" class="btn btn-primary" id="btnEnviarCita" disabled>Enviar Solicitud</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
-
+    
     <!-- Modal para Congelamiento -->
     <div class="modal fade" id="congelamientoModal" tabindex="-1">
         <div class="modal-dialog">
@@ -348,29 +384,45 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <div class="alert alert-danger">
-                            <strong>Atención:</strong> Esta acción iniciará el proceso de retiro de tu plan de ahorro. Un asesor se comunicará contigo para finalizar el proceso, lo cual puede implicar penalizaciones según tu contrato.
+                        <div id="retiroPaso1">
+                            <p class="fw-bold">¿Ya envió el correo de formalización de retiro a <a href="mailto:motoplan.dptolegal@gmail.com">motoplan.dptolegal@gmail.com</a>?</p>
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-success" id="btnRetiroSi">Sí, ya lo envié</button>
+                                <button type="button" class="btn btn-warning" id="btnRetiroNo">No, aún no</button>
+                            </div>
                         </div>
-                        <p>Para formalizar tu solicitud, debes enviar un correo electrónico a <strong>administracion@motoplanmotors.com</strong> desde la dirección de correo que tienes registrada con nosotros.</p>
-                        <hr>
-                        <div class="mb-3">
-                            <label for="fecha_correo_retiro" class="form-label">Confirmo que envié el correo con fecha:</label>
-                            <input type="date" class="form-control" id="fecha_correo_retiro" name="fecha_correo_retiro" required>
+                        <div id="retiroPaso2" style="display: none;">
+                             <div class="alert alert-danger">
+                                <strong>Atención:</strong> Esta acción iniciará el proceso de retiro de tu plan de ahorro. Un asesor se comunicará contigo para finalizar el proceso, lo cual puede implicar penalizaciones según tu contrato.
+                            </div>
+                            <p>Por favor, ingrese los detalles del correo que envió para continuar.</p>
+                            <div class="mb-3">
+                                <label for="fecha_correo_retiro" class="form-label">Fecha que envió el correo</label>
+                                <input type="date" class="form-control" id="fecha_correo_retiro" name="fecha_correo_retiro" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="email_origen_retiro" class="form-label">Dirección del correo desde donde lo envió</label>
+                                <input type="email" class="form-control" id="email_origen_retiro" name="email_origen_retiro" placeholder="ejemplo@correo.com" required>
+                            </div>
                         </div>
-                         <div class="mb-3">
-                            <label for="email_origen_retiro" class="form-label">Enviado desde el correo:</label>
-                            <input type="email" class="form-control" id="email_origen_retiro" name="email_origen_retiro" placeholder="ejemplo@correo.com" required>
+                        <div id="retiroPaso3" style="display: none;">
+                            <div class="alert alert-info">
+                                <h4 class="alert-heading">Acción Requerida</h4>
+                                <p>Para poder procesar su solicitud de retiro, primero debe enviar un correo electrónico formalizando su petición a la siguiente dirección:</p>
+                                <hr>
+                                <p class="mb-0 fw-bold">motoplan.dptolegal@gmail.com</p>
+                            </div>
+                             <p>Una vez enviado, por favor, vuelva a abrir esta ventana y seleccione la opción "Sí".</p>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-danger">Sí, Confirmar Solicitud</button>
+                        <button type="submit" class="btn btn-danger" id="btnConfirmarRetiro" disabled>Sí, Deseo Retirarme</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
-    <!-- FIN DE CAMBIO -->
 
     <footer class="footer">
         <p>&copy; 2025 - Sistema de Gestión Integral. Moto Plan Motors C.A. Todos los derechos reservados.</p>
@@ -378,81 +430,131 @@
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const fechaCitaInput = document.getElementById('fechaCita');
-            const horaCitaSelect = document.getElementById('horaCita');
-            const fechaRetiroInput = document.getElementById('fecha_correo_retiro');
-            
-            const today = new Date().toISOString().split('T')[0];
-            if (fechaRetiroInput) {
-                fechaRetiroInput.setAttribute('max', today);
-            }
-            if (fechaCitaInput) {
+        document.addEventListener('DOMContentLoaded', function() {
+            // Lógica para el modal de citas
+            const formCita = document.getElementById('formCita');
+            if (formCita) {
+                const fechaCitaInput = document.getElementById('fechaCita');
+                const timeSlotContainer = document.getElementById('time-slot-container');
+                const citaFeedback = document.getElementById('cita-feedback');
+                const btnEnviarCita = document.getElementById('btnEnviarCita');
+                const horaSeleccionadaInput = document.getElementById('hora_cita_seleccionada');
+                const citaModal = document.getElementById('citaModal');
+                const availabilityUrl = formCita.dataset.availabilityUrl;
+
+                const today = new Date().toISOString().split('T')[0];
                 fechaCitaInput.setAttribute('min', today);
-            }
-    
-            if (fechaCitaInput) {
-                fechaCitaInput.addEventListener('change', function() {
+                
+                const horarios = {
+                    manana: ["10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM"],
+                    tarde: ["04:00 PM", "04:30 PM"]
+                };
+
+                const resetCitaForm = () => {
+                    fechaCitaInput.value = '';
+                    timeSlotContainer.innerHTML = '';
+                    citaFeedback.textContent = 'Seleccione una fecha para ver los horarios.';
+                    citaFeedback.className = 'text-center text-muted';
+                    btnEnviarCita.disabled = true;
+                    horaSeleccionadaInput.value = '';
+                };
+
+                citaModal.addEventListener('show.bs.modal', resetCitaForm);
+
+                fechaCitaInput.addEventListener('change', async function() {
                     const fechaSeleccionada = this.value;
-                    horaCitaSelect.innerHTML = '<option value="">Cargando horas...</option>';
-                    horaCitaSelect.disabled = true;
-    
-                    if (!fechaSeleccionada) return;
-    
-                    fetch(`/citas/disponibilidad?fecha=${fechaSeleccionada}`)
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Error en la red o el servidor');
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            horaCitaSelect.innerHTML = ''; 
-                            
-                            if (!data.es_habil) {
-                                const option = document.createElement('option');
-                                option.value = "";
-                                option.textContent = data.mensaje;
-                                horaCitaSelect.appendChild(option);
-                                return;
-                            }
-    
-                            const horasHabiles = [
-                                '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
-                                '12:00 PM', '12:30 PM', 
-                                '04:00 PM', '04:30 PM'
-                            ];
-    
-                            const horasOcupadas = data.ocupados || [];
-                            let horasDisponibles = 0;
-    
-                            horasHabiles.forEach(hora => {
-                                const option = document.createElement('option');
-                                option.value = hora;
-                                
-                                if (horasOcupadas.includes(hora)) {
-                                    option.textContent = `${hora} (Reservada)`;
-                                    option.disabled = true;
-                                } else {
-                                    option.textContent = hora;
-                                    horasDisponibles++;
-                                }
-                                horaCitaSelect.appendChild(option);
+                    timeSlotContainer.innerHTML = '<div class="d-flex justify-content-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div></div>';
+                    citaFeedback.textContent = '';
+                    btnEnviarCita.disabled = true;
+                    horaSeleccionadaInput.value = '';
+
+                    try {
+                        const response = await fetch(`${availabilityUrl}?fecha=${fechaSeleccionada}`);
+                        if (!response.ok) {
+                           throw new Error(`Error de red: ${response.statusText}`);
+                        }
+                        const data = await response.json();
+                        timeSlotContainer.innerHTML = ''; 
+
+                        if (!data.es_habil) {
+                            citaFeedback.textContent = data.mensaje || 'El día seleccionado no está disponible.';
+                            citaFeedback.className = 'alert alert-warning text-center';
+                            return;
+                        }
+
+                        const horariosOcupados = data.ocupados || [];
+                        const renderizarHorarios = (titulo, bloqueHorarios) => {
+                            let bloqueHTML = `<h6 class="col-12 mt-2">${titulo}</h6>`;
+                            let hayHorariosDisponibles = false;
+                            bloqueHorarios.forEach((hora, index) => {
+                                const idUnico = `hora-${titulo.toLowerCase().replace(/[^a-z0-9]/g, '')}-${index}`;
+                                const estaOcupado = horariosOcupados.includes(hora);
+                                if (!estaOcupado) hayHorariosDisponibles = true;
+                                bloqueHTML += `
+                                    <div class="col">
+                                        <input type="radio" class="btn-check" name="hora_cita_radio" id="${idUnico}" value="${hora}" ${estaOcupado ? 'disabled' : ''}>
+                                        <label class="btn btn-outline-primary w-100" for="${idUnico}">${hora}</label>
+                                    </div>
+                                `;
                             });
-    
-                            if (horasDisponibles > 0) {
-                                horaCitaSelect.disabled = false;
-                            } else {
-                                const option = document.createElement('option');
-                                option.value = "";
-                                option.textContent = 'No hay horas disponibles';
-                                horaCitaSelect.appendChild(option);
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error al cargar horas:', error);
-                            horaCitaSelect.innerHTML = '<option value="">Error al cargar horarios</option>';
-                        });
+                            return {html: bloqueHTML, disponibles: hayHorariosDisponibles};
+                        };
+                        
+                        const bloqueManana = renderizarHorarios("Mañana (10:00 AM - 01:00 PM)", horarios.manana);
+                        const bloqueTarde = renderizarHorarios("Tarde (04:00 PM - 05:00 PM)", horarios.tarde);
+
+                        timeSlotContainer.innerHTML = bloqueManana.html + bloqueTarde.html;
+
+                        if (!bloqueManana.disponibles && !bloqueTarde.disponibles) {
+                             citaFeedback.textContent = 'No hay horarios disponibles para este día. Por favor, seleccione otra fecha.';
+                             citaFeedback.className = 'alert alert-info text-center';
+                        }
+
+                    } catch (error) {
+                        console.error('Error al buscar disponibilidad:', error);
+                        timeSlotContainer.innerHTML = '';
+                        citaFeedback.textContent = 'No se pudo cargar la disponibilidad. Verifique su conexión e intente de nuevo.';
+                        citaFeedback.className = 'alert alert-danger text-center';
+                    }
+                });
+
+                timeSlotContainer.addEventListener('change', function(event) {
+                    if (event.target.name === 'hora_cita_radio') {
+                        horaSeleccionadaInput.value = event.target.value;
+                        btnEnviarCita.disabled = false;
+                    }
+                });
+            }
+
+            // Lógica para el modal de retiro
+            const retiroModalEl = document.getElementById('retiroModal');
+            if (retiroModalEl) {
+                const paso1 = retiroModalEl.querySelector('#retiroPaso1');
+                const paso2 = retiroModalEl.querySelector('#retiroPaso2');
+                const paso3 = retiroModalEl.querySelector('#retiroPaso3');
+                const btnSi = retiroModalEl.querySelector('#btnRetiroSi');
+                const btnNo = retiroModalEl.querySelector('#btnRetiroNo');
+                const btnConfirmar = retiroModalEl.querySelector('#btnConfirmarRetiro');
+                const resetModalRetiro = () => {
+                    paso1.style.display = 'block';
+                    paso2.style.display = 'none';
+                    paso3.style.display = 'none';
+                    btnConfirmar.disabled = true;
+                    retiroModalEl.querySelector('#fecha_correo_retiro').value = '';
+                    retiroModalEl.querySelector('#email_origen_retiro').value = '';
+                };
+                retiroModalEl.addEventListener('show.bs.modal', resetModalRetiro);
+                btnSi.addEventListener('click', () => {
+                    paso1.style.display = 'none';
+                    paso2.style.display = 'block';
+                    paso3.style.display = 'none';
+                    btnConfirmar.disabled = false;
+                });
+                btnNo.addEventListener('click', () => {
+                    paso1.style.display = 'none';
+                    paso2.style.display = 'none';
+                    paso3.style.display = 'block';
+                    btnConfirmar.disabled = true;
                 });
             }
         });
