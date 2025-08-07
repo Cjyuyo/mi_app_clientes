@@ -80,6 +80,14 @@
             <a class="navbar-brand" href="{{ url_for('gestion_administrativa') }}">
                 <i class="bi bi-arrow-left-circle-fill"></i> Volver a Gestión
             </a>
+             <div class="d-flex align-items-center">
+                 {% if g.admin %}
+                    <span class="navbar-text me-3 d-none d-md-inline text-white">
+                        <i class="bi bi-person-circle"></i> {{ g.admin.usuario }}
+                    </span>
+                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-light btn-sm">Cerrar Sesión</a>
+                 {% endif %}
+            </div>
         </div>
     </nav>
 

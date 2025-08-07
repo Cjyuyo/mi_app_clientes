@@ -92,14 +92,18 @@
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom shadow-sm">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('hub') }}"><i class="bi bi-house-door-fill"></i> Hub Principal</a>
+            <a class="navbar-brand" href="{{ url_for('gestion_administrativa') }}">
+                <i class="bi bi-arrow-left-circle-fill"></i> Volver a Gestión
+            </a>
             <div class="d-flex align-items-center">
-                {% if g.admin %}
-                <span class="navbar-text me-3 text-white"><i class="bi bi-person-circle"></i> {{ g.admin.usuario }}</span>
-                <a class="btn btn-outline-light btn-sm" href="{{ url_for('admin_logout') }}">Cerrar Sesión</a>
-                {% endif %}
+                 {% if g.admin %}
+                    <span class="navbar-text me-3 d-none d-md-inline text-white">
+                        <i class="bi bi-person-circle"></i> {{ g.admin.usuario }}
+                    </span>
+                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-light btn-sm">Cerrar Sesión</a>
+                 {% endif %}
             </div>
         </div>
     </nav>
@@ -157,7 +161,6 @@
                                     <option value="" selected>Pagar desde...</option>
                                     <option value="EFECTIVO_USD">Efectivo USD (${{ "{:,.2f}".format(balances_generales.EFECTIVO_USD or 0) }})</option>
                                     <option value="BINANCE_USDT">Binance USDT (${{ "{:,.2f}".format(balances_generales.BINANCE_USDT or 0) }})</option>
-                                    <!-- INICIO DE LA CORRECCIÓN -->
                                     <option value="CAJA_BS_USD">Caja Bs (Ref. $) (
                                         {% if balances_generales.get('CAJA_BS_USD') %}
                                             {% if balances_generales.get('tasa_ponderada_bs') and balances_generales.get('tasa_ponderada_bs') > 0 %}
@@ -169,7 +172,6 @@
                                             $0.00
                                         {% endif %}
                                     )</option>
-                                    <!-- FIN DE LA CORRECCIÓN -->
                                 </select>
                             </div>
                         </li>
