@@ -73,7 +73,7 @@
             padding: .75rem 1rem;
             border: 1px solid var(--borde-sutil);
         }
-        input[readonly] { background-color: var(--borde-sutil); }
+        input[readonly] { background-color: var(--gris-fondo); }
         
         .button-group {
             display: flex;
@@ -92,6 +92,15 @@
             filter: brightness(90%);
             background-color: var(--naranja-corporativo);
             border-color: var(--naranja-corporativo);
+        }
+        #pagoMovilFields {
+            display: none;
+            grid-column: 1 / -1;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.25rem;
+            border-top: 1px dashed var(--borde-sutil);
+            padding-top: 1.5rem;
+            margin-top: 1.5rem;
         }
     </style>
 </head>
@@ -154,8 +163,6 @@
                         <select id="forma_pago" name="forma_pago" class="form-select" required>
                             <option value="Transferencia">Transferencia</option>
                             <option value="Pago Móvil">Pago Móvil</option>
-                            <option value="Zelle">Zelle</option>
-                            <option value="Efectivo">Efectivo</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -167,16 +174,28 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="banco">Banco de Origen</label>
-                        <input type="text" id="banco" name="banco" class="form-control">
-                    </div>
-                    <div class="form-group">
                         <label for="referencia">Número de Referencia</label>
                         <input type="text" id="referencia" name="referencia" class="form-control">
                     </div>
                     <div class="form-group">
                         <label for="fecha_pago">Fecha de Pago</label>
                         <input type="date" id="fecha_pago" name="fecha_pago" class="form-control" required>
+                    </div>
+                    
+                    <!-- Campos adicionales para Pago Móvil -->
+                    <div id="pagoMovilFields" class="form-grid">
+                        <div class="form-group">
+                            <label for="pago_movil_telefono">Teléfono Emisor</label>
+                            <input type="text" id="pago_movil_telefono" name="pago_movil_telefono" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="pago_movil_cedula">Cédula Emisor</label>
+                            <input type="text" id="pago_movil_cedula" name="pago_movil_cedula" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="banco">Banco de Origen</label>
+                            <input type="text" id="banco" name="banco" class="form-control">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -197,11 +216,20 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p>Utiliza los siguientes datos para realizar tu pago.</p>
+                <p>Utiliza los siguientes datos para realizar tu pago. Haz clic para copiar.</p>
                 <ul class="list-group">
-                    <li class="list-group-item"><strong>Banco:</strong> Banesco (0134)</li>
-                    <li class="list-group-item"><strong>Cédula:</strong> V-17559595</li>
-                    <li class="list-group-item"><strong>Teléfono:</strong> 0412-0344774</li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div><small class="text-muted d-block">Banco</small><span id="pm-banco">Banesco (0134)</span></div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm copy-btn" data-clipboard-text="0134"><i class="bi bi-clipboard"></i></button>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div><small class="text-muted d-block">Cédula</small><span id="pm-cedula">V-17559595</span></div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm copy-btn" data-clipboard-text="17559595"><i class="bi bi-clipboard"></i></button>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div><small class="text-muted d-block">Teléfono</small><span id="pm-telefono">0412-0344774</span></div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm copy-btn" data-clipboard-text="04120344774"><i class="bi bi-clipboard"></i></button>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -211,7 +239,17 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // El script de JS permanece sin cambios
+        const formaPagoSelect = document.getElementById('forma_pago');
+        const pagoMovilFields = document.getElementById('pagoMovilFields');
+
+        formaPagoSelect.addEventListener('change', function() {
+            if (this.value === 'Pago Móvil') {
+                pagoMovilFields.style.display = 'grid';
+            } else {
+                pagoMovilFields.style.display = 'none';
+            }
+        });
+
         const montoUsdInput = document.getElementById('monto_usd');
         const tasaDiaInput = document.getElementById('tasa_dia');
         const montoBsCalculadoInput = document.getElementById('monto_bs_calculado');
@@ -227,25 +265,21 @@
         montoUsdInput.addEventListener('input', calcularMontoBs);
         tasaDiaInput.addEventListener('input', calcularMontoBs);
         document.getElementById('fecha_pago').value = new Date().toISOString().split('T')[0];
-        calcularMontoBs();
-    });
-    (function() {
-        const forms = document.querySelectorAll('form');
-        forms.forEach(form => {
-            form.addEventListener('submit', function(e) {
-                if (form.getAttribute('data-submitted') === 'true') {
-                    e.preventDefault();
-                    return;
-                }
-                form.setAttribute('data-submitted', 'true');
-                const submitButtons = form.querySelectorAll('button[type="submit"]');
-                submitButtons.forEach(button => {
-                    button.setAttribute('disabled', 'disabled');
-                    button.innerHTML = 'Procesando...';
+        
+        const copyButtons = document.querySelectorAll('.copy-btn');
+        copyButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const textToCopy = this.getAttribute('data-clipboard-text');
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    const originalIcon = this.innerHTML;
+                    this.innerHTML = '<i class="bi bi-check-lg text-success"></i>';
+                    setTimeout(() => { this.innerHTML = originalIcon; }, 2000);
                 });
             });
         });
-    })();
+        
+        calcularMontoBs();
+    });
 </script>
 </body>
 </html>

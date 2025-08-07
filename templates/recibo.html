@@ -68,6 +68,12 @@
         .info-item .label { font-size: 0.8rem; color: var(--texto-claro); display: block; margin-bottom: 5px; }
         .info-item .value { font-size: 1rem; font-weight: 500; color: var(--texto-oscuro); }
         .info-item .value.amount { font-size: 1.25rem; font-weight: 700; color: var(--verde-exito); }
+        .qr-section {
+            text-align: center;
+            padding: 1.5rem;
+            background-color: var(--gris-fondo);
+            border-top: 1px solid var(--borde-sutil);
+        }
         .actions-section {
             text-align: center;
             padding: 1.5rem;
@@ -106,6 +112,7 @@
             <div class="header-info">
                 <h1>MOTO PLAN MOTORS C.A</h1>
                 <p>R.I.F.: J-50408559-1</p>
+                <p>Fecha y Hora (VEN): {{ pago.fecha_pago.strftime('%d/%m/%Y %I:%M %p') if pago.fecha_pago else 'N/A' }}</p>
             </div>
             <div class="receipt-id text-end">
                 <h2>Comprobante de Ingreso</h2>
@@ -167,64 +174,26 @@
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="section">
-                <h3>Estado de Cuenta (Al Momento del Pago)</h3>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <span class="label">Cuotas Pagadas (Progresivas)</span>
-                        <span class="value">{{ pago.cuotas_pagadas_progresivas or 0 }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="label">Cuotas Pagadas (Regresivas)</span>
-                        <span class="value">{{ pago.cuotas_pagadas_regresivas or 0 }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="label">Total Pagadas</span>
-                        <span class="value">{{ (pago.cuotas_pagadas_progresivas or 0) + (pago.cuotas_pagadas_regresivas or 0) }} de {{ pago.cuotas_totales or 'N/A' }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="label">Balance a Favor</span>
-                        <span class="value">${{ "%.2f"|format(pago.balance_regresivo) }}</span>
-                    </div>
-                </div>
-            </div>
+        <div class="qr-section">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('verificar_recibo', pago_id=pago.id, _external=True) }}&size=120x120&q=M" alt="Código QR de Verificación">
+            <p style="font-size: 12px; color: #606770; margin-top: 10px;">Escanee para verificar la validez de este recibo</p>
         </div>
 
         <div class="actions-section">
             <button class="btn btn-imprimir" onclick="window.print()">Imprimir / Guardar PDF</button>
-
             {% if is_admin_view %}
                 <a href="{{ url_for('consulta', busqueda=pago.cedula) }}" class="btn btn-volver">Volver a Consulta</a>
             {% else %}
                 <a href="{{ url_for('portal_dashboard') }}" class="btn btn-volver">Volver al Portal</a>
             {% endif %}
-
             {% if is_admin_view and g.admin and g.admin.rol in ['superadmin', 'gerente'] and pago.estado_pago != 'Anulado' %}
-            <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo? Esta acción revertirá el pago y el estado de cuenta del cliente.');">
+            <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro de que quieres anular este recibo?');">
                 <button type="submit" class="btn btn-anular">Anular Recibo</button>
             </form>
             {% endif %}
         </div>
     </div>
-<script>
-    (function() {
-        const forms = document.querySelectorAll('form');
-        forms.forEach(form => {
-            form.addEventListener('submit', function(e) {
-                if (form.getAttribute('data-submitted') === 'true') {
-                    e.preventDefault();
-                    return;
-                }
-                form.setAttribute('data-submitted', 'true');
-                const submitButtons = form.querySelectorAll('button[type="submit"]');
-                submitButtons.forEach(button => {
-                    button.setAttribute('disabled', 'disabled');
-                    button.innerHTML = 'Procesando...';
-                });
-            });
-        });
-    })();
-</script>
 </body>
 </html>
