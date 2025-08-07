@@ -308,6 +308,7 @@ def get_feriados_venezuela(year):
         date(year, 7, 24), date(year, 10, 12), date(year, 12, 24), date(year, 12, 25),
         date(year, 12, 31)
     ]
+    # Feriados moviles para 2024 y 2025
     if year == 2024:
         feriados.extend([date(2024, 2, 12), date(2024, 2, 13), date(2024, 3, 28), date(2024, 3, 29)])
     if year == 2025:
@@ -1850,6 +1851,10 @@ def portal_logout():
     flash('Has cerrado sesión exitosamente.', 'success')
     return redirect(url_for('portal_login'))
 
+# =================================================================================
+# ===== INICIO DE RUTAS AÑADIDAS PARA EL PORTAL DEL CLIENTE =====
+# =================================================================================
+
 @app.route('/citas/disponibilidad')
 def citas_disponibilidad():
     if 'cliente_id' not in session: return jsonify({'error': 'No autorizado'}), 401
@@ -1915,9 +1920,9 @@ def portal_solicitar_cita():
         return redirect(url_for('portal_dashboard'))
     try:
         with conn.cursor() as cur:
-            detalles = {'fecha_cita': fecha_cita, 'hora_cita': hora_cita, 'motivo': motivo_cita}
+            detalles = jsonify({'fecha_cita': fecha_cita, 'hora_cita': hora_cita, 'motivo': motivo_cita}).get_data(as_text=True)
             cur.execute("INSERT INTO solicitudes (cliente_id, tipo_solicitud, detalles, fecha_creacion, estado) VALUES (%s, 'Cita', %s, %s, 'Pendiente')",
-                        (cliente_id, jsonify(detalles).get_data(as_text=True), get_venezuela_current_datetime()))
+                        (cliente_id, detalles, get_venezuela_current_datetime()))
             conn.commit()
             flash(f"Tu solicitud de cita para el {fecha_cita} a las {hora_cita} ha sido enviada. Un asesor te contactará para confirmar.", 'success')
     except psycopg2.Error as e:
@@ -1934,9 +1939,9 @@ def portal_solicitar_congelamiento():
         return redirect(url_for('portal_dashboard'))
     try:
         with conn.cursor() as cur:
-            detalles = {'motivo': request.form.get('motivo')}
+            detalles = jsonify({'motivo': request.form.get('motivo')}).get_data(as_text=True)
             cur.execute("INSERT INTO solicitudes (cliente_id, tipo_solicitud, detalles, fecha_creacion, estado) VALUES (%s, 'Congelamiento', %s, %s, 'Pendiente')",
-                        (cliente_id, jsonify(detalles).get_data(as_text=True), get_venezuela_current_datetime()))
+                        (cliente_id, detalles, get_venezuela_current_datetime()))
             conn.commit()
             flash("Solicitud de congelamiento enviada. Un asesor te contactará.", 'success')
     except psycopg2.Error as e:
@@ -1959,15 +1964,23 @@ def portal_solicitar_retiro():
         return redirect(url_for('portal_dashboard'))
     try:
         with conn.cursor() as cur:
-            detalles = {'mensaje': 'Cliente confirma envío de correo para formalizar retiro.', 'fecha_envio_correo': fecha_correo, 'email_origen': email_origen}
+            detalles = jsonify({
+                'mensaje': 'Cliente confirma envío de correo para formalizar retiro.', 
+                'fecha_envio_correo': fecha_correo, 
+                'email_origen': email_origen
+            }).get_data(as_text=True)
             cur.execute("INSERT INTO solicitudes (cliente_id, tipo_solicitud, detalles, fecha_creacion, estado) VALUES (%s, 'Retiro', %s, %s, 'Pendiente')",
-                        (cliente_id, jsonify(detalles).get_data(as_text=True), get_venezuela_current_datetime()))
+                        (cliente_id, detalles, get_venezuela_current_datetime()))
             conn.commit()
             flash("Solicitud de retiro enviada. Un asesor se comunicará contigo para guiarte en los siguientes pasos.", 'warning')
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"Error al enviar tu solicitud: {e}", 'error')
     return redirect(url_for('portal_dashboard'))
+
+# =================================================================================
+# ===== FIN DE RUTAS AÑADIDAS =====
+# =================================================================================
 
 @app.route('/ver_reporte/<int:pago_id>')
 @admin_required
