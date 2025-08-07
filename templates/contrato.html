@@ -26,6 +26,7 @@
             background-color: var(--gris-fondo);
             font-family: 'Roboto', sans-serif;
             color: var(--texto-oscuro);
+            overflow-x: hidden; /* Evita desbordamiento horizontal */
         }
         .navbar-custom {
             background-color: var(--azul-corporativo);
@@ -36,9 +37,6 @@
             box-shadow: 0 8px 25px rgba(0,0,0,0.08);
             padding: 2rem 3rem;
             margin: 2rem auto;
-        }
-        @media (max-width: 767px) {
-            .contract-container { padding: 1.5rem 1rem; }
         }
         .header {
             text-align: center;
@@ -79,7 +77,12 @@
         }
         .info-item:last-child { border-bottom: none; }
         .info-item span { color: var(--texto-claro); }
-        .info-item strong { color: var(--texto-oscuro); font-weight: 500; }
+        .info-item strong { 
+            color: var(--texto-oscuro); 
+            font-weight: 500;
+            word-wrap: break-word; /* Asegura que el texto largo se divida */
+            text-align: right;
+        }
 
         .contract-body h2 { font-size: 1.1rem; margin-top: 2rem; font-weight: 700; text-align: center; color: var(--texto-oscuro); }
         .contract-body h3 { font-size: 1rem; font-weight: 700; color: var(--texto-oscuro); margin-top: 1.5rem; }
@@ -91,6 +94,8 @@
             border: 2px dashed var(--naranja-corporativo);
             cursor: crosshair;
             border-radius: 6px;
+            width: 100%;
+            height: 150px;
         }
         .btn-primary { background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo); }
         .btn-primary:hover { filter: brightness(90%); background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo); }
@@ -108,7 +113,20 @@
             color: var(--texto-claro);
         }
         
-        /* --- ESTILOS DE IMPRESIÓN --- */
+        /* --- ESTILOS RESPONSIVOS Y DE IMPRESIÓN --- */
+        @media (max-width: 767px) {
+            .contract-container { 
+                padding: 1.5rem 1rem; 
+                margin: 1rem auto;
+            }
+            .client-info-card {
+                padding: 1rem;
+            }
+            .header h1 {
+                font-size: 1.2rem;
+            }
+        }
+
         @media print {
             @page { size: letter; margin: 0.5in; }
             body { background-color: #fff !important; font-size: 9pt; line-height: 1.2; font-family: 'Times New Roman', serif; }
@@ -239,20 +257,89 @@
             </div>
             
             <div class="final-section">
-                <!-- Firmas y Fotos -->
+                <div class="signatures row">
+                    <div class="col-md-6 col-12 signature-block mb-4 mb-md-0">
+                        {% if modo_pre_registro %}
+                            <div id="signature-container-empresa" class="no-print">
+                                <p class="border-0 m-0">LA EMPRESA</p>
+                                <canvas id="signature-pad-empresa" class="mx-auto signature-pad"></canvas>
+                                <div class="mt-2 d-grid gap-2 d-sm-flex justify-content-sm-center">
+                                    <button type="button" class="btn btn-outline-danger btn-sm clear-signature-btn" data-target="signature-pad-empresa">Limpiar Firma</button>
+                                </div>
+                            </div>
+                        {% else %}
+                            {% if not cliente.firma_empresa %}
+                            <form id="formFirmaEmpresa" action="{{ url_for('guardar_firma_empresa', client_id=cliente.id) }}" method="POST" class="no-print">
+                                <input type="hidden" name="firma_empresa" id="firma_empresa_input_existente">
+                                <p class="border-0 m-0">LA EMPRESA</p>
+                                <canvas id="signature-pad-empresa" class="mx-auto signature-pad"></canvas>
+                                <div class="mt-2 d-grid gap-2 d-sm-flex justify-content-sm-center">
+                                    <button type="button" class="btn btn-outline-danger btn-sm clear-signature-btn" data-target="signature-pad-empresa">Limpiar</button>
+                                    <button type="submit" class="btn btn-primary btn-sm">Guardar Firma</button>
+                                </div>
+                            </form>
+                            {% else %}
+                                <img src="{{ cliente.firma_empresa }}" alt="Firma de la Empresa" class="img-fluid">
+                                <p>LA EMPRESA<br>(MOTO PLAN MOTORS, C.A.)</p>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 col-12 signature-block">
+                        {% if modo_pre_registro %}
+                             <div id="signature-container-cliente" class="no-print">
+                                <p class="border-0 m-0">EL CLIENTE</p>
+                                <canvas id="signature-pad-cliente" class="mx-auto signature-pad"></canvas>
+                                <div class="mt-2 d-grid gap-2 d-sm-flex justify-content-sm-center">
+                                    <button type="button" class="btn btn-outline-danger btn-sm clear-signature-btn" data-target="signature-pad-cliente">Limpiar Firma</button>
+                                </div>
+                            </div>
+                        {% else %}
+                            {% if not cliente.firma_digital %}
+                            <form id="formFirmaCliente" action="{{ url_for('guardar_firma_cliente', client_id=cliente.id) }}" method="POST" class="no-print">
+                                <input type="hidden" name="firma_cliente" id="firma_cliente_input_existente">
+                                <p class="border-0 m-0">EL CLIENTE</p>
+                                <canvas id="signature-pad-cliente" class="mx-auto signature-pad"></canvas>
+                                <div class="mt-2 d-grid gap-2 d-sm-flex justify-content-sm-center">
+                                    <button type="button" class="btn btn-outline-danger btn-sm clear-signature-btn" data-target="signature-pad-cliente">Limpiar</button>
+                                    <button type="submit" class="btn btn-primary btn-sm">Guardar Firma</button>
+                                </div>
+                            </form>
+                            {% else %}
+                                <img src="{{ cliente.firma_digital }}" alt="Firma Digital del Cliente" class="img-fluid">
+                                <p>EL CLIENTE<br>{{ cliente.nombre_apellido }}<br>C.I: V-{{ cliente.cedula }}</p>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
             </div>
 
-            <!-- INICIO DEL CAMBIO -->
             {% if not modo_pre_registro %}
             <div class="qr-section">
                 <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('generar_contrato', client_id=cliente.id, _external=True) }}&size=120x120&q=M" alt="Código QR de Verificación del Contrato">
                 <p style="font-size: 12px; color: #606770; margin-top: 10px;">Escanee para verificar la validez de este contrato</p>
             </div>
             {% endif %}
-            <!-- FIN DEL CAMBIO -->
 
             <div class="final-actions-container no-print text-center mt-5">
-                <!-- Botones de acción -->
+                {% if modo_pre_registro %}
+                    <div class="alert alert-info">
+                        <strong><i class="bi bi-pen-fill"></i> Paso Final:</strong> Por favor, complete ambas firmas en los recuadros para poder guardar el cliente y el contrato.
+                    </div>
+                    <button type="submit" form="form-finalizar-registro" id="btn-finalizar-registro" class="btn btn-primary btn-lg">
+                        <i class="bi bi-check-circle-fill"></i> Guardar Cliente y Generar Contrato
+                    </button>
+                {% else %}
+                    {% if cliente.firma_digital and cliente.firma_empresa %}
+                        <button class="btn btn-success btn-lg" onclick="window.print()">
+                            <i class="bi bi-printer-fill"></i> Imprimir Contrato Firmado
+                        </button>
+                    {% else %}
+                        <div class="alert alert-warning" role="alert">
+                            <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Acción Requerida</h4>
+                            <p>El contrato no puede ser generado hasta que tanto <strong>LA EMPRESA</strong> como <strong>EL CLIENTE</strong> hayan registrado sus firmas digitales en los recuadros correspondientes.</p>
+                        </div>
+                    {% endif %}
+                {% endif %}
             </div>
         </div>
     </div>
@@ -263,7 +350,68 @@
     
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
     <script>
-    // El script de JS permanece sin cambios
+    document.addEventListener('DOMContentLoaded', function() {
+        const modoPreRegistro = {{ modo_pre_registro|tojson }};
+        const pads = {};
+
+        function initializePad(padName) {
+            const canvas = document.getElementById(`signature-pad-${padName}`);
+            if (!canvas) return;
+
+            const ratio =  Math.max(window.devicePixelRatio || 1, 1);
+            canvas.width = canvas.offsetWidth * ratio;
+            canvas.height = canvas.offsetHeight * ratio;
+            canvas.getContext("2d").scale(ratio, ratio);
+
+            pads[padName] = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)' });
+
+            const clearButton = document.querySelector(`.clear-signature-btn[data-target="signature-pad-${padName}"]`);
+            if(clearButton) {
+                clearButton.addEventListener('click', () => {
+                    pads[padName].clear();
+                });
+            }
+        }
+
+        initializePad('cliente');
+        initializePad('empresa');
+
+        if (modoPreRegistro) {
+            const formPrincipal = document.getElementById('form-finalizar-registro');
+            if(formPrincipal) {
+                formPrincipal.addEventListener('submit', function(e) {
+                    if ((pads['cliente'] && pads['cliente'].isEmpty()) || (pads['empresa'] && pads['empresa'].isEmpty())) {
+                        alert("Ambas firmas son obligatorias para continuar.");
+                        e.preventDefault();
+                        return;
+                    }
+
+                    if(pads['cliente']) {
+                        document.getElementById('firma_cliente_input').value = pads['cliente'].toDataURL('image/png');
+                    }
+                    if(pads['empresa']) {
+                        document.getElementById('firma_empresa_input').value = pads['empresa'].toDataURL('image/png');
+                    }
+                });
+            }
+        } else {
+            function setupExistingClientForm(padName, formId, inputId) {
+                const form = document.getElementById(formId);
+                if(form && pads[padName]) {
+                    form.addEventListener('submit', function(e) {
+                        if (pads[padName].isEmpty()) {
+                            alert("Por favor, se requiere una firma en el recuadro.");
+                            e.preventDefault();
+                            return;
+                        }
+                        document.getElementById(inputId).value = pads[padName].toDataURL('image/png');
+                    });
+                }
+            }
+            setupExistingClientForm('cliente', 'formFirmaCliente', 'firma_cliente_input_existente');
+            setupExistingClientForm('empresa', 'formFirmaEmpresa', 'firma_empresa_input_existente');
+        }
+    });
     </script>
 </body>
 </html>
