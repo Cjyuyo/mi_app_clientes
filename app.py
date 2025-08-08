@@ -427,40 +427,218 @@ def hub():
             usuarios = cur.fetchall()
     return render_template('hub.html', anio_actual=get_venezuela_current_date().year, usuarios=usuarios)
 
-# --- MÓDULO DE GESTIÓN ADMINISTRATIVA Y COBRANZA ---
+# =================================================================================
+# --- INICIO: MÓDULO DE GESTIÓN ADMINISTRATIVA Y SOLICITUDES (REFACTORIZADO) ---
+# =================================================================================
+
 @app.route('/gestion_administrativa')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def gestion_administrativa():
     conn = get_db()
-    counts = {
-        'pagos_pendientes': 0,
-        'citas': 0,
-        'congelamientos': 0,
-        'retiros': 0
-    }
+    counts = { 'pagos_pendientes': 0, 'citas': 0, 'congelamientos': 0, 'retiros': 0 }
     if conn:
         try:
             with conn.cursor() as cur:
+                # Contador de pagos pendientes
                 cur.execute("SELECT COUNT(*) FROM pagos WHERE estado_pago = 'Pendiente' AND (estado_reporte IS NULL OR estado_reporte != 'Inconsistente')")
                 counts['pagos_pendientes'] = cur.fetchone()[0]
                 
+                # Contadores para cada tipo de solicitud pendiente
                 cur.execute("SELECT tipo_solicitud, COUNT(*) as total FROM solicitudes WHERE estado = 'Pendiente' GROUP BY tipo_solicitud")
-                resultados = cur.fetchall()
-                for row in resultados:
-                    if row['tipo_solicitud'] == 'Cita':
-                        counts['citas'] = row['total']
-                    elif row['tipo_solicitud'] == 'Congelamiento':
-                        counts['congelamientos'] = row['total']
-                    elif row['tipo_solicitud'] == 'Retiro':
-                        counts['retiros'] = row['total']
+                for row in cur.fetchall():
+                    if row['tipo_solicitud'] == 'Cita': counts['citas'] = row['total']
+                    elif row['tipo_solicitud'] == 'Congelamiento': counts['congelamientos'] = row['total']
+                    elif row['tipo_solicitud'] == 'Retiro': counts['retiros'] = row['total']
         except psycopg2.Error as e:
             logging.error(f"Error al contar pendientes en gestion_administrativa: {e}")
             flash("No se pudo obtener el contador de pendientes.", "warning")
             
-    return render_template('gestion_administrativa.html', 
-                           anio_actual=get_venezuela_current_date().year,
-                           counts=counts)
+    return render_template('gestion_administrativa.html', anio_actual=get_venezuela_current_date().year, counts=counts)
+
+@app.route('/solicitudes/hub')
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora')
+def solicitudes_hub():
+    """
+    NUEVO: Hub central para todas las solicitudes. Muestra contadores y enlaza a las vistas dedicadas.
+    """
+    conn = get_db()
+    counts = {'citas': 0, 'congelamientos': 0, 'retiros': 0}
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT tipo_solicitud, COUNT(*) as total FROM solicitudes WHERE estado = 'Pendiente' GROUP BY tipo_solicitud")
+                for row in cur.fetchall():
+                    if row['tipo_solicitud'] == 'Cita': counts['citas'] = row['total']
+                    elif row['tipo_solicitud'] == 'Congelamiento': counts['congelamientos'] = row['total']
+                    elif row['tipo_solicitud'] == 'Retiro': counts['retiros'] = row['total']
+        except psycopg2.Error as e:
+            logging.error(f"Error al contar solicitudes para el hub: {e}")
+            flash("No se pudo obtener el contador de solicitudes.", "warning")
+    return render_template('solicitudes_hub.html', counts=counts)
+
+@app.route('/solicitudes/citas')
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora')
+def gestion_citas():
+    """
+    NUEVO: Vista dedicada para gestionar solicitudes de Citas.
+    """
+    conn = get_db()
+    solicitudes, administradores, citas_aprobadas = {'citas': []}, [], []
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                # Obtener administradores para asignar a las citas
+                cur.execute("SELECT id, usuario FROM administradores WHERE rol IN ('superadmin', 'gerente', 'administradora') ORDER BY usuario")
+                administradores = cur.fetchall()
+                
+                # Obtener solicitudes de citas pendientes
+                cur.execute("""
+                    SELECT s.id, s.fecha_creacion, s.detalles, c.nombre || ' ' || c.apellido as nombre_cliente
+                    FROM solicitudes s JOIN clientes c ON s.cliente_id = c.id
+                    WHERE s.estado = 'Pendiente' AND s.tipo_solicitud = 'Cita' ORDER BY s.fecha_creacion ASC
+                """)
+                solicitudes['citas'] = cur.fetchall()
+
+                # Obtener citas ya aprobadas y futuras para la agenda
+                cur.execute("""
+                    SELECT s.detalles, c.nombre || ' ' || c.apellido as nombre_cliente, a.usuario as nombre_asesor
+                    FROM solicitudes s 
+                    JOIN clientes c ON s.cliente_id = c.id
+                    LEFT JOIN administradores a ON (s.detalles->>'asesor_id')::int = a.id
+                    WHERE s.tipo_solicitud = 'Cita' AND s.estado = 'Aprobada' AND (s.detalles->>'fecha_cita')::date >= NOW()::date
+                    ORDER BY (s.detalles->>'fecha_cita')::date ASC, (s.detalles->>'hora_cita') ASC
+                """)
+                citas_aprobadas = cur.fetchall()
+        except psycopg2.Error as e:
+            logging.error(f"Error al obtener datos para gestión de citas: {e}")
+    return render_template('gestion_citas.html', solicitudes=solicitudes, administradores=administradores, citas_aprobadas=citas_aprobadas)
+
+@app.route('/solicitudes/retiros')
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora')
+def gestion_retiros():
+    """
+    NUEVO: Vista dedicada para gestionar solicitudes de Retiro.
+    """
+    conn = get_db()
+    solicitudes = {'retiros': []}
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT s.id, s.fecha_creacion, c.nombre || ' ' || c.apellido as nombre_cliente
+                    FROM solicitudes s JOIN clientes c ON s.cliente_id = c.id
+                    WHERE s.estado = 'Pendiente' AND s.tipo_solicitud = 'Retiro' ORDER BY s.fecha_creacion ASC
+                """)
+                solicitudes['retiros'] = cur.fetchall()
+        except psycopg2.Error as e:
+            logging.error(f"Error al obtener solicitudes de retiro: {e}")
+    return render_template('gestion_retiros.html', solicitudes=solicitudes)
+
+@app.route('/solicitudes/congelamientos')
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora')
+def gestion_congelamientos():
+    """
+    NUEVO: Vista dedicada para gestionar solicitudes de Congelamiento.
+    """
+    conn = get_db()
+    solicitudes = {'congelamientos': []}
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT s.id, s.fecha_creacion, c.nombre || ' ' || c.apellido as nombre_cliente
+                    FROM solicitudes s JOIN clientes c ON s.cliente_id = c.id
+                    WHERE s.estado = 'Pendiente' AND s.tipo_solicitud = 'Congelamiento' ORDER BY s.fecha_creacion ASC
+                """)
+                solicitudes['congelamientos'] = cur.fetchall()
+        except psycopg2.Error as e:
+            logging.error(f"Error al obtener solicitudes de congelamiento: {e}")
+    return render_template('gestion_congelamientos.html', solicitudes=solicitudes)
+
+@app.route('/procesar_solicitud/<int:solicitud_id>', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora')
+def procesar_solicitud(solicitud_id):
+    """
+    MODIFICADO: Ahora redirige a la vista específica del tipo de solicitud procesada.
+    """
+    conn = get_db()
+    accion = request.form.get('accion')
+    tipo = request.form.get('tipo')
+
+    # Mapa para redirigir a la página correcta después de procesar
+    redirect_map = {
+        'cita': 'gestion_citas',
+        'retiro': 'gestion_retiros',
+        'congelamiento': 'gestion_congelamientos'
+    }
+    redirect_url = url_for(redirect_map.get(tipo, 'solicitudes_hub'))
+
+    if not all([conn, accion, tipo]):
+        flash("Error en la solicitud.", "danger")
+        return redirect(redirect_url)
+
+    nuevo_estado_solicitud = 'Aprobada' if accion == 'aprobar' else 'Rechazada'
+    
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT cliente_id, detalles FROM solicitudes WHERE id = %s", (solicitud_id,))
+            solicitud = cur.fetchone()
+            if not solicitud:
+                flash("La solicitud no existe.", "error")
+                return redirect(redirect_url)
+
+            detalles_actualizados = solicitud['detalles'] if solicitud['detalles'] is not None else {}
+
+            # Lógica específica para aprobar citas (asignar asesor)
+            if tipo == 'cita' and accion == 'aprobar':
+                asesor_id = request.form.get('asesor_id')
+                if not asesor_id:
+                    flash("Debe asignar un asesor para aprobar la cita.", "error")
+                    return redirect(redirect_url)
+                
+                cur.execute("SELECT usuario FROM administradores WHERE id = %s", (asesor_id,))
+                asesor = cur.fetchone()
+                if not asesor:
+                    flash("Asesor no válido.", "error")
+                    return redirect(redirect_url)
+                
+                detalles_actualizados['asesor_id'] = int(asesor_id)
+                detalles_actualizados['nombre_asesor'] = asesor['usuario']
+
+            # Actualizar la solicitud
+            cur.execute(
+                "UPDATE solicitudes SET estado = %s, revisado_por_id = %s, fecha_revision = NOW(), detalles = %s WHERE id = %s",
+                (nuevo_estado_solicitud, g.admin['id'], json.dumps(detalles_actualizados), solicitud_id)
+            )
+            
+            # Si se aprueba, actualizar el estatus del cliente si es necesario
+            if accion == 'aprobar':
+                if tipo == 'retiro':
+                    cur.execute("UPDATE clientes SET estatus = 'RETIRO' WHERE id = %s", (solicitud['cliente_id'],))
+                elif tipo == 'congelamiento':
+                    cur.execute("UPDATE clientes SET estatus = 'CONGELADO' WHERE id = %s", (solicitud['cliente_id'],))
+            
+            descripcion_audit = f"{accion.capitalize()} la solicitud de {tipo} N° {solicitud_id}."
+            registrar_accion_auditoria('GESTION_SOLICITUD', descripcion_audit, solicitud['cliente_id'])
+            
+            conn.commit()
+            flash(f"La solicitud de {tipo} ha sido marcada como '{nuevo_estado_solicitud}'.", 'success')
+    except (psycopg2.Error, json.JSONDecodeError) as e:
+        conn.rollback()
+        logging.error(f"Error al procesar solicitud {solicitud_id}: {e}")
+        flash(f"Error al procesar la solicitud: {e}", "error")
+    
+    return redirect(redirect_url)
+
+# =================================================================================
+# --- FIN: MÓDULO DE GESTIÓN ADMINISTRATIVA Y SOLICITUDES (REFACTORIZADO) ---
+# =================================================================================
 
 @app.route('/pagos_por_conciliar')
 @admin_required
@@ -514,144 +692,6 @@ def pagos_por_conciliar():
         logging.error(f"Error al obtener pagos por conciliar: {e}")
         flash("Error al cargar la lista de pagos pendientes.", "danger")
     return render_template('pagos_por_conciliar.html', pagos=pagos_a_procesar, anio_actual=get_venezuela_current_date().year)
-
-@app.route('/solicitudes_pendientes')
-@admin_required
-@rol_requerido('superadmin', 'gerente', 'administradora')
-def solicitudes_pendientes():
-    conn = get_db()
-    solicitudes = {'retiros': [], 'congelamientos': [], 'citas': []}
-    eventos_calendario = []
-    administradores = []
-    citas_aprobadas = []
-
-    if not conn:
-        flash("Error de conexión con la base de datos.", "danger")
-    else:
-        try:
-            with conn.cursor() as cur:
-                # Obtener lista de administradores para asignar citas
-                cur.execute("SELECT id, usuario FROM administradores WHERE rol IN ('superadmin', 'gerente', 'administradora') ORDER BY usuario")
-                administradores = cur.fetchall()
-
-                # Obtener todas las solicitudes pendientes
-                query_pendientes = """
-                    SELECT s.id, s.tipo_solicitud, s.fecha_creacion, s.detalles, c.nombre || ' ' || c.apellido as nombre_cliente
-                    FROM solicitudes s JOIN clientes c ON s.cliente_id = c.id
-                    WHERE s.estado = 'Pendiente'
-                    ORDER BY s.fecha_creacion ASC;
-                """
-                cur.execute(query_pendientes)
-                for solicitud in cur.fetchall():
-                    if solicitud['tipo_solicitud'] == 'Retiro':
-                        solicitudes['retiros'].append(solicitud)
-                    elif solicitud['tipo_solicitud'] == 'Congelamiento':
-                        solicitudes['congelamientos'].append(solicitud)
-                    elif solicitud['tipo_solicitud'] == 'Cita':
-                        solicitudes['citas'].append(solicitud)
-                
-                # Obtener citas aprobadas para el calendario y la agenda
-                query_citas_aprobadas = """
-                    SELECT s.detalles, c.nombre || ' ' || c.apellido as nombre_cliente, a.usuario as nombre_asesor
-                    FROM solicitudes s 
-                    JOIN clientes c ON s.cliente_id = c.id
-                    LEFT JOIN administradores a ON (s.detalles->>'asesor_id')::int = a.id
-                    WHERE s.tipo_solicitud = 'Cita' AND s.estado = 'Aprobada';
-                """
-                cur.execute(query_citas_aprobadas)
-                citas_aprobadas = cur.fetchall()
-
-                for cita in citas_aprobadas:
-                    detalles = cita['detalles']
-                    if detalles and 'fecha_cita' in detalles and 'hora_cita' in detalles:
-                        try:
-                            start_time = datetime.strptime(f"{detalles['fecha_cita']} {detalles['hora_cita']}", '%Y-%m-%d %I:%M %p')
-                            eventos_calendario.append({
-                                'title': detalles.get('motivo', 'Cita'),
-                                'start': start_time.isoformat(),
-                                'extendedProps': {'cliente': cita['nombre_cliente']}
-                            })
-                        except (ValueError, TypeError):
-                            logging.warning(f"Formato de fecha/hora inválido en cita: {detalles}")
-        except psycopg2.Error as e:
-            logging.error(f"Error al obtener solicitudes pendientes: {e}")
-            flash("Error al cargar la lista de solicitudes.", "danger")
-
-    return render_template('solicitudes_pendientes.html', 
-                           solicitudes=solicitudes, 
-                           eventos_calendario=eventos_calendario,
-                           administradores=administradores,
-                           citas_aprobadas=citas_aprobadas,
-                           anio_actual=get_venezuela_current_date().year)
-
-
-@app.route('/procesar_solicitud/<int:solicitud_id>', methods=['POST'])
-@admin_required
-@rol_requerido('superadmin', 'gerente', 'administradora')
-def procesar_solicitud(solicitud_id):
-    conn = get_db()
-    accion = request.form.get('accion')
-    tipo = request.form.get('tipo')
-    redirect_url = url_for('solicitudes_pendientes')
-
-    if not all([conn, accion, tipo]):
-        flash("Error en la solicitud.", "danger")
-        return redirect(redirect_url)
-
-    nuevo_estado_solicitud = 'Aprobada' if accion == 'aprobar' else 'Rechazada'
-    
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT cliente_id, detalles FROM solicitudes WHERE id = %s", (solicitud_id,))
-            solicitud = cur.fetchone()
-            if not solicitud:
-                flash("La solicitud no existe.", "error")
-                return redirect(redirect_url)
-
-            detalles_actualizados = solicitud['detalles']
-
-            if tipo == 'cita' and accion == 'aprobar':
-                asesor_id = request.form.get('asesor_id')
-                if not asesor_id:
-                    flash("Debe asignar un asesor para aprobar la cita.", "error")
-                    return redirect(redirect_url)
-                
-                cur.execute("SELECT usuario FROM administradores WHERE id = %s", (asesor_id,))
-                asesor = cur.fetchone()
-                if not asesor:
-                    flash("Asesor no válido.", "error")
-                    return redirect(redirect_url)
-                
-                if detalles_actualizados is None:
-                    detalles_actualizados = {}
-                detalles_actualizados['asesor_id'] = asesor_id
-                detalles_actualizados['nombre_asesor'] = asesor['usuario']
-
-            cur.execute(
-                "UPDATE solicitudes SET estado = %s, revisado_por_id = %s, fecha_revision = NOW(), detalles = %s WHERE id = %s",
-                (nuevo_estado_solicitud, g.admin['id'], json.dumps(detalles_actualizados), solicitud_id)
-            )
-            
-            if accion == 'aprobar':
-                nuevo_estatus_cliente = ''
-                if tipo == 'retiro':
-                    nuevo_estatus_cliente = 'RETIRO'
-                elif tipo == 'congelamiento':
-                    nuevo_estatus_cliente = 'CONGELADO'
-                
-                if nuevo_estatus_cliente:
-                    cur.execute("UPDATE clientes SET estatus = %s WHERE id = %s", (nuevo_estatus_cliente, solicitud['cliente_id']))
-            
-            descripcion_audit = f"{accion.capitalize()} la solicitud de {tipo} N° {solicitud_id}."
-            registrar_accion_auditoria('GESTION_SOLICITUD', descripcion_audit, solicitud['cliente_id'])
-            
-            conn.commit()
-            flash(f"La solicitud de {tipo} ha sido marcada como '{nuevo_estado_solicitud}'.", 'success')
-    except psycopg2.Error as e:
-        conn.rollback()
-        flash(f"Error al procesar la solicitud: {e}", "error")
-    
-    return redirect(redirect_url)
 
 # --- MÓDULO COMERCIAL ---
 @app.route('/comercial/dashboard')
