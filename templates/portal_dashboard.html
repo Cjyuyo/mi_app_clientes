@@ -248,7 +248,7 @@
                         <div class="payment-actions">
                             {% if pago.estado_pago == 'Conciliado' %}
                                 <span class="badge text-bg-success">Conciliado</span>
-                                <a href="{{ url_for('recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm" target="_blank">Ver Recibo</a>
+                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm" target="_blank">Ver Recibo</a>
                             {% elif pago.estado_pago == 'Pendiente' %}
                                 {% if pago.estado_reporte == 'Inconsistente' and pago.detalles_reporte %}
                                     <span class="badge text-bg-danger" title="{{ pago.detalles_reporte.motivo }}">Inconsistente</span>
@@ -580,4 +580,3 @@
     </script>
 </body>
 </html>
-}

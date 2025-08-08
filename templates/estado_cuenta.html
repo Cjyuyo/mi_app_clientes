@@ -225,7 +225,7 @@
                             <td class="status-{{ pago.puntualidad or 'N/A' }}">{{ pago.puntualidad or 'N/A' }}</td>
                             <td>
                                 {% if pago.estado_pago != 'Anulado' %}
-                                <a href="{{ url_for('recibo', pago_id=pago.id) }}" class="btn btn-sm btn-outline-secondary" target="_blank">
+                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-sm btn-outline-secondary" target="_blank">
                                     Ver Recibo
                                 </a>
                                 {% endif %}
