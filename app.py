@@ -429,62 +429,40 @@ def hub():
     return render_template('hub.html', anio_actual=get_venezuela_current_date().year, usuarios=usuarios)
 
 # --- MÓDULO DE GESTIÓN ADMINISTRATIVA Y COBRANZA ---
-# FASE 3: Ruta modificada para el nuevo panel de solicitudes
+# CORRECCIÓN: Esta ruta ahora solo muestra el menú de tarjetas
 @app.route('/gestion_administrativa')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def gestion_administrativa():
     conn = get_db()
-    counts = {'pagos_pendientes': 0}
-    solicitudes = {'retiros': [], 'congelamientos': []}
-    eventos_calendario = []
-
+    counts = {
+        'pagos_pendientes': 0,
+        'citas': 0,
+        'congelamientos': 0,
+        'retiros': 0
+    }
     if conn:
         try:
             with conn.cursor() as cur:
                 cur.execute("SELECT COUNT(*) FROM pagos WHERE estado_pago = 'Pendiente' AND (estado_reporte IS NULL OR estado_reporte != 'Inconsistente')")
                 counts['pagos_pendientes'] = cur.fetchone()[0]
                 
-                # Obtener solicitudes pendientes
-                cur.execute("""
-                    SELECT s.id, s.tipo_solicitud, s.fecha_creacion, c.nombre || ' ' || c.apellido as nombre_cliente
-                    FROM solicitudes s JOIN clientes c ON s.cliente_id = c.id
-                    WHERE s.estado = 'Pendiente' ORDER BY s.fecha_creacion ASC
-                """)
-                for solicitud in cur.fetchall():
-                    if solicitud['tipo_solicitud'] == 'Retiro':
-                        solicitudes['retiros'].append(solicitud)
-                    elif solicitud['tipo_solicitud'] == 'Congelamiento':
-                        solicitudes['congelamientos'].append(solicitud)
-
-                # Obtener eventos para el calendario (citas aprobadas)
-                cur.execute("""
-                    SELECT s.detalles, c.nombre || ' ' || c.apellido as nombre_cliente
-                    FROM solicitudes s JOIN clientes c ON s.cliente_id = c.id
-                    WHERE s.tipo_solicitud = 'Cita' AND s.estado = 'Aprobada'
-                """)
-                for cita in cur.fetchall():
-                    detalles = cita['detalles']
-                    if detalles and 'fecha_cita' in detalles and 'hora_cita' in detalles:
-                        try:
-                            start_time = datetime.strptime(f"{detalles['fecha_cita']} {detalles['hora_cita']}", '%Y-%m-%d %I:%M %p')
-                            eventos_calendario.append({
-                                'title': detalles.get('motivo', 'Cita'),
-                                'start': start_time.isoformat(),
-                                'extendedProps': {'cliente': cita['nombre_cliente']}
-                            })
-                        except (ValueError, TypeError):
-                            logging.warning(f"Formato de fecha/hora inválido en cita: {detalles}")
-
+                cur.execute("SELECT tipo_solicitud, COUNT(*) as total FROM solicitudes WHERE estado = 'Pendiente' GROUP BY tipo_solicitud")
+                resultados = cur.fetchall()
+                for row in resultados:
+                    if row['tipo_solicitud'] == 'Cita':
+                        counts['citas'] = row['total']
+                    elif row['tipo_solicitud'] == 'Congelamiento':
+                        counts['congelamientos'] = row['total']
+                    elif row['tipo_solicitud'] == 'Retiro':
+                        counts['retiros'] = row['total']
         except psycopg2.Error as e:
-            logging.error(f"Error al cargar datos para gestion_administrativa: {e}")
-            flash("No se pudieron cargar los datos de gestión.", "warning")
+            logging.error(f"Error al contar pendientes en gestion_administrativa: {e}")
+            flash("No se pudo obtener el contador de pendientes.", "warning")
             
     return render_template('gestion_administrativa.html', 
                            anio_actual=get_venezuela_current_date().year,
-                           counts=counts,
-                           solicitudes=solicitudes,
-                           eventos_calendario=eventos_calendario)
+                           counts=counts)
 
 @app.route('/pagos_por_conciliar')
 @admin_required
@@ -539,35 +517,61 @@ def pagos_por_conciliar():
         flash("Error al cargar la lista de pagos pendientes.", "danger")
     return render_template('pagos_por_conciliar.html', pagos=pagos_a_procesar, anio_actual=get_venezuela_current_date().year)
 
+# CORRECCIÓN: La lógica del calendario y sub-tarjetas se mueve a esta ruta
 @app.route('/solicitudes_pendientes')
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def solicitudes_pendientes():
     conn = get_db()
-    solicitudes = []
+    solicitudes = {'retiros': [], 'congelamientos': []}
+    eventos_calendario = []
     if not conn:
         flash("Error de conexión con la base de datos.", "danger")
     else:
         try:
             with conn.cursor() as cur:
-                query = """
-                    SELECT 
-                        s.id, s.tipo_solicitud, s.detalles, s.fecha_creacion, s.estado,
-                        c.id as cliente_id, c.nombre, c.apellido, c.cedula, c.telefono
-                    FROM solicitudes s
-                    JOIN clientes c ON s.cliente_id = c.id
-                    WHERE s.estado = 'Pendiente'
+                # Obtener solicitudes pendientes de retiro y congelamiento
+                query_pendientes = """
+                    SELECT s.id, s.tipo_solicitud, s.fecha_creacion, c.nombre || ' ' || c.apellido as nombre_cliente
+                    FROM solicitudes s JOIN clientes c ON s.cliente_id = c.id
+                    WHERE s.estado = 'Pendiente' AND s.tipo_solicitud IN ('Retiro', 'Congelamiento')
                     ORDER BY s.fecha_creacion ASC;
                 """
-                cur.execute(query)
-                solicitudes = cur.fetchall()
+                cur.execute(query_pendientes)
+                for solicitud in cur.fetchall():
+                    if solicitud['tipo_solicitud'] == 'Retiro':
+                        solicitudes['retiros'].append(solicitud)
+                    elif solicitud['tipo_solicitud'] == 'Congelamiento':
+                        solicitudes['congelamientos'].append(solicitud)
+                
+                # Obtener citas aprobadas para el calendario
+                query_citas = """
+                    SELECT s.detalles, c.nombre || ' ' || c.apellido as nombre_cliente
+                    FROM solicitudes s JOIN clientes c ON s.cliente_id = c.id
+                    WHERE s.tipo_solicitud = 'Cita' AND s.estado = 'Aprobada';
+                """
+                cur.execute(query_citas)
+                for cita in cur.fetchall():
+                    detalles = cita['detalles']
+                    if detalles and 'fecha_cita' in detalles and 'hora_cita' in detalles:
+                        try:
+                            start_time = datetime.strptime(f"{detalles['fecha_cita']} {detalles['hora_cita']}", '%Y-%m-%d %I:%M %p')
+                            eventos_calendario.append({
+                                'title': detalles.get('motivo', 'Cita'),
+                                'start': start_time.isoformat(),
+                                'extendedProps': {'cliente': cita['nombre_cliente']}
+                            })
+                        except (ValueError, TypeError):
+                            logging.warning(f"Formato de fecha/hora inválido en cita: {detalles}")
         except psycopg2.Error as e:
             logging.error(f"Error al obtener solicitudes pendientes: {e}")
             flash("Error al cargar la lista de solicitudes.", "danger")
 
     return render_template('solicitudes_pendientes.html', 
                            solicitudes=solicitudes, 
+                           eventos_calendario=eventos_calendario,
                            anio_actual=get_venezuela_current_date().year)
+
 
 # FASE 3: Nueva ruta para procesar solicitudes de retiro/congelamiento
 @app.route('/procesar_solicitud/<int:solicitud_id>', methods=['POST'])
@@ -577,10 +581,12 @@ def procesar_solicitud(solicitud_id):
     conn = get_db()
     accion = request.form.get('accion')
     tipo = request.form.get('tipo')
+    # CORRECCIÓN: Redirigir a la nueva página de solicitudes
+    redirect_url = url_for('solicitudes_pendientes')
 
     if not all([conn, accion, tipo]):
         flash("Error en la solicitud.", "danger")
-        return redirect(url_for('gestion_administrativa'))
+        return redirect(redirect_url)
 
     nuevo_estado_solicitud = 'Aprobada' if accion == 'aprobar' else 'Rechazada'
     
@@ -590,7 +596,7 @@ def procesar_solicitud(solicitud_id):
             solicitud = cur.fetchone()
             if not solicitud:
                 flash("La solicitud no existe.", "error")
-                return redirect(url_for('gestion_administrativa'))
+                return redirect(redirect_url)
 
             cur.execute(
                 "UPDATE solicitudes SET estado = %s, revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
@@ -616,7 +622,7 @@ def procesar_solicitud(solicitud_id):
         conn.rollback()
         flash(f"Error al procesar la solicitud: {e}", "error")
     
-    return redirect(url_for('gestion_administrativa'))
+    return redirect(redirect_url)
 
 # --- MÓDULO COMERCIAL ---
 @app.route('/comercial/dashboard')
