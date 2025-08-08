@@ -116,11 +116,14 @@
                                 <strong>{{ solicitud.nombre_cliente }}</strong><br>
                                 <small class="text-muted">{{ solicitud.fecha_creacion | format_datetime }}</small>
                             </div>
-                            <form action="{{ url_for('procesar_solicitud', solicitud_id=solicitud.id) }}" method="POST" class="d-inline">
-                                <input type="hidden" name="tipo" value="retiro">
-                                <button type="submit" name="accion" value="aprobar" class="btn btn-sm btn-success">Aprobar</button>
-                                <button type="submit" name="accion" value="rechazar" class="btn btn-sm btn-danger">Rechazar</button>
-                            </form>
+                            <button class="btn btn-sm btn-outline-dark manage-btn" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#retiroModal"
+                                    data-action-url="{{ url_for('procesar_solicitud', solicitud_id=solicitud.id) }}"
+                                    data-cliente-nombre="{{ solicitud.nombre_cliente }}"
+                                    data-fecha-solicitud="{{ solicitud.fecha_creacion | format_datetime }}">
+                                Gestionar
+                            </button>
                         </div>
                         {% else %}
                         <div class="list-group-item text-muted text-center">No hay solicitudes de retiro.</div>
@@ -140,11 +143,14 @@
                                 <strong>{{ solicitud.nombre_cliente }}</strong><br>
                                 <small class="text-muted">{{ solicitud.fecha_creacion | format_datetime }}</small>
                             </div>
-                            <form action="{{ url_for('procesar_solicitud', solicitud_id=solicitud.id) }}" method="POST" class="d-inline">
-                                <input type="hidden" name="tipo" value="congelamiento">
-                                <button type="submit" name="accion" value="aprobar" class="btn btn-sm btn-success">Aprobar</button>
-                                <button type="submit" name="accion" value="rechazar" class="btn btn-sm btn-danger">Rechazar</button>
-                            </form>
+                             <button class="btn btn-sm btn-outline-dark manage-btn" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#congelamientoModal"
+                                    data-action-url="{{ url_for('procesar_solicitud', solicitud_id=solicitud.id) }}"
+                                    data-cliente-nombre="{{ solicitud.nombre_cliente }}"
+                                    data-fecha-solicitud="{{ solicitud.fecha_creacion | format_datetime }}">
+                                Gestionar
+                            </button>
                         </div>
                         {% else %}
                         <div class="list-group-item text-muted text-center">No hay solicitudes de congelamiento.</div>
@@ -155,11 +161,64 @@
         </div>
     </div>
 
+    <!-- Modals de Gestión -->
+    <!-- Modal para Retiros -->
+    <div class="modal fade" id="retiroModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="retiroForm" method="POST">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Gestionar Solicitud de Retiro</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p><strong>Cliente:</strong> <span id="retiroClienteNombre"></span></p>
+                        <p><strong>Fecha de Solicitud:</strong> <span id="retiroFechaSolicitud"></span></p>
+                        <hr>
+                        <p>Seleccione una acción para esta solicitud. Esta operación cambiará el estatus del cliente.</p>
+                        <input type="hidden" name="tipo" value="retiro">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" name="accion" value="rechazar" class="btn btn-danger">Rechazar</button>
+                        <button type="submit" name="accion" value="aprobar" class="btn btn-success">Aprobar Retiro</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Congelamientos -->
+    <div class="modal fade" id="congelamientoModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="congelamientoForm" method="POST">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Gestionar Solicitud de Congelamiento</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p><strong>Cliente:</strong> <span id="congelamientoClienteNombre"></span></p>
+                        <p><strong>Fecha de Solicitud:</strong> <span id="congelamientoFechaSolicitud"></span></p>
+                        <hr>
+                        <p>Seleccione una acción para esta solicitud. Esta operación cambiará el estatus del cliente.</p>
+                        <input type="hidden" name="tipo" value="congelamiento">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" name="accion" value="rechazar" class="btn btn-danger">Rechazar</button>
+                        <button type="submit" name="accion" value="aprobar" class="btn btn-success">Aprobar Congelamiento</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- FullCalendar JS -->
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/es.js'></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Lógica del Calendario (sin cambios)
             var calendarEl = document.getElementById('calendar');
             var calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
@@ -175,8 +234,44 @@
                 }
             });
             calendar.render();
+
+            // Lógica para poblar los Modales
+            const retiroModal = document.getElementById('retiroModal');
+            if (retiroModal) {
+                retiroModal.addEventListener('show.bs.modal', function(event) {
+                    const button = event.relatedTarget;
+                    const actionUrl = button.getAttribute('data-action-url');
+                    const clienteNombre = button.getAttribute('data-cliente-nombre');
+                    const fechaSolicitud = button.getAttribute('data-fecha-solicitud');
+
+                    const modalForm = retiroModal.querySelector('#retiroForm');
+                    const modalClienteNombre = retiroModal.querySelector('#retiroClienteNombre');
+                    const modalFechaSolicitud = retiroModal.querySelector('#retiroFechaSolicitud');
+
+                    modalForm.action = actionUrl;
+                    modalClienteNombre.textContent = clienteNombre;
+                    modalFechaSolicitud.textContent = fechaSolicitud;
+                });
+            }
+            
+            const congelamientoModal = document.getElementById('congelamientoModal');
+            if (congelamientoModal) {
+                congelamientoModal.addEventListener('show.bs.modal', function(event) {
+                    const button = event.relatedTarget;
+                    const actionUrl = button.getAttribute('data-action-url');
+                    const clienteNombre = button.getAttribute('data-cliente-nombre');
+                    const fechaSolicitud = button.getAttribute('data-fecha-solicitud');
+
+                    const modalForm = congelamientoModal.querySelector('#congelamientoForm');
+                    const modalClienteNombre = congelamientoModal.querySelector('#congelamientoClienteNombre');
+                    const modalFechaSolicitud = congelamientoModal.querySelector('#congelamientoFechaSolicitud');
+
+                    modalForm.action = actionUrl;
+                    modalClienteNombre.textContent = clienteNombre;
+                    modalFechaSolicitud.textContent = fechaSolicitud;
+                });
+            }
         });
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
