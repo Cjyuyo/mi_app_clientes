@@ -10,13 +10,11 @@
     <style>
         :root {
             --azul-corporativo: #2B3A55;
-            --azul-profundo-finanzas: #364766;
-            --gris-fondo: #f4f7fc;
+            --azul-profundo-finanzas: #0056b3;
+            --gris-fondo: #f0f2f5;
             --blanco-tarjetas: #FFFFFF;
             --texto-oscuro: #212529;
             --texto-claro: #6c757d;
-            --borde-sutil: #e9ecef;
-            --theme-color: var(--azul-profundo-finanzas);
         }
         body { 
             background-color: var(--gris-fondo); 
@@ -26,32 +24,27 @@
             background-color: var(--azul-corporativo); 
         }
         .main-header { 
-            background-color: var(--theme-color); 
+            background-color: var(--azul-profundo-finanzas); 
             color: var(--blanco-tarjetas); 
             padding: 3rem 1.5rem; 
             text-align: center; 
+            border-bottom: 5px solid #004a99;
         }
         .main-header h1 { font-weight: 700; font-size: 2.5rem; }
         .content-card { 
             background-color: var(--blanco-tarjetas); 
             border-radius: .75rem; 
-            box-shadow: 0 4px 25px rgba(0,0,0,0.05); 
-        }
-        .content-card-header {
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid var(--borde-sutil);
-            font-size: 1.2rem;
-            font-weight: 500;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.08);
+            border: none;
         }
         .balance-card { 
             text-align: center; 
             padding: 1.5rem; 
-            background-color: var(--gris-fondo); 
+            background-color: #f8f9fa; 
             border-radius: .5rem; 
             height: 100%; 
-            border: 1px solid var(--borde-sutil);
         }
-        .balance-card .amount { font-size: 1.8rem; font-weight: 700; }
+        .balance-card .amount { font-size: 1.75rem; font-weight: 700; }
         .balance-card .label { font-size: 0.9rem; color: var(--texto-claro); }
         .sub-balance { font-size: 0.85rem; color: #495057; }
         .loss-card .amount { color: #dc3545; }
@@ -119,39 +112,46 @@
             </div>
         </div>
 
-        <!-- Contenido Principal: Balances e Historial -->
         <div class="row g-4">
+            <!-- Columna de Balances -->
             <div class="col-lg-5">
                 <div class="content-card">
-                    <div class="content-card-header">
+                    <div class="card-header bg-dark text-white">
                         <h5 class="mb-0">Balances al {{ fecha_reporte | format_date }}</h5>
                     </div>
                     <div class="card-body p-4">
                         <div class="row g-3">
                             <div class="col-12">
-                                <div class="balance-card" style="background-color: #eaf2ff; border-color: #b6d4fe;">
-                                    <div class="amount" style="color: var(--azul-corporativo);">${{ "{:,.2f}".format(resumen.balance_general_consolidado_usd) }}</div>
+                                <div class="balance-card bg-primary-subtle border border-primary-subtle">
+                                    <div class="amount text-primary" style="font-size: 2rem;">${{ "{:,.2f}".format(resumen.balance_general_consolidado_usd) }}</div>
                                     <div class="label">Balance General Consolidado (USD)</div>
                                 </div>
                             </div>
                             <div class="col-6"><div class="balance-card"><div class="amount text-success">${{ "{:,.2f}".format(resumen.EFECTIVO_USD) }}</div><div class="label">Efectivo USD</div></div></div>
                             <div class="col-6"><div class="balance-card"><div class="amount text-warning">${{ "{:,.2f}".format(resumen.BINANCE_USDT) }}</div><div class="label">Binance USDT</div></div></div>
+                            
+                            <!-- Desglose de Caja en Bolívares -->
+                            <div class="col-6"><div class="balance-card"><div class="amount text-info" style="font-size: 1.5rem;">Bs. {{ "{:,.2f}".format(resumen.CAJA_BS_USD) }}</div><div class="label">Caja Bs (USD Ref)</div></div></div>
+                            <div class="col-6"><div class="balance-card"><div class="amount text-info" style="font-size: 1.5rem;">Bs. {{ "{:,.2f}".format(resumen.CAJA_BS_EUR) }}</div><div class="label">Caja Bs (EUR Ref)</div></div></div>
                             <div class="col-12">
                                 <div class="balance-card">
                                     <div class="amount text-secondary">Bs. {{ "{:,.2f}".format(resumen.balance_bs_consolidado_bs) }}</div>
-                                    <div class="label mb-2">Caja de Bolívares (BS)</div>
+                                    <div class="label mb-2">Consolidado Bolívares (BS)</div>
                                     <div class="sub-balance"><strong>Equivale a:</strong> ${{ "{:,.2f}".format(resumen.balance_bs_consolidado_usd) }}</div>
+                                    <div class="sub-balance"><strong>Tasa Ponderada:</strong> {{ "{:,.2f}".format(resumen.tasa_ponderada_bs) }} Bs/USD</div>
                                 </div>
                             </div>
+                            
                             <div class="col-6"><div class="balance-card loss-card"><div class="amount">(${{ "{:,.2f}".format(resumen.acumulado_perdida_devaluacion) }})</div><div class="label">Pérdida Devaluación</div></div></div>
                             <div class="col-6"><div class="balance-card loss-card"><div class="amount">(${{ "{:,.2f}".format(resumen.acumulado_perdida_conversion) }})</div><div class="label">Pérdida Conversión</div></div></div>
                         </div>
                     </div>
                 </div>
             </div>
+            <!-- Columna de Historial -->
             <div class="col-lg-7">
-                <div class="content-card">
-                    <div class="content-card-header">
+                <div class="content-card h-100">
+                    <div class="card-header">
                         <h5 class="mb-0">Historial de Movimientos del Día</h5>
                     </div>
                     <div class="card-body p-0">
