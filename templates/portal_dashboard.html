@@ -153,7 +153,6 @@
             {% endif %}
         {% endwith %}
 
-        <!-- Tarjeta de Cita Confirmada -->
         {% if cita_confirmada %}
         <div class="info-card cita">
             <div class="info-card-header">
@@ -163,7 +162,6 @@
             <div class="info-card-body">
                 <p>¡Tu cita ha sido agendada con éxito!</p>
                 <ul class="list-unstyled mb-0">
-                    <!-- CAMBIO: Se muestra el mes y día en español -->
                     <li><strong>Fecha:</strong> {{ cita_confirmada.detalles.fecha_cita | format_date('%A, %d de %B de %Y') }}</li>
                     <li><strong>Hora:</strong> {{ cita_confirmada.detalles.hora_cita }}</li>
                     <li><strong>Te atenderá:</strong> {{ cita_confirmada.nombre_asesor }}</li>
@@ -212,7 +210,6 @@
                     <i class="bi bi-calendar-check"></i> Solicitar Cita
                 </button>
                 
-                <!-- CAMBIO: Lógica para mostrar botón de congelar/descongelar -->
                 {% if esta_congelado %}
                     <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#descongelamientoModal">
                         <i class="bi bi-unlock-fill"></i> Descongelar Plan
@@ -228,8 +225,6 @@
                 </button>
             </div>
         </div>
-
-        <!-- Resto del archivo sin cambios... -->
         
         <div class="content-card">
             <div class="content-card-header">
@@ -278,7 +273,7 @@
             </div>
             <div class="payment-history-body">
                 {% if cliente.pagos %}
-                    {% for pago in cliente.pagos %}
+                    {% for pago in pagos %}
                     <div class="payment-row">
                         <div class="payment-info">
                             <span class="payment-concept">{{ pago.por_concepto_de or 'N/D' }}</span>
@@ -322,8 +317,8 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% if cliente.ofertas %}
-                                {% for oferta in cliente.ofertas %}
+                            {% if ofertas %}
+                                {% for oferta in ofertas %}
                                 <tr>
                                     <td>{{ oferta.fecha_oferta | format_date }}</td>
                                     <td>{{ oferta.cuotas_ofertadas }}</td>
@@ -346,6 +341,30 @@
                 </div>
             </div>
         </div>
+
+        <div class="content-card">
+            <div class="content-card-header">
+                <h2>Mi Historial de Eventos</h2>
+                <p>Un registro de todas las solicitudes y acciones importantes en tu cuenta.</p>
+            </div>
+            <div class="payment-history-body">
+                {% if historial_eventos %}
+                    {% for event in historial_eventos %}
+                    <div class="payment-row" style="grid-template-columns: 1fr; align-items: start;">
+                        <div class="payment-info">
+                            <span class="payment-concept">{{ event.tipo }}</span>
+                            <span class="payment-meta">{{ event.fecha | format_datetime }}</span>
+                            <div class="mt-2" style="font-size: 0.9em; line-height: 1.6;">
+                               {{ event.descripcion | safe }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-center text-muted p-3">No hay eventos registrados en tu historial.</p>
+                {% endif %}
+            </div>
+        </div>
     </div>
 
     <div class="modal fade" id="ofertaModal" tabindex="-1">
@@ -360,7 +379,6 @@
                         <p>Selecciona la cantidad de cuotas que deseas ofertar para el próximo evento de adjudicación.</p>
                         <div class="mb-3">
                             <label for="cuotasOfertadas" class="form-label">Cantidad de Cuotas</label>
-                            <!-- CAMBIO: Se generan las opciones dinámicamente -->
                             <select class="form-select" id="cuotasOfertadas" name="cuotas_ofertadas" required>
                                 {% set cuotas_restantes = (cliente.cuotas_totales|int) - (cliente.cuotas_pagadas_progresivas|int) %}
                                 {% for i in range(1, cuotas_restantes + 1) %}
@@ -423,7 +441,6 @@
                     </div>
                     <div class="modal-body">
                         <p>Para solicitar el congelamiento de tu plan, por favor completa los siguientes campos. Un asesor revisará tu solicitud.</p>
-                        <!-- CAMBIO: Se añade desplegable de tiempo y campo de motivo -->
                         <div class="mb-3">
                             <label for="tiempo_congelamiento" class="form-label">Tiempo de Congelamiento</label>
                             <select class="form-select" id="tiempo_congelamiento" name="tiempo_congelamiento" required>
@@ -444,7 +461,6 @@
             </div>
         </div>
     </div>
-    <!-- CAMBIO: Nuevo modal para descongelar -->
     <div class="modal fade" id="descongelamientoModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -524,7 +540,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Lógica para el modal de citas
             const formCita = document.getElementById('formCita');
             if (formCita) {
                 const fechaCitaInput = document.getElementById('fechaCita');
@@ -540,11 +555,11 @@
                 
                 const horarios = {
                     manana: ["10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM"],
-                    tarde: ["04:00 PM", "04:30 PM"]
+                    tarde: ["04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM"]
                 };
 
                 const resetCitaForm = () => {
-                    fechaCitaInput.value = '';
+                    formCita.reset();
                     timeSlotContainer.innerHTML = '';
                     citaFeedback.textContent = 'Seleccione una fecha para ver los horarios.';
                     citaFeedback.className = 'text-center text-muted';
@@ -552,20 +567,29 @@
                     horaSeleccionadaInput.value = '';
                 };
 
-                citaModal.addEventListener('show.bs.modal', resetCitaForm);
+                citaModal.addEventListener('hidden.bs.modal', resetCitaForm);
 
                 fechaCitaInput.addEventListener('change', async function() {
                     const fechaSeleccionada = this.value;
+                    const diaSemana = new Date(fechaSeleccionada + 'T00:00:00').getUTCDay();
+                    
                     timeSlotContainer.innerHTML = '<div class="d-flex justify-content-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div></div>';
                     citaFeedback.textContent = '';
                     btnEnviarCita.disabled = true;
                     horaSeleccionadaInput.value = '';
 
+                    // Deshabilitar fines de semana (Sábado=5, Domingo=6 en JS con getUTCDay)
+                    if (diaSemana === 5 || diaSemana === 6) {
+                        timeSlotContainer.innerHTML = '';
+                        citaFeedback.textContent = 'No se agendan citas los fines de semana. Por favor, elija un día de Lunes a Viernes.';
+                        citaFeedback.className = 'alert alert-warning text-center';
+                        return;
+                    }
+
                     try {
                         const response = await fetch(`${availabilityUrl}?fecha=${fechaSeleccionada}`);
-                        if (!response.ok) {
-                            throw new Error(`Error de red: ${response.statusText}`);
-                        }
+                        if (!response.ok) throw new Error(`Error de red: ${response.statusText}`);
+                        
                         const data = await response.json();
                         timeSlotContainer.innerHTML = ''; 
 
@@ -577,14 +601,14 @@
 
                         const horariosOcupados = data.ocupados || [];
                         const renderizarHorarios = (titulo, bloqueHorarios) => {
-                            let bloqueHTML = `<h6 class="col-12 mt-2">${titulo}</h6>`;
                             let hayHorariosDisponibles = false;
+                            let bloqueHTML = `<h6 class="col-12 mt-2">${titulo}</h6>`;
                             bloqueHorarios.forEach((hora, index) => {
                                 const idUnico = `hora-${titulo.toLowerCase().replace(/[^a-z0-9]/g, '')}-${index}`;
                                 const estaOcupado = horariosOcupados.includes(hora);
                                 if (!estaOcupado) hayHorariosDisponibles = true;
                                 bloqueHTML += `
-                                    <div class="col">
+                                    <div>
                                         <input type="radio" class="btn-check" name="hora_cita_radio" id="${idUnico}" value="${hora}" ${estaOcupado ? 'disabled' : ''}>
                                         <label class="btn btn-outline-primary w-100" for="${idUnico}">${hora}</label>
                                     </div>
@@ -594,13 +618,16 @@
                         };
                         
                         const bloqueManana = renderizarHorarios("Mañana (10:00 AM - 01:00 PM)", horarios.manana);
-                        const bloqueTarde = renderizarHorarios("Tarde (04:00 PM - 05:00 PM)", horarios.tarde);
+                        const bloqueTarde = renderizarHorarios("Tarde (04:00 PM - 06:00 PM)", horarios.tarde);
 
                         timeSlotContainer.innerHTML = bloqueManana.html + bloqueTarde.html;
 
                         if (!bloqueManana.disponibles && !bloqueTarde.disponibles) {
                              citaFeedback.textContent = 'No hay horarios disponibles para este día. Por favor, seleccione otra fecha.';
                              citaFeedback.className = 'alert alert-info text-center';
+                        } else {
+                            citaFeedback.textContent = '';
+                            citaFeedback.className = 'text-center text-muted';
                         }
 
                     } catch (error) {
@@ -614,12 +641,15 @@
                 timeSlotContainer.addEventListener('change', function(event) {
                     if (event.target.name === 'hora_cita_radio') {
                         horaSeleccionadaInput.value = event.target.value;
-                        btnEnviarCita.disabled = false;
+                        btnEnviarCita.disabled = !document.getElementById('motivoCita').value.trim();
                     }
+                });
+
+                document.getElementById('motivoCita').addEventListener('input', function() {
+                     btnEnviarCita.disabled = !horaSeleccionadaInput.value || !this.value.trim();
                 });
             }
 
-            // Lógica para el modal de retiro
             const retiroModalEl = document.getElementById('retiroModal');
             if (retiroModalEl) {
                 const paso1 = retiroModalEl.querySelector('#retiroPaso1');
@@ -628,21 +658,24 @@
                 const btnSi = retiroModalEl.querySelector('#btnRetiroSi');
                 const btnNo = retiroModalEl.querySelector('#btnRetiroNo');
                 const btnConfirmar = retiroModalEl.querySelector('#btnConfirmarRetiro');
+
                 const resetModalRetiro = () => {
                     paso1.style.display = 'block';
                     paso2.style.display = 'none';
                     paso3.style.display = 'none';
                     btnConfirmar.disabled = true;
-                    retiroModalEl.querySelector('#fecha_correo_retiro').value = '';
-                    retiroModalEl.querySelector('#email_origen_retiro').value = '';
+                    retiroModalEl.querySelector('form').reset();
                 };
-                retiroModalEl.addEventListener('show.bs.modal', resetModalRetiro);
+
+                retiroModalEl.addEventListener('hidden.bs.modal', resetModalRetiro);
+
                 btnSi.addEventListener('click', () => {
                     paso1.style.display = 'none';
                     paso2.style.display = 'block';
                     paso3.style.display = 'none';
                     btnConfirmar.disabled = false;
                 });
+
                 btnNo.addEventListener('click', () => {
                     paso1.style.display = 'none';
                     paso2.style.display = 'none';

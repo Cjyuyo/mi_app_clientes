@@ -2133,12 +2133,67 @@ def portal_dashboard():
             primera_cuota_pagada = any(p.get('tipo_pago') == 'Cuota' and p.get('estado_pago') == 'Conciliado' for p in cliente_dict['pagos'])
             puede_registrar_oferta = inscripcion_completa and primera_cuota_pagada
 
+            # ===== INICIO: LÓGICA DE HISTORIAL DE EVENTOS =====
+            cur.execute("""
+                SELECT 'Solicitud' AS event_source, tipo_solicitud, detalles, fecha_creacion AS fecha, estado, revisado_por_id, null as usuario_nombre
+                FROM solicitudes
+                WHERE cliente_id = %s
+                UNION ALL
+                SELECT 'Auditoria' AS event_source, accion AS tipo_solicitud, detalles, timestamp AS fecha, 'N/A' as estado, usuario_id as revisado_por_id, usuario_nombre
+                FROM registros_auditoria
+                WHERE cliente_afectado_id = %s
+                ORDER BY fecha DESC;
+            """, (cliente_dict['id'], cliente_dict['id']))
+
+            raw_events = cur.fetchall()
+            admin_cache = {}
+            historial_eventos = []
+
+            for event in raw_events:
+                evento_fmt = {'fecha': event['fecha']}
+                detalles = event.get('detalles', {})
+                if isinstance(detalles, str):
+                    try:
+                        detalles = json.loads(detalles) if detalles else {}
+                    except json.JSONDecodeError:
+                        detalles = {}
+
+                if event['event_source'] == 'Solicitud':
+                    evento_fmt['tipo'] = f"Solicitud de {event['tipo_solicitud']}"
+                    descripcion = f"<b>Estado:</b> <span class='fw-bold'>{event['estado']}</span>"
+                    if event['estado'] != 'Pendiente':
+                        revisado_por_id = event.get('revisado_por_id')
+                        if revisado_por_id:
+                            if revisado_por_id not in admin_cache:
+                                cur.execute("SELECT usuario FROM administradores WHERE id = %s", (revisado_por_id,))
+                                admin = cur.fetchone()
+                                admin_cache[revisado_por_id] = admin['usuario'] if admin else 'Sistema'
+                            evento_fmt['usuario'] = admin_cache.get(revisado_por_id)
+                            descripcion += f" <br><b>Revisado por:</b> {evento_fmt['usuario']}"
+                    
+                    if 'motivo' in detalles:
+                        descripcion += f"<br><b>Motivo:</b> {detalles.get('motivo', '')}"
+                    if 'fecha_cita' in detalles:
+                        descripcion += f" <br><b>Fecha Cita:</b> {detalles.get('fecha_cita')} a las {detalles.get('hora_cita')}"
+                    if 'tiempo_congelamiento' in detalles:
+                        descripcion += f" <br><b>Duración:</b> {detalles.get('tiempo_congelamiento')}"
+                    evento_fmt['descripcion'] = descripcion
+
+                else: # Es un evento de auditoría
+                    evento_fmt['tipo'] = f"Acción de Cuenta: {event['tipo_solicitud']}"
+                    evento_fmt['descripcion'] = event.get('descripcion') or 'Sin detalles.'
+                    evento_fmt['usuario'] = event.get('usuario_nombre') or 'Sistema'
+
+                historial_eventos.append(evento_fmt)
+            # ===== FIN: LÓGICA DE HISTORIAL DE EVENTOS =====
+
             return render_template('portal_dashboard.html', 
                                    cliente=cliente_dict, 
                                    cuota_status=estado_cuota, 
                                    puede_reportar_pago=(not pago_pendiente_existente),
                                    cita_confirmada=cita_confirmada,
-                                   puede_registrar_oferta=puede_registrar_oferta)
+                                   puede_registrar_oferta=puede_registrar_oferta,
+                                   historial_eventos=historial_eventos)
     except psycopg2.Error as e:
         flash(f'Ocurrió un error al cargar su información: {e}', 'error')
         return redirect(url_for('portal_login'))
