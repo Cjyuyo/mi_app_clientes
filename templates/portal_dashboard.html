@@ -52,9 +52,14 @@
             border-left: 5px solid;
         }
         .info-card.cita { border-left-color: var(--azul-info); }
-        .payment-status-card.vigente { border-left-color: var(--verde-exito); }
-        .payment-status-card.mora { border-left-color: var(--rojo-alerta); }
-        .payment-status-card.pagada { border-left-color: var(--texto-claro); }
+        
+        /* Clases para las tarjetas de estado principal */
+        .info-card.naranja-corporativo { border-left-color: var(--naranja-corporativo); }
+        .info-card.azul-info { border-left-color: var(--azul-info); }
+        .info-card.en.mora { border-left-color: var(--rojo-alerta); }
+        .info-card.vigente { border-left-color: var(--verde-exito); }
+        .info-card.pagada { border-left-color: var(--texto-claro); }
+
         .info-card-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
         .info-card-header .icon { font-size: 1.5rem; }
         .info-card-header h3 { margin: 0; font-size: 1.1rem; font-weight: 500; }
@@ -64,7 +69,7 @@
         .status-header h3 { margin: 0; font-size: 1.1rem; font-weight: 500; }
         .status-header .status-label { font-weight: bold; padding: 5px 12px; border-radius: 15px; color: white; font-size: 12px; }
         .status-label.vigente { background-color: var(--verde-exito); }
-        .status-label.mora { background-color: var(--rojo-alerta); }
+        .status-label.en.mora { background-color: var(--rojo-alerta); }
         .status-label.pagada { background-color: var(--texto-claro); }
         .btn-reportar { background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo); }
         .btn-reportar:hover { background-color: #d87e12; border-color: #d87e12; }
@@ -171,31 +176,54 @@
         </div>
         {% endif %}
 
-        {% set puede_interactuar = cliente.estatus | upper == 'ACTIVO' %}
-        {% set esta_congelado = cliente.estatus | upper == 'CONGELADO' %}
-        
-        {% if cliente.estatus != 'RESERVA' and not esta_congelado %}
-        <div class="info-card payment-status-card {{ cuota_status.estado | lower }}">
-             <div class="status-header">
-                 <h3>Cuota de {{ cuota_status.mes }}</h3>
-                 <span class="status-label {{ cuota_status.estado | lower }}">{{ cuota_status.estado }}</span>
+        <!-- INICIO: Lógica de Estado Principal en 3 Etapas -->
+        {% if estado_principal %}
+            {# ETAPA 1: PENDIENTE POR INSCRIPCIÓN #}
+            {% if estado_principal.tipo == 'inscripcion' %}
+            <div class="info-card {{ estado_principal.clase_borde }}">
+                <div class="status-header">
+                    <h3>{{ estado_principal.titulo }}</h3>
+                </div>
+                <div class="status-body mt-2">
+                    <p>{{ estado_principal.mensaje }}</p>
+                    <a href="{{ estado_principal.boton_url }}" class="btn btn-primary btn-reportar btn-sm mt-2">{{ estado_principal.boton_texto }}</a>
+                </div>
             </div>
-            <div class="status-body">
-                {% if cuota_status.estado == 'Pagada' %}
-                    {{ cuota_status.mensaje }}
-                {% elif cuota_status.estado == 'Vigente' %}
-                    Tu fecha de vencimiento es el <strong>{{ cuota_status.fecha_vencimiento }}</strong>.
-                    <a href="{{ url_for('portal_reportar_pago') }}" class="btn btn-primary btn-reportar btn-sm mt-2 {% if not puede_reportar_pago %}disabled{% endif %}">Reportar Pago</a>
-                {% else %}
-                    Tu cuota ha vencido. Por favor, realiza tu pago lo antes posible.
-                    <a href="{{ url_for('portal_reportar_pago') }}" class="btn btn-danger btn-sm mt-2 {% if not puede_reportar_pago %}disabled{% endif %}">Reportar Pago Atrasado</a>
-                {% endif %}
-                {% if not puede_reportar_pago %}
-                <small class="d-block text-muted mt-1">Tienes un pago pendiente de revisión y no puedes reportar otro hasta que sea procesado.</small>
-                {% endif %}
+
+            {# ETAPA 2: PENDIENTE POR ACTIVACIÓN (1RA CUOTA) #}
+            {% elif estado_principal.tipo == 'activacion' %}
+            <div class="info-card {{ estado_principal.clase_borde }}">
+                <div class="status-header">
+                    <h3>{{ estado_principal.titulo }}</h3>
+                </div>
+                <div class="status-body mt-2">
+                    <p>{{ estado_principal.mensaje }}</p>
+                    <a href="{{ estado_principal.boton_url }}" class="btn btn-info btn-sm mt-2">{{ estado_principal.boton_texto }}</a>
+                </div>
             </div>
-        </div>
+
+            {# ETAPA 3: PLAN ACTIVO (CICLO DE COBRANZA NORMAL) #}
+            {% elif estado_principal.tipo == 'cuota_mensual' %}
+            <div class="info-card {{ estado_principal.clase_borde }}">
+                <div class="status-header">
+                    <h3>{{ estado_principal.titulo }}</h3>
+                    <span class="status-label {{ estado_principal.estado_label | lower }}">{{ estado_principal.estado_label }}</span>
+                </div>
+                <div class="status-body mt-2">
+                    <p>{{ estado_principal.mensaje | safe }}</p>
+                    {% if estado_principal.estado_label in ['Vigente', 'En Mora'] %}
+                        <a href="{{ url_for('portal_reportar_pago') }}" class="btn btn-primary btn-reportar btn-sm mt-2 {% if not estado_principal.puede_reportar_pago %}disabled{% endif %}">
+                            Reportar Pago
+                        </a>
+                        {% if not estado_principal.puede_reportar_pago %}
+                        <small class="d-block text-muted mt-1">Tienes un pago pendiente de revisión y no puedes reportar otro hasta que sea procesado.</small>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
         {% endif %}
+        <!-- FIN: Lógica de Estado Principal -->
         
         <div class="content-card">
             <div class="content-card-header">
@@ -203,24 +231,24 @@
                 <p>Gestiona tu plan o agenda una cita con nosotros.</p>
             </div>
             <div class="card-body d-flex flex-wrap justify-content-center gap-2 p-3">
-                <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#ofertaModal" {% if not puede_registrar_oferta or esta_congelado %}disabled title="Debes tener tu inscripción y al menos una cuota pagada para ofertar."{% endif %}>
+                <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#ofertaModal" {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled title="Debes tener tu inscripción y al menos una cuota pagada para ofertar."{% endif %}>
                     <i class="bi bi-gem"></i> Registrar Oferta
                 </button>
                 <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#citaModal">
                     <i class="bi bi-calendar-check"></i> Solicitar Cita
                 </button>
                 
-                {% if esta_congelado %}
+                {% if cliente.estatus == 'CONGELADO' %}
                     <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#descongelamientoModal">
                         <i class="bi bi-unlock-fill"></i> Descongelar Plan
                     </button>
                 {% else %}
-                    <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#congelamientoModal" {% if not puede_interactuar %}disabled{% endif %}>
+                    <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#congelamientoModal" {% if cliente.estatus != 'ACTIVO' %}}disabled{% endif %}>
                         <i class="bi bi-snow"></i> Congelar Plan
                     </button>
                 {% endif %}
                 
-                <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#retiroModal" {% if not puede_interactuar %}disabled{% endif %}>
+                <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#retiroModal" {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}>
                     <i class="bi bi-box-arrow-left"></i> Solicitar Retiro
                 </button>
             </div>
@@ -273,7 +301,7 @@
             </div>
             <div class="payment-history-body">
                 {% if cliente.pagos %}
-                    {% for pago in pagos %}
+                    {% for pago in cliente.pagos %}
                     <div class="payment-row">
                         <div class="payment-info">
                             <span class="payment-concept">{{ pago.por_concepto_de or 'N/D' }}</span>
@@ -317,8 +345,8 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% if ofertas %}
-                                {% for oferta in ofertas %}
+                            {% if cliente.ofertas %}
+                                {% for oferta in cliente.ofertas %}
                                 <tr>
                                     <td>{{ oferta.fecha_oferta | format_date }}</td>
                                     <td>{{ oferta.cuotas_ofertadas }}</td>
@@ -367,6 +395,7 @@
         </div>
     </div>
 
+    <!-- Modales (sin cambios) -->
     <div class="modal fade" id="ofertaModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">

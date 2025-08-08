@@ -351,7 +351,14 @@ def admin_logout():
 # --- RUTAS PRINCIPALES Y DE NAVEGACIÓN ---
 @app.route('/')
 def home():
+    # CAMBIA EL NÚMERO PARA PROBAR CADA CLIENTE (1, 2 o 3)
+    session['client_id'] = 3
+    # En un entorno de producción, esta línea debería redirigir a `admin_login` o a la página de inicio del portal de clientes.
+    # Por ahora, para facilitar el acceso directo al portal del cliente durante el desarrollo:
+    if 'cliente_id' in session:
+        return redirect(url_for('portal_dashboard'))
     return redirect(url_for('hub'))
+
 
 @app.route('/hub')
 @admin_required
@@ -2078,6 +2085,7 @@ def portal_dashboard():
                 return redirect(url_for('portal_login'))
             cliente_dict = dict(cliente)
 
+            # Lógica para autodescongelar si ha pasado la fecha
             if cliente_dict['estatus'] == 'CONGELADO':
                 cur.execute("""
                     SELECT detalles->>'fecha_fin_congelamiento' as fecha_fin 
@@ -2092,6 +2100,7 @@ def portal_dashboard():
                         cur.execute("UPDATE clientes SET estatus = 'INACTIVO' WHERE id = %s", (cliente_dict['id'],))
                         conn.commit()
                         flash("El período de congelamiento de tu plan ha finalizado. Tu estatus ha cambiado a INACTIVO.", "warning")
+                        # Recargar datos del cliente
                         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
                         cliente_dict = dict(cur.fetchone())
 
@@ -2119,21 +2128,63 @@ def portal_dashboard():
             """, (session['cliente_id'],))
             cita_confirmada = cur.fetchone()
 
-            hoy, dia_de_vencimiento = get_venezuela_current_date(), 3
-            pago_del_mes_realizado = any(pago['tipo_pago'] == 'Cuota' and pago['fecha_pago'].year == hoy.year and pago['fecha_pago'].month == hoy.month and pago['estado_pago'] == 'Conciliado' for pago in pagos)
-            estado_cuota = {}
-            if pago_del_mes_realizado:
-                estado_cuota = {'estado': 'Pagada', 'mes': get_nombre_mes(hoy.month), 'mensaje': 'Tu cuota de este mes ya fue procesada.'}
-            elif hoy.day <= dia_de_vencimiento:
-                estado_cuota = {'estado': 'Vigente', 'mes': get_nombre_mes(hoy.month), 'fecha_vencimiento': f"{dia_de_vencimiento:02d}/{hoy.month:02d}/{hoy.year}"}
-            else:
-                estado_cuota = {'estado': 'En Mora', 'mes': get_nombre_mes(hoy.month), 'fecha_vencimiento': f"{dia_de_vencimiento:02d}/{hoy.month:02d}/{hoy.year}"}
-            
+            # ===== INICIO: LÓGICA DE 3 ETAPAS =====
+            estado_principal = {}
             inscripcion_completa = (cliente_dict.get('inscripcion_pagada') or 0) >= (cliente_dict.get('inscripcion_monto') or 0)
             primera_cuota_pagada = any(p.get('tipo_pago') == 'Cuota' and p.get('estado_pago') == 'Conciliado' for p in cliente_dict['pagos'])
+            
+            if not inscripcion_completa:
+                # ETAPA 1: INSCRIPCIÓN PENDIENTE
+                estado_principal = {
+                    'tipo': 'inscripcion',
+                    'titulo': 'Completa tu Inscripción',
+                    'mensaje': 'Realiza el pago de tu inscripción para poder activar tu plan.',
+                    'boton_texto': 'Pagar Inscripción',
+                    'boton_url': url_for('portal_pagar_inscripcion'),
+                    'clase_borde': 'naranja-corporativo'
+                }
+            elif inscripcion_completa and not primera_cuota_pagada:
+                # ETAPA 2: ACTIVACIÓN PENDIENTE (Pagar 1ra cuota)
+                estado_principal = {
+                    'tipo': 'activacion',
+                    'titulo': '¡Inscripción Exitosa!',
+                    'mensaje': 'Tu plan está listo para ser activado. Realiza el pago de tu primera cuota para comenzar.',
+                    'boton_texto': 'Pagar 1ª Cuota',
+                    'boton_url': url_for('portal_reportar_pago'),
+                    'clase_borde': 'azul-info'
+                }
+            else:
+                # ETAPA 3: PLAN ACTIVO
+                hoy, dia_de_vencimiento = get_venezuela_current_date(), 3
+                pago_del_mes_realizado = any(
+                    pago['tipo_pago'] == 'Cuota' and 
+                    pago['fecha_pago'].year == hoy.year and 
+                    pago['fecha_pago'].month == hoy.month and 
+                    pago['estado_pago'] == 'Conciliado' 
+                    for pago in cliente_dict['pagos'] if pago.get('fecha_pago')
+                )
+                
+                estado_label, mensaje_cuota = '', ''
+                if pago_del_mes_realizado:
+                    estado_label, mensaje_cuota = 'Pagada', 'Tu cuota de este mes ya fue procesada.'
+                elif hoy.day <= dia_de_vencimiento:
+                    estado_label, mensaje_cuota = 'Vigente', f"Tu fecha de vencimiento es el <strong>{dia_de_vencimiento:02d}/{hoy.month:02d}/{hoy.year}</strong>."
+                else:
+                    estado_label, mensaje_cuota = 'En Mora', 'Tu cuota ha vencido. Por favor, realiza tu pago lo antes posible.'
+                
+                estado_principal = {
+                    'tipo': 'cuota_mensual',
+                    'titulo': f"Cuota de {get_nombre_mes(hoy.month)}",
+                    'estado_label': estado_label,
+                    'mensaje': mensaje_cuota,
+                    'clase_borde': estado_label.lower(),
+                    'puede_reportar_pago': not pago_pendiente_existente
+                }
+            # ===== FIN: LÓGICA DE 3 ETAPAS =====
+
             puede_registrar_oferta = inscripcion_completa and primera_cuota_pagada
 
-            # ===== INICIO: LÓGICA DE HISTORIAL DE EVENTOS =====
+            # ===== INICIO: LÓGICA DE HISTORIAL DE EVENTOS (ajustada para el portal) =====
             cur.execute("""
                 SELECT 'Solicitud' AS event_source, tipo_solicitud, detalles, fecha_creacion AS fecha, estado, revisado_por_id, null as usuario_nombre
                 FROM solicitudes
@@ -2141,14 +2192,12 @@ def portal_dashboard():
                 UNION ALL
                 SELECT 'Auditoria' AS event_source, accion AS tipo_solicitud, detalles, timestamp AS fecha, 'N/A' as estado, usuario_id as revisado_por_id, usuario_nombre
                 FROM registros_auditoria
-                WHERE cliente_afectado_id = %s
+                WHERE cliente_afectado_id = %s AND usuario_nombre LIKE 'Cliente%%'
                 ORDER BY fecha DESC;
             """, (cliente_dict['id'], cliente_dict['id']))
 
             raw_events = cur.fetchall()
-            admin_cache = {}
             historial_eventos = []
-
             for event in raw_events:
                 evento_fmt = {'fecha': event['fecha']}
                 detalles = event.get('detalles', {})
@@ -2161,15 +2210,6 @@ def portal_dashboard():
                 if event['event_source'] == 'Solicitud':
                     evento_fmt['tipo'] = f"Solicitud de {event['tipo_solicitud']}"
                     descripcion = f"<b>Estado:</b> <span class='fw-bold'>{event['estado']}</span>"
-                    if event['estado'] != 'Pendiente':
-                        revisado_por_id = event.get('revisado_por_id')
-                        if revisado_por_id:
-                            if revisado_por_id not in admin_cache:
-                                cur.execute("SELECT usuario FROM administradores WHERE id = %s", (revisado_por_id,))
-                                admin = cur.fetchone()
-                                admin_cache[revisado_por_id] = admin['usuario'] if admin else 'Sistema'
-                            evento_fmt['usuario'] = admin_cache.get(revisado_por_id)
-                            descripcion += f" <br><b>Revisado por:</b> {evento_fmt['usuario']}"
                     
                     if 'motivo' in detalles:
                         descripcion += f"<br><b>Motivo:</b> {detalles.get('motivo', '')}"
@@ -2179,24 +2219,91 @@ def portal_dashboard():
                         descripcion += f" <br><b>Duración:</b> {detalles.get('tiempo_congelamiento')}"
                     evento_fmt['descripcion'] = descripcion
 
-                else: # Es un evento de auditoría
-                    evento_fmt['tipo'] = f"Acción de Cuenta: {event['tipo_solicitud']}"
-                    evento_fmt['descripcion'] = event.get('descripcion') or 'Sin detalles.'
-                    evento_fmt['usuario'] = event.get('usuario_nombre') or 'Sistema'
-
+                else: # Es un evento de auditoría del cliente
+                    evento_fmt['tipo'] = f"Acción de Cuenta: {event['tipo_solicitud'].replace('_CLIENTE', '').replace('_', ' ').title()}"
+                    evento_fmt['descripcion'] = detalles.get('descripcion') if isinstance(detalles, dict) and 'descripcion' in detalles else 'Acción registrada en tu cuenta.'
+                
                 historial_eventos.append(evento_fmt)
             # ===== FIN: LÓGICA DE HISTORIAL DE EVENTOS =====
 
             return render_template('portal_dashboard.html', 
                                    cliente=cliente_dict, 
-                                   cuota_status=estado_cuota, 
-                                   puede_reportar_pago=(not pago_pendiente_existente),
+                                   estado_principal=estado_principal,
                                    cita_confirmada=cita_confirmada,
                                    puede_registrar_oferta=puede_registrar_oferta,
                                    historial_eventos=historial_eventos)
-    except psycopg2.Error as e:
-        flash(f'Ocurrió un error al cargar su información: {e}', 'error')
+    except (psycopg2.Error, KeyError) as e:
+        logging.error(f"Error en portal_dashboard: {e}")
+        flash('Ocurrió un error inesperado al cargar tu portal. Inténtalo de nuevo.', 'error')
         return redirect(url_for('portal_login'))
+
+@app.route('/portal/pagar_inscripcion', methods=['GET', 'POST'])
+@portal_login_required
+def portal_pagar_inscripcion():
+    # Esta es una implementación básica. Podría ser más compleja con pasarelas de pago.
+    conn = get_db()
+    if not conn:
+        flash('No se pudo conectar con la base de datos.', 'error')
+        return redirect(url_for('portal_dashboard'))
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
+        cliente = cur.fetchone()
+
+    if not cliente:
+        session.clear()
+        flash('No se encontró su información de cliente.', 'error')
+        return redirect(url_for('portal_login'))
+
+    inscripcion_monto = cliente.get('inscripcion_monto') or Decimal('0.0')
+    inscripcion_pagada = cliente.get('inscripcion_pagada') or Decimal('0.0')
+
+    if inscripcion_pagada >= inscripcion_monto:
+        flash('Tu inscripción ya está completa.', 'info')
+        return redirect(url_for('portal_dashboard'))
+    
+    monto_restante = inscripcion_monto - inscripcion_pagada
+
+    if request.method == 'POST':
+        pago_form = {k: v if v else None for k, v in request.form.items()}
+        if not all(pago_form.get(key) for key in ['monto', 'fecha_pago']):
+            flash('Error: Monto y fecha de pago son campos obligatorios.', 'error')
+            return render_template('portal_pagar_inscripcion.html', cliente=cliente, monto_restante=monto_restante)
+
+        forma_pago = pago_form.get('forma_pago')
+        if forma_pago != 'Efectivo' and not pago_form.get('referencia'):
+            flash('Error: La referencia es obligatoria para este método de pago.', 'error')
+            return render_template('portal_pagar_inscripcion.html', cliente=cliente, monto_restante=monto_restante)
+
+        try:
+            with conn.cursor() as cur:
+                pago_query = """
+                    INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia, monto_bs, 
+                                       estado_pago, cuotas_cubiertas, reportado_por_cliente, estado_reporte, fecha_creacion, detalles_reporte) 
+                    VALUES (%s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, TRUE, 'Pendiente de Revision', %s, %s::jsonb);
+                """
+                fecha_actual_vet = get_venezuela_current_datetime()
+                
+                detalles_pago = {}
+                if forma_pago == 'Pago Móvil':
+                    detalles_pago['telefono_emisor'] = pago_form.get('pago_movil_telefono')
+                    detalles_pago['cedula_emisor'] = pago_form.get('pago_movil_cedula')
+                elif forma_pago == 'Binance':
+                    detalles_pago['usuario_binance'] = pago_form.get('binance_user')
+                detalles_json = json.dumps(detalles_pago) if detalles_pago else None
+
+                cur.execute(pago_query, (session['cliente_id'], pago_form['monto'], forma_pago, pago_form['fecha_pago'], pago_form.get('pago_en'), 
+                                         "Pago de Inscripción", pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('tasa_dia'), 
+                                         pago_form.get('monto_bs'), fecha_actual_vet, detalles_json))
+                conn.commit()
+                flash('✅ ¡Pago de inscripción reportado! Será verificado por un administrador.', 'success')
+                return redirect(url_for('portal_dashboard'))
+        except (psycopg2.Error, ValueError, TypeError) as e:
+            conn.rollback()
+            flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
+
+    return render_template('portal_pagar_inscripcion.html', cliente=cliente, monto_restante=monto_restante)
+
 
 @app.route('/portal/reportar_pago', methods=['GET', 'POST'])
 @portal_login_required
