@@ -47,10 +47,19 @@ def get_proximo_dia_habil(fecha):
 @app.template_filter('format_datetime')
 def format_datetime_filter(value, format='%d/%m/%Y %I:%M %p'):
     """Filtro de Jinja para formatear fechas y horas a la zona horaria de Venezuela."""
+    if isinstance(value, str):
+        try:
+            # Intenta convertir de ISO format string a datetime object
+            value = datetime.fromisoformat(value)
+        except (ValueError, TypeError):
+            return value # Devuelve el string original si no se puede convertir
+            
     if isinstance(value, (datetime, date)):
+        # Si el objeto no tiene timezone, se asume UTC y se convierte a VET
         if value.tzinfo is None:
             value = pytz.utc.localize(value).astimezone(VENEZUELA_TZ)
         else:
+            # Si ya tiene timezone, solo se convierte a VET
             value = value.astimezone(VENEZUELA_TZ)
         return value.strftime(format)
     return value
@@ -274,29 +283,47 @@ def tesoreria_rebalanceo():
                 flash(f"Error: Fondos insuficientes en '{caja_origen}'.", 'danger')
                 return redirect(url_for('tesoreria_rebalanceo'))
             
-            if tipo_operacion in ['PAGO_GASTO', 'PAGO_NOMINA', 'PAGO_SERVICIO']:
+            tasa_aplicada_str = form.get('tasa_aplicada', '0').replace(',', '.')
+            tasa_aplicada = Decimal(tasa_aplicada_str) if tasa_aplicada_str and tasa_aplicada_str != '0' else None
+            perdida_cambiaria = Decimal('0.0')
+
+            # Lógica para egresos (Gastos y Nóminas)
+            if tipo_operacion in ['PAGO_GASTO', 'PAGO_NOMINA']:
                 caja_destino, monto_destino, moneda_destino = 'GASTO_OPERATIVO', monto_origen, moneda_origen
-            else:
+                # FASE 6: Corrección contable para nóminas en Bs desde caja USD
+                if tipo_operacion == 'PAGO_NOMINA' and moneda_origen == 'BS' and 'USD' in caja_origen:
+                    with conn.cursor() as cur_tasa:
+                        cur_tasa.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
+                        tasa_bcv_row = cur_tasa.fetchone()
+                        tasa_bcv = tasa_bcv_row['tasa'] if tasa_bcv_row and tasa_bcv_row['tasa'] else None
+                    if not tasa_bcv or tasa_bcv <= 0:
+                        flash("Error: No se encontró una tasa BCV válida para hoy. No se puede procesar el pago de nómina en Bs.", "danger")
+                        return redirect(url_for('tesoreria_rebalanceo'))
+                    
+                    monto_egreso_en_usd = monto_origen / tasa_bcv
+                    perdida_cambiaria = (monto_origen / tasa_bcv) - (monto_origen / tasa_aplicada) if tasa_aplicada and tasa_aplicada > 0 else Decimal('0.0')
+                    
+                    # Se registra el egreso en USD equivalente
+                    monto_origen, moneda_origen = monto_egreso_en_usd, 'USD'
+                    monto_destino, moneda_destino = monto_egreso_en_usd, 'USD'
+                    nota += f" (Pago original: {monto_origen_str} Bs @ Tasa {tasa_bcv})"
+            else: # Lógica para transferencias y compra/venta
                 caja_destino, monto_destino_str = form.get('caja_destino'), form.get('monto_destino', '0').replace(',', '.')
                 moneda_destino = form.get('moneda_destino')
                 monto_destino = Decimal(monto_destino_str) if monto_destino_str and monto_destino_str != '0' else None
                 if not all([caja_destino, monto_destino, moneda_destino]):
                     flash("Error: Para transferencias, el destino es obligatorio.", 'danger')
                     return redirect(url_for('tesoreria_rebalanceo'))
-
-            tasa_aplicada_str = form.get('tasa_aplicada', '0').replace(',', '.')
-            tasa_aplicada = Decimal(tasa_aplicada_str) if tasa_aplicada_str and tasa_aplicada_str != '0' else None
-            
-            perdida_cambiaria = Decimal('0.0')
-            if tipo_operacion == 'COMPRA_DIVISAS' and moneda_origen == 'BS' and 'USD' in moneda_destino:
-                with conn.cursor() as cur_tasa:
-                    cur_tasa.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
-                    tasa_bcv_row = cur_tasa.fetchone()
-                    tasa_bcv = tasa_bcv_row['tasa'] if tasa_bcv_row and tasa_bcv_row['tasa'] else None
-                if tasa_bcv and tasa_bcv > 0:
-                    valor_real_en_usd_bcv = monto_origen / tasa_bcv
-                    valor_obtenido_en_usd = monto_destino
-                    perdida_cambiaria = valor_real_en_usd_bcv - valor_obtenido_en_usd
+                
+                if tipo_operacion == 'COMPRA_DIVISAS' and moneda_origen == 'BS' and 'USD' in moneda_destino:
+                    with conn.cursor() as cur_tasa:
+                        cur_tasa.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
+                        tasa_bcv_row = cur_tasa.fetchone()
+                        tasa_bcv = tasa_bcv_row['tasa'] if tasa_bcv_row and tasa_bcv_row['tasa'] else None
+                    if tasa_bcv and tasa_bcv > 0:
+                        valor_real_en_usd_bcv = monto_origen / tasa_bcv
+                        valor_obtenido_en_usd = monto_destino
+                        perdida_cambiaria = valor_real_en_usd_bcv - valor_obtenido_en_usd
             
             with conn.cursor() as cur:
                 cur.execute("""
@@ -347,24 +374,33 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
         if vencimiento.year != ano_vencimiento: feriados = get_feriados_venezuela(vencimiento.year)
     return vencimiento
 
-def registrar_accion_auditoria(accion, descripcion, cliente_id=None):
-    if not g.admin:
-        logging.warning(f"AUDITORIA-OMITIDA: Intento de registrar '{accion}' sin un g.admin establecido.")
+def registrar_accion_auditoria(accion, descripcion, cliente_id=None, detalles_adicionales=None):
+    if not g.admin and 'cliente_id' not in session:
+        logging.warning(f"AUDITORIA-OMITIDA: Intento de registrar '{accion}' sin un usuario autenticado.")
         return
+
     conn = get_db()
     if not conn:
         logging.error("AUDITORIA-FALLO-CONEXION: No se pudo obtener conexión a la base de datos.")
         return
+
+    usuario_id = g.admin['id'] if g.admin else None
+    usuario_nombre = g.admin['usuario'] if g.admin else f"Cliente ID {session.get('cliente_id')}"
+    cliente_afectado = cliente_id if cliente_id else session.get('cliente_id')
+    detalles_json = json.dumps(detalles_adicionales) if detalles_adicionales else None
+
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO registros_auditoria (usuario_id, usuario_nombre, accion, descripcion, cliente_afectado_id) VALUES (%s, %s, %s, %s, %s)",
-                (g.admin['id'], g.admin['usuario'], accion, descripcion, cliente_id)
+                "INSERT INTO registros_auditoria (usuario_id, usuario_nombre, accion, descripcion, cliente_afectado_id, detalles) VALUES (%s, %s, %s, %s, %s, %s)",
+                (usuario_id, usuario_nombre, accion, descripcion, cliente_afectado, detalles_json)
             )
-        logging.info(f"AUDITORIA-PRE-REGISTRADA: Usuario '{g.admin['usuario']}' realizó '{accion}'.")
+        logging.info(f"AUDITORIA-REGISTRADA: Usuario '{usuario_nombre}' realizó '{accion}'.")
     except Exception as e:
         logging.error(f"AUDITORIA-FALLO-INSERCION: {e}")
-        raise e
+        # No relanzar la excepción para no romper el flujo principal si la auditoría falla
+        conn.rollback()
+
 
 # --- RUTAS DEL PORTAL DE ADMINISTRACIÓN ---
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -440,11 +476,9 @@ def gestion_administrativa():
     if conn:
         try:
             with conn.cursor() as cur:
-                # Contador de pagos pendientes
                 cur.execute("SELECT COUNT(*) FROM pagos WHERE estado_pago = 'Pendiente' AND (estado_reporte IS NULL OR estado_reporte != 'Inconsistente')")
                 counts['pagos_pendientes'] = cur.fetchone()[0]
                 
-                # Contadores para cada tipo de solicitud pendiente
                 cur.execute("SELECT tipo_solicitud, COUNT(*) as total FROM solicitudes WHERE estado = 'Pendiente' GROUP BY tipo_solicitud")
                 for row in cur.fetchall():
                     if row['tipo_solicitud'] == 'Cita': counts['citas'] = row['total']
@@ -460,9 +494,6 @@ def gestion_administrativa():
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def solicitudes_hub():
-    """
-    NUEVO: Hub central para todas las solicitudes. Muestra contadores y enlaza a las vistas dedicadas.
-    """
     conn = get_db()
     counts = {'citas': 0, 'congelamientos': 0, 'retiros': 0}
     if conn:
@@ -482,19 +513,14 @@ def solicitudes_hub():
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def gestion_citas():
-    """
-    NUEVO: Vista dedicada para gestionar solicitudes de Citas.
-    """
     conn = get_db()
     solicitudes, administradores, citas_aprobadas = {'citas': []}, [], []
     if conn:
         try:
             with conn.cursor() as cur:
-                # Obtener administradores para asignar a las citas
                 cur.execute("SELECT id, usuario FROM administradores WHERE rol IN ('superadmin', 'gerente', 'administradora') ORDER BY usuario")
                 administradores = cur.fetchall()
                 
-                # Obtener solicitudes de citas pendientes
                 cur.execute("""
                     SELECT s.id, s.fecha_creacion, s.detalles, c.nombre || ' ' || c.apellido as nombre_cliente
                     FROM solicitudes s JOIN clientes c ON s.cliente_id = c.id
@@ -502,7 +528,6 @@ def gestion_citas():
                 """)
                 solicitudes['citas'] = cur.fetchall()
 
-                # Obtener citas ya aprobadas y futuras para la agenda
                 cur.execute("""
                     SELECT s.detalles, c.nombre || ' ' || c.apellido as nombre_cliente, a.usuario as nombre_asesor
                     FROM solicitudes s 
@@ -520,9 +545,6 @@ def gestion_citas():
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def gestion_retiros():
-    """
-    NUEVO: Vista dedicada para gestionar solicitudes de Retiro.
-    """
     conn = get_db()
     solicitudes = {'retiros': []}
     if conn:
@@ -542,16 +564,13 @@ def gestion_retiros():
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def gestion_congelamientos():
-    """
-    NUEVO: Vista dedicada para gestionar solicitudes de Congelamiento.
-    """
     conn = get_db()
     solicitudes = {'congelamientos': []}
     if conn:
         try:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT s.id, s.fecha_creacion, c.nombre || ' ' || c.apellido as nombre_cliente
+                    SELECT s.id, s.fecha_creacion, s.detalles, c.nombre || ' ' || c.apellido as nombre_cliente
                     FROM solicitudes s JOIN clientes c ON s.cliente_id = c.id
                     WHERE s.estado = 'Pendiente' AND s.tipo_solicitud = 'Congelamiento' ORDER BY s.fecha_creacion ASC
                 """)
@@ -564,25 +583,22 @@ def gestion_congelamientos():
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def procesar_solicitud(solicitud_id):
-    """
-    MODIFICADO: Ahora redirige a la vista específica del tipo de solicitud procesada.
-    """
     conn = get_db()
     accion = request.form.get('accion')
     tipo = request.form.get('tipo')
 
-    # Mapa para redirigir a la página correcta después de procesar
     redirect_map = {
-        'cita': 'gestion_citas',
-        'retiro': 'gestion_retiros',
-        'congelamiento': 'gestion_congelamientos'
+        'Cita': 'gestion_citas',
+        'Retiro': 'gestion_retiros',
+        'Congelamiento': 'gestion_congelamientos',
+        'Descongelamiento': 'gestion_congelamientos'
     }
-    redirect_url = url_for(redirect_map.get(tipo, 'solicitudes_hub'))
-
+    
     if not all([conn, accion, tipo]):
         flash("Error en la solicitud.", "danger")
-        return redirect(redirect_url)
+        return redirect(url_for('solicitudes_hub'))
 
+    redirect_url = url_for(redirect_map.get(tipo, 'solicitudes_hub'))
     nuevo_estado_solicitud = 'Aprobada' if accion == 'aprobar' else 'Rechazada'
     
     try:
@@ -594,9 +610,9 @@ def procesar_solicitud(solicitud_id):
                 return redirect(redirect_url)
 
             detalles_actualizados = solicitud['detalles'] if solicitud['detalles'] is not None else {}
+            cliente_id = solicitud['cliente_id']
 
-            # Lógica específica para aprobar citas (asignar asesor)
-            if tipo == 'cita' and accion == 'aprobar':
+            if tipo == 'Cita' and accion == 'aprobar':
                 asesor_id = request.form.get('asesor_id')
                 if not asesor_id:
                     flash("Debe asignar un asesor para aprobar la cita.", "error")
@@ -611,21 +627,26 @@ def procesar_solicitud(solicitud_id):
                 detalles_actualizados['asesor_id'] = int(asesor_id)
                 detalles_actualizados['nombre_asesor'] = asesor['usuario']
 
-            # Actualizar la solicitud
             cur.execute(
                 "UPDATE solicitudes SET estado = %s, revisado_por_id = %s, fecha_revision = NOW(), detalles = %s WHERE id = %s",
                 (nuevo_estado_solicitud, g.admin['id'], json.dumps(detalles_actualizados), solicitud_id)
             )
             
-            # Si se aprueba, actualizar el estatus del cliente si es necesario
             if accion == 'aprobar':
-                if tipo == 'retiro':
-                    cur.execute("UPDATE clientes SET estatus = 'RETIRO' WHERE id = %s", (solicitud['cliente_id'],))
-                elif tipo == 'congelamiento':
-                    cur.execute("UPDATE clientes SET estatus = 'CONGELADO' WHERE id = %s", (solicitud['cliente_id'],))
-            
+                if tipo == 'Retiro':
+                    cur.execute("UPDATE clientes SET estatus = 'RETIRO' WHERE id = %s", (cliente_id,))
+                elif tipo == 'Congelamiento':
+                    duracion = detalles_actualizados.get('tiempo_congelamiento', '1 mes')
+                    meses = 2 if '2' in duracion else 1
+                    fecha_fin = get_venezuela_current_date() + timedelta(days=meses * 30)
+                    detalles_actualizados['fecha_fin_congelamiento'] = fecha_fin.isoformat()
+                    cur.execute("UPDATE clientes SET estatus = 'CONGELADO' WHERE id = %s", (cliente_id,))
+                    cur.execute("UPDATE solicitudes SET detalles = %s WHERE id = %s", (json.dumps(detalles_actualizados), solicitud_id))
+                elif tipo == 'Descongelamiento':
+                    cur.execute("UPDATE clientes SET estatus = 'ACTIVO' WHERE id = %s", (cliente_id,))
+
             descripcion_audit = f"{accion.capitalize()} la solicitud de {tipo} N° {solicitud_id}."
-            registrar_accion_auditoria('GESTION_SOLICITUD', descripcion_audit, solicitud['cliente_id'])
+            registrar_accion_auditoria('GESTION_SOLICITUD', descripcion_audit, cliente_id)
             
             conn.commit()
             flash(f"La solicitud de {tipo} ha sido marcada como '{nuevo_estado_solicitud}'.", 'success')
@@ -637,7 +658,7 @@ def procesar_solicitud(solicitud_id):
     return redirect(redirect_url)
 
 # =================================================================================
-# --- FIN: MÓDULO DE GESTIÓN ADMINISTRATIVA Y SOLICITUDES (REFACTORIZADO) ---
+# --- FIN: MÓDULO DE GESTIÓN ADMINISTRATIVA Y SOLICITUDES ---
 # =================================================================================
 
 @app.route('/pagos_por_conciliar')
@@ -956,7 +977,7 @@ def reporte_morosidad():
                     resumen['monto_total_mora'] = sum(c['valor_cuota'] for c in clientes_en_mora if c['valor_cuota'])
         except psycopg2.Error as e:
             flash(f"No se pudo generar el reporte de morosidad: {e}", "error")
-    return render_template('reporte_morosidad.html', clientes_en_mora=clientes_en_mora, gestores=gestores, resumen=resumen, mes_actual=get_nombre_mes(today.month), anio_actual=today.year)
+    return render_template('reporte_morosidad.html', clientes_en_mora=clientes_en_mora, gestores=gestores, mes_actual=get_nombre_mes(today.month), anio_actual=today.year)
 
 @app.route('/asignar_gestor/<int:cliente_id>', methods=['POST'])
 @admin_required
@@ -1104,7 +1125,7 @@ def reporte_flujo_caja():
 @admin_required
 def perfil_cliente(cliente_id):
     conn = get_db()
-    cliente, pagos, gestiones = None, [], []
+    cliente, pagos, gestiones, historial_eventos = None, [], [], []
     if conn:
         try:
             with conn.cursor() as cur:
@@ -1113,18 +1134,63 @@ def perfil_cliente(cliente_id):
                 if not cliente:
                     flash("Cliente no encontrado.", "error")
                     return redirect(url_for('consulta'))
+                
                 cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC", (cliente_id,))
                 pagos = cur.fetchall()
-                query_gestiones = """
+                
+                cur.execute("""
                     SELECT g.nota, g.fecha_creacion, a.usuario as gestor_nombre FROM gestiones_cobranza g
                     JOIN administradores a ON g.gestor_id = a.id WHERE g.cliente_id = %s ORDER BY g.fecha_creacion DESC;
-                """
-                cur.execute(query_gestiones, (cliente_id,))
+                """, (cliente_id,))
                 gestiones = cur.fetchall()
+
+                # FASE 5: Recopilar historial de eventos
+                cur.execute("""
+                    SELECT 'Solicitud de ' || tipo_solicitud AS tipo, detalles, fecha_creacion AS fecha, estado, revisado_por_id
+                    FROM solicitudes 
+                    WHERE cliente_id = %s
+                    UNION ALL
+                    SELECT 'Auditoría' AS tipo, detalles, timestamp AS fecha, accion, usuario_nombre
+                    FROM registros_auditoria
+                    WHERE cliente_afectado_id = %s
+                    ORDER BY fecha DESC;
+                """, (cliente_id, cliente_id))
+                
+                raw_events = cur.fetchall()
+                admin_cache = {}
+
+                for event in raw_events:
+                    evento_fmt = {'fecha': event['fecha']}
+                    
+                    if event['tipo'].startswith('Solicitud'):
+                        evento_fmt['tipo'] = event['tipo']
+                        detalles = event.get('detalles', {})
+                        if 'motivo' in detalles:
+                            evento_fmt['descripcion'] = f"Motivo: {detalles['motivo']}"
+                        else:
+                            evento_fmt['descripcion'] = f"Estado: {event['estado']}"
+                        
+                        if event['estado'] != 'Pendiente':
+                            revisado_por_id = event.get('revisado_por_id')
+                            if revisado_por_id and revisado_por_id not in admin_cache:
+                                cur.execute("SELECT usuario FROM administradores WHERE id = %s", (revisado_por_id,))
+                                admin = cur.fetchone()
+                                admin_cache[revisado_por_id] = admin['usuario'] if admin else 'N/A'
+                            evento_fmt['usuario'] = admin_cache.get(revisado_por_id)
+                            evento_fmt['descripcion'] += f" por {evento_fmt['usuario']}"
+                    
+                    elif event['tipo'] == 'Auditoría':
+                        evento_fmt['tipo'] = event['estado'] # En auditoría, 'estado' es la 'accion'
+                        evento_fmt['descripcion'] = event['detalles'].get('descripcion') if event.get('detalles') else 'N/A'
+                        evento_fmt['usuario'] = event.get('revisado_por_id') # En auditoría, 'revisado_por_id' es 'usuario_nombre'
+
+                    historial_eventos.append(evento_fmt)
+
         except psycopg2.Error as e:
             flash(f"Error al cargar el perfil del cliente: {e}", "error")
             return redirect(url_for('consulta'))
-    return render_template('cliente_perfil.html', cliente=cliente, pagos=pagos, gestiones=gestiones, anio_actual=get_venezuela_current_date().year)
+    return render_template('cliente_perfil.html', cliente=cliente, pagos=pagos, gestiones=gestiones, historial_eventos=historial_eventos, anio_actual=get_venezuela_current_date().year)
+
 
 @app.route('/agregar_gestion/<int:cliente_id>', methods=['POST'])
 @admin_required
@@ -1348,9 +1414,14 @@ def registrar_pago(client_id):
         if tipo_pago == 'Inscripción' and inscripcion_pagada >= inscripcion_total:
             flash('Error: La inscripción para este cliente ya ha sido completada.', 'error')
             return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
-        if pago_form.get('forma_pago') not in ['Efectivo', 'Binance', 'Nequi'] and not pago_form.get('referencia'):
-            flash('Error: La referencia es obligatoria para pagos por Transferencia o Pago Móvil.', 'error')
+        
+        forma_pago = pago_form.get('forma_pago')
+        referencia = pago_form.get('referencia')
+        
+        if forma_pago != 'Efectivo' and not referencia:
+            flash('Error: La referencia es obligatoria para pagos que no son en efectivo.', 'error')
             return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
+
         moneda_referencia, pago_en_valor = None, pago_form.get('pago_en')
         if pago_en_valor == 'Dolar/BCV': moneda_referencia = 'USD'
         elif pago_en_valor == 'Euro/BCV': moneda_referencia = 'EUR'
@@ -1361,8 +1432,8 @@ def registrar_pago(client_id):
                                         tasa_dia, monto_bs, estado_pago, cuotas_cubiertas, moneda_referencia, fecha_creacion, registrado_por_id)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, %s, %s, %s);
                 """
-                cur.execute(pago_query, (client_id, pago_form['monto'], tipo_pago, pago_form['forma_pago'], pago_form['fecha_pago'], pago_form.get('pago_en'), 
-                                         pago_form.get('por_concepto_de'), pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('lugar_emision'), 
+                cur.execute(pago_query, (client_id, pago_form['monto'], tipo_pago, forma_pago, pago_form['fecha_pago'], pago_form.get('pago_en'), 
+                                         pago_form.get('por_concepto_de'), referencia, pago_form.get('banco'), pago_form.get('lugar_emision'), 
                                          pago_form.get('tasa_dia'), pago_form.get('monto_bs'), moneda_referencia, get_venezuela_current_datetime(), g.admin['id']))
                 conn.commit()
                 flash(f"¡Pago de {tipo_pago} registrado como PENDIENTE! Ahora debe ser conciliado.", 'success')
@@ -1447,14 +1518,18 @@ def conciliar_pago(pago_id):
                     registrar_accion_auditoria('CONCILIACION_INSCRIPCION', descripcion_audit, cliente['id'])
                     flash_msg = f"Abono de inscripción N° {pago_id} conciliado."
             elif pago['tipo_pago'] == 'Cuota':
+                es_primera_cuota = False
                 if cliente['proceso'] == 'INSCRITO':
                     cur.execute("UPDATE clientes SET proceso = 'Ahorrador', estatus = 'ACTIVO' WHERE id = %s", (cliente['id'],))
                     flash_msg += "¡Cliente actualizado a Ahorrador Activo!"
+                    es_primera_cuota = True
 
-                puntualidad, fecha_vencimiento = 'Puntual', get_fecha_vencimiento_ajustada(pago['fecha_pago'])
-                if pago['fecha_pago'] > fecha_vencimiento:
-                    puntualidad = 'Impuntual'
-                    cur.execute("UPDATE clientes SET meses_retraso_entrega = meses_retraso_entrega + 1 WHERE id = %s;", (cliente['id'],))
+                puntualidad = 'Puntual'
+                if not es_primera_cuota: # FASE 2: La primera cuota no genera impuntualidad
+                    fecha_vencimiento = get_fecha_vencimiento_ajustada(pago['fecha_pago'])
+                    if pago['fecha_pago'] > fecha_vencimiento:
+                        puntualidad = 'Impuntual'
+                        cur.execute("UPDATE clientes SET meses_retraso_entrega = meses_retraso_entrega + 1 WHERE id = %s;", (cliente['id'],))
                 
                 valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
                 if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
@@ -1573,7 +1648,7 @@ def verificar_recibo(pago_id):
 
 @app.route('/recibo_anulado/<int:pago_id>')
 @admin_required
-def ver_recibo_anulado(pago_id):
+def recibo_anulado(pago_id):
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
@@ -1888,8 +1963,31 @@ def portal_dashboard():
         with conn.cursor() as cur:
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
             cliente = cur.fetchone()
+            if not cliente:
+                session.clear()
+                flash('Cliente no encontrado.', 'error')
+                return redirect(url_for('portal_login'))
             cliente_dict = dict(cliente)
-            
+
+            # FASE 4: Lógica de expiración de congelamiento
+            if cliente_dict['estatus'] == 'CONGELADO':
+                cur.execute("""
+                    SELECT detalles->>'fecha_fin_congelamiento' as fecha_fin 
+                    FROM solicitudes 
+                    WHERE cliente_id = %s AND tipo_solicitud = 'Congelamiento' AND estado = 'Aprobada'
+                    ORDER BY fecha_revision DESC LIMIT 1
+                """, (cliente_dict['id'],))
+                solicitud_cong = cur.fetchone()
+                if solicitud_cong and solicitud_cong['fecha_fin']:
+                    fecha_fin_dt = datetime.fromisoformat(solicitud_cong['fecha_fin']).date()
+                    if get_venezuela_current_date() > fecha_fin_dt:
+                        cur.execute("UPDATE clientes SET estatus = 'INACTIVO' WHERE id = %s", (cliente_dict['id'],))
+                        conn.commit()
+                        flash("El período de congelamiento de tu plan ha finalizado. Tu estatus ha cambiado a INACTIVO.", "warning")
+                        # Recargar datos del cliente
+                        cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
+                        cliente_dict = dict(cur.fetchone())
+
             cur.execute("SELECT *, detalles_reporte FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC;", (session['cliente_id'],))
             pagos = cur.fetchall()
             cliente_dict['pagos'] = [dict(p) for p in pagos]
@@ -1900,7 +1998,6 @@ def portal_dashboard():
             
             pago_pendiente_existente = any(pago['estado_pago'] == 'Pendiente' for pago in pagos)
             
-            # Lógica para la tarjeta de Cita Confirmada
             cita_confirmada = None
             cur.execute("""
                 SELECT s.*, a.usuario as nombre_asesor
@@ -1925,11 +2022,17 @@ def portal_dashboard():
             else:
                 estado_cuota = {'estado': 'En Mora', 'mes': get_nombre_mes(hoy.month), 'fecha_vencimiento': f"{dia_de_vencimiento:02d}/{hoy.month:02d}/{hoy.year}"}
             
+            # FASE 1: Lógica para bloquear registro de ofertas
+            inscripcion_completa = (cliente_dict.get('inscripcion_pagada') or 0) >= (cliente_dict.get('inscripcion_monto') or 0)
+            primera_cuota_pagada = any(p.get('tipo_pago') == 'Cuota' and p.get('estado_pago') == 'Conciliado' for p in cliente_dict['pagos'])
+            puede_registrar_oferta = inscripcion_completa and primera_cuota_pagada
+
             return render_template('portal_dashboard.html', 
                                    cliente=cliente_dict, 
                                    cuota_status=estado_cuota, 
                                    puede_reportar_pago=(not pago_pendiente_existente),
-                                   cita_confirmada=cita_confirmada)
+                                   cita_confirmada=cita_confirmada,
+                                   puede_registrar_oferta=puede_registrar_oferta)
     except psycopg2.Error as e:
         flash(f'Ocurrió un error al cargar su información: {e}', 'error')
         return redirect(url_for('portal_login'))
@@ -1937,40 +2040,67 @@ def portal_dashboard():
 @app.route('/portal/reportar_pago', methods=['GET', 'POST'])
 @portal_login_required
 def portal_reportar_pago():
-    conn, tasas_hoy = get_db(), None
+    conn = get_db()
     if not conn:
         flash('No se pudo conectar con la base de datos.', 'error')
         return redirect(url_for('portal_dashboard'))
+
     with conn.cursor() as cur:
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
         cliente = cur.fetchone()
-        today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
-        cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
-        tasas_hoy = cur.fetchone()
+        
     if not cliente:
         session.clear()
         flash('No se encontró su información de cliente.', 'error')
         return redirect(url_for('portal_login'))
+
+    inscripcion_monto = cliente.get('inscripcion_monto') or Decimal('0.0')
+    inscripcion_pagada = cliente.get('inscripcion_pagada') or Decimal('0.0')
+    inscripcion_completa = inscripcion_pagada >= inscripcion_monto
+
+    # FASE 1: Verificar si el contrato es en dólares
+    contrato_en_dolares = cliente.get('moneda_pago', '').upper() == 'USD'
+    
     mes_actual = get_nombre_mes(get_venezuela_current_date().month)
+
     if request.method == 'POST':
         pago_form = {k: v if v else None for k, v in request.form.items()}
-        if not all(pago_form.get(key) for key in ['monto', 'fecha_pago', 'forma_pago']):
-            flash('Error: Monto, fecha y forma de pago son campos obligatorios.', 'error')
-            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, tasas_hoy=tasas_hoy, anio_actual=get_venezuela_current_date().year)
-        if pago_form.get('forma_pago') not in ['Efectivo', 'Zelle'] and not pago_form.get('referencia'):
-            flash('Error: La referencia es obligatoria para pagos que no son en efectivo o Zelle.', 'error')
-            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, tasas_hoy=tasas_hoy, anio_actual=get_venezuela_current_date().year)
+        
+        if not inscripcion_completa:
+            flash('Error: No puedes reportar pagos de cuotas hasta que tu inscripción esté completa.', 'error')
+            return redirect(url_for('portal_dashboard'))
+
+        if not all(pago_form.get(key) for key in ['monto', 'fecha_pago']):
+            flash('Error: Monto y fecha de pago son campos obligatorios.', 'error')
+            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, inscripcion_completa=inscripcion_completa, contrato_en_dolares=contrato_en_dolares)
+
+        forma_pago = pago_form.get('forma_pago')
+        # FASE 1: No requerir referencia para efectivo
+        if forma_pago != 'Efectivo' and not pago_form.get('referencia'):
+            flash('Error: La referencia es obligatoria para este método de pago.', 'error')
+            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, inscripcion_completa=inscripcion_completa, contrato_en_dolares=contrato_en_dolares)
+        
         try:
             with conn.cursor() as cur:
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia, monto_bs, 
-                                       estado_pago, cuotas_cubiertas, reportado_por_cliente, estado_reporte, fecha_creacion) 
-                    VALUES (%s, %s, 'Cuota', %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, TRUE, 'Pendiente de Revision', %s);
+                                       estado_pago, cuotas_cubiertas, reportado_por_cliente, estado_reporte, fecha_creacion, detalles_reporte) 
+                    VALUES (%s, %s, 'Cuota', %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, TRUE, 'Pendiente de Revision', %s, %s::jsonb);
                 """
                 fecha_actual_vet = get_venezuela_current_datetime()
-                cur.execute(pago_query, (session['cliente_id'], pago_form['monto'], pago_form['forma_pago'], pago_form['fecha_pago'], pago_form.get('pago_en'), 
+                
+                detalles_pago = {}
+                if forma_pago == 'Pago Móvil':
+                    detalles_pago['telefono_emisor'] = pago_form.get('pago_movil_telefono')
+                    detalles_pago['cedula_emisor'] = pago_form.get('pago_movil_cedula')
+                elif forma_pago == 'Binance':
+                    detalles_pago['usuario_binance'] = pago_form.get('binance_user')
+
+                detalles_json = json.dumps(detalles_pago) if detalles_pago else None
+
+                cur.execute(pago_query, (session['cliente_id'], pago_form['monto'], forma_pago, pago_form['fecha_pago'], pago_form.get('pago_en'), 
                                          pago_form.get('por_concepto_de'), pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('tasa_dia'), 
-                                         pago_form.get('monto_bs'), fecha_actual_vet))
+                                         pago_form.get('monto_bs'), fecha_actual_vet, detalles_json))
                 conn.commit()
                 hora_corte = time(16, 30)
                 if fecha_actual_vet.time() < hora_corte:
@@ -1982,7 +2112,9 @@ def portal_reportar_pago():
         except (psycopg2.Error, ValueError, TypeError) as e:
             conn.rollback()
             flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
-    return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, tasas_hoy=tasas_hoy, anio_actual=get_venezuela_current_date().year)
+    
+    return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, inscripcion_completa=inscripcion_completa, contrato_en_dolares=contrato_en_dolares)
+
 
 @app.route('/portal/estado_cuenta')
 @portal_login_required
@@ -2038,10 +2170,26 @@ def citas_disponibilidad():
             cur.execute(query, (fecha_obj,))
             resultados = cur.fetchall()
             citas_ocupadas = [row['hora_ocupada'] for row in resultados if row['hora_ocupada']]
+            
+            # FASE 3: Deshabilitar horarios pasados para el día de hoy
+            if fecha_obj == get_venezuela_current_date():
+                hora_actual_str = get_venezuela_current_datetime().strftime('%I:%M %p')
+                hora_actual = datetime.strptime(hora_actual_str, '%I:%M %p')
+                
+                horarios_disponibles = {
+                    "manana": ["10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM"],
+                    "tarde": ["04:00 PM", "04:30 PM"]
+                }
+                todos_los_horarios = horarios_disponibles['manana'] + horarios_disponibles['tarde']
+                for hora_slot in todos_los_horarios:
+                    hora_slot_dt = datetime.strptime(hora_slot, '%I:%M %p')
+                    if hora_actual > hora_slot_dt:
+                        citas_ocupadas.append(hora_slot)
+
     except psycopg2.Error as e:
         logging.error(f"Error al consultar disponibilidad de citas: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
-    return jsonify({'ocupados': citas_ocupadas, 'es_habil': True})
+    return jsonify({'ocupados': list(set(citas_ocupadas)), 'es_habil': True})
 
 @app.route('/portal/guardar_oferta', methods=['POST'])
 @portal_login_required
@@ -2052,11 +2200,22 @@ def portal_guardar_oferta():
         return redirect(url_for('portal_dashboard'))
     try:
         with conn.cursor() as cur:
+            cur.execute("SELECT inscripcion_monto, inscripcion_pagada FROM clientes WHERE id = %s", (cliente_id,))
+            cliente = cur.fetchone()
+            inscripcion_completa = (cliente['inscripcion_pagada'] or 0) >= (cliente['inscripcion_monto'] or 0)
+            cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'", (cliente_id,))
+            primera_cuota_pagada = cur.fetchone() is not None
+            
+            if not (inscripcion_completa and primera_cuota_pagada):
+                flash("No cumples con los requisitos para registrar una oferta en este momento.", 'error')
+                return redirect(url_for('portal_dashboard'))
+
             if not cuotas_ofertadas or not cuotas_ofertadas.isdigit() or int(cuotas_ofertadas) <= 0:
                 flash("Debe ingresar un número válido de cuotas para la oferta.", 'error')
                 return redirect(url_for('portal_dashboard'))
             cur.execute("INSERT INTO ofertas (cliente_id, cuotas_ofertadas, fecha_oferta, estado_oferta) VALUES (%s, %s, %s, 'activa')", (cliente_id, int(cuotas_ofertadas), get_venezuela_current_date()))
             conn.commit()
+            registrar_accion_auditoria('REGISTRO_OFERTA_CLIENTE', f"Cliente ofertó {cuotas_ofertadas} cuota(s).")
             flash(f"¡Tu oferta de {cuotas_ofertadas} cuotas ha sido registrada exitosamente!", 'success')
     except psycopg2.Error as e:
         conn.rollback()
@@ -2080,6 +2239,7 @@ def portal_solicitar_cita():
             cur.execute("INSERT INTO solicitudes (cliente_id, tipo_solicitud, detalles, fecha_creacion, estado) VALUES (%s, 'Cita', %s, %s, 'Pendiente')",
                         (cliente_id, detalles, get_venezuela_current_datetime()))
             conn.commit()
+            registrar_accion_auditoria('SOLICITUD_CITA', f"Cliente solicitó cita para el {fecha_cita} a las {hora_cita}.")
             flash(f"Tu solicitud de cita para el {fecha_cita} a las {hora_cita} ha sido enviada. Un asesor te contactará para confirmar.", 'success')
     except psycopg2.Error as e:
         conn.rollback()
@@ -2090,20 +2250,48 @@ def portal_solicitar_cita():
 @portal_login_required
 def portal_solicitar_congelamiento():
     conn, cliente_id = get_db(), session['cliente_id']
+    motivo = request.form.get('motivo')
+    tiempo = request.form.get('tiempo_congelamiento')
+    if not motivo or not tiempo:
+        flash("El motivo y el tiempo son requeridos para la solicitud.", "error")
+        return redirect(url_for('portal_dashboard'))
     if not conn:
         flash("Error de conexión.", 'error')
         return redirect(url_for('portal_dashboard'))
     try:
         with conn.cursor() as cur:
-            detalles = jsonify({'motivo': request.form.get('motivo')}).get_data(as_text=True)
+            detalles = json.dumps({'motivo': motivo, 'tiempo_congelamiento': tiempo})
             cur.execute("INSERT INTO solicitudes (cliente_id, tipo_solicitud, detalles, fecha_creacion, estado) VALUES (%s, 'Congelamiento', %s, %s, 'Pendiente')",
                         (cliente_id, detalles, get_venezuela_current_datetime()))
             conn.commit()
-            flash("Solicitud de congelamiento enviada. Un asesor te contactará.", 'success')
+            registrar_accion_auditoria('SOLICITUD_CONGELAMIENTO', f"Cliente solicitó congelar por {tiempo}. Motivo: {motivo[:50]}...")
+            flash("Solicitud de congelamiento enviada. Un asesor la revisará.", 'success')
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"Error al enviar tu solicitud: {e}", 'error')
     return redirect(url_for('portal_dashboard'))
+
+@app.route('/portal/solicitar_descongelamiento', methods=['POST'])
+@portal_login_required
+def portal_solicitar_descongelamiento():
+    conn, cliente_id = get_db(), session['cliente_id']
+    motivo = request.form.get('motivo_reactivacion')
+    if not motivo:
+        flash("Debes proporcionar un motivo para la reactivación.", "error")
+        return redirect(url_for('portal_dashboard'))
+    try:
+        with conn.cursor() as cur:
+            detalles = json.dumps({'motivo': motivo})
+            cur.execute("INSERT INTO solicitudes (cliente_id, tipo_solicitud, detalles, fecha_creacion, estado) VALUES (%s, 'Descongelamiento', %s, %s, 'Pendiente')",
+                        (cliente_id, detalles, get_venezuela_current_datetime()))
+            conn.commit()
+            registrar_accion_auditoria('SOLICITUD_DESCONGELAMIENTO', f"Cliente solicitó reactivar. Motivo: {motivo[:50]}...")
+            flash("Solicitud de reactivación enviada. Un asesor la revisará.", 'success')
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error al enviar tu solicitud: {e}", 'error')
+    return redirect(url_for('portal_dashboard'))
+
 
 @app.route('/portal/solicitar_retiro', methods=['POST'])
 @portal_login_required
@@ -2126,6 +2314,7 @@ def portal_solicitar_retiro():
             cur.execute("INSERT INTO solicitudes (cliente_id, tipo_solicitud, detalles, fecha_creacion, estado) VALUES (%s, 'Retiro', %s, %s, 'Pendiente')",
                         (cliente_id, detalles, get_venezuela_current_datetime()))
             conn.commit()
+            registrar_accion_auditoria('SOLICITUD_RETIRO', f"Cliente confirma envío de correo de retiro desde {email_origen}.")
             flash("Solicitud de retiro enviada. Un asesor se comunicará contigo para guiarte en los siguientes pasos.", 'warning')
     except psycopg2.Error as e:
         conn.rollback()
@@ -2155,6 +2344,7 @@ def portal_ver_reporte(pago_id):
 @admin_required
 def ver_reporte(pago_id):
     conn = get_db()
+    origin = request.args.get('origin', 'consulta') # FASE 3: Capturar origen
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta'))
@@ -2165,7 +2355,7 @@ def ver_reporte(pago_id):
     if not pago:
         flash('El reporte de pago no fue encontrado.', 'error')
         return redirect(url_for('consulta'))
-    return render_template('ver_reporte.html', pago=pago, is_client_view=False)
+    return render_template('ver_reporte.html', pago=pago, is_client_view=False, origin=origin)
 
 @app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
 @admin_required
@@ -2206,6 +2396,7 @@ def procesar_reporte(pago_id):
                 detalles_json = jsonify(detalles_rechazo).get_data(as_text=True)
                 descripcion_audit = f"Marcó el reporte N° {pago_id} como Inconsistente. Motivo: {motivo}."
 
+                # FASE 2: Generar nueva orden de pago si hay diferencia
                 if motivo == 'Diferencia de Monto' and diferencia > 0:
                     cur.execute("""
                         INSERT INTO pagos (cliente_id, monto, tipo_pago, por_concepto_de, estado_pago, reportado_por_cliente, estado_reporte, fecha_creacion, registrado_por_id)

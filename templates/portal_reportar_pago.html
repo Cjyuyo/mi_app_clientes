@@ -107,6 +107,19 @@
             <p>Para: {{ cliente.nombre_apellido }}</p>
         </div>
 
+        {% if not inscripcion_completa %}
+        <div class="p-4">
+            <div class="alert alert-danger">
+                <h4 class="alert-heading">Inscripción Incompleta</h4>
+                <p>No puedes reportar pagos de cuotas hasta que el monto total de tu inscripción haya sido cancelado y conciliado por nuestro equipo.</p>
+                <hr>
+                <p class="mb-0">Si necesitas reportar un pago de inscripción, por favor, contacta a tu asesor.</p>
+            </div>
+             <div class="button-group">
+                <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Volver al Portal</a>
+            </div>
+        </div>
+        {% else %}
         <form action="{{ url_for('portal_reportar_pago') }}" method="POST">
             <div class="p-3">
                 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -138,19 +151,24 @@
                     <div class="form-group">
                         <label for="pago_en">Moneda del Pago</label>
                         <select id="pago_en" name="pago_en" class="form-select" required>
+                            <!-- CAMBIO: Lógica para contratos en USD -->
+                            {% if contrato_en_dolares %}
+                            <option value="Binance" selected>Binance (USDT)</option>
+                            {% else %}
                             <option value="Bolívares">Bolívares</option>
-                            <option value="USDT">USDT</option>
+                            <option value="Binance">Binance (USDT)</option>
+                            {% endif %}
                         </select>
                     </div>
                     <div class="form-group">
                         <label for="monto_usd">Monto del Pago (USD)</label>
                         <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" value="{{ cliente.valor_cuota | float }}" readonly required>
                     </div>
-                    <div class="form-group" id="tasa_dia_group">
+                    <div class="form-group" id="tasa_dia_group" style="display: none;">
                         <label for="tasa_dia">Tasa del Día (BCV)</label>
                         <input type="number" id="tasa_dia" step="0.01" name="tasa_dia" value="{{ tasas_hoy.tasa if tasas_hoy and tasas_hoy.tasa else '' }}" class="form-control" readonly>
                     </div>
-                    <div class="form-group" id="monto_bs_group">
+                    <div class="form-group" id="monto_bs_group" style="display: none;">
                         <label for="monto_bs_calculado">Monto en Bs (Calculado)</label>
                         <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
                     </div>
@@ -168,6 +186,7 @@
                 <button type="submit" class="btn btn-primary">Reportar Mi Pago</button>
             </div>
         </form>
+        {% endif %}
     </div>
 </div>
 
@@ -177,6 +196,7 @@
         <select id="forma_pago" name="forma_pago" class="form-select" required>
             <option value="Transferencia">Transferencia</option>
             <option value="Pago Móvil">Pago Móvil</option>
+            <option value="Efectivo">Efectivo</option>
         </select>
     </div>
 </template>
@@ -207,29 +227,39 @@
 <template id="template_banco">
     <div id="bancoField" class="form-group conditional-fields">
         <label for="banco">Banco de Origen</label>
+        <!-- CAMBIO: Lista de bancos unificada -->
         <select id="banco" name="banco" class="form-select">
             <option value="">Seleccione un banco...</option>
-            <option value="Banco de Venezuela">Banco de Venezuela</option>
-            <option value="Banesco">Banesco</option>
-            <option value="Banco Mercantil">Banco Mercantil</option>
-            <option value="Banco Provincial">Banco Provincial</option>
-            <option value="BOD">BOD</option>
-            <option value="Bancaribe">Bancaribe</option>
-            <option value="Banco Exterior">Banco Exterior</option>
-            <option value="Banco Nacional de Crédito (BNC)">BNC</option>
-            <option value="Bicentenario Banco Universal">Bicentenario</option>
-            <option value="Banplus">Banplus</option>
-            <option value="Banco del Tesoro">Banco del Tesoro</option>
-            <option value="100% Banco">100% Banco</option>
-            <option value="Bancamiga">Bancamiga</option>
-            <option value="Otro">Otro</option>
+            <option value="0102 - Banco de Venezuela S.A.C.A.">0102 - Banco de Venezuela S.A.C.A.</option>
+            <option value="0104 - Venezolano de Crédito S.A.">0104 - Venezolano de Crédito S.A.</option>
+            <option value="0105 - Mercantil Banco Universal C.A.">0105 - Mercantil Banco Universal C.A.</option>
+            <option value="0108 - BBVA Banco Provincial">0108 - BBVA Banco Provincial</option>
+            <option value="0114 - Bancaribe C.A.">0114 - Bancaribe C.A.</option>
+            <option value="0115 - Banco Exterior C.A.">0115 - Banco Exterior C.A.</option>
+            <option value="0128 - Banco Caroní C.A.">0128 - Banco Caroní C.A.</option>
+            <option value="0134 - Banesco Banco Universal C.A.">0134 - Banesco Banco Universal C.A.</option>
+            <option value="0137 - Banco Sofitasa C.A.">0137 - Banco Sofitasa C.A.</option>
+            <option value="0138 - Banco Plaza C.A.">0138 - Banco Plaza C.A.</option>
+            <option value="0146 - Bangente C.A.">0146 - Bangente C.A.</option>
+            <option value="0151 - BFC Banco Fondo Común C.A.">0151 - BFC Banco Fondo Común C.A.</option>
+            <option value="0156 - 100% Banco C.A.">0156 - 100% Banco C.A.</option>
+            <option value="0157 - DelSur Banco Universal C.A.">0157 - DelSur Banco Universal C.A.</option>
+            <option value="0163 - Banco del Tesoro C.A.">0163 - Banco del Tesoro C.A.</option>
+            <option value="0166 - Banco Agrícola de Venezuela C.A.">0166 - Banco Agrícola de Venezuela C.A.</option>
+            <option value="0171 - Banco Activo C.A.">0171 - Banco Activo C.A.</option>
+            <option value="0172 - Bancamiga Banco Universal C.A.">0172 - Bancamiga Banco Universal C.A.</option>
+            <option value="0173 - Banco Internacional de Desarrollo C.A.">0173 - Banco Internacional de Desarrollo C.A.</option>
+            <option value="0174 - Banplus Banco Universal C.A.">0174 - Banplus Banco Universal C.A.</option>
+            <option value="0175 - Banco Bicentenario del Pueblo">0175 - Banco Bicentenario del Pueblo</option>
+            <option value="0177 - BANFANB">0177 - BANFANB</option>
+            <option value="0191 - Banco Nacional de Crédito (BNC)">0191 - Banco Nacional de Crédito (BNC)</option>
         </select>
     </div>
 </template>
-<template id="template_usdt">
-    <div id="usdtField" class="form-group conditional-fields">
-        <label for="usdt_user">ID o Usuario de Binance</label>
-        <input type="text" id="usdt_user" name="usdt_user" class="form-control" placeholder="Ej: 12345678 o miusuario">
+<template id="template_binance">
+    <div id="binanceField" class="form-group conditional-fields">
+        <label for="binance_user">ID o Usuario de Binance</label>
+        <input type="text" id="binance_user" name="binance_user" class="form-control" placeholder="Ej: 12345678 o miusuario">
     </div>
 </template>
 
@@ -248,6 +278,9 @@
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="transferencia-tab" data-bs-toggle="tab" data-bs-target="#transferencia-content" type="button" role="tab">Transferencia</button>
+                    </li>
+                     <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="binance-tab" data-bs-toggle="tab" data-bs-target="#binance-content" type="button" role="tab">Binance (USDT)</button>
                     </li>
                 </ul>
                 <div class="tab-content pt-3">
@@ -291,6 +324,19 @@
                             </li>
                         </ul>
                     </div>
+                     <div class="tab-pane fade" id="binance-content" role="tabpanel">
+                        <p>Utiliza los siguientes datos para realizar tu pago. Haz clic para copiar.</p>
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div><small class="text-muted d-block">Binance Pay ID</small><span>262458423</span></div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm copy-btn" data-clipboard-text="262458423"><i class="bi bi-clipboard"></i></button>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div><small class="text-muted d-block">Usuario</small><span>carlosramirez</span></div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm copy-btn" data-clipboard-text="carlosramirez"><i class="bi bi-clipboard"></i></button>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
@@ -317,16 +363,16 @@
                 transactionContainer.appendChild(cloneNode('template_pago_movil'));
                 transactionContainer.appendChild(cloneNode('template_banco'));
                 
-                tasaDiaGroup.style.display = 'block';
-                montoBsGroup.style.display = 'block';
+                tasaDiaGroup.style.display = 'none'; 
+                montoBsGroup.style.display = 'none'; 
 
                 const formaPagoSelect = document.getElementById('forma_pago');
                 formaPagoSelect.addEventListener('change', updateBolivaresFields);
                 updateBolivaresFields();
 
-            } else if (moneda === 'USDT') {
+            } else if (moneda === 'Binance') {
                 transactionContainer.appendChild(cloneNode('template_referencia'));
-                transactionContainer.appendChild(cloneNode('template_usdt'));
+                transactionContainer.appendChild(cloneNode('template_binance'));
                 transactionContainer.appendChild(cloneNode('template_fecha'));
                 
                 tasaDiaGroup.style.display = 'none';
@@ -334,9 +380,14 @@
 
                 document.getElementById('referencia_group').style.display = 'block';
                 document.getElementById('referencia_label').textContent = 'Order ID';
-                document.getElementById('usdtField').style.display = 'block';
+                document.getElementById('binanceField').style.display = 'block';
+                
+                const formaPagoHiddenInput = document.createElement('input');
+                formaPagoHiddenInput.type = 'hidden';
+                formaPagoHiddenInput.name = 'forma_pago';
+                formaPagoHiddenInput.value = 'Binance';
+                transactionContainer.appendChild(formaPagoHiddenInput);
             }
-             // Re-asignar fecha porque el campo se recrea
             document.getElementById('fecha_pago').value = new Date().toISOString().split('T')[0];
         }
 
@@ -344,13 +395,27 @@
             const formaPagoSelect = document.getElementById('forma_pago');
             const pagoMovilFields = document.getElementById('pagoMovilFields');
             const bancoField = document.getElementById('bancoField');
+            const referenciaGroup = document.getElementById('referencia_group');
+            const referenciaInput = document.getElementById('referencia');
+            const bancoSelect = document.getElementById('banco');
+            const esEfectivo = formaPagoSelect.value === 'Efectivo';
+
+            // CAMBIO: Lógica para deshabilitar campos en efectivo
+            referenciaInput.disabled = esEfectivo;
+            bancoSelect.disabled = esEfectivo;
+            if (esEfectivo) {
+                referenciaInput.value = '';
+                bancoSelect.value = '';
+            }
             
+            referenciaGroup.style.display = esEfectivo ? 'none' : 'block';
+
             if (formaPagoSelect.value === 'Pago Móvil') {
                 pagoMovilFields.style.display = 'grid';
                 bancoField.style.display = 'block';
-            } else { // Transferencia
+            } else { 
                 pagoMovilFields.style.display = 'none';
-                bancoField.style.display = 'block';
+                bancoField.style.display = esEfectivo ? 'none' : 'block';
             }
         }
 

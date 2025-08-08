@@ -10,36 +10,25 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* --- GUÍA DE ESTILO MAESTRA --- */
         :root {
-            /* Paleta Corporativa */
             --azul-corporativo: #2B3A55;
             --naranja-corporativo: #F99417;
-            
-            /* Colores de Soporte */
             --gris-fondo: #f8f9fa;
             --blanco-tarjetas: #FFFFFF;
             --texto-oscuro: #212529;
             --texto-claro: #6c757d;
             --borde-sutil: #e9ecef;
-
-            /* Color temático de esta página */
             --theme-color: var(--naranja-corporativo);
         }
-
-        /* --- ESTILOS GLOBALES --- */
         body {
             background-color: var(--gris-fondo);
             font-family: 'Roboto', sans-serif;
             color: var(--texto-oscuro);
         }
-
-        /* --- COMPONENTES --- */
         .navbar-custom {
             background-color: var(--azul-corporativo);
             box-shadow: 0 2px 4px rgba(0,0,0,.1);
         }
-
         .summary-card {
             background-color: var(--blanco-tarjetas);
             border-radius: .75rem;
@@ -55,14 +44,12 @@
             margin: 0;
             font-weight: 700;
         }
-
         .content-card {
             background-color: var(--blanco-tarjetas);
             border-radius: .75rem;
             box-shadow: 0 4px 15px rgba(0,0,0,0.07);
             overflow: hidden;
         }
-
         .btn-primary {
             background-color: var(--theme-color);
             border-color: var(--theme-color);
@@ -73,7 +60,6 @@
             background-color: var(--theme-color);
             border-color: var(--theme-color);
         }
-        
         .nav-tabs .nav-link {
             color: var(--texto-claro);
             font-weight: 500;
@@ -83,8 +69,6 @@
             border-color: var(--borde-sutil) var(--borde-sutil) var(--theme-color);
             border-bottom-width: 2px;
         }
-
-        /* --- TIMELINE --- */
         .timeline {
             list-style: none;
             padding: 0;
@@ -192,6 +176,10 @@
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="pagos-tab" data-bs-toggle="tab" data-bs-target="#pagos" type="button" role="tab">Historial de Pagos</button>
                             </li>
+                            <!-- CAMBIO: Nueva pestaña de historial de eventos -->
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="eventos-tab" data-bs-toggle="tab" data-bs-target="#eventos" type="button" role="tab">Historial de Eventos</button>
+                            </li>
                         </ul>
                     </div>
                     <div class="card-body p-4">
@@ -215,7 +203,7 @@
                                         <div class="timeline-content">
                                             <p>{{ gestion.nota }}</p>
                                             <small>
-                                                Por <strong>{{ gestion.gestor_nombre }}</strong> el {{ gestion.fecha_creacion.strftime('%d/%m/%Y a las %I:%M %p') }}
+                                                Por <strong>{{ gestion.gestor_nombre }}</strong> el {{ gestion.fecha_creacion | format_datetime }}
                                             </small>
                                         </div>
                                     </li>
@@ -242,9 +230,9 @@
                                         <tbody>
                                             {% for pago in pagos %}
                                             <tr>
-                                                <td>{{ pago.fecha_pago.strftime('%d/%m/%Y') }}</td>
+                                                <td>{{ pago.fecha_pago | format_date }}</td>
                                                 <td>{{ pago.tipo_pago }}</td>
-                                                <td>${{ "{:,.2f}".format(pago.monto) }}</td>
+                                                <td>${{ "%.2f"|format(pago.monto) }}</td>
                                                 <td>
                                                     <span class="badge 
                                                         {% if pago.estado_pago == 'Conciliado' %} bg-success
@@ -265,6 +253,35 @@
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
+
+                            <!-- CAMBIO: Contenido de la nueva pestaña -->
+                            <div class="tab-pane fade" id="eventos" role="tabpanel">
+                                <h5 class="mb-3">Línea de Tiempo de Eventos</h5>
+                                {% if historial_eventos %}
+                                <ul class="timeline">
+                                    {% for evento in historial_eventos %}
+                                    <li class="timeline-item">
+                                        <div class="timeline-icon">
+                                            {% if 'Cita' in evento.tipo %} <i class="bi bi-calendar-check"></i>
+                                            {% elif 'Congelamiento' in evento.tipo %} <i class="bi bi-snow"></i>
+                                            {% elif 'Retiro' in evento.tipo %} <i class="bi bi-box-arrow-left"></i>
+                                            {% else %} <i class="bi bi-info-circle"></i> {% endif %}
+                                        </div>
+                                        <div class="timeline-content">
+                                            <p><strong>{{ evento.tipo }}</strong></p>
+                                            <p>{{ evento.descripcion }}</p>
+                                            <small>
+                                                {{ evento.fecha | format_datetime }}
+                                                {% if evento.usuario %} por <strong>{{ evento.usuario }}</strong>{% endif %}
+                                            </small>
+                                        </div>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <p class="text-muted">No hay eventos registrados en el historial de este cliente.</p>
+                                {% endif %}
                             </div>
                         </div>
                     </div>

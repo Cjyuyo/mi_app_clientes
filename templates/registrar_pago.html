@@ -151,11 +151,12 @@
                         <label for="monto_usd">Monto del Pago (USD)</label>
                         <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" required>
                     </div>
-                    <div class="form-group">
+                    <!-- CAMPOS DE TASA OCULTOS -->
+                    <div class="form-group" style="display: none;">
                         <label for="tasa_dia">Tasa del Día (BCV)</label>
                         <input type="number" id="tasa_dia" step="0.01" name="tasa_dia" class="form-control" readonly>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="display: none;">
                         <label for="monto_bs_calculado">Monto en Bs (Calculado)</label>
                         <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
                     </div>
@@ -227,16 +228,17 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // SCRIPT ORIGINAL SIN MODIFICACIONES
     const tasaUsd = {{ tasas_hoy.tasa|float if tasas_hoy and tasas_hoy.tasa else 'null' }};
     const tasaEur = {{ tasas_hoy.tasa_euro|float if tasas_hoy and tasas_hoy.tasa_euro else 'null' }};
     const pagoEnSelect = document.getElementById('pago_en');
     const formaPagoSelect = document.getElementById('forma_pago');
-    const bancoGroup = document.getElementById('banco_group');
-    const bancoSelect = document.getElementById('banco');
     const montoUsdInput = document.getElementById('monto_usd');
     const tasaDiaInput = document.getElementById('tasa_dia');
     const montoBsCalculadoInput = document.getElementById('monto_bs_calculado');
+    const referenciaInput = document.getElementById('referencia');
+    const bancoGroup = document.getElementById('banco_group');
+    const bancoSelect = document.getElementById('banco');
+
     function calcularMontoBs() {
         const montoUsd = parseFloat(montoUsdInput.value) || 0;
         const tasaDia = parseFloat(tasaDiaInput.value) || 0;
@@ -246,34 +248,45 @@ document.addEventListener('DOMContentLoaded', function() {
             montoBsCalculadoInput.value = '';
         }
     }
+
     function handlePagoEnChange() {
         const pagoEnValue = pagoEnSelect.value;
         tasaDiaInput.value = '';
         if (pagoEnValue === 'Dolar/BCV') {
             tasaDiaInput.value = tasaUsd || '';
-            if (!tasaUsd) alert('Advertencia: La tasa del Dólar (BCV) para hoy no ha sido establecida.');
         } else if (pagoEnValue === 'Euro/BCV') {
             tasaDiaInput.value = tasaEur || '';
-            if (!tasaEur) alert('Advertencia: La tasa del Euro (BCV) para hoy no ha sido establecida.');
         }
         calcularMontoBs();
     }
-    function toggleBancoSelect() {
+
+    function toggleFieldsByFormaPago() {
         const formaPagoValue = formaPagoSelect.value;
-        if (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil') {
-            bancoGroup.style.display = 'flex';
-            bancoSelect.required = true;
-        } else {
-            bancoGroup.style.display = 'none';
-            bancoSelect.required = false;
+        const isEfectivo = formaPagoValue === 'Efectivo';
+
+        // Deshabilitar/Habilitar campos
+        referenciaInput.disabled = isEfectivo;
+        bancoSelect.disabled = isEfectivo;
+
+        // Limpiar valores si es efectivo
+        if (isEfectivo) {
+            referenciaInput.value = '';
+            bancoSelect.value = '';
         }
+
+        // Mostrar/Ocultar campos
+        bancoGroup.style.display = (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil') ? 'block' : 'none';
+        bancoSelect.required = (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil');
     }
+
     pagoEnSelect.addEventListener('change', handlePagoEnChange);
-    formaPagoSelect.addEventListener('change', toggleBancoSelect);
+    formaPagoSelect.addEventListener('change', toggleFieldsByFormaPago);
     montoUsdInput.addEventListener('input', calcularMontoBs);
-    pagoEnSelect.addEventListener('change', calcularMontoBs);
+    
+    // Inicializar estado del formulario
     handlePagoEnChange();
-    toggleBancoSelect();
+    toggleFieldsByFormaPago();
+
     document.querySelector('form').addEventListener('submit', function(e) {
         if (this.getAttribute('data-submitted') === 'true') {
             e.preventDefault();

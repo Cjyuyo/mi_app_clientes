@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recibo Anulado N° {{ pago.id }}</title>
+    <title>Recibo de Inscripción Anulado N° {{ pago.id }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -34,13 +34,13 @@
         }
         .container::after {
             content: "ANULADO";
-            font-size: 10rem;
+            font-size: 8rem;
             font-weight: bold;
             color: rgba(192, 57, 43, 0.1);
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
+            transform: translate(-50%, -50%) rotate(-35deg);
             z-index: 1;
             pointer-events: none;
         }
@@ -120,7 +120,7 @@
                     <p>R.I.F.: J-50408559-1</p>
                 </div>
                 <div class="receipt-id text-end">
-                    <h2>Recibo Anulado</h2>
+                    <h2>Recibo de Inscripción Anulado</h2>
                     <p>N° {{ pago.id }}</p>
                 </div>
             </div>
@@ -141,19 +141,19 @@
                 </div>
 
                 <div class="section">
-                    <h3>Detalles del Pago Anulado</h3>
+                    <h3>Detalles de la Inscripción Anulada</h3>
                     <div class="info-grid">
                         <div class="info-item">
                             <span class="label">Monto Original (USD)</span>
                             <span class="value amount">${{ "%.2f"|format(pago.monto) }}</span>
                         </div>
                         <div class="info-item">
-                            <span class="label">Tipo de Pago</span>
-                            <span class="value">{{ pago.tipo_pago }}</span>
+                            <span class="label">Plan Contratado Originalmente</span>
+                            <span class="value">{{ pago.plan_contratado or 'N/A' }}</span>
                         </div>
                         <div class="info-item">
                             <span class="label">Fecha Original del Pago</span>
-                            <span class="value">{{ pago.fecha_pago | format_datetime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }}</span>
+                            <span class="value">{{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }}</span>
                         </div>
                          <div class="info-item">
                             <span class="label">Concepto Original</span>

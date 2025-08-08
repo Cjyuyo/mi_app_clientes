@@ -10,21 +10,15 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* --- GUÍA DE ESTILO MAESTRA --- */
         :root {
-            /* Paleta Corporativa */
             --azul-corporativo: #2B3A55;
             --naranja-corporativo: #F99417;
-            
-            /* Colores de Soporte */
             --gris-fondo: #f8f9fa;
             --blanco-tarjetas: #FFFFFF;
             --texto-oscuro: #212529;
             --texto-claro: #6c757d;
             --borde-sutil: #e9ecef;
         }
-
-        /* --- ESTILOS GLOBALES --- */
         body {
             background-color: var(--gris-fondo);
             font-family: 'Roboto', sans-serif;
@@ -47,8 +41,6 @@
             font-size: 1.2rem;
             opacity: 0.9;
         }
-
-        /* --- TARJETAS DEL HUB --- */
         .hub-card {
             background-color: var(--blanco-tarjetas);
             border: 1px solid var(--borde-sutil);
@@ -94,8 +86,6 @@
             border-color: #1e2a40;
             color: var(--blanco-tarjetas);
         }
-
-        /* --- LISTA DE USUARIOS --- */
         .users-card {
             background-color: var(--blanco-tarjetas);
             border-radius: .75rem;
@@ -168,6 +158,19 @@
                         <p>Reportes, métricas y herramientas.</p>
                     </div>
                     <a href="{{ url_for('gestion_administrativa') }}" class="btn btn-corporate-primary">Analizar</a>
+                </div>
+            </div>
+            {% endif %}
+            <!-- CAMBIO: Se añade la tarjeta del HUB de Asesor -->
+            {% if g.admin and g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
+            <div class="col-lg-4 col-md-6">
+                <div class="hub-card">
+                    <div>
+                        <div class="icon"><i class="bi bi-person-workspace"></i></div>
+                        <h3>HUB de Asesor</h3>
+                        <p>Gestiona tus citas asignadas y registra la atención.</p>
+                    </div>
+                    <a href="{{ url_for('hub_asesor') }}" class="btn btn-corporate-primary">Mis Citas</a>
                 </div>
             </div>
             {% endif %}

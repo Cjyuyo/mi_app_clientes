@@ -112,7 +112,8 @@
             <div class="header-info">
                 <h1>MOTO PLAN MOTORS C.A</h1>
                 <p>R.I.F.: J-50408559-1</p>
-                <p>Fecha y Hora (VEN): {{ pago.fecha_pago.strftime('%d/%m/%Y %I:%M %p') if pago.fecha_pago else 'N/A' }}</p>
+                <!-- CAMBIO: Se usa format_datetime para incluir la hora -->
+                <p>Fecha y Hora de Conciliación (VEN): {{ pago.fecha_pago | format_datetime('%d/%m/%Y %I:%M %p') if pago.fecha_pago else 'N/A' }}</p>
             </div>
             <div class="receipt-id text-end">
                 <h2>Comprobante de Ingreso</h2>

@@ -170,11 +170,11 @@
                                 </div>
                                 <div class="payment-amount">${{ "%.2f"|format(pago.monto) }}</div>
                                 <div class="payment-actions">
-                                    {% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}<span class="badge text-bg-info">Reportado</span><a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">Ver Reporte</a>
-                                    {% elif pago.estado_reporte == 'Inconsistente' %}<span class="badge text-bg-danger">Inconsistente</span><a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Ver Reporte</a>
+                                    {% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}<span class="badge text-bg-info">Reportado</span><a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="btn btn-info btn-sm">Ver Reporte</a>
+                                    {% elif pago.estado_reporte == 'Inconsistente' %}<span class="badge text-bg-danger">Inconsistente</span><a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="btn btn-secondary btn-sm">Ver Reporte</a>
                                     {% elif pago.estado_pago == 'Pendiente' %}{% if pago.estado_reporte == 'Aprobado' %}<span class="badge text-bg-light">Aprobado</span>{% else %}<span class="badge text-bg-warning">Pendiente</span>{% endif %}<form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');" style="display:inline;"><button type="submit" class="btn btn-success btn-sm">Conciliar</button></form>
                                     {% elif pago.estado_pago == 'Conciliado' %}<span class="badge text-bg-success">Conciliado</span><a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Ver Recibo</a>
-                                    {% elif pago.estado_pago == 'Anulado' %}<span class="badge text-bg-danger">Anulado</span><a href="{{ url_for('ver_recibo_anulado', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Detalles</a>
+                                    {% elif pago.estado_pago == 'Anulado' %}<span class="badge text-bg-danger">Anulado</span><a href="{{ url_for('recibo_anulado', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Detalles</a>
                                     {% endif %}
                                 </div>
                             </div>
@@ -236,8 +236,14 @@
                         <div class="modal-body">
                             <div class="mb-3">
                                 <label for="cuotas_ofertadas-{{ cliente.id }}" class="form-label">Número de Cuotas a Ofertar</label>
-                                <input type="number" class="form-control" id="cuotas_ofertadas-{{ cliente.id }}" name="cuotas_ofertadas" placeholder="Ej: 5" min="1" required>
-                                <div class="form-text">Ingrese la cantidad de cuotas que el cliente desea adelantar para el próximo acto de adjudicación.</div>
+                                <!-- CAMBIO: Se reemplaza input por select dinámico -->
+                                <select class="form-select" id="cuotas_ofertadas-{{ cliente.id }}" name="cuotas_ofertadas" required>
+                                    {% set cuotas_restantes = (cliente.cuotas_totales|int) - (cliente.cuotas_pagadas_progresivas|int) %}
+                                    {% for i in range(1, cuotas_restantes + 1) %}
+                                    <option value="{{ i }}">{{ i }} cuota(s)</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">Seleccione la cantidad de cuotas que el cliente desea adelantar.</div>
                             </div>
                         </div>
                         <div class="modal-footer">
