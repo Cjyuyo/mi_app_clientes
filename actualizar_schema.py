@@ -4,8 +4,7 @@ from dotenv import load_dotenv
 
 def actualizar_base_de_datos():
     """
-    Se conecta a la base de datos y añade las columnas y tablas necesarias
-    para las reglas de adjudicación y ciclo de pago.
+    Se conecta a la base de datos y añade las columnas y tablas necesarias.
     Es seguro para ejecutarse múltiples veces.
     """
     load_dotenv()
@@ -29,7 +28,6 @@ def actualizar_base_de_datos():
             """)
             if not cur.fetchone():
                 print("La columna 'puntualidad' no existe. Añadiéndola...")
-                # Almacenará 'Puntual' o 'Impuntual'
                 cur.execute("ALTER TABLE pagos ADD COLUMN puntualidad TEXT;")
                 print("¡Columna 'puntualidad' añadida exitosamente!")
             else:
@@ -60,6 +58,20 @@ def actualizar_base_de_datos():
                 );
             """)
             print("Tabla 'ofertas' verificada/creada exitosamente.")
+
+            # --- 4. Añadir columna 'detalles' a la tabla 'registros_auditoria' ---
+            print("\nVerificando la tabla 'registros_auditoria'...")
+            cur.execute("""
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name='registros_auditoria' AND column_name='detalles';
+            """)
+            if not cur.fetchone():
+                print("La columna 'detalles' no existe. Añadiéndola...")
+                cur.execute("ALTER TABLE registros_auditoria ADD COLUMN detalles JSONB;")
+                print("¡Columna 'detalles' añadida exitosamente!")
+            else:
+                print("La columna 'detalles' ya existe.")
+
 
             conn.commit()
             print("\n¡La base de datos está actualizada y lista para las nuevas reglas de negocio!")

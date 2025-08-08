@@ -23,8 +23,6 @@
         body { font-family: 'Roboto', sans-serif; background-color: var(--gris-fondo); color: var(--texto-oscuro); }
         .container-main { max-width: 900px; margin: auto; padding: 1.5rem 1rem; }
         .search-container { background: var(--blanco-tarjetas); padding: 1.5rem; border-radius: .75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.07); margin-bottom: 1.5rem; }
-        .search-container form { display: flex; gap: 10px; }
-        .search-container .input-group { flex-grow: 1; }
         .btn-theme-primary { background-color: var(--theme-color); border-color: var(--theme-color); color: white; font-weight: 500; }
         .btn-theme-primary:hover { filter: brightness(90%); background-color: var(--theme-color); border-color: var(--theme-color); color: white; }
         .client-card { background: var(--blanco-tarjetas); margin-bottom: 1.5rem; border-radius: .75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.07); overflow: hidden; }
@@ -40,37 +38,12 @@
         .progress-bar { background-color: #28a745; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold; }
         .progress-bar-secondary { background-color: #17a2b8; }
         .progress-label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 5px; color: var(--texto-claro); }
-        .history-section {
-            padding: 0 1.5rem 1.5rem 1.5rem;
-            background-color: #fcfcfc;
-            border-top: 1px solid var(--borde-sutil);
-        }
-        .nav-tabs {
-            border-bottom: 1px solid var(--borde-sutil);
-            margin-bottom: 1rem;
-        }
-        .nav-tabs .nav-link {
-            border: none;
-            border-bottom: 3px solid transparent;
-            color: var(--texto-claro);
-            font-weight: 500;
-        }
-        .nav-tabs .nav-link.active {
-            color: var(--azul-corporativo);
-            border-bottom-color: var(--theme-color);
-            background-color: transparent;
-        }
-        .tab-content {
-            padding-top: 0.5rem;
-        }
-        .payment-row {
-            display: grid;
-            grid-template-columns: 1fr auto auto;
-            align-items: center;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid var(--borde-sutil);
-            gap: 1rem;
-        }
+        .history-section { padding: 0 1.5rem 1.5rem 1.5rem; background-color: #fcfcfc; border-top: 1px solid var(--borde-sutil); }
+        .nav-tabs { border-bottom: 1px solid var(--borde-sutil); margin-bottom: 1rem; }
+        .nav-tabs .nav-link { border: none; border-bottom: 3px solid transparent; color: var(--texto-claro); font-weight: 500; }
+        .nav-tabs .nav-link.active { color: var(--azul-corporativo); border-bottom-color: var(--theme-color); background-color: transparent; }
+        .tab-content { padding-top: 0.5rem; }
+        .payment-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--borde-sutil); gap: 1rem; }
         .payment-row:last-child { border-bottom: none; }
         .payment-info .payment-concept { font-weight: 500; }
         .payment-info .payment-meta { font-size: 0.85em; color: var(--texto-claro); }
@@ -82,8 +55,8 @@
 <body>
 <div class="container-main">
     <div class="search-container">
-        <form method="POST" action="{{ url_for('consulta') }}" class="d-flex gap-2">
-            <div class="input-group">
+        <form method="POST" action="{{ url_for('consulta') }}">
+            <div class="d-flex flex-column flex-md-row gap-2">
                 <input type="search" name="busqueda" class="form-control form-control-lg" placeholder="Buscar por Nombre o Cédula..." value="{{ busqueda or '' }}">
                 <button type="submit" class="btn btn-theme-primary btn-lg"><i class="bi bi-search"></i> Buscar</button>
                 <a href="{{ url_for('hub') }}" class="btn btn-secondary btn-lg">
@@ -91,7 +64,7 @@
                 </a>
             </div>
         </form>
-    </div>
+        </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -236,7 +209,6 @@
                         <div class="modal-body">
                             <div class="mb-3">
                                 <label for="cuotas_ofertadas-{{ cliente.id }}" class="form-label">Número de Cuotas a Ofertar</label>
-                                <!-- CAMBIO: Se reemplaza input por select dinámico -->
                                 <select class="form-select" id="cuotas_ofertadas-{{ cliente.id }}" name="cuotas_ofertadas" required>
                                     {% set cuotas_restantes = (cliente.cuotas_totales|int) - (cliente.cuotas_pagadas_progresivas|int) %}
                                     {% for i in range(1, cuotas_restantes + 1) %}

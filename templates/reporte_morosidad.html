@@ -10,7 +10,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* --- GUÍA DE ESTILO MAESTRA --- */
         :root {
             --azul-corporativo: #2B3A55;
             --rojo-terracota-alertas: #C0392B;
@@ -21,7 +20,6 @@
             --borde-sutil: #e9ecef;
             --theme-color: var(--rojo-terracota-alertas);
         }
-
         body { 
             background-color: var(--gris-fondo); 
             font-family: 'Roboto', sans-serif; 
@@ -39,7 +37,6 @@
             font-weight: 700; 
             font-size: 2.5rem; 
         }
-        
         .metric-card {
             background: var(--blanco-tarjetas);
             border: 1px solid var(--borde-sutil);
@@ -70,7 +67,6 @@
             color: var(--texto-claro);
             font-weight: 500;
         }
-
         .client-card { 
             background: var(--blanco-tarjetas); 
             margin-bottom: 1.25rem; 
@@ -123,7 +119,6 @@
     </style>
 </head>
 <body>
-
     <nav class="navbar navbar-expand-lg navbar-dark navbar-custom shadow-sm">
         <div class="container-fluid">
             <a class="navbar-brand" href="{{ url_for('gestion_administrativa') }}">
@@ -139,12 +134,10 @@
             </div>
         </div>
     </nav>
-
     <header class="main-header">
         <h1>Reporte de Clientes en Mora</h1>
         <p class="lead">Ahorradores sin pago de cuota conciliado para {{ mes_actual }} {{ anio_actual }}.</p>
     </header>
-
     <main class="container my-5">
         <div class="row g-4 mb-5">
             <div class="col-md-6">
@@ -166,7 +159,6 @@
                 </div>
             </div>
         </div>
-
         {% if clientes_en_mora %}
             {% for cliente in clientes_en_mora %}
             <div class="client-card">
@@ -225,10 +217,8 @@
             </div>
         {% endif %}
     </main>
-
     <footer class="footer">
         <p>&copy; {{ anio_actual }} Moto Plan Motors C.A.</p>
     </footer>
-
 </body>
 </html>

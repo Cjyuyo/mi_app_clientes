@@ -74,14 +74,11 @@
             </div>
         </div>
     </nav>
-
     <header class="main-header">
         <h1><i class="bi bi-wallet2"></i> Reporte de Flujo de Caja</h1>
         <p class="lead">Análisis de balances y movimientos de tesorería.</p>
     </header>
-
     <main class="container my-5">
-        <!-- Formulario de Consulta -->
         <div class="content-card mb-4">
             <div class="card-body p-4">
                 <form method="POST" action="{{ url_for('reporte_flujo_caja') }}" class="row g-3 align-items-end">
@@ -95,8 +92,6 @@
                 </form>
             </div>
         </div>
-
-        <!-- Tarjetas de Tasas del Día -->
         <div class="row g-4 mb-4">
             <div class="col-md-6">
                 <div class="content-card tasa-card">
@@ -111,9 +106,7 @@
                 </div>
             </div>
         </div>
-
         <div class="row g-4">
-            <!-- Columna de Balances -->
             <div class="col-lg-5">
                 <div class="content-card">
                     <div class="card-header bg-dark text-white">
@@ -129,8 +122,6 @@
                             </div>
                             <div class="col-6"><div class="balance-card"><div class="amount text-success">${{ "{:,.2f}".format(resumen.EFECTIVO_USD) }}</div><div class="label">Efectivo USD</div></div></div>
                             <div class="col-6"><div class="balance-card"><div class="amount text-warning">${{ "{:,.2f}".format(resumen.BINANCE_USDT) }}</div><div class="label">Binance USDT</div></div></div>
-                            
-                            <!-- Desglose de Caja en Bolívares -->
                             <div class="col-6"><div class="balance-card"><div class="amount text-info" style="font-size: 1.5rem;">Bs. {{ "{:,.2f}".format(resumen.CAJA_BS_USD) }}</div><div class="label">Caja Bs (USD Ref)</div></div></div>
                             <div class="col-6"><div class="balance-card"><div class="amount text-info" style="font-size: 1.5rem;">Bs. {{ "{:,.2f}".format(resumen.CAJA_BS_EUR) }}</div><div class="label">Caja Bs (EUR Ref)</div></div></div>
                             <div class="col-12">
@@ -141,14 +132,12 @@
                                     <div class="sub-balance"><strong>Tasa Ponderada:</strong> {{ "{:,.2f}".format(resumen.tasa_ponderada_bs) }} Bs/USD</div>
                                 </div>
                             </div>
-                            
                             <div class="col-6"><div class="balance-card loss-card"><div class="amount">(${{ "{:,.2f}".format(resumen.acumulado_perdida_devaluacion) }})</div><div class="label">Pérdida Devaluación</div></div></div>
                             <div class="col-6"><div class="balance-card loss-card"><div class="amount">(${{ "{:,.2f}".format(resumen.acumulado_perdida_conversion) }})</div><div class="label">Pérdida Conversión</div></div></div>
                         </div>
                     </div>
                 </div>
             </div>
-            <!-- Columna de Historial -->
             <div class="col-lg-7">
                 <div class="content-card h-100">
                     <div class="card-header">
