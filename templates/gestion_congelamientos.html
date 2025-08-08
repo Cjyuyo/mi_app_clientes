@@ -3,57 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Componente: Gestión de Congelamientos</title>
+    <title>Gestión de Congelamientos - Sistema de Gestión</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --azul-corporativo: #2B3A55;
+            --gris-fondo: #f4f7fc;
+            --blanco-tarjetas: #FFFFFF;
+            --texto-oscuro: #212529;
+            --texto-claro: #6c757d;
+            --color-congelamientos: #1ABC9C;
+        }
+        body {
+            background-color: var(--gris-fondo);
+            font-family: 'Roboto', sans-serif;
+        }
+        .navbar-custom {
+            background-color: var(--azul-corporativo);
+        }
+        .main-header {
+            background: linear-gradient(135deg, var(--color-congelamientos) 0%, #16a085 100%);
+            color: var(--blanco-tarjetas);
+            padding: 2.5rem 1.5rem;
+            border-radius: .75rem;
+            margin-bottom: 2.5rem;
+            text-align: center;
+            box-shadow: 0 8px 20px rgba(26, 188, 156, 0.25);
+        }
+        .main-header h1 {
+            font-weight: 700;
+        }
         .content-card {
-            background-color: #FFFFFF;
+            background-color: var(--blanco-tarjetas);
             border: none;
             border-radius: .75rem;
-            box-shadow: 0 4px 25px rgba(0,0,0,0.05);
-            margin-bottom: 2rem;
-            height: 100%;
+            box-shadow: 0 4px 15px rgba(0,0,0,.08);
         }
         .content-card-header {
             padding: 1rem 1.5rem;
             border-bottom: 1px solid #e9ecef;
             font-size: 1.1rem;
-            font-weight: 500;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .solicitud-item {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .solicitud-item:last-child {
+            border-bottom: none;
         }
     </style>
 </head>
 <body>
-    <!-- Tarjeta de Gestión de Congelamientos -->
-    <div class="content-card">
-        <div class="content-card-header bg-info-subtle text-info-emphasis">
-            <i class="bi bi-snow"></i> Solicitudes de Congelamiento
-            <span class="badge bg-info-subtle text-info-emphasis ms-auto">{{ solicitudes.congelamientos|length }}</span>
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('solicitudes_hub') }}">
+                <i class="bi bi-arrow-left-circle-fill"></i> Volver al Hub
+            </a>
         </div>
-        <div class="list-group list-group-flush">
-             {% for solicitud in solicitudes.congelamientos %}
-            <div class="list-group-item d-flex justify-content-between align-items-center">
-                <div>
-                    <strong>{{ solicitud.nombre_cliente }}</strong><br>
-                    <small class="text-muted">{{ solicitud.fecha_creacion | format_datetime }}</small>
-                </div>
-                 <button class="btn btn-sm btn-outline-dark manage-btn" 
-                        data-bs-toggle="modal" 
-                        data-bs-target="#congelamientoModal"
-                        data-action-url="{{ url_for('procesar_solicitud', solicitud_id=solicitud.id) }}"
-                        data-cliente-nombre="{{ solicitud.nombre_cliente }}"
-                        data-fecha-solicitud="{{ solicitud.fecha_creacion | format_datetime }}">
-                    Gestionar
-                </button>
+    </nav>
+
+    <div class="container py-5">
+        <div class="main-header">
+            <h1><i class="bi bi-snow"></i> Gestión de Congelamientos</h1>
+            <p class="lead">Procesa las solicitudes para congelar los planes de ahorro.</p>
+        </div>
+
+        <div class="content-card">
+            <div class="content-card-header" style="color: var(--color-congelamientos);">
+                <span><i class="bi bi-clock-history"></i> Solicitudes de Congelamiento Pendientes</span>
+                <span class="badge bg-success rounded-pill">{{ solicitudes.congelamientos|length }}</span>
             </div>
-            {% else %}
-            <div class="list-group-item text-muted text-center p-4">No hay solicitudes de congelamiento pendientes.</div>
-            {% endfor %}
-        </div>
-        <div class="card-footer text-center">
-            <a href="#" class="btn btn-link btn-sm">Ver Historial de Congelamientos</a>
+            <div class="list-group list-group-flush">
+                {% for solicitud in solicitudes.congelamientos %}
+                <div class="list-group-item solicitud-item">
+                    <div class="d-flex w-100 justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ solicitud.nombre_cliente }}</strong>
+                            <br>
+                            <small class="text-muted">Solicitado: {{ solicitud.fecha_creacion | format_datetime }}</small>
+                        </div>
+                        <form action="{{ url_for('procesar_solicitud', solicitud_id=solicitud.id) }}" method="POST" class="d-inline">
+                            <input type="hidden" name="tipo" value="congelamiento">
+                            <button type="submit" name="accion" value="aprobar" class="btn btn-sm btn-outline-success me-2">Aprobar</button>
+                            <button type="submit" name="accion" value="rechazar" class="btn btn-sm btn-outline-danger">Rechazar</button>
+                        </form>
+                    </div>
+                </div>
+                {% else %}
+                <div class="list-group-item text-muted text-center p-4">No hay solicitudes de congelamiento pendientes.</div>
+                {% endfor %}
+            </div>
         </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
