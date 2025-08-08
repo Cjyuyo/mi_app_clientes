@@ -20,6 +20,7 @@
             --borde-sutil: #e9ecef;
             --verde-exito: #28a745;
             --rojo-alerta: #C0392B;
+            --azul-info: #3498DB;
         }
         body {
             font-family: 'Roboto', sans-serif;
@@ -42,7 +43,7 @@
         .portal-header h1 { margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--azul-corporativo); }
         .header-actions { display: flex; gap: 10px; }
         .header-actions .btn { font-size: 0.8rem; font-weight: 500; }
-        .payment-status-card {
+        .info-card {
             background: var(--blanco-tarjetas); 
             border-radius: .75rem; 
             padding: 1.5rem;
@@ -50,9 +51,15 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             border-left: 5px solid;
         }
+        .info-card.cita { border-left-color: var(--azul-info); }
         .payment-status-card.vigente { border-left-color: var(--verde-exito); }
         .payment-status-card.mora { border-left-color: var(--rojo-alerta); }
         .payment-status-card.pagada { border-left-color: var(--texto-claro); }
+        .info-card-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+        .info-card-header .icon { font-size: 1.5rem; }
+        .info-card-header h3 { margin: 0; font-size: 1.1rem; font-weight: 500; }
+        .info-card-body p { margin-bottom: 0.25rem; }
+        .info-card-body strong { color: var(--texto-oscuro); }
         .status-header { display: flex; justify-content: space-between; align-items: center; }
         .status-header h3 { margin: 0; font-size: 1.1rem; font-weight: 500; }
         .status-header .status-label { font-weight: bold; padding: 5px 12px; border-radius: 15px; color: white; font-size: 12px; }
@@ -139,7 +146,7 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
                     {{ message }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
@@ -147,10 +154,29 @@
             {% endif %}
         {% endwith %}
 
+        <!-- Tarjeta de Cita Confirmada -->
+        {% if cita_confirmada %}
+        <div class="info-card cita">
+            <div class="info-card-header">
+                <i class="bi bi-calendar-check-fill icon" style="color: var(--azul-info);"></i>
+                <h3>Tu Cita Confirmada</h3>
+            </div>
+            <div class="info-card-body">
+                <p>¡Tu cita ha sido agendada con éxito!</p>
+                <ul class="list-unstyled mb-0">
+                    <li><strong>Fecha:</strong> {{ cita_confirmada.detalles.fecha_cita | format_date('%A, %d de %B de %Y') }}</li>
+                    <li><strong>Hora:</strong> {{ cita_confirmada.detalles.hora_cita }}</li>
+                    <li><strong>Te atenderá:</strong> {{ cita_confirmada.nombre_asesor }}</li>
+                    <li><strong>Motivo:</strong> {{ cita_confirmada.detalles.motivo }}</li>
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
         {% set puede_interactuar = cliente.estatus in ['ACTIVO', 'AHORRADOR'] %}
         
         {% if cliente.estatus != 'RESERVA' %}
-        <div class="payment-status-card {{ cuota_status.estado | lower }}">
+        <div class="info-card payment-status-card {{ cuota_status.estado | lower }}">
              <div class="status-header">
                  <h3>Cuota de {{ cuota_status.mes }}</h3>
                  <span class="status-label {{ cuota_status.estado | lower }}">{{ cuota_status.estado }}</span>

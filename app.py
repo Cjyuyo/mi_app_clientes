@@ -13,6 +13,7 @@ import io
 import csv
 import logging
 import pytz
+import json
 
 # Configuración del logging para que sea visible en Render
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -77,7 +78,6 @@ def format_date_filter(value, format='%d/%m/%Y'):
 @app.before_request
 def setup_session_and_user():
     session.permanent = True
-    # CAMBIO FINAL: Tiempo de sesión para admins y clientes a 10 minutos
     app.permanent_session_lifetime = timedelta(minutes=10)
     
     g.admin = None
@@ -274,7 +274,6 @@ def tesoreria_rebalanceo():
                 flash(f"Error: Fondos insuficientes en '{caja_origen}'.", 'danger')
                 return redirect(url_for('tesoreria_rebalanceo'))
             
-            # FASE 3: Lógica para egresos completos sin monto destino
             if tipo_operacion in ['PAGO_GASTO', 'PAGO_NOMINA', 'PAGO_SERVICIO']:
                 caja_destino, monto_destino, moneda_destino = 'GASTO_OPERATIVO', monto_origen, moneda_origen
             else:
@@ -429,7 +428,6 @@ def hub():
     return render_template('hub.html', anio_actual=get_venezuela_current_date().year, usuarios=usuarios)
 
 # --- MÓDULO DE GESTIÓN ADMINISTRATIVA Y COBRANZA ---
-# CORRECCIÓN: Esta ruta ahora solo muestra el menú de tarjetas
 @app.route('/gestion_administrativa')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -517,24 +515,30 @@ def pagos_por_conciliar():
         flash("Error al cargar la lista de pagos pendientes.", "danger")
     return render_template('pagos_por_conciliar.html', pagos=pagos_a_procesar, anio_actual=get_venezuela_current_date().year)
 
-# CORRECCIÓN: La lógica del calendario y sub-tarjetas se mueve a esta ruta
 @app.route('/solicitudes_pendientes')
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def solicitudes_pendientes():
     conn = get_db()
-    solicitudes = {'retiros': [], 'congelamientos': []}
+    solicitudes = {'retiros': [], 'congelamientos': [], 'citas': []}
     eventos_calendario = []
+    administradores = []
+    citas_aprobadas = []
+
     if not conn:
         flash("Error de conexión con la base de datos.", "danger")
     else:
         try:
             with conn.cursor() as cur:
-                # Obtener solicitudes pendientes de retiro y congelamiento
+                # Obtener lista de administradores para asignar citas
+                cur.execute("SELECT id, usuario FROM administradores WHERE rol IN ('superadmin', 'gerente', 'administradora') ORDER BY usuario")
+                administradores = cur.fetchall()
+
+                # Obtener todas las solicitudes pendientes
                 query_pendientes = """
-                    SELECT s.id, s.tipo_solicitud, s.fecha_creacion, c.nombre || ' ' || c.apellido as nombre_cliente
+                    SELECT s.id, s.tipo_solicitud, s.fecha_creacion, s.detalles, c.nombre || ' ' || c.apellido as nombre_cliente
                     FROM solicitudes s JOIN clientes c ON s.cliente_id = c.id
-                    WHERE s.estado = 'Pendiente' AND s.tipo_solicitud IN ('Retiro', 'Congelamiento')
+                    WHERE s.estado = 'Pendiente'
                     ORDER BY s.fecha_creacion ASC;
                 """
                 cur.execute(query_pendientes)
@@ -543,15 +547,21 @@ def solicitudes_pendientes():
                         solicitudes['retiros'].append(solicitud)
                     elif solicitud['tipo_solicitud'] == 'Congelamiento':
                         solicitudes['congelamientos'].append(solicitud)
+                    elif solicitud['tipo_solicitud'] == 'Cita':
+                        solicitudes['citas'].append(solicitud)
                 
-                # Obtener citas aprobadas para el calendario
-                query_citas = """
-                    SELECT s.detalles, c.nombre || ' ' || c.apellido as nombre_cliente
-                    FROM solicitudes s JOIN clientes c ON s.cliente_id = c.id
+                # Obtener citas aprobadas para el calendario y la agenda
+                query_citas_aprobadas = """
+                    SELECT s.detalles, c.nombre || ' ' || c.apellido as nombre_cliente, a.usuario as nombre_asesor
+                    FROM solicitudes s 
+                    JOIN clientes c ON s.cliente_id = c.id
+                    LEFT JOIN administradores a ON (s.detalles->>'asesor_id')::int = a.id
                     WHERE s.tipo_solicitud = 'Cita' AND s.estado = 'Aprobada';
                 """
-                cur.execute(query_citas)
-                for cita in cur.fetchall():
+                cur.execute(query_citas_aprobadas)
+                citas_aprobadas = cur.fetchall()
+
+                for cita in citas_aprobadas:
                     detalles = cita['detalles']
                     if detalles and 'fecha_cita' in detalles and 'hora_cita' in detalles:
                         try:
@@ -570,10 +580,11 @@ def solicitudes_pendientes():
     return render_template('solicitudes_pendientes.html', 
                            solicitudes=solicitudes, 
                            eventos_calendario=eventos_calendario,
+                           administradores=administradores,
+                           citas_aprobadas=citas_aprobadas,
                            anio_actual=get_venezuela_current_date().year)
 
 
-# FASE 3: Nueva ruta para procesar solicitudes de retiro/congelamiento
 @app.route('/procesar_solicitud/<int:solicitud_id>', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
@@ -581,7 +592,6 @@ def procesar_solicitud(solicitud_id):
     conn = get_db()
     accion = request.form.get('accion')
     tipo = request.form.get('tipo')
-    # CORRECCIÓN: Redirigir a la nueva página de solicitudes
     redirect_url = url_for('solicitudes_pendientes')
 
     if not all([conn, accion, tipo]):
@@ -592,15 +602,34 @@ def procesar_solicitud(solicitud_id):
     
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT cliente_id FROM solicitudes WHERE id = %s", (solicitud_id,))
+            cur.execute("SELECT cliente_id, detalles FROM solicitudes WHERE id = %s", (solicitud_id,))
             solicitud = cur.fetchone()
             if not solicitud:
                 flash("La solicitud no existe.", "error")
                 return redirect(redirect_url)
 
+            detalles_actualizados = solicitud['detalles']
+
+            if tipo == 'cita' and accion == 'aprobar':
+                asesor_id = request.form.get('asesor_id')
+                if not asesor_id:
+                    flash("Debe asignar un asesor para aprobar la cita.", "error")
+                    return redirect(redirect_url)
+                
+                cur.execute("SELECT usuario FROM administradores WHERE id = %s", (asesor_id,))
+                asesor = cur.fetchone()
+                if not asesor:
+                    flash("Asesor no válido.", "error")
+                    return redirect(redirect_url)
+                
+                if detalles_actualizados is None:
+                    detalles_actualizados = {}
+                detalles_actualizados['asesor_id'] = asesor_id
+                detalles_actualizados['nombre_asesor'] = asesor['usuario']
+
             cur.execute(
-                "UPDATE solicitudes SET estado = %s, revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
-                (nuevo_estado_solicitud, g.admin['id'], solicitud_id)
+                "UPDATE solicitudes SET estado = %s, revisado_por_id = %s, fecha_revision = NOW(), detalles = %s WHERE id = %s",
+                (nuevo_estado_solicitud, g.admin['id'], json.dumps(detalles_actualizados), solicitud_id)
             )
             
             if accion == 'aprobar':
@@ -1622,7 +1651,6 @@ def guardar_oferta(client_id):
         flash(f"Ocurrió un error al registrar la oferta: {e}", 'error')
     return redirect(url_for('consulta', busqueda=cedula_cliente))
 
-# CORRECCIÓN: Función de adjudicación reinsertada
 @app.route('/adjudicacion', methods=['GET'])
 @admin_required
 def adjudicacion():
@@ -1683,7 +1711,6 @@ def realizar_adjudicacion():
             cur.execute("UPDATE clientes SET proceso = 'ADJUDICADO' WHERE id = ANY(%s);", (list(ids_ya_ganadores),))
             if ganador_oferta:
                 cur.execute("UPDATE ofertas SET estado_oferta = 'ganadora' WHERE cliente_id = %s AND estado_oferta = 'activa';", (ganador_oferta['id'],))
-                # FASE 2: Generar orden de pago para el ganador de la oferta
                 cur.execute("SELECT valor_cuota FROM clientes WHERE id = %s", (ganador_oferta['id'],))
                 valor_cuota = cur.fetchone()['valor_cuota']
                 monto_oferta = ganador_oferta['cuotas_ofertadas'] * valor_cuota
@@ -1823,7 +1850,6 @@ def portal_dashboard():
             cliente = cur.fetchone()
             cliente_dict = dict(cliente)
             
-            # FASE 1: Se añade la columna 'detalles_reporte' y se ordena DESC
             cur.execute("SELECT *, detalles_reporte FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC;", (session['cliente_id'],))
             pagos = cur.fetchall()
             cliente_dict['pagos'] = [dict(p) for p in pagos]
@@ -1834,6 +1860,21 @@ def portal_dashboard():
             
             pago_pendiente_existente = any(pago['estado_pago'] == 'Pendiente' for pago in pagos)
             
+            # Lógica para la tarjeta de Cita Confirmada
+            cita_confirmada = None
+            cur.execute("""
+                SELECT s.*, a.usuario as nombre_asesor
+                FROM solicitudes s
+                LEFT JOIN administradores a ON (s.detalles->>'asesor_id')::int = a.id
+                WHERE s.cliente_id = %s 
+                AND s.tipo_solicitud = 'Cita' 
+                AND s.estado = 'Aprobada'
+                AND (s.detalles->>'fecha_cita')::date >= NOW()::date
+                ORDER BY (s.detalles->>'fecha_cita')::date ASC, (s.detalles->>'hora_cita') ASC
+                LIMIT 1;
+            """, (session['cliente_id'],))
+            cita_confirmada = cur.fetchone()
+
             hoy, dia_de_vencimiento = get_venezuela_current_date(), 3
             pago_del_mes_realizado = any(pago['tipo_pago'] == 'Cuota' and pago['fecha_pago'].year == hoy.year and pago['fecha_pago'].month == hoy.month and pago['estado_pago'] == 'Conciliado' for pago in pagos)
             estado_cuota = {}
@@ -1844,7 +1885,11 @@ def portal_dashboard():
             else:
                 estado_cuota = {'estado': 'En Mora', 'mes': get_nombre_mes(hoy.month), 'fecha_vencimiento': f"{dia_de_vencimiento:02d}/{hoy.month:02d}/{hoy.year}"}
             
-            return render_template('portal_dashboard.html', cliente=cliente_dict, cuota_status=estado_cuota, puede_reportar_pago=(not pago_pendiente_existente))
+            return render_template('portal_dashboard.html', 
+                                   cliente=cliente_dict, 
+                                   cuota_status=estado_cuota, 
+                                   puede_reportar_pago=(not pago_pendiente_existente),
+                                   cita_confirmada=cita_confirmada)
     except psycopg2.Error as e:
         flash(f'Ocurrió un error al cargar su información: {e}', 'error')
         return redirect(url_for('portal_login'))
@@ -1912,7 +1957,6 @@ def portal_estado_cuenta():
         with conn.cursor() as cur:
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
             cliente = cur.fetchone()
-            # FASE 1: Ordenar pagos DESC
             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC;", (session['cliente_id'],))
             pagos = cur.fetchall()
             fecha_generacion = get_venezuela_current_date().strftime('%d/%m/%Y')
@@ -2048,7 +2092,6 @@ def portal_solicitar_retiro():
         flash(f"Error al enviar tu solicitud: {e}", 'error')
     return redirect(url_for('portal_dashboard'))
 
-# FASE 1: Nueva ruta para que el cliente vea el reporte de pago
 @app.route('/portal/ver_reporte/<int:pago_id>')
 @portal_login_required
 def portal_ver_reporte(pago_id):
@@ -2084,7 +2127,6 @@ def ver_reporte(pago_id):
         return redirect(url_for('consulta'))
     return render_template('ver_reporte.html', pago=pago, is_client_view=False)
 
-# FASE 2: Lógica mejorada para procesar reportes con inconsistencias
 @app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
