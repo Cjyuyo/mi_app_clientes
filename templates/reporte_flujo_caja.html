@@ -55,6 +55,20 @@
         .balance-card .label { font-size: 0.9rem; color: var(--texto-claro); }
         .sub-balance { font-size: 0.85rem; color: #495057; }
         .loss-card .amount { color: #dc3545; }
+        .tasa-card {
+            padding: 1rem;
+            text-align: center;
+        }
+        .tasa-card .tasa-label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--texto-claro);
+        }
+        .tasa-card .tasa-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--texto-oscuro);
+        }
     </style>
 </head>
 <body>
@@ -74,22 +88,42 @@
     </header>
 
     <main class="container my-5">
+        <!-- Formulario de Consulta -->
         <div class="content-card mb-4">
-            <div class="card-body">
-                <form method="POST" action="{{ url_for('reporte_flujo_caja') }}" class="d-flex justify-content-center align-items-end gap-3">
-                    <div>
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('reporte_flujo_caja') }}" class="row g-3 align-items-end">
+                    <div class="col-md-4">
                         <label for="fecha_reporte" class="form-label fw-bold">Consultar Balances al Cierre del Día:</label>
                         <input type="date" id="fecha_reporte" name="fecha_reporte" value="{{ fecha_reporte }}" class="form-control form-control-lg">
                     </div>
-                    <button type="submit" class="btn btn-dark btn-lg">Generar Reporte</button>
+                    <div class="col-md-auto">
+                        <button type="submit" class="btn btn-dark btn-lg w-100">Generar Reporte</button>
+                    </div>
                 </form>
             </div>
         </div>
 
+        <!-- Tarjetas de Tasas del Día -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-6">
+                <div class="content-card tasa-card">
+                    <div class="tasa-label">Tasa Dólar (BCV) al {{ fecha_reporte | format_date }}</div>
+                    <div class="tasa-value text-success">Bs. {{ "{:,.2f}".format(tasas_del_dia.usd) }}</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="content-card tasa-card">
+                    <div class="tasa-label">Tasa Euro (BCV) al {{ fecha_reporte | format_date }}</div>
+                    <div class="tasa-value text-primary">Bs. {{ "{:,.2f}".format(tasas_del_dia.eur) }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenido Principal: Balances e Historial -->
         <div class="row g-4">
             <div class="col-lg-5">
                 <div class="content-card">
-                    <div class="content-card-header d-flex justify-content-between align-items-center">
+                    <div class="content-card-header">
                         <h5 class="mb-0">Balances al {{ fecha_reporte | format_date }}</h5>
                     </div>
                     <div class="card-body p-4">
