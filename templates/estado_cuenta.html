@@ -211,6 +211,7 @@
                             <th>Monto (USD)</th>
                             <th>Estado</th>
                             <th>Puntualidad</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -218,14 +219,21 @@
                         <tr>
                             <td>{{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }}</td>
                             <td>{{ pago.id }}</td>
-                            <td>{{ pago.tipo_pago }}</td>
+                            <td>{{ pago.por_concepto_de or 'N/D' }}</td>
                             <td>${{ "%.2f"|format(pago.monto) }}</td>
                             <td>{{ pago.estado_pago }}</td>
                             <td class="status-{{ pago.puntualidad or 'N/A' }}">{{ pago.puntualidad or 'N/A' }}</td>
+                            <td>
+                                {% if pago.estado_pago != 'Anulado' %}
+                                <a href="{{ url_for('recibo', pago_id=pago.id) }}" class="btn btn-sm btn-outline-secondary" target="_blank">
+                                    Ver Recibo
+                                </a>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="6" class="text-center">No hay transacciones registradas.</td>
+                            <td colspan="7" class="text-center">No hay transacciones registradas.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

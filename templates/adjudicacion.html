@@ -137,6 +137,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
     </style>
 </head>
@@ -186,7 +188,13 @@
                             <div class="tab-pane fade show active" id="ahorro" role="tabpanel">
                                 <ul class="list-group list-group-flush">
                                     {% for cliente in clientes_elegibles_ahorro %}
-                                        <li class="list-group-item">{{ cliente.nombre_apellido }} <span class="badge bg-info">Cuota {{ cliente.cuotas_pagadas_progresivas }} (Retraso: {{ cliente.meses_retraso_entrega }})</span></li>
+                                        <li class="list-group-item">
+                                            <div>
+                                                <strong>{{ cliente.nombre_apellido }}</strong><br>
+                                                <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" target="_blank" class="text-muted small">C.I: {{ cliente.cedula }}</a>
+                                            </div>
+                                            <span class="badge bg-info">Cuota {{ cliente.cuotas_pagadas_progresivas }} (Retraso: {{ cliente.meses_retraso_entrega }})</span>
+                                        </li>
                                     {% else %}
                                         <li class="list-group-item">No hay clientes elegibles por ahorro este ciclo.</li>
                                     {% endfor %}
@@ -200,7 +208,13 @@
                             <div class="tab-pane fade" id="ofertas" role="tabpanel">
                                 <ul class="list-group list-group-flush">
                                     {% for oferta in ofertas_activas %}
-                                        <li class="list-group-item">{{ oferta.nombre_apellido }} <span class="badge bg-primary">{{ oferta.cuotas_ofertadas }} Cuotas</span></li>
+                                        <li class="list-group-item">
+                                            <div>
+                                                <strong>{{ oferta.nombre_apellido }}</strong><br>
+                                                <a href="{{ url_for('consulta', busqueda=oferta.cedula) }}" target="_blank" class="text-muted small">C.I: {{ oferta.cedula }}</a>
+                                            </div>
+                                            <span class="badge bg-primary">{{ oferta.cuotas_ofertadas }} Cuotas</span>
+                                        </li>
                                     {% else %}
                                         <li class="list-group-item">No hay ofertas activas este mes.</li>
                                     {% endfor %}

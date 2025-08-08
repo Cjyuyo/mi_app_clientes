@@ -131,7 +131,7 @@
             <h1>Mi Portal de Cliente</h1>
             <div class="header-actions">
                 <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-dark btn-sm" target="_blank"><i class="bi bi-file-pdf"></i> Ver Contrato</a>
-                <a href="{{ url_for('portal_estado_cuenta') }}" class="btn btn-info btn-sm" target="_blank"><i class="bi bi-journal-text"></i> Estado de Cuenta</a>
+                <a href="{{ url_for('estado_cuenta') }}" class="btn btn-info btn-sm" target="_blank"><i class="bi bi-journal-text"></i> Estado de Cuenta</a>
                 <a href="{{ url_for('portal_logout') }}" class="btn btn-danger btn-sm"><i class="bi bi-box-arrow-right"></i> Cerrar Sesión</a>
             </div>
         </div>
@@ -149,6 +149,7 @@
 
         {% set puede_interactuar = cliente.estatus in ['ACTIVO', 'AHORRADOR'] %}
         
+        {% if cliente.estatus != 'RESERVA' %}
         <div class="payment-status-card {{ cuota_status.estado | lower }}">
              <div class="status-header">
                  <h3>Cuota de {{ cuota_status.mes }}</h3>
@@ -169,6 +170,7 @@
                 {% endif %}
             </div>
         </div>
+        {% endif %}
         
         <div class="content-card">
             <div class="content-card-header">
@@ -239,14 +241,14 @@
                     {% for pago in cliente.pagos %}
                     <div class="payment-row">
                         <div class="payment-info">
-                            <span class="payment-concept">{{ pago.tipo_pago }}</span>
+                            <span class="payment-concept">{{ pago.por_concepto_de or 'N/D' }}</span>
                             <span class="payment-meta">{{ pago.fecha_pago | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</span>
                         </div>
                         <div class="payment-amount">${{ "%.2f"|format(pago.monto) }}</div>
                         <div class="payment-actions">
                             {% if pago.estado_pago == 'Conciliado' %}
                                 <span class="badge text-bg-success">Conciliado</span>
-                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm" target="_blank">Ver Recibo</a>
+                                <a href="{{ url_for('recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm" target="_blank">Ver Recibo</a>
                             {% elif pago.estado_pago == 'Pendiente' %}
                                 {% if pago.estado_reporte == 'Inconsistente' and pago.detalles_reporte %}
                                     <span class="badge text-bg-danger" title="{{ pago.detalles_reporte.motivo }}">Inconsistente</span>

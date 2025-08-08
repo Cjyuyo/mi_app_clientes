@@ -24,93 +24,104 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
+            padding: 20px;
         }
-        .content-card {
-            background-color: var(--blanco-tarjetas);
-            border-radius: .75rem;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.07);
-            overflow: hidden;
+        .card {
+            max-width: 900px;
             width: 100%;
-            max-width: 800px;
+            border-radius: .75rem;
+            border: none;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.1);
         }
-        .card-header-custom {
-            background-color: var(--azul-corporativo);
-            color: var(--blanco-tarjetas);
-            padding: 1.25rem 1.5rem;
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
         }
-        .list-group-item .label {
-            font-weight: 500;
+        .info-item {
+            background-color: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: .5rem;
+        }
+        .info-item .label {
+            font-size: 0.8rem;
             color: var(--texto-claro);
+            display: block;
+            margin-bottom: 2px;
         }
-        .list-group-item .value {
+        .info-item .value {
+            font-size: 1rem;
             font-weight: 500;
             color: var(--texto-oscuro);
+        }
+        .image-container {
+            max-height: 400px;
+            overflow: hidden;
+            border-radius: .5rem;
+            cursor: pointer;
+        }
+        .image-container img {
+            width: 100%;
+            height: auto;
+            object-fit: cover;
+        }
+        .alert-warning {
+            background-color: #fff3cd;
+            color: #664d03;
         }
     </style>
 </head>
 <body>
-    <div class="container py-4">
-        <div class="row justify-content-center">
-            <div class="col-lg-8">
-                <div class="content-card">
-                    <div class="card-header card-header-custom">
-                        <h4 class="mb-0"><i class="bi bi-file-earmark-check-fill me-2"></i>Verificar Reporte de Pago N° {{ pago.id }}</h4>
+    <div class="card">
+        <div class="card-body p-lg-5">
+            <h2 class="card-title text-center mb-4">Revisión de Reporte de Pago <span class="text-primary">#{{ pago.id }}</span></h2>
+            
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <h5 class="mb-3">Detalles del Reporte</h5>
+                    <div class="info-grid mb-4">
+                        <div class="info-item"><span class="label">Cliente</span><span class="value">{{ pago.nombre_apellido }}</span></div>
+                        <div class="info-item"><span class="label">Cédula</span><span class="value">{{ pago.cedula }}</span></div>
+                        <div class="info-item"><span class="label">Monto Reportado</span><span class="value">{{ pago.moneda_pago }} {{ "%.2f"|format(pago.monto) }}</span></div>
+                        <div class="info-item"><span class="label">Fecha Reportada</span><span class="value">{{ pago.fecha_pago.strftime('%d/%m/%Y') }}</span></div>
+                        <div class="info-item"><span class="label">Forma de Pago</span><span class="value">{{ pago.forma_pago }}</span></div>
+                        <div class="info-item"><span class="label">Referencia</span><span class="value">{{ pago.referencia }}</span></div>
                     </div>
-                    <div class="card-body p-4">
-                        <h5 class="card-title">Cliente: {{ pago.nombre_apellido }}</h5>
-                        <p class="card-subtitle mb-3 text-muted">C.I. {{ pago.cedula }}</p>
 
-                        <ul class="list-group list-group-flush">
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span class="label">Monto Reportado:</span>
-                                <span class="value fs-5 text-success fw-bold">${{ "%.2f"|format(pago.monto) }}</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span class="label">Fecha de Pago Reportada:</span>
-                                <span class="value">{{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }}</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span class="label">Forma de Pago:</span>
-                                <span class="value">{{ pago.forma_pago or 'No especificado' }}</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span class="label">Referencia:</span>
-                                <span class="value">{{ pago.referencia or 'N/A' }}</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span class="label">Banco (si aplica):</span>
-                                <span class="value">{{ pago.banco or 'N/A' }}</span>
-                            </li>
-                             <li class="list-group-item d-flex justify-content-between">
-                                <span class="label">Pago en:</span>
-                                <span class="value">{{ pago.pago_en or 'No especificado' }}</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between">
-                                <span class="label">Monto en Bs (Calculado):</span>
-                                <span class="value">{{ "{:,.2f}".format(pago.monto_bs) if pago.monto_bs else 'N/A' }} Bs.</span>
-                            </li>
-                        </ul>
+                    {% if pago.capture_url %}
+                        <h5 class="mb-3">Comprobante Adjunto</h5>
+                        <div class="image-container" onclick="window.open('{{ pago.capture_url }}', '_blank')">
+                            <img src="{{ pago.capture_url }}" alt="Comprobante de pago">
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning text-center">
+                            <i class="bi bi-exclamation-triangle-fill"></i> No hay imagen de comprobante adjunta.
+                        </div>
+                    {% endif %}
+                </div>
 
-                        <div class="d-flex flex-column gap-2 mt-4 pt-4 border-top">
-                            <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Está seguro de que los datos son correctos y desea APROBAR este reporte?');">
-                                <input type="hidden" name="accion" value="aprobar">
-                                <input type="hidden" name="cedula_cliente" value="{{ pago.cedula }}">
-                                <button type="submit" class="btn btn-success w-100"><i class="bi bi-check-circle-fill me-2"></i>Aprobar para Conciliar</button>
+                <div class="col-lg-6">
+                    {% if not is_client_view %}
+                    <div class="bg-light p-4 rounded-3 h-100">
+                        <h5 class="mb-3">Acciones de Conciliación</h5>
+                        <div class="d-grid gap-3">
+                            <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Confirma que los datos son correctos y desea APROBAR la conciliación de este pago?')">
+                                <input type="hidden" name="action" value="aprobar">
+                                <button type="submit" class="btn btn-success w-100"><i class="bi bi-check-circle-fill me-2"></i>Aprobar Conciliación</button>
                             </form>
                             
                             <hr>
 
-                            <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST">
-                                <input type="hidden" name="accion" value="rechazar">
-                                <input type="hidden" name="cedula_cliente" value="{{ pago.cedula }}">
+                            <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Está seguro de que desea marcar este pago como INCONSISTENTE?')">
+                                <input type="hidden" name="action" value="rechazar">
                                 <div class="mb-3">
-                                    <label for="motivo_rechazo" class="form-label fw-bold">Marcar como Inconsistente</label>
+                                    <label for="motivo_rechazo" class="form-label">Motivo de la Inconsistencia</label>
                                     <select class="form-select" name="motivo_rechazo" id="motivo_rechazo" required>
-                                        <option value="" selected disabled>Seleccione un motivo...</option>
-                                        <option value="Referencia inválida">Referencia inválida</option>
+                                        <option value="">Seleccione un motivo...</option>
+                                        <option value="Referencia Invalida">Referencia Inválida</option>
+                                        <option value="Fecha Invalida">Fecha Inválida</option>
                                         <option value="Diferencia de Monto">Diferencia de Monto</option>
-                                        <option value="Error en Cédula/Teléfono">Error en Cédula/Teléfono</option>
-                                        <option value="Otro">Otro</option>
+                                        <option value="Otros">Otros</option>
                                     </select>
                                 </div>
                                 <div class="mb-3" id="campo_diferencia" style="display: none;">
@@ -119,23 +130,39 @@
                                 </div>
                                 <button type="submit" class="btn btn-danger w-100"><i class="bi bi-x-circle-fill me-2"></i>Confirmar Inconsistencia</button>
                             </form>
-                             <a href="{{ url_for('consulta', busqueda=pago.cedula) }}" class="btn btn-secondary w-100 mt-2">Volver</a>
+                             <a href="{{ url_for('pagos_por_conciliar') }}" class="btn btn-secondary w-100 mt-2">Volver</a>
                         </div>
                     </div>
+                    {% else %}
+                    <div class="bg-light p-4 rounded-3 h-100">
+                        <h5 class="mb-3">Estado del Reporte</h5>
+                        <div class="alert alert-info">
+                            <p class="mb-0">Este es un reporte de solo lectura. Si tienes alguna duda sobre el estado de tu pago, por favor contacta a la administración.</p>
+                        </div>
+                        <div class="d-grid mt-3">
+                             <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary w-100 mt-2">Volver al Portal</a>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
     <script>
-        document.getElementById('motivo_rechazo').addEventListener('change', function() {
-            const campoDiferencia = document.getElementById('campo_diferencia');
-            const inputDiferencia = document.getElementById('diferencia_monto');
-            if (this.value === 'Diferencia de Monto') {
-                campoDiferencia.style.display = 'block';
-                inputDiferencia.required = true;
-            } else {
-                campoDiferencia.style.display = 'none';
-                inputDiferencia.required = false;
+        document.addEventListener('DOMContentLoaded', function() {
+            const motivoRechazo = document.getElementById('motivo_rechazo');
+            if (motivoRechazo) {
+                motivoRechazo.addEventListener('change', function() {
+                    const campoDiferencia = document.getElementById('campo_diferencia');
+                    const inputDiferencia = document.getElementById('diferencia_monto');
+                    if (this.value === 'Diferencia de Monto') {
+                        campoDiferencia.style.display = 'block';
+                        inputDiferencia.required = true;
+                    } else {
+                        campoDiferencia.style.display = 'none';
+                        inputDiferencia.required = false;
+                    }
+                });
             }
         });
     </script>
