@@ -974,6 +974,21 @@ def get_historial_asesor(nombre_beneficiario):
         logging.error(f"Error en get_historial_asesor para {nombre_beneficiario}: {e}")
         return jsonify({'error': 'Error al consultar la base de datos'}), 500
 
+# --- RUTAS DE REPORTES Y GESTIÓN DE COBRANZA ---
+@app.route('/mi_cartera')
+@admin_required
+def mi_cartera():
+    conn = get_db()
+    clientes_asignados = []
+    if conn and g.admin:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, nombre, apellido, cedula, telefono, proceso FROM clientes WHERE gestor_id = %s ORDER BY nombre, apellido;", (g.admin['id'],))
+                clientes_asignados = cur.fetchall()
+        except psycopg2.Error as e:
+            flash(f"No se pudo cargar tu cartera de clientes: {e}", "error")
+    return render_template('mi_cartera.html', clientes=clientes_asignados, anio_actual=get_venezuela_current_date().year)
+
 @app.route('/reportes/metricas')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
