@@ -88,4 +88,4 @@ def actualizar_base_de_datos():
             print("Conexión a la base de datos cerrada.")
 
 if __name__ == '__main__':
-    actualizar_base_de_datos()
+   
