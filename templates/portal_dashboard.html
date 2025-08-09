@@ -56,7 +56,7 @@
         /* Clases para las tarjetas de estado principal */
         .info-card.naranja-corporativo { border-left-color: var(--naranja-corporativo); }
         .info-card.azul-info { border-left-color: var(--azul-info); }
-        .info-card.en.mora { border-left-color: var(--rojo-alerta); }
+        .info-card.en\.mora { border-left-color: var(--rojo-alerta); }
         .info-card.vigente { border-left-color: var(--verde-exito); }
         .info-card.pagada { border-left-color: var(--texto-claro); }
 
@@ -69,7 +69,7 @@
         .status-header h3 { margin: 0; font-size: 1.1rem; font-weight: 500; }
         .status-header .status-label { font-weight: bold; padding: 5px 12px; border-radius: 15px; color: white; font-size: 12px; }
         .status-label.vigente { background-color: var(--verde-exito); }
-        .status-label.en.mora { background-color: var(--rojo-alerta); }
+        .status-label.en\.mora { background-color: var(--rojo-alerta); }
         .status-label.pagada { background-color: var(--texto-claro); }
         .btn-reportar { background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo); }
         .btn-reportar:hover { background-color: #d87e12; border-color: #d87e12; }
@@ -186,7 +186,10 @@
                 </div>
                 <div class="status-body mt-2">
                     <p>{{ estado_principal.mensaje }}</p>
-                    <a href="{{ estado_principal.boton_url }}" class="btn btn-primary btn-reportar btn-sm mt-2">{{ estado_principal.boton_texto }}</a>
+                    <a href="{{ estado_principal.boton_url }}" class="btn btn-primary btn-reportar btn-sm mt-2 {% if estado_principal.pago_inscripcion_pendiente %}disabled{% endif %}"
+                       {% if estado_principal.pago_inscripcion_pendiente %}title="Ya tienes un pago en revisión."{% endif %}>
+                        {{ estado_principal.boton_texto }}
+                    </a>
                 </div>
             </div>
 
@@ -207,7 +210,7 @@
             <div class="info-card {{ estado_principal.clase_borde }}">
                 <div class="status-header">
                     <h3>{{ estado_principal.titulo }}</h3>
-                    <span class="status-label {{ estado_principal.estado_label | lower }}">{{ estado_principal.estado_label }}</span>
+                    <span class="status-label {{ estado_principal.estado_label | lower | replace(' ', '.') }}">{{ estado_principal.estado_label }}</span>
                 </div>
                 <div class="status-body mt-2">
                     <p>{{ estado_principal.mensaje | safe }}</p>

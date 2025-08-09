@@ -388,7 +388,6 @@ def hub_asesor():
     try:
         with conn.cursor() as cur:
             # Marcar inasistencias automáticamente
-            # CORRECTED QUERY: Explicitly cast date and time before combining.
             cur.execute("""
                 UPDATE solicitudes 
                 SET detalles = jsonb_set(detalles, '{estado_final}', '"Inasistencia"')
@@ -2130,13 +2129,17 @@ def portal_dashboard():
             
             if not inscripcion_completa:
                 # ETAPA 1: INSCRIPCIÓN PENDIENTE
+                pago_inscripcion_pendiente = any(p.get('tipo_pago') == 'Inscripción' and p.get('estado_pago') == 'Pendiente' for p in cliente_dict['pagos'])
+                mensaje = "Ya tienes un pago de inscripción en proceso de revisión." if pago_inscripcion_pendiente else "Realiza el pago de tu inscripción para poder activar tu plan."
+                
                 estado_principal = {
                     'tipo': 'inscripcion',
                     'titulo': 'Completa tu Inscripción',
-                    'mensaje': 'Realiza el pago de tu inscripción para poder activar tu plan.',
+                    'mensaje': mensaje,
                     'boton_texto': 'Pagar Inscripción',
                     'boton_url': url_for('portal_pagar_inscripcion'),
-                    'clase_borde': 'naranja-corporativo'
+                    'clase_borde': 'naranja-corporativo',
+                    'pago_inscripcion_pendiente': pago_inscripcion_pendiente
                 }
             elif inscripcion_completa and not primera_cuota_pagada:
                 # ETAPA 2: ACTIVACIÓN PENDIENTE (Pagar 1ra cuota)
