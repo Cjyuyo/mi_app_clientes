@@ -129,10 +129,8 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
         }
         .main-content-area {
-            background: var(--blanco);
-            padding: 2rem;
-            border-radius: .75rem;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            /* Se quita el fondo blanco para heredar el del body */
+            padding: 0; /* Ajustado para que el contenido controle su propio padding */
         }
         .btn-toggle-sidebar { border: none; }
         .btn-toggle-sidebar:focus { box-shadow: none; }
