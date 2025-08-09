@@ -15,7 +15,7 @@
     <style>
         /* --- GUÍA DE ESTILO MAESTRA --- */
         :root {
-            --azul-corporativo: #1E293B; /* Un azul más oscuro y corporativo */
+            --azul-corporativo: #1E293B;
             --azul-hover: #334155;
             --azul-claro: #F1F5F9;
             --naranja-corporativo: #F97316;
@@ -33,16 +33,25 @@
             background-color: var(--gris-fondo);
         }
 
-        /* --- PLANTILLA PRINCIPAL Y SIDEBAR --- */
-        .offcanvas-start {
-            width: 260px; /* Ancho reducido */
-            background-color: var(--azul-corporativo);
+        /* --- ESTRUCTURA PRINCIPAL --- */
+        .wrapper {
+            display: flex;
+            width: 100%;
+            align-items: stretch;
+        }
+
+        /* --- SIDEBAR --- */
+        #sidebar {
+            min-width: 260px;
+            max-width: 260px;
+            background: var(--azul-corporativo);
             color: var(--texto-blanco);
-            border-right: none;
+            transition: all 0.3s;
         }
         .sidebar-header { 
             padding: 1.25rem; 
             text-align: center; 
+            border-bottom: 1px solid var(--azul-hover);
         }
         .sidebar-header h3 { 
             font-weight: 700; 
@@ -53,11 +62,12 @@
         #sidebar-nav {
             display: flex;
             flex-direction: column;
-            height: 100%;
+            height: calc(100% - 70px); /* Ajustar altura para footer */
         }
         #sidebar-nav .components { 
             padding: 1rem 0;
             flex-grow: 1;
+            overflow-y: auto;
         }
         #sidebar-nav .nav-category { 
             color: var(--texto-claro); 
@@ -81,9 +91,8 @@
             background: var(--azul-hover);
             border-left-color: var(--naranja-corporativo);
         }
-        #sidebar-nav .nav-item.active > a, a[aria-expanded="true"] {
+        #sidebar-nav a[aria-expanded="true"] {
             background: var(--azul-hover);
-            border-left-color: var(--naranja-corporativo);
         }
         #sidebar-nav .dropdown-toggle::after {
             margin-left: auto;
@@ -107,7 +116,6 @@
         .sidebar-footer {
             padding: 1rem;
             border-top: 1px solid var(--azul-hover);
-            background-color: var(--azul-corporativo);
         }
         .user-profile {
             display: flex;
@@ -115,11 +123,16 @@
             gap: 10px;
         }
         .user-profile i { font-size: 1.8rem; }
-        .user-info span { display: block; }
         .user-info .username { font-weight: 500; color: var(--blanco); font-size: 0.9rem; }
         .user-info .role { font-size: 0.75rem; color: var(--texto-claro); }
         
         /* --- CONTENIDO PRINCIPAL --- */
+        #content {
+            width: 100%;
+            padding: 1.5rem;
+            min-height: 100vh;
+            transition: all 0.3s;
+        }
         .topbar { 
             background: var(--blanco); 
             border: 1px solid var(--borde-sutil);
@@ -128,160 +141,103 @@
             margin-bottom: 25px; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
         }
-        .main-content-area {
-            /* Se quita el fondo blanco para heredar el del body */
-            padding: 0; /* Ajustado para que el contenido controle su propio padding */
-        }
         .btn-toggle-sidebar { border: none; }
         .btn-toggle-sidebar:focus { box-shadow: none; }
 
-        /* --- ESTILOS PARA FORMULARIOS "NIVEL BANCO" --- */
-        .form-container {
-            background-color: var(--blanco);
-            border-radius: .75rem;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.07);
-            overflow: hidden;
-        }
-        .form-header {
-            background-color: var(--azul-corporativo);
-            color: var(--blanco);
-            padding: 1.5rem 2rem;
-        }
-        .form-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
-        .form-header p { margin: 0; opacity: 0.9; }
-        .section { margin-bottom: 2.5rem; }
-        .section h3 {
-            font-size: 1rem;
-            font-weight: 500;
-            color: var(--texto-claro);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid var(--borde-sutil);
-            padding-bottom: .75rem;
-            margin-bottom: 1.5rem;
-        }
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-        }
-        .form-group label {
-            font-size: 0.9rem;
-            font-weight: 500;
-            color: var(--texto-oscuro);
-            margin-bottom: .5rem;
-        }
-        .form-control, .form-select {
-            border-radius: .5rem;
-            padding: .75rem 1rem;
-            border: 1px solid var(--borde-sutil);
-        }
-        .form-control:focus, .form-select:focus {
-            border-color: var(--naranja-corporativo);
-            box-shadow: 0 0 0 0.25rem rgba(249, 148, 23, 0.25);
-        }
-        .button-group {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 2rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--borde-sutil);
-        }
-        .btn-primary {
-            background-color: var(--naranja-corporativo);
-            border-color: var(--naranja-corporativo);
-            font-weight: 500;
-            padding: .75rem 1.5rem;
-        }
-        .btn-primary:hover {
-            filter: brightness(90%);
-            background-color: var(--naranja-corporativo);
-            border-color: var(--naranja-corporativo);
+        /* --- RESPONSIVE: COMPORTAMIENTO EN CELULAR --- */
+        @media (max-width: 768px) {
+            #sidebar {
+                margin-left: -260px; /* Oculto por defecto */
+            }
+            #sidebar.active {
+                margin-left: 0; /* Visible cuando tiene la clase 'active' */
+            }
+            .topbar {
+                /* El botón de toggle ya está en el topbar, no se necesita más */
+            }
         }
     </style>
     {% block head_extra %}{% endblock %}
 </head>
 <body>
 
-<!-- Sidebar como Offcanvas de Bootstrap -->
-<div class="offcanvas offcanvas-start show" tabindex="-1" id="sidebar" aria-labelledby="sidebarLabel">
-    <div class="offcanvas-header sidebar-header">
-        <h3 id="sidebarLabel">Moto Plan Motors</h3>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-    </div>
-    <div class="offcanvas-body p-0" id="sidebar-nav">
-        <ul class="list-unstyled components">
-            <li class="nav-category">Navegación</li>
-            <li class="nav-item"><a href="{{ url_for('hub') }}"><i class="bi bi-house-door-fill"></i> Hub Principal</a></li>
-            <li class="nav-item"><a href="{{ url_for('hub_asesor') }}"><i class="bi bi-person-workspace"></i> HUB de Asesor</a></li>
-
-            <li class="nav-item">
-                <a href="#clientesSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-people-fill"></i> Clientes</a>
-                <ul class="collapse list-unstyled" id="clientesSubmenu">
-                    <li><a href="{{ url_for('registrar') }}">Registrar Cliente</a></li>
-                    <li><a href="{{ url_for('consulta') }}">Consultar Clientes</a></li>
-                    <li><a href="{{ url_for('mi_cartera') }}">Mi Cartera de Cobranza</a></li>
-                </ul>
-            </li>
-
-            {% if g.admin and g.admin.rol in ['superadmin', 'gerente'] %}
-            <li class="nav-category">Operaciones</li>
-            <li class="nav-item">
-                <a href="#adminFinanzasSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-bank"></i> Administración y Finanzas</a>
-                <ul class="collapse list-unstyled" id="adminFinanzasSubmenu">
-                    <li><a href="{{ url_for('gestion_administrativa') }}">Gestión General</a></li>
-                    <li><a href="{{ url_for('pagos_por_conciliar') }}">Centro de Conciliación</a></li>
-                    <li><a href="{{ url_for('solicitudes_hub') }}">Gestión de Solicitudes</a></li>
-                    <li><a href="{{ url_for('adjudicacion') }}">Sistema de Adjudicación</a></li>
-                    <li><a href="{{ url_for('reporte_flujo_caja') }}">Flujo de Caja</a></li>
-                    <li><a href="{{ url_for('tesoreria_rebalanceo') }}">Rebalanceo de Tesorería</a></li>
-                    <li><a href="{{ url_for('admin_tasa_bcv') }}">Tasa de Cambio (BCV)</a></li>
-                </ul>
-            </li>
-            <li class="nav-item">
-                <a href="#comercialSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-briefcase-fill"></i> Comercial</a>
-                <ul class="collapse list-unstyled" id="comercialSubmenu">
-                    <li><a href="{{ url_for('dashboard_comercial') }}">Dashboard Comercial</a></li>
-                </ul>
-            </li>
-            <li class="nav-item">
-                <a href="#reportesSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-file-earmark-text-fill"></i> Reportes y Auditoría</a>
-                <ul class="collapse list-unstyled" id="reportesSubmenu">
-                    <li><a href="{{ url_for('reporte_morosidad') }}">Reporte de Morosidad</a></li>
-                    <li><a href="{{ url_for('reporte_metricas') }}">Métricas del Negocio</a></li>
-                    <li><a href="{{ url_for('auditoria') }}">Visor de Auditoría</a></li>
-                </ul>
-            </li>
-            {% endif %}
-            
-            <li class="nav-category">Externo</li>
-            <li class="nav-item"><a href="{{ url_for('portal_login') }}" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Portal Cliente</a></li>
-        </ul>
-        
-        <div class="sidebar-footer">
-            {% if g.admin %}
-            <div class="user-profile">
-                <i class="bi bi-person-circle"></i>
-                <div class="user-info">
-                    <span class="username">{{ g.admin.usuario }}</span>
-                    <span class="role">{{ g.admin.rol | capitalize }}</span>
-                </div>
-                <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger btn-sm ms-auto" title="Cerrar Sesión"><i class="bi bi-box-arrow-right"></i></a>
-            </div>
-            {% endif %}
+<div class="wrapper">
+    <!-- Sidebar -->
+    <nav id="sidebar">
+        <div class="sidebar-header">
+            <h3>Moto Plan Motors</h3>
         </div>
-    </div>
-</div>
+        <div id="sidebar-nav">
+            <ul class="list-unstyled components">
+                <li class="nav-category">Navegación</li>
+                <li class="nav-item"><a href="{{ url_for('hub') }}"><i class="bi bi-house-door-fill"></i> Hub Principal</a></li>
+                <li class="nav-item"><a href="{{ url_for('hub_asesor') }}"><i class="bi bi-person-workspace"></i> HUB de Asesor</a></li>
 
-<!-- Contenido Principal de la Página -->
-<div class="container-fluid">
-    <main class="py-3">
+                <li class="nav-item">
+                    <a href="#clientesSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-people-fill"></i> Clientes</a>
+                    <ul class="collapse list-unstyled" id="clientesSubmenu">
+                        <li><a href="{{ url_for('registrar') }}">Registrar Cliente</a></li>
+                        <li><a href="{{ url_for('consulta') }}">Consultar Clientes</a></li>
+                        <li><a href="{{ url_for('mi_cartera') }}">Mi Cartera de Cobranza</a></li>
+                    </ul>
+                </li>
+
+                {% if g.admin and g.admin.rol in ['superadmin', 'gerente'] %}
+                <li class="nav-category">Operaciones</li>
+                <li class="nav-item">
+                    <a href="#adminFinanzasSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-bank"></i> Administración y Finanzas</a>
+                    <ul class="collapse list-unstyled" id="adminFinanzasSubmenu">
+                        <li><a href="{{ url_for('gestion_administrativa') }}">Gestión General</a></li>
+                        <li><a href="{{ url_for('pagos_por_conciliar') }}">Centro de Conciliación</a></li>
+                        <li><a href="{{ url_for('solicitudes_hub') }}">Gestión de Solicitudes</a></li>
+                        <li><a href="{{ url_for('adjudicacion') }}">Sistema de Adjudicación</a></li>
+                        <li><a href="{{ url_for('reporte_flujo_caja') }}">Flujo de Caja</a></li>
+                        <li><a href="{{ url_for('tesoreria_rebalanceo') }}">Rebalanceo de Tesorería</a></li>
+                        <li><a href="{{ url_for('admin_tasa_bcv') }}">Tasa de Cambio (BCV)</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item">
+                    <a href="#comercialSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-briefcase-fill"></i> Comercial</a>
+                    <ul class="collapse list-unstyled" id="comercialSubmenu">
+                        <li><a href="{{ url_for('dashboard_comercial') }}">Dashboard Comercial</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item">
+                    <a href="#reportesSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-file-earmark-text-fill"></i> Reportes y Auditoría</a>
+                    <ul class="collapse list-unstyled" id="reportesSubmenu">
+                        <li><a href="{{ url_for('reporte_morosidad') }}">Reporte de Morosidad</a></li>
+                        <li><a href="{{ url_for('reporte_metricas') }}">Métricas del Negocio</a></li>
+                        <li><a href="{{ url_for('auditoria') }}">Visor de Auditoría</a></li>
+                    </ul>
+                </li>
+                {% endif %}
+                
+                <li class="nav-category">Externo</li>
+                <li class="nav-item"><a href="{{ url_for('portal_login') }}" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Portal Cliente</a></li>
+            </ul>
+            
+            <div class="sidebar-footer">
+                {% if g.admin %}
+                <div class="user-profile">
+                    <i class="bi bi-person-circle"></i>
+                    <div class="user-info">
+                        <span class="username">{{ g.admin.usuario }}</span>
+                        <span class="role">{{ g.admin.rol | capitalize }}</span>
+                    </div>
+                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger btn-sm ms-auto" title="Cerrar Sesión"><i class="bi bi-box-arrow-right"></i></a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal de la Página -->
+    <div id="content">
         <!-- Barra de Navegación Superior (Topbar) -->
         <nav class="navbar navbar-expand-lg navbar-light topbar">
             <div class="container-fluid">
                 <!-- Botón para mostrar el sidebar en móviles -->
-                <button class="btn btn-toggle-sidebar" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar">
+                <button class="btn btn-toggle-sidebar" type="button" id="sidebarCollapse">
                     <i class="bi bi-list fs-4 text-dark"></i>
                 </button>
                 
@@ -303,11 +259,18 @@
         <footer class="text-center text-muted py-3 mt-4">
             <small>&copy; {{ g.anio_actual | default('2024') }} - Sistema de Gestión. Todos los derechos reservados.</small>
         </footer>
-    </main>
+    </div>
 </div>
 
 <!-- Scripts de JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('sidebarCollapse').addEventListener('click', function () {
+            document.getElementById('sidebar').classList.toggle('active');
+        });
+    });
+</script>
 {% block scripts_extra %}{% endblock %}
 
 </body>
