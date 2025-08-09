@@ -107,7 +107,6 @@
         
         /* --- Contenido Principal --- */
         .topbar { 
-            /* CAMBIO: De blanco a un color sutil con borde */
             background: var(--azul-claro); 
             border: 1px solid #dee2e6;
             border-radius: .75rem; 
@@ -122,6 +121,20 @@
             border-radius: .75rem;
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         }
+
+        /* --- Estilos Corporativos para Tarjetas KPI del Hub --- */
+        .kpi-card.border-primary { border-left-color: var(--azul-corporativo) !important; }
+        .kpi-card.border-primary .text-primary { color: var(--azul-corporativo) !important; }
+
+        .kpi-card.border-success { border-left-color: var(--azul-corporativo) !important; }
+        .kpi-card.border-success .text-success { color: var(--azul-corporativo) !important; }
+
+        .kpi-card.border-warning { border-left-color: var(--naranja-corporativo) !important; }
+        .kpi-card.border-warning .text-warning { color: var(--naranja-corporativo) !important; }
+
+        .kpi-card.border-info { border-left-color: var(--texto-claro) !important; }
+        .kpi-card.border-info .text-info { color: var(--texto-claro) !important; }
+
 
         /* Ajuste para el botón de toggle del sidebar */
         .btn-toggle-sidebar {
