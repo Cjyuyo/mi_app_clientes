@@ -8,74 +8,108 @@
     <h2 class="card-title text-center mb-4">Revisión de Reporte de Pago <span class="text-primary">#{{ pago.id }}</span></h2>
             
     <div class="row g-4">
-        <div class="col-lg-6">
-            <h5 class="mb-3">Detalles del Reporte</h5>
-            <div class="info-grid mb-4">
-                <div class="info-item"><span class="label">Cliente</span><span class="value">{{ pago.nombre_apellido }}</span></div>
-                <div class="info-item"><span class="label">Cédula</span><span class="value">{{ pago.cedula }}</span></div>
-                <div class="info-item"><span class="label">Monto Reportado</span><span class="value">{{ pago.moneda_pago }} {{ "%.2f"|format(pago.monto) }}</span></div>
-                <div class="info-item"><span class="label">Fecha Reportada</span><span class="value">{{ pago.fecha_pago.strftime('%d/%m/%Y') }}</span></div>
-                <div class="info-item"><span class="label">Forma de Pago</span><span class="value">{{ pago.forma_pago }}</span></div>
-                <div class="info-item"><span class="label">Referencia</span><span class="value">{{ pago.referencia }}</span></div>
-            </div>
+        <div class="col-lg-7">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Detalles del Reporte</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between"><strong>Cliente:</strong> <span>{{ pago.nombre_apellido }}</span></li>
+                        <li class="list-group-item d-flex justify-content-between"><strong>Cédula:</strong> <span>{{ pago.cedula }}</span></li>
+                        <li class="list-group-item d-flex justify-content-between"><strong>Monto Reportado:</strong> <span>${{ "%.2f"|format(pago.monto) }}</span></li>
+                        <li class="list-group-item d-flex justify-content-between"><strong>Fecha Reportada:</strong> <span>{{ pago.fecha_pago | format_date }}</span></li>
+                        <li class="list-group-item d-flex justify-content-between"><strong>Forma de Pago:</strong> <span>{{ pago.forma_pago }}</span></li>
+                        <li class="list-group-item d-flex justify-content-between"><strong>Referencia:</strong> <span>{{ pago.referencia or 'N/A' }}</span></li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>Estado:</strong>
+                            <span class="badge fs-6 bg-{{ pago.status_class }}">{{ pago.status_display }}</span>
+                        </li>
+                    </ul>
 
-            {% if pago.capture_url %}
-                <h5 class="mb-3">Comprobante Adjunto</h5>
-                <div class="image-container" style="max-height: 400px; overflow: hidden; border-radius: .5rem; cursor: pointer;" onclick="window.open('{{ pago.capture_url }}', '_blank')">
-                    <img src="{{ pago.capture_url }}" alt="Comprobante de pago" style="width: 100%; height: auto; object-fit: cover;">
+                    {% if pago.capture_url %}
+                        <h5 class="mb-3 mt-4">Comprobante Adjunto</h5>
+                        <div style="max-height: 400px; overflow: hidden; border-radius: .5rem; cursor: pointer;" onclick="window.open('{{ pago.capture_url }}', '_blank')">
+                            <img src="{{ pago.capture_url }}" alt="Comprobante de pago" style="width: 100%; height: auto; object-fit: cover;">
+                        </div>
+                    {% endif %}
                 </div>
-            {% else %}
-                <div class="alert alert-warning text-center">
-                    <i class="bi bi-exclamation-triangle-fill"></i> No hay imagen de comprobante adjunta.
-                </div>
-            {% endif %}
+            </div>
         </div>
 
-        <div class="col-lg-6">
-            {% if not is_client_view %}
-            <div class="bg-light p-4 rounded-3 h-100">
-                <h5 class="mb-3">Acciones de Conciliación</h5>
-                <div class="d-grid gap-3">
-                    <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Confirma que los datos son correctos y desea APROBAR la conciliación de este pago?')">
-                        <input type="hidden" name="accion" value="aprobar">
-                        <button type="submit" class="btn btn-success w-100"><i class="bi bi-check-circle-fill me-2"></i>Aprobar Conciliación</button>
-                    </form>
-                    
-                    <hr>
+        <div class="col-lg-5">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Estado y Acciones</h5>
+                </div>
+                <div class="card-body">
+                    <!-- CASO 1: REPORTE INCONSISTENTE (VISTA PARA ADMIN Y CLIENTE) -->
+                    {% if pago.estado_reporte == 'Inconsistente' %}
+                        <div class="alert alert-danger">
+                            <h4 class="alert-heading"><i class="bi bi-x-octagon-fill me-2"></i>Reporte Inconsistente</h4>
+                            <p>Este reporte fue marcado como inconsistente.</p>
+                            <hr>
+                            <p class="mb-1"><strong>Motivo:</strong> {{ pago.detalles_reporte.motivo }}</p>
+                            {% if pago.detalles_reporte.diferencia and pago.detalles_reporte.diferencia|float > 0 %}
+                                <p class="mb-0"><strong>Monto Faltante:</strong> ${{ "%.2f"|format(pago.detalles_reporte.diferencia|float) }}</p>
+                            {% endif %}
+                        </div>
 
-                    <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Está seguro de que desea marcar este pago como INCONSISTENTE?')">
-                        <input type="hidden" name="accion" value="rechazar">
-                        <div class="mb-3">
-                            <label for="motivo_rechazo" class="form-label">Motivo de la Inconsistencia</label>
-                            <select class="form-select" name="motivo_rechazo" id="motivo_rechazo" required>
-                                <option value="">Seleccione un motivo...</option>
-                                <option value="Referencia Invalida">Referencia Inválida</option>
-                                <option value="Fecha Invalida">Fecha Inválida</option>
-                                <option value="Diferencia de Monto">Diferencia de Monto</option>
-                                <option value="Otros">Otros</option>
-                            </select>
+                        <!-- ACCIÓN PARA EL CLIENTE SI HAY DIFERENCIA DE MONTO -->
+                        {% if is_client_view and pago.detalles_reporte.motivo == 'Diferencia de Monto' %}
+                        <div class="d-grid mt-3">
+                            <a href="{{ url_for('reportar_pago_diferencia', pago_original_id=pago.id) }}" class="btn btn-warning w-100">
+                                <i class="bi bi-receipt-cutoff me-2"></i>Pagar Diferencia Pendiente
+                            </a>
                         </div>
-                        <div class="mb-3" id="campo_diferencia" style="display: none;">
-                            <label for="diferencia_monto" class="form-label">Monto Faltante ($)</label>
-                            <input type="number" step="0.01" class="form-control" name="diferencia_monto" id="diferencia_monto" placeholder="Ej: 5.50">
+                        {% endif %}
+
+                    <!-- CASO 2: ACCIONES DEL ADMINISTRADOR (SI EL PAGO ESTÁ PENDIENTE) -->
+                    {% elif not is_client_view and pago.estado_reporte == 'Pendiente' %}
+                        <div class="d-grid gap-3">
+                            <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Confirma que los datos son correctos y desea APROBAR la conciliación?')">
+                                <input type="hidden" name="accion" value="aprobar">
+                                <button type="submit" class="btn btn-success w-100"><i class="bi bi-check-circle-fill me-2"></i>Aprobar Conciliación</button>
+                            </form>
+                            <hr>
+                            <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Está seguro de marcar este pago como INCONSISTENTE?')">
+                                <input type="hidden" name="accion" value="rechazar">
+                                <div class="mb-3">
+                                    <label for="motivo_rechazo" class="form-label">Motivo de la Inconsistencia</label>
+                                    <select class="form-select" name="motivo_rechazo" id="motivo_rechazo" required>
+                                        <option value="">Seleccione un motivo...</option>
+                                        <option value="Referencia Invalida">Referencia Inválida</option>
+                                        <option value="Fecha Invalida">Fecha Inválida</option>
+                                        <option value="Diferencia de Monto">Diferencia de Monto</option>
+                                        <option value="Otros">Otros</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3" id="campo_diferencia" style="display: none;">
+                                    <label for="diferencia_monto" class="form-label">Monto Faltante ($)</label>
+                                    <input type="number" step="0.01" class="form-control" name="diferencia_monto" id="diferencia_monto" placeholder="Ej: 5.50">
+                                </div>
+                                <button type="submit" class="btn btn-danger w-100"><i class="bi bi-x-circle-fill me-2"></i>Confirmar Inconsistencia</button>
+                            </form>
                         </div>
-                        <button type="submit" class="btn btn-danger w-100"><i class="bi bi-x-circle-fill me-2"></i>Confirmar Inconsistencia</button>
-                    </form>
-                     {% set return_url = url_for('pagos_por_conciliar') if origin == 'conciliacion' else url_for('consulta', busqueda=pago.cedula) %}
-                     <a href="{{ return_url }}" class="btn btn-secondary w-100 mt-2">Volver</a>
+                    
+                    <!-- CASO 3: VISTA SIMPLE (REPORTE CONCILIADO O VISTA DE CLIENTE SIN ACCIÓN) -->
+                    {% else %}
+                        <div class="alert alert-info">
+                            <p class="mb-0">Este es un reporte de solo lectura. El estado actual es <strong>{{ pago.status_display }}</strong>.</p>
+                        </div>
+                    {% endif %}
+
+                    <!-- Botón de Volver Universal -->
+                    <div class="d-grid mt-3">
+                        {% if is_client_view %}
+                             <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary w-100 mt-2">Volver al Portal</a>
+                        {% else %}
+                             {% set return_url = url_for('pagos_por_conciliar') if origin == 'conciliacion' else url_for('consulta', busqueda=pago.cedula) %}
+                             <a href="{{ return_url }}" class="btn btn-secondary w-100 mt-2">Volver</a>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
-            {% else %}
-            <div class="bg-light p-4 rounded-3 h-100">
-                <h5 class="mb-3">Estado del Reporte</h5>
-                <div class="alert alert-info">
-                    <p class="mb-0">Este es un reporte de solo lectura. Si tienes alguna duda sobre el estado de tu pago, por favor contacta a la administración.</p>
-                </div>
-                <div class="d-grid mt-3">
-                     <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary w-100 mt-2">Volver al Portal</a>
-                </div>
-            </div>
-            {% endif %}
         </div>
     </div>
 {% endblock %}

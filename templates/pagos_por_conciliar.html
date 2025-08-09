@@ -17,11 +17,11 @@
     <div class="card shadow-sm">
         <div class="card-header bg-light py-3">
             <h6 class="m-0 font-weight-bold" style="color: var(--azul-corporativo);">
-                Pagos Pendientes ({{ pagos|length }})
+                Pagos Pendientes y con Inconsistencias ({{ pagos|length }})
             </h6>
         </div>
         <div class="card-body p-0">
-            <!-- VISTA DE ESCRITORIO: TABLA (Visible solo en pantallas medianas y grandes) -->
+            <!-- VISTA DE ESCRITORIO: TABLA -->
             <div class="table-responsive d-none d-md-block">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
@@ -59,26 +59,17 @@
                                 <span class="badge bg-{{ pago.status_class }}">{{ pago.status_display }}</span>
                             </td>
                             <td class="p-3 text-center">
-                                {% if pago.action_type == 'Conciliar' %}
-                                    <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=pago.cedula) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');">
-                                        <button type="submit" class="btn btn-success btn-sm">
-                                            <i class="bi bi-check-circle-fill"></i> <span class="d-none d-lg-inline">Conciliar</span>
-                                        </button>
-                                    </form>
-                                {% elif pago.action_type == 'Ver Reporte' %}
-                                    <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">
-                                        <i class="bi bi-eye-fill"></i> <span class="d-none d-lg-inline">Ver</span>
+                                <!-- LÓGICA DE ACCIONES MODIFICADA -->
+                                {% if pago.action_type == 'Revisar' %}
+                                    <a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='conciliacion') }}" class="btn btn-info btn-sm">
+                                        <i class="bi bi-eye-fill"></i> <span class="d-none d-lg-inline">Revisar</span>
                                     </a>
-                                {% elif pago.action_type == 'Diferido' %}
-                                    <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}">
-                                        <i class="bi bi-clock-history"></i> <span class="d-none d-lg-inline">Diferido</span>
-                                    </button>
-                                {% elif pago.action_type == 'Rechazado' %}
-                                    <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}">
-                                        <i class="bi bi-x-circle"></i> <span class="d-none d-lg-inline">Rechazado</span>
-                                    </button>
+                                {% elif pago.action_type == 'Inconsistente' %}
+                                    <a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='conciliacion') }}" class="btn btn-danger btn-sm">
+                                        <i class="bi bi-exclamation-triangle-fill"></i> <span class="d-none d-lg-inline">Ver Inconsistencia</span>
+                                    </a>
                                 {% else %}
-                                    <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}">
+                                    <button type="button" class="btn btn-secondary btn-sm" disabled>
                                         <i class="bi bi-slash-circle"></i>
                                     </button>
                                 {% endif %}
@@ -96,7 +87,7 @@
                 </table>
             </div>
 
-            <!-- VISTA MÓVIL: TARJETAS (Visible solo en pantallas pequeñas) -->
+            <!-- VISTA MÓVIL: TARJETAS (con la misma lógica de acciones) -->
             <div class="d-block d-md-none">
                 <div class="list-group list-group-flush">
                     {% for pago in pagos %}
@@ -112,31 +103,18 @@
                         <div class="d-flex justify-content-between align-items-center mt-2">
                              <div>
                                 <span class="badge bg-{{ pago.status_class }} me-2">{{ pago.status_display }}</span>
-                                <span class="badge bg-{{ 'primary' if pago.reportado_por_cliente else 'secondary' }}">
-                                    {{ pago.registrado_por }}
-                                </span>
                             </div>
                             <div class="text-end">
-                                {% if pago.action_type == 'Conciliar' %}
-                                    <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=pago.cedula) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');">
-                                        <button type="submit" class="btn btn-success btn-sm">
-                                            <i class="bi bi-check-circle-fill"></i>
-                                        </button>
-                                    </form>
-                                {% elif pago.action_type == 'Ver Reporte' %}
-                                    <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">
+                                {% if pago.action_type == 'Revisar' %}
+                                    <a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='conciliacion') }}" class="btn btn-info btn-sm">
                                         <i class="bi bi-eye-fill"></i>
                                     </a>
-                                {% elif pago.action_type == 'Diferido' %}
-                                    <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}">
-                                        <i class="bi bi-clock-history"></i>
-                                    </button>
-                                {% elif pago.action_type == 'Rechazado' %}
-                                    <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}">
-                                        <i class="bi bi-x-circle"></i>
-                                    </button>
+                                {% elif pago.action_type == 'Inconsistente' %}
+                                    <a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='conciliacion') }}" class="btn btn-danger btn-sm">
+                                        <i class="bi bi-exclamation-triangle-fill"></i>
+                                    </a>
                                 {% else %}
-                                    <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}">
+                                    <button type="button" class="btn btn-secondary btn-sm" disabled>
                                         <i class="bi bi-slash-circle"></i>
                                     </button>
                                 {% endif %}

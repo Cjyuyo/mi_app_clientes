@@ -1,21 +1,19 @@
 {% extends 'base_sidebar.html' %}
 
 {% block title %}
-    Reportar Pago de Cuota
+    Reportar Pago
 {% endblock %}
 
 {% block head_extra %}
 <style>
-    /* Estilos específicos para este formulario avanzado */
     .form-header {
         background-color: var(--azul-corporativo);
         color: var(--blanco);
         padding: 1.5rem 2rem;
-        border-radius: .75rem .75rem 0 0;
     }
     .form-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
     .form-header p { margin: 0; opacity: 0.9; }
-    
+    .section { margin-bottom: 2rem; }
     .section h3 {
         font-size: 1rem;
         font-weight: 500;
@@ -29,7 +27,7 @@
     .form-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.25rem;
+        gap: 1.5rem; /* Aumentado para más espacio */
     }
     .form-group label {
         font-weight: 500;
@@ -38,13 +36,13 @@
     .conditional-fields {
         display: none;
         grid-column: 1 / -1;
-        border-top: 1px dashed #e9ecef;
         padding-top: 1.5rem;
         margin-top: 1.5rem;
     }
     #pagoMovilFields {
+         display: grid; /* Cambiado para que sea visible por defecto dentro de su contenedor */
          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-         gap: 1.25rem;
+         gap: 1.5rem;
     }
 </style>
 {% endblock %}
@@ -162,14 +160,16 @@
     </div>
 </template>
 <template id="template_pago_movil">
-    <div id="pagoMovilFields" class="form-grid conditional-fields">
-        <div class="form-group">
-            <label for="pago_movil_telefono">Teléfono Emisor</label>
-            <input type="text" id="pago_movil_telefono" name="pago_movil_telefono" class="form-control">
-        </div>
-        <div class="form-group">
-            <label for="pago_movil_cedula">Cédula Emisor</label>
-            <input type="text" id="pago_movil_cedula" name="pago_movil_cedula" class="form-control">
+    <div id="pagoMovilFields" class="conditional-fields">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="pago_movil_telefono">Teléfono Emisor</label>
+                <input type="text" id="pago_movil_telefono" name="pago_movil_telefono" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="pago_movil_cedula">Cédula Emisor</label>
+                <input type="text" id="pago_movil_cedula" name="pago_movil_cedula" class="form-control">
+            </div>
         </div>
     </div>
 </template>
@@ -205,18 +205,18 @@
             </div>
             <div class="modal-body">
                 <ul class="nav nav-tabs" id="paymentTabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="pago-movil-tab" data-bs-toggle="tab" data-bs-target="#pago-movil-content" type="button" role="tab">Pago Móvil</button>
+                    <li class="nav-item" role="presentation" id="pago-movil-tab-item">
+                        <button class="nav-link" id="pago-movil-tab" data-bs-toggle="tab" data-bs-target="#pago-movil-content" type="button" role="tab">Pago Móvil</button>
                     </li>
-                    <li class="nav-item" role="presentation">
+                    <li class="nav-item" role="presentation" id="transferencia-tab-item">
                         <button class="nav-link" id="transferencia-tab" data-bs-toggle="tab" data-bs-target="#transferencia-content" type="button" role="tab">Transferencia</button>
                     </li>
-                     <li class="nav-item" role="presentation">
+                     <li class="nav-item" role="presentation" id="binance-tab-item">
                         <button class="nav-link" id="binance-tab" data-bs-toggle="tab" data-bs-target="#binance-content" type="button" role="tab">Binance (USDT)</button>
                     </li>
                 </ul>
                 <div class="tab-content pt-3">
-                    <div class="tab-pane fade show active" id="pago-movil-content" role="tabpanel">
+                    <div class="tab-pane fade" id="pago-movil-content" role="tabpanel">
                         <p>Utiliza los siguientes datos para realizar tu pago. Haz clic para copiar.</p>
                         <ul class="list-group">
                             <li class="list-group-item d-flex justify-content-between align-items-center">
@@ -260,12 +260,8 @@
                         <p>Utiliza los siguientes datos para realizar tu pago. Haz clic para copiar.</p>
                         <ul class="list-group">
                             <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div><small class="text-muted d-block">Binance Pay ID</small><span>262458423</span></div>
-                                <button type="button" class="btn btn-outline-secondary btn-sm copy-btn" data-clipboard-text="262458423"><i class="bi bi-clipboard"></i></button>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div><small class="text-muted d-block">Usuario</small><span>carlosramirez</span></div>
-                                <button type="button" class="btn btn-outline-secondary btn-sm copy-btn" data-clipboard-text="carlosramirez"><i class="bi bi-clipboard"></i></button>
+                                <div><small class="text-muted d-block">Binance Pay ID (Email)</small><span>cjramirez.86@gmail.com</span></div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm copy-btn" data-clipboard-text="cjramirez.86@gmail.com"><i class="bi bi-clipboard"></i></button>
                             </li>
                         </ul>
                     </div>
@@ -284,6 +280,13 @@
         const tasaDiaGroup = document.getElementById('tasa_dia_group');
         const montoBsGroup = document.getElementById('monto_bs_group');
 
+        const modal = document.getElementById('paymentInfoModal');
+        const pagoMovilTabItem = document.getElementById('pago-movil-tab-item');
+        const transferenciaTabItem = document.getElementById('transferencia-tab-item');
+        const binanceTabItem = document.getElementById('binance-tab-item');
+        const pagoMovilTab = new bootstrap.Tab(document.getElementById('pago-movil-tab'));
+        const binanceTab = new bootstrap.Tab(document.getElementById('binance-tab'));
+
         function updateFormLayout() {
             const moneda = pagoEnSelect.value;
             transactionContainer.innerHTML = '';
@@ -296,8 +299,8 @@
                 transactionContainer.appendChild(cloneNode('template_pago_movil'));
                 transactionContainer.appendChild(cloneNode('template_banco'));
                 
-                tasaDiaGroup.style.display = 'none'; 
-                montoBsGroup.style.display = 'none'; 
+                tasaDiaGroup.style.display = 'block'; 
+                montoBsGroup.style.display = 'block'; 
 
                 const formaPagoSelect = document.getElementById('forma_pago');
                 formaPagoSelect.addEventListener('change', updateBolivaresFields);
@@ -343,7 +346,7 @@
             referenciaGroup.style.display = esEfectivo ? 'none' : 'block';
 
             if (formaPagoSelect.value === 'Pago Móvil') {
-                pagoMovilFields.style.display = 'grid';
+                pagoMovilFields.style.display = 'block';
                 bancoField.style.display = 'block';
             } else { 
                 pagoMovilFields.style.display = 'none';
@@ -351,8 +354,25 @@
             }
         }
 
-        pagoEnSelect.addEventListener('change', updateFormLayout);
+        pagoEnSelect.addEventListener('change', function() {
+            updateFormLayout();
+            updateModalTabs(this.value);
+        });
         
+        function updateModalTabs(moneda) {
+            if (moneda === 'Binance') {
+                pagoMovilTabItem.style.display = 'none';
+                transferenciaTabItem.style.display = 'none';
+                binanceTabItem.style.display = 'block';
+                binanceTab.show();
+            } else { // Bolívares
+                pagoMovilTabItem.style.display = 'block';
+                transferenciaTabItem.style.display = 'block';
+                binanceTabItem.style.display = 'none';
+                pagoMovilTab.show();
+            }
+        }
+
         const montoUsdInput = document.getElementById('monto_usd');
         const tasaDiaInput = document.getElementById('tasa_dia');
         const montoBsCalculadoInput = document.getElementById('monto_bs_calculado');
@@ -365,6 +385,7 @@
                 montoBsCalculadoInput.value = '';
             }
         }
+        montoUsdInput.addEventListener('input', calcularMontoBs);
         
         const copyButtons = document.querySelectorAll('.copy-btn');
         copyButtons.forEach(button => {
@@ -379,6 +400,7 @@
         });
         
         updateFormLayout();
+        updateModalTabs(pagoEnSelect.value);
         calcularMontoBs();
     });
 </script>
