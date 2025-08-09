@@ -115,10 +115,7 @@
             </div>
         </form>
         
-        <div class="mt-4 text-center">
-            <!-- CORRECCIÓN: De 'verificacion_recibo' a 'verificar_recibo' -->
-            <a href="{{ url_for('verificar_recibo') }}" class="text-muted small">Verificar un recibo de pago</a>
-        </div>
+        <!-- CORRECCIÓN: Se elimina el enlace que causaba el error -->
 
         <div class="mt-4 text-muted small">
             &copy; {{ g.anio_actual | default('2024') }} Moto Plan Motors C.A.
