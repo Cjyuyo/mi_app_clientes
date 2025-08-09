@@ -4,24 +4,105 @@
     Gestión Administrativa
 {% endblock %}
 
+{% block head_extra %}
+<style>
+    .tool-card {
+        transition: all 0.3s ease;
+        border: 1px solid #e9ecef;
+        border-top-width: 4px;
+    }
+    .tool-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+    }
+</style>
+{% endblock %}
+
+
 {% block body %}
-    <div class="main-header text-white text-center mb-4" style="background-color: #3498DB; border-radius: .5rem;">
-        <h1>Gestión Administrativa</h1>
-        <p class="lead">Herramientas para la toma de decisiones y optimización de procesos.</p>
+<div class="container-fluid px-0">
+
+    <!-- Encabezado de la página -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="h3 mb-0 text-gray-800">
+            <i class="bi bi-cpu-fill me-2" style="color: var(--azul-corporativo);"></i>
+            Gestión Administrativa
+        </h2>
+        <p class="text-muted mb-0 d-none d-md-block">Herramientas para la toma de decisiones y optimización de procesos.</p>
     </div>
 
-    <div class="row g-4 justify-content-center">
-        <!-- Fila 1 -->
+    <div class="row g-4">
+        <!-- Tarjeta: Flujo de Caja -->
         <div class="col-lg-4 col-md-6">
-            <div class="card tool-card h-100" style="border-top-color: #364766;">
-                <div class="card-body d-flex flex-column">
-                    <div class="icon fs-1 mb-3" style="color: #364766;"><i class="bi bi-calculator-fill"></i></div>
+            <div class="card tool-card h-100 shadow-sm" style="border-top-color: #1abc9c;">
+                <div class="card-body d-flex flex-column text-center">
+                    <div class="icon fs-1 mb-3 mx-auto" style="color: #1abc9c;"><i class="bi bi-cash-stack"></i></div>
                     <h5 class="card-title">Flujo de Caja</h5>
-                    <p class="card-text text-muted flex-grow-1">Analiza ingresos, egresos y balances.</p>
-                    <a href="{{ url_for('reporte_flujo_caja') }}" class="btn text-white mt-3" style="background-color: #364766;">Analizar</a>
+                    <p class="card-text text-muted flex-grow-1">Analiza ingresos, egresos y balances para una visión financiera clara.</p>
+                    <a href="{{ url_for('reporte_flujo_caja') }}" class="btn btn-primary mt-3 align-self-center">Analizar Flujo</a>
                 </div>
             </div>
         </div>
-        <!-- ... más tarjetas de herramientas ... -->
+
+        <!-- Tarjeta: Centro de Conciliación -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card tool-card h-100 shadow-sm" style="border-top-color: #3498db;">
+                <div class="card-body d-flex flex-column text-center">
+                    <div class="icon fs-1 mb-3 mx-auto" style="color: #3498db;"><i class="bi bi-patch-check-fill"></i></div>
+                    <h5 class="card-title">Centro de Conciliación</h5>
+                    <p class="card-text text-muted flex-grow-1">Revisa y aprueba los pagos reportados por los clientes.</p>
+                    <a href="{{ url_for('pagos_por_conciliar') }}" class="btn btn-primary mt-3 align-self-center">Ir a Conciliación</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tarjeta: Gestión de Solicitudes -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card tool-card h-100 shadow-sm" style="border-top-color: #9b59b6;">
+                <div class="card-body d-flex flex-column text-center">
+                    <div class="icon fs-1 mb-3 mx-auto" style="color: #9b59b6;"><i class="bi bi-journal-check"></i></div>
+                    <h5 class="card-title">Gestión de Solicitudes</h5>
+                    <p class="card-text text-muted flex-grow-1">Administra solicitudes de congelamiento, retiros y más.</p>
+                    <a href="{{ url_for('solicitudes_hub') }}" class="btn btn-primary mt-3 align-self-center">Ver Solicitudes</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tarjeta: Sistema de Adjudicación -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card tool-card h-100 shadow-sm" style="border-top-color: #e67e22;">
+                <div class="card-body d-flex flex-column text-center">
+                    <div class="icon fs-1 mb-3 mx-auto" style="color: #e67e22;"><i class="bi bi-trophy-fill"></i></div>
+                    <h5 class="card-title">Sistema de Adjudicación</h5>
+                    <p class="card-text text-muted flex-grow-1">Gestiona el proceso de selección y asignación de adjudicados.</p>
+                    <a href="{{ url_for('adjudicacion') }}" class="btn btn-primary mt-3 align-self-center">Gestionar Adjudicación</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tarjeta: Reporte de Morosidad -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card tool-card h-100 shadow-sm" style="border-top-color: #e74c3c;">
+                <div class="card-body d-flex flex-column text-center">
+                    <div class="icon fs-1 mb-3 mx-auto" style="color: #e74c3c;"><i class="bi bi-file-earmark-excel-fill"></i></div>
+                    <h5 class="card-title">Reporte de Morosidad</h5>
+                    <p class="card-text text-muted flex-grow-1">Consulta y exporta el listado de clientes con pagos vencidos.</p>
+                    <a href="{{ url_for('reporte_morosidad') }}" class="btn btn-primary mt-3 align-self-center">Ver Reporte</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tarjeta: Métricas del Negocio -->
+        <div class="col-lg-4 col-md-6">
+            <div class="card tool-card h-100 shadow-sm" style="border-top-color: #f1c40f;">
+                <div class="card-body d-flex flex-column text-center">
+                    <div class="icon fs-1 mb-3 mx-auto" style="color: #f1c40f;"><i class="bi bi-graph-up-arrow"></i></div>
+                    <h5 class="card-title">Métricas del Negocio</h5>
+                    <p class="card-text text-muted flex-grow-1">Visualiza los indicadores clave de rendimiento (KPIs) de la empresa.</p>
+                    <a href="{{ url_for('reporte_metricas') }}" class="btn btn-primary mt-3 align-self-center">Ver Métricas</a>
+                </div>
+            </div>
+        </div>
     </div>
+</div>
 {% endblock %}

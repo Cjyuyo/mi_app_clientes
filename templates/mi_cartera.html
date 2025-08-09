@@ -5,42 +5,59 @@
 {% endblock %}
 
 {% block body %}
-    <div class="main-header text-white text-center mb-4" style="background-color: #F39C12; border-radius: .5rem;">
-        <h1><i class="bi bi-briefcase-fill"></i> Mi Cartera de Cobranza</h1>
-        <p class="lead">Listado de clientes asignados para tu gestión.</p>
+<div class="container-fluid px-0">
+
+    <!-- Encabezado de la página -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="h3 mb-0 text-gray-800">
+            <i class="bi bi-briefcase-fill me-2" style="color: var(--azul-corporativo);"></i>
+            Mi Cartera de Cobranza
+        </h2>
     </div>
 
-    <div class="content-card card">
-        <div class="card-header">
-            <h5 class="mb-0">Clientes Asignados ({{ clientes|length }})</h5>
+    <!-- Tarjeta de Contenido Principal -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-light py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold" style="color: var(--azul-corporativo);">
+                Clientes Asignados ({{ clientes|length }})
+            </h6>
+            <!-- Barra de Búsqueda -->
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text" id="basic-addon1"><i class="bi bi-search"></i></span>
+                    <input type="text" id="searchInput" class="form-control" placeholder="Buscar por nombre o cédula..." aria-label="Buscar">
+                </div>
+            </div>
         </div>
-        <div class="card-body p-0">
+        <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover table-striped mb-0 align-middle">
+                <table id="clientsTable" class="table table-hover table-striped mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
                             <th class="p-3">Cliente</th>
                             <th class="p-3">Cédula</th>
                             <th class="p-3">Teléfono</th>
                             <th class="p-3">Proceso Actual</th>
-                            <th class="p-3">Acciones</th>
+                            <th class="p-3 text-end">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for cliente in clientes %}
                         <tr>
-                            <td class="p-3">{{ cliente.nombre }} {{ cliente.apellido }}</td>
+                            <td class="p-3 fw-bold">{{ cliente.nombre }} {{ cliente.apellido }}</td>
                             <td class="p-3">{{ cliente.cedula }}</td>
                             <td class="p-3">{{ cliente.telefono or 'N/A' }}</td>
-                            <td class="p-3"><span class="badge" style="background-color: var(--azul-corporativo);">{{ cliente.proceso }}</span></td>
                             <td class="p-3">
-                                <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="btn btn-outline-dark btn-sm" title="Ver Perfil Completo y Gestiones">
-                                    <i class="bi bi-person-lines-fill"></i> Ver Perfil
+                                <span class="badge rounded-pill text-bg-primary">{{ cliente.proceso }}</span>
+                            </td>
+                            <td class="p-3 text-end">
+                                <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="btn btn-primary btn-sm" title="Ver Perfil Completo y Gestiones">
+                                    <i class="bi bi-person-lines-fill me-1"></i> Ver Perfil
                                 </a>
                             </td>
                         </tr>
                         {% else %}
-                        <tr>
+                        <tr id="no-results-row">
                             <td colspan="5" class="text-center text-muted p-5">
                                 <i class="bi bi-folder2-open fs-2"></i>
                                 <p class="mt-2 mb-0">No tienes clientes asignados en tu cartera actualmente.</p>
@@ -52,4 +69,47 @@
             </div>
         </div>
     </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const table = document.getElementById('clientsTable');
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    const noResultsRow = document.getElementById('no-results-row');
+
+    if (searchInput) {
+        searchInput.addEventListener('keyup', function() {
+            const filter = searchInput.value.toLowerCase();
+            let found = false;
+
+            for (let i = 0; i < rows.length; i++) {
+                // Si la fila es la de "no hay resultados", la saltamos
+                if (rows[i].id === 'no-results-row') continue;
+
+                const clientName = rows[i].cells[0].textContent.toLowerCase();
+                const clientId = rows[i].cells[1].textContent.toLowerCase();
+                
+                if (clientName.includes(filter) || clientId.includes(filter)) {
+                    rows[i].style.display = "";
+                    found = true;
+                } else {
+                    rows[i].style.display = "none";
+                }
+            }
+            
+            // Mostrar u ocultar la fila de "no hay resultados" si existe
+            if(noResultsRow) {
+                if (found || rows.length === 1) { // Si se encontró algo o si la única fila es la de "no resultados"
+                    noResultsRow.style.display = "none";
+                } else {
+                    noResultsRow.style.display = "";
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %}
