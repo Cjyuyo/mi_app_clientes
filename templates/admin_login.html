@@ -5,25 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Acceso de Administración - Moto Plan Motors</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* --- GUÍA DE ESTILO MAESTRA --- */
         :root {
-            /* Paleta Corporativa */
             --azul-corporativo: #2B3A55;
-            --naranja-corporativo: #F99417;
-            
-            /* Colores de Soporte */
-            --gris-fondo: #f8f9fa;
-            --blanco-tarjetas: #FFFFFF;
-            --texto-oscuro: #212529;
-            --texto-claro: #6c757d;
-            --borde-sutil: #e9ecef;
         }
-
-        /* --- ESTILOS ESPECÍFICOS PARA LOGIN --- */
         body {
             font-family: 'Roboto', sans-serif;
             background-color: var(--azul-corporativo);
@@ -34,9 +20,8 @@
             min-height: 100vh;
             padding: 1rem;
         }
-
         .login-card {
-            background-color: var(--blanco-tarjetas);
+            background-color: white;
             padding: 2.5rem;
             border-radius: 1rem;
             box-shadow: 0 15px 35px rgba(0,0,0,0.2);
@@ -44,51 +29,13 @@
             max-width: 420px;
             text-align: center;
         }
-
         .login-header h1 {
             color: var(--azul-corporativo);
-            margin-bottom: 0.5rem;
             font-weight: 700;
         }
-
-        .login-header p {
-            margin-bottom: 2rem;
-            color: var(--texto-claro);
-        }
-
-        .form-control {
-            border-radius: 0.5rem;
-            padding: 0.75rem 1rem;
-            border: 1px solid var(--borde-sutil);
-        }
-        .form-control:focus {
-            border-color: var(--azul-corporativo);
-            box-shadow: 0 0 0 0.25rem rgba(43, 58, 85, 0.25);
-        }
-
         .btn-primary {
             background-color: var(--azul-corporativo);
             border: none;
-            border-radius: 0.5rem;
-            padding: 0.75rem;
-            font-weight: 600;
-            width: 100%;
-            margin-top: 1rem;
-            transition: background-color 0.2s;
-        }
-        .btn-primary:hover {
-            background-color: #1e2a40;
-        }
-
-        footer {
-            margin-top: 2.5rem;
-            font-size: 0.9em;
-            color: var(--texto-claro);
-        }
-        
-        .alert {
-            border-radius: 0.5rem;
-            text-align: left;
         }
     </style>
 </head>
@@ -96,7 +43,7 @@
     <div class="login-card">
         <div class="login-header">
             <h1>Portal de Administración</h1>
-            <p>Ingresa tus credenciales de administrador.</p>
+            <p class="text-muted">Ingresa tus credenciales de administrador.</p>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -119,11 +66,11 @@
                 <label for="password" class="form-label">Contraseña</label>
                 <input type="password" class="form-control" id="password" name="password" required>
             </div>
-            <button type="submit" class="btn btn-primary">Iniciar Sesión</button>
+            <button type="submit" class="btn btn-primary w-100 mt-3">Iniciar Sesión</button>
         </form>
 
-        <footer>
-            <p>&copy; {{ anio_actual }} Moto Plan Motors C.A.</p>
+        <footer class="mt-4">
+            <p class="small text-muted">&copy; {{ anio_actual }} Moto Plan Motors C.A.</p>
         </footer>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

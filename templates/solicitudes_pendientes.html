@@ -1,205 +1,113 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Solicitudes - Sistema de Gestión</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+{% extends 'base_sidebar.html' %}
+
+{% block title %}
+    Gestión de Solicitudes
+{% endblock %}
+
+{% block head_extra %}
     <!-- FullCalendar CSS -->
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
     <style>
         :root {
-            --azul-corporativo: #2B3A55;
-            --gris-fondo: #f4f7fc;
-            --blanco-tarjetas: #FFFFFF;
-            --texto-oscuro: #212529;
-            --texto-claro: #6c757d;
-            --borde-sutil: #e9ecef;
             --theme-color: #6f42c1; /* Color principal de solicitudes */
             --color-cita: #3498DB; /* Azul para citas */
             --color-retiro: #E74C3C; /* Rojo para retiros */
             --color-congelamiento: #1ABC9C; /* Turquesa para congelamientos */
         }
-        body {
-            background-color: var(--gris-fondo);
-            font-family: 'Roboto', sans-serif;
-        }
-        .navbar-custom {
-            background-color: var(--azul-corporativo);
-        }
-        .main-header {
-            background: linear-gradient(135deg, var(--theme-color) 0%, #8e44ad 100%);
-            color: var(--blanco-tarjetas);
-            padding: 2.5rem 1.5rem;
-            border-radius: .75rem;
-            margin-bottom: 2rem;
-            text-align: center;
-            box-shadow: 0 8px 15px rgba(111, 66, 193, 0.2);
-        }
-        .main-header h1 {
-            font-weight: 700;
-        }
-        .content-card {
-            background-color: var(--blanco-tarjetas);
-            border: none;
-            border-radius: .75rem;
-            box-shadow: 0 4px 25px rgba(0,0,0,0.05);
-            margin-bottom: 2rem;
-            height: 100%;
-        }
-        .content-card-header {
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid var(--borde-sutil);
-            font-size: 1.1rem;
-            font-weight: 500;
-        }
-        #calendar {
-            padding: 1.5rem;
-        }
-        .fc-event {
-            cursor: pointer;
-            border: none !important;
-        }
-        .fc-event-main {
-            padding: 5px 8px;
-        }
-        .fc-daygrid-day.fc-day-today {
-            background-color: rgba(111, 66, 193, 0.08);
-        }
-        .agenda-card {
-            margin-top: -1rem; /* Solapa ligeramente con la tarjeta del calendario */
-        }
-        .agenda-item {
-            border-left: 4px solid;
-        }
-        .nav-tabs .nav-link {
-            color: var(--texto-claro);
-            font-weight: 500;
-        }
-        .nav-tabs .nav-link.active {
-            color: var(--theme-color);
-            border-color: var(--borde-sutil) var(--borde-sutil) var(--theme-color);
-            border-bottom-width: 3px;
-        }
+        .fc-event { cursor: pointer; border: none !important; }
+        .fc-event-main { padding: 5px 8px; }
+        .fc-daygrid-day.fc-day-today { background-color: rgba(111, 66, 193, 0.08); }
+        .agenda-item { border-left-width: 4px; }
     </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom shadow-sm">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('gestion_administrativa') }}">
-                <i class="bi bi-arrow-left-circle-fill"></i> Volver a Gestión
-            </a>
-            <div class="d-flex align-items-center">
-                 {% if g.admin %}
-                    <span class="navbar-text me-3 d-none d-md-inline text-white">
-                        <i class="bi bi-person-circle"></i> {{ g.admin.usuario }}
-                    </span>
-                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-light btn-sm">Cerrar Sesión</a>
-                 {% endif %}
-            </div>
-        </div>
-    </nav>
+{% endblock %}
 
-    <div class="container py-4">
-        <div class="main-header">
-            <h1><i class="bi bi-inbox-fill"></i> Gestión de Solicitudes</h1>
-            <p class="lead">Calendario de citas y peticiones de clientes.</p>
-        </div>
+{% block body %}
+    <div class="main-header text-white text-center mb-4" style="background: linear-gradient(135deg, #6f42c1 0%, #8e44ad 100%); border-radius: .75rem; padding: 2.5rem 1.5rem;">
+        <h1><i class="bi bi-inbox-fill"></i> Gestión de Solicitudes</h1>
+        <p class="lead">Calendario de citas y peticiones de clientes.</p>
+    </div>
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <div class="row g-4">
-            <!-- Columna del Calendario y Agenda -->
-            <div class="col-lg-8">
-                <div class="content-card">
-                    <div class="content-card-header">
-                        <i class="bi bi-calendar-check"></i> Calendario de Citas y Eventos
-                    </div>
-                    <div id="calendar"></div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-                <div class="content-card agenda-card">
-                    <div class="content-card-header">
-                        <i class="bi bi-list-check"></i> Agenda del Día: <span id="agenda-fecha" class="fw-bold"></span>
-                    </div>
-                    <div class="card-body" id="agenda-body">
-                        <p class="text-muted text-center p-3">Selecciona un día en el calendario para ver los detalles de las citas.</p>
-                    </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row g-4">
+        <!-- Columna del Calendario y Agenda -->
+        <div class="col-lg-8">
+            <div class="card content-card">
+                <div class="card-header">
+                    <i class="bi bi-calendar-check"></i> Calendario de Citas y Eventos
+                </div>
+                <div id="calendar" class="p-3"></div>
+            </div>
+            <div class="card content-card mt-4">
+                <div class="card-header">
+                    <i class="bi bi-list-check"></i> Agenda del Día: <span id="agenda-fecha" class="fw-bold"></span>
+                </div>
+                <div class="card-body" id="agenda-body">
+                    <p class="text-muted text-center p-3">Selecciona un día en el calendario para ver los detalles.</p>
                 </div>
             </div>
+        </div>
 
-            <!-- Columna de Solicitudes -->
-            <div class="col-lg-4">
-                <div class="content-card">
-                    <div class="card-header">
-                        <ul class="nav nav-tabs card-header-tabs" id="solicitudesTab" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="retiros-tab" data-bs-toggle="tab" data-bs-target="#retiros" type="button" role="tab">
-                                    Retiros <span class="badge rounded-pill bg-danger-subtle text-danger-emphasis">{{ solicitudes.retiros|length }}</span>
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="congelamientos-tab" data-bs-toggle="tab" data-bs-target="#congelamientos" type="button" role="tab">
-                                    Congelamientos <span class="badge rounded-pill bg-info-subtle text-info-emphasis">{{ solicitudes.congelamientos|length }}</span>
-                                </button>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="tab-content" id="solicitudesTabContent">
-                            <div class="tab-pane fade show active" id="retiros" role="tabpanel">
-                                <div class="list-group list-group-flush">
-                                    {% for solicitud in solicitudes.retiros %}
-                                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <strong>{{ solicitud.nombre_cliente }}</strong><br>
-                                            <small class="text-muted">{{ solicitud.fecha_creacion | format_datetime }}</small>
-                                        </div>
-                                        <button class="btn btn-sm btn-outline-dark manage-btn" 
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#retiroModal"
-                                                data-action-url="{{ url_for('procesar_solicitud', solicitud_id=solicitud.id) }}"
-                                                data-cliente-nombre="{{ solicitud.nombre_cliente }}"
-                                                data-fecha-solicitud="{{ solicitud.fecha_creacion | format_datetime }}">
-                                            Gestionar
-                                        </button>
+        <!-- Columna de Solicitudes -->
+        <div class="col-lg-4">
+            <div class="card content-card">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" id="solicitudesTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="retiros-tab" data-bs-toggle="tab" data-bs-target="#retiros" type="button" role="tab">
+                                Retiros <span class="badge rounded-pill bg-danger-subtle text-danger-emphasis">{{ solicitudes.retiros|length }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="congelamientos-tab" data-bs-toggle="tab" data-bs-target="#congelamientos" type="button" role="tab">
+                                Congelamientos <span class="badge rounded-pill bg-info-subtle text-info-emphasis">{{ solicitudes.congelamientos|length }}</span>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body p-0">
+                    <div class="tab-content" id="solicitudesTabContent">
+                        <div class="tab-pane fade show active" id="retiros" role="tabpanel">
+                            <div class="list-group list-group-flush">
+                                {% for solicitud in solicitudes.retiros %}
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ solicitud.nombre_cliente }}</strong><br>
+                                        <small class="text-muted">{{ solicitud.fecha_creacion | format_datetime }}</small>
                                     </div>
-                                    {% else %}
-                                    <div class="list-group-item text-muted text-center p-4">No hay solicitudes de retiro.</div>
-                                    {% endfor %}
+                                    <button class="btn btn-sm btn-outline-dark" data-bs-toggle="modal" data-bs-target="#retiroModal" data-action-url="{{ url_for('procesar_solicitud', solicitud_id=solicitud.id) }}" data-cliente-nombre="{{ solicitud.nombre_cliente }}" data-fecha-solicitud="{{ solicitud.fecha_creacion | format_datetime }}">
+                                        Gestionar
+                                    </button>
                                 </div>
+                                {% else %}
+                                <div class="list-group-item text-muted text-center p-4">No hay solicitudes de retiro.</div>
+                                {% endfor %}
                             </div>
-                            <div class="tab-pane fade" id="congelamientos" role="tabpanel">
-                                <div class="list-group list-group-flush">
-                                     {% for solicitud in solicitudes.congelamientos %}
-                                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <strong>{{ solicitud.nombre_cliente }}</strong><br>
-                                            <small class="text-muted">{{ solicitud.fecha_creacion | format_datetime }}</small>
-                                        </div>
-                                         <button class="btn btn-sm btn-outline-dark manage-btn" 
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#congelamientoModal"
-                                                data-action-url="{{ url_for('procesar_solicitud', solicitud_id=solicitud.id) }}"
-                                                data-cliente-nombre="{{ solicitud.nombre_cliente }}"
-                                                data-fecha-solicitud="{{ solicitud.fecha_creacion | format_datetime }}">
-                                            Gestionar
-                                        </button>
+                        </div>
+                        <div class="tab-pane fade" id="congelamientos" role="tabpanel">
+                            <div class="list-group list-group-flush">
+                                 {% for solicitud in solicitudes.congelamientos %}
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ solicitud.nombre_cliente }}</strong><br>
+                                        <small class="text-muted">{{ solicitud.fecha_creacion | format_datetime }}</small>
                                     </div>
-                                    {% else %}
-                                    <div class="list-group-item text-muted text-center p-4">No hay solicitudes de congelamiento.</div>
-                                    {% endfor %}
+                                     <button class="btn btn-sm btn-outline-dark" data-bs-toggle="modal" data-bs-target="#congelamientoModal" data-action-url="{{ url_for('procesar_solicitud', solicitud_id=solicitud.id) }}" data-cliente-nombre="{{ solicitud.nombre_cliente }}" data-fecha-solicitud="{{ solicitud.fecha_creacion | format_datetime }}">
+                                        Gestionar
+                                    </button>
                                 </div>
+                                {% else %}
+                                <div class="list-group-item text-muted text-center p-4">No hay solicitudes de congelamiento.</div>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
@@ -213,15 +121,11 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <form id="retiroForm" method="POST">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Gestionar Solicitud de Retiro</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
+                    <div class="modal-header"><h5 class="modal-title">Gestionar Solicitud de Retiro</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                     <div class="modal-body">
                         <p><strong>Cliente:</strong> <span id="retiroClienteNombre"></span></p>
-                        <p><strong>Fecha de Solicitud:</strong> <span id="retiroFechaSolicitud"></span></p>
-                        <hr>
-                        <p>Seleccione una acción para esta solicitud. Esta operación cambiará el estatus del cliente.</p>
+                        <p><strong>Fecha:</strong> <span id="retiroFechaSolicitud"></span></p><hr>
+                        <p>Seleccione una acción. Esta operación cambiará el estatus del cliente.</p>
                         <input type="hidden" name="tipo" value="retiro">
                     </div>
                     <div class="modal-footer">
@@ -232,20 +136,15 @@
             </div>
         </div>
     </div>
-
     <div class="modal fade" id="congelamientoModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <form id="congelamientoForm" method="POST">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Gestionar Solicitud de Congelamiento</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
+                    <div class="modal-header"><h5 class="modal-title">Gestionar Solicitud de Congelamiento</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                     <div class="modal-body">
                         <p><strong>Cliente:</strong> <span id="congelamientoClienteNombre"></span></p>
-                        <p><strong>Fecha de Solicitud:</strong> <span id="congelamientoFechaSolicitud"></span></p>
-                        <hr>
-                        <p>Seleccione una acción para esta solicitud. Esta operación cambiará el estatus del cliente.</p>
+                        <p><strong>Fecha:</strong> <span id="congelamientoFechaSolicitud"></span></p><hr>
+                        <p>Seleccione una acción. Esta operación cambiará el estatus del cliente.</p>
                         <input type="hidden" name="tipo" value="congelamiento">
                     </div>
                     <div class="modal-footer">
@@ -256,118 +155,69 @@
             </div>
         </div>
     </div>
+{% endblock %}
 
-    <!-- FullCalendar JS -->
+{% block scripts_extra %}
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/es.js'></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const calendarEl = document.getElementById('calendar');
             const agendaFechaEl = document.getElementById('agenda-fecha');
             const agendaBodyEl = document.getElementById('agenda-body');
-            const eventos = {{ eventos_calendario | tojson | safe }};
+            const eventos = JSON.parse('{{ eventos_calendario | tojson | safe }}');
 
-            // Asignar colores a los eventos
             eventos.forEach(evento => {
-                if (evento.title.toLowerCase().includes('cita')) {
-                    evento.backgroundColor = 'var(--color-cita)';
-                } else if (evento.title.toLowerCase().includes('retiro')) {
-                    evento.backgroundColor = 'var(--color-retiro)';
-                } else if (evento.title.toLowerCase().includes('congelamiento')) {
-                    evento.backgroundColor = 'var(--color-congelamiento)';
-                }
+                if (evento.title.toLowerCase().includes('cita')) evento.backgroundColor = 'var(--color-cita)';
+                else if (evento.title.toLowerCase().includes('retiro')) evento.backgroundColor = 'var(--color-retiro)';
+                else if (evento.title.toLowerCase().includes('congelamiento')) evento.backgroundColor = 'var(--color-congelamiento)';
             });
 
             const calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 locale: 'es',
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: 'dayGridMonth,timeGridWeek,listWeek'
-                },
+                headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,listWeek' },
                 events: eventos,
-                dateClick: function(info) {
-                    updateAgenda(info.date);
-                },
-                eventClick: function(info) {
-                    updateAgenda(info.event.start);
-                }
+                dateClick: (info) => updateAgenda(info.date),
+                eventClick: (info) => updateAgenda(info.event.start)
             });
             calendar.render();
 
             function updateAgenda(date) {
-                const fechaFormateada = date.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-                agendaFechaEl.textContent = fechaFormateada;
-
-                const eventosDelDia = eventos.filter(evento => {
-                    const eventDate = new Date(evento.start);
-                    return eventDate.toDateString() === date.toDateString();
-                });
-
+                agendaFechaEl.textContent = date.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                const eventosDelDia = eventos.filter(e => new Date(e.start).toDateString() === date.toDateString()).sort((a, b) => new Date(a.start) - new Date(b.start));
                 if (eventosDelDia.length > 0) {
-                    let agendaHTML = '<div class="list-group list-group-flush">';
-                    eventosDelDia.sort((a, b) => new Date(a.start) - new Date(b.start)); // Ordenar por hora
+                    let html = '<div class="list-group list-group-flush">';
                     eventosDelDia.forEach(evento => {
-                        const hora = new Date(evento.start).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-                        agendaHTML += `
+                        html += `
                             <div class="list-group-item agenda-item" style="border-color: ${evento.backgroundColor};">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1">${evento.title}</h6>
-                                    <small>${hora}</small>
+                                    <small>${new Date(evento.start).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</small>
                                 </div>
                                 <p class="mb-1"><strong>Cliente:</strong> ${evento.extendedProps.cliente}</p>
-                            </div>
-                        `;
+                            </div>`;
                     });
-                    agendaHTML += '</div>';
-                    agendaBodyEl.innerHTML = agendaHTML;
+                    agendaBodyEl.innerHTML = html + '</div>';
                 } else {
                     agendaBodyEl.innerHTML = '<p class="text-muted text-center p-3">No hay citas ni eventos para este día.</p>';
                 }
             }
             
-            // Inicializar agenda con la fecha de hoy
             updateAgenda(new Date());
 
-            // Lógica para poblar los Modales
-            const retiroModal = document.getElementById('retiroModal');
-            if (retiroModal) {
-                retiroModal.addEventListener('show.bs.modal', function(event) {
+            function setupModal(modalId, formId, nameId, dateId) {
+                const modal = document.getElementById(modalId);
+                if (!modal) return;
+                modal.addEventListener('show.bs.modal', function(event) {
                     const button = event.relatedTarget;
-                    const actionUrl = button.getAttribute('data-action-url');
-                    const clienteNombre = button.getAttribute('data-cliente-nombre');
-                    const fechaSolicitud = button.getAttribute('data-fecha-solicitud');
-
-                    const modalForm = retiroModal.querySelector('#retiroForm');
-                    const modalClienteNombre = retiroModal.querySelector('#retiroClienteNombre');
-                    const modalFechaSolicitud = retiroModal.querySelector('#retiroFechaSolicitud');
-
-                    modalForm.action = actionUrl;
-                    modalClienteNombre.textContent = clienteNombre;
-                    modalFechaSolicitud.textContent = fechaSolicitud;
+                    modal.querySelector(`#${formId}`).action = button.dataset.actionUrl;
+                    modal.querySelector(`#${nameId}`).textContent = button.dataset.clienteNombre;
+                    modal.querySelector(`#${dateId}`).textContent = button.dataset.fechaSolicitud;
                 });
             }
-            
-            const congelamientoModal = document.getElementById('congelamientoModal');
-            if (congelamientoModal) {
-                congelamientoModal.addEventListener('show.bs.modal', function(event) {
-                    const button = event.relatedTarget;
-                    const actionUrl = button.getAttribute('data-action-url');
-                    const clienteNombre = button.getAttribute('data-cliente-nombre');
-                    const fechaSolicitud = button.getAttribute('data-fecha-solicitud');
-
-                    const modalForm = congelamientoModal.querySelector('#congelamientoForm');
-                    const modalClienteNombre = congelamientoModal.querySelector('#congelamientoClienteNombre');
-                    const modalFechaSolicitud = congelamientoModal.querySelector('#congelamientoFechaSolicitud');
-
-                    modalForm.action = actionUrl;
-                    modalClienteNombre.textContent = clienteNombre;
-                    modalFechaSolicitud.textContent = fechaSolicitud;
-                });
-            }
+            setupModal('retiroModal', 'retiroForm', 'retiroClienteNombre', 'retiroFechaSolicitud');
+            setupModal('congelamientoModal', 'congelamientoForm', 'congelamientoClienteNombre', 'congelamientoFechaSolicitud');
         });
     </script>
-</body>
-</html>
+{% endblock %}

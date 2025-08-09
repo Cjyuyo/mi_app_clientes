@@ -1,140 +1,17 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registrar Nuevo Cliente</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <style>
-        /* --- GUÍA DE ESTILO MAESTRA --- */
-        :root {
-            --azul-corporativo: #2B3A55;
-            --naranja-corporativo: #F99417;
-            --gris-fondo: #f8f9fa;
-            --blanco-tarjetas: #FFFFFF;
-            --texto-oscuro: #212529;
-            --texto-claro: #6c757d;
-            --borde-sutil: #e9ecef;
-            --theme-color: var(--naranja-corporativo);
-        }
+{% extends 'base_sidebar.html' %}
 
-        body {
-            background-color: var(--gris-fondo);
-            font-family: 'Roboto', sans-serif;
-            color: var(--texto-oscuro);
-        }
-        .container-main {
-            max-width: 900px;
-        }
-        .form-container {
-            background-color: var(--blanco-tarjetas);
-            border-radius: .75rem;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.07);
-            overflow: hidden;
-        }
-        .form-header {
-            background-color: var(--theme-color);
-            color: var(--blanco-tarjetas);
-            padding: 1.5rem 2rem;
-        }
-        .form-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
-        .form-header p { margin: 0; opacity: 0.9; }
-        
-        .nav-bar {
-            background-color: var(--blanco-tarjetas);
-            padding: .75rem 2rem;
-            border-bottom: 1px solid var(--borde-sutil);
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-        }
-        .nav-bar a {
-            text-decoration: none;
-            color: var(--azul-corporativo);
-            font-weight: 500;
-            padding: .5rem .75rem;
-            border-radius: .5rem;
-            transition: background-color 0.2s;
-        }
-        .nav-bar a:hover { background-color: #eef3f8; }
-        .nav-bar a.active { color: var(--theme-color); background-color: #fff5e8; }
+{% block title %}
+    Registrar Nuevo Cliente
+{% endblock %}
 
-        form { padding: 2rem; }
-        .section h3 {
-            font-size: 1rem;
-            font-weight: 500;
-            color: var(--texto-claro);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid var(--borde-sutil);
-            padding-bottom: .75rem;
-            margin-bottom: 1.5rem;
-        }
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.25rem;
-        }
-        .form-group label {
-            font-size: 0.9rem;
-            font-weight: 500;
-            color: var(--texto-oscuro);
-            margin-bottom: .5rem;
-        }
-        .form-control, .form-select, .form-control:disabled {
-            border-radius: .5rem;
-            padding: .75rem 1rem;
-            border: 1px solid var(--borde-sutil);
-            background-color: var(--gris-fondo);
-        }
-        .form-control:not(:disabled), .form-select:not(:disabled) {
-             background-color: var(--blanco-tarjetas);
-        }
-
-        .button-group {
-            display: flex;
-            justify-content: flex-end;
-            margin-top: 2rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--borde-sutil);
-        }
-        .btn-primary {
-            background-color: var(--theme-color);
-            border-color: var(--theme-color);
-            font-weight: 500;
-        }
-        .btn-primary:hover {
-            filter: brightness(90%);
-            background-color: var(--theme-color);
-            border-color: var(--theme-color);
-        }
-        .preview-img {
-            width: 100%;
-            height: 240px;
-            object-fit: contain;
-            background-color: var(--borde-sutil);
-        }
-    </style>
-</head>
-<body>
-<div class="container container-main my-4">
+{% block body %}
     <div class="form-container">
-        <div class="form-header">
+        <div class="form-header" style="background-color: var(--naranja-corporativo);">
             <h1>Sistema de Gestión de Clientes</h1>
             <p>Moto Plan Motors C.A.</p>
         </div>
 
-        <div class="nav-bar">
-            <a href="{{ url_for('hub') }}">Hub Principal</a>
-            <a href="{{ url_for('registrar') }}" class="active">Registrar Cliente</a>
-            <a href="{{ url_for('consulta') }}">Consultar Cliente</a>
-        </div>
-
-        <form id="registroForm" action="{{ url_for('registrar_cliente') }}" method="POST">
+        <form id="registroForm" action="{{ url_for('registrar_cliente') }}" method="POST" class="p-4">
             {% with messages = get_flashed_messages(with_categories=true) %}
               {% if messages %}
                 {% for category, message in messages %}
@@ -241,34 +118,34 @@
             </div>
         </form>
     </div>
-</div>
 
-<!-- Modal sin cambios de estilo -->
-<div class="modal fade" id="cameraModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title" id="cameraModalLabel">Capturar Foto</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body text-center">
-        <div class="live-view"><video id="video-feed" autoplay playsinline muted class="bg-dark rounded"></video></div>
-        <div class="confirmation-view" style="display:none;"><p><strong>¿Desea usar esta foto?</strong></p><canvas id="capture-canvas" class="rounded"></canvas></div>
-      </div>
-      <div class="modal-footer">
-        <div class="live-view-footer w-100 d-flex justify-content-between">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="button" id="flip-camera-btn" class="btn btn-info"><i class="bi bi-arrow-repeat"></i></button>
-            <button type="button" id="capture-btn" class="btn btn-primary"><i class="bi bi-camera-fill"></i> Capturar</button>
-        </div>
-        <div class="confirmation-view-footer w-100 d-flex justify-content-between" style="display:none;">
-            <button type="button" class="btn btn-secondary" id="retake-btn"><i class="bi bi-arrow-clockwise"></i> Volver a Tomar</button>
-            <button type="button" class="btn btn-success" id="save-photo-btn"><i class="bi bi-check-circle-fill"></i> Guardar Foto</button>
+    <!-- Modal de la Cámara -->
+    <div class="modal fade" id="cameraModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title" id="cameraModalLabel">Capturar Foto</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body text-center">
+            <div class="live-view"><video id="video-feed" autoplay playsinline muted class="bg-dark rounded w-100"></video></div>
+            <div class="confirmation-view" style="display:none;"><p><strong>¿Desea usar esta foto?</strong></p><canvas id="capture-canvas" class="rounded w-100"></canvas></div>
+          </div>
+          <div class="modal-footer">
+            <div class="live-view-footer w-100 d-flex justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="flip-camera-btn" class="btn btn-info"><i class="bi bi-arrow-repeat"></i></button>
+                <button type="button" id="capture-btn" class="btn btn-primary"><i class="bi bi-camera-fill"></i> Capturar</button>
+            </div>
+            <div class="confirmation-view-footer w-100 d-flex justify-content-between" style="display:none;">
+                <button type="button" class="btn btn-secondary" id="retake-btn"><i class="bi bi-arrow-clockwise"></i> Volver a Tomar</button>
+                <button type="button" class="btn btn-success" id="save-photo-btn"><i class="bi bi-check-circle-fill"></i> Guardar Foto</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}
+
+{% block scripts_extra %}
 <script>
-// SCRIPT ORIGINAL SIN MODIFICACIONES
 document.addEventListener('DOMContentLoaded', function() {
     const planSelect = document.getElementById('plan_contratado');
     const inscripcionInput = document.getElementById('inscripcion_monto');
@@ -343,6 +220,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const flipCameraBtn = document.getElementById('flip-camera-btn');
     let stream, currentCaptureType = null, capturedImageData = null, currentFacingMode = 'user';
     function toggleViews(showConfirmation) {
+        if (!cameraModal) return;
         cameraModal.querySelector('.live-view').style.display = showConfirmation ? 'none' : 'block';
         cameraModal.querySelector('.live-view-footer').style.display = showConfirmation ? 'none' : 'flex';
         cameraModal.querySelector('.confirmation-view').style.display = showConfirmation ? 'block' : 'none';
@@ -356,29 +234,37 @@ document.addEventListener('DOMContentLoaded', function() {
             await video.play();
         } catch (err) {
             console.error("Error starting camera: ", err);
-            bootstrap.Modal.getInstance(cameraModal).hide();
+            const modalInstance = bootstrap.Modal.getInstance(cameraModal);
+            if (modalInstance) modalInstance.hide();
         }
     }
-    cameraModal.addEventListener('show.bs.modal', async (event) => {
-        currentCaptureType = event.relatedTarget.getAttribute('data-capture-type');
-        cameraModal.querySelector('.modal-title').textContent = currentCaptureType === 'cedula' ? 'Capturar Foto de la Cédula' : 'Capturar Foto del Cliente';
-        currentFacingMode = currentCaptureType === 'cedula' ? 'environment' : 'user';
-        toggleViews(false);
-        await startCamera(currentFacingMode);
-    });
-    cameraModal.addEventListener('hide.bs.modal', () => { if (stream) stream.getTracks().forEach(track => track.stop()); });
-    flipCameraBtn.addEventListener('click', () => {
-        currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
-        startCamera(currentFacingMode);
-    });
-    captureBtn.addEventListener('click', () => {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-        capturedImageData = canvas.toDataURL('image/jpeg');
-        toggleViews(true);
-    });
-    retakeBtn.addEventListener('click', () => { capturedImageData = null; toggleViews(false); });
+    if (cameraModal) {
+        cameraModal.addEventListener('show.bs.modal', async (event) => {
+            currentCaptureType = event.relatedTarget.getAttribute('data-capture-type');
+            cameraModal.querySelector('.modal-title').textContent = currentCaptureType === 'cedula' ? 'Capturar Foto de la Cédula' : 'Capturar Foto del Cliente';
+            currentFacingMode = currentCaptureType === 'cedula' ? 'environment' : 'user';
+            toggleViews(false);
+            await startCamera(currentFacingMode);
+        });
+        cameraModal.addEventListener('hide.bs.modal', () => { if (stream) stream.getTracks().forEach(track => track.stop()); });
+    }
+    if (flipCameraBtn) {
+        flipCameraBtn.addEventListener('click', () => {
+            currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+            startCamera(currentFacingMode);
+        });
+    }
+    if (captureBtn) {
+        captureBtn.addEventListener('click', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            capturedImageData = canvas.toDataURL('image/jpeg');
+            toggleViews(true);
+        });
+    }
+    if (retakeBtn) retakeBtn.addEventListener('click', () => { capturedImageData = null; toggleViews(false); });
+    
     const submitBtn = document.getElementById('submitBtn');
     const form = document.getElementById('registroForm');
     const validateForm = () => {
@@ -396,25 +282,31 @@ document.addEventListener('DOMContentLoaded', function() {
             submitBtn.classList.replace('btn-primary', 'btn-secondary');
         }
     };
-    form.addEventListener('input', updateButtonState);
-    form.addEventListener('change', updateButtonState);
-    savePhotoBtn.addEventListener('click', () => {
-        if (capturedImageData && currentCaptureType) {
-            document.getElementById(`preview-${currentCaptureType}`).src = capturedImageData;
-            const inputElement = document.getElementById(`foto_${currentCaptureType}`);
-            inputElement.value = capturedImageData;
-            inputElement.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        bootstrap.Modal.getInstance(cameraModal).hide();
-    });
+    if (form) {
+        form.addEventListener('input', updateButtonState);
+        form.addEventListener('change', updateButtonState);
+    }
+    if (savePhotoBtn) {
+        savePhotoBtn.addEventListener('click', () => {
+            if (capturedImageData && currentCaptureType) {
+                document.getElementById(`preview-${currentCaptureType}`).src = capturedImageData;
+                const inputElement = document.getElementById(`foto_${currentCaptureType}`);
+                inputElement.value = capturedImageData;
+                inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            const modalInstance = bootstrap.Modal.getInstance(cameraModal);
+            if (modalInstance) modalInstance.hide();
+        });
+    }
     updateButtonState();
-    form.addEventListener('submit', function(e) {
-        if (form.getAttribute('data-submitted') === 'true') { e.preventDefault(); return; }
-        form.setAttribute('data-submitted', 'true');
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = 'Procesando...';
-    });
+    if(form) {
+        form.addEventListener('submit', function(e) {
+            if (form.getAttribute('data-submitted') === 'true') { e.preventDefault(); return; }
+            form.setAttribute('data-submitted', 'true');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'Procesando...';
+        });
+    }
 });
 </script>
-</body>
-</html>
+{% endblock %}

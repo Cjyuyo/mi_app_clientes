@@ -4,13 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recibo de Inscripción N° {{ pago.id }}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --azul-corporativo: #2B3A55;
-            --naranja-corporativo: #F99417;
             --gris-fondo: #f8f9fa;
             --blanco-tarjetas: #FFFFFF;
             --texto-oscuro: #212529;
@@ -18,95 +15,29 @@
             --borde-sutil: #e9ecef;
             --verde-exito: #28a745;
         }
-        body {
-            font-family: 'Roboto', sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: var(--gris-fondo);
-        }
-        .container {
-            max-width: 800px;
-            margin: auto;
-            background: var(--blanco-tarjetas);
-            border-radius: .75rem;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        .receipt-header {
-            background-color: var(--verde-exito);
-            color: var(--blanco-tarjetas);
-            padding: 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .header-info h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
-        .header-info p { margin: 5px 0 0; font-size: 0.9rem; opacity: 0.9; }
-        .receipt-id h2 { margin: 0; font-size: 1rem; font-weight: 500; text-transform: uppercase; }
+        body { font-family: 'Roboto', sans-serif; margin: 0; padding: 20px; background-color: var(--gris-fondo); }
+        .container { max-width: 800px; margin: auto; background: var(--blanco-tarjetas); border-radius: .75rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
+        .receipt-header { background-color: var(--verde-exito); color: var(--blanco-tarjetas); padding: 2rem; display: flex; justify-content: space-between; align-items: center; }
+        .header-info h1 { margin: 0; font-size: 1.5rem; }
         .receipt-id p { margin: 5px 0 0; font-size: 1.5rem; font-weight: 700; }
         .receipt-body { padding: 2rem; }
         .section { margin-bottom: 2rem; }
-        .section:last-child { margin-bottom: 0; }
-        .section h3 {
-            font-size: 1rem;
-            color: var(--texto-claro);
-            text-transform: uppercase;
-            border-bottom: 1px solid var(--borde-sutil);
-            padding-bottom: .75rem;
-            margin-bottom: 1rem;
-        }
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-        }
-        .info-item {
-            background-color: var(--gris-fondo);
-            padding: 1rem;
-            border-radius: .5rem;
-        }
-        .info-item .label { font-size: 0.8rem; color: var(--texto-claro); display: block; margin-bottom: 5px; }
-        .info-item .value { font-size: 1rem; font-weight: 500; color: var(--texto-oscuro); }
+        .section h3 { font-size: 1rem; color: var(--texto-claro); text-transform: uppercase; border-bottom: 1px solid var(--borde-sutil); padding-bottom: .75rem; margin-bottom: 1rem; }
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+        .info-item { background-color: var(--gris-fondo); padding: 1rem; border-radius: .5rem; }
+        .info-item .label { font-size: 0.8rem; color: var(--texto-claro); display: block; }
+        .info-item .value { font-size: 1rem; font-weight: 500; }
         .info-item .value.amount { font-size: 1.25rem; font-weight: 700; color: var(--verde-exito); }
-        .qr-section {
-            text-align: center;
-            padding: 1.5rem;
-            background-color: var(--gris-fondo);
-            border-top: 1px solid var(--borde-sutil);
-        }
-        .footer-note {
-            padding: 1rem 2rem;
-            text-align: center;
-            font-size: 0.8rem;
-            color: var(--texto-claro);
-            background-color: var(--gris-fondo);
-        }
-        .actions-section {
-            text-align: center;
-            padding: 1.5rem;
-            background-color: var(--gris-fondo);
-            border-top: 1px solid var(--borde-sutil);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-        }
-        .btn {
-            text-decoration: none;
-            color: white;
-            padding: .6rem 1.2rem;
-            border: none;
-            border-radius: .5rem;
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
+        .qr-section { text-align: center; padding: 1.5rem; background-color: var(--gris-fondo); border-top: 1px solid var(--borde-sutil); }
+        .footer-note { padding: 1rem 2rem; text-align: center; font-size: 0.8rem; color: var(--texto-claro); background-color: var(--gris-fondo); }
+        .actions-section { text-align: center; padding: 1.5rem; background-color: var(--gris-fondo); border-top: 1px solid var(--borde-sutil); display: flex; justify-content: center; gap: 10px; }
+        .btn { text-decoration: none; color: white; padding: .6rem 1.2rem; border: none; border-radius: .5rem; cursor: pointer; }
         .btn-anular { background-color: #dc3545; }
         .btn-volver { background-color: var(--azul-corporativo); }
         .btn-imprimir { background-color: var(--texto-claro); }
         @media print {
-            body { background-color: #fff; padding: 0; margin: 0; font-size: 10pt; }
-            .container { box-shadow: none; border: 1px solid #ccc; border-radius: 0; }
+            body { background-color: #fff; padding: 0; }
+            .container { box-shadow: none; border: 1px solid #ccc; }
             .actions-section { display: none; }
             .receipt-header { background-color: var(--verde-exito) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
@@ -125,62 +56,32 @@
                 <p>N° {{ pago.id }}</p>
             </div>
         </div>
-
         <div class="receipt-body">
             <div class="section">
                 <h3>Cliente</h3>
                 <div class="info-grid">
-                    <div class="info-item">
-                        <span class="label">Hemos Recibido de</span>
-                        <span class="value">{{ cliente.nombre_apellido }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="label">C.I. o R.I.F.</span>
-                        <span class="value">{{ cliente.cedula }}</span>
-                    </div>
+                    <div class="info-item"><span class="label">Hemos Recibido de</span><span class="value">{{ cliente.nombre_apellido }}</span></div>
+                    <div class="info-item"><span class="label">C.I. o R.I.F.</span><span class="value">{{ cliente.cedula }}</span></div>
                 </div>
             </div>
-
             <div class="section">
                 <h3>Detalles de la Inscripción</h3>
                 <div class="info-grid">
-                    <div class="info-item">
-                        <span class="label">Monto Total de Inscripción (USD)</span>
-                        <span class="value amount">${{ "%.2f"|format(pago.monto) }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="label">Plan Contratado</span>
-                        <span class="value">{{ cliente.plan_contratado or 'N/A' }}</span>
-                    </div>
-                    <div class="info-item" style="grid-column: 1 / -1;">
-                        <span class="label">Por Concepto De</span>
-                        <span class="value">
-                            <strong>Reserva operativa por incorporación al plan (monto no reembolsable)</strong>
-                            <small class="d-block text-muted mt-1" style="font-size: 0.8em; line-height: 1.4;">
-                                Fondo destinado a respaldar la sostenibilidad del sistema de venta programada, garantizando la responsabilidad financiera, el funcionamiento operativo del grupo y la viabilidad del modelo bajo principios de rentabilidad.
-                            </small>
-                        </span>
-                    </div>
+                    <div class="info-item"><span class="label">Monto Total de Inscripción (USD)</span><span class="value amount">${{ "%.2f"|format(pago.monto) }}</span></div>
+                    <div class="info-item"><span class="label">Plan Contratado</span><span class="value">{{ cliente.plan_contratado or 'N/A' }}</span></div>
+                    <div class="info-item" style="grid-column: 1 / -1;"><span class="label">Por Concepto De</span><span class="value"><strong>Reserva operativa por incorporación al plan (monto no reembolsable)</strong><small class="d-block text-muted mt-1" style="font-size: 0.8em; line-height: 1.4;">Fondo destinado a respaldar la sostenibilidad del sistema de venta programada, garantizando la responsabilidad financiera, el funcionamiento operativo del grupo y la viabilidad del modelo bajo principios de rentabilidad.</small></span></div>
                 </div>
             </div>
         </div>
-
         <div class="qr-section">
             <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('verificar_recibo', pago_id=pago.id, _external=True) }}&size=120x120&q=M" alt="Código QR de Verificación">
             <p style="font-size: 12px; color: #606770; margin-top: 10px;">Escanee para verificar la validez de este recibo</p>
         </div>
-        
-        <div class="footer-note">
-            <p class="mb-0">Monto cancelado no será devuelto bajo ningún concepto una vez preparado el contrato.</p>
-        </div>
-
+        <div class="footer-note"><p class="mb-0">Monto cancelado no será devuelto bajo ningún concepto una vez preparado el contrato.</p></div>
         <div class="actions-section">
             <button class="btn btn-imprimir" onclick="window.print()">Imprimir / Guardar PDF</button>
-            {% if is_admin_view %}
-                <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="btn btn-volver">Volver a Consulta</a>
-            {% else %}
-                <a href="{{ url_for('portal_dashboard') }}" class="btn btn-volver">Volver al Portal</a>
-            {% endif %}
+            {% if is_admin_view %}<a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="btn btn-volver">Volver a Consulta</a>
+            {% else %}<a href="{{ url_for('portal_dashboard') }}" class="btn btn-volver">Volver al Portal</a>{% endif %}
             {% if is_admin_view and g.admin and g.admin.rol in ['superadmin', 'gerente'] and pago.estado_pago != 'Anulado' %}
             <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro?');">
                 <button type="submit" class="btn btn-anular">Anular Inscripción</button>
