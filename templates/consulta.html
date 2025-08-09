@@ -10,6 +10,9 @@
             <div class="d-flex flex-column flex-md-row gap-2">
                 <input type="search" name="busqueda" class="form-control form-control-lg" placeholder="Buscar por Nombre o Cédula..." value="{{ busqueda or '' }}">
                 <button type="submit" class="btn btn-lg text-white" style="background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo);"><i class="bi bi-search"></i> Buscar</button>
+                <a href="{{ url_for('hub') }}" class="btn btn-secondary btn-lg">
+                    <i class="bi bi-house-door-fill"></i> Hub
+                </a>
             </div>
         </form>
     </div>
@@ -31,23 +34,85 @@
 
     <div id="client-results">
         {% for cliente in clientes %}
-        <div class="card client-card">
+        <div class="card client-card mb-4">
             <div class="card-header client-header text-white" style="background-color: var(--azul-corporativo);">
                 <h2 class="h5 mb-0">{{ cliente.nombre_apellido }}</h2>
                 <span class="badge text-bg-light">{{ cliente.proceso or 'N/A' }}</span>
             </div>
-            <div class="card-body client-details">
-                <!-- Detalles del cliente -->
+            
+            <div class="card-body client-details p-4">
+                <div class="detail-item"><span class="label">Grupo</span><span class="value">{{ cliente.grupo or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Plan</span><span class="value">{{ cliente.plan_contratado or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Cuotas Pagadas</span><span class="value">{{ cliente.cuotas_pagadas_progresivas | int }} de {{ cliente.cuotas_totales | int }}</span></div>
+                <div class="detail-item"><span class="label">Cédula</span><span class="value">{{ cliente.cedula }}</span></div>
+                <div class="detail-item"><span class="label">Contrato</span><span class="value">{{ cliente.contrato_nro or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Teléfono</span><span class="value">{{ cliente.telefono or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Asesor</span><span class="value">{{ cliente.asesor or 'N/A' }}</span></div>
+                
+                <div class="detail-item">
+                    <span class="label">Inscripción</span>
+                    <span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Estatus</span>
+                    <span class="value">
+                        {% set estatus = cliente.estatus | upper if cliente.estatus else '' %}
+                        {% if estatus == 'ACTIVO' or estatus == 'AHORRADOR' or estatus == 'ADJUDICADO' %}<span class="badge fs-6 bg-success">{{ cliente.estatus }}</span>
+                        {% elif estatus == 'INACTIVO' or estatus == 'RETIRO' %}<span class="badge fs-6 bg-danger">{{ cliente.estatus }}</span>
+                        {% elif estatus == 'RESERVA' or estatus == 'INSCRITO' %}<span class="badge fs-6 bg-warning text-dark">{{ cliente.estatus }}</span>
+                        {% else %}<span class="badge fs-6 bg-secondary">{{ cliente.estatus }}</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                <div class="detail-item progress-item"><span class="label">Progreso Total del Plan</span><div class="progress" style="height: 20px;"><div class="progress-bar" role="progressbar" style="width: {{ progreso_total }}%;" aria-valuenow="{{ progreso_total }}" aria-valuemin="0" aria-valuemax="100">{{ "%.0f"|format(progreso_total) }}%</div></div><div class="d-flex justify-content-between small mt-1"><span>Pagadas: {{ cuotas_pagadas_total | int }}</span><span>Restantes: {{ (cuotas_totales | int) - (cuotas_pagadas_total | int) }}</span><span>Total: {{ cuotas_totales | int }}</span></div></div>
+                {% set balance = cliente.balance_regresivo|float or 0.0 %}{% set valor_cuota = cliente.valor_cuota|float or 0.0 %}{% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
+                <div class="detail-item progress-item"><span class="label">Saldo a Favor (Abono a cuota N° {{ (cuotas_totales | int) - (cuotas_regresivas | int) }})</span><div class="progress" style="height: 20px;"><div class="progress-bar bg-info" role="progressbar" style="width: {{ progreso_cuota_actual }}%;" aria-valuenow="{{ progreso_cuota_actual }}" aria-valuemin="0" aria-valuemax="100">{{ "%.0f"|format(progreso_cuota_actual) }}%</div></div><div class="d-flex justify-content-between small mt-1"><span>Abonado: ${{ "%.2f"|format(balance) }}</span><span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}</span><span>Valor Cuota: ${{ "%.2f"|format(valor_cuota) }}</span></div></div>
             </div>
-            <div class="history-section">
-                <!-- Pestañas de historial -->
+
+            <div class="history-section px-4 pb-4">
+                <ul class="nav nav-tabs" id="historyTabs-{{ cliente.id }}" role="tablist">
+                    <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#pagos-content-{{ cliente.id }}">Historial de Pagos</button></li>
+                    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ofertas-content-{{ cliente.id }}">Historial de Ofertas</button></li>
+                </ul>
+                <div class="tab-content pt-3">
+                    <div class="tab-pane fade show active" id="pagos-content-{{ cliente.id }}">
+                        {% if cliente.pagos %}{% for pago in cliente.pagos %}<div class="payment-row d-flex justify-content-between align-items-center py-2 border-bottom"><div class="payment-info"><strong>{{ pago.tipo_pago }}</strong><div class="small text-muted">{{ pago.fecha_pago | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</div></div><div class="payment-amount fw-bold">${{ "%.2f"|format(pago.monto) }}</div><div class="payment-actions d-flex gap-2">{% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}<span class="badge text-bg-info">Reportado</span><a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="btn btn-info btn-sm">Ver</a>{% elif pago.estado_reporte == 'Inconsistente' %}<span class="badge text-bg-danger">Inconsistente</span><a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="btn btn-secondary btn-sm">Ver</a>{% elif pago.estado_pago == 'Pendiente' %}{% if pago.estado_reporte == 'Aprobado' %}<span class="badge text-bg-light">Aprobado</span>{% else %}<span class="badge text-bg-warning">Pendiente</span>{% endif %}<form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" onsubmit="return confirm('¿Conciliar pago?');" class="d-inline"><button type="submit" class="btn btn-success btn-sm">Conciliar</button></form>{% elif pago.estado_pago == 'Conciliado' %}<span class="badge text-bg-success">Conciliado</span><a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Recibo</a>{% elif pago.estado_pago == 'Anulado' %}<span class="badge text-bg-danger">Anulado</span><a href="{{ url_for('recibo_anulado', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Detalles</a>{% endif %}</div></div>{% endfor %}{% else %}<p class="text-center text-muted p-3">No hay pagos registrados.</p>{% endif %}
+                    </div>
+                    <div class="tab-pane fade" id="ofertas-content-{{ cliente.id }}">
+                        {% if cliente.ofertas %}{% for oferta in cliente.ofertas %}<div class="payment-row d-flex justify-content-between align-items-center py-2 border-bottom"><div><strong>Oferta de Adjudicación</strong><div class="small text-muted">{{ oferta.fecha_oferta | format_date }}</div></div><div class="fw-bold">{{ oferta.cuotas_ofertadas }} Cuotas</div><div>{% if oferta.estado_oferta == 'activa' %}<span class="badge text-bg-primary">Activa</span>{% elif oferta.estado_oferta == 'ganadora' %}<span class="badge text-bg-success">Ganadora</span>{% elif oferta.estado_oferta == 'perdida' %}<span class="badge text-bg-secondary">Perdida</span>{% else %}<span class="badge text-bg-light">{{ oferta.estado_oferta }}</span>{% endif %}</div></div>{% endfor %}{% else %}<p class="text-center text-muted p-3">No hay ofertas registradas.</p>{% endif %}
+                    </div>
+                </div>
             </div>
-            <div class="card-footer client-actions">
-                <!-- Botones de acciones -->
+
+            <div class="card-footer client-actions bg-light">
+                <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-success btn-sm"><i class="bi bi-cash-coin me-1"></i> Registrar Pago</a>
+                <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#ofertaModal-{{ cliente.id }}"><i class="bi bi-gem me-1"></i> Registrar Oferta</button>
+                <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-secondary btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf-fill me-1"></i> Contrato</a>
+                {% if g.admin and g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}<a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-warning btn-sm"><i class="bi bi-pencil-square me-1"></i> Editar</a>{% endif %}
+                {% if g.admin and g.admin.rol == 'superadmin' %}<form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" class="d-inline" onsubmit="return confirm('ADVERTENCIA: Esta acción eliminará al cliente y TODOS sus registros asociados de forma permanente. ¿Está absolutamente seguro?');"><button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-trash-fill me-1"></i> Eliminar</button></form>{% endif %}
             </div>
         </div>
-        <!-- Modal de oferta -->
+
+        <div class="modal fade" id="ofertaModal-{{ cliente.id }}" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" method="POST">
+                        <div class="modal-header"><h5 class="modal-title">Registrar Oferta para {{ cliente.nombre_apellido }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="cuotas_ofertadas-{{ cliente.id }}" class="form-label">Número de Cuotas a Ofertar</label>
+                                <select class="form-select" id="cuotas_ofertadas-{{ cliente.id }}" name="cuotas_ofertadas" required>
+                                    {% set cuotas_restantes = (cliente.cuotas_totales|int) - (cliente.cuotas_pagadas_progresivas|int) %}
+                                    {% for i in range(1, cuotas_restantes + 1) %}<option value="{{ i }}">{{ i }} cuota(s)</option>{% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Guardar Oferta</button></div>
+                    </form>
+                </div>
+            </div>
+        </div>
         {% endfor %}
     </div>
 {% endblock %}
->

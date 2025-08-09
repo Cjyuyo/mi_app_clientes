@@ -25,19 +25,11 @@
             --texto-blanco: #f8f9fa;
             --borde-sutil: #e9ecef;
         }
-
         body {
             font-family: 'Roboto', sans-serif;
             background-color: var(--gris-fondo);
         }
-
-        .wrapper {
-            display: flex;
-            width: 100%;
-            min-height: 100vh;
-        }
-
-        /* --- Estilos del Sidebar --- */
+        .wrapper { display: flex; width: 100%; min-height: 100vh; }
         #sidebar {
             width: 260px;
             position: fixed;
@@ -52,30 +44,10 @@
             display: flex;
             flex-direction: column;
         }
-
-        .sidebar-header {
-            padding: 20px;
-            text-align: center;
-            border-bottom: 1px solid var(--azul-hover);
-            flex-shrink: 0;
-        }
-        
-        .sidebar-header h3 {
-            font-weight: 700;
-        }
-
-        #sidebar ul.components {
-            padding: 20px 0;
-            overflow-y: auto;
-            flex-grow: 1;
-        }
-
-        #sidebar ul p {
-            color: var(--texto-blanco);
-            padding: 10px 20px;
-            font-weight: 500;
-        }
-
+        .sidebar-header { padding: 20px; text-align: center; border-bottom: 1px solid var(--azul-hover); flex-shrink: 0; }
+        .sidebar-header h3 { font-weight: 700; }
+        #sidebar ul.components { padding: 20px 0; overflow-y: auto; flex-grow: 1; }
+        #sidebar ul p { color: var(--texto-blanco); padding: 10px 20px; font-weight: 500; }
         #sidebar ul li a {
             padding: 12px 20px;
             font-size: 1.05em;
@@ -84,61 +56,24 @@
             border-left: 3px solid transparent;
             transition: all 0.2s;
         }
-
         #sidebar ul li a:hover {
             color: var(--texto-blanco);
             background: var(--azul-hover);
             border-left: 3px solid var(--naranja-corporativo);
         }
-
         #sidebar ul li.active > a, a[aria-expanded="true"] {
             color: var(--texto-blanco);
             background: var(--azul-hover);
-            border-left: 3px solid var(--naranja-corporativo);
         }
-        
-        #sidebar ul li a i {
-            margin-right: 10px;
-        }
-        
-        .sidebar-footer {
-            flex-shrink: 0;
-            padding: 15px;
-            border-top: 1px solid var(--azul-hover);
-            font-size: 0.9em;
-        }
-
-        /* --- Estilos del Contenido Principal --- */
-        #content {
-            width: calc(100% - 260px);
-            padding: 20px;
-            min-height: 100vh;
-            transition: all 0.3s;
-            position: absolute;
-            top: 0;
-            right: 0;
-        }
-        
-        /* --- Estilos del Header Superior --- */
-        .topbar {
-            background: var(--blanco);
-            border-radius: .5rem;
-            padding: 10px 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-
-        /* --- Responsividad --- */
+        #sidebar ul li a i { margin-right: 10px; }
+        #sidebar ul ul a { font-size: 0.95em !important; padding-left: 40px !important; background: #232f43; }
+        .sidebar-footer { flex-shrink: 0; padding: 15px; border-top: 1px solid var(--azul-hover); font-size: 0.9em; }
+        #content { width: calc(100% - 260px); padding: 20px; min-height: 100vh; transition: all 0.3s; position: absolute; top: 0; right: 0; }
+        .topbar { background: var(--blanco); border-radius: .5rem; padding: 10px 20px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         @media (max-width: 768px) {
-            #sidebar {
-                margin-left: -260px;
-            }
-            #sidebar.active {
-                margin-left: 0;
-            }
-            #content {
-                width: 100%;
-            }
+            #sidebar { margin-left: -260px; }
+            #sidebar.active { margin-left: 0; }
+            #content { width: 100%; }
         }
     </style>
 </head>
@@ -154,16 +89,51 @@
         <ul class="list-unstyled components">
             <p>Menú Principal</p>
             <li><a href="{{ url_for('hub') }}"><i class="bi bi-house-door-fill"></i> Hub Principal</a></li>
-            <li><a href="{{ url_for('registrar') }}"><i class="bi bi-person-plus-fill"></i> Registrar Cliente</a></li>
-            <li class="active"><a href="{{ url_for('consulta') }}"><i class="bi bi-search"></i> Consultar Clientes</a></li>
-            
+            <li><a href="{{ url_for('hub_asesor') }}"><i class="bi bi-person-workspace"></i> HUB de Asesor</a></li>
+
+            <li>
+                <a href="#clientesSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-people-fill"></i> Clientes</a>
+                <ul class="collapse list-unstyled" id="clientesSubmenu">
+                    <li><a href="{{ url_for('registrar') }}">Registrar Cliente</a></li>
+                    <li><a href="{{ url_for('consulta') }}">Consultar Clientes</a></li>
+                    <li><a href="{{ url_for('mi_cartera') }}">Mi Cartera de Cobranza</a></li>
+                </ul>
+            </li>
+
             {% if g.admin and g.admin.rol in ['superadmin', 'gerente'] %}
-            <li><a href="{{ url_for('gestion_administrativa') }}"><i class="bi bi-bar-chart-line-fill"></i> Gestión Administrativa</a></li>
+            <li>
+                <a href="#adminSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-bar-chart-line-fill"></i> Administración</a>
+                <ul class="collapse list-unstyled" id="adminSubmenu">
+                    <li><a href="{{ url_for('gestion_administrativa') }}">Gestión General</a></li>
+                    <li><a href="{{ url_for('pagos_por_conciliar') }}">Centro de Conciliación</a></li>
+                    <li><a href="{{ url_for('solicitudes_hub') }}">Gestión de Solicitudes</a></li>
+                    <li><a href="{{ url_for('adjudicacion') }}">Sistema de Adjudicación</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#finanzasSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-cash-coin"></i> Finanzas y Comercial</a>
+                <ul class="collapse list-unstyled" id="finanzasSubmenu">
+                    <li><a href="{{ url_for('reporte_flujo_caja') }}">Flujo de Caja</a></li>
+                    <li><a href="{{ url_for('tesoreria_rebalanceo') }}">Rebalanceo de Tesorería</a></li>
+                    <li><a href="{{ url_for('dashboard_comercial') }}">Dashboard Comercial</a></li>
+                    <li><a href="{{ url_for('admin_tasa_bcv') }}">Tasa de Cambio (BCV)</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#reportesSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-file-earmark-text-fill"></i> Reportes y Auditoría</a>
+                <ul class="collapse list-unstyled" id="reportesSubmenu">
+                    <li><a href="{{ url_for('reporte_morosidad') }}">Reporte de Morosidad</a></li>
+                    <li><a href="{{ url_for('reporte_metricas') }}">Métricas del Negocio</a></li>
+                    <li><a href="{{ url_for('auditoria') }}">Visor de Auditoría</a></li>
+                </ul>
+            </li>
             {% endif %}
+            
+            <li><a href="{{ url_for('portal_login') }}" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Portal Cliente</a></li>
         </ul>
 
         <div class="sidebar-footer">
-            <!-- Indicadores de estado si los necesitas -->
+            <!-- Indicadores de estado -->
         </div>
     </nav>
 
@@ -174,15 +144,10 @@
                 <button type="button" id="sidebarCollapse" class="btn btn-dark d-md-none">
                     <i class="bi bi-list"></i>
                 </button>
-
                 <div class="ms-auto d-flex align-items-center">
                     {% if g.admin %}
-                        <span class="navbar-text me-3 d-none d-md-inline">
-                            <i class="bi bi-person-circle"></i> Bienvenido, {{ g.admin.usuario }}
-                        </span>
-                        <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger btn-sm">
-                            <i class="bi bi-box-arrow-right me-1"></i> Cerrar Sesión
-                        </a>
+                        <span class="navbar-text me-3 d-none d-md-inline"><i class="bi bi-person-circle"></i> Bienvenido, {{ g.admin.usuario }}</span>
+                        <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger btn-sm"><i class="bi bi-box-arrow-right me-1"></i> Cerrar Sesión</a>
                     {% else %}
                         <a href="{{ url_for('admin_login') }}" class="btn btn-outline-primary btn-sm">Iniciar Sesión</a>
                     {% endif %}
@@ -191,8 +156,7 @@
         </nav>
 
         <div class="main-content bg-white p-4 rounded shadow-sm">
-             {% block body %}
-             {% endblock %}
+             {% block body %}{% endblock %}
         </div>
         
         <footer class="text-center text-muted py-3 mt-4">
