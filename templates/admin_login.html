@@ -4,11 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Acceso de Administración - Moto Plan Motors</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap CSS y Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" xintegrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+
     <style>
         :root {
             --azul-corporativo: #2B3A55;
+            --azul-hover: #1e2a40;
+            --naranja-corporativo: #F99417;
+            --blanco-tarjetas: #FFFFFF;
+            --texto-claro: #6c757d;
         }
         body {
             font-family: 'Roboto', sans-serif;
@@ -21,35 +31,63 @@
             padding: 1rem;
         }
         .login-card {
-            background-color: white;
+            background-color: var(--blanco-tarjetas);
             padding: 2.5rem;
             border-radius: 1rem;
             box-shadow: 0 15px 35px rgba(0,0,0,0.2);
             width: 100%;
             max-width: 420px;
             text-align: center;
+            border-top: 5px solid var(--azul-corporativo);
+        }
+        .login-header .icon {
+            font-size: 3rem;
+            color: var(--azul-corporativo);
+            margin-bottom: 1rem;
         }
         .login-header h1 {
             color: var(--azul-corporativo);
+            margin-bottom: 0.5rem;
             font-weight: 700;
+        }
+        .login-header p {
+            margin-bottom: 2rem;
+            color: var(--texto-claro);
+        }
+        .form-control {
+            border-radius: 0.5rem;
+            padding: 0.85rem 1rem;
+        }
+        .input-group-text {
+             border-radius: 0.5rem 0 0 0.5rem;
         }
         .btn-primary {
             background-color: var(--azul-corporativo);
-            border: none;
+            border-color: var(--azul-corporativo);
+            font-weight: 600;
+            padding: 0.85rem;
+            border-radius: 0.5rem;
+            transition: all 0.2s ease-in-out;
+        }
+        .btn-primary:hover {
+            background-color: var(--azul-hover);
+            border-color: var(--azul-hover);
+            transform: scale(1.02);
         }
     </style>
 </head>
 <body>
     <div class="login-card">
         <div class="login-header">
+            <div class="icon"><i class="bi bi-person-workspace"></i></div>
             <h1>Portal de Administración</h1>
-            <p class="text-muted">Ingresa tus credenciales de administrador.</p>
+            <p>Ingresa tus credenciales de acceso.</p>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ 'warning' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    <div class="alert alert-{{ 'danger' if category in ['error', 'danger'] else category }} alert-dismissible fade show" role="alert">
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
@@ -58,21 +96,30 @@
         {% endwith %}
 
         <form method="POST" action="{{ url_for('admin_login') }}">
-            <div class="mb-3 text-start">
-                <label for="usuario" class="form-label">Usuario</label>
-                <input type="text" class="form-control" id="usuario" name="usuario" required>
+            <div class="mb-3">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
+                    <input type="text" class="form-control" id="usuario" name="usuario" placeholder="Nombre de usuario" required>
+                </div>
             </div>
-            <div class="mb-3 text-start">
-                <label for="password" class="form-label">Contraseña</label>
-                <input type="password" class="form-control" id="password" name="password" required>
+            <div class="mb-4">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+                    <input type="password" class="form-control" id="password" name="password" placeholder="Contraseña" required>
+                </div>
             </div>
-            <button type="submit" class="btn btn-primary w-100 mt-3">Iniciar Sesión</button>
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>Iniciar Sesión
+                </button>
+            </div>
         </form>
-
-        <footer class="mt-4">
-            <p class="small text-muted">&copy; {{ anio_actual }} Moto Plan Motors C.A.</p>
-        </footer>
+        
+        <div class="mt-4 text-muted small">
+            &copy; {{ anio_actual }} Moto Plan Motors C.A.
+        </div>
     </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
