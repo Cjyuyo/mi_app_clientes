@@ -4,15 +4,73 @@
     Consulta de Clientes
 {% endblock %}
 
+{% block head_extra %}
+    <style>
+        /* Estilos específicos para esta página, manteniendo el espíritu original */
+        .client-card {
+            background: var(--blanco);
+            margin-bottom: 1.5rem;
+            border-radius: .75rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.07);
+            overflow: hidden;
+            border: 1px solid var(--borde-sutil);
+        }
+        .client-header {
+            background-color: var(--azul-corporativo);
+            color: var(--blanco);
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .client-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 500;
+        }
+        .client-details {
+            padding: 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+        .detail-item {
+            background-color: var(--gris-fondo);
+            padding: 1rem;
+            border-radius: .5rem;
+        }
+        .detail-item .label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--texto-claro);
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+        }
+        .detail-item .value {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+        .progress-item { grid-column: 1 / -1; }
+        .progress-bar { font-size: 0.8rem; }
+        .payment-row {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--borde-sutil);
+            gap: 1rem;
+        }
+        .payment-row:last-child { border-bottom: none; }
+    </style>
+{% endblock %}
+
 {% block body %}
     <div class="search-container bg-white p-4 rounded shadow-sm mb-4">
         <form method="POST" action="{{ url_for('consulta') }}">
             <div class="d-flex flex-column flex-md-row gap-2">
                 <input type="search" name="busqueda" class="form-control form-control-lg" placeholder="Buscar por Nombre o Cédula..." value="{{ busqueda or '' }}">
                 <button type="submit" class="btn btn-lg text-white" style="background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo);"><i class="bi bi-search"></i> Buscar</button>
-                <a href="{{ url_for('hub') }}" class="btn btn-secondary btn-lg">
-                    <i class="bi bi-house-door-fill"></i> Hub
-                </a>
             </div>
         </form>
     </div>
@@ -34,13 +92,13 @@
 
     <div id="client-results">
         {% for cliente in clientes %}
-        <div class="card client-card mb-4">
-            <div class="card-header client-header text-white" style="background-color: var(--azul-corporativo);">
-                <h2 class="h5 mb-0">{{ cliente.nombre_apellido }}</h2>
+        <div class="client-card">
+            <div class="client-header">
+                <h2>{{ cliente.nombre_apellido }}</h2>
                 <span class="badge text-bg-light">{{ cliente.proceso or 'N/A' }}</span>
             </div>
             
-            <div class="card-body client-details p-4">
+            <div class="client-details">
                 <div class="detail-item"><span class="label">Grupo</span><span class="value">{{ cliente.grupo or 'N/A' }}</span></div>
                 <div class="detail-item"><span class="label">Plan</span><span class="value">{{ cliente.plan_contratado or 'N/A' }}</span></div>
                 <div class="detail-item"><span class="label">Cuotas Pagadas</span><span class="value">{{ cliente.cuotas_pagadas_progresivas | int }} de {{ cliente.cuotas_totales | int }}</span></div>
@@ -51,7 +109,7 @@
                 
                 <div class="detail-item">
                     <span class="label">Inscripción</span>
-                    <span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span>
+                    <span class="value text-success">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span>
                 </div>
                 <div class="detail-item">
                     <span class="label">Estatus</span>
@@ -77,10 +135,10 @@
                 </ul>
                 <div class="tab-content pt-3">
                     <div class="tab-pane fade show active" id="pagos-content-{{ cliente.id }}">
-                        {% if cliente.pagos %}{% for pago in cliente.pagos %}<div class="payment-row d-flex justify-content-between align-items-center py-2 border-bottom"><div class="payment-info"><strong>{{ pago.tipo_pago }}</strong><div class="small text-muted">{{ pago.fecha_pago | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</div></div><div class="payment-amount fw-bold">${{ "%.2f"|format(pago.monto) }}</div><div class="payment-actions d-flex gap-2">{% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}<span class="badge text-bg-info">Reportado</span><a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="btn btn-info btn-sm">Ver</a>{% elif pago.estado_reporte == 'Inconsistente' %}<span class="badge text-bg-danger">Inconsistente</span><a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="btn btn-secondary btn-sm">Ver</a>{% elif pago.estado_pago == 'Pendiente' %}{% if pago.estado_reporte == 'Aprobado' %}<span class="badge text-bg-light">Aprobado</span>{% else %}<span class="badge text-bg-warning">Pendiente</span>{% endif %}<form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" onsubmit="return confirm('¿Conciliar pago?');" class="d-inline"><button type="submit" class="btn btn-success btn-sm">Conciliar</button></form>{% elif pago.estado_pago == 'Conciliado' %}<span class="badge text-bg-success">Conciliado</span><a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Recibo</a>{% elif pago.estado_pago == 'Anulado' %}<span class="badge text-bg-danger">Anulado</span><a href="{{ url_for('recibo_anulado', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Detalles</a>{% endif %}</div></div>{% endfor %}{% else %}<p class="text-center text-muted p-3">No hay pagos registrados.</p>{% endif %}
+                        {% if cliente.pagos %}{% for pago in cliente.pagos %}<div class="payment-row"><div class="payment-info"><strong>{{ pago.tipo_pago }}</strong><div class="small text-muted">{{ pago.fecha_pago | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</div></div><div class="payment-amount fw-bold">${{ "%.2f"|format(pago.monto) }}</div><div class="payment-actions">{% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}<span class="badge text-bg-info">Reportado</span><a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="btn btn-info btn-sm">Ver</a>{% elif pago.estado_reporte == 'Inconsistente' %}<span class="badge text-bg-danger">Inconsistente</span><a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="btn btn-secondary btn-sm">Ver</a>{% elif pago.estado_pago == 'Pendiente' %}<span class="badge text-bg-warning">Pendiente</span><form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=cliente.cedula) }}" method="POST" onsubmit="return confirm('¿Conciliar pago?');" class="d-inline"><button type="submit" class="btn btn-success btn-sm">Conciliar</button></form>{% elif pago.estado_pago == 'Conciliado' %}<span class="badge text-bg-success">Conciliado</span><a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Recibo</a>{% elif pago.estado_pago == 'Anulado' %}<span class="badge text-bg-danger">Anulado</span><a href="{{ url_for('recibo_anulado', pago_id=pago.id) }}" class="btn btn-secondary btn-sm">Detalles</a>{% endif %}</div></div>{% endfor %}{% else %}<p class="text-center text-muted p-3">No hay pagos registrados.</p>{% endif %}
                     </div>
                     <div class="tab-pane fade" id="ofertas-content-{{ cliente.id }}">
-                        {% if cliente.ofertas %}{% for oferta in cliente.ofertas %}<div class="payment-row d-flex justify-content-between align-items-center py-2 border-bottom"><div><strong>Oferta de Adjudicación</strong><div class="small text-muted">{{ oferta.fecha_oferta | format_date }}</div></div><div class="fw-bold">{{ oferta.cuotas_ofertadas }} Cuotas</div><div>{% if oferta.estado_oferta == 'activa' %}<span class="badge text-bg-primary">Activa</span>{% elif oferta.estado_oferta == 'ganadora' %}<span class="badge text-bg-success">Ganadora</span>{% elif oferta.estado_oferta == 'perdida' %}<span class="badge text-bg-secondary">Perdida</span>{% else %}<span class="badge text-bg-light">{{ oferta.estado_oferta }}</span>{% endif %}</div></div>{% endfor %}{% else %}<p class="text-center text-muted p-3">No hay ofertas registradas.</p>{% endif %}
+                        {% if cliente.ofertas %}{% for oferta in cliente.ofertas %}<div class="payment-row"><div><strong>Oferta de Adjudicación</strong><div class="small text-muted">{{ oferta.fecha_oferta | format_date }}</div></div><div class="fw-bold">{{ oferta.cuotas_ofertadas }} Cuotas</div><div>{% if oferta.estado_oferta == 'activa' %}<span class="badge text-bg-primary">Activa</span>{% elif oferta.estado_oferta == 'ganadora' %}<span class="badge text-bg-success">Ganadora</span>{% elif oferta.estado_oferta == 'perdida' %}<span class="badge text-bg-secondary">Perdida</span>{% else %}<span class="badge text-bg-light">{{ oferta.estado_oferta }}</span>{% endif %}</div></div>{% endfor %}{% else %}<p class="text-center text-muted p-3">No hay ofertas registradas.</p>{% endif %}
                     </div>
                 </div>
             </div>
