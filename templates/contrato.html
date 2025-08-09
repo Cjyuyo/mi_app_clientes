@@ -42,6 +42,37 @@
             font-size: 0.9rem;
             line-height: 1.6;
         }
+        .clausula-title {
+            font-weight: 700;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .photo-section {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            align-items: flex-start;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--borde-sutil);
+        }
+        .photo-box {
+            border: 1px solid var(--borde-sutil);
+            padding: 0.5rem;
+            border-radius: .5rem;
+            text-align: center;
+        }
+        .photo-box img {
+            max-width: 150px;
+            height: auto;
+            border-radius: .25rem;
+        }
+        .photo-box .photo-label {
+            font-size: 0.8rem;
+            color: var(--texto-claro);
+            margin-top: 0.5rem;
+        }
+
         @media print {
             @page { size: letter; margin: 0.5in; }
             body { background-color: #fff !important; font-size: 9pt; line-height: 1.2; font-family: 'Times New Roman', serif; }
@@ -92,41 +123,32 @@
             </div>
 
             <div class="contract-body">
-                <h2 class="h5 text-center fw-bold mt-4">CAPÍTULO I: DISPOSICIONES GENERALES</h2>
-                <h3 class="h6 fw-bold mt-3">Cláusula 1. Identificación de las partes:</h3>
-                <p>MOTO PLAN MOTORS, C.A., sociedad mercantil inscrita en el Registro Mercantil Primero del Estado Portuguesa, Tomo 66-A RM410 N°18 de 2023, RIF J-50408959-1, en adelante <strong>LA EMPRESA</strong>, ofrece el presente contrato a <strong>EL CLIENTE</strong> ({{ cliente.nombre_apellido }}), quien acepta adherirse voluntariamente al PLAN DE AHORRO PROGRAMADO.</p>
-                <h3 class="h6 fw-bold mt-3">Cláusula 2. Objeto del Contrato:</h3>
-                <p>El objeto de este contrato es la adhesión de <strong>EL CLIENTE</strong> al sistema de ahorro programado administrado por <strong>LA EMPRESA</strong>, con el fin de adquirir una motocicleta nueva, cuyas características y valor referencial se especifican en el Anexo A de este documento, el cual forma parte integral del mismo.</p>
-                <h3 class="h6 fw-bold mt-3">Cláusula 3. Obligaciones de Pago:</h3>
-                <p><strong>EL CLIENTE</strong> se compromete a pagar una cuota de inscripción inicial y, posteriormente, el número total de cuotas mensuales y consecutivas establecidas en la sección "Resumen del Contrato". El valor de cada cuota se calculará con base en el precio de lista del bien a la fecha de pago y podrá ser ajustado según la Cláusula 12.</p>
+                <p>Entre <strong>MOTO PLAN MOTORS, C.A.</strong>, sociedad mercantil debidamente registrada, domiciliada en Acarigua, Estado Portuguesa, inscrita en el Registro Mercantil Primero del Estado Portuguesa, en fecha 20 de Septiembre de 2023, bajo el N° 18, Tomo 66-A RM410, con Registro Único de Información Fiscal (RIF) N° J-50408959-1, en lo adelante denominada <strong>LA EMPRESA</strong>, y <strong>{{ cliente.nombre_apellido }}</strong>, de nacionalidad Venezolana, mayor de edad, titular de la Cédula de Identidad N° V-{{ cliente.cedula }}, y domiciliado(a) en {{ cliente.direccion or '[Dirección no especificada]'}}, en lo adelante denominado(a) <strong>EL CLIENTE</strong>, se ha convenido en celebrar el presente Contrato de Adhesión al Plan de Ahorro Programado, el cual se regirá por las siguientes cláusulas:</p>
+
+                <h3 class="clausula-title">CAPÍTULO I: DISPOSICIONES GENERALES</h3>
+                <p><strong>PRIMERA: OBJETO.</strong> El presente contrato tiene por objeto establecer los términos y condiciones bajo los cuales <strong>EL CLIENTE</strong> se adhiere al sistema de ahorro programado y colectivo administrado por <strong>LA EMPRESA</strong>, con la finalidad de optar a la adquisición de una motocicleta nueva, cuyas especificaciones, marca, modelo y valor referencial se detallan en el Anexo "A" que forma parte integral de este contrato.</p>
+                <p><strong>SEGUNDA: NATURALEZA DEL SISTEMA.</strong> El sistema se basa en la formación de grupos de clientes con un interés común, quienes mediante el pago periódico de cuotas conforman un fondo destinado a la adquisición y adjudicación de los bienes objeto del plan. <strong>LA EMPRESA</strong> actúa como administradora del fondo, organizando los actos de adjudicación y gestionando la entrega de los bienes.</p>
+
+                <h3 class="clausula-title">CAPÍTULO II: DE LAS CUOTAS Y PAGOS</h3>
+                <p><strong>TERCERA: CUOTA DE INSCRIPCIÓN.</strong> Para formalizar su adhesión, <strong>EL CLIENTE</strong> se obliga a cancelar una cuota de inscripción por el monto especificado en el Resumen del Contrato. Dicha cuota no forma parte del valor del bien y no será reembolsable bajo ninguna circunstancia.</p>
+                <p><strong>CUARTA: CUOTAS MENSUALES.</strong> <strong>EL CLIENTE</strong> se compromete a pagar el número total de cuotas mensuales, iguales y consecutivas establecidas. El valor de cada cuota se determinará dividiendo el precio de lista del bien vigente al momento del pago entre el número total de cuotas del plan.</p>
+                <p><strong>QUINTA: FECHA Y LUGAR DE PAGO.</strong> Las cuotas mensuales deberán ser canceladas dentro de los primeros tres (3) días hábiles de cada mes calendario, a través de los medios de pago autorizados por <strong>LA EMPRESA</strong> e informados a través de sus canales oficiales.</p>
+
+                <h3 class="clausula-title">CAPÍTULO III: DE LA ADJUDICACIÓN Y ENTREGA</h3>
+                <p><strong>SEXTA: ACTOS DE ADJUDICACIÓN.</strong> Mensualmente, en fecha y hora previamente notificadas, <strong>LA EMPRESA</strong> celebrará un acto de adjudicación. Solo podrán participar aquellos clientes que se encuentren al día con el pago de sus cuotas.</p>
+                <p><strong>SÉPTIMA: MODALIDADES DE ADJUDICACIÓN.</strong> La adjudicación se realizará mediante: 1. Sorteo, entre todos los clientes solventes del grupo. 2. Oferta de Licitación, donde resultará ganador el cliente que ofrezca el adelanto del mayor número de cuotas. En caso de empate, se decidirá por sorteo entre los oferentes empatados. 3. Por cumplimiento del pago del 50% de las cuotas del plan, siempre que la solvencia y la puntualidad del cliente lo califiquen.</p>
+                <p><strong>OCTAVA: ENTREGA DEL BIEN.</strong> Una vez adjudicado, <strong>EL CLIENTE</strong> deberá cancelar cualquier saldo pendiente, incluyendo las cuotas ofertadas (si aplica) y los gastos administrativos, de registro y matriculación. <strong>LA EMPRESA</strong> procederá a la entrega del bien en un plazo máximo de treinta (30) días hábiles contados a partir de la fecha de la total cancelación de dichos conceptos.</p>
+
+                <h3 class="clausula-title">CAPÍTULO IV: INCUMPLIMIENTO, PENALIZACIONES Y CESIÓN</h3>
+                <p><strong>NOVENA: MORA.</strong> El retraso en el pago de una cuota generará la exclusión del cliente del acto de adjudicación del mes correspondiente y la aplicación de intereses moratorios a la tasa máxima legal. El incumplimiento en el pago de tres (3) cuotas consecutivas o cinco (5) alternas facultará a <strong>LA EMPRESA</strong> para resolver el presente contrato de pleno derecho.</p>
+                <p><strong>DÉCIMA: RESOLUCIÓN Y PENALIZACIÓN.</strong> En caso de resolución por incumplimiento o por retiro voluntario de <strong>EL CLIENTE</strong>, este tendrá derecho a la devolución del monto neto de las cuotas de ahorro pagadas, una vez finalizado el plazo total del plan. De dicho monto se deducirá una penalidad equivalente al veinticinco por ciento (25%) por concepto de gastos administrativos.</p>
+                <p><strong>UNDÉCIMA: CESIÓN DE DERECHOS.</strong> <strong>EL CLIENTE</strong> podrá ceder los derechos y obligaciones derivados de este contrato a un tercero, previa notificación y aprobación por escrito de <strong>LA EMPRESA</strong>, y siempre que tanto el cedente como el cesionario se encuentren solventes. Esta operación tendrá un costo administrativo fijado por <strong>LA EMPRESA</strong>.</p>
                 
-                <h2 class="h5 text-center fw-bold mt-4">CAPÍTULO II: ADJUDICACIÓN Y ENTREGA</h2>
-                <h3 class="h6 fw-bold mt-3">Cláusula 4. Actos de Adjudicación:</h3>
-                <p>Mensualmente, <strong>LA EMPRESA</strong> realizará un acto de adjudicación en el que participarán todos los clientes del grupo que se encuentren solventes en sus pagos. La adjudicación se realizará mediante dos modalidades: a) Sorteo y b) Oferta de Licitación.</p>
-                <h3 class="h6 fw-bold mt-3">Cláusula 5. Sorteo:</h3>
-                <p>En cada acto de adjudicación, se sorteará al menos una (1) unidad entre los clientes solventes. El cliente que resulte favorecido en el sorteo será considerado adjudicado.</p>
-                <h3 class="h6 fw-bold mt-3">Cláusula 6. Oferta de Licitación:</h3>
-                <p>Los clientes podrán presentar una oferta sellada indicando la cantidad de cuotas que desean adelantar. Resultará ganador el cliente que ofrezca pagar el mayor número de cuotas. En caso de empate, se definirá por sorteo entre los empatados.</p>
-                <h3 class="h6 fw-bold mt-3">Cláusula 7. Entrega del Bien:</h3>
-                <p>Una vez adjudicado, <strong>EL CLIENTE</strong> deberá cancelar las cuotas ofertadas (si aplica), gastos administrativos y de registro. <strong>LA EMPRESA</strong> se compromete a realizar la entrega de la motocicleta en un plazo no mayor a treinta (30) días hábiles después de verificada la solvencia total del cliente adjudicado.</p>
-
-                <h2 class="h5 text-center fw-bold mt-4">CAPÍTULO III: INCUMPLIMIENTO Y PENALIZACIONES</h2>
-                <h3 class="h6 fw-bold mt-3">Cláusula 8. Mora en el Pago:</h3>
-                <p>La falta de pago de una o más cuotas en la fecha de vencimiento establecida generará intereses de mora calculados a la tasa máxima permitida por la ley. La falta de pago de tres (3) cuotas consecutivas o cinco (5) alternas dará derecho a <strong>LA EMPRESA</strong> a resolver el contrato.</p>
-                <h3 class="h6 fw-bold mt-3">Cláusula 9. Resolución del Contrato:</h3>
-                <p>En caso de resolución por incumplimiento, <strong>EL CLIENTE</strong> tendrá derecho a la devolución de las cuotas netas pagadas, previa deducción de una penalidad del veinticinco por ciento (25%) sobre el monto aportado, en concepto de gastos administrativos y daños. Dicha devolución se hará efectiva al finalizar el plazo total del plan del grupo al que pertenece.</p>
-                <h3 class="h6 fw-bold mt-3">Cláusula 10. Cesión de Derechos:</h3>
-                <p><strong>EL CLIENTE</strong> podrá ceder sus derechos sobre este contrato a un tercero, previa aprobación por escrito de <strong>LA EMPRESA</strong> y el pago de una tarifa administrativa correspondiente al dos por ciento (2%) del valor del bien.</p>
-
-                <h2 class="h5 text-center fw-bold mt-4">CAPÍTULO IV: DISPOSICIONES FINALES</h2>
-                <h3 class="h6 fw-bold mt-3">Cláusula 11. Modificaciones al Plan:</h3>
-                <p><strong>LA EMPRESA</strong> se reserva el derecho de modificar las características del bien objeto del plan por un modelo de similares o superiores prestaciones en caso de que el modelo original sea descontinuado por el fabricante, notificando a <strong>EL CLIENTE</strong> con antelación.</p>
-                <h3 class="h6 fw-bold mt-3">Cláusula 12. Ajuste de Valor:</h3>
-                <p>Si durante la vigencia del plan, el precio de lista del bien sufriera una variación, <strong>LA EMPRESA</strong> podrá ajustar el monto de las cuotas pendientes en la misma proporción, a fin de mantener el equilibrio económico del grupo.</p>
-                <h3 class="h6 fw-bold mt-3">Cláusula 13. Domicilio y Jurisdicción:</h3>
-                <p>Para todos los efectos legales derivados de este contrato, las partes eligen como domicilio especial y excluyente la ciudad de Acarigua, Estado Portuguesa, a cuyos tribunales y leyes declaran someterse.</p>
-                <h3 class="h6 fw-bold mt-3">Cláusula 19. Grabación de asesoría:</h3>
-                <p><strong>EL CLIENTE</strong> declara haber recibido asesoría clara y suficiente, cuya grabación podrá conservar <strong>LA EMPRESA</strong> como respaldo legal.</p>
+                <h3 class="clausula-title">CAPÍTULO V: DISPOSICIONES FINALES</h3>
+                <p><strong>DUODÉCIMA: MODIFICACIÓN DEL BIEN.</strong> Si el modelo de motocicleta especificado en el Anexo "A" es descontinuado por el fabricante, <strong>LA EMPRESA</strong> lo sustituirá por otro de características y valor similares o superiores, notificando a <strong>EL CLIENTE</strong>.</p>
+                <p><strong>DECIMOTERCERA: AJUSTE DE VALOR.</strong> Las partes convienen que el valor de la cuota mensual podrá ser ajustado por <strong>LA EMPRESA</strong> en función de las variaciones que sufra el precio del bien en el mercado nacional. Dicho ajuste se aplicará a las cuotas pendientes de pago y será notificado a <strong>EL CLIENTE</strong>.</p>
+                <p><strong>DECIMOCUARTA: DOMICILIO Y JURISDICCIÓN.</strong> Para todos los efectos derivados de este contrato, las partes eligen como domicilio especial la ciudad de Acarigua, Estado Portuguesa, a la jurisdicción de cuyos tribunales declaran someterse.</p>
+                <p>Leído y conformado el presente contrato, las partes lo suscriben en dos (2) ejemplares de un mismo tenor y a un solo efecto, en la ciudad de Acarigua, a la fecha de la última firma registrada digitalmente.</p>
             </div>
             
             <div class="final-section mt-5">
@@ -169,9 +191,23 @@
             </div>
 
             {% if not modo_pre_registro %}
-            <div class="qr-section mt-4">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('generar_contrato', client_id=cliente.id, _external=True) }}&size=120x120&q=M" alt="Código QR de Verificación del Contrato">
-                <p class="small text-muted mt-2 mb-0">Escanee para verificar la validez de este contrato</p>
+            <div class="photo-section">
+                {% if cliente.foto_cliente %}
+                <div class="photo-box">
+                    <img src="{{ cliente.foto_cliente }}" alt="Foto del Cliente">
+                    <div class="photo-label">Foto del Cliente</div>
+                </div>
+                {% endif %}
+                {% if cliente.foto_cedula %}
+                <div class="photo-box">
+                    <img src="{{ cliente.foto_cedula }}" alt="Foto de la Cédula">
+                    <div class="photo-label">Documento de Identidad</div>
+                </div>
+                {% endif %}
+                <div class="photo-box">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('generar_contrato', client_id=cliente.id, _external=True) }}&size=150x150&q=M" alt="Código QR de Verificación">
+                    <div class="photo-label">Verificación Digital</div>
+                </div>
             </div>
             {% endif %}
 

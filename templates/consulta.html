@@ -34,7 +34,7 @@
             gap: 1rem;
         }
         .detail-item {
-            background-color: #f8f9fa; /* Usando un gris muy claro para contraste */
+            background-color: #f8f9fa;
             padding: 1rem;
             border-radius: .5rem;
         }
@@ -74,7 +74,7 @@
         </h2>
     </div>
 
-    <!-- Barra de Búsqueda Mejorada -->
+    <!-- Barra de Búsqueda -->
     <div class="search-container mb-4">
         <form method="POST" action="{{ url_for('consulta') }}">
             <div class="input-group input-group-lg">
@@ -133,10 +133,6 @@
                         {% endif %}
                     </span>
                 </div>
-                {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
-                <div class="detail-item progress-item"><span class="label">Progreso Total del Plan</span><div class="progress" style="height: 20px;"><div class="progress-bar" role="progressbar" style="width: {{ progreso_total }}%;" aria-valuenow="{{ progreso_total }}" aria-valuemin="0" aria-valuemax="100">{{ "%.0f"|format(progreso_total) }}%</div></div><div class="d-flex justify-content-between small mt-1"><span>Pagadas: {{ cuotas_pagadas_total | int }}</span><span>Restantes: {{ (cuotas_totales | int) - (cuotas_pagadas_total | int) }}</span><span>Total: {{ cuotas_totales | int }}</span></div></div>
-                {% set balance = cliente.balance_regresivo|float or 0.0 %}{% set valor_cuota = cliente.valor_cuota|float or 0.0 %}{% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
-                <div class="detail-item progress-item"><span class="label">Saldo a Favor (Abono a cuota N° {{ (cuotas_totales | int) - (cuotas_regresivas | int) }})</span><div class="progress" style="height: 20px;"><div class="progress-bar bg-info" role="progressbar" style="width: {{ progreso_cuota_actual }}%;" aria-valuenow="{{ progreso_cuota_actual }}" aria-valuemin="0" aria-valuemax="100">{{ "%.0f"|format(progreso_cuota_actual) }}%</div></div><div class="d-flex justify-content-between small mt-1"><span>Abonado: ${{ "%.2f"|format(balance) }}</span><span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}</span><span>Valor Cuota: ${{ "%.2f"|format(valor_cuota) }}</span></div></div>
             </div>
 
             <div class="history-section px-4 pb-4">
@@ -160,7 +156,16 @@
                     <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#ofertaModal-{{ cliente.id }}"><i class="bi bi-gem me-1"></i> Registrar Oferta</button>
                     <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-secondary btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf-fill me-1"></i> Contrato</a>
                     {% if g.admin and g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}<a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-warning btn-sm"><i class="bi bi-pencil-square me-1"></i> Editar</a>{% endif %}
-                    {% if g.admin and g.admin.rol == 'superadmin' %}<form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" class="d-inline" onsubmit="return confirm('ADVERTENCIA: Esta acción eliminará al cliente y TODOS sus registros asociados de forma permanente. ¿Está absolutamente seguro?');"><button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-trash-fill me-1"></i> Eliminar</button></form>{% endif %}
+                    {% if g.admin and g.admin.rol == 'superadmin' %}
+                        <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteClientModal" 
+                                data-cliente-id="{{ cliente.id }}" 
+                                data-cliente-nombre="{{ cliente.nombre_apellido }}"
+                                data-conteo-pagos="{{ cliente.conteo_pagos }}"
+                                data-conteo-ofertas="{{ cliente.conteo_ofertas }}"
+                                data-conteo-gestiones="{{ cliente.conteo_gestiones }}">
+                            <i class="bi bi-trash-fill me-1"></i> Eliminar
+                        </button>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -186,5 +191,66 @@
         </div>
         {% endfor %}
     </div>
+
+    <!-- Modal de Confirmación para Eliminar Cliente -->
+    <div class="modal fade" id="deleteClientModal" tabindex="-1" aria-labelledby="deleteClientModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="deleteClientModalLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirmación de Eliminación</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Está a punto de eliminar permanentemente al cliente <strong id="clienteNombreParaBorrar"></strong> y toda su información asociada.</p>
+                    <div class="alert alert-danger">
+                        <strong>¡ADVERTENCIA!</strong> Esta acción no se puede deshacer. Se borrarán los siguientes registros:
+                        <ul id="listaDatosABorrar" class="mt-2">
+                            <!-- Los datos se insertarán aquí con JavaScript -->
+                        </ul>
+                    </div>
+                    <p>¿Está absolutamente seguro de que desea continuar?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <form id="deleteForm" action="" method="POST" class="d-inline">
+                        <button type="submit" class="btn btn-danger">Sí, Eliminar Permanentemente</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const deleteClientModal = document.getElementById('deleteClientModal');
+    if (deleteClientModal) {
+        deleteClientModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const clienteId = button.getAttribute('data-cliente-id');
+            const clienteNombre = button.getAttribute('data-cliente-nombre');
+            const conteoPagos = button.getAttribute('data-conteo-pagos');
+            const conteoOfertas = button.getAttribute('data-conteo-ofertas');
+            const conteoGestiones = button.getAttribute('data-conteo-gestiones');
+
+            const modalTitle = deleteClientModal.querySelector('.modal-title');
+            const modalBodyClienteNombre = deleteClientModal.querySelector('#clienteNombreParaBorrar');
+            const listaDatos = deleteClientModal.querySelector('#listaDatosABorrar');
+            const deleteForm = deleteClientModal.querySelector('#deleteForm');
+
+            modalBodyClienteNombre.textContent = clienteNombre;
+            
+            listaDatos.innerHTML = `
+                <li><strong>${conteoPagos}</strong> registros de pagos</li>
+                <li><strong>${conteoOfertas}</strong> registros de ofertas</li>
+                <li><strong>${conteoGestiones}</strong> notas de gestión</li>
+            `;
+            
+            deleteForm.action = `/delete/${clienteId}`;
+        });
+    }
+});
+</script>
 {% endblock %}

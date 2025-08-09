@@ -1577,11 +1577,17 @@ def consulta():
                     for cliente in cur.fetchall():
                         cliente_dict = dict(cliente)
                         cliente_dict['nombre_apellido'] = f"{cliente.get('nombre', '')} {cliente.get('apellido', '')}".strip()
-                        cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC", (cliente_dict['id'],))
-                        cliente_dict['pagos'] = cur.fetchall()
-                        cur.execute("SELECT * FROM ofertas WHERE cliente_id = %s ORDER BY fecha_oferta DESC", (cliente_dict['id'],))
-                        cliente_dict['ofertas'] = cur.fetchall()
+                        
+                        # Contar registros asociados para la alerta de eliminación
+                        cur.execute("SELECT COUNT(*) FROM pagos WHERE cliente_id = %s", (cliente_dict['id'],))
+                        cliente_dict['conteo_pagos'] = cur.fetchone()[0]
+                        cur.execute("SELECT COUNT(*) FROM ofertas WHERE cliente_id = %s", (cliente_dict['id'],))
+                        cliente_dict['conteo_ofertas'] = cur.fetchone()[0]
+                        cur.execute("SELECT COUNT(*) FROM gestiones_cobranza WHERE cliente_id = %s", (cliente_dict['id'],))
+                        cliente_dict['conteo_gestiones'] = cur.fetchone()[0]
+
                         clientes_encontrados.append(cliente_dict)
+                        
                     if not clientes_encontrados:
                         mensaje_error = "🚫 No se encontraron clientes que coincidan con su búsqueda."
             except psycopg2.Error as e:
@@ -1881,21 +1887,49 @@ def edit_client(client_id):
     if not conn:
         flash('Error de conexión a la base de datos.', 'error')
         return redirect(url_for('consulta'))
+    
     with conn.cursor() as cur:
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
-        cliente = cur.fetchone()
-    if not cliente:
+        cliente_actual = cur.fetchone()
+    
+    if not cliente_actual:
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('consulta'))
+
     if request.method == 'POST':
         try:
-            update_data = dict(cliente)
-            form_data = {k: v if v else None for k, v in request.form.items()}
-            if 'nombre_apellido' in form_data:
-                nombre_completo = form_data['nombre_apellido'].split(' ', 1)
-                form_data['nombre'], form_data['apellido'] = nombre_completo[0], nombre_completo[1] if len(nombre_completo) > 1 else ''
-            update_data.update(form_data)
+            form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
+            
+            # Preparar datos para la auditoría
+            cambios = []
+            campos_a_monitorear = ['plan_contratado', 'valor_cuota', 'cuotas_totales', 'inscripcion_monto']
+            for campo in campos_a_monitorear:
+                valor_antiguo = cliente_actual.get(campo)
+                valor_nuevo_str = form_data.get(campo)
+                
+                # Convertir a Decimal o int para comparación
+                try:
+                    if '.' in str(valor_antiguo) or (valor_nuevo_str and '.' in valor_nuevo_str):
+                        valor_antiguo = Decimal(valor_antiguo or 0)
+                        valor_nuevo = Decimal(valor_nuevo_str.replace(',', '.') if valor_nuevo_str else 0)
+                    else:
+                        valor_antiguo = int(valor_antiguo or 0)
+                        valor_nuevo = int(valor_nuevo_str or 0)
+                except (InvalidOperation, ValueError, TypeError):
+                    continue # Ignorar si la conversión falla
+
+                if valor_antiguo != valor_nuevo:
+                    cambios.append(f"{campo.replace('_', ' ').title()} de '{valor_antiguo}' a '{valor_nuevo}'")
+
             with conn.cursor() as cur:
+                if 'nombre_apellido' in form_data:
+                    nombre_completo = form_data['nombre_apellido'].split(' ', 1)
+                    form_data['nombre'] = nombre_completo[0]
+                    form_data['apellido'] = nombre_completo[1] if len(nombre_completo) > 1 else ''
+
+                update_data = dict(cliente_actual)
+                update_data.update(form_data)
+                
                 update_query = """
                 UPDATE clientes SET
                     nombre = %(nombre)s, apellido = %(apellido)s, cedula = %(cedula)s, contrato_nro = %(contrato_nro)s,
@@ -1908,16 +1942,23 @@ def edit_client(client_id):
                 WHERE id = %(id)s;
                 """
                 cur.execute(update_query, update_data)
-                descripcion_audit = f"Editó los datos del cliente {update_data['nombre']} {update_data['apellido']} (C.I. {update_data['cedula']})."
-                registrar_accion_auditoria('EDICION_CLIENTE', descripcion_audit, client_id)
+                
+                # Registrar auditoría si hubo cambios
+                if cambios:
+                    descripcion_audit = f"Modificó el plan del cliente. Cambios: {'; '.join(cambios)}."
+                    registrar_accion_auditoria('MODIFICACION_PLAN_CLIENTE', descripcion_audit, client_id)
+                else:
+                    descripcion_audit = f"Editó los datos del cliente {update_data['nombre']} {update_data['apellido']} (C.I. {update_data['cedula']})."
+                    registrar_accion_auditoria('EDICION_CLIENTE', descripcion_audit, client_id)
+
                 conn.commit()
                 flash('¡Cliente actualizado exitosamente!', 'success')
-                cedula_actualizada = update_data.get('cedula')
-                return redirect(url_for('consulta', busqueda=cedula_actualizada))
-        except (psycopg2.Error, ValueError, ConnectionError) as e: 
+                return redirect(url_for('consulta', busqueda=update_data.get('cedula')))
+        except (psycopg2.Error, ValueError, ConnectionError, InvalidOperation) as e: 
             conn.rollback()
             flash(f'Ocurrió un error al actualizar: {e}', 'error')
-    return render_template('edit_cliente.html', cliente=cliente)
+            
+    return render_template('edit_cliente.html', cliente=cliente_actual)
 
 @app.route('/delete/<int:client_id>', methods=['POST'])
 @admin_required
