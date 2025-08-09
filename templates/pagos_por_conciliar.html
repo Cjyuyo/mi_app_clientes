@@ -59,7 +59,29 @@
                                 <span class="badge bg-{{ pago.status_class }}">{{ pago.status_display }}</span>
                             </td>
                             <td class="p-3 text-center">
-                                {% include 'partials/conciliation_actions.html' %}
+                                {% if pago.action_type == 'Conciliar' %}
+                                    <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=pago.cedula) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');">
+                                        <button type="submit" class="btn btn-success btn-sm">
+                                            <i class="bi bi-check-circle-fill"></i> <span class="d-none d-lg-inline">Conciliar</span>
+                                        </button>
+                                    </form>
+                                {% elif pago.action_type == 'Ver Reporte' %}
+                                    <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">
+                                        <i class="bi bi-eye-fill"></i> <span class="d-none d-lg-inline">Ver</span>
+                                    </a>
+                                {% elif pago.action_type == 'Diferido' %}
+                                    <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}">
+                                        <i class="bi bi-clock-history"></i> <span class="d-none d-lg-inline">Diferido</span>
+                                    </button>
+                                {% elif pago.action_type == 'Rechazado' %}
+                                    <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}">
+                                        <i class="bi bi-x-circle"></i> <span class="d-none d-lg-inline">Rechazado</span>
+                                    </button>
+                                {% else %}
+                                    <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}">
+                                        <i class="bi bi-slash-circle"></i>
+                                    </button>
+                                {% endif %}
                             </td>
                         </tr>
                         {% else %}
@@ -95,7 +117,29 @@
                                 </span>
                             </div>
                             <div class="text-end">
-                                {% include 'partials/conciliation_actions.html' %}
+                                {% if pago.action_type == 'Conciliar' %}
+                                    <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=pago.cedula) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');">
+                                        <button type="submit" class="btn btn-success btn-sm">
+                                            <i class="bi bi-check-circle-fill"></i>
+                                        </button>
+                                    </form>
+                                {% elif pago.action_type == 'Ver Reporte' %}
+                                    <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">
+                                        <i class="bi bi-eye-fill"></i>
+                                    </a>
+                                {% elif pago.action_type == 'Diferido' %}
+                                    <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}">
+                                        <i class="bi bi-clock-history"></i>
+                                    </button>
+                                {% elif pago.action_type == 'Rechazado' %}
+                                    <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}">
+                                        <i class="bi bi-x-circle"></i>
+                                    </button>
+                                {% else %}
+                                    <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}">
+                                        <i class="bi bi-slash-circle"></i>
+                                    </button>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -110,44 +154,4 @@
         </div>
     </div>
 </div>
-
-<!-- Partial para los botones de acción (para no repetir código) -->
-<template id="conciliation_actions_partial">
-    {% if pago.action_type == 'Conciliar' %}
-        <form action="{{ url_for('conciliar_pago', pago_id=pago.id, cedula=pago.cedula) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');">
-            <button type="submit" class="btn btn-success btn-sm">
-                <i class="bi bi-check-circle-fill"></i> <span class="d-none d-lg-inline">Conciliar</span>
-            </button>
-        </form>
-    {% elif pago.action_type == 'Ver Reporte' %}
-        <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">
-            <i class="bi bi-eye-fill"></i> <span class="d-none d-lg-inline">Ver</span>
-        </a>
-    {% elif pago.action_type == 'Diferido' %}
-        <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}">
-            <i class="bi bi-clock-history"></i> <span class="d-none d-lg-inline">Diferido</span>
-        </button>
-    {% elif pago.action_type == 'Rechazado' %}
-        <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}">
-            <i class="bi bi-x-circle"></i> <span class="d-none d-lg-inline">Rechazado</span>
-        </button>
-    {% else %}
-        <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}">
-            <i class="bi bi-slash-circle"></i>
-        </button>
-    {% endif %}
-</template>
-
-<!-- Script para usar el partial -->
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Este truco nos permite reusar el código de los botones sin un sistema de `include` complejo
-        document.querySelectorAll("[data-include-id='conciliation_actions']").forEach(el => {
-            const template = document.getElementById('conciliation_actions_partial');
-            if (template) {
-                el.innerHTML = template.innerHTML;
-            }
-        });
-    });
-</script>
 {% endblock %}
