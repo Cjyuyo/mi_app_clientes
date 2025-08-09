@@ -21,7 +21,7 @@
             --verde-exito: #28a745;
             --rojo-alerta: #C0392B;
             --azul-info: #3498DB;
-            --amarillo-advertencia: #F39C12;
+            --amarillo-warning: #f39c12;
         }
         body {
             font-family: 'Roboto', sans-serif;
@@ -53,11 +53,15 @@
             border-left: 5px solid;
         }
         .info-card.cita { border-left-color: var(--azul-info); }
+        .info-card.revision { border-left-color: var(--amarillo-warning); }
+        
+        /* Clases para las tarjetas de estado principal */
         .info-card.naranja-corporativo { border-left-color: var(--naranja-corporativo); }
         .info-card.azul-info { border-left-color: var(--azul-info); }
         .info-card.en\.mora { border-left-color: var(--rojo-alerta); }
         .info-card.vigente { border-left-color: var(--verde-exito); }
         .info-card.pagada { border-left-color: var(--texto-claro); }
+
         .info-card-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
         .info-card-header .icon { font-size: 1.5rem; }
         .info-card-header h3 { margin: 0; font-size: 1.1rem; font-weight: 500; }
@@ -69,7 +73,7 @@
         .status-label.vigente { background-color: var(--verde-exito); }
         .status-label.en\.mora { background-color: var(--rojo-alerta); }
         .status-label.pagada { background-color: var(--texto-claro); }
-        .btn-reportar { background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo); color: white; }
+        .btn-reportar { background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo); }
         .btn-reportar:hover { background-color: #d87e12; border-color: #d87e12; }
         .content-card { 
             background: var(--blanco-tarjetas); 
@@ -156,6 +160,36 @@
             {% endif %}
         {% endwith %}
 
+        <!-- INICIO: Alerta de Pago en Proceso (Puntos 1 y 3 de la Hoja de Ruta) -->
+        {% if pago_en_proceso %}
+        <div class="info-card revision">
+            <div class="info-card-header">
+                <i class="bi bi-hourglass-split icon" style="color: var(--amarillo-warning);"></i>
+                <h3>Reporte de Pago en Revisión</h3>
+            </div>
+            <div class="info-card-body">
+                <p>Tu pago por <strong>${{ "%.2f"|format(pago_en_proceso.monto) }}</strong>, reportado el <strong>{{ pago_en_proceso.fecha_creacion | format_datetime }}</strong>, está siendo procesado por nuestro equipo.</p>
+                
+                <div class="mt-3 p-3 bg-light rounded">
+                    <h6 class="mb-2">Detalles de tu reporte:</h6>
+                    <ul class="list-unstyled mb-0" style="font-size: 0.9em;">
+                        <li><strong>Forma de Pago:</strong> {{ pago_en_proceso.forma_pago }}</li>
+                        {% if pago_en_proceso.forma_pago == 'Pago Móvil' and pago_en_proceso.detalles_reporte %}
+                            <li><strong>Teléfono Emisor:</strong> {{ pago_en_proceso.detalles_reporte.telefono_emisor or 'No especificado' }}</li>
+                            <li><strong>Cédula Emisor:</strong> {{ pago_en_proceso.detalles_reporte.cedula_emisor or 'No especificado' }}</li>
+                        {% elif pago_en_proceso.forma_pago == 'Binance' and pago_en_proceso.detalles_reporte %}
+                            <li><strong>Usuario/ID Binance:</strong> {{ pago_en_proceso.detalles_reporte.usuario_binance or 'No especificado' }}</li>
+                        {% elif pago_en_proceso.forma_pago == 'Transferencia Bancaria' %}
+                            <li><strong>Banco Origen:</strong> {{ pago_en_proceso.banco or 'No especificado' }}</li>
+                            <li><strong>Referencia:</strong> {{ pago_en_proceso.referencia or 'No especificado' }}</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        <!-- FIN: Alerta de Pago en Proceso -->
+
         {% if cita_confirmada %}
         <div class="info-card cita">
             <div class="info-card-header">
@@ -174,52 +208,7 @@
         </div>
         {% endif %}
 
-        <!-- INICIO: LÓGICA DE ESTADO DE PAGOS Y PLAN (SECCIÓN ACTUALIZADA) -->
-        
-        <!-- PRIMERO, REVISAR SI HAY UN PAGO EN PROCESO (PENDIENTE/INCONSISTENTE). ESTO TIENE MÁXIMA PRIORIDAD. -->
-        {% if pago_en_proceso %}
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-light">
-                    <h5 class="mb-0">Estado de tu Último Reporte</h5>
-                </div>
-                <div class="card-body">
-                    <!-- CASO 1: INCONSISTENCIA POR DIFERENCIA DE MONTO -->
-                    {% if pago_en_proceso.accion_requerida == 'pagar_diferencia' %}
-                        <div class="alert alert-warning border-warning border-2">
-                            <h4 class="alert-heading"><i class="bi bi-receipt-cutoff"></i> Tienes una Orden de Pago Pendiente</h4>
-                            <p>Detectamos una inconsistencia en tu último reporte debido a una <strong>diferencia en el monto de ${{ "%.2f"|format(pago_en_proceso.detalles_reporte.diferencia|float) }}</strong>. Por favor, completa el pago para continuar.</p>
-                            <hr>
-                            <a href="{{ url_for('reportar_pago_diferencia', pago_original_id=pago_en_proceso.id) }}" class="btn btn-warning fw-bold">
-                                <i class="bi bi-credit-card-fill me-2"></i>Pagar Diferencia Ahora
-                            </a>
-                        </div>
-                    <!-- CASO 2: INCONSISTENCIA POR DATOS INCORRECTOS -->
-                    {% elif pago_en_proceso.accion_requerida == 'corregir_reporte' %}
-                        <div class="alert alert-danger border-danger border-2">
-                            <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Acción Requerida en tu Reporte</h4>
-                            <p>Tu último reporte de pago fue marcado como <strong>Inconsistente</strong>. Por favor, revisa los detalles y corrige la información para que podamos procesarlo.</p>
-                            <p class="mb-0"><strong>Motivo:</strong> {{ pago_en_proceso.detalles_reporte.motivo }}</p>
-                            <hr>
-                            <a href="{{ url_for('portal_corregir_reporte', pago_id=pago_en_proceso.id) }}" class="btn btn-danger fw-bold">
-                                <i class="bi bi-pencil-fill me-2"></i>Corregir y Reportar de Nuevo
-                            </a>
-                        </div>
-                    <!-- CASO 3: PAGO PENDIENTE DE REVISIÓN NORMAL -->
-                    {% else %}
-                        <div class="alert alert-info border-info border-2">
-                            <h4 class="alert-heading"><i class="bi bi-clock-history"></i> Tienes un Reporte en Proceso</h4>
-                            <p>Tu pago ya fue reportado y está siendo procesado por nuestro equipo. El estado actual es: <strong>{{ pago_en_proceso.estado_reporte or 'Pendiente de Revisión' }}</strong>.</p>
-                            <hr>
-                            <a href="{{ url_for('portal_ver_reporte', pago_id=pago_en_proceso.id) }}" class="btn btn-primary">
-                                Ver Detalles del Reporte
-                            </a>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-        {% endif %}
-
-        <!-- LUEGO, MOSTRAR EL ESTADO GENERAL DEL PLAN, PERO AJUSTANDO EL BOTÓN DE PAGO SEGÚN SI HAY UN PAGO EN PROCESO -->
+        <!-- INICIO: Lógica de Estado Principal en 3 Etapas -->
         {% if estado_principal %}
             {# ETAPA 1: PENDIENTE POR INSCRIPCIÓN #}
             {% if estado_principal.tipo == 'inscripcion' %}
@@ -229,13 +218,10 @@
                 </div>
                 <div class="status-body mt-2">
                     <p>{{ estado_principal.mensaje }}</p>
-                    <a href="{{ estado_principal.boton_url }}" class="btn btn-primary btn-reportar btn-sm mt-2 {% if pago_en_proceso %}disabled{% endif %}"
-                       {% if pago_en_proceso %}title="Ya tienes un pago en revisión."{% endif %}>
+                    <a href="{{ estado_principal.boton_url }}" class="btn btn-primary btn-reportar btn-sm mt-2 {% if estado_principal.pago_inscripcion_pendiente %}disabled{% endif %}"
+                       {% if estado_principal.pago_inscripcion_pendiente %}title="Ya tienes un pago en revisión."{% endif %}>
                         {{ estado_principal.boton_texto }}
                     </a>
-                    {% if pago_en_proceso %}
-                        <small class="d-block text-muted mt-1">No puedes reportar un nuevo pago hasta que el actual sea procesado.</small>
-                    {% endif %}
                 </div>
             </div>
 
@@ -247,10 +233,7 @@
                 </div>
                 <div class="status-body mt-2">
                     <p>{{ estado_principal.mensaje }}</p>
-                    <a href="{{ estado_principal.boton_url }}" class="btn btn-info btn-sm mt-2 {% if pago_en_proceso %}disabled{% endif %}">{{ estado_principal.boton_texto }}</a>
-                     {% if pago_en_proceso %}
-                        <small class="d-block text-muted mt-1">No puedes reportar un nuevo pago hasta que el actual sea procesado.</small>
-                    {% endif %}
+                    <a href="{{ estado_principal.boton_url }}" class="btn btn-info btn-sm mt-2">{{ estado_principal.boton_texto }}</a>
                 </div>
             </div>
 
@@ -264,10 +247,10 @@
                 <div class="status-body mt-2">
                     <p>{{ estado_principal.mensaje | safe }}</p>
                     {% if estado_principal.estado_label in ['Vigente', 'En Mora'] %}
-                        <a href="{{ url_for('portal_reportar_pago') }}" class="btn btn-primary btn-reportar btn-sm mt-2 {% if pago_en_proceso %}disabled{% endif %}">
-                            Reportar Pago de Cuota
+                        <a href="{{ url_for('portal_reportar_pago') }}" class="btn btn-primary btn-reportar btn-sm mt-2 {% if not estado_principal.puede_reportar_pago %}disabled{% endif %}">
+                            Reportar Pago
                         </a>
-                        {% if pago_en_proceso %}
+                        {% if not estado_principal.puede_reportar_pago %}
                         <small class="d-block text-muted mt-1">Tienes un pago pendiente de revisión y no puedes reportar otro hasta que sea procesado.</small>
                         {% endif %}
                     {% endif %}
@@ -275,7 +258,7 @@
             </div>
             {% endif %}
         {% endif %}
-        <!-- FIN: LÓGICA DE ESTADO -->
+        <!-- FIN: Lógica de Estado Principal -->
         
         <div class="content-card">
             <div class="content-card-header">
@@ -363,14 +346,13 @@
                         <div class="payment-actions">
                             {% if pago.estado_pago == 'Conciliado' %}
                                 <span class="badge text-bg-success">Conciliado</span>
-                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm" target="_blank">Recibo</a>
+                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm" target="_blank">Ver Recibo</a>
                             {% elif pago.estado_pago == 'Pendiente' %}
-                                {% if pago.estado_reporte == 'Inconsistente' %}
-                                    <span class="badge text-bg-danger" title="{{ pago.detalles_reporte.motivo if pago.detalles_reporte else 'Error' }}">Inconsistente</span>
+                                {% if pago.estado_reporte == 'Inconsistente' and pago.detalles_reporte %}
+                                    <span class="badge text-bg-danger" title="{{ pago.detalles_reporte.motivo }}">Inconsistente</span>
                                 {% else %}
                                     <span class="badge text-bg-warning">Pendiente</span>
                                 {% endif %}
-                                <a href="{{ url_for('portal_ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">Ver</a>
                             {% elif pago.estado_pago == 'Anulado' %}
                                 <span class="badge text-bg-danger">Anulado</span>
                             {% endif %}

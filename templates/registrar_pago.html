@@ -7,127 +7,107 @@
 {% block body %}
     <div class="form-container">
         <div class="form-header" style="background-color: var(--naranja-corporativo);">
-            <h1>Registrar Pago</h1>
+            <h1><i class="bi bi-cash-coin me-2"></i>Registrar Pago</h1>
             <p>Para: {{ cliente.nombre_apellido }}</p>
         </div>
 
-        <form action="{{ url_for('registrar_pago', client_id=cliente.id) }}" method="POST">
-            <div class="p-4">
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                  {% if messages %}
-                    {% for category, message in messages %}
-                      <div class="alert alert-{{ 'danger' if category == 'error' else category }}">{{ message }}</div>
-                    {% endfor %}
-                  {% endif %}
-                {% endwith %}
+        <form action="{{ url_for('registrar_pago', client_id=cliente.id) }}" method="POST" class="p-4">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ 'danger' if category == 'error' else category }}">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
 
-                <div class="section">
-                    <h3>Detalles del Monto y Método</h3>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="tipo_pago">Tipo de Pago</label>
-                            <select id="tipo_pago" name="tipo_pago" class="form-select" required>
-                                {% set inscripcion_total = cliente.inscripcion_monto|float if cliente.inscripcion_monto else 0 %}
-                                {% set inscripcion_pagada = cliente.inscripcion_pagada|float if cliente.inscripcion_pagada else 0 %}
-                                {% if inscripcion_pagada < inscripcion_total %}<option value="Inscripción">Inscripción</option>{% else %}<option value="Cuota">Cuota</option>{% endif %}
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="pago_en">Pago en</label>
-                            <select id="pago_en" name="pago_en" class="form-select" required>
-                                <option value="Efectivo USD" selected>Efectivo USD</option>
-                                <option value="Dolar/BCV">Dolar/BCV</option>
-                                <option value="Euro/BCV">Euro/BCV</option>
-                                <option value="USDT">USDT</option>
-                                <option value="Bolívares Efectivo">Bolívares Efectivo</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="forma_pago">Forma de Pago</label>
-                            <select id="forma_pago" name="forma_pago" class="form-select" required>
-                                <option value="">Seleccione...</option>
-                                <option value="Efectivo">Efectivo</option>
-                                <option value="Transferencia Bancaria">Transferencia Bancaria</option>
-                                <option value="Pago Movil">Pago Móvil</option>
-                                <option value="Binance">Binance</option>
-                                <option value="Nequi">Nequi</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="monto_usd">Monto del Pago (USD)</label>
-                            <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" required>
-                        </div>
-                        <!-- CAMPOS DE TASA OCULTOS -->
-                        <div class="form-group" style="display: none;">
-                            <label for="tasa_dia">Tasa del Día (BCV)</label>
-                            <input type="number" id="tasa_dia" step="0.01" name="tasa_dia" class="form-control" readonly>
-                        </div>
-                        <div class="form-group" style="display: none;">
-                            <label for="monto_bs_calculado">Monto en Bs (Calculado)</label>
-                            <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
-                        </div>
+            <div class="section">
+                <h3><i class="bi bi-receipt me-2"></i>Detalles del Monto y Método</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="tipo_pago">Tipo de Pago</label>
+                        <select id="tipo_pago" name="tipo_pago" class="form-select" required>
+                            {% set inscripcion_total = cliente.inscripcion_monto|float if cliente.inscripcion_monto else 0 %}
+                            {% set inscripcion_pagada = cliente.inscripcion_pagada|float if cliente.inscripcion_pagada else 0 %}
+                            {% if inscripcion_pagada < inscripcion_total %}<option value="Inscripción">Inscripción</option>{% else %}<option value="Cuota">Cuota</option>{% endif %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="pago_en">Pago en</label>
+                        <select id="pago_en" name="pago_en" class="form-select" required>
+                            <option value="Efectivo USD" selected>Efectivo USD</option>
+                            <option value="Dolar/BCV">Dolar/BCV</option>
+                            <option value="Euro/BCV">Euro/BCV</option>
+                            <option value="USDT">USDT</option>
+                            <option value="Bolívares Efectivo">Bolívares Efectivo</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="forma_pago">Forma de Pago</label>
+                        <select id="forma_pago" name="forma_pago" class="form-select" required>
+                            <option value="">Seleccione...</option>
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+                            <option value="Pago Movil">Pago Móvil</option>
+                            <option value="Binance">Binance</option>
+                            <option value="Nequi">Nequi</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="monto_usd">Monto del Pago (USD)</label>
+                        <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" required>
+                    </div>
+                    <div class="form-group" id="tasa_dia_group" style="display: none;">
+                        <label for="tasa_dia">Tasa del Día (BCV)</label>
+                        <input type="number" id="tasa_dia" step="0.01" name="tasa_dia" class="form-control" readonly>
+                    </div>
+                    <div class="form-group" id="monto_bs_group" style="display: none;">
+                        <label for="monto_bs_calculado">Monto en Bs (Calculado)</label>
+                        <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
                     </div>
                 </div>
+            </div>
 
-                <div class="section">
-                    <h3>Información Adicional</h3>
-                    <div class="form-grid">
-                        <div class="form-group" id="banco_group" style="display: none;">
-                            <label for="banco">Banco</label>
-                            <select id="banco" name="banco" class="form-select">
-                                <option value="">Seleccione un banco...</option>
-                                <option value="0102 - Banco de Venezuela S.A.C.A.">0102 - Banco de Venezuela S.A.C.A.</option>
-                                <option value="0104 - Venezolano de Crédito S.A.">0104 - Venezolano de Crédito S.A.</option>
-                                <option value="0105 - Mercantil Banco Universal C.A.">0105 - Mercantil Banco Universal C.A.</option>
-                                <option value="0108 - BBVA Banco Provincial">0108 - BBVA Banco Provincial</option>
-                                <option value="0114 - Bancaribe C.A.">0114 - Bancaribe C.A.</option>
-                                <option value="0115 - Banco Exterior C.A.">0115 - Banco Exterior C.A.</option>
-                                <option value="0128 - Banco Caroní C.A.">0128 - Banco Caroní C.A.</option>
-                                <option value="0134 - Banesco Banco Universal C.A.">0134 - Banesco Banco Universal C.A.</option>
-                                <option value="0137 - Banco Sofitasa C.A.">0137 - Banco Sofitasa C.A.</option>
-                                <option value="0138 - Banco Plaza C.A.">0138 - Banco Plaza C.A.</option>
-                                <option value="0146 - Bangente C.A.">0146 - Bangente C.A.</option>
-                                <option value="0151 - BFC Banco Fondo Común C.A.">0151 - BFC Banco Fondo Común C.A.</option>
-                                <option value="0156 - 100% Banco C.A.">0156 - 100% Banco C.A.</option>
-                                <option value="0157 - DelSur Banco Universal C.A.">0157 - DelSur Banco Universal C.A.</option>
-                                <option value="0163 - Banco del Tesoro C.A.">0163 - Banco del Tesoro C.A.</option>
-                                <option value="0166 - Banco Agrícola de Venezuela C.A.">0166 - Banco Agrícola de Venezuela C.A.</option>
-                                <option value="0171 - Banco Activo C.A.">0171 - Banco Activo C.A.</option>
-                                <option value="0172 - Bancamiga Banco Universal C.A.">0172 - Bancamiga Banco Universal C.A.</option>
-                                <option value="0173 - Banco Internacional de Desarrollo C.A.">0173 - Banco Internacional de Desarrollo C.A.</option>
-                                <option value="0174 - Banplus Banco Universal C.A.">0174 - Banplus Banco Universal C.A.</option>
-                                <option value="0175 - Banco Digital de los Trabajadores (BDT)">0175 - Banco Digital de los Trabajadores (BDT)</option>
-                                <option value="0177 - BANFANB">0177 - BANFANB - Banco de la Fuerza Armada Nacional Bolivariana</option>
-                                <option value="0178 - N58 Banco Digital C.A.">0178 - N58 Banco Digital C.A.</option>
-                                <option value="0191 - Banco Nacional de Crédito (BNC)">0191 - Banco Nacional de Crédito (BNC)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="referencia">Referencia</label>
-                            <input type="text" id="referencia" name="referencia" class="form-control">
-                        </div>
-                        <div class="form-group">
-                            <label for="fecha_pago">Fecha de Pago</label>
-                            <input type="date" id="fecha_pago" name="fecha_pago" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                             <label for="lugar_emision">Lugar de Emisión</label>
-                             <select id="lugar_emision" name="lugar_emision" class="form-select" required>
-                                <option value="Acarigua">Acarigua</option>
-                                <option value="Barquisimeto">Barquisimeto</option>
-                             </select>
-                        </div>
-                        <div class="form-group col-12">
-                            <label for="por_concepto_de">Por Concepto de</label>
-                            <textarea id="por_concepto_de" name="por_concepto_de" rows="3" class="form-control" required></textarea>
-                        </div>
+            <div class="section">
+                <h3><i class="bi bi-info-circle me-2"></i>Información Adicional</h3>
+                <div class="form-grid">
+                    <div class="form-group" id="banco_group" style="display: none;">
+                        <label for="banco">Banco</label>
+                        <select id="banco" name="banco" class="form-select">
+                            <option value="">Seleccione un banco...</option>
+                            <option value="0102 - Banco de Venezuela S.A.C.A.">0102 - Banco de Venezuela</option>
+                            <option value="0105 - Mercantil Banco Universal C.A.">0105 - Mercantil</option>
+                            <option value="0108 - BBVA Banco Provincial">0108 - BBVA Provincial</option>
+                            <option value="0134 - Banesco Banco Universal C.A.">0134 - Banesco</option>
+                            <option value="0151 - BFC Banco Fondo Común C.A.">0151 - BFC</option>
+                            <option value="0172 - Bancamiga Banco Universal C.A.">0172 - Bancamiga</option>
+                            <option value="0191 - Banco Nacional de Crédito (BNC)">0191 - BNC</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="referencia">Referencia</label>
+                        <input type="text" id="referencia" name="referencia" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="fecha_pago">Fecha de Pago</label>
+                        <input type="date" id="fecha_pago" name="fecha_pago" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                         <label for="lugar_emision">Lugar de Emisión</label>
+                         <select id="lugar_emision" name="lugar_emision" class="form-select" required>
+                            <option value="Acarigua">Acarigua</option>
+                            <option value="Barquisimeto">Barquisimeto</option>
+                         </select>
+                    </div>
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label for="por_concepto_de">Por Concepto de</label>
+                        <textarea id="por_concepto_de" name="por_concepto_de" rows="3" class="form-control" required></textarea>
                     </div>
                 </div>
+            </div>
 
-                <div class="button-group">
-                    <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="btn btn-secondary">Cancelar</a>
-                    <button type="submit" class="btn btn-primary">Guardar Pago</button>
-                </div>
+            <div class="button-group">
+                <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle-fill me-2"></i>Guardar Pago</button>
             </div>
         </form>
     </div>
@@ -143,6 +123,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const montoUsdInput = document.getElementById('monto_usd');
     const tasaDiaInput = document.getElementById('tasa_dia');
     const montoBsCalculadoInput = document.getElementById('monto_bs_calculado');
+    const montoBsGroup = document.getElementById('monto_bs_group');
+    const tasaDiaGroup = document.getElementById('tasa_dia_group');
     const referenciaInput = document.getElementById('referencia');
     const bancoGroup = document.getElementById('banco_group');
     const bancoSelect = document.getElementById('banco');
@@ -160,10 +142,17 @@ document.addEventListener('DOMContentLoaded', function() {
     function handlePagoEnChange() {
         const pagoEnValue = pagoEnSelect.value;
         tasaDiaInput.value = '';
+        montoBsGroup.style.display = 'none';
+        tasaDiaGroup.style.display = 'none';
+        
         if (pagoEnValue === 'Dolar/BCV') {
             tasaDiaInput.value = tasaUsd || '';
+            montoBsGroup.style.display = 'block';
+            tasaDiaGroup.style.display = 'block';
         } else if (pagoEnValue === 'Euro/BCV') {
             tasaDiaInput.value = tasaEur || '';
+            montoBsGroup.style.display = 'block';
+            tasaDiaGroup.style.display = 'block';
         }
         calcularMontoBs();
     }

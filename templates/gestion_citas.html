@@ -4,35 +4,126 @@
     Gestión de Citas
 {% endblock %}
 
+{% block head_extra %}
+<style>
+    .main-header {
+        background: linear-gradient(135deg, var(--azul-corporativo) 0%, var(--azul-hover) 100%);
+        padding: 2rem;
+        border-radius: .75rem;
+    }
+    .main-header h1 {
+        font-weight: 700;
+        font-size: 2rem;
+    }
+    .card-header .badge {
+        font-size: 0.9em;
+    }
+    .solicitud-card {
+        border-left: 4px solid var(--naranja-corporativo);
+    }
+    .agenda-card {
+        border-left: 4px solid var(--verde-exito);
+    }
+    .list-group-item-action:hover {
+        background-color: var(--azul-claro);
+    }
+</style>
+{% endblock %}
+
 {% block body %}
-    <div class="main-header text-white text-center mb-4" style="background: linear-gradient(135deg, #3498DB 0%, #2980b9 100%); border-radius: .75rem;">
+    <div class="main-header text-white text-center mb-4">
         <h1><i class="bi bi-calendar-check-fill"></i> Gestión de Citas</h1>
-        <p class="lead">Revisa las solicitudes pendientes y la agenda de citas aprobadas.</p>
+        <p class="lead mb-0">Revisa las solicitudes pendientes y la agenda de citas aprobadas.</p>
     </div>
 
-    <div class="row">
+    <div class="row g-4">
         <!-- Columna de Solicitudes Pendientes -->
         <div class="col-lg-6">
-            <div class="card content-card">
-                <div class="card-header d-flex justify-content-between align-items-center" style="color: #3498DB;">
-                    <span><i class="bi bi-clock-history"></i> Solicitudes Pendientes</span>
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-dark"><i class="bi bi-clock-history me-2 text-primary"></i> Solicitudes Pendientes</h5>
                     <span class="badge bg-primary rounded-pill">{{ solicitudes.citas|length }}</span>
                 </div>
                 <div class="list-group list-group-flush">
-                    <!-- Bucle de solicitudes -->
+                    {% for solicitud in solicitudes.citas %}
+                    <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="modal" data-bs-target="#citaModal-{{ solicitud.id }}">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1 font-weight-bold">{{ solicitud.nombre_cliente }}</h6>
+                            <small class="text-muted">{{ solicitud.fecha_creacion | format_datetime('%d/%m/%Y') }}</small>
+                        </div>
+                        <p class="mb-1"><strong>Motivo:</strong> {{ solicitud.detalles.motivo }}</p>
+                        <small class="text-info">Cita solicitada para: {{ solicitud.detalles.fecha_cita }} a las {{ solicitud.detalles.hora_cita }}</small>
+                    </a>
+                    {% else %}
+                    <div class="list-group-item text-center text-muted p-5">
+                        <i class="bi bi-check2-circle fs-1 text-success"></i>
+                        <p class="mt-2 mb-0 h5">No hay solicitudes de citas pendientes.</p>
+                    </div>
+                    {% endfor %}
                 </div>
             </div>
         </div>
+        
         <!-- Columna de Agenda -->
         <div class="col-lg-6">
-            <!-- Contenido de la agenda -->
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-dark"><i class="bi bi-calendar-week me-2 text-success"></i> Agenda de Citas Aprobadas</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for cita in citas_aprobadas %}
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1 font-weight-bold">{{ cita.nombre_cliente }}</h6>
+                            <span class="badge bg-success">Agendada</span>
+                        </div>
+                        <p class="mb-1"><strong>Fecha:</strong> {{ cita.detalles.fecha_cita | format_date('%A, %d/%m/%Y') }} a las {{ cita.detalles.hora_cita }}</p>
+                        <small class="text-muted">Asignada a: <strong>{{ cita.nombre_asesor }}</strong></small>
+                    </div>
+                    {% else %}
+                    <div class="list-group-item text-center text-muted p-5">
+                        <i class="bi bi-calendar-x fs-1"></i>
+                        <p class="mt-2 mb-0 h5">No hay citas agendadas para los próximos días.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Modales para cada solicitud -->
     {% for solicitud in solicitudes.citas %}
-    <div class="modal fade" id="citaModal-{{ solicitud.id }}" tabindex="-1">
-        <!-- Contenido del modal -->
+    <div class="modal fade" id="citaModal-{{ solicitud.id }}" tabindex="-1" aria-labelledby="citaModalLabel-{{ solicitud.id }}" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form action="{{ url_for('procesar_solicitud', solicitud_id=solicitud.id) }}" method="POST">
+                    <input type="hidden" name="tipo" value="Cita">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="citaModalLabel-{{ solicitud.id }}">Procesar Cita de {{ solicitud.nombre_cliente }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p><strong>Cliente:</strong> {{ solicitud.nombre_cliente }}</p>
+                        <p><strong>Fecha Solicitada:</strong> {{ solicitud.detalles.fecha_cita }} a las {{ solicitud.detalles.hora_cita }}</p>
+                        <p><strong>Motivo:</strong> {{ solicitud.detalles.motivo }}</p>
+                        <hr>
+                        <div class="mb-3">
+                            <label for="asesor_id-{{ solicitud.id }}" class="form-label">Asignar Asesor para la Cita</label>
+                            <select name="asesor_id" id="asesor_id-{{ solicitud.id }}" class="form-select" required>
+                                <option value="" disabled selected>-- Seleccione un asesor --</option>
+                                {% for admin in administradores %}
+                                    <option value="{{ admin.id }}">{{ admin.usuario }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" name="accion" value="rechazar" class="btn btn-danger" formnovalidate>Rechazar</button>
+                        <button type="submit" name="accion" value="aprobar" class="btn btn-success">Agendar Cita</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
     {% endfor %}
 {% endblock %}

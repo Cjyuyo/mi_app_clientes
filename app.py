@@ -125,6 +125,7 @@ def setup_session_and_user():
     
     g.admin = None
     g.cliente = None
+    g.anio_actual = get_venezuela_current_date().year
     admin_id = session.get('admin_id')
     cliente_id = session.get('cliente_id')
     db = get_db()
@@ -1578,6 +1579,12 @@ def consulta():
                         cliente_dict = dict(cliente)
                         cliente_dict['nombre_apellido'] = f"{cliente.get('nombre', '')} {cliente.get('apellido', '')}".strip()
                         
+                        # Cargar historiales para la vista restaurada
+                        cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC", (cliente_dict['id'],))
+                        cliente_dict['pagos'] = cur.fetchall()
+                        cur.execute("SELECT * FROM ofertas WHERE cliente_id = %s ORDER BY fecha_oferta DESC", (cliente_dict['id'],))
+                        cliente_dict['ofertas'] = cur.fetchall()
+
                         # Contar registros asociados para la alerta de eliminación
                         cur.execute("SELECT COUNT(*) FROM pagos WHERE cliente_id = %s", (cliente_dict['id'],))
                         cliente_dict['conteo_pagos'] = cur.fetchone()[0]
@@ -2469,6 +2476,11 @@ def portal_reportar_pago():
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
         cliente = cur.fetchone()
         
+        # Obtener la tasa del día
+        today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
+        cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
+        tasas_hoy = cur.fetchone()
+        
     if not cliente:
         session.clear()
         flash('No se encontró su información de cliente.', 'error')
@@ -2489,12 +2501,12 @@ def portal_reportar_pago():
 
         if not all(pago_form.get(key) for key in ['monto', 'fecha_pago']):
             flash('Error: Monto y fecha de pago son campos obligatorios.', 'error')
-            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, inscripcion_completa=inscripcion_completa, contrato_en_dolares=contrato_en_dolares)
+            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, inscripcion_completa=inscripcion_completa, contrato_en_dolares=contrato_en_dolares, tasas_hoy=tasas_hoy)
 
         forma_pago = pago_form.get('forma_pago')
         if forma_pago != 'Efectivo' and not pago_form.get('referencia'):
             flash('Error: La referencia es obligatoria para este método de pago.', 'error')
-            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, inscripcion_completa=inscripcion_completa, contrato_en_dolares=contrato_en_dolares)
+            return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, inscripcion_completa=inscripcion_completa, contrato_en_dolares=contrato_en_dolares, tasas_hoy=tasas_hoy)
         
         try:
             with conn.cursor() as cur:
@@ -2544,7 +2556,7 @@ def portal_reportar_pago():
             conn.rollback()
             flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
     
-    return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, inscripcion_completa=inscripcion_completa, contrato_en_dolares=contrato_en_dolares)
+    return render_template('portal_reportar_pago.html', cliente=cliente, mes_actual=mes_actual, inscripcion_completa=inscripcion_completa, contrato_en_dolares=contrato_en_dolares, tasas_hoy=tasas_hoy)
 
 
 @app.route('/portal/estado_cuenta')
