@@ -19,8 +19,8 @@
         :root {
             --azul-corporativo: #2B3A55;
             --azul-hover: #364766;
+            --azul-claro: #F0F4F8; /* Un azul grisáceo muy claro para fondos */
             --naranja-corporativo: #F99417;
-            /* CAMBIO: Un gris más notorio para el fondo */
             --gris-fondo: #e9ecef; 
             --blanco: #FFFFFF;
             --texto-claro: #adb5bd;
@@ -107,7 +107,9 @@
         
         /* --- Contenido Principal --- */
         .topbar { 
-            background: var(--blanco); 
+            /* CAMBIO: De blanco a un color sutil con borde */
+            background: var(--azul-claro); 
+            border: 1px solid #dee2e6;
             border-radius: .75rem; 
             padding: 12px 25px; 
             margin-bottom: 25px; 
