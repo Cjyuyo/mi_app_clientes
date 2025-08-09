@@ -351,14 +351,7 @@ def admin_logout():
 # --- RUTAS PRINCIPALES Y DE NAVEGACIÓN ---
 @app.route('/')
 def home():
-    # CAMBIA EL NÚMERO PARA PROBAR CADA CLIENTE (1, 2 o 3)
-    session['client_id'] = 3
-    # En un entorno de producción, esta línea debería redirigir a `admin_login` o a la página de inicio del portal de clientes.
-    # Por ahora, para facilitar el acceso directo al portal del cliente durante el desarrollo:
-    if 'cliente_id' in session:
-        return redirect(url_for('portal_dashboard'))
     return redirect(url_for('hub'))
-
 
 @app.route('/hub')
 @admin_required
@@ -395,13 +388,14 @@ def hub_asesor():
     try:
         with conn.cursor() as cur:
             # Marcar inasistencias automáticamente
+            # CORRECTED QUERY: Explicitly cast date and time before combining.
             cur.execute("""
                 UPDATE solicitudes 
                 SET detalles = jsonb_set(detalles, '{estado_final}', '"Inasistencia"')
                 WHERE tipo_solicitud = 'Cita' AND estado = 'Aprobada' AND (detalles->>'asesor_id')::int = %s
                 AND (detalles->>'fecha_cita')::date <= %s
                 AND (detalles->>'hora_inicio' IS NULL)
-                AND (detalles->>'fecha_cita' || ' ' || detalles->>'hora_cita')::timestamp < NOW() - INTERVAL '30 minutes'
+                AND ((detalles->>'fecha_cita')::date + (detalles->>'hora_cita')::time) < NOW() - INTERVAL '30 minutes'
             """, (asesor_id, today_str))
             conn.commit()
 
@@ -433,6 +427,7 @@ def hub_asesor():
         flash(f"Error al cargar el hub de asesor: {e}", "danger")
 
     return render_template('hub_asesor.html', citas_pendientes=citas_pendientes, citas_completadas=citas_completadas)
+
 
 @app.route('/citas/registrar_interaccion/<int:cita_id>', methods=['POST'])
 @admin_required
@@ -2177,7 +2172,7 @@ def portal_dashboard():
                     'titulo': f"Cuota de {get_nombre_mes(hoy.month)}",
                     'estado_label': estado_label,
                     'mensaje': mensaje_cuota,
-                    'clase_borde': estado_label.lower(),
+                    'clase_borde': estado_label.lower().replace(' ', '.'),
                     'puede_reportar_pago': not pago_pendiente_existente
                 }
             # ===== FIN: LÓGICA DE 3 ETAPAS =====
