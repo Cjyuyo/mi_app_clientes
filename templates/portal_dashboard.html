@@ -184,7 +184,7 @@
                 </div>
                 <div class="card-body">
                     <!-- CASO 1: INCONSISTENCIA POR DIFERENCIA DE MONTO -->
-                    {% if pago_en_proceso.estado_reporte == 'Inconsistente' and pago_en_proceso.detalles_reporte.motivo == 'Diferencia de Monto' %}
+                    {% if pago_en_proceso.accion_requerida == 'pagar_diferencia' %}
                         <div class="alert alert-warning border-warning border-2">
                             <h4 class="alert-heading"><i class="bi bi-receipt-cutoff"></i> Tienes una Orden de Pago Pendiente</h4>
                             <p>Detectamos una inconsistencia en tu último reporte debido a una <strong>diferencia en el monto de ${{ "%.2f"|format(pago_en_proceso.detalles_reporte.diferencia|float) }}</strong>. Por favor, completa el pago para continuar.</p>
@@ -193,17 +193,24 @@
                                 <i class="bi bi-credit-card-fill me-2"></i>Pagar Diferencia Ahora
                             </a>
                         </div>
-
-                    <!-- CASO 2: OTRA INCONSISTENCIA O PAGO PENDIENTE DE REVISIÓN -->
+                    <!-- CASO 2: INCONSISTENCIA POR DATOS INCORRECTOS -->
+                    {% elif pago_en_proceso.accion_requerida == 'corregir_reporte' %}
+                        <div class="alert alert-danger border-danger border-2">
+                            <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Acción Requerida en tu Reporte</h4>
+                            <p>Tu último reporte de pago fue marcado como <strong>Inconsistente</strong>. Por favor, revisa los detalles y corrige la información para que podamos procesarlo.</p>
+                            <p class="mb-0"><strong>Motivo:</strong> {{ pago_en_proceso.detalles_reporte.motivo }}</p>
+                            <hr>
+                            <a href="{{ url_for('portal_corregir_reporte', pago_id=pago_en_proceso.id) }}" class="btn btn-danger fw-bold">
+                                <i class="bi bi-pencil-fill me-2"></i>Corregir y Reportar de Nuevo
+                            </a>
+                        </div>
+                    <!-- CASO 3: PAGO PENDIENTE DE REVISIÓN NORMAL -->
                     {% else %}
                         <div class="alert alert-info border-info border-2">
                             <h4 class="alert-heading"><i class="bi bi-clock-history"></i> Tienes un Reporte en Proceso</h4>
-                            <p>Tu pago ya fue reportado y está siendo procesado por nuestro equipo. El estado actual es: <strong>{{ pago_en_proceso.estado_reporte }}</strong>.</p>
-                            {% if pago_en_proceso.estado_reporte == 'Inconsistente' %}
-                                <p class="mb-0"><strong>Motivo:</strong> {{ pago_en_proceso.detalles_reporte.motivo }}</p>
-                            {% endif %}
+                            <p>Tu pago ya fue reportado y está siendo procesado por nuestro equipo. El estado actual es: <strong>{{ pago_en_proceso.estado_reporte or 'Pendiente de Revisión' }}</strong>.</p>
                             <hr>
-                            <a href="{{ url_for('ver_reporte', pago_id=pago_en_proceso.id) }}" class="btn btn-primary">
+                            <a href="{{ url_for('portal_ver_reporte', pago_id=pago_en_proceso.id) }}" class="btn btn-primary">
                                 Ver Detalles del Reporte
                             </a>
                         </div>
@@ -356,13 +363,14 @@
                         <div class="payment-actions">
                             {% if pago.estado_pago == 'Conciliado' %}
                                 <span class="badge text-bg-success">Conciliado</span>
-                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm" target="_blank">Ver Recibo</a>
+                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm" target="_blank">Recibo</a>
                             {% elif pago.estado_pago == 'Pendiente' %}
-                                {% if pago.estado_reporte == 'Inconsistente' and pago.detalles_reporte %}
-                                    <span class="badge text-bg-danger" title="{{ pago.detalles_reporte.motivo }}">Inconsistente</span>
+                                {% if pago.estado_reporte == 'Inconsistente' %}
+                                    <span class="badge text-bg-danger" title="{{ pago.detalles_reporte.motivo if pago.detalles_reporte else 'Error' }}">Inconsistente</span>
                                 {% else %}
                                     <span class="badge text-bg-warning">Pendiente</span>
                                 {% endif %}
+                                <a href="{{ url_for('portal_ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">Ver</a>
                             {% elif pago.estado_pago == 'Anulado' %}
                                 <span class="badge text-bg-danger">Anulado</span>
                             {% endif %}

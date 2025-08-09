@@ -1989,7 +1989,7 @@ def adjudicacion():
         with conn.cursor() as cur:
             cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega FROM clientes WHERE TRIM(UPPER(proceso)) = 'AHORRADOR' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega) AND TRIM(UPPER(estatus)) = 'ACTIVO' ORDER BY nombre, apellido;")
             clientes_elegibles_ahorro = cur.fetchall()
-            cur.execute("SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND TRIM(UPPER(c.proceso)) = 'AHORRADOR' ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;")
+            cur.execute("SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || apellido) as nombre_apellido, c.cedula FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND TRIM(UPPER(c.proceso)) = 'AHORRADOR' ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;")
             ofertas_activas = cur.fetchall()
             cur.execute("SELECT a.id, a.fecha_adjudicacion, (gs.nombre || ' ' || gs.apellido) as nombre_ganador_sorteo, (go.nombre || ' ' || go.apellido) as nombre_ganador_oferta FROM adjudicaciones a LEFT JOIN clientes gs ON a.ganador_sorteo_id = gs.id LEFT JOIN clientes go ON a.ganador_oferta_id = go.id ORDER BY a.fecha_adjudicacion DESC;")
             historial = cur.fetchall()
@@ -2219,6 +2219,13 @@ def portal_dashboard():
                                 pago_en_proceso['detalles_reporte'] = json.loads(pago_en_proceso['detalles_reporte'])
                             except json.JSONDecodeError:
                                 pago_en_proceso['detalles_reporte'] = {'motivo': 'Error en datos', 'diferencia': '0'}
+                        
+                        # **NUEVA LÓGICA PARA DIFERENCIAR ACCIONES**
+                        detalles = pago_en_proceso['detalles_reporte']
+                        if detalles.get('motivo') == 'Diferencia de Monto' and Decimal(detalles.get('diferencia', 0)) > 0:
+                            pago_en_proceso['accion_requerida'] = 'pagar_diferencia'
+                        else:
+                            pago_en_proceso['accion_requerida'] = 'corregir_reporte'
                     break
             # ===== FIN: LÓGICA CLAVE =====
 
@@ -2316,6 +2323,29 @@ def reportar_pago_diferencia(pago_original_id):
         pago_origen_id=pago_original_id,
         concepto_pago=f"Diferencia del pago #{pago_original_id}"
     )
+
+# ===== NUEVA RUTA PARA CORREGIR REPORTES =====
+@app.route('/portal/corregir_reporte/<int:pago_id>', methods=['GET'])
+@portal_login_required
+def portal_corregir_reporte(pago_id):
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión.", 'error')
+        return redirect(url_for('portal_dashboard'))
+    
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM pagos WHERE id = %s AND cliente_id = %s", (pago_id, session['cliente_id']))
+        pago_a_corregir = cur.fetchone()
+
+    if not pago_a_corregir or pago_a_corregir['estado_reporte'] != 'Inconsistente':
+        flash('Este reporte no se puede corregir.', 'error')
+        return redirect(url_for('portal_dashboard'))
+    
+    # Reutilizamos la plantilla de reportar pago, pasándole los datos del pago a corregir
+    return render_template('portal_reportar_pago.html', 
+                           pago_a_corregir=pago_a_corregir, 
+                           modo_correccion=True,
+                           mes_actual=get_nombre_mes(get_venezuela_current_date().month))
 
 
 @app.route('/portal/pagar_inscripcion', methods=['GET', 'POST'])
@@ -2427,32 +2457,47 @@ def portal_reportar_pago():
         
         try:
             with conn.cursor() as cur:
-                pago_query = """
-                    INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia, monto_bs, 
-                                       estado_pago, cuotas_cubiertas, reportado_por_cliente, estado_reporte, fecha_creacion, detalles_reporte) 
-                    VALUES (%s, %s, 'Cuota', %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, TRUE, 'Pendiente de Revision', %s, %s::jsonb);
-                """
-                fecha_actual_vet = get_venezuela_current_datetime()
-                
+                pago_id_correccion = pago_form.get('pago_id_correccion')
                 detalles_pago = {}
                 if forma_pago == 'Pago Móvil':
                     detalles_pago['telefono_emisor'] = pago_form.get('pago_movil_telefono')
                     detalles_pago['cedula_emisor'] = pago_form.get('pago_movil_cedula')
                 elif forma_pago == 'Binance':
                     detalles_pago['usuario_binance'] = pago_form.get('binance_user')
-
                 detalles_json = json.dumps(detalles_pago) if detalles_pago else None
 
-                cur.execute(pago_query, (session['cliente_id'], pago_form['monto'], forma_pago, pago_form['fecha_pago'], pago_form.get('pago_en'), 
-                                         pago_form.get('por_concepto_de'), pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('tasa_dia'), 
-                                         pago_form.get('monto_bs'), fecha_actual_vet, detalles_json))
-                conn.commit()
-                hora_corte = time(16, 30)
-                if fecha_actual_vet.time() < hora_corte:
-                    flash('✅ ¡Pago reportado a tiempo! Su reporte fue recibido y el recibo podrá generarse el día de hoy una vez sea verificado.', 'success')
+                if pago_id_correccion:
+                    # Lógica de ACTUALIZACIÓN para un pago corregido
+                    update_query = """
+                        UPDATE pagos SET
+                            monto = %s, forma_pago = %s, fecha_pago = %s, pago_en = %s, por_concepto_de = %s, 
+                            referencia = %s, banco = %s, tasa_dia = %s, monto_bs = %s,
+                            estado_reporte = 'Pendiente de Revision', fecha_creacion = %s, detalles_reporte = %s::jsonb
+                        WHERE id = %s AND cliente_id = %s
+                    """
+                    cur.execute(update_query, (
+                        pago_form['monto'], forma_pago, pago_form['fecha_pago'], pago_form.get('pago_en'),
+                        pago_form.get('por_concepto_de'), pago_form.get('referencia'), pago_form.get('banco'),
+                        pago_form.get('tasa_dia'), pago_form.get('monto_bs'),
+                        get_venezuela_current_datetime(), detalles_json,
+                        pago_id_correccion, session['cliente_id']
+                    ))
+                    flash('✅ ¡Reporte corregido y enviado! Será verificado nuevamente.', 'success')
                 else:
-                    proximo_dia = get_proximo_dia_habil(fecha_actual_vet.date())
-                    flash(f'⚠️ ¡Pago reportado fuera de horario! Su reporte fue recibido, pero el recibo podrá generarse a partir del próximo día hábil ({proximo_dia.strftime("%d/%m/%Y")}).', 'warning')
+                    # Lógica de INSERCIÓN para un pago nuevo
+                    pago_query = """
+                        INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia, monto_bs, 
+                                           estado_pago, cuotas_cubiertas, reportado_por_cliente, estado_reporte, fecha_creacion, detalles_reporte) 
+                        VALUES (%s, %s, 'Cuota', %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, TRUE, 'Pendiente de Revision', %s, %s::jsonb);
+                    """
+                    cur.execute(pago_query, (
+                        session['cliente_id'], pago_form['monto'], forma_pago, pago_form['fecha_pago'], pago_form.get('pago_en'), 
+                        pago_form.get('por_concepto_de'), pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('tasa_dia'), 
+                        pago_form.get('monto_bs'), get_venezuela_current_datetime(), detalles_json
+                    ))
+                    flash('✅ ¡Pago reportado! Será verificado por un administrador.', 'success')
+
+                conn.commit()
                 return redirect(url_for('portal_dashboard'))
         except (psycopg2.Error, ValueError, TypeError) as e:
             conn.rollback()
@@ -2673,7 +2718,16 @@ def portal_ver_reporte(pago_id):
     if not pago:
         flash('El reporte de pago solicitado no existe o no tienes permiso para verlo.', 'danger')
         return redirect(url_for('portal_dashboard'))
-    return render_template('ver_reporte.html', pago=pago, is_client_view=True)
+    
+    pago_dict = dict(pago)
+    if pago_dict.get('detalles_reporte'):
+        if isinstance(pago_dict['detalles_reporte'], str):
+            try:
+                pago_dict['detalles_reporte'] = json.loads(pago_dict['detalles_reporte'])
+            except json.JSONDecodeError:
+                pago_dict['detalles_reporte'] = {}
+
+    return render_template('ver_reporte.html', pago=pago_dict, is_client_view=True)
 
 # ===== RUTAS DE ADMINISTRACIÓN (ACTUALIZADAS) =====
 

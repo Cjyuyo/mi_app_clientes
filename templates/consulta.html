@@ -155,11 +155,13 @@
             </div>
 
             <div class="card-footer client-actions bg-light text-center">
-                <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-success btn-sm"><i class="bi bi-cash-coin me-1"></i> Registrar Pago</a>
-                <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#ofertaModal-{{ cliente.id }}"><i class="bi bi-gem me-1"></i> Registrar Oferta</button>
-                <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-secondary btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf-fill me-1"></i> Contrato</a>
-                {% if g.admin and g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}<a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-warning btn-sm"><i class="bi bi-pencil-square me-1"></i> Editar</a>{% endif %}
-                {% if g.admin and g.admin.rol == 'superadmin' %}<form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" class="d-inline" onsubmit="return confirm('ADVERTENCIA: Esta acción eliminará al cliente y TODOS sus registros asociados de forma permanente. ¿Está absolutamente seguro?');"><button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-trash-fill me-1"></i> Eliminar</button></form>{% endif %}
+                <div class="d-flex flex-wrap justify-content-center gap-2">
+                    <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-success btn-sm"><i class="bi bi-cash-coin me-1"></i> Registrar Pago</a>
+                    <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#ofertaModal-{{ cliente.id }}"><i class="bi bi-gem me-1"></i> Registrar Oferta</button>
+                    <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-secondary btn-sm" target="_blank"><i class="bi bi-file-earmark-pdf-fill me-1"></i> Contrato</a>
+                    {% if g.admin and g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}<a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-warning btn-sm"><i class="bi bi-pencil-square me-1"></i> Editar</a>{% endif %}
+                    {% if g.admin and g.admin.rol == 'superadmin' %}<form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" class="d-inline" onsubmit="return confirm('ADVERTENCIA: Esta acción eliminará al cliente y TODOS sus registros asociados de forma permanente. ¿Está absolutamente seguro?');"><button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-trash-fill me-1"></i> Eliminar</button></form>{% endif %}
+                </div>
             </div>
         </div>
 

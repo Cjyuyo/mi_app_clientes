@@ -1,7 +1,7 @@
 {% extends 'base_sidebar.html' %}
 
 {% block title %}
-    Reportar Pago
+    {% if modo_correccion %}Corregir Reporte de Pago{% else %}Reportar Pago{% endif %}
 {% endblock %}
 
 {% block head_extra %}
@@ -27,7 +27,7 @@
     .form-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.5rem; /* Aumentado para más espacio */
+        gap: 1.5rem;
     }
     .form-group label {
         font-weight: 500;
@@ -40,7 +40,7 @@
         margin-top: 1.5rem;
     }
     #pagoMovilFields {
-         display: grid; /* Cambiado para que sea visible por defecto dentro de su contenedor */
+         display: grid;
          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
          gap: 1.5rem;
     }
@@ -51,87 +51,83 @@
 <div class="container-fluid px-0">
     <div class="card shadow-sm">
         <div class="form-header">
-            <h1>Reportar Mi Pago</h1>
+            <h1>{% if modo_correccion %}Corregir Mi Reporte de Pago{% else %}Reportar Mi Pago{% endif %}</h1>
             <p>Para: {{ cliente.nombre_apellido }}</p>
         </div>
 
         <div class="card-body p-4">
-            {% if not inscripcion_completa %}
-                <div class="alert alert-danger">
-                    <h4 class="alert-heading">Inscripción Incompleta</h4>
-                    <p>No puedes reportar pagos de cuotas hasta que el monto total de tu inscripción haya sido cancelado y conciliado por nuestro equipo.</p>
-                </div>
-                <div class="text-end mt-3">
-                    <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Volver al Portal</a>
-                </div>
-            {% else %}
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                                {{ message }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        {% endfor %}
-                    {% endif %}
-                {% endwith %}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
 
-                <div class="alert alert-info d-flex justify-content-between align-items-center">
-                    <span>¿Necesitas los datos para realizar un pago?</span>
-                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#paymentInfoModal">
-                        <i class="bi bi-wallet2 me-1"></i> Ver Datos de Pago
+            {% if modo_correccion and pago_a_corregir.detalles_reporte %}
+            <div class="alert alert-warning">
+                <strong>Motivo de la inconsistencia:</strong> {{ pago_a_corregir.detalles_reporte.motivo }}. Por favor, revisa y corrige los datos a continuación.
+            </div>
+            {% endif %}
+
+            <div class="alert alert-info d-flex justify-content-between align-items-center">
+                <span>¿Necesitas los datos para realizar un pago?</span>
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#paymentInfoModal">
+                    <i class="bi bi-wallet2 me-1"></i> Ver Datos de Pago
+                </button>
+            </div>
+
+            <form action="{{ url_for('portal_reportar_pago') }}" method="POST">
+                {% if modo_correccion %}
+                <input type="hidden" name="pago_id_correccion" value="{{ pago_a_corregir.id }}">
+                {% endif %}
+
+                <div class="section mt-4">
+                    <h3>Detalles del Monto</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="por_concepto_de">Concepto del Pago</label>
+                            <input type="text" id="por_concepto_de" name="por_concepto_de" value="{{ concepto_pago or pago_a_corregir.por_concepto_de or 'Cuota del mes de ' ~ mes_actual }}" class="form-control" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="pago_en">Moneda del Pago</label>
+                            <select id="pago_en" name="pago_en" class="form-select" required>
+                                <option value="Bolívares" {% if pago_a_corregir and pago_a_corregir.pago_en == 'Bolívares' %}selected{% endif %}>Bolívares</option>
+                                <option value="Binance" {% if (pago_a_corregir and pago_a_corregir.pago_en == 'Binance') or (not pago_a_corregir and contrato_en_dolares) %}selected{% endif %}>Binance (USDT)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="monto_usd">Monto del Pago (USD)</label>
+                            <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" value="{{ monto_precargado or (pago_a_corregir.monto if pago_a_corregir else cliente.valor_cuota) | float }}" required {% if monto_precargado %}readonly{% endif %}>
+                        </div>
+                        <div class="form-group" id="tasa_dia_group" style="display: none;">
+                            <label for="tasa_dia">Tasa del Día (BCV)</label>
+                            <input type="number" id="tasa_dia" step="0.01" name="tasa_dia" value="{{ (pago_a_corregir.tasa_dia if pago_a_corregir else tasas_hoy.tasa) if tasas_hoy and tasas_hoy.tasa else '' }}" class="form-control" readonly>
+                        </div>
+                        <div class="form-group" id="monto_bs_group" style="display: none;">
+                            <label for="monto_bs_calculado">Monto en Bs (Calculado)</label>
+                            <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Información de la Transacción</h3>
+                    <div class="form-grid" id="transaction_fields_container">
+                        <!-- Los campos se generan dinámicamente aquí -->
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary" style="background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo);">
+                        <i class="bi bi-send-fill me-2"></i>{% if modo_correccion %}Corregir y Enviar Reporte{% else %}Reportar Mi Pago{% endif %}
                     </button>
                 </div>
-
-                <form action="{{ url_for('portal_reportar_pago') }}" method="POST">
-                    <div class="section mt-4">
-                        <h3>Detalles del Monto</h3>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label for="por_concepto_de">Concepto del Pago</label>
-                                <input type="text" id="por_concepto_de" name="por_concepto_de" value="Cuota del mes de {{ mes_actual }}" class="form-control" readonly>
-                            </div>
-                            <div class="form-group">
-                                <label for="pago_en">Moneda del Pago</label>
-                                <select id="pago_en" name="pago_en" class="form-select" required>
-                                    {% if contrato_en_dolares %}
-                                    <option value="Binance" selected>Binance (USDT)</option>
-                                    {% else %}
-                                    <option value="Bolívares">Bolívares</option>
-                                    <option value="Binance">Binance (USDT)</option>
-                                    {% endif %}
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="monto_usd">Monto del Pago (USD)</label>
-                                <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" value="{{ cliente.valor_cuota | float }}" readonly required>
-                            </div>
-                            <div class="form-group" id="tasa_dia_group" style="display: none;">
-                                <label for="tasa_dia">Tasa del Día (BCV)</label>
-                                <input type="number" id="tasa_dia" step="0.01" name="tasa_dia" value="{{ tasas_hoy.tasa if tasas_hoy and tasas_hoy.tasa else '' }}" class="form-control" readonly>
-                            </div>
-                            <div class="form-group" id="monto_bs_group" style="display: none;">
-                                <label for="monto_bs_calculado">Monto en Bs (Calculado)</label>
-                                <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="section">
-                        <h3>Información de la Transacción</h3>
-                        <div class="form-grid" id="transaction_fields_container">
-                            <!-- Los campos se generan dinámicamente aquí -->
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
-                        <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Cancelar</a>
-                        <button type="submit" class="btn btn-primary" style="background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo);">
-                            <i class="bi bi-send-fill me-2"></i>Reportar Mi Pago
-                        </button>
-                    </div>
-                </form>
-            {% endif %}
+            </form>
         </div>
     </div>
 </div>
@@ -287,6 +283,9 @@
         const pagoMovilTab = new bootstrap.Tab(document.getElementById('pago-movil-tab'));
         const binanceTab = new bootstrap.Tab(document.getElementById('binance-tab'));
 
+        // Datos del pago a corregir (si existen)
+        const pagoACorregir = {{ pago_a_corregir | tojson | safe if pago_a_corregir else 'null' }};
+
         function updateFormLayout() {
             const moneda = pagoEnSelect.value;
             transactionContainer.innerHTML = '';
@@ -303,6 +302,7 @@
                 montoBsGroup.style.display = 'block'; 
 
                 const formaPagoSelect = document.getElementById('forma_pago');
+                if (pagoACorregir) formaPagoSelect.value = pagoACorregir.forma_pago;
                 formaPagoSelect.addEventListener('change', updateBolivaresFields);
                 updateBolivaresFields();
 
@@ -324,7 +324,20 @@
                 formaPagoHiddenInput.value = 'Binance';
                 transactionContainer.appendChild(formaPagoHiddenInput);
             }
-            document.getElementById('fecha_pago').value = new Date().toISOString().split('T')[0];
+            
+            // Pre-llenar datos si estamos en modo corrección
+            if (pagoACorregir) {
+                document.getElementById('fecha_pago').value = pagoACorregir.fecha_pago ? pagoACorregir.fecha_pago.split('T')[0] : new Date().toISOString().split('T')[0];
+                if (document.getElementById('referencia')) document.getElementById('referencia').value = pagoACorregir.referencia || '';
+                if (document.getElementById('banco')) document.getElementById('banco').value = pagoACorregir.banco || '';
+                if (pagoACorregir.detalles_reporte) {
+                    if (document.getElementById('pago_movil_telefono')) document.getElementById('pago_movil_telefono').value = pagoACorregir.detalles_reporte.telefono_emisor || '';
+                    if (document.getElementById('pago_movil_cedula')) document.getElementById('pago_movil_cedula').value = pagoACorregir.detalles_reporte.cedula_emisor || '';
+                    if (document.getElementById('binance_user')) document.getElementById('binance_user').value = pagoACorregir.detalles_reporte.usuario_binance || '';
+                }
+            } else {
+                 document.getElementById('fecha_pago').value = new Date().toISOString().split('T')[0];
+            }
         }
 
         function updateBolivaresFields() {
