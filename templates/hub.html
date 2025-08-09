@@ -58,14 +58,15 @@
     </div>
 
     <!-- Fila de Tarjetas de Métricas (KPIs) -->
+    <!-- CAMBIO: Se usa col-6 para mantener 2 columnas en móvil -->
     <div class="row">
         <!-- Ejemplo: Clientes en Cartera -->
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-6 col-lg-3 mb-4">
             <div class="card kpi-card border-primary shadow-sm h-100">
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col me-2">
-                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Clientes en Cartera</div>
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Clientes</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.clientes_cartera | default('0') }}</div>
                         </div>
                         <div class="col-auto">
@@ -78,12 +79,12 @@
 
         <!-- Ejemplo: Recaudación Mensual (Admin) -->
         {% if g.admin.rol in ['superadmin', 'gerente'] %}
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-6 col-lg-3 mb-4">
             <div class="card kpi-card border-success shadow-sm h-100">
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col me-2">
-                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Recaudado (Mes)</div>
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Recaudado</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">${{ stats.recaudado_mes | default('0.00') }}</div>
                         </div>
                         <div class="col-auto">
@@ -97,12 +98,12 @@
 
         <!-- Ejemplo: Solicitudes Pendientes (Admin) -->
         {% if g.admin.rol in ['superadmin', 'gerente'] %}
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-6 col-lg-3 mb-4">
             <div class="card kpi-card border-warning shadow-sm h-100">
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col me-2">
-                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Solicitudes Pendientes</div>
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Solicitudes</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.solicitudes_pendientes | default('0') }}</div>
                         </div>
                         <div class="col-auto">
@@ -115,7 +116,7 @@
         {% endif %}
 
         <!-- Ejemplo: Tasa BCV (Admin) -->
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-6 col-lg-3 mb-4">
             <div class="card kpi-card border-info shadow-sm h-100">
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
@@ -199,13 +200,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const fetchActiveSessions = async () => {
         try {
-            const response = await fetch("{{ url_for('get_active_sessions') }}"); // Esta es la nueva ruta que debes crear
+            const response = await fetch("{{ url_for('get_active_sessions') }}");
             if (!response.ok) {
                 throw new Error('Network response was not ok');
             }
             const users = await response.json();
-
-            // Limpiar la lista actual
             sessionsList.innerHTML = '';
 
             if (users.length === 0) {
@@ -233,17 +232,13 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error fetching active sessions:', error);
             sessionsList.innerHTML = '<li class="list-group-item text-center text-danger">Error al cargar sesiones.</li>';
         } finally {
-            // Ocultar el spinner después de la primera carga
             if (spinner) {
                 spinner.style.display = 'none';
             }
         }
     };
 
-    // Cargar los datos por primera vez
     fetchActiveSessions();
-
-    // Actualizar cada 2 segundos
     setInterval(fetchActiveSessions, 2000);
 });
 </script>
