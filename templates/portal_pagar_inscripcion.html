@@ -1,106 +1,137 @@
-{% extends 'base_sidebar.html' %}
+{% extends 'base_portal.html' %}
 
 {% block title %}
     Reportar Pago de Inscripción
 {% endblock %}
 
+{% block head_extra %}
+<style>
+    .form-container {
+        background-color: var(--blanco);
+        border-radius: .75rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.07);
+        overflow: hidden;
+    }
+    .form-header {
+        background-color: var(--azul-corporativo);
+        color: var(--blanco);
+        padding: 1.5rem 2rem;
+    }
+    .form-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+    .form-header p { margin: 0; opacity: 0.9; }
+    .section { margin-bottom: 2.5rem; }
+    .section h3 {
+        font-size: 1rem;
+        font-weight: 500;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid var(--borde-sutil);
+        padding-bottom: .75rem;
+        margin-bottom: 1.5rem;
+    }
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+</style>
+{% endblock %}
+
 {% block body %}
-<div class="container-fluid px-0">
-    <!-- Encabezado -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="h3 mb-0 text-gray-800">
-            <i class="bi bi-cash-coin me-2" style="color: var(--azul-corporativo);"></i>
-            Reportar Pago de Inscripción
-        </h2>
-        <span class="text-muted">Cliente: {{ cliente.nombre_apellido }}</span>
+<div class="form-container">
+    <div class="form-header">
+        <h1><i class="bi bi-cash-coin me-2"></i>Reportar Pago de Inscripción</h1>
+        <p>Cliente: {{ cliente.nombre_apellido }}</p>
     </div>
 
-    <div class="card shadow-sm">
-        <div class="card-body p-4">
-            <div class="alert alert-info">
-                <strong>Monto Pendiente de Inscripción:</strong> ${{ "%.2f"|format(monto_restante) }}
-            </div>
-
-            <form action="{{ url_for('portal_pagar_inscripcion') }}" method="POST" id="form-reporte-pago">
-                
-                <h5 class="mb-3">Detalles del Monto y Método</h5>
-                <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <label for="pago_en" class="form-label">Pago realizado en</label>
-                        <select id="pago_en" name="pago_en" class="form-select" required>
-                            <option value="Efectivo USD" selected>Efectivo USD</option>
-                            <option value="Dolar/BCV">Bolívares (Tasa Dólar BCV)</option>
-                            <option value="Euro/BCV">Bolívares (Tasa Euro BCV)</option>
-                            <option value="USDT">USDT (Binance)</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="forma_pago" class="form-label">Forma de Pago</label>
-                        <select id="forma_pago" name="forma_pago" class="form-select" required>
-                            <option value="" selected disabled>Seleccione...</option>
-                            <option value="Efectivo">Efectivo</option>
-                            <option value="Transferencia Bancaria">Transferencia Bancaria</option>
-                            <option value="Pago Movil">Pago Móvil</option>
-                            <option value="Binance">Binance</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="monto_usd" class="form-label">Monto del Pago (USD)</label>
-                        <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" required>
-                    </div>
-                    <div class="col-md-6" id="monto_bs_group" style="display: none;">
-                        <label for="monto_bs_calculado" class="form-label">Monto en Bs (Calculado)</label>
-                        <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
-                        <input type="hidden" id="tasa_dia" name="tasa_dia">
-                    </div>
-                </div>
-
-                <h5 class="mb-3">Información Adicional</h5>
-                <div class="row g-3">
-                    <div class="col-md-6" id="banco_group" style="display: none;">
-                        <label for="banco" class="form-label">Banco</label>
-                        <select id="banco" name="banco" class="form-select">
-                            <option value="">Seleccione un banco...</option>
-                            <option value="0102 - Banco de Venezuela S.A.C.A.">0102 - Banco de Venezuela</option>
-                            <option value="0105 - Mercantil Banco Universal C.A.">0105 - Mercantil</option>
-                            <option value="0108 - BBVA Banco Provincial">0108 - BBVA Provincial</option>
-                            <option value="0134 - Banesco Banco Universal C.A.">0134 - Banesco</option>
-                            <option value="0151 - BFC Banco Fondo Común C.A.">0151 - BFC</option>
-                            <option value="0172 - Bancamiga Banco Universal C.A.">0172 - Bancamiga</option>
-                            <option value="0191 - Banco Nacional de Crédito (BNC)">0191 - BNC</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6" id="referencia_group" style="display: none;">
-                        <label for="referencia" class="form-label">N° de Referencia</label>
-                        <input type="text" id="referencia" name="referencia" class="form-control">
-                    </div>
-                    <div class="col-md-6">
-                        <label for="fecha_pago" class="form-label">Fecha del Pago</label>
-                        <input type="date" id="fecha_pago" name="fecha_pago" class="form-control" required>
-                    </div>
-                    <div class="col-12">
-                        <input type="hidden" name="tipo_pago" value="Inscripción">
-                        <input type="hidden" name="por_concepto_de" value="Pago de Inscripción">
-                    </div>
-                </div>
-
-                <hr class="my-4">
-                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                    <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Cancelar</a>
-                    <button type="submit" class="btn btn-primary" style="background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo);">
-                        <i class="bi bi-send-fill me-2"></i> Reportar Pago
-                    </button>
-                </div>
-            </form>
+    <form action="{{ url_for('portal_pagar_inscripcion') }}" method="POST" id="form-reporte-pago" class="p-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="alert alert-info">
+            <strong>Monto Pendiente de Inscripción:</strong> ${{ "%.2f"|format(monto_restante) }}
         </div>
-    </div>
+
+        <div class="section">
+            <h3>Detalles del Monto y Método</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="pago_en" class="form-label">Pago realizado en</label>
+                    <select id="pago_en" name="pago_en" class="form-select" required>
+                        <option value="Efectivo USD" selected>Efectivo USD</option>
+                        <option value="Dolar/BCV">Bolívares (Tasa Dólar BCV)</option>
+                        <option value="Euro/BCV">Bolívares (Tasa Euro BCV)</option>
+                        <option value="USDT">USDT (Binance)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="forma_pago" class="form-label">Forma de Pago</label>
+                    <select id="forma_pago" name="forma_pago" class="form-select" required>
+                        <option value="" selected disabled>Seleccione...</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+                        <option value="Pago Movil">Pago Móvil</option>
+                        <option value="Binance">Binance</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="monto_usd" class="form-label">Monto del Pago (USD)</label>
+                    <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" required>
+                </div>
+                <div class="form-group" id="monto_bs_group" style="display: none;">
+                    <label for="monto_bs_calculado" class="form-label">Monto en Bs (Calculado)</label>
+                    <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
+                    <input type="hidden" id="tasa_dia" name="tasa_dia">
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Información Adicional</h3>
+            <div class="form-grid">
+                <div class="form-group" id="banco_group" style="display: none;">
+                    <label for="banco" class="form-label">Banco</label>
+                    <select id="banco" name="banco" class="form-select">
+                        <option value="">Seleccione un banco...</option>
+                        <option value="0102 - Banco de Venezuela S.A.C.A.">0102 - Banco de Venezuela</option>
+                        <option value="0105 - Mercantil Banco Universal C.A.">0105 - Mercantil</option>
+                        <option value="0108 - BBVA Banco Provincial">0108 - BBVA Provincial</option>
+                        <option value="0134 - Banesco Banco Universal C.A.">0134 - Banesco</option>
+                        <option value="0151 - BFC Banco Fondo Común C.A.">0151 - BFC</option>
+                        <option value="0172 - Bancamiga Banco Universal C.A.">0172 - Bancamiga</option>
+                        <option value="0191 - Banco Nacional de Crédito (BNC)">0191 - BNC</option>
+                    </select>
+                </div>
+                <div class="form-group" id="referencia_group" style="display: none;">
+                    <label for="referencia" class="form-label">N° de Referencia</label>
+                    <input type="text" id="referencia" name="referencia" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="fecha_pago" class="form-label">Fecha del Pago</label>
+                    <input type="date" id="fecha_pago" name="fecha_pago" class="form-control" required>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+            <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary" style="background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo);">
+                <i class="bi bi-send-fill me-2"></i> Reportar Pago
+            </button>
+        </div>
+    </form>
 </div>
 {% endblock %}
 
 {% block scripts_extra %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Nota: Asegúrate de que la ruta en tu app.py pase las tasas_hoy a esta plantilla.
     const tasaUsd = {{ tasas_hoy.tasa|float if tasas_hoy and tasas_hoy.tasa else 'null' }};
     const tasaEur = {{ tasas_hoy.tasa_euro|float if tasas_hoy and tasas_hoy.tasa_euro else 'null' }};
     
@@ -132,9 +163,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (pagoEnValue === 'Dolar/BCV') {
             tasaDiaInput.value = tasaUsd || '';
+            if (!tasaUsd) alert('No se pudo cargar la tasa de cambio para hoy. El cálculo en Bs no funcionará.');
             montoBsGroup.style.display = 'block';
         } else if (pagoEnValue === 'Euro/BCV') {
             tasaDiaInput.value = tasaEur || '';
+            if (!tasaEur) alert('No se pudo cargar la tasa de cambio para hoy. El cálculo en Bs no funcionará.');
             montoBsGroup.style.display = 'block';
         }
         calcularMontoBs();

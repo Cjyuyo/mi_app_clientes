@@ -2399,7 +2399,6 @@ def portal_corregir_reporte(pago_id):
 @app.route('/portal/pagar_inscripcion', methods=['GET', 'POST'])
 @portal_login_required
 def portal_pagar_inscripcion():
-    # Esta es una implementación básica. Podría ser más compleja con pasarelas de pago.
     conn = get_db()
     if not conn:
         flash('No se pudo conectar con la base de datos.', 'error')
@@ -2408,6 +2407,11 @@ def portal_pagar_inscripcion():
     with conn.cursor() as cur:
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
         cliente = cur.fetchone()
+        
+        # Obtener la tasa del día
+        today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
+        cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
+        tasas_hoy = cur.fetchone()
 
     if not cliente:
         session.clear()
@@ -2427,12 +2431,12 @@ def portal_pagar_inscripcion():
         pago_form = {k: v if v else None for k, v in request.form.items()}
         if not all(pago_form.get(key) for key in ['monto', 'fecha_pago']):
             flash('Error: Monto y fecha de pago son campos obligatorios.', 'error')
-            return render_template('portal_pagar_inscripcion.html', cliente=cliente, monto_restante=monto_restante)
+            return render_template('portal_pagar_inscripcion.html', cliente=cliente, monto_restante=monto_restante, tasas_hoy=tasas_hoy)
 
         forma_pago = pago_form.get('forma_pago')
         if forma_pago != 'Efectivo' and not pago_form.get('referencia'):
             flash('Error: La referencia es obligatoria para este método de pago.', 'error')
-            return render_template('portal_pagar_inscripcion.html', cliente=cliente, monto_restante=monto_restante)
+            return render_template('portal_pagar_inscripcion.html', cliente=cliente, monto_restante=monto_restante, tasas_hoy=tasas_hoy)
 
         try:
             with conn.cursor() as cur:
@@ -2461,7 +2465,7 @@ def portal_pagar_inscripcion():
             conn.rollback()
             flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
 
-    return render_template('portal_pagar_inscripcion.html', cliente=cliente, monto_restante=monto_restante)
+    return render_template('portal_pagar_inscripcion.html', cliente=cliente, monto_restante=monto_restante, tasas_hoy=tasas_hoy)
 
 
 @app.route('/portal/reportar_pago', methods=['GET', 'POST'])
@@ -2478,7 +2482,7 @@ def portal_reportar_pago():
         
         # Obtener la tasa del día
         today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
-        cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
+        cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
         tasas_hoy = cur.fetchone()
         
     if not cliente:
@@ -2877,4 +2881,4 @@ def procesar_reporte(pago_id):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=True

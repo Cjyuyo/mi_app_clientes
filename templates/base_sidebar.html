@@ -13,24 +13,24 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 
     <style>
-        /* --- GUÍA DE ESTILO MAESTRA --- */
+        /* --- GUÍA DE ESTILO MAESTRA (TEMA OSCURO) --- */
         :root {
             --azul-corporativo: #1E293B;
             --azul-hover: #334155;
-            --azul-claro: #F1F5F9;
             --naranja-corporativo: #F97316;
-            --gris-fondo: #F8FAFC;
+            --gris-fondo: #0F172A; /* Fondo principal oscuro */
             --blanco: #FFFFFF;
             --texto-claro: #94A3B8;
-            --texto-oscuro: #0F172A;
+            --texto-oscuro-en-claro: #0F172A; /* Texto oscuro para fondos claros (modal) */
             --texto-blanco: #E2E8F0;
-            --borde-sutil: #E2E8F0;
+            --borde-sutil: #334155; /* Borde más oscuro */
         }
 
         /* --- ESTILOS GLOBALES --- */
         body {
             font-family: 'Roboto', sans-serif;
             background-color: var(--gris-fondo);
+            color: var(--texto-blanco);
         }
 
         /* --- ESTRUCTURA PRINCIPAL --- */
@@ -47,11 +47,12 @@
             background: var(--azul-corporativo);
             color: var(--texto-blanco);
             transition: all 0.3s;
+            border-right: 1px solid var(--borde-sutil);
         }
         .sidebar-header { 
             padding: 1.25rem; 
             text-align: center; 
-            border-bottom: 1px solid var(--azul-hover);
+            border-bottom: 1px solid var(--borde-sutil);
         }
         .sidebar-header h3 { 
             font-weight: 700; 
@@ -62,7 +63,7 @@
         #sidebar-nav {
             display: flex;
             flex-direction: column;
-            height: calc(100% - 70px); /* Ajustar altura para footer */
+            height: calc(100% - 70px);
         }
         #sidebar-nav .components { 
             padding: 1rem 0;
@@ -115,12 +116,7 @@
         }
         .sidebar-footer {
             padding: 1rem;
-            border-top: 1px solid var(--azul-hover);
-        }
-        .user-profile {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            border-top: 1px solid var(--borde-sutil);
         }
         .user-profile i { font-size: 1.8rem; }
         .user-info .username { font-weight: 500; color: var(--blanco); font-size: 0.9rem; }
@@ -134,26 +130,35 @@
             transition: all 0.3s;
         }
         .topbar { 
-            background: var(--blanco); 
+            background: var(--azul-corporativo); 
             border: 1px solid var(--borde-sutil);
             border-radius: .75rem; 
             padding: 12px 25px; 
             margin-bottom: 25px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
         }
-        .btn-toggle-sidebar { border: none; }
-        .btn-toggle-sidebar:focus { box-shadow: none; }
+        .btn-toggle-sidebar i { color: var(--texto-blanco) !important; }
+        .main-content-area {
+            padding: 0;
+        }
 
         /* --- RESPONSIVE: COMPORTAMIENTO EN CELULAR --- */
         @media (max-width: 768px) {
             #sidebar {
-                margin-left: -260px; /* Oculto por defecto */
+                margin-left: -260px;
+                position: fixed;
+                top: 0;
+                bottom: 0;
+                z-index: 1050;
             }
             #sidebar.active {
-                margin-left: 0; /* Visible cuando tiene la clase 'active' */
+                margin-left: 0;
+            }
+            #content {
+                padding: 1rem;
             }
             .topbar {
-                /* El botón de toggle ya está en el topbar, no se necesita más */
+                margin-bottom: 1.5rem;
             }
         }
     </style>
@@ -234,17 +239,17 @@
     <!-- Contenido Principal de la Página -->
     <div id="content">
         <!-- Barra de Navegación Superior (Topbar) -->
-        <nav class="navbar navbar-expand-lg navbar-light topbar">
+        <nav class="navbar navbar-expand-lg topbar">
             <div class="container-fluid">
                 <!-- Botón para mostrar el sidebar en móviles -->
                 <button class="btn btn-toggle-sidebar" type="button" id="sidebarCollapse">
-                    <i class="bi bi-list fs-4 text-dark"></i>
+                    <i class="bi bi-list fs-4"></i>
                 </button>
                 
                 <!-- Menú de usuario a la derecha -->
                 <div class="ms-auto d-flex align-items-center">
                     {% if not g.admin %}
-                        <a href="{{ url_for('admin_login') }}" class="btn btn-outline-primary btn-sm">Iniciar Sesión</a>
+                        <a href="{{ url_for('admin_login') }}" class="btn btn-outline-light btn-sm">Iniciar Sesión</a>
                     {% endif %}
                 </div>
             </div>
