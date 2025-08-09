@@ -1,127 +1,163 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reportar Pago de Inscripción - Moto Plan</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --azul-corporativo: #2B3A55;
-            --naranja-corporativo: #F99417;
-            --gris-fondo: #f8f9fa;
-        }
-        body {
-            font-family: 'Roboto', sans-serif;
-            background-color: var(--gris-fondo);
-        }
-        .container-main { max-width: 700px; margin: 2rem auto; }
-        .content-card-header { 
-            background-color: var(--azul-corporativo); 
-            color: white; 
-        }
-        #campos-pago-movil, #campos-binance {
-            display: none;
-        }
-    </style>
-</head>
-<body>
-    <div class="container-main">
-        <div class="card content-card">
-            <div class="card-header content-card-header">
-                <h2 class="h5 mb-0">Reportar Pago de Inscripción</h2>
+{% extends 'base_sidebar.html' %}
+
+{% block title %}
+    Reportar Pago de Inscripción
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid px-0">
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="h3 mb-0 text-gray-800">
+            <i class="bi bi-cash-coin me-2" style="color: var(--azul-corporativo);"></i>
+            Reportar Pago de Inscripción
+        </h2>
+        <span class="text-muted">Cliente: {{ cliente.nombre_apellido }}</span>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-4">
+            <div class="alert alert-info">
+                <strong>Monto Pendiente de Inscripción:</strong> ${{ "%.2f"|format(monto_restante) }}
             </div>
-            <div class="card-body p-4">
-                <div class="alert alert-info">
-                    <strong>Monto Pendiente de Inscripción:</strong> ${{ "%.2f"|format(monto_restante) }}
+
+            <form action="{{ url_for('portal_pagar_inscripcion') }}" method="POST" id="form-reporte-pago">
+                
+                <h5 class="mb-3">Detalles del Monto y Método</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label for="pago_en" class="form-label">Pago realizado en</label>
+                        <select id="pago_en" name="pago_en" class="form-select" required>
+                            <option value="Efectivo USD" selected>Efectivo USD</option>
+                            <option value="Dolar/BCV">Bolívares (Tasa Dólar BCV)</option>
+                            <option value="Euro/BCV">Bolívares (Tasa Euro BCV)</option>
+                            <option value="USDT">USDT (Binance)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="forma_pago" class="form-label">Forma de Pago</label>
+                        <select id="forma_pago" name="forma_pago" class="form-select" required>
+                            <option value="" selected disabled>Seleccione...</option>
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+                            <option value="Pago Movil">Pago Móvil</option>
+                            <option value="Binance">Binance</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="monto_usd" class="form-label">Monto del Pago (USD)</label>
+                        <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" required>
+                    </div>
+                    <div class="col-md-6" id="monto_bs_group" style="display: none;">
+                        <label for="monto_bs_calculado" class="form-label">Monto en Bs (Calculado)</label>
+                        <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
+                        <input type="hidden" id="tasa_dia" name="tasa_dia">
+                    </div>
                 </div>
 
-                <form action="{{ url_for('portal_pagar_inscripcion') }}" method="POST" id="form-reporte-pago">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="monto" class="form-label">Monto Pagado ($)</label>
-                            <input type="number" step="0.01" class="form-control" id="monto" name="monto" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="fecha_pago" class="form-label">Fecha del Pago</label>
-                            <input type="date" class="form-control" id="fecha_pago" name="fecha_pago" required>
-                        </div>
-                        <div class="col-12">
-                            <label for="forma_pago" class="form-label">Forma de Pago</label>
-                            <select class="form-select" id="forma_pago" name="forma_pago" required>
-                                <option value="" selected disabled>Selecciona una opción...</option>
-                                <option value="Efectivo">Efectivo</option>
-                                <option value="Pago Móvil">Pago Móvil</option>
-                                <option value="Binance">Binance</option>
-                                <option value="Transferencia Bancaria">Transferencia Bancaria</option>
-                            </select>
-                        </div>
-                        <div class="col-12" id="campo-referencia">
-                            <label for="referencia" class="form-label">N° de Referencia</label>
-                            <input type="text" class="form-control" id="referencia" name="referencia">
-                        </div>
-                        <div id="campos-pago-movil" class="row g-3 mx-0">
-                            <div class="col-md-6">
-                                <label for="pago_movil_telefono" class="form-label">Teléfono Emisor</label>
-                                <input type="tel" class="form-control" id="pago_movil_telefono" name="pago_movil_telefono">
-                            </div>
-                            <div class="col-md-6">
-                                <label for="pago_movil_cedula" class="form-label">Cédula Emisor</label>
-                                <input type="text" class="form-control" id="pago_movil_cedula" name="pago_movil_cedula">
-                            </div>
-                        </div>
-                        <div id="campos-binance" class="col-12">
-                             <label for="binance_user" class="form-label">Usuario o Email de Binance</label>
-                             <input type="text" class="form-control" id="binance_user" name="binance_user">
-                        </div>
+                <h5 class="mb-3">Información Adicional</h5>
+                <div class="row g-3">
+                    <div class="col-md-6" id="banco_group" style="display: none;">
+                        <label for="banco" class="form-label">Banco</label>
+                        <select id="banco" name="banco" class="form-select">
+                            <option value="">Seleccione un banco...</option>
+                            <option value="0102 - Banco de Venezuela S.A.C.A.">0102 - Banco de Venezuela</option>
+                            <option value="0105 - Mercantil Banco Universal C.A.">0105 - Mercantil</option>
+                            <option value="0108 - BBVA Banco Provincial">0108 - BBVA Provincial</option>
+                            <option value="0134 - Banesco Banco Universal C.A.">0134 - Banesco</option>
+                            <option value="0151 - BFC Banco Fondo Común C.A.">0151 - BFC</option>
+                            <option value="0172 - Bancamiga Banco Universal C.A.">0172 - Bancamiga</option>
+                            <option value="0191 - Banco Nacional de Crédito (BNC)">0191 - BNC</option>
+                        </select>
                     </div>
-                    <hr class="my-4">
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Cancelar</a>
-                        <button type="submit" class="btn btn-primary" style="background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo);">
-                            <i class="bi bi-send-fill"></i> Reportar Pago
-                        </button>
+                    <div class="col-md-6" id="referencia_group" style="display: none;">
+                        <label for="referencia" class="form-label">N° de Referencia</label>
+                        <input type="text" id="referencia" name="referencia" class="form-control">
                     </div>
-                </form>
-            </div>
+                    <div class="col-md-6">
+                        <label for="fecha_pago" class="form-label">Fecha del Pago</label>
+                        <input type="date" id="fecha_pago" name="fecha_pago" class="form-control" required>
+                    </div>
+                    <div class="col-12">
+                        <input type="hidden" name="tipo_pago" value="Inscripción">
+                        <input type="hidden" name="por_concepto_de" value="Pago de Inscripción">
+                    </div>
+                </div>
+
+                <hr class="my-4">
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary" style="background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo);">
+                        <i class="bi bi-send-fill me-2"></i> Reportar Pago
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const formaPagoSelect = document.getElementById('forma_pago');
-            const campoReferencia = document.getElementById('campo-referencia');
-            const camposPagoMovil = document.getElementById('campos-pago-movil');
-            const camposBinance = document.getElementById('campos-binance');
-            const referenciaInput = document.getElementById('referencia');
-            formaPagoSelect.addEventListener('change', function() {
-                const seleccion = this.value;
-                campoReferencia.style.display = 'none';
-                camposPagoMovil.style.display = 'none';
-                camposBinance.style.display = 'none';
-                document.getElementById('pago_movil_telefono').required = false;
-                document.getElementById('pago_movil_cedula').required = false;
-                document.getElementById('binance_user').required = false;
-                if (seleccion === 'Pago Móvil') {
-                    campoReferencia.style.display = 'block';
-                    camposPagoMovil.style.display = 'flex';
-                    referenciaInput.required = true;
-                    document.getElementById('pago_movil_telefono').required = true;
-                    document.getElementById('pago_movil_cedula').required = true;
-                } else if (seleccion === 'Binance') {
-                    campoReferencia.style.display = 'block';
-                    camposBinance.style.display = 'block';
-                    referenciaInput.required = true;
-                    document.getElementById('binance_user').required = true;
-                } else if (seleccion === 'Transferencia Bancaria') {
-                    campoReferencia.style.display = 'block';
-                    referenciaInput.required = true;
-                } else if (seleccion === 'Efectivo') {
-                    referenciaInput.required = false;
-                }
-            });
-        });
-    </script>
-</body>
-</html>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Nota: Asegúrate de que la ruta en tu app.py pase las tasas_hoy a esta plantilla.
+    const tasaUsd = {{ tasas_hoy.tasa|float if tasas_hoy and tasas_hoy.tasa else 'null' }};
+    const tasaEur = {{ tasas_hoy.tasa_euro|float if tasas_hoy and tasas_hoy.tasa_euro else 'null' }};
+    
+    const pagoEnSelect = document.getElementById('pago_en');
+    const formaPagoSelect = document.getElementById('forma_pago');
+    const montoUsdInput = document.getElementById('monto_usd');
+    const tasaDiaInput = document.getElementById('tasa_dia');
+    const montoBsGroup = document.getElementById('monto_bs_group');
+    const montoBsCalculadoInput = document.getElementById('monto_bs_calculado');
+    const referenciaGroup = document.getElementById('referencia_group');
+    const referenciaInput = document.getElementById('referencia');
+    const bancoGroup = document.getElementById('banco_group');
+    const bancoSelect = document.getElementById('banco');
+
+    function calcularMontoBs() {
+        const montoUsd = parseFloat(montoUsdInput.value) || 0;
+        const tasaDia = parseFloat(tasaDiaInput.value) || 0;
+        if (montoUsd > 0 && tasaDia > 0) {
+            montoBsCalculadoInput.value = (montoUsd * tasaDia).toFixed(2);
+        } else {
+            montoBsCalculadoInput.value = '';
+        }
+    }
+
+    function handlePagoEnChange() {
+        const pagoEnValue = pagoEnSelect.value;
+        tasaDiaInput.value = '';
+        montoBsGroup.style.display = 'none';
+        
+        if (pagoEnValue === 'Dolar/BCV') {
+            tasaDiaInput.value = tasaUsd || '';
+            montoBsGroup.style.display = 'block';
+        } else if (pagoEnValue === 'Euro/BCV') {
+            tasaDiaInput.value = tasaEur || '';
+            montoBsGroup.style.display = 'block';
+        }
+        calcularMontoBs();
+    }
+
+    function toggleFieldsByFormaPago() {
+        const formaPagoValue = formaPagoSelect.value;
+        const isEfectivo = formaPagoValue === 'Efectivo';
+        
+        referenciaGroup.style.display = isEfectivo ? 'none' : 'block';
+        referenciaInput.required = !isEfectivo;
+
+        bancoGroup.style.display = (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil') ? 'block' : 'none';
+        bancoSelect.required = (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil');
+    }
+
+    pagoEnSelect.addEventListener('change', handlePagoEnChange);
+    formaPagoSelect.addEventListener('change', toggleFieldsByFormaPago);
+    montoUsdInput.addEventListener('input', calcularMontoBs);
+    
+    // Inicializar vistas
+    handlePagoEnChange();
+    toggleFieldsByFormaPago();
+});
+</script>
+{% endblock %}

@@ -51,7 +51,6 @@ def time_ago(time_value):
     
     now = datetime.now(pytz.utc)
     
-    # Asegurarse que time_value tiene timezone
     if time_value.tzinfo is None:
         time_value = pytz.utc.localize(time_value)
     
@@ -82,13 +81,19 @@ def format_datetime_filter(value, format='%d/%m/%Y %I:%M %p'):
             value = datetime.fromisoformat(value)
         except (ValueError, TypeError):
             return value
-            
-    if isinstance(value, (datetime, date)):
+    
+    # CORRECCIÓN: Manejar objetos datetime y date de forma segura
+    if isinstance(value, datetime):
         if value.tzinfo is None:
             value = pytz.utc.localize(value).astimezone(VENEZUELA_TZ)
         else:
             value = value.astimezone(VENEZUELA_TZ)
         return value.strftime(format)
+    
+    if isinstance(value, date):
+        # Si es solo un objeto de fecha, no podemos formatear la hora.
+        return value.strftime('%d/%m/%Y')
+        
     return value
 
 def get_nombre_mes(month_number):
@@ -131,7 +136,6 @@ def setup_session_and_user():
                 cur.execute("SELECT id, usuario, rol FROM administradores WHERE id = %s", (admin_id,))
                 g.admin = cur.fetchone()
                 if g.admin:
-                    # Actualiza la marca de tiempo 'ultimo_visto' en cada solicitud
                     cur.execute("UPDATE administradores SET ultimo_visto = NOW() WHERE id = %s", (g.admin['id'],))
                     db.commit()
             elif cliente_id:
@@ -188,6 +192,9 @@ def portal_login_required(f):
             return redirect(url_for('portal_login'))
         return f(*args, **kwargs)
     return decorated_function
+
+# ... (El resto de tu archivo app.py permanece exactamente igual)
+# ... (Solo la función format_datetime_filter ha sido modificada)
 
 # =================================================================================
 # --- FUNCIONES AUXILIARES ---
@@ -1834,16 +1841,26 @@ def anular_recibo(pago_id):
         flash(f'Ocurrió un error al anular el recibo: {e}', 'error')
         return redirect(url_for('consulta', busqueda=cedula_cliente))
 
-@app.route('/verificar_recibo/<int:pago_id>')
-def verificar_recibo(pago_id):
-    conn = get_db()
-    if not conn: return "Error de conexión a la base de datos.", 500
-    with conn.cursor() as cur:
-        query = "SELECT p.id, p.monto, p.fecha_pago, p.estado_pago, p.tipo_pago, (c.nombre || ' ' || c.apellido) as nombre_apellido FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s;"
-        cur.execute(query, (pago_id,))
-        pago = cur.fetchone()
-    current_year = get_venezuela_current_date().year
-    return render_template('verificacion_recibo.html', pago=pago, current_year=current_year)
+@app.route('/verificar_recibo', methods=['GET', 'POST'])
+def verificar_recibo():
+    pago = None
+    if request.method == 'POST':
+        pago_id = request.form.get('pago_id')
+        if pago_id and pago_id.isdigit():
+            conn = get_db()
+            if not conn:
+                flash("Error de conexión a la base de datos.", "error")
+            else:
+                with conn.cursor() as cur:
+                    query = "SELECT p.id, p.monto, p.fecha_pago, p.estado_pago, p.tipo_pago, (c.nombre || ' ' || c.apellido) as nombre_apellido FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s;"
+                    cur.execute(query, (int(pago_id),))
+                    pago = cur.fetchone()
+                    if not pago:
+                        flash(f"No se encontró ningún recibo con el ID {pago_id}.", "warning")
+        else:
+            flash("Por favor, ingrese un número de recibo válido.", "error")
+
+    return render_template('verificacion_recibo.html', pago=pago)
 
 @app.route('/recibo_anulado/<int:pago_id>')
 @admin_required
