@@ -44,6 +44,36 @@ def get_proximo_dia_habil(fecha):
         proximo_dia += timedelta(days=1)
     return proximo_dia
 
+def time_ago(time_value):
+    """Convierte un datetime a un formato legible 'hace X tiempo'."""
+    if not time_value:
+        return "Nunca"
+    
+    now = datetime.now(pytz.utc)
+    
+    # Asegurarse que time_value tiene timezone
+    if time_value.tzinfo is None:
+        time_value = pytz.utc.localize(time_value)
+    
+    diff = now - time_value
+    
+    seconds = diff.total_seconds()
+    minutes = seconds / 60
+    hours = minutes / 60
+    days = hours / 24
+
+    if seconds < 10:
+        return "justo ahora"
+    if seconds < 60:
+        return f"hace {int(seconds)} segundos"
+    elif minutes < 60:
+        return f"hace {int(minutes)} minuto{'s' if int(minutes) > 1 else ''}"
+    elif hours < 24:
+        return f"hace {int(hours)} hora{'s' if int(hours) > 1 else ''}"
+    else:
+        return f"hace {int(days)} día{'s' if int(days) > 1 else ''}"
+
+
 @app.template_filter('format_datetime')
 def format_datetime_filter(value, format='%d/%m/%Y %I:%M %p'):
     """Filtro de Jinja para formatear fechas y horas a la zona horaria de Venezuela."""
@@ -101,6 +131,7 @@ def setup_session_and_user():
                 cur.execute("SELECT id, usuario, rol FROM administradores WHERE id = %s", (admin_id,))
                 g.admin = cur.fetchone()
                 if g.admin:
+                    # Actualiza la marca de tiempo 'ultimo_visto' en cada solicitud
                     cur.execute("UPDATE administradores SET ultimo_visto = NOW() WHERE id = %s", (g.admin['id'],))
                     db.commit()
             elif cliente_id:
@@ -356,16 +387,77 @@ def home():
 @app.route('/hub')
 @admin_required
 def hub():
+    stats = {
+        'clientes_cartera': 0,
+        'recaudado_mes': Decimal('0.0'),
+        'solicitudes_pendientes': 0,
+        'pagos_pendientes': 0,
+        'tasa_bcv': 'N/A'
+    }
     conn = get_db()
-    usuarios = []
     if conn:
+        try:
+            with conn.cursor() as cur:
+                # Clientes en cartera del asesor actual
+                cur.execute("SELECT COUNT(*) FROM clientes WHERE gestor_id = %s", (g.admin['id'],))
+                stats['clientes_cartera'] = cur.fetchone()[0]
+
+                # Recaudado en el mes (solo para admin/gerente)
+                if g.admin['rol'] in ['superadmin', 'gerente']:
+                    first_day_of_month = get_venezuela_current_date().replace(day=1)
+                    cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
+                    stats['recaudado_mes'] = cur.fetchone()[0]
+
+                # Solicitudes pendientes (admin/gerente)
+                if g.admin['rol'] in ['superadmin', 'gerente']:
+                    cur.execute("SELECT COUNT(*) FROM solicitudes WHERE estado = 'Pendiente'")
+                    stats['solicitudes_pendientes'] = cur.fetchone()[0]
+
+                # Pagos por conciliar (admin/gerente/administradora)
+                if g.admin['rol'] in ['superadmin', 'gerente', 'administradora']:
+                    cur.execute("SELECT COUNT(*) FROM pagos WHERE estado_pago = 'Pendiente' AND (estado_reporte IS NULL OR estado_reporte != 'Inconsistente')")
+                    stats['pagos_pendientes'] = cur.fetchone()[0]
+
+                # Tasa BCV
+                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
+                tasa_row = cur.fetchone()
+                if tasa_row and tasa_row['tasa']:
+                    stats['tasa_bcv'] = f"{tasa_row['tasa']:,.2f} Bs"
+        except psycopg2.Error as e:
+            logging.error(f"Error al calcular estadísticas para el HUB: {e}")
+            flash("No se pudieron cargar todas las estadísticas del panel.", "warning")
+
+    return render_template('hub.html', stats=stats)
+
+@app.route('/api/get_active_sessions')
+@admin_required
+def get_active_sessions():
+    conn = get_db()
+    if not conn:
+        return jsonify([])
+
+    users_list = []
+    try:
         with conn.cursor() as cur:
+            # Un usuario se considera en línea si su última actividad fue en los últimos 2 minutos.
             cur.execute("""
-                SELECT usuario, ultimo_login, (estatus_online AND ultimo_visto > NOW() - INTERVAL '5 minutes') AS esta_en_linea
+                SELECT usuario, ultimo_visto, 
+                       (ultimo_visto > NOW() - INTERVAL '2 minutes') AS is_online
                 FROM administradores ORDER BY usuario
             """)
-            usuarios = cur.fetchall()
-    return render_template('hub.html', anio_actual=get_venezuela_current_date().year, usuarios=usuarios)
+            usuarios_db = cur.fetchall()
+            for user in usuarios_db:
+                users_list.append({
+                    "username": user['usuario'],
+                    "is_online": user['is_online'],
+                    "last_seen": time_ago(user['ultimo_visto'])
+                })
+    except psycopg2.Error as e:
+        logging.error(f"Error en API get_active_sessions: {e}")
+        return jsonify({"error": "Database error"}), 500
+        
+    return jsonify(users_list)
+
 
 # =================================================================================
 # ===== INICIO: RUTAS PARA HUB DE ASESOR Y GESTIÓN DE CITAS (NUEVO) =====
