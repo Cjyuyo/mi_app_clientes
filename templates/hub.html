@@ -175,7 +175,7 @@
         .kpi-card .kpi-icon {
             font-size: 2.5rem;
             padding: 1rem;
-            border-radius: 50%;
+            border-radius: .75rem; /* <-- CAMBIO: De 50% a .75rem para que no sea un óvalo */
             color: var(--blanco);
             display: inline-block;
             margin-bottom: 1rem;
@@ -455,7 +455,7 @@
                     {% if g.admin.rol in ['superadmin', 'gerente'] %}
                     <div class="col-lg-3 col-md-6 col-6">
                         <div class="card kpi-card">
-                            <div class="kpi-icon" style="background-color: #198754;"><i class="bi bi-cash-coin"></i></div>
+                            <div class="kpi-icon" style="background-color: #198754;"><i class="bi bi-wallet2"></i></div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Recaudado</div>
                                 <div class="kpi-value">${{ stats.recaudado_mes | default('0') }}</div>
@@ -466,7 +466,7 @@
                     {% if g.admin.rol in ['superadmin', 'gerente'] %}
                     <div class="col-lg-3 col-md-6 col-6">
                         <div class="card kpi-card">
-                            <div class="kpi-icon" style="background-color: var(--color-naranja);"><i class="bi bi-journal-check"></i></div>
+                            <div class="kpi-icon" style="background-color: var(--color-naranja);"><i class="bi bi-clipboard2-check-fill"></i></div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Solicitudes</div>
                                 <div class="kpi-value">{{ stats.solicitudes_pendientes | default('0') }}</div>
