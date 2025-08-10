@@ -4,6 +4,27 @@
 
 {% block head_extra %}
 <style>
+    /* --- ESTILOS RESTAURADOS DEL HUB ORIGINAL --- */
+    .main-header {
+        position: relative;
+        overflow: hidden;
+        background-color: #f8fafc;
+        padding: 2rem;
+        border-radius: .75rem;
+        border: 1px solid var(--card-borde);
+        margin-bottom: 2rem;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .main-header h1 {
+        font-weight: 800;
+        font-size: 2.2rem;
+        color: var(--texto-principal);
+    }
+    .main-header .lead {
+        color: var(--texto-secundario);
+        font-size: 1.1rem;
+        max-width: 80%;
+    }
     .kpi-card {
         padding: 1.25rem;
         display: flex;
@@ -31,6 +52,7 @@
         color: var(--texto-principal);
         font-size: 1.8rem;
         font-weight: 700;
+        line-height: 1.2;
     }
     .kpi-icon-wrapper.bg-blue { background-color: #e0f2fe; color: #0ea5e9; }
     .kpi-icon-wrapper.bg-green { background-color: #dcfce7; color: #22c55e; }
@@ -46,84 +68,164 @@
         transition: all 0.2s ease-in-out;
         text-decoration: none;
         height: 100%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
     }
     .action-card:hover {
         transform: translateY(-5px);
+        border-color: var(--color-primario);
         box-shadow: 0 4px 10px rgba(0,0,0,0.08);
     }
     .action-card .action-icon-inner {
         font-size: 2.5rem;
         margin-bottom: 1rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 70px;
-        height: 70px;
-        border-radius: .75rem; /* CUADRADO REDONDEADO */
-        background-color: #f3f4f6;
+        display: inline-block;
+        padding: 1.25rem;
+        border-radius: 50%; /* Óvalos originales */
+        background-color: var(--content-bg);
     }
-    .action-card .action-title { font-weight: 700; font-size: 1.1rem; }
-    .action-card .action-desc { font-size: 0.9rem; color: var(--texto-secundario); }
-    
-    .main-header {
-        padding: 2rem;
-        border-radius: .75rem;
-        border: 1px solid var(--card-borde);
-        margin-bottom: 2rem;
+    .action-card .action-title {
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: var(--texto-principal);
     }
-    
+    .action-card .action-desc {
+        font-size: 0.9rem;
+        color: var(--texto-secundario);
+    }
+    .online-dot {
+        height: 10px;
+        width: 10px;
+        background-color: #28a745;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.75rem;
+    }
+    .list-group-item {
+        background-color: transparent;
+        color: var(--texto-principal);
+        border-color: var(--card-borde);
+    }
     @media (max-width: 768px) {
-        .action-card .action-desc { display: none; }
-        .action-card .action-title { font-size: 0.9rem; }
-        .action-card .action-icon-inner { width: 60px; height: 60px; font-size: 2rem; }
+        .action-card .action-desc {
+            display: none;
+        }
     }
 </style>
 {% endblock %}
 
 {% block body %}
 <div class="container-fluid px-0">
-    <div class="card main-header">
+    <div class="main-header mb-4">
         <h1>Panel de Control</h1>
-        <p class="lead mb-0">Bienvenido, <strong>{{ g.admin.usuario }}</strong>. Aquí tienes un resumen de la actividad.</p>
+        <p class="lead mb-0">Bienvenido de nuevo, <strong>{{ g.admin.usuario }}</strong>. Aquí tienes un resumen de la actividad de hoy.</p>
     </div>
     
+    <!-- INICIO: Fila de KPIs Rediseñada -->
     <div class="row">
-        <div class="col-12 col-sm-6 col-lg-3 mb-4">
-            <div class="card kpi-card h-100"><div class="kpi-icon-wrapper bg-blue"><i class="bi bi-people-fill"></i></div><div class="kpi-content"><div class="kpi-title">Clientes</div><div class="kpi-value">{{ stats.clientes_cartera | default('0') }}</div></div></div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card kpi-card h-100">
+                <div class="kpi-icon-wrapper bg-blue">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-title">Clientes</div>
+                    <div class="kpi-value">{{ stats.clientes_cartera | default('0') }}</div>
+                </div>
+            </div>
         </div>
-        <div class="col-12 col-sm-6 col-lg-3 mb-4">
-            <div class="card kpi-card h-100"><div class="kpi-icon-wrapper bg-green"><i class="bi bi-cash-stack"></i></div><div class="kpi-content"><div class="kpi-title">Recaudado</div><div class="kpi-value">${{ "%.2f"|format(stats.recaudado_mes) if stats.recaudado_mes is not none else '0.00' }}</div></div></div>
+        {% if g.admin.rol in ['superadmin', 'gerente'] %}
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card kpi-card h-100">
+                <div class="kpi-icon-wrapper bg-green">
+                    <i class="bi bi-cash-stack"></i>
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-title">Recaudado</div>
+                    <div class="kpi-value">${{ "%.2f"|format(stats.recaudado_mes) if stats.recaudado_mes is not none else '0.00' }}</div>
+                </div>
+            </div>
         </div>
-        <div class="col-12 col-sm-6 col-lg-3 mb-4">
-            <div class="card kpi-card h-100"><div class="kpi-icon-wrapper bg-orange"><i class="bi bi-clipboard2-check-fill"></i></div><div class="kpi-content"><div class="kpi-title">Solicitudes</div><div class="kpi-value">{{ stats.solicitudes_pendientes | default('0') }}</div></div></div>
+        {% endif %}
+        {% if g.admin.rol in ['superadmin', 'gerente'] %}
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card kpi-card h-100">
+                 <div class="kpi-icon-wrapper bg-orange">
+                    <i class="bi bi-clipboard2-check-fill"></i>
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-title">Solicitudes</div>
+                    <div class="kpi-value">{{ stats.solicitudes_pendientes | default('0') }}</div>
+                </div>
+            </div>
         </div>
-        <div class="col-12 col-sm-6 col-lg-3 mb-4">
-            <div class="card kpi-card h-100"><div class="kpi-icon-wrapper bg-purple"><i class="bi bi-graph-up-arrow"></i></div><div class="kpi-content"><div class="kpi-title">Tasa BCV</div><div class="kpi-value">{{ stats.tasa_bcv | default('N/A') }}</div></div></div>
+        {% endif %}
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card kpi-card h-100">
+                <div class="kpi-icon-wrapper bg-purple">
+                    <i class="bi bi-graph-up-arrow"></i>
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-title">Tasa BCV</div>
+                    <div class="kpi-value">{{ stats.tasa_bcv | default('N/A') }}</div>
+                </div>
+            </div>
         </div>
     </div>
+    <!-- FIN: Fila de KPIs Rediseñada -->
 
+    <!-- Fila de Contenido Principal -->
     <div class="row">
         <div class="col-lg-8 mb-4 mb-lg-0">
             <div class="card h-100">
-                <div class="card-header"><h6><i class="bi bi-lightning-charge-fill me-2"></i>Accesos Rápidos</h6></div>
+                <div class="card-header">
+                    <h6><i class="bi bi-lightning-charge-fill me-2" style="color: var(--color-primario);"></i>Accesos Rápidos</h6>
+                </div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-6"><a href="{{ url_for('registrar') }}" class="action-card"><span class="action-icon-inner"><i class="bi bi-person-plus-fill"></i></span><div class="action-title">Registrar</div><p class="action-desc d-none d-md-block">Crea un nuevo perfil.</p></a></div>
-                        <div class="col-6"><a href="{{ url_for('consulta') }}" class="action-card"><span class="action-icon-inner"><i class="bi bi-search"></i></span><div class="action-title">Consultar</div><p class="action-desc d-none d-md-block">Busca y gestiona.</p></a></div>
-                        <div class="col-6"><a href="{{ url_for('pagos_por_conciliar') }}" class="action-card"><span class="action-icon-inner"><i class="bi bi-patch-check-fill"></i></span><div class="action-title">Conciliar</div><p class="action-desc d-none d-md-block">Verifica los pagos.</p></a></div>
-                        <div class="col-6"><a href="{{ url_for('reporte_morosidad') }}" class="action-card"><span class="action-icon-inner"><i class="bi bi-file-earmark-excel-fill"></i></span><div class="action-title">Morosidad</div><p class="action-desc d-none d-md-block">Genera el listado.</p></a></div>
+                        <div class="col-12 col-md-3">
+                            <a href="{{ url_for('registrar') }}" class="action-card h-100">
+                                <span class="action-icon-inner"><i class="bi bi-person-plus-fill"></i></span>
+                                <div class="action-title">Registrar</div>
+                                <p class="action-desc d-none d-md-block">Crea un nuevo perfil de cliente.</p>
+                            </a>
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <a href="{{ url_for('consulta') }}" class="action-card h-100">
+                                <span class="action-icon-inner"><i class="bi bi-search"></i></span>
+                                <div class="action-title">Consultar</div>
+                                <p class="action-desc d-none d-md-block">Busca y gestiona perfiles.</p>
+                            </a>
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <a href="{{ url_for('pagos_por_conciliar') }}" class="action-card h-100">
+                                <span class="action-icon-inner"><i class="bi bi-patch-check-fill"></i></span>
+                                <div class="action-title">Conciliar</div>
+                                <p class="action-desc d-none d-md-block">Verifica y aprueba los pagos.</p>
+                            </a>
+                        </div>
+                        <div class="col-12 col-md-3">
+                             <a href="{{ url_for('reporte_morosidad') }}" class="action-card h-100">
+                                <span class="action-icon-inner"><i class="bi bi-file-earmark-excel-fill"></i></span>
+                                <div class="action-title">Morosidad</div>
+                                <p class="action-desc d-none d-md-block">Genera el listado de cuotas vencidas.</p>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-lg-4">
             <div class="card h-100">
-                <div class="card-header"><h6><i class="bi bi-broadcast me-2"></i>Equipo en Tiempo Real</h6></div>
-                <div class="card-body p-2"><ul id="active-sessions-list" class="list-group list-group-flush"></ul></div>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6><i class="bi bi-broadcast me-2" style="color: var(--color-primario);"></i>Equipo en Tiempo Real</h6>
+                    <div id="loading-spinner" class="spinner-border spinner-border-sm text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <div class="card-body p-2">
+                    <ul id="active-sessions-list" class="list-group list-group-flush">
+                        <!-- La lista de usuarios se generará aquí con JavaScript -->
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
@@ -133,7 +235,56 @@
 {% block scripts_extra %}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // Tu script para las sesiones activas aquí
+        const sessionsList = document.getElementById('active-sessions-list');
+        const spinner = document.getElementById('loading-spinner');
+
+        const fetchActiveSessions = async () => {
+            if (spinner) {
+                spinner.style.display = 'block';
+            }
+            
+            try {
+                const response = await fetch("{{ url_for('get_active_sessions') }}");
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const users = await response.json();
+
+                sessionsList.innerHTML = '';
+
+                if (!users || users.length === 0) {
+                    sessionsList.innerHTML = '<li class="list-group-item text-center text-muted border-0 p-3">No hay usuarios para mostrar.</li>';
+                } else {
+                    users.forEach(user => {
+                        const listItem = document.createElement('li');
+                        listItem.className = 'list-group-item d-flex justify-content-between align-items-center border-0 p-3';
+                        
+                        const statusIcon = user.is_online 
+                            ? '<span class="online-dot" title="En línea"></span>'
+                            : '<i class="bi bi-moon-fill text-muted me-3" title="Desconectado"></i>';
+
+                        listItem.innerHTML = `
+                            <div class="d-flex align-items-center">
+                                ${statusIcon}
+                                <span class="fw-bold">${user.username}</span>
+                            </div>
+                            <small class="text-muted">${user.last_seen}</small>
+                        `;
+                        sessionsList.appendChild(listItem);
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching active sessions:', error);
+                sessionsList.innerHTML = '<li class="list-group-item text-center text-danger border-0 p-3">Error al cargar sesiones.</li>';
+            } finally {
+                if (spinner) {
+                    spinner.style.display = 'none';
+                }
+            }
+        };
+
+        fetchActiveSessions();
+        setInterval(fetchActiveSessions, 2000);
     });
 </script>
 {% endblock %}
