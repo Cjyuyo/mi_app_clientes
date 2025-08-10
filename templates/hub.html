@@ -48,7 +48,7 @@
             align-items: stretch;
         }
 
-        /* --- SIDEBAR OSCURO --- */
+        /* --- SIDEBAR OSCURO Y FUNCIONALIDAD DE OCULTAR/MOSTRAR --- */
         #sidebar {
             min-width: 260px;
             max-width: 260px;
@@ -59,6 +59,10 @@
             display: flex;
             flex-direction: column;
         }
+        #sidebar.active {
+            margin-left: -260px;
+        }
+
         .sidebar-header { 
             padding: 1.25rem; 
             text-align: center; 
@@ -108,20 +112,13 @@
             background: rgba(0,0,0,0.2); 
             color: var(--sidebar-texto-secundario);
         }
-        .sidebar-footer {
-            padding: 1rem;
-            border-top: 1px solid var(--sidebar-borde);
-        }
-        .user-profile { display: flex; align-items: center; }
-        .user-profile i { font-size: 1.8rem; margin-right: .75rem; }
-        .user-info .username { color: var(--blanco); font-size: 0.9rem; }
-        .user-info .role { color: var(--sidebar-texto-secundario); font-size: 0.75rem; }
         
         /* --- CONTENIDO CLARO --- */
         #content {
             width: 100%;
             padding: 1.5rem;
             min-height: 100vh;
+            transition: all 0.3s;
         }
         .topbar { 
             background: var(--card-bg); 
@@ -131,8 +128,24 @@
             margin-bottom: 25px; 
             box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
         }
+        .btn-toggle-sidebar {
+            border: none;
+            background: transparent !important;
+        }
         .btn-toggle-sidebar i { color: var(--texto-principal) !important; }
         
+        /* --- ESTILOS PARA EL NUEVO PERFIL DE USUARIO EN EL TOPBAR --- */
+        .user-profile-topbar .username {
+            color: var(--texto-principal);
+            line-height: 1.2;
+            font-weight: 500;
+        }
+        .user-profile-topbar .role {
+            color: var(--texto-secundario);
+            line-height: 1;
+            font-size: 0.8rem;
+        }
+
         /* --- TARJETAS EN MODO CLARO --- */
         .card {
             background-color: var(--card-bg);
@@ -184,7 +197,7 @@
             gap: 1.5rem;
         }
         .action-card {
-            background-color: var(--content-bg); /* Fondo gris suave para los botones de acción */
+            background-color: var(--content-bg);
             border: 1px solid var(--card-borde);
             border-radius: .75rem;
             padding: 1.5rem;
@@ -228,12 +241,47 @@
             color: var(--texto-principal);
             border-color: var(--card-borde);
         }
+        #active-sessions-list {
+            max-height: 250px;
+            overflow-y: auto;
+        }
         footer {
             color: var(--texto-secundario);
         }
+
+        /* --- OPTIMIZACIÓN MÓVIL --- */
+        @media (max-width: 768px) {
+            #sidebar {
+                margin-left: -260px;
+                position: fixed;
+                top: 0;
+                bottom: 0;
+                z-index: 1050;
+            }
+            #sidebar.active {
+                margin-left: 0;
+            }
+            #content {
+                width: 100%;
+                padding: 1rem;
+            }
+            .overlay {
+                display: none;
+                position: fixed;
+                width: 100vw;
+                height: 100vh;
+                background: rgba(0, 0, 0, 0.7);
+                z-index: 1049;
+                opacity: 0;
+                transition: all 0.5s ease-in-out;
+            }
+            .overlay.active {
+                display: block;
+                opacity: 1;
+            }
+        }
     </style>
     
-    <!-- Estilos específicos del Hub -->
     <style>
         .main-header {
             background: var(--card-bg);
@@ -311,21 +359,10 @@
                 <li class="nav-category">Externo</li>
                 <li class="nav-item"><a href="{{ url_for('portal_login') }}" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Portal Cliente</a></li>
             </ul>
-            
-            <div class="sidebar-footer">
-                {% if g.admin %}
-                <div class="user-profile d-flex align-items-center">
-                    <i class="bi bi-person-circle"></i>
-                    <div class="user-info ms-2">
-                        <span class="username d-block">{{ g.admin.usuario }}</span>
-                        <span class="role d-block">{{ g.admin.rol | capitalize }}</span>
-                    </div>
-                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger btn-sm ms-auto" title="Cerrar Sesión"><i class="bi bi-box-arrow-right"></i></a>
-                </div>
-                {% endif %}
-            </div>
         </div>
     </nav>
+    <!-- Overlay para móvil -->
+    <div class="overlay"></div>
 
     <!-- Contenido Principal de la Página -->
     <div id="content">
@@ -335,11 +372,25 @@
                 <button class="btn btn-toggle-sidebar" type="button" id="sidebarCollapse">
                     <i class="bi bi-list fs-4"></i>
                 </button>
+                
+                <!-- INICIO: Menú de usuario a la derecha -->
                 <div class="ms-auto d-flex align-items-center">
-                    {% if not g.admin %}
+                    {% if g.admin %}
+                        <div class="user-profile-topbar d-flex align-items-center">
+                             <div class="user-info text-end me-3">
+                                <span class="username d-block">{{ g.admin.usuario }}</span>
+                                <span class="role d-block">{{ g.admin.rol | capitalize }}</span>
+                            </div>
+                            <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger" title="Cerrar Sesión">
+                                <i class="bi bi-box-arrow-right"></i>
+                            </a>
+                        </div>
+                    {% else %}
                         <a href="{{ url_for('admin_login') }}" class="btn btn-outline-dark btn-sm">Iniciar Sesión</a>
                     {% endif %}
                 </div>
+                <!-- FIN: Menú de usuario a la derecha -->
+
             </div>
         </nav>
 
@@ -455,9 +506,17 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        document.getElementById('sidebarCollapse').addEventListener('click', function () {
-            document.getElementById('sidebar').classList.toggle('active');
-        });
+        const sidebar = document.getElementById('sidebar');
+        const sidebarCollapse = document.getElementById('sidebarCollapse');
+        const overlay = document.querySelector('.overlay');
+
+        const toggleSidebar = () => {
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        };
+
+        sidebarCollapse.addEventListener('click', toggleSidebar);
+        overlay.addEventListener('click', toggleSidebar);
 
         const sessionsList = document.getElementById('active-sessions-list');
         const spinner = document.getElementById('loading-spinner');
@@ -502,8 +561,8 @@
             }
         };
 
-        fetchActiveSessions();
-        setInterval(fetchActiveSessions, 30000);
+        // fetchActiveSessions(); // Descomentar cuando la ruta esté activa
+        // setInterval(fetchActiveSessions, 30000); // Descomentar cuando la ruta esté activa
     });
 </script>
 
