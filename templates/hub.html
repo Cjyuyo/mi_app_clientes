@@ -13,50 +13,56 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 
     <style>
-        /* --- GUÍA DE ESTILO MAESTRA (TEMA OSCURO) --- */
+        /* --- GUÍA DE ESTILO - TEMA MIXTO (OSCURO/CLARO) --- */
         :root {
-            --azul-corporativo: #1E293B; /* Color para la barra lateral (sin cambios) */
-            --azul-hover: #334155;
-            --naranja-corporativo: #F97316;
-            /* --- CAMBIO REALIZADO AQUÍ --- */
-            --gris-fondo: #2B3A55; /* Fondo del contenido, tomado de la página de login */
+            /* Paleta Sidebar Oscuro */
+            --sidebar-bg: #1f2937;
+            --sidebar-borde: #374151;
+            --sidebar-texto: #e5e7eb;
+            --sidebar-texto-secundario: #9ca3af;
+            --sidebar-hover-bg: rgba(255, 255, 255, 0.05);
+
+            /* Paleta Contenido Claro */
+            --content-bg: #f3f4f6; /* Fondo principal gris claro */
+            --card-bg: #ffffff;    /* Tarjetas blancas */
+            --card-borde: #e5e7eb; /* Borde sutil para tarjetas */
+            --texto-principal: #111827; /* Texto principal oscuro */
+            --texto-secundario: #6b7280; /* Texto secundario gris */
+
+            /* Acentos Globales */
+            --color-primario: #3b82f6; 
+            --color-naranja: #f97316;
             --blanco: #FFFFFF;
-            --texto-claro: #94A3B8;
-            --texto-oscuro: #0F172A; /* Texto oscuro para fondos claros */
-            --texto-blanco: #E2E8F0;
-            --borde-sutil: #334155;
-            --azul-claro: #e0f2fe; /* Color para iconos de acciones rápidas */
         }
 
         /* --- ESTILOS GLOBALES --- */
         body {
             font-family: 'Roboto', sans-serif;
-            background-color: var(--gris-fondo);
-            color: var(--texto-blanco);
+            background-color: var(--content-bg);
+            color: var(--texto-principal);
         }
 
-        /* --- ESTRUCTURA PRINCIPAL --- */
         .wrapper {
             display: flex;
             width: 100%;
             align-items: stretch;
         }
 
-        /* --- SIDEBAR --- */
+        /* --- SIDEBAR OSCURO --- */
         #sidebar {
             min-width: 260px;
             max-width: 260px;
-            background: var(--azul-corporativo);
-            color: var(--texto-blanco);
+            background: var(--sidebar-bg);
+            color: var(--sidebar-texto);
             transition: all 0.3s;
-            border-right: 1px solid var(--borde-sutil);
+            border-right: none;
             display: flex;
             flex-direction: column;
         }
         .sidebar-header { 
             padding: 1.25rem; 
             text-align: center; 
-            border-bottom: 1px solid var(--borde-sutil);
+            border-bottom: 1px solid var(--sidebar-borde);
             flex-shrink: 0;
         }
         .sidebar-header h3 { 
@@ -77,7 +83,7 @@
             overflow-y: auto;
         }
         #sidebar-nav .nav-category { 
-            color: var(--texto-claro); 
+            color: var(--sidebar-texto-secundario); 
             padding: 0.5rem 1.25rem; 
             font-weight: 500; 
             text-transform: uppercase; 
@@ -89,129 +95,81 @@
             font-size: 0.95rem;
             display: flex;
             align-items: center;
-            color: var(--texto-blanco);
+            color: var(--sidebar-texto);
             border-left: 4px solid transparent;
             transition: all 0.2s ease-in-out;
             text-decoration: none;
         }
         #sidebar-nav .nav-item a:hover {
-            background: var(--azul-hover);
-            border-left-color: var(--naranja-corporativo);
-        }
-        #sidebar-nav a[aria-expanded="true"] {
-            background: var(--azul-hover);
-        }
-        #sidebar-nav .dropdown-toggle::after {
-            margin-left: auto;
-            transition: transform 0.2s ease;
-        }
-        #sidebar-nav a[aria-expanded="true"] .dropdown-toggle::after {
-            transform: rotate(90deg);
-        }
-        #sidebar-nav .nav-item a i { 
-            margin-right: 0.8rem; 
-            font-size: 1.1rem; 
-            width: 22px;
-            text-align: center;
+            background: var(--sidebar-hover-bg);
+            border-left-color: var(--color-naranja);
         }
         #sidebar-nav .collapse a { 
-            font-size: 0.85rem !important; 
-            padding-left: 3.5rem !important; 
             background: rgba(0,0,0,0.2); 
-            color: var(--texto-claro);
+            color: var(--sidebar-texto-secundario);
         }
         .sidebar-footer {
             padding: 1rem;
-            border-top: 1px solid var(--borde-sutil);
-            flex-shrink: 0;
+            border-top: 1px solid var(--sidebar-borde);
         }
         .user-profile { display: flex; align-items: center; }
         .user-profile i { font-size: 1.8rem; margin-right: .75rem; }
-        .user-info .username { font-weight: 500; color: var(--blanco); font-size: 0.9rem; }
-        .user-info .role { font-size: 0.75rem; color: var(--texto-claro); }
+        .user-info .username { color: var(--blanco); font-size: 0.9rem; }
+        .user-info .role { color: var(--sidebar-texto-secundario); font-size: 0.75rem; }
         
-        /* --- CONTENIDO PRINCIPAL --- */
+        /* --- CONTENIDO CLARO --- */
         #content {
             width: 100%;
             padding: 1.5rem;
             min-height: 100vh;
-            transition: all 0.3s;
         }
         .topbar { 
-            background: var(--azul-corporativo); 
-            border: 1px solid var(--borde-sutil);
+            background: var(--card-bg); 
+            border: 1px solid var(--card-borde);
             border-radius: .75rem; 
             padding: 12px 25px; 
             margin-bottom: 25px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
         }
-        .btn-toggle-sidebar i { color: var(--texto-blanco) !important; }
-        .main-content-area {
-            padding: 0;
-        }
-
-        /* --- RESPONSIVE --- */
-        @media (max-width: 768px) {
-            #sidebar {
-                margin-left: -260px;
-                position: fixed;
-                top: 0;
-                bottom: 0;
-                z-index: 1050;
-            }
-            #sidebar.active {
-                margin-left: 0;
-            }
-            #content { padding: 1rem; }
-            .topbar { margin-bottom: 1.5rem; }
-        }
-    </style>
-    
-    <!-- ESTILOS DEL HUB.HTML -->
-    <style>
-        .main-header {
-            background: var(--blanco);
-            padding: 2rem;
+        .btn-toggle-sidebar i { color: var(--texto-principal) !important; }
+        
+        /* --- TARJETAS EN MODO CLARO --- */
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-borde);
+            color: var(--texto-principal);
             border-radius: .75rem;
-            border: 1px solid var(--borde-sutil);
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        .main-header h1 {
-            font-weight: 700;
-            font-size: 2.2rem;
-            color: var(--texto-oscuro);
+        .card-header {
+            background-color: transparent;
+            border-bottom: 1px solid var(--card-borde);
+            padding: 1rem 1.5rem;
         }
-        .main-header .lead {
-            color: #64748b;
-            font-size: 1.1rem;
+        .card-header h6 {
+            margin: 0;
+            font-weight: 600;
+            color: var(--texto-principal);
         }
         .kpi-card {
-            background-color: var(--blanco);
-            border-radius: .75rem;
             padding: 1.5rem;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            border-left: 4px solid;
-            transition: all 0.2s ease-in-out;
             display: flex;
             align-items: center;
             gap: 1rem;
-            color: var(--texto-oscuro); /* Color de texto para tarjetas */
-        }
-        .kpi-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            border-left: 4px solid;
         }
         .kpi-card .kpi-content .kpi-title {
+            color: var(--texto-secundario);
             font-size: 0.85rem;
             font-weight: 500;
             text-transform: uppercase;
             margin-bottom: 0.25rem;
-            color: #64748b; /* Gris para el título */
         }
         .kpi-card .kpi-content .kpi-value {
+            color: var(--texto-principal);
             font-size: 2.2rem;
             font-weight: 700;
-            color: var(--texto-oscuro);
             line-height: 1;
         }
         .kpi-card .kpi-icon {
@@ -222,23 +180,22 @@
         }
         .action-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 1.5rem;
         }
         .action-card {
-            background-color: var(--blanco);
+            background-color: var(--content-bg); /* Fondo gris suave para los botones de acción */
+            border: 1px solid var(--card-borde);
             border-radius: .75rem;
             padding: 1.5rem;
             text-align: center;
-            border: 1px solid var(--borde-sutil);
             transition: all 0.2s ease-in-out;
             text-decoration: none;
-            color: var(--texto-oscuro);
         }
         .action-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-            border-color: var(--naranja-corporativo);
+            border-color: var(--color-primario);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
         }
         .action-card .action-icon {
             font-size: 2.5rem;
@@ -246,16 +203,17 @@
             display: inline-block;
             padding: 1.25rem;
             border-radius: 50%;
-            background-color: var(--azul-claro);
-            color: var(--azul-corporativo);
+            background-color: var(--card-bg);
+            color: var(--texto-principal);
         }
         .action-card .action-title {
             font-weight: 700;
             font-size: 1.1rem;
+            color: var(--texto-principal);
         }
         .action-card .action-desc {
             font-size: 0.9rem;
-            color: #64748b; /* Gris para descripción */
+            color: var(--texto-secundario);
         }
         .online-dot {
             height: 10px;
@@ -264,27 +222,35 @@
             border-radius: 50%;
             display: inline-block;
             margin-right: 0.75rem;
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
-        }
-        .card.shadow-sm {
-            background-color: var(--azul-corporativo);
-            border: 1px solid var(--borde-sutil);
-        }
-        .card-header {
-            background-color: transparent;
-            border-bottom: 1px solid var(--borde-sutil);
         }
         .list-group-item {
             background-color: transparent;
-            color: var(--texto-blanco);
+            color: var(--texto-principal);
+            border-color: var(--card-borde);
         }
-        .card-body {
-            color: var(--texto-blanco);
+        footer {
+            color: var(--texto-secundario);
+        }
+    </style>
+    
+    <!-- Estilos específicos del Hub -->
+    <style>
+        .main-header {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: .75rem;
+            border: 1px solid var(--card-borde);
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .main-header h1 {
+            font-weight: 700;
+            font-size: 2.2rem;
+            color: var(--texto-principal);
+        }
+        .main-header .lead {
+            color: var(--texto-secundario);
+            font-size: 1.1rem;
         }
     </style>
 
@@ -300,40 +266,63 @@
         <div id="sidebar-nav">
             <ul class="list-unstyled components">
                 <li class="nav-category">Navegación</li>
-                <li class="nav-item"><a href="#"><i class="bi bi-house-door-fill"></i> Hub Principal</a></li>
-                <li class="nav-item"><a href="#"><i class="bi bi-person-workspace"></i> HUB de Asesor</a></li>
+                <li class="nav-item"><a href="{{ url_for('hub') }}"><i class="bi bi-house-door-fill"></i> Hub Principal</a></li>
+                <li class="nav-item"><a href="{{ url_for('hub_asesor') }}"><i class="bi bi-person-workspace"></i> HUB de Asesor</a></li>
 
                 <li class="nav-item">
                     <a href="#clientesSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-people-fill"></i> Clientes</a>
                     <ul class="collapse list-unstyled" id="clientesSubmenu">
-                        <li><a href="#">Registrar Cliente</a></li>
-                        <li><a href="#">Consultar Clientes</a></li>
-                        <li><a href="#">Mi Cartera de Cobranza</a></li>
+                        <li><a href="{{ url_for('registrar') }}">Registrar Cliente</a></li>
+                        <li><a href="{{ url_for('consulta') }}">Consultar Clientes</a></li>
+                        <li><a href="{{ url_for('mi_cartera') }}">Mi Cartera de Cobranza</a></li>
                     </ul>
                 </li>
 
+                {% if g.admin and g.admin.rol in ['superadmin', 'gerente'] %}
                 <li class="nav-category">Operaciones</li>
                 <li class="nav-item">
                     <a href="#adminFinanzasSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-bank"></i> Administración y Finanzas</a>
                     <ul class="collapse list-unstyled" id="adminFinanzasSubmenu">
-                        <li><a href="#">Gestión General</a></li>
-                        <li><a href="#">Centro de Conciliación</a></li>
+                        <li><a href="{{ url_for('gestion_administrativa') }}">Gestión General</a></li>
+                        <li><a href="{{ url_for('pagos_por_conciliar') }}">Centro de Conciliación</a></li>
+                        <li><a href="{{ url_for('solicitudes_hub') }}">Gestión de Solicitudes</a></li>
+                        <li><a href="{{ url_for('adjudicacion') }}">Sistema de Adjudicación</a></li>
+                        <li><a href="{{ url_for('reporte_flujo_caja') }}">Flujo de Caja</a></li>
+                        <li><a href="{{ url_for('tesoreria_rebalanceo') }}">Rebalanceo de Tesorería</a></li>
+                        <li><a href="{{ url_for('admin_tasa_bcv') }}">Tasa de Cambio (BCV)</a></li>
                     </ul>
                 </li>
+                <li class="nav-item">
+                    <a href="#comercialSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-briefcase-fill"></i> Comercial</a>
+                    <ul class="collapse list-unstyled" id="comercialSubmenu">
+                        <li><a href="{{ url_for('dashboard_comercial') }}">Dashboard Comercial</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item">
+                    <a href="#reportesSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-file-earmark-text-fill"></i> Reportes y Auditoría</a>
+                    <ul class="collapse list-unstyled" id="reportesSubmenu">
+                        <li><a href="{{ url_for('reporte_morosidad') }}">Reporte de Morosidad</a></li>
+                        <li><a href="{{ url_for('reporte_metricas') }}">Métricas del Negocio</a></li>
+                        <li><a href="{{ url_for('auditoria') }}">Visor de Auditoría</a></li>
+                    </ul>
+                </li>
+                {% endif %}
                 
                 <li class="nav-category">Externo</li>
-                <li class="nav-item"><a href="#" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Portal Cliente</a></li>
+                <li class="nav-item"><a href="{{ url_for('portal_login') }}" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Portal Cliente</a></li>
             </ul>
             
             <div class="sidebar-footer">
-                <div class="user-profile">
+                {% if g.admin %}
+                <div class="user-profile d-flex align-items-center">
                     <i class="bi bi-person-circle"></i>
-                    <div class="user-info">
-                        <span class="username">Cjyuyo</span>
-                        <span class="role">Superadmin</span>
+                    <div class="user-info ms-2">
+                        <span class="username d-block">{{ g.admin.usuario }}</span>
+                        <span class="role d-block">{{ g.admin.rol | capitalize }}</span>
                     </div>
-                    <a href="#" class="btn btn-outline-danger btn-sm ms-auto" title="Cerrar Sesión"><i class="bi bi-box-arrow-right"></i></a>
+                    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger btn-sm ms-auto" title="Cerrar Sesión"><i class="bi bi-box-arrow-right"></i></a>
                 </div>
+                {% endif %}
             </div>
         </div>
     </nav>
@@ -346,101 +335,109 @@
                 <button class="btn btn-toggle-sidebar" type="button" id="sidebarCollapse">
                     <i class="bi bi-list fs-4"></i>
                 </button>
+                <div class="ms-auto d-flex align-items-center">
+                    {% if not g.admin %}
+                        <a href="{{ url_for('admin_login') }}" class="btn btn-outline-dark btn-sm">Iniciar Sesión</a>
+                    {% endif %}
+                </div>
             </div>
         </nav>
 
         <!-- Área de contenido dinámico -->
         <div class="main-content-area">
             <div class="container-fluid px-0">
-
                 <!-- Encabezado y Saludo -->
                 <div class="main-header mb-4">
                     <h1>Panel de Control</h1>
-                    <p class="lead mb-0">Bienvenido de nuevo, <strong>Cjyuyo</strong>. Aquí tienes un resumen de la actividad de hoy.</p>
+                    <p class="lead mb-0">Bienvenido de nuevo, <strong>{{ g.admin.usuario }}</strong>. Aquí tienes un resumen de la actividad de hoy.</p>
                 </div>
-            
                 <!-- Fila de Tarjetas de Métricas (KPIs) -->
                 <div class="row">
-                    <div class="col-xl-3 col-md-6 mb-4">
-                        <div class="kpi-card" style="border-left-color: var(--azul-corporativo);">
-                            <div class="kpi-icon" style="background-color: var(--azul-corporativo);"><i class="bi bi-people-fill"></i></div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card kpi-card" style="border-left-color: #0DCAF0;">
+                            <div class="kpi-icon" style="background-color: #0DCAF0;"><i class="bi bi-people-fill"></i></div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Clientes en Cartera</div>
-                                <div class="kpi-value">0</div>
+                                <div class="kpi-value">{{ stats.clientes_cartera | default('0') }}</div>
                             </div>
                         </div>
                     </div>
-            
-                    <div class="col-xl-3 col-md-6 mb-4">
-                        <div class="kpi-card" style="border-left-color: #198754;">
+                    {% if g.admin.rol in ['superadmin', 'gerente'] %}
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card kpi-card" style="border-left-color: #198754;">
                             <div class="kpi-icon" style="background-color: #198754;"><i class="bi bi-cash-coin"></i></div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Recaudado (Mes)</div>
-                                <div class="kpi-value">$2244.00</div>
+                                <div class="kpi-value">${{ stats.recaudado_mes | default('0.00') }}</div>
                             </div>
                         </div>
                     </div>
-            
-                    <div class="col-xl-3 col-md-6 mb-4">
-                        <div class="kpi-card" style="border-left-color: var(--naranja-corporativo);">
-                            <div class="kpi-icon" style="background-color: var(--naranja-corporativo);"><i class="bi bi-journal-check"></i></div>
+                    {% endif %}
+                    {% if g.admin.rol in ['superadmin', 'gerente'] %}
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card kpi-card" style="border-left-color: var(--color-naranja);">
+                            <div class="kpi-icon" style="background-color: var(--color-naranja);"><i class="bi bi-journal-check"></i></div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Solicitudes Pendientes</div>
-                                <div class="kpi-value">0</div>
+                                <div class="kpi-value">{{ stats.solicitudes_pendientes | default('0') }}</div>
                             </div>
                         </div>
                     </div>
-            
-                    <div class="col-xl-3 col-md-6 mb-4">
-                        <div class="kpi-card" style="border-left-color: #0DCAF0;">
-                            <div class="kpi-icon" style="background-color: #0DCAF0;"><i class="bi bi-graph-up-arrow"></i></div>
+                    {% endif %}
+                    <div class="col-xl-3 col-md-6">
+                        <div class="card kpi-card" style="border-left-color: #6f42c1;">
+                            <div class="kpi-icon" style="background-color: #6f42c1;"><i class="bi bi-graph-up-arrow"></i></div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Tasa BCV</div>
-                                <div class="kpi-value" style="font-size: 1.8rem;">130.07</div>
+                                <div class="kpi-value" style="font-size: 1.8rem;">{{ stats.tasa_bcv | default('N/A') }}</div>
                             </div>
                         </div>
                     </div>
                 </div>
-            
                 <!-- Fila de Contenido Principal -->
                 <div class="row">
-                    <div class="col-lg-8 mb-4">
-                        <div class="card shadow-sm h-100">
-                            <div class="card-header py-3">
-                                <h6 class="m-0 font-weight-bold text-white"><i class="bi bi-lightning-charge-fill me-2 text-primary"></i>Accesos Rápidos</h6>
+                    <div class="col-lg-8">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h6><i class="bi bi-lightning-charge-fill me-2" style="color: var(--color-primario);"></i>Accesos Rápidos</h6>
                             </div>
                             <div class="card-body">
                                 <div class="action-grid">
-                                    <a href="#" class="action-card">
+                                    <a href="{{ url_for('registrar') }}" class="action-card">
                                         <span class="action-icon"><i class="bi bi-person-plus-fill"></i></span>
                                         <div class="action-title">Registrar Cliente</div>
                                         <p class="action-desc">Crea un nuevo perfil de cliente en el sistema.</p>
                                     </a>
-                                    <a href="#" class="action-card">
+                                    <a href="{{ url_for('consulta') }}" class="action-card">
                                         <span class="action-icon"><i class="bi bi-search"></i></span>
                                         <div class="action-title">Consultar Clientes</div>
                                         <p class="action-desc">Busca y gestiona perfiles de clientes existentes.</p>
+                                    </a>
+                                    <a href="{{ url_for('pagos_por_conciliar') }}" class="action-card">
+                                        <span class="action-icon"><i class="bi bi-patch-check-fill"></i></span>
+                                        <div class="action-title">Conciliar Pagos</div>
+                                        <p class="action-desc">Verifica y aprueba los pagos reportados.</p>
+                                    </a>
+                                     <a href="{{ url_for('reporte_morosidad') }}" class="action-card">
+                                        <span class="action-icon"><i class="bi bi-file-earmark-excel-fill"></i></span>
+                                        <div class="action-title">Reporte de Morosidad</div>
+                                        <p class="action-desc">Genera el listado de clientes con cuotas vencidas.</p>
                                     </a>
                                 </div>
                             </div>
                         </div>
                     </div>
-            
-                    <div class="col-lg-4 mb-4">
-                        <div class="card shadow-sm h-100">
-                            <div class="card-header py-3 d-flex justify-content-between align-items-center">
-                                <h6 class="m-0 font-weight-bold text-white"><i class="bi bi-broadcast me-2 text-primary"></i>Equipo en Tiempo Real</h6>
+                    <div class="col-lg-4">
+                        <div class="card h-100">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h6><i class="bi bi-broadcast me-2" style="color: var(--color-primario);"></i>Equipo en Tiempo Real</h6>
+                                <div id="loading-spinner" class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
                             </div>
                             <div class="card-body p-2">
                                 <ul id="active-sessions-list" class="list-group list-group-flush">
-                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 p-3">
-                                        <div class="d-flex align-items-center"><span class="online-dot"></span><span class="fw-bold">Christian</span></div>
-                                        <small class="text-muted">hace 8 días</small>
-                                    </li>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 p-3">
-                                        <div class="d-flex align-items-center"><span class="online-dot"></span><span class="fw-bold">Cjyuyo</span></div>
-                                        <small class="text-muted">justo ahora</small>
-                                    </li>
+                                    <!-- La lista de usuarios se generará aquí con JavaScript -->
                                 </ul>
                             </div>
                         </div>
@@ -449,8 +446,8 @@
             </div>
         </div>
         
-        <footer class="text-center text-muted py-3 mt-4">
-            <small>&copy; 2024 - Sistema de Gestión. Todos los derechos reservados.</small>
+        <footer class="text-center py-3 mt-4">
+            <small>&copy; {{ g.anio_actual | default('2024') }} - Sistema de Gestión. Todos los derechos reservados.</small>
         </footer>
     </div>
 </div>
@@ -461,6 +458,52 @@
         document.getElementById('sidebarCollapse').addEventListener('click', function () {
             document.getElementById('sidebar').classList.toggle('active');
         });
+
+        const sessionsList = document.getElementById('active-sessions-list');
+        const spinner = document.getElementById('loading-spinner');
+
+        const fetchActiveSessions = async () => {
+            try {
+                const response = await fetch("{{ url_for('get_active_sessions') }}");
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const users = await response.json();
+                sessionsList.innerHTML = '';
+
+                if (users.length === 0) {
+                    sessionsList.innerHTML = '<li class="list-group-item text-center text-muted border-0 p-3">No hay usuarios activos.</li>';
+                } else {
+                    users.forEach(user => {
+                        const listItem = document.createElement('li');
+                        listItem.className = 'list-group-item d-flex justify-content-between align-items-center border-0 p-3';
+                        
+                        const statusIcon = user.is_online 
+                            ? '<span class="online-dot" title="En línea"></span>'
+                            : '<i class="bi bi-moon-fill text-muted me-3" title="Desconectado"></i>';
+
+                        listItem.innerHTML = `
+                            <div class="d-flex align-items-center">
+                                ${statusIcon}
+                                <span class="fw-bold">${user.username}</span>
+                            </div>
+                            <small class="text-muted">${user.last_seen}</small>
+                        `;
+                        sessionsList.appendChild(listItem);
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching active sessions:', error);
+                sessionsList.innerHTML = '<li class="list-group-item text-center text-danger border-0 p-3">Error al cargar sesiones.</li>';
+            } finally {
+                if (spinner) {
+                    spinner.style.display = 'none';
+                }
+            }
+        };
+
+        fetchActiveSessions();
+        setInterval(fetchActiveSessions, 30000);
     });
 </script>
 
