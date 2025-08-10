@@ -73,6 +73,11 @@
         border-color: var(--color-primario);
         box-shadow: 0 4px 10px rgba(0,0,0,0.08);
     }
+    /* --- CERO LÍNEAS RARAS --- */
+    .action-card:focus, .action-card:active {
+        outline: none;
+        box-shadow: none;
+    }
     /* --- CERO ÓVALOS: CORREGIDO A CUADRADO REDONDEADO --- */
     .action-card .action-icon-inner {
         font-size: 2.5rem;
@@ -207,9 +212,7 @@
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h6><i class="bi bi-broadcast me-2" style="color: var(--color-primario);"></i>Equipo en Tiempo Real</h6>
-                    <div id="loading-spinner" class="spinner-border spinner-border-sm text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
+                    <!-- LOADING SPINNER ELIMINADO -->
                 </div>
                 <div class="card-body p-2">
                     <ul id="active-sessions-list" class="list-group list-group-flush">
@@ -226,13 +229,8 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const sessionsList = document.getElementById('active-sessions-list');
-        const spinner = document.getElementById('loading-spinner');
 
         const fetchActiveSessions = async () => {
-            if (spinner) {
-                spinner.style.display = 'block';
-            }
-            
             try {
                 const response = await fetch("{{ url_for('get_active_sessions') }}");
                 if (!response.ok) {
@@ -266,10 +264,6 @@
             } catch (error) {
                 console.error('Error fetching active sessions:', error);
                 sessionsList.innerHTML = '<li class="list-group-item text-center text-danger border-0 p-3">Error al cargar sesiones.</li>';
-            } finally {
-                if (spinner) {
-                    spinner.style.display = 'none';
-                }
             }
         };
 
