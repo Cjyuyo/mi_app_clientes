@@ -69,11 +69,11 @@
             border-bottom: 1px solid var(--sidebar-borde);
             flex-shrink: 0;
         }
-        .sidebar-header h3 { 
-            font-weight: 700; 
-            color: var(--blanco); 
-            margin-bottom: 0;
-            font-size: 1.4rem;
+        /* Ajuste para el logo en el sidebar-header */
+        .sidebar-header img {
+            max-height: 50px; /* Altura máxima del logo */
+            width: auto; /* Ancho automático para mantener proporción */
+            max-width: 100%; /* Asegura que no se desborde */
         }
         #sidebar-nav {
             flex-grow: 1;
@@ -212,7 +212,10 @@
     <!-- Sidebar -->
     <nav id="sidebar">
         <div class="sidebar-header">
-            <h3>Moto Plan Motors</h3>
+            <!-- Logo Reemplazado -->
+            <a href="#">
+                <img src="https://i.imgur.com/3d22jPz.png" alt="Logo Moto Plan Motors">
+            </a>
         </div>
         <div id="sidebar-nav">
             <ul class="list-unstyled components">
