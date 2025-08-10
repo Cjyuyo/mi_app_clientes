@@ -43,29 +43,32 @@
         }
         #sidebar.active { margin-left: -260px; }
         
-        /* --- SOLUCIÓN FINAL Y AGRESIVA --- */
-        body .wrapper #sidebar .sidebar-header {
-            padding: 8px 1rem !important; /* Padding mínimo y forzado */
-            min-height: auto !important; /* Quita la altura mínima */
+        /* --- SOLUCIÓN ESTRUCTURAL DEFINITIVA --- */
+        .sidebar-header {
+            padding: 0; /* Se quita el padding del contenedor */
+            border-bottom: 1px solid var(--sidebar-borde);
+            flex-shrink: 0;
+        }
+        .sidebar-header a {
+            /* El link ahora controla el espacio y centra el logo */
             display: flex;
             align-items: center;
             justify-content: center;
-            border-bottom: 1px solid var(--sidebar-borde);
-            flex-shrink: 0;
+            padding: 10px 1rem !important; /* Espacio vertical controlado y forzado */
+            text-decoration: none;
         }
         .sidebar-header img {
             max-width: 160px; 
             height: auto;
-            vertical-align: middle;
+            display: block; /* Asegura que no tenga espacio extra */
         }
 
         #sidebar-nav {
             flex-grow: 1;
             overflow-y: auto;
         }
-        /* --- AJUSTE PARA "EMPUJAR" LA NAVEGACIÓN HACIA ARRIBA --- */
         #sidebar-nav .components { 
-            padding: 0.25rem 0; /* Se reduce drásticamente el padding superior */
+            padding: 1rem 0; /* Restaurado a su valor original */
         }
         #sidebar-nav .nav-category { 
             color: var(--sidebar-texto-secundario); 
@@ -86,9 +89,10 @@
             text-decoration: none;
         }
         
-        #sidebar-nav .nav-item a.active,
-        #sidebar-nav .nav-item a[aria-expanded="true"] {
-            background-color: transparent !important;
+        #sidebar-nav .nav-item > a.active, /* Selector más específico */
+        #sidebar-nav .nav-item > a[aria-expanded="true"] {
+            background: none !important;
+            border: none !important;
             box-shadow: none !important;
         }
         #sidebar-nav .nav-item a:hover {
