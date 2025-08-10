@@ -134,35 +134,20 @@
         }
         .btn-toggle-sidebar i { color: var(--texto-principal) !important; }
         
-        .user-profile-topbar .username {
+        /* --- ESTILOS PARA EL NUEVO DROPDOWN DE USUARIO --- */
+        .dropdown-menu {
+            border-radius: .75rem;
+            border: 1px solid var(--card-borde);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .dropdown-item-text .username {
+            font-weight: 600;
             color: var(--texto-principal);
-            line-height: 1.2;
-            font-weight: 500;
         }
-        .user-profile-topbar .role {
-            color: var(--texto-secundario);
-            line-height: 1;
+        .dropdown-item-text .role {
             font-size: 0.8rem;
-        }
-        /* --- INICIO: ESTILOS PARA EL BOTÓN DE CERRAR SESIÓN --- */
-        .logout-container {
-            text-decoration: none;
-            text-align: center;
-        }
-        .logout-container .btn-logout {
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .logout-container small {
-            font-size: 0.7rem;
             color: var(--texto-secundario);
-            margin-top: 2px;
-            display: block;
         }
-        /* --- FIN: ESTILOS PARA EL BOTÓN DE CERRAR SESIÓN --- */
 
         /* --- TARJETAS EN MODO CLARO --- */
         .card {
@@ -184,7 +169,7 @@
             color: var(--texto-principal);
         }
         .kpi-card {
-            padding: 1.5rem;
+            padding: 1rem; /* Reducción de padding para hacerla menos alta */
             display: flex;
             align-items: center;
             gap: 1rem;
@@ -192,20 +177,20 @@
         }
         .kpi-card .kpi-content .kpi-title {
             color: var(--texto-secundario);
-            font-size: 0.85rem;
+            font-size: 0.75rem; /* Texto ligeramente más pequeño */
             font-weight: 500;
             text-transform: uppercase;
             margin-bottom: 0.25rem;
         }
         .kpi-card .kpi-content .kpi-value {
             color: var(--texto-principal);
-            font-size: 2.2rem;
+            font-size: 1.8rem; /* Valor ligeramente más pequeño */
             font-weight: 700;
             line-height: 1;
         }
         .kpi-card .kpi-icon {
-            font-size: 2.5rem;
-            padding: 1rem;
+            font-size: 2rem; /* Icono ligeramente más pequeño */
+            padding: 0.7rem;
             border-radius: 50%;
             color: var(--blanco);
         }
@@ -236,12 +221,10 @@
             border-radius: 50%;
             background-color: var(--card-bg);
         }
-        /* --- INICIO: COLORES PARA ICONOS DE ACCESOS RÁPIDOS --- */
         .action-card .icon-registrar { color: #3b82f6; }
         .action-card .icon-consultar { color: #8b5cf6; }
         .action-card .icon-conciliar { color: #22c55e; }
         .action-card .icon-reporte { color: #f97316; }
-        /* --- FIN: COLORES PARA ICONOS DE ACCESOS RÁPIDOS --- */
 
         .action-card .action-title {
             font-weight: 700;
@@ -266,14 +249,18 @@
             border-color: var(--card-borde);
         }
         #active-sessions-list {
-            max-height: 250px;
-            overflow-y: auto;
+            overflow-y: visible; /* Se quita el scroll en escritorio */
         }
         footer {
             color: var(--texto-secundario);
         }
 
         /* --- OPTIMIZACIÓN MÓVIL --- */
+        @media (max-width: 991.98px) {
+             .main-content-area .row > [class*="col-"] {
+                margin-bottom: 1rem;
+            }
+        }
         @media (max-width: 768px) {
             #sidebar {
                 margin-left: -260px;
@@ -303,6 +290,16 @@
                 display: block;
                 opacity: 1;
             }
+            .kpi-card .kpi-content .kpi-title {
+                font-size: 0.65rem;
+            }
+            .kpi-card .kpi-content .kpi-value {
+                font-size: 1.4rem;
+            }
+            .kpi-card .kpi-icon {
+                font-size: 1.5rem;
+                padding: 0.5rem;
+            }
         }
     </style>
     
@@ -317,8 +314,14 @@
         }
         .main-header h1 {
             font-weight: 700;
-            font-size: 2.2rem;
+            font-size: 2.5rem;
             color: var(--texto-principal);
+            /* --- INICIO: TEXTO CON MÁS VIDA --- */
+            background: -webkit-linear-gradient(45deg, #111827, #374151);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 1px 1px 10px rgba(0,0,0,0.1);
+            /* --- FIN: TEXTO CON MÁS VIDA --- */
         }
         .main-header .lead {
             color: var(--texto-secundario);
@@ -399,19 +402,24 @@
                 
                 <div class="ms-auto d-flex align-items-center">
                     {% if g.admin %}
-                        <div class="user-profile-topbar d-flex align-items-center">
-                             <div class="user-info text-end me-3">
-                                <span class="username d-block">{{ g.admin.usuario }}</span>
-                                <span class="role d-block">{{ g.admin.rol | capitalize }}</span>
-                            </div>
-                            <!-- INICIO: BOTÓN CERRAR SESIÓN MODIFICADO -->
-                            <a href="{{ url_for('admin_logout') }}" class="logout-container">
-                                <div class="btn btn-outline-danger btn-logout">
-                                    <i class="bi bi-box-arrow-right fs-5"></i>
-                                </div>
-                                <small>Cerrar Sesión</small>
-                            </a>
-                            <!-- FIN: BOTÓN CERRAR SESIÓN MODIFICADO -->
+                        <div class="dropdown">
+                            <button class="btn btn-light dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-person-fill me-2"></i>{{ g.admin.usuario }}
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                <li>
+                                    <span class="dropdown-item-text">
+                                        <span class="username d-block">{{ g.admin.usuario }}</span>
+                                        <span class="role d-block">{{ g.admin.rol | capitalize }}</span>
+                                    </span>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item text-danger" href="{{ url_for('admin_logout') }}">
+                                        <i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
+                                    </a>
+                                </li>
+                            </ul>
                         </div>
                     {% else %}
                         <a href="{{ url_for('admin_login') }}" class="btn btn-outline-dark btn-sm">Iniciar Sesión</a>
@@ -427,39 +435,40 @@
                     <h1>Panel de Control</h1>
                     <p class="lead mb-0">Bienvenido de nuevo, <strong>{{ g.admin.usuario }}</strong>. Aquí tienes un resumen de la actividad de hoy.</p>
                 </div>
+                <!-- INICIO: Fila de KPIs optimizada para móvil -->
                 <div class="row">
-                    <div class="col-xl-3 col-md-6">
+                    <div class="col-lg-3 col-md-6 col-6">
                         <div class="card kpi-card" style="border-left-color: #0DCAF0;">
                             <div class="kpi-icon" style="background-color: #0DCAF0;"><i class="bi bi-people-fill"></i></div>
                             <div class="kpi-content">
-                                <div class="kpi-title">Clientes en Cartera</div>
+                                <div class="kpi-title">Clientes</div>
                                 <div class="kpi-value">{{ stats.clientes_cartera | default('0') }}</div>
                             </div>
                         </div>
                     </div>
                     {% if g.admin.rol in ['superadmin', 'gerente'] %}
-                    <div class="col-xl-3 col-md-6">
+                    <div class="col-lg-3 col-md-6 col-6">
                         <div class="card kpi-card" style="border-left-color: #198754;">
                             <div class="kpi-icon" style="background-color: #198754;"><i class="bi bi-cash-coin"></i></div>
                             <div class="kpi-content">
-                                <div class="kpi-title">Recaudado (Mes)</div>
-                                <div class="kpi-value">${{ stats.recaudado_mes | default('0.00') }}</div>
+                                <div class="kpi-title">Recaudado</div>
+                                <div class="kpi-value">${{ stats.recaudado_mes | default('0') }}</div>
                             </div>
                         </div>
                     </div>
                     {% endif %}
                     {% if g.admin.rol in ['superadmin', 'gerente'] %}
-                    <div class="col-xl-3 col-md-6">
+                    <div class="col-lg-3 col-md-6 col-6">
                         <div class="card kpi-card" style="border-left-color: var(--color-naranja);">
                             <div class="kpi-icon" style="background-color: var(--color-naranja);"><i class="bi bi-journal-check"></i></div>
                             <div class="kpi-content">
-                                <div class="kpi-title">Solicitudes Pendientes</div>
+                                <div class="kpi-title">Solicitudes</div>
                                 <div class="kpi-value">{{ stats.solicitudes_pendientes | default('0') }}</div>
                             </div>
                         </div>
                     </div>
                     {% endif %}
-                    <div class="col-xl-3 col-md-6">
+                    <div class="col-lg-3 col-md-6 col-6">
                         <div class="card kpi-card" style="border-left-color: #6f42c1;">
                             <div class="kpi-icon" style="background-color: #6f42c1;"><i class="bi bi-graph-up-arrow"></i></div>
                             <div class="kpi-content">
@@ -469,9 +478,11 @@
                         </div>
                     </div>
                 </div>
+                <!-- FIN: Fila de KPIs optimizada para móvil -->
+
                 <!-- Fila de Contenido Principal -->
                 <div class="row">
-                    <div class="col-lg-8">
+                    <div class="col-lg-8 mb-4 mb-lg-0">
                         <div class="card h-100">
                             <div class="card-header">
                                 <h6><i class="bi bi-lightning-charge-fill me-2" style="color: var(--color-primario);"></i>Accesos Rápidos</h6>
@@ -547,11 +558,14 @@
 
         const fetchActiveSessions = async () => {
             try {
-                const response = await fetch("{{ url_for('get_active_sessions') }}");
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                const users = await response.json();
+                // Se simula una respuesta de la API para demostración
+                const users = [
+                    { username: 'Cjyuyo', is_online: true, last_seen: 'justo ahora' },
+                    { username: 'Christian', is_online: true, last_seen: 'hace 2 min' },
+                    { username: 'Heybee', is_online: false, last_seen: 'hace 8 horas' },
+                    { username: 'Karielsy', is_online: false, last_seen: 'hace 1 día' },
+                ];
+
                 sessionsList.innerHTML = '';
 
                 if (users.length === 0) {
@@ -586,7 +600,7 @@
         };
 
         fetchActiveSessions();
-        setInterval(fetchActiveSessions, 30000);
+        // setInterval(fetchActiveSessions, 30000); // Se puede reactivar para llamadas reales a la API
     });
 </script>
 
