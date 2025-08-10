@@ -4,7 +4,6 @@
 
 {% block head_extra %}
 <style>
-    /* --- ESTILOS RESTAURADOS DEL HUB ORIGINAL --- */
     .main-header {
         position: relative;
         overflow: hidden;
@@ -74,13 +73,17 @@
         border-color: var(--color-primario);
         box-shadow: 0 4px 10px rgba(0,0,0,0.08);
     }
+    /* --- CERO ÓVALOS: CORREGIDO A CUADRADO REDONDEADO --- */
     .action-card .action-icon-inner {
         font-size: 2.5rem;
         margin-bottom: 1rem;
-        display: inline-block;
-        padding: 1.25rem;
-        border-radius: 50%; /* Óvalos originales */
-        background-color: var(--content-bg);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 70px;
+        height: 70px;
+        border-radius: .75rem; 
+        background-color: #f3f4f6;
     }
     .action-card .action-title {
         font-weight: 700;
@@ -119,50 +122,38 @@
         <p class="lead mb-0">Bienvenido de nuevo, <strong>{{ g.admin.usuario }}</strong>. Aquí tienes un resumen de la actividad de hoy.</p>
     </div>
     
-    <!-- INICIO: Fila de KPIs Rediseñada -->
     <div class="row">
-        <div class="col-lg-3 col-md-6 mb-4">
+        <!-- DISEÑO 2x2 EN CELULAR PARA KPIs -->
+        <div class="col-6 col-lg-3 mb-4">
             <div class="card kpi-card h-100">
-                <div class="kpi-icon-wrapper bg-blue">
-                    <i class="bi bi-people-fill"></i>
-                </div>
+                <div class="kpi-icon-wrapper bg-blue"><i class="bi bi-people-fill"></i></div>
                 <div class="kpi-content">
                     <div class="kpi-title">Clientes</div>
                     <div class="kpi-value">{{ stats.clientes_cartera | default('0') }}</div>
                 </div>
             </div>
         </div>
-        {% if g.admin.rol in ['superadmin', 'gerente'] %}
-        <div class="col-lg-3 col-md-6 mb-4">
+        <div class="col-6 col-lg-3 mb-4">
             <div class="card kpi-card h-100">
-                <div class="kpi-icon-wrapper bg-green">
-                    <i class="bi bi-cash-stack"></i>
-                </div>
+                <div class="kpi-icon-wrapper bg-green"><i class="bi bi-cash-stack"></i></div>
                 <div class="kpi-content">
                     <div class="kpi-title">Recaudado</div>
                     <div class="kpi-value">${{ "%.2f"|format(stats.recaudado_mes) if stats.recaudado_mes is not none else '0.00' }}</div>
                 </div>
             </div>
         </div>
-        {% endif %}
-        {% if g.admin.rol in ['superadmin', 'gerente'] %}
-        <div class="col-lg-3 col-md-6 mb-4">
+        <div class="col-6 col-lg-3 mb-4">
             <div class="card kpi-card h-100">
-                 <div class="kpi-icon-wrapper bg-orange">
-                    <i class="bi bi-clipboard2-check-fill"></i>
-                </div>
+                <div class="kpi-icon-wrapper bg-orange"><i class="bi bi-clipboard2-check-fill"></i></div>
                 <div class="kpi-content">
                     <div class="kpi-title">Solicitudes</div>
                     <div class="kpi-value">{{ stats.solicitudes_pendientes | default('0') }}</div>
                 </div>
             </div>
         </div>
-        {% endif %}
-        <div class="col-lg-3 col-md-6 mb-4">
+        <div class="col-6 col-lg-3 mb-4">
             <div class="card kpi-card h-100">
-                <div class="kpi-icon-wrapper bg-purple">
-                    <i class="bi bi-graph-up-arrow"></i>
-                </div>
+                <div class="kpi-icon-wrapper bg-purple"><i class="bi bi-graph-up-arrow"></i></div>
                 <div class="kpi-content">
                     <div class="kpi-title">Tasa BCV</div>
                     <div class="kpi-value">{{ stats.tasa_bcv | default('N/A') }}</div>
@@ -170,9 +161,7 @@
             </div>
         </div>
     </div>
-    <!-- FIN: Fila de KPIs Rediseñada -->
 
-    <!-- Fila de Contenido Principal -->
     <div class="row">
         <div class="col-lg-8 mb-4 mb-lg-0">
             <div class="card h-100">
@@ -181,32 +170,33 @@
                 </div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-12 col-md-3">
-                            <a href="{{ url_for('registrar') }}" class="action-card h-100">
+                        <!-- DISEÑO 2x2 EN CELULAR PARA ACCESOS RÁPIDOS -->
+                        <div class="col-6 col-md-3">
+                            <a href="{{ url_for('registrar') }}" class="action-card">
                                 <span class="action-icon-inner"><i class="bi bi-person-plus-fill"></i></span>
                                 <div class="action-title">Registrar</div>
-                                <p class="action-desc d-none d-md-block">Crea un nuevo perfil de cliente.</p>
+                                <p class="action-desc d-none d-md-block">Crea un nuevo perfil.</p>
                             </a>
                         </div>
-                        <div class="col-12 col-md-3">
-                            <a href="{{ url_for('consulta') }}" class="action-card h-100">
+                        <div class="col-6 col-md-3">
+                            <a href="{{ url_for('consulta') }}" class="action-card">
                                 <span class="action-icon-inner"><i class="bi bi-search"></i></span>
                                 <div class="action-title">Consultar</div>
-                                <p class="action-desc d-none d-md-block">Busca y gestiona perfiles.</p>
+                                <p class="action-desc d-none d-md-block">Busca y gestiona.</p>
                             </a>
                         </div>
-                        <div class="col-12 col-md-3">
-                            <a href="{{ url_for('pagos_por_conciliar') }}" class="action-card h-100">
+                        <div class="col-6 col-md-3">
+                            <a href="{{ url_for('pagos_por_conciliar') }}" class="action-card">
                                 <span class="action-icon-inner"><i class="bi bi-patch-check-fill"></i></span>
                                 <div class="action-title">Conciliar</div>
-                                <p class="action-desc d-none d-md-block">Verifica y aprueba los pagos.</p>
+                                <p class="action-desc d-none d-md-block">Verifica los pagos.</p>
                             </a>
                         </div>
-                        <div class="col-12 col-md-3">
-                             <a href="{{ url_for('reporte_morosidad') }}" class="action-card h-100">
+                        <div class="col-6 col-md-3">
+                             <a href="{{ url_for('reporte_morosidad') }}" class="action-card">
                                 <span class="action-icon-inner"><i class="bi bi-file-earmark-excel-fill"></i></span>
                                 <div class="action-title">Morosidad</div>
-                                <p class="action-desc d-none d-md-block">Genera el listado de cuotas vencidas.</p>
+                                <p class="action-desc d-none d-md-block">Genera el listado.</p>
                             </a>
                         </div>
                     </div>

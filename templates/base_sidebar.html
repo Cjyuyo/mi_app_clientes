@@ -43,9 +43,9 @@
         }
         #sidebar.active { margin-left: -260px; }
         
-        /* --- ESTILO MEJORADO PARA EL LOGO --- */
+        /* --- ESTILO AJUSTADO PARA EL LOGO --- */
         .sidebar-header { 
-            padding: 1.5rem 1rem; /* Más espacio vertical y horizontal */
+            padding: 1.25rem 1rem; /* Reducido el padding vertical */
             text-align: center; 
             border-bottom: 1px solid var(--sidebar-borde);
             flex-shrink: 0;
@@ -55,8 +55,8 @@
             line-height: 1;
         }
         .sidebar-header img {
-            max-width: 180px; /* Ancho máximo para que se vea alargado */
-            height: auto;     /* Altura automática para mantener la proporción */
+            max-width: 180px; 
+            height: auto;
             object-fit: contain;
         }
         /* --- FIN DEL ESTILO --- */
@@ -151,16 +151,11 @@
     <nav id="sidebar">
         <div class="sidebar-header">
             <a href="{{ url_for('hub') }}">
-                <!-- 
-                  ******************************************************************
-                  * NOMBRE DEL ARCHIVO CORREGIDO. Asegúrate de que el archivo      *
-                  * 'Moto Plan Motors.png' esté en la carpeta 'static'.            *
-                  ******************************************************************
-                -->
                 <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors">
             </a>
         </div>
         <div id="sidebar-nav">
+            <!-- MENÚ COMPLETO RESTAURADO -->
             <ul class="list-unstyled components">
                 <li class="nav-category">Navegación</li>
                 <li class="nav-item"><a href="{{ url_for('hub') }}"><i class="bi bi-house-door-fill"></i> Hub Principal</a></li>
@@ -187,7 +182,23 @@
                         <li><a href="{{ url_for('admin_tasa_bcv') }}">Tasa de Cambio (BCV)</a></li>
                     </ul>
                 </li>
+                <li class="nav-item">
+                    <a href="#comercialSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-briefcase-fill"></i> Comercial</a>
+                    <ul class="collapse list-unstyled" id="comercialSubmenu">
+                        <li><a href="{{ url_for('dashboard_comercial') }}">Dashboard Comercial</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item">
+                    <a href="#reportesSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-file-earmark-text-fill"></i> Reportes y Auditoría</a>
+                    <ul class="collapse list-unstyled" id="reportesSubmenu">
+                        <li><a href="{{ url_for('reporte_morosidad') }}">Reporte de Morosidad</a></li>
+                        <li><a href="{{ url_for('reporte_metricas') }}">Métricas del Negocio</a></li>
+                        <li><a href="{{ url_for('auditoria') }}">Visor de Auditoría</a></li>
+                    </ul>
+                </li>
                 {% endif %}
+                 <li class="nav-category">Externo</li>
+                <li class="nav-item"><a href="{{ url_for('portal_login') }}" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Portal Cliente</a></li>
             </ul>
         </div>
     </nav>
