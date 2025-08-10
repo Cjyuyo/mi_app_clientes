@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 
     <style>
         /* --- GUÍA DE ESTILO - TEMA MIXTO (OSCURO/CLARO) --- */
@@ -134,7 +134,6 @@
         }
         .btn-toggle-sidebar i { color: var(--texto-principal) !important; }
         
-        /* --- ESTILOS PARA EL NUEVO DROPDOWN DE USUARIO --- */
         .dropdown-menu {
             border-radius: .75rem;
             border: 1px solid var(--card-borde);
@@ -168,32 +167,33 @@
             font-weight: 600;
             color: var(--texto-principal);
         }
+        /* --- INICIO: REDISEÑO DE KPI CARDS --- */
         .kpi-card {
-            padding: 1rem; /* Reducción de padding para hacerla menos alta */
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            border-left: 4px solid;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .kpi-card .kpi-icon {
+            font-size: 2.5rem;
+            padding: 1rem;
+            border-radius: 50%;
+            color: var(--blanco);
+            display: inline-block;
+            margin-bottom: 1rem;
         }
         .kpi-card .kpi-content .kpi-title {
             color: var(--texto-secundario);
-            font-size: 0.75rem; /* Texto ligeramente más pequeño */
+            font-size: 0.8rem;
             font-weight: 500;
             text-transform: uppercase;
             margin-bottom: 0.25rem;
         }
         .kpi-card .kpi-content .kpi-value {
             color: var(--texto-principal);
-            font-size: 1.8rem; /* Valor ligeramente más pequeño */
+            font-size: 2.2rem;
             font-weight: 700;
             line-height: 1;
         }
-        .kpi-card .kpi-icon {
-            font-size: 2rem; /* Icono ligeramente más pequeño */
-            padding: 0.7rem;
-            border-radius: 50%;
-            color: var(--blanco);
-        }
+        /* --- FIN: REDISEÑO DE KPI CARDS --- */
         .action-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -249,7 +249,7 @@
             border-color: var(--card-borde);
         }
         #active-sessions-list {
-            overflow-y: visible; /* Se quita el scroll en escritorio */
+            overflow-y: visible;
         }
         footer {
             color: var(--texto-secundario);
@@ -258,7 +258,7 @@
         /* --- OPTIMIZACIÓN MÓVIL --- */
         @media (max-width: 991.98px) {
              .main-content-area .row > [class*="col-"] {
-                margin-bottom: 1rem;
+                margin-bottom: 1.5rem;
             }
         }
         @media (max-width: 768px) {
@@ -290,16 +290,24 @@
                 display: block;
                 opacity: 1;
             }
-            .kpi-card .kpi-content .kpi-title {
-                font-size: 0.65rem;
+            /* --- INICIO: OPTIMIZACIÓN DE ACCESOS RÁPIDOS PARA MÓVIL --- */
+            .action-grid {
+                grid-template-columns: repeat(2, 1fr);
             }
-            .kpi-card .kpi-content .kpi-value {
-                font-size: 1.4rem;
+            .action-card {
+                padding: 1rem;
             }
-            .kpi-card .kpi-icon {
-                font-size: 1.5rem;
-                padding: 0.5rem;
+            .action-card .action-icon {
+                font-size: 2rem;
+                padding: 1rem;
             }
+            .action-card .action-title {
+                font-size: 0.9rem;
+            }
+            .action-card .action-desc {
+                font-size: 0.8rem;
+            }
+            /* --- FIN: OPTIMIZACIÓN DE ACCESOS RÁPIDOS PARA MÓVIL --- */
         }
     </style>
     
@@ -313,19 +321,17 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
         .main-header h1 {
-            font-weight: 700;
-            font-size: 2.5rem;
+            font-weight: 900; /* Aumenta el peso de la fuente */
+            font-size: 2.8rem;
             color: var(--texto-principal);
-            /* --- INICIO: TEXTO CON MÁS VIDA --- */
-            background: -webkit-linear-gradient(45deg, #111827, #374151);
+            background: -webkit-linear-gradient(45deg, #111827, #6b7280);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-shadow: 1px 1px 10px rgba(0,0,0,0.1);
-            /* --- FIN: TEXTO CON MÁS VIDA --- */
+            text-shadow: 1px 1px 15px rgba(0,0,0,0.1);
         }
         .main-header .lead {
             color: var(--texto-secundario);
-            font-size: 1.1rem;
+            font-size: 1.2rem; /* Aumenta el tamaño del subtítulo */
         }
     </style>
 
@@ -438,7 +444,7 @@
                 <!-- INICIO: Fila de KPIs optimizada para móvil -->
                 <div class="row">
                     <div class="col-lg-3 col-md-6 col-6">
-                        <div class="card kpi-card" style="border-left-color: #0DCAF0;">
+                        <div class="card kpi-card">
                             <div class="kpi-icon" style="background-color: #0DCAF0;"><i class="bi bi-people-fill"></i></div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Clientes</div>
@@ -448,7 +454,7 @@
                     </div>
                     {% if g.admin.rol in ['superadmin', 'gerente'] %}
                     <div class="col-lg-3 col-md-6 col-6">
-                        <div class="card kpi-card" style="border-left-color: #198754;">
+                        <div class="card kpi-card">
                             <div class="kpi-icon" style="background-color: #198754;"><i class="bi bi-cash-coin"></i></div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Recaudado</div>
@@ -459,7 +465,7 @@
                     {% endif %}
                     {% if g.admin.rol in ['superadmin', 'gerente'] %}
                     <div class="col-lg-3 col-md-6 col-6">
-                        <div class="card kpi-card" style="border-left-color: var(--color-naranja);">
+                        <div class="card kpi-card">
                             <div class="kpi-icon" style="background-color: var(--color-naranja);"><i class="bi bi-journal-check"></i></div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Solicitudes</div>
@@ -469,7 +475,7 @@
                     </div>
                     {% endif %}
                     <div class="col-lg-3 col-md-6 col-6">
-                        <div class="card kpi-card" style="border-left-color: #6f42c1;">
+                        <div class="card kpi-card">
                             <div class="kpi-icon" style="background-color: #6f42c1;"><i class="bi bi-graph-up-arrow"></i></div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Tasa BCV</div>
