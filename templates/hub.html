@@ -299,31 +299,33 @@
                 padding: 1rem;
             }
             .kpi-card .kpi-icon {
-                font-size: 2rem;
-                padding: 0.8rem;
+                font-size: 1.8rem; /* Icono KPI más pequeño */
+                padding: 0.7rem; /* Menos padding para el icono */
                 margin-bottom: 0.5rem;
             }
             .kpi-card .kpi-content .kpi-title {
-                font-size: 0.75rem;
+                font-size: 0.7rem; /* Título KPI más pequeño */
             }
             .kpi-card .kpi-content .kpi-value {
-                font-size: 1.8rem;
+                font-size: 1.6rem; /* Valor KPI más pequeño */
             }
             .action-grid {
                 grid-template-columns: repeat(2, 1fr);
+                gap: 1rem; /* Espacio reducido entre tarjetas de acción */
             }
             .action-card {
                 padding: 1rem;
             }
             .action-card .action-icon {
-                font-size: 2rem;
-                padding: 1rem;
+                font-size: 1.8rem; /* Icono de acción del mismo tamaño que KPI */
+                padding: 0.8rem; /* Padding similar al icono KPI */
+                margin-bottom: 0.75rem;
             }
             .action-card .action-title {
-                font-size: 0.9rem;
+                font-size: 0.85rem; /* Título de acción más pequeño */
             }
             .action-card .action-desc {
-                font-size: 0.8rem;
+                display: none; /* Ocultar descripción para más compacidad */
             }
             /* --- FIN: OPTIMIZACIÓN DE TARJETAS PARA MÓVIL --- */
         }
@@ -497,7 +499,7 @@
                             <div class="kpi-icon" style="background-color: #6f42c1;"><i class="bi bi-graph-up-arrow"></i></div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Tasa BCV</div>
-                                <div class="kpi-value" style="font-size: 1.8rem;">{{ stats.tasa_bcv | default('N/A') }}</div>
+                                <div class="kpi-value" style="font-size: 1.6rem;">{{ stats.tasa_bcv | default('N/A') }}</div>
                             </div>
                         </div>
                     </div>
