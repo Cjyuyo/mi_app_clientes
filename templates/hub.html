@@ -134,7 +134,6 @@
         }
         .btn-toggle-sidebar i { color: var(--texto-principal) !important; }
         
-        /* --- ESTILOS PARA EL NUEVO PERFIL DE USUARIO EN EL TOPBAR --- */
         .user-profile-topbar .username {
             color: var(--texto-principal);
             line-height: 1.2;
@@ -145,6 +144,25 @@
             line-height: 1;
             font-size: 0.8rem;
         }
+        /* --- INICIO: ESTILOS PARA EL BOTÓN DE CERRAR SESIÓN --- */
+        .logout-container {
+            text-decoration: none;
+            text-align: center;
+        }
+        .logout-container .btn-logout {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .logout-container small {
+            font-size: 0.7rem;
+            color: var(--texto-secundario);
+            margin-top: 2px;
+            display: block;
+        }
+        /* --- FIN: ESTILOS PARA EL BOTÓN DE CERRAR SESIÓN --- */
 
         /* --- TARJETAS EN MODO CLARO --- */
         .card {
@@ -217,8 +235,14 @@
             padding: 1.25rem;
             border-radius: 50%;
             background-color: var(--card-bg);
-            color: var(--texto-principal);
         }
+        /* --- INICIO: COLORES PARA ICONOS DE ACCESOS RÁPIDOS --- */
+        .action-card .icon-registrar { color: #3b82f6; }
+        .action-card .icon-consultar { color: #8b5cf6; }
+        .action-card .icon-conciliar { color: #22c55e; }
+        .action-card .icon-reporte { color: #f97316; }
+        /* --- FIN: COLORES PARA ICONOS DE ACCESOS RÁPIDOS --- */
+
         .action-card .action-title {
             font-weight: 700;
             font-size: 1.1rem;
@@ -373,7 +397,6 @@
                     <i class="bi bi-list fs-4"></i>
                 </button>
                 
-                <!-- INICIO: Menú de usuario a la derecha -->
                 <div class="ms-auto d-flex align-items-center">
                     {% if g.admin %}
                         <div class="user-profile-topbar d-flex align-items-center">
@@ -381,28 +404,29 @@
                                 <span class="username d-block">{{ g.admin.usuario }}</span>
                                 <span class="role d-block">{{ g.admin.rol | capitalize }}</span>
                             </div>
-                            <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger" title="Cerrar Sesión">
-                                <i class="bi bi-box-arrow-right"></i>
+                            <!-- INICIO: BOTÓN CERRAR SESIÓN MODIFICADO -->
+                            <a href="{{ url_for('admin_logout') }}" class="logout-container">
+                                <div class="btn btn-outline-danger btn-logout">
+                                    <i class="bi bi-box-arrow-right fs-5"></i>
+                                </div>
+                                <small>Cerrar Sesión</small>
                             </a>
+                            <!-- FIN: BOTÓN CERRAR SESIÓN MODIFICADO -->
                         </div>
                     {% else %}
                         <a href="{{ url_for('admin_login') }}" class="btn btn-outline-dark btn-sm">Iniciar Sesión</a>
                     {% endif %}
                 </div>
-                <!-- FIN: Menú de usuario a la derecha -->
-
             </div>
         </nav>
 
         <!-- Área de contenido dinámico -->
         <div class="main-content-area">
             <div class="container-fluid px-0">
-                <!-- Encabezado y Saludo -->
                 <div class="main-header mb-4">
                     <h1>Panel de Control</h1>
                     <p class="lead mb-0">Bienvenido de nuevo, <strong>{{ g.admin.usuario }}</strong>. Aquí tienes un resumen de la actividad de hoy.</p>
                 </div>
-                <!-- Fila de Tarjetas de Métricas (KPIs) -->
                 <div class="row">
                     <div class="col-xl-3 col-md-6">
                         <div class="card kpi-card" style="border-left-color: #0DCAF0;">
@@ -455,24 +479,24 @@
                             <div class="card-body">
                                 <div class="action-grid">
                                     <a href="{{ url_for('registrar') }}" class="action-card">
-                                        <span class="action-icon"><i class="bi bi-person-plus-fill"></i></span>
+                                        <span class="action-icon"><i class="bi bi-person-plus-fill icon-registrar"></i></span>
                                         <div class="action-title">Registrar Cliente</div>
-                                        <p class="action-desc">Crea un nuevo perfil de cliente en el sistema.</p>
+                                        <p class="action-desc">Crea un nuevo perfil de cliente.</p>
                                     </a>
                                     <a href="{{ url_for('consulta') }}" class="action-card">
-                                        <span class="action-icon"><i class="bi bi-search"></i></span>
+                                        <span class="action-icon"><i class="bi bi-search icon-consultar"></i></span>
                                         <div class="action-title">Consultar Clientes</div>
-                                        <p class="action-desc">Busca y gestiona perfiles de clientes existentes.</p>
+                                        <p class="action-desc">Busca y gestiona perfiles.</p>
                                     </a>
                                     <a href="{{ url_for('pagos_por_conciliar') }}" class="action-card">
-                                        <span class="action-icon"><i class="bi bi-patch-check-fill"></i></span>
+                                        <span class="action-icon"><i class="bi bi-patch-check-fill icon-conciliar"></i></span>
                                         <div class="action-title">Conciliar Pagos</div>
-                                        <p class="action-desc">Verifica y aprueba los pagos reportados.</p>
+                                        <p class="action-desc">Verifica y aprueba los pagos.</p>
                                     </a>
                                      <a href="{{ url_for('reporte_morosidad') }}" class="action-card">
-                                        <span class="action-icon"><i class="bi bi-file-earmark-excel-fill"></i></span>
+                                        <span class="action-icon"><i class="bi bi-file-earmark-excel-fill icon-reporte"></i></span>
                                         <div class="action-title">Reporte de Morosidad</div>
-                                        <p class="action-desc">Genera el listado de clientes con cuotas vencidas.</p>
+                                        <p class="action-desc">Genera el listado de cuotas vencidas.</p>
                                     </a>
                                 </div>
                             </div>
@@ -561,8 +585,8 @@
             }
         };
 
-        // fetchActiveSessions(); // Descomentar cuando la ruta esté activa
-        // setInterval(fetchActiveSessions, 30000); // Descomentar cuando la ruta esté activa
+        fetchActiveSessions();
+        setInterval(fetchActiveSessions, 30000);
     });
 </script>
 
