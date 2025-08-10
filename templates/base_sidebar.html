@@ -43,20 +43,20 @@
         }
         #sidebar.active { margin-left: -260px; }
         
-        /* --- SOLUCIÓN DEFINITIVA CON FLEXBOX --- */
-        .sidebar-header {
+        /* --- SOLUCIÓN FINAL Y AGRESIVA --- */
+        body .wrapper #sidebar .sidebar-header {
+            padding: 8px 1rem !important; /* Padding mínimo y forzado */
+            min-height: auto !important; /* Quita la altura mínima */
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 0.5rem 1rem;
-            min-height: 65px; /* Altura controlada */
             border-bottom: 1px solid var(--sidebar-borde);
             flex-shrink: 0;
         }
         .sidebar-header img {
             max-width: 160px; 
             height: auto;
-            vertical-align: middle; /* Alineación precisa */
+            vertical-align: middle;
         }
 
         #sidebar-nav {
@@ -85,7 +85,6 @@
             text-decoration: none;
         }
         
-        /* SOLUCIÓN PARA EL "CUADRO" EN EL LINK ACTIVO */
         #sidebar-nav .nav-item a.active,
         #sidebar-nav .nav-item a[aria-expanded="true"] {
             background-color: transparent !important;
