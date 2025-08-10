@@ -43,23 +43,20 @@
         }
         #sidebar.active { margin-left: -260px; }
         
-        /* --- SOLUCIÓN DEFINITIVA PARA EL LOGO --- */
+        /* --- AJUSTE FINAL PARA EL LOGO Y LÍNEA --- */
         .sidebar-header {
-            padding: 10px 1rem !important; /* Reduce el espacio vertical y fuerza el estilo */
+            padding: 5px 1rem 10px 1rem !important; /* Padding mínimo arriba, un poco más abajo */
             text-align: center;
             border-bottom: 1px solid var(--sidebar-borde);
             flex-shrink: 0;
         }
-        .sidebar-header a {
-            display: inline-block;
-            line-height: 1;
-        }
         .sidebar-header img {
+            display: block; /* Evita espacios extra debajo de la imagen */
+            margin: 0 auto; /* Centra y quita márgenes */
             max-width: 180px; 
             height: auto;
             object-fit: contain;
         }
-        /* --- FIN DEL ESTILO --- */
 
         #sidebar-nav {
             flex-grow: 1;
@@ -86,10 +83,19 @@
             transition: all 0.2s ease-in-out;
             text-decoration: none;
         }
+        
+        /* --- SOLUCIÓN FINAL PARA EL "CUADRO" --- */
+        #sidebar-nav .nav-item a.active,
+        #sidebar-nav .nav-item a[aria-expanded="true"] {
+            background-color: transparent !important; /* Anula el fondo */
+            box-shadow: none !important; /* Anula cualquier sombra */
+        }
         #sidebar-nav .nav-item a:hover {
             background: var(--sidebar-hover-bg);
             border-left-color: var(--color-naranja);
         }
+        /* --- FIN DE LA SOLUCIÓN --- */
+
         #content {
             width: 100%;
             padding: 1.5rem;
