@@ -1,271 +1,468 @@
-{% extends 'base_sidebar.html' %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control | Sistema de Gestión</title>
+    
+    <!-- Bootstrap CSS y Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 
-{% block title %}
-    Panel de Control
-{% endblock %}
+    <style>
+        /* --- GUÍA DE ESTILO MAESTRA (TEMA OSCURO) --- */
+        :root {
+            --azul-corporativo: #1E293B; /* Color para la barra lateral (sin cambios) */
+            --azul-hover: #334155;
+            --naranja-corporativo: #F97316;
+            /* --- CAMBIO REALIZADO AQUÍ --- */
+            --gris-fondo: #2B3A55; /* Fondo del contenido, tomado de la página de login */
+            --blanco: #FFFFFF;
+            --texto-claro: #94A3B8;
+            --texto-oscuro: #0F172A; /* Texto oscuro para fondos claros */
+            --texto-blanco: #E2E8F0;
+            --borde-sutil: #334155;
+            --azul-claro: #e0f2fe; /* Color para iconos de acciones rápidas */
+        }
 
-{% block head_extra %}
-<style>
-    .main-header {
-        background: var(--blanco);
-        padding: 2rem;
-        border-radius: .75rem;
-        border: 1px solid var(--borde-sutil);
-        margin-bottom: 2rem;
-    }
-    .main-header h1 {
-        font-weight: 700;
-        font-size: 2.2rem;
-        color: var(--texto-oscuro);
-    }
-    .main-header .lead {
-        color: var(--texto-claro);
-        font-size: 1.1rem;
-    }
-    .kpi-card {
-        background-color: var(--blanco);
-        border-radius: .75rem;
-        padding: 1.5rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        border-left: 4px solid;
-        transition: all 0.2s ease-in-out;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-    }
-    .kpi-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-    }
-    .kpi-card .kpi-content .kpi-title {
-        font-size: 0.85rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        margin-bottom: 0.25rem;
-    }
-    .kpi-card .kpi-content .kpi-value {
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: var(--texto-oscuro);
-        line-height: 1;
-    }
-    .kpi-card .kpi-icon {
-        font-size: 2.5rem;
-        padding: 1rem;
-        border-radius: 50%;
-        color: var(--blanco);
-    }
-    .action-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.5rem;
-    }
-    .action-card {
-        background-color: var(--blanco);
-        border-radius: .75rem;
-        padding: 1.5rem;
-        text-align: center;
-        border: 1px solid var(--borde-sutil);
-        transition: all 0.2s ease-in-out;
-        text-decoration: none;
-        color: var(--texto-oscuro);
-    }
-    .action-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-        border-color: var(--naranja-corporativo);
-    }
-    .action-card .action-icon {
-        font-size: 2.5rem;
-        margin-bottom: 1rem;
-        display: inline-block;
-        padding: 1.25rem;
-        border-radius: 50%;
-        background-color: var(--azul-claro);
-        color: var(--azul-corporativo);
-    }
-    .action-card .action-title {
-        font-weight: 700;
-        font-size: 1.1rem;
-    }
-    .action-card .action-desc {
-        font-size: 0.9rem;
-        color: var(--texto-claro);
-    }
-    .online-dot {
-        height: 10px;
-        width: 10px;
-        background-color: #28a745;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 0.75rem;
-        animation: pulse 1.5s infinite;
-    }
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
-    }
-</style>
-{% endblock %}
+        /* --- ESTILOS GLOBALES --- */
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--gris-fondo);
+            color: var(--texto-blanco);
+        }
 
-{% block body %}
-<div class="container-fluid px-0">
+        /* --- ESTRUCTURA PRINCIPAL --- */
+        .wrapper {
+            display: flex;
+            width: 100%;
+            align-items: stretch;
+        }
 
-    <!-- Encabezado y Saludo -->
-    <div class="main-header mb-4">
-        <h1>Panel de Control</h1>
-        <p class="lead mb-0">Bienvenido de nuevo, <strong>{{ g.admin.usuario }}</strong>. Aquí tienes un resumen de la actividad de hoy.</p>
-    </div>
+        /* --- SIDEBAR --- */
+        #sidebar {
+            min-width: 260px;
+            max-width: 260px;
+            background: var(--azul-corporativo);
+            color: var(--texto-blanco);
+            transition: all 0.3s;
+            border-right: 1px solid var(--borde-sutil);
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header { 
+            padding: 1.25rem; 
+            text-align: center; 
+            border-bottom: 1px solid var(--borde-sutil);
+            flex-shrink: 0;
+        }
+        .sidebar-header h3 { 
+            font-weight: 700; 
+            color: var(--blanco); 
+            margin-bottom: 0;
+            font-size: 1.4rem;
+        }
+        #sidebar-nav {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #sidebar-nav .components { 
+            padding: 1rem 0;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        #sidebar-nav .nav-category { 
+            color: var(--texto-claro); 
+            padding: 0.5rem 1.25rem; 
+            font-weight: 500; 
+            text-transform: uppercase; 
+            font-size: 0.7rem; 
+            margin-top: 0.8rem;
+        }
+        #sidebar-nav .nav-item a {
+            padding: 0.7rem 1.25rem;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            color: var(--texto-blanco);
+            border-left: 4px solid transparent;
+            transition: all 0.2s ease-in-out;
+            text-decoration: none;
+        }
+        #sidebar-nav .nav-item a:hover {
+            background: var(--azul-hover);
+            border-left-color: var(--naranja-corporativo);
+        }
+        #sidebar-nav a[aria-expanded="true"] {
+            background: var(--azul-hover);
+        }
+        #sidebar-nav .dropdown-toggle::after {
+            margin-left: auto;
+            transition: transform 0.2s ease;
+        }
+        #sidebar-nav a[aria-expanded="true"] .dropdown-toggle::after {
+            transform: rotate(90deg);
+        }
+        #sidebar-nav .nav-item a i { 
+            margin-right: 0.8rem; 
+            font-size: 1.1rem; 
+            width: 22px;
+            text-align: center;
+        }
+        #sidebar-nav .collapse a { 
+            font-size: 0.85rem !important; 
+            padding-left: 3.5rem !important; 
+            background: rgba(0,0,0,0.2); 
+            color: var(--texto-claro);
+        }
+        .sidebar-footer {
+            padding: 1rem;
+            border-top: 1px solid var(--borde-sutil);
+            flex-shrink: 0;
+        }
+        .user-profile { display: flex; align-items: center; }
+        .user-profile i { font-size: 1.8rem; margin-right: .75rem; }
+        .user-info .username { font-weight: 500; color: var(--blanco); font-size: 0.9rem; }
+        .user-info .role { font-size: 0.75rem; color: var(--texto-claro); }
+        
+        /* --- CONTENIDO PRINCIPAL --- */
+        #content {
+            width: 100%;
+            padding: 1.5rem;
+            min-height: 100vh;
+            transition: all 0.3s;
+        }
+        .topbar { 
+            background: var(--azul-corporativo); 
+            border: 1px solid var(--borde-sutil);
+            border-radius: .75rem; 
+            padding: 12px 25px; 
+            margin-bottom: 25px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+        }
+        .btn-toggle-sidebar i { color: var(--texto-blanco) !important; }
+        .main-content-area {
+            padding: 0;
+        }
 
-    <!-- Fila de Tarjetas de Métricas (KPIs) -->
-    <div class="row">
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="kpi-card" style="border-left-color: var(--azul-corporativo);">
-                <div class="kpi-icon" style="background-color: var(--azul-corporativo);"><i class="bi bi-people-fill"></i></div>
-                <div class="kpi-content">
-                    <div class="kpi-title">Clientes en Cartera</div>
-                    <div class="kpi-value">{{ stats.clientes_cartera | default('0') }}</div>
-                </div>
-            </div>
+        /* --- RESPONSIVE --- */
+        @media (max-width: 768px) {
+            #sidebar {
+                margin-left: -260px;
+                position: fixed;
+                top: 0;
+                bottom: 0;
+                z-index: 1050;
+            }
+            #sidebar.active {
+                margin-left: 0;
+            }
+            #content { padding: 1rem; }
+            .topbar { margin-bottom: 1.5rem; }
+        }
+    </style>
+    
+    <!-- ESTILOS DEL HUB.HTML -->
+    <style>
+        .main-header {
+            background: var(--blanco);
+            padding: 2rem;
+            border-radius: .75rem;
+            border: 1px solid var(--borde-sutil);
+            margin-bottom: 2rem;
+        }
+        .main-header h1 {
+            font-weight: 700;
+            font-size: 2.2rem;
+            color: var(--texto-oscuro);
+        }
+        .main-header .lead {
+            color: #64748b;
+            font-size: 1.1rem;
+        }
+        .kpi-card {
+            background-color: var(--blanco);
+            border-radius: .75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border-left: 4px solid;
+            transition: all 0.2s ease-in-out;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: var(--texto-oscuro); /* Color de texto para tarjetas */
+        }
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        .kpi-card .kpi-content .kpi-title {
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+            color: #64748b; /* Gris para el título */
+        }
+        .kpi-card .kpi-content .kpi-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--texto-oscuro);
+            line-height: 1;
+        }
+        .kpi-card .kpi-icon {
+            font-size: 2.5rem;
+            padding: 1rem;
+            border-radius: 50%;
+            color: var(--blanco);
+        }
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+        .action-card {
+            background-color: var(--blanco);
+            border-radius: .75rem;
+            padding: 1.5rem;
+            text-align: center;
+            border: 1px solid var(--borde-sutil);
+            transition: all 0.2s ease-in-out;
+            text-decoration: none;
+            color: var(--texto-oscuro);
+        }
+        .action-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            border-color: var(--naranja-corporativo);
+        }
+        .action-card .action-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            display: inline-block;
+            padding: 1.25rem;
+            border-radius: 50%;
+            background-color: var(--azul-claro);
+            color: var(--azul-corporativo);
+        }
+        .action-card .action-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        .action-card .action-desc {
+            font-size: 0.9rem;
+            color: #64748b; /* Gris para descripción */
+        }
+        .online-dot {
+            height: 10px;
+            width: 10px;
+            background-color: #28a745;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0.75rem;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+        }
+        .card.shadow-sm {
+            background-color: var(--azul-corporativo);
+            border: 1px solid var(--borde-sutil);
+        }
+        .card-header {
+            background-color: transparent;
+            border-bottom: 1px solid var(--borde-sutil);
+        }
+        .list-group-item {
+            background-color: transparent;
+            color: var(--texto-blanco);
+        }
+        .card-body {
+            color: var(--texto-blanco);
+        }
+    </style>
+
+</head>
+<body>
+
+<div class="wrapper">
+    <!-- Sidebar -->
+    <nav id="sidebar">
+        <div class="sidebar-header">
+            <h3>Moto Plan Motors</h3>
         </div>
+        <div id="sidebar-nav">
+            <ul class="list-unstyled components">
+                <li class="nav-category">Navegación</li>
+                <li class="nav-item"><a href="#"><i class="bi bi-house-door-fill"></i> Hub Principal</a></li>
+                <li class="nav-item"><a href="#"><i class="bi bi-person-workspace"></i> HUB de Asesor</a></li>
 
-        {% if g.admin.rol in ['superadmin', 'gerente'] %}
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="kpi-card" style="border-left-color: #198754;">
-                <div class="kpi-icon" style="background-color: #198754;"><i class="bi bi-cash-coin"></i></div>
-                <div class="kpi-content">
-                    <div class="kpi-title">Recaudado (Mes)</div>
-                    <div class="kpi-value">${{ stats.recaudado_mes | default('0.00') }}</div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        {% if g.admin.rol in ['superadmin', 'gerente'] %}
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="kpi-card" style="border-left-color: var(--naranja-corporativo);">
-                <div class="kpi-icon" style="background-color: var(--naranja-corporativo);"><i class="bi bi-journal-check"></i></div>
-                <div class="kpi-content">
-                    <div class="kpi-title">Solicitudes Pendientes</div>
-                    <div class="kpi-value">{{ stats.solicitudes_pendientes | default('0') }}</div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="kpi-card" style="border-left-color: #0DCAF0;">
-                <div class="kpi-icon" style="background-color: #0DCAF0;"><i class="bi bi-graph-up-arrow"></i></div>
-                <div class="kpi-content">
-                    <div class="kpi-title">Tasa BCV</div>
-                    <div class="kpi-value" style="font-size: 1.8rem;">{{ stats.tasa_bcv | default('N/A') }}</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Fila de Contenido Principal -->
-    <div class="row">
-        <div class="col-lg-8 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-dark"><i class="bi bi-lightning-charge-fill me-2 text-primary"></i>Accesos Rápidos</h6>
-                </div>
-                <div class="card-body">
-                    <div class="action-grid">
-                        <a href="{{ url_for('registrar') }}" class="action-card">
-                            <span class="action-icon"><i class="bi bi-person-plus-fill"></i></span>
-                            <div class="action-title">Registrar Cliente</div>
-                            <p class="action-desc">Crea un nuevo perfil de cliente en el sistema.</p>
-                        </a>
-                        <a href="{{ url_for('consulta') }}" class="action-card">
-                            <span class="action-icon"><i class="bi bi-search"></i></span>
-                            <div class="action-title">Consultar Clientes</div>
-                            <p class="action-desc">Busca y gestiona perfiles de clientes existentes.</p>
-                        </a>
-                        <a href="{{ url_for('pagos_por_conciliar') }}" class="action-card">
-                            <span class="action-icon"><i class="bi bi-patch-check-fill"></i></span>
-                            <div class="action-title">Conciliar Pagos</div>
-                            <p class="action-desc">Verifica y aprueba los pagos reportados.</p>
-                        </a>
-                         <a href="{{ url_for('reporte_morosidad') }}" class="action-card">
-                            <span class="action-icon"><i class="bi bi-file-earmark-excel-fill"></i></span>
-                            <div class="action-title">Reporte de Morosidad</div>
-                            <p class="action-desc">Genera el listado de clientes con cuotas vencidas.</p>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-4 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header py-3 d-flex justify-content-between align-items-center">
-                    <h6 class="m-0 font-weight-bold text-dark"><i class="bi bi-broadcast me-2 text-primary"></i>Equipo en Tiempo Real</h6>
-                    <div id="loading-spinner" class="spinner-border spinner-border-sm text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </div>
-                <div class="card-body p-2">
-                    <ul id="active-sessions-list" class="list-group list-group-flush">
-                        <!-- La lista de usuarios se generará aquí con JavaScript -->
+                <li class="nav-item">
+                    <a href="#clientesSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-people-fill"></i> Clientes</a>
+                    <ul class="collapse list-unstyled" id="clientesSubmenu">
+                        <li><a href="#">Registrar Cliente</a></li>
+                        <li><a href="#">Consultar Clientes</a></li>
+                        <li><a href="#">Mi Cartera de Cobranza</a></li>
                     </ul>
+                </li>
+
+                <li class="nav-category">Operaciones</li>
+                <li class="nav-item">
+                    <a href="#adminFinanzasSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="bi bi-bank"></i> Administración y Finanzas</a>
+                    <ul class="collapse list-unstyled" id="adminFinanzasSubmenu">
+                        <li><a href="#">Gestión General</a></li>
+                        <li><a href="#">Centro de Conciliación</a></li>
+                    </ul>
+                </li>
+                
+                <li class="nav-category">Externo</li>
+                <li class="nav-item"><a href="#" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Portal Cliente</a></li>
+            </ul>
+            
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <i class="bi bi-person-circle"></i>
+                    <div class="user-info">
+                        <span class="username">Cjyuyo</span>
+                        <span class="role">Superadmin</span>
+                    </div>
+                    <a href="#" class="btn btn-outline-danger btn-sm ms-auto" title="Cerrar Sesión"><i class="bi bi-box-arrow-right"></i></a>
                 </div>
             </div>
         </div>
+    </nav>
+
+    <!-- Contenido Principal de la Página -->
+    <div id="content">
+        <!-- Barra de Navegación Superior (Topbar) -->
+        <nav class="navbar navbar-expand-lg topbar">
+            <div class="container-fluid">
+                <button class="btn btn-toggle-sidebar" type="button" id="sidebarCollapse">
+                    <i class="bi bi-list fs-4"></i>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Área de contenido dinámico -->
+        <div class="main-content-area">
+            <div class="container-fluid px-0">
+
+                <!-- Encabezado y Saludo -->
+                <div class="main-header mb-4">
+                    <h1>Panel de Control</h1>
+                    <p class="lead mb-0">Bienvenido de nuevo, <strong>Cjyuyo</strong>. Aquí tienes un resumen de la actividad de hoy.</p>
+                </div>
+            
+                <!-- Fila de Tarjetas de Métricas (KPIs) -->
+                <div class="row">
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="kpi-card" style="border-left-color: var(--azul-corporativo);">
+                            <div class="kpi-icon" style="background-color: var(--azul-corporativo);"><i class="bi bi-people-fill"></i></div>
+                            <div class="kpi-content">
+                                <div class="kpi-title">Clientes en Cartera</div>
+                                <div class="kpi-value">0</div>
+                            </div>
+                        </div>
+                    </div>
+            
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="kpi-card" style="border-left-color: #198754;">
+                            <div class="kpi-icon" style="background-color: #198754;"><i class="bi bi-cash-coin"></i></div>
+                            <div class="kpi-content">
+                                <div class="kpi-title">Recaudado (Mes)</div>
+                                <div class="kpi-value">$2244.00</div>
+                            </div>
+                        </div>
+                    </div>
+            
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="kpi-card" style="border-left-color: var(--naranja-corporativo);">
+                            <div class="kpi-icon" style="background-color: var(--naranja-corporativo);"><i class="bi bi-journal-check"></i></div>
+                            <div class="kpi-content">
+                                <div class="kpi-title">Solicitudes Pendientes</div>
+                                <div class="kpi-value">0</div>
+                            </div>
+                        </div>
+                    </div>
+            
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="kpi-card" style="border-left-color: #0DCAF0;">
+                            <div class="kpi-icon" style="background-color: #0DCAF0;"><i class="bi bi-graph-up-arrow"></i></div>
+                            <div class="kpi-content">
+                                <div class="kpi-title">Tasa BCV</div>
+                                <div class="kpi-value" style="font-size: 1.8rem;">130.07</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            
+                <!-- Fila de Contenido Principal -->
+                <div class="row">
+                    <div class="col-lg-8 mb-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header py-3">
+                                <h6 class="m-0 font-weight-bold text-white"><i class="bi bi-lightning-charge-fill me-2 text-primary"></i>Accesos Rápidos</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="action-grid">
+                                    <a href="#" class="action-card">
+                                        <span class="action-icon"><i class="bi bi-person-plus-fill"></i></span>
+                                        <div class="action-title">Registrar Cliente</div>
+                                        <p class="action-desc">Crea un nuevo perfil de cliente en el sistema.</p>
+                                    </a>
+                                    <a href="#" class="action-card">
+                                        <span class="action-icon"><i class="bi bi-search"></i></span>
+                                        <div class="action-title">Consultar Clientes</div>
+                                        <p class="action-desc">Busca y gestiona perfiles de clientes existentes.</p>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+            
+                    <div class="col-lg-4 mb-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                                <h6 class="m-0 font-weight-bold text-white"><i class="bi bi-broadcast me-2 text-primary"></i>Equipo en Tiempo Real</h6>
+                            </div>
+                            <div class="card-body p-2">
+                                <ul id="active-sessions-list" class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 p-3">
+                                        <div class="d-flex align-items-center"><span class="online-dot"></span><span class="fw-bold">Christian</span></div>
+                                        <small class="text-muted">hace 8 días</small>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center border-0 p-3">
+                                        <div class="d-flex align-items-center"><span class="online-dot"></span><span class="fw-bold">Cjyuyo</span></div>
+                                        <small class="text-muted">justo ahora</small>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer class="text-center text-muted py-3 mt-4">
+            <small>&copy; 2024 - Sistema de Gestión. Todos los derechos reservados.</small>
+        </footer>
     </div>
 </div>
-{% endblock %}
 
-{% block scripts_extra %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const sessionsList = document.getElementById('active-sessions-list');
-    const spinner = document.getElementById('loading-spinner');
-
-    const fetchActiveSessions = async () => {
-        try {
-            const response = await fetch("{{ url_for('get_active_sessions') }}");
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            const users = await response.json();
-            sessionsList.innerHTML = '';
-
-            if (users.length === 0) {
-                sessionsList.innerHTML = '<li class="list-group-item text-center text-muted border-0 p-3">No hay usuarios activos.</li>';
-            } else {
-                users.forEach(user => {
-                    const listItem = document.createElement('li');
-                    listItem.className = 'list-group-item d-flex justify-content-between align-items-center border-0 p-3';
-                    
-                    const statusIcon = user.is_online 
-                        ? '<span class="online-dot" title="En línea"></span>'
-                        : '<i class="bi bi-moon-fill text-muted me-3" title="Desconectado"></i>';
-
-                    listItem.innerHTML = `
-                        <div class="d-flex align-items-center">
-                            ${statusIcon}
-                            <span class="fw-bold">${user.username}</span>
-                        </div>
-                        <small class="text-muted">${user.last_seen}</small>
-                    `;
-                    sessionsList.appendChild(listItem);
-                });
-            }
-        } catch (error) {
-            console.error('Error fetching active sessions:', error);
-            sessionsList.innerHTML = '<li class="list-group-item text-center text-danger border-0 p-3">Error al cargar sesiones.</li>';
-        } finally {
-            if (spinner) {
-                spinner.style.display = 'none';
-            }
-        }
-    };
-
-    fetchActiveSessions();
-    setInterval(fetchActiveSessions, 30000); // Actualizar cada 30 segundos
-});
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('sidebarCollapse').addEventListener('click', function () {
+            document.getElementById('sidebar').classList.toggle('active');
+        });
+    });
 </script>
-{% endblock %}
+
+</body>
+</html>
