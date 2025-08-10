@@ -1143,20 +1143,31 @@ def reporte_metricas():
             flash(f"No se pudieron cargar las métricas del dashboard: {e}", "error")
     return render_template('reporte_metricas.html', anio_actual=get_venezuela_current_date().year, metrics=dashboard_metrics)
 
+# =================================================================================
+# ===== INICIO DE LA FUNCIÓN CORREGIDA =====
+# =================================================================================
+
 @app.route('/reportes/morosidad')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def reporte_morosidad():
     conn = get_db()
     today = get_venezuela_current_date()
-    clientes_en_mora, gestores, resumen = [], [], {'total_clientes_mora': 0, 'monto_total_mora': 0}
+    clientes_en_mora, gestores = [], []
+    
+    # Se inicializa el diccionario de resumen para evitar errores si no hay conexión
+    resumen = {'total_clientes_mora': 0, 'monto_total_mora': Decimal('0.0')}
+
     if conn:
         try:
             with conn.cursor() as cur:
                 cur.execute("SELECT id, usuario FROM administradores ORDER BY usuario")
                 gestores = cur.fetchall()
+                
                 first_day_of_month = today.replace(day=1)
+                
                 subquery_pagaron_mes = "SELECT DISTINCT cliente_id FROM pagos WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s"
+                
                 query_morosos = f"""
                     SELECT c.id, c.nombre, c.apellido, c.cedula, c.telefono, c.valor_cuota, c.gestor_id,
                            a.usuario as gestor_asignado,
@@ -1167,12 +1178,32 @@ def reporte_morosidad():
                 """
                 cur.execute(query_morosos, (first_day_of_month,))
                 clientes_en_mora = cur.fetchall()
+
+                # --- CÁLCULO DEL RESUMEN ---
                 if clientes_en_mora:
-                    resumen['total_clientes_mora'] = len(clientes_en_mora)
-                    resumen['monto_total_mora'] = sum(c['valor_cuota'] for c in clientes_en_mora if c['valor_cuota'])
+                    total_clientes_mora = len(clientes_en_mora)
+                    # Se asegura de que valor_cuota no sea None antes de sumar
+                    monto_total_mora = sum(c['valor_cuota'] for c in clientes_en_mora if c['valor_cuota'])
+                    resumen = {
+                        'total_clientes_mora': total_clientes_mora,
+                        'monto_total_mora': monto_total_mora
+                    }
+                # Si no hay clientes en mora, el resumen ya está inicializado en cero.
+
         except psycopg2.Error as e:
             flash(f"No se pudo generar el reporte de morosidad: {e}", "error")
-    return render_template('reporte_morosidad.html', clientes_en_mora=clientes_en_mora, gestores=gestores, mes_actual=get_nombre_mes(today.month), anio_actual=today.year)
+            
+    # --- SE PASA LA VARIABLE 'resumen' A LA PLANTILLA ---
+    return render_template('reporte_morosidad.html', 
+                           clientes_en_mora=clientes_en_mora, 
+                           gestores=gestores, 
+                           mes_actual=get_nombre_mes(today.month), 
+                           anio_actual=today.year, 
+                           resumen=resumen)
+
+# =================================================================================
+# ===== FIN DE LA FUNCIÓN CORREGIDA =====
+# =================================================================================
 
 @app.route('/asignar_gestor/<int:cliente_id>', methods=['POST'])
 @admin_required
