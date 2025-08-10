@@ -171,11 +171,14 @@
         .kpi-card {
             padding: 1.5rem;
             text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
         .kpi-card .kpi-icon {
             font-size: 2.5rem;
             padding: 1rem;
-            border-radius: .75rem; /* <-- CAMBIO: De 50% a .75rem para que no sea un óvalo */
+            border-radius: .75rem;
             color: var(--blanco);
             display: inline-block;
             margin-bottom: 1rem;
@@ -290,7 +293,22 @@
                 display: block;
                 opacity: 1;
             }
-            /* --- INICIO: OPTIMIZACIÓN DE ACCESOS RÁPIDOS PARA MÓVIL --- */
+
+            /* --- INICIO: OPTIMIZACIÓN DE TARJETAS PARA MÓVIL --- */
+            .kpi-card {
+                padding: 1rem;
+            }
+            .kpi-card .kpi-icon {
+                font-size: 2rem;
+                padding: 0.8rem;
+                margin-bottom: 0.5rem;
+            }
+            .kpi-card .kpi-content .kpi-title {
+                font-size: 0.75rem;
+            }
+            .kpi-card .kpi-content .kpi-value {
+                font-size: 1.8rem;
+            }
             .action-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
@@ -307,7 +325,7 @@
             .action-card .action-desc {
                 font-size: 0.8rem;
             }
-            /* --- FIN: OPTIMIZACIÓN DE ACCESOS RÁPIDOS PARA MÓVIL --- */
+            /* --- FIN: OPTIMIZACIÓN DE TARJETAS PARA MÓVIL --- */
         }
     </style>
     
@@ -321,7 +339,7 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
         .main-header h1 {
-            font-weight: 900; /* Aumenta el peso de la fuente */
+            font-weight: 900;
             font-size: 2.8rem;
             color: var(--texto-principal);
             background: -webkit-linear-gradient(45deg, #111827, #6b7280);
@@ -331,7 +349,7 @@
         }
         .main-header .lead {
             color: var(--texto-secundario);
-            font-size: 1.2rem; /* Aumenta el tamaño del subtítulo */
+            font-size: 1.2rem;
         }
     </style>
 
@@ -444,7 +462,7 @@
                 <!-- INICIO: Fila de KPIs optimizada para móvil -->
                 <div class="row">
                     <div class="col-lg-3 col-md-6 col-6">
-                        <div class="card kpi-card">
+                        <div class="card kpi-card h-100">
                             <div class="kpi-icon" style="background-color: #0DCAF0;"><i class="bi bi-people-fill"></i></div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Clientes</div>
@@ -454,7 +472,7 @@
                     </div>
                     {% if g.admin.rol in ['superadmin', 'gerente'] %}
                     <div class="col-lg-3 col-md-6 col-6">
-                        <div class="card kpi-card">
+                        <div class="card kpi-card h-100">
                             <div class="kpi-icon" style="background-color: #198754;"><i class="bi bi-wallet2"></i></div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Recaudado</div>
@@ -465,7 +483,7 @@
                     {% endif %}
                     {% if g.admin.rol in ['superadmin', 'gerente'] %}
                     <div class="col-lg-3 col-md-6 col-6">
-                        <div class="card kpi-card">
+                        <div class="card kpi-card h-100">
                             <div class="kpi-icon" style="background-color: var(--color-naranja);"><i class="bi bi-clipboard2-check-fill"></i></div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Solicitudes</div>
@@ -475,7 +493,7 @@
                     </div>
                     {% endif %}
                     <div class="col-lg-3 col-md-6 col-6">
-                        <div class="card kpi-card">
+                        <div class="card kpi-card h-100">
                             <div class="kpi-icon" style="background-color: #6f42c1;"><i class="bi bi-graph-up-arrow"></i></div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Tasa BCV</div>
