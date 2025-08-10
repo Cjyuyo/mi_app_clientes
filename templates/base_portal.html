@@ -12,25 +12,27 @@
 
     <style>
         :root {
-            --azul-corporativo: #1E293B;
-            --naranja-corporativo: #F97316;
-            --gris-fondo: #F8FAFC;
-            --blanco: #FFFFFF;
-            --texto-oscuro: #0F172A;
-            --borde-sutil: #E2E8F0;
+            --color-primario: #1f2937; /* Azul oscuro/casi negro para un look serio */
+            --color-acento: #F97316;
+            --content-bg: #e5e7eb; /* Mismo gris oscuro que el admin */
+            --card-bg: #FFFFFF;
+            --texto-principal: #111827;
+            --texto-secundario: #6b7280;
+            --card-borde: #d1d5db;
         }
         body {
             font-family: 'Roboto', sans-serif;
-            background-color: var(--gris-fondo);
+            background-color: var(--content-bg);
+            color: var(--texto-principal);
         }
         .topbar {
-            background: var(--blanco);
-            border-bottom: 1px solid var(--borde-sutil);
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--card-borde);
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         .topbar .navbar-brand {
             font-weight: 700;
-            color: var(--azul-corporativo);
+            color: var(--texto-principal);
         }
         .main-content {
             padding: 2rem 1rem;
@@ -38,6 +40,13 @@
         .content-wrapper {
             max-width: 800px;
             margin: auto;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-borde);
+            border-radius: .75rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
     </style>
     {% block head_extra %}{% endblock %}

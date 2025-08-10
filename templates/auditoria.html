@@ -4,24 +4,63 @@
     Registro de Auditoría
 {% endblock %}
 
+{% block head_extra %}
+<style>
+    .main-header {
+        position: relative;
+        overflow: hidden;
+        background-color: #f8fafc;
+        padding: 2rem;
+        border-radius: .75rem;
+        border: 1px solid var(--card-borde);
+        margin-bottom: 2rem;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .main-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        opacity: 0.05;
+        z-index: 0;
+    }
+    .main-header > * {
+        position: relative;
+        z-index: 1;
+    }
+    .main-header h1 {
+        font-weight: 800;
+        font-size: 2.2rem;
+        color: var(--texto-principal);
+    }
+    .main-header .lead {
+        color: var(--texto-secundario);
+        font-size: 1.1rem;
+    }
+</style>
+{% endblock %}
+
 {% block body %}
-    <div class="main-header text-white text-center mb-4" style="background-color: #7f8c8d; border-radius: .5rem;">
-        <h1><i class="bi bi-shield-check"></i> Registro de Auditoría</h1>
-        <p class="lead">Trazabilidad completa de las acciones en el sistema.</p>
+    <div class="main-header mb-4">
+        <h1><i class="bi bi-shield-check me-2"></i>Registro de Auditoría</h1>
+        <p class="lead mb-0">Trazabilidad completa de las acciones realizadas en el sistema.</p>
     </div>
 
-    <div class="card content-card mb-4">
-        <div class="card-body d-flex justify-content-center">
-            <form method="GET" action="{{ url_for('auditoria') }}" class="row g-3 align-items-end">
-                <div class="col-auto">
-                    <label for="fecha" class="form-label">Filtrar por fecha:</label>
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('auditoria') }}" class="row g-3 align-items-center justify-content-center">
+                <div class="col-12 col-sm-auto">
+                    <label for="fecha" class="form-label visually-hidden">Filtrar por fecha:</label>
                     <input type="date" id="fecha" name="fecha" class="form-control" value="{{ fecha_filtro }}">
                 </div>
-                <div class="col-auto">
-                    <button type="submit" class="btn btn-primary" style="background-color: #7f8c8d; border-color: #7f8c8d;"><i class="bi bi-funnel-fill me-2"></i>Filtrar</button>
+                <div class="col-12 col-sm-auto">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-funnel-fill me-2"></i>Filtrar</button>
                 </div>
-                <div class="col-auto">
-                    <a href="{{ url_for('descargar_reporte_auditoria', fecha=fecha_filtro) }}" class="btn btn-success" target="_blank">
+                <div class="col-12 col-sm-auto">
+                    <a href="{{ url_for('descargar_reporte_auditoria', fecha=fecha_filtro) }}" class="btn btn-success w-100" target="_blank">
                         <i class="bi bi-download me-2"></i>Descargar Reporte
                     </a>
                 </div>
@@ -29,11 +68,40 @@
         </div>
     </div>
 
-    <div class="card content-card">
+    <div class="card">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
-                    <!-- Contenido de la tabla de auditoría -->
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha y Hora</th>
+                            <th>Usuario</th>
+                            <th>Acción</th>
+                            <th>Descripción</th>
+                            <th>Cliente Afectado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>{{ log.fecha_registro | format_datetime }}</td>
+                            <td>{{ log.usuario_nombre }}</td>
+                            <td><span class="badge bg-secondary">{{ log.accion }}</span></td>
+                            <td>{{ log.descripcion }}</td>
+                            <td>
+                                {% if log.nombre %}
+                                    {{ log.nombre }} {{ log.apellido }} ({{ log.cedula }})
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center p-4">No hay registros para la fecha seleccionada.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
                 </table>
             </div>
         </div>

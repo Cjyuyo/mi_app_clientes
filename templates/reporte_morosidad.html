@@ -4,28 +4,97 @@
     Reporte de Morosidad
 {% endblock %}
 
+{% block head_extra %}
+<style>
+    .main-header {
+        position: relative;
+        overflow: hidden;
+        background-color: #f8fafc;
+        padding: 2rem;
+        border-radius: .75rem;
+        border: 1px solid var(--card-borde);
+        margin-bottom: 2rem;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .main-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        opacity: 0.05;
+        z-index: 0;
+    }
+    .main-header > * {
+        position: relative;
+        z-index: 1;
+    }
+    .main-header h1 {
+        font-weight: 800;
+        font-size: 2.2rem;
+        color: var(--texto-principal);
+    }
+    .main-header .lead {
+        color: var(--texto-secundario);
+        font-size: 1.1rem;
+    }
+    .kpi-card {
+        padding: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .kpi-card .kpi-icon-wrapper {
+        font-size: 1.8rem;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .kpi-card .kpi-content .kpi-title {
+        color: var(--texto-secundario);
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        margin-bottom: 0;
+    }
+    .kpi-card .kpi-content .kpi-value {
+        color: var(--texto-principal);
+        font-size: 1.8rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .kpi-icon-wrapper.bg-red { background-color: #fee2e2; color: #ef4444; }
+</style>
+{% endblock %}
+
 {% block body %}
-    <div class="main-header" style="background-color: #C0392B; color: white; border-radius: .5rem;">
+    <div class="main-header">
         <h1>Reporte de Clientes en Mora</h1>
         <p class="lead">Ahorradores sin pago de cuota conciliado para {{ mes_actual }} {{ anio_actual }}.</p>
     </div>
 
-    <div class="row g-4 my-4">
-        <div class="col-md-6">
-            <div class="metric-card card d-flex flex-row align-items-center p-3">
-                <div class="metric-icon bg-danger me-3"><i class="bi bi-people-fill"></i></div>
-                <div>
-                    <div class="metric-label">Total Clientes en Mora</div>
-                    <div class="metric-value text-danger">{{ resumen.total_clientes_mora }}</div>
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-md-6">
+            <div class="card kpi-card h-100">
+                <div class="kpi-icon-wrapper bg-red"><i class="bi bi-people-fill"></i></div>
+                <div class="kpi-content">
+                    <div class="kpi-title">Total Clientes en Mora</div>
+                    <div class="kpi-value">{{ resumen.total_clientes_mora }}</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
-             <div class="metric-card card d-flex flex-row align-items-center p-3">
-                <div class="metric-icon bg-danger me-3"><i class="bi bi-cash-stack"></i></div>
-                <div>
-                    <div class="metric-label">Monto Total en Mora</div>
-                    <div class="metric-value text-danger">${{ "{:,.2f}".format(resumen.monto_total_mora) }}</div>
+        <div class="col-12 col-md-6">
+             <div class="card kpi-card h-100">
+                <div class="kpi-icon-wrapper bg-red"><i class="bi bi-cash-stack"></i></div>
+                <div class="kpi-content">
+                    <div class="kpi-title">Monto Total en Mora</div>
+                    <div class="kpi-value">${{ "{:,.2f}".format(resumen.monto_total_mora) }}</div>
                 </div>
             </div>
         </div>
@@ -33,39 +102,34 @@
 
     {% if clientes_en_mora %}
         {% for cliente in clientes_en_mora %}
-        <div class="client-card card mb-3">
+        <div class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">{{ cliente.nombre }} {{ cliente.apellido }}</h5>
             </div>
             <div class="card-body">
-                <div class="client-details">
-                    <div class="detail-item">
-                        <span class="label">Cédula</span>
-                        <span class="value">{{ cliente.cedula }}</span>
+                <div class="row g-3">
+                    <div class="col-12 col-sm-6 col-md-3">
+                        <strong>Cédula:</strong> {{ cliente.cedula }}
                     </div>
-                    <div class="detail-item">
-                        <span class="label">Teléfono</span>
-                        <span class="value">{{ cliente.telefono or 'N/A' }}</span>
+                    <div class="col-12 col-sm-6 col-md-3">
+                        <strong>Teléfono:</strong> {{ cliente.telefono or 'N/A' }}
                     </div>
-                    <div class="detail-item">
-                        <span class="label">Último Pago</span>
-                        <span class="value">
-                            {% if cliente.ultimo_pago_fecha %}
-                                {{ cliente.ultimo_pago_fecha.strftime('%d/%m/%Y') }}
-                            {% else %}
-                                <span class="text-muted">Sin pagos previos</span>
-                            {% endif %}
-                        </span>
+                    <div class="col-12 col-sm-6 col-md-3">
+                        <strong>Último Pago:</strong>
+                        {% if cliente.ultimo_pago_fecha %}
+                            {{ cliente.ultimo_pago_fecha.strftime('%d/%m/%Y') }}
+                        {% else %}
+                            <span class="text-muted">Sin pagos</span>
+                        {% endif %}
                     </div>
-                    <div class="detail-item">
-                        <span class="label">Valor Cuota</span>
-                        <span class="value fw-bold">${{ "{:,.2f}".format(cliente.valor_cuota) }}</span>
+                    <div class="col-12 col-sm-6 col-md-3">
+                        <strong>Valor Cuota:</strong> ${{ "{:,.2f}".format(cliente.valor_cuota) }}
                     </div>
                 </div>
             </div>
             <div class="card-footer bg-light">
-                <div class="client-actions d-flex gap-2">
-                    <form action="{{ url_for('asignar_gestor', cliente_id=cliente.id) }}" method="POST" class="d-flex flex-grow-1 align-items-center">
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <form action="{{ url_for('asignar_gestor', cliente_id=cliente.id) }}" method="POST" class="d-flex flex-grow-1" style="min-width: 250px;">
                         <select name="gestor_id" class="form-select me-2" aria-label="Asignar gestor">
                             <option value="">Asignar a un gestor...</option>
                             {% for gestor in gestores %}

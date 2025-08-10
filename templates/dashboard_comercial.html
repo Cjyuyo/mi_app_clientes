@@ -4,39 +4,153 @@
     Dashboard Comercial
 {% endblock %}
 
+{% block head_extra %}
+<style>
+    .main-header {
+        position: relative;
+        overflow: hidden;
+        background-color: #f8fafc;
+        padding: 2rem;
+        border-radius: .75rem;
+        border: 1px solid var(--card-borde);
+        margin-bottom: 2rem;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .main-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        opacity: 0.05;
+        z-index: 0;
+    }
+    .main-header > * {
+        position: relative;
+        z-index: 1;
+    }
+    .main-header h1 {
+        font-weight: 800;
+        font-size: 2.2rem;
+        color: var(--texto-principal);
+    }
+    .main-header .lead {
+        color: var(--texto-secundario);
+        font-size: 1.1rem;
+    }
+
+    .kpi-card {
+        padding: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .kpi-card .kpi-icon-wrapper {
+        font-size: 1.8rem;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .kpi-card .kpi-content .kpi-title {
+        color: var(--texto-secundario);
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        margin-bottom: 0;
+    }
+    .kpi-card .kpi-content .kpi-value {
+        color: var(--texto-principal);
+        font-size: 1.8rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .kpi-icon-wrapper.bg-green { background-color: #dcfce7; color: #16a34a; }
+    .kpi-icon-wrapper.bg-orange { background-color: #fff7ed; color: #f97316; }
+    .kpi-icon-wrapper.bg-blue { background-color: #e0f2fe; color: #0ea5e9; }
+</style>
+{% endblock %}
+
 {% block body %}
-    <div class="main-header text-white text-center mb-4" style="background-color: #E67E22; border-radius: .5rem;">
-        <h1><i class="bi bi-shop"></i> Dashboard Comercial</h1>
+    <div class="main-header mb-4">
+        <h1><i class="bi bi-shop me-2"></i>Dashboard Comercial</h1>
+        <p class="lead mb-0">Análisis de ingresos por inscripciones y comisiones.</p>
     </div>
 
-    <div class="row mb-4 g-4">
-        <div class="col-md-4">
-            <div class="card stat-card" style="border-left-color: var(--azul-corporativo);">
-                <div class="card-body">
-                    <h5 class="card-title">Ingresos Brutos (Inscripciones)</h5>
-                    <p class="card-text fs-2 fw-bold" style="color: var(--azul-corporativo);">${{ "{:,.2f}".format(stats.ingresos_brutos_inscripciones or 0) }}</p>
+    <div class="row g-4">
+        <!-- Estadísticas Principales -->
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="card kpi-card h-100">
+                <div class="kpi-icon-wrapper bg-green">
+                    <i class="bi bi-graph-up-arrow"></i>
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-title">Ingresos Brutos (Inscripciones)</div>
+                    <div class="kpi-value">${{ "{:,.2f}".format(stats.ingresos_brutos_inscripciones or 0) }}</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card stat-card" style="border-left-color: var(--naranja-corporativo);">
-                <div class="card-body">
-                    <h5 class="card-title">Nómina Pendiente por Pagar</h5>
-                    <p class="card-text fs-2 fw-bold" style="color: var(--naranja-corporativo);">${{ "{:,.2f}".format(stats.total_comisiones_pendientes or 0) }}</p>
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="card kpi-card h-100">
+                <div class="kpi-icon-wrapper bg-orange">
+                    <i class="bi bi-wallet2"></i>
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-title">Nómina Pendiente por Pagar</div>
+                    <div class="kpi-value">${{ "{:,.2f}".format(stats.total_comisiones_pendientes or 0) }}</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card stat-card" style="border-left-color: #198754;">
-                <div class="card-body">
-                    <h5 class="card-title">Sobrante de Empresa (Inscripciones)</h5>
-                    <p class="card-text fs-2 fw-bold" style="color: #198754;">${{ "{:,.2f}".format(stats.total_sobrante_pendiente or 0) }}</p>
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="card kpi-card h-100">
+                <div class="kpi-icon-wrapper bg-blue">
+                    <i class="bi bi-building-check"></i>
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-title">Sobrante de Empresa</div>
+                    <div class="kpi-value">${{ "{:,.2f}".format(stats.total_sobrante_pendiente or 0) }}</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Resto del contenido del dashboard comercial -->
+    <!-- Contratos y Comisiones -->
+    <div class="row g-4 mt-2">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h6>Contratos Registrados</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <!-- Contenido de la tabla de contratos -->
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6>Resumen de Comisiones Pendientes</h6>
+                </div>
+                <div class="card-body">
+                     <div class="table-responsive">
+                        <table class="table table-sm">
+                            <!-- Contenido de la tabla de comisiones -->
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Modals -->
     <div class="modal fade" id="splitModal" tabindex="-1">

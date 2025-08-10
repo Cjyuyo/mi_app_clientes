@@ -6,77 +6,138 @@
 
 {% block head_extra %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .main-header {
+            position: relative;
+            overflow: hidden;
+            background-color: #f8fafc;
+            padding: 2rem;
+            border-radius: .75rem;
+            border: 1px solid var(--card-borde);
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .main-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.05;
+            z-index: 0;
+        }
+        .main-header > * {
+            position: relative;
+            z-index: 1;
+        }
+        .main-header h1 {
+            font-weight: 800;
+            font-size: 2.2rem;
+            color: var(--texto-principal);
+        }
+        .main-header .lead {
+            color: var(--texto-secundario);
+            font-size: 1.1rem;
+        }
+        .kpi-card {
+            padding: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .kpi-card .kpi-icon-wrapper {
+            font-size: 1.8rem;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .kpi-card .kpi-content .kpi-title {
+            color: var(--texto-secundario);
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            margin-bottom: 0;
+        }
+        .kpi-card .kpi-content .kpi-value {
+            color: var(--texto-principal);
+            font-size: 1.8rem;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .kpi-icon-wrapper.bg-green { background-color: #dcfce7; color: #16a34a; }
+        .kpi-icon-wrapper.bg-blue { background-color: #e0f2fe; color: #0ea5e9; }
+        .kpi-icon-wrapper.bg-red { background-color: #fee2e2; color: #ef4444; }
+        .kpi-icon-wrapper.bg-purple { background-color: #f5f3ff; color: #8b5cf6; }
+    </style>
 {% endblock %}
 
 {% block body %}
-    <div class="main-header" style="background-color: #3498DB; color: white; border-radius: .5rem;">
+    <div class="main-header">
         <h1>Dashboard de Rendimiento</h1>
         <p class="lead">Análisis de los indicadores clave para {{ metrics.mes_actual }} {{ metrics.anio_actual }}.</p>
     </div>
 
-    <div class="row g-4 mt-4">
-        <div class="col-xl-3 col-md-6">
-            <div class="metric-card card h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="metric-icon bg-success me-3"><i class="bi bi-cash-stack"></i></div>
-                    <div>
-                        <div class="metric-label">Ingresos del Mes</div>
-                        <div class="metric-value">${{ "{:,.2f}".format(metrics.ingresos_mes_conciliados) }}</div>
-                    </div>
+    <div class="row g-4">
+        <div class="col-12 col-md-6">
+            <div class="card kpi-card h-100">
+                <div class="kpi-icon-wrapper bg-green"><i class="bi bi-cash-stack"></i></div>
+                <div class="kpi-content">
+                    <div class="kpi-title">Ingresos del Mes</div>
+                    <div class="kpi-value">${{ "{:,.2f}".format(metrics.ingresos_mes_conciliados) }}</div>
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="metric-card card h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="metric-icon bg-primary me-3"><i class="bi bi-people-fill"></i></div>
-                    <div>
-                        <div class="metric-label">Clientes Activos</div>
-                        <div class="metric-value">{{ metrics.clientes_activos }}</div>
-                    </div>
+        <div class="col-12 col-md-6">
+            <div class="card kpi-card h-100">
+                <div class="kpi-icon-wrapper bg-blue"><i class="bi bi-people-fill"></i></div>
+                <div class="kpi-content">
+                    <div class="kpi-title">Clientes Activos</div>
+                    <div class="kpi-value">{{ metrics.clientes_activos }}</div>
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="metric-card card h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="metric-icon bg-danger me-3"><i class="bi bi-graph-down-arrow"></i></div>
-                    <div>
-                        <div class="metric-label">Índice de Morosidad</div>
-                        <div class="metric-value">{{ "%.1f"|format(metrics.indice_morosidad) }}%</div>
-                    </div>
+        <div class="col-12 col-md-6">
+            <div class="card kpi-card h-100">
+                <div class="kpi-icon-wrapper bg-red"><i class="bi bi-graph-down-arrow"></i></div>
+                <div class="kpi-content">
+                    <div class="kpi-title">Índice de Morosidad</div>
+                    <div class="kpi-value">{{ "%.1f"|format(metrics.indice_morosidad) }}%</div>
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="metric-card card h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="metric-icon me-3" style="background-color: var(--azul-corporativo);"><i class="bi bi-award-fill"></i></div>
-                    <div>
-                        <div class="metric-label">Total Adjudicados</div>
-                        <div class="metric-value">{{ metrics.clientes_adjudicados }}</div>
-                    </div>
+        <div class="col-12 col-md-6">
+            <div class="card kpi-card h-100">
+                <div class="kpi-icon-wrapper bg-purple"><i class="bi bi-award-fill"></i></div>
+                <div class="kpi-content">
+                    <div class="kpi-title">Total Adjudicados</div>
+                    <div class="kpi-value">{{ metrics.clientes_adjudicados }}</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row g-4 mt-4">
-        <div class="col-lg-7">
-            <div class="chart-card card">
+    <div class="row g-4 mt-2">
+        <div class="col-12 col-lg-7">
+            <div class="card">
                 <div class="card-body">
                     <h5 class="mb-4">Ingresos Mensuales (Últimos 6 Meses)</h5>
-                    <div class="chart-wrapper" style="height: 350px;">
+                    <div style="height: 350px;">
                         <canvas id="incomeChart"></canvas>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-lg-5">
-            <div class="chart-card card">
+        <div class="col-12 col-lg-5">
+            <div class="card">
                 <div class="card-body">
                     <h5 class="mb-4">Composición de Clientes Activos</h5>
-                    <div class="chart-wrapper" style="height: 350px;">
+                    <div style="height: 350px;">
                         <canvas id="clientsChart"></canvas>
                     </div>
                 </div>
@@ -99,8 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 datasets: [{ 
                     label: 'Ingresos ($)', 
                     data: incomeData.values, 
-                    backgroundColor: 'rgba(52, 152, 219, 0.6)', 
-                    borderColor: 'rgba(52, 152, 219, 1)', 
+                    backgroundColor: 'rgba(59, 130, 246, 0.6)', 
+                    borderColor: 'rgba(59, 130, 246, 1)', 
                     borderWidth: 1, 
                     borderRadius: 5 
                 }] 
@@ -122,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 datasets: [{ 
                     label: 'Clientes', 
                     data: clientData.values, 
-                    backgroundColor: ['#2B3A55', '#3498DB', '#F99417', '#3B8788', '#E67E22', '#7f8c8d'], 
+                    backgroundColor: ['#1f2937', '#3b82f6', '#f97316', '#16a34a', '#8b5cf6', '#6b7280'], 
                     borderColor: '#fff', 
                     borderWidth: 3 
                 }] 

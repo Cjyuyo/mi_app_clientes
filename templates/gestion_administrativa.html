@@ -6,15 +6,94 @@
 
 {% block head_extra %}
 <style>
+    /* --- INICIO: REDISEÑO DEL ENCABEZADO PRINCIPAL --- */
+    .main-header {
+        position: relative;
+        overflow: hidden;
+        background-color: #f8fafc; /* Color de fondo base */
+        padding: 2rem;
+        border-radius: .75rem;
+        border: 1px solid var(--card-borde);
+        margin-bottom: 2rem;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .main-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        opacity: 0.05;
+        z-index: 0;
+    }
+    .main-header > * {
+        position: relative;
+        z-index: 1;
+    }
+    .main-header h1 {
+        font-weight: 800;
+        font-size: 2.2rem;
+        color: var(--texto-principal);
+    }
+    .main-header .lead {
+        color: var(--texto-secundario);
+        font-size: 1.1rem;
+        max-width: 80%;
+    }
+    /* --- FIN: REDISEÑO DEL ENCABEZADO PRINCIPAL --- */
+
+    /* --- ESTILOS PARA TARJETAS DE HERRAMIENTAS --- */
     .tool-card {
-        transition: all 0.3s ease;
-        border: 1px solid #e9ecef;
-        border-top-width: 4px;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 1.5rem;
+        transition: all 0.2s ease-in-out;
     }
     .tool-card:hover {
         transform: translateY(-5px);
-        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        border-color: var(--color-primario);
     }
+    .tool-card .tool-icon {
+        font-size: 2rem;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .tool-card .tool-content {
+        flex-grow: 1;
+    }
+    .tool-card .tool-content h5 {
+        font-weight: 700;
+        font-size: 1.1rem;
+        margin-bottom: 0.25rem;
+    }
+    .tool-card .tool-content p {
+        font-size: 0.9rem;
+        color: var(--texto-secundario);
+        margin-bottom: 1rem;
+    }
+    .tool-card .badge {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+    }
+
+    /* Colores para los íconos */
+    .tool-icon.bg-green { background-color: #dcfce7; color: #16a34a; }
+    .tool-icon.bg-blue { background-color: #e0f2fe; color: #0ea5e9; }
+    .tool-icon.bg-purple { background-color: #f5f3ff; color: #8b5cf6; }
+    .tool-icon.bg-orange { background-color: #fff7ed; color: #f97316; }
+    .tool-icon.bg-red { background-color: #fee2e2; color: #ef4444; }
+    .tool-icon.bg-yellow { background-color: #fefce8; color: #eab308; }
+
 </style>
 {% endblock %}
 
@@ -23,83 +102,87 @@
 <div class="container-fluid px-0">
 
     <!-- Encabezado de la página -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="h3 mb-0 text-gray-800">
-            <i class="bi bi-cpu-fill me-2" style="color: var(--azul-corporativo);"></i>
-            Gestión Administrativa
-        </h2>
-        <p class="text-muted mb-0 d-none d-md-block">Herramientas para la toma de decisiones y optimización de procesos.</p>
+    <div class="main-header">
+        <h1>Gestión Administrativa</h1>
+        <p class="lead mb-0">Herramientas para la toma de decisiones y optimización de procesos.</p>
     </div>
 
     <div class="row g-4">
-        <!-- Tarjeta: Flujo de Caja -->
-        <div class="col-lg-4 col-md-6">
-            <div class="card tool-card h-100 shadow-sm" style="border-top-color: #1abc9c;">
-                <div class="card-body d-flex flex-column text-center">
-                    <div class="icon fs-1 mb-3 mx-auto" style="color: #1abc9c;"><i class="bi bi-cash-stack"></i></div>
-                    <h5 class="card-title">Flujo de Caja</h5>
-                    <p class="card-text text-muted flex-grow-1">Analiza ingresos, egresos y balances para una visión financiera clara.</p>
-                    <a href="{{ url_for('reporte_flujo_caja') }}" class="btn btn-primary mt-3 align-self-center">Analizar Flujo</a>
-                </div>
-            </div>
-        </div>
-
         <!-- Tarjeta: Centro de Conciliación -->
-        <div class="col-lg-4 col-md-6">
-            <div class="card tool-card h-100 shadow-sm" style="border-top-color: #3498db;">
-                <div class="card-body d-flex flex-column text-center">
-                    <div class="icon fs-1 mb-3 mx-auto" style="color: #3498db;"><i class="bi bi-patch-check-fill"></i></div>
-                    <h5 class="card-title">Centro de Conciliación</h5>
-                    <p class="card-text text-muted flex-grow-1">Revisa y aprueba los pagos reportados por los clientes.</p>
-                    <a href="{{ url_for('pagos_por_conciliar') }}" class="btn btn-primary mt-3 align-self-center">Ir a Conciliación</a>
+        <div class="col-lg-6">
+            <div class="card tool-card h-100 position-relative">
+                {% if counts.pagos_pendientes > 0 %}
+                <span class="badge rounded-pill bg-danger">{{ counts.pagos_pendientes }} Pendiente(s)</span>
+                {% endif %}
+                <div class="tool-icon bg-blue"><i class="bi bi-patch-check-fill"></i></div>
+                <div class="tool-content">
+                    <h5>Centro de Conciliación</h5>
+                    <p>Revisa y aprueba los pagos reportados por los clientes.</p>
+                    <a href="{{ url_for('pagos_por_conciliar') }}" class="btn btn-sm btn-outline-primary">Ir a Conciliación</a>
                 </div>
             </div>
         </div>
 
         <!-- Tarjeta: Gestión de Solicitudes -->
-        <div class="col-lg-4 col-md-6">
-            <div class="card tool-card h-100 shadow-sm" style="border-top-color: #9b59b6;">
-                <div class="card-body d-flex flex-column text-center">
-                    <div class="icon fs-1 mb-3 mx-auto" style="color: #9b59b6;"><i class="bi bi-journal-check"></i></div>
-                    <h5 class="card-title">Gestión de Solicitudes</h5>
-                    <p class="card-text text-muted flex-grow-1">Administra solicitudes de congelamiento, retiros y más.</p>
-                    <a href="{{ url_for('solicitudes_hub') }}" class="btn btn-primary mt-3 align-self-center">Ver Solicitudes</a>
+        <div class="col-lg-6">
+            <div class="card tool-card h-100 position-relative">
+                 {% set total_solicitudes = counts.citas + counts.congelamientos + counts.retiros %}
+                 {% if total_solicitudes > 0 %}
+                <span class="badge rounded-pill bg-danger">{{ total_solicitudes }} Pendiente(s)</span>
+                 {% endif %}
+                <div class="tool-icon bg-purple"><i class="bi bi-journal-check"></i></div>
+                <div class="tool-content">
+                    <h5>Gestión de Solicitudes</h5>
+                    <p>Administra solicitudes de citas, congelamientos, retiros y más.</p>
+                    <a href="{{ url_for('solicitudes_hub') }}" class="btn btn-sm btn-outline-primary">Ver Solicitudes</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tarjeta: Flujo de Caja -->
+        <div class="col-lg-6">
+            <div class="card tool-card h-100">
+                <div class="tool-icon bg-green"><i class="bi bi-cash-stack"></i></div>
+                <div class="tool-content">
+                    <h5>Flujo de Caja</h5>
+                    <p>Analiza ingresos, egresos y balances para una visión financiera clara.</p>
+                    <a href="{{ url_for('reporte_flujo_caja') }}" class="btn btn-sm btn-outline-primary">Analizar Flujo</a>
                 </div>
             </div>
         </div>
 
         <!-- Tarjeta: Sistema de Adjudicación -->
-        <div class="col-lg-4 col-md-6">
-            <div class="card tool-card h-100 shadow-sm" style="border-top-color: #e67e22;">
-                <div class="card-body d-flex flex-column text-center">
-                    <div class="icon fs-1 mb-3 mx-auto" style="color: #e67e22;"><i class="bi bi-trophy-fill"></i></div>
-                    <h5 class="card-title">Sistema de Adjudicación</h5>
-                    <p class="card-text text-muted flex-grow-1">Gestiona el proceso de selección y asignación de adjudicados.</p>
-                    <a href="{{ url_for('adjudicacion') }}" class="btn btn-primary mt-3 align-self-center">Gestionar Adjudicación</a>
+        <div class="col-lg-6">
+            <div class="card tool-card h-100">
+                <div class="tool-icon bg-orange"><i class="bi bi-trophy-fill"></i></div>
+                <div class="tool-content">
+                    <h5>Sistema de Adjudicación</h5>
+                    <p>Gestiona el proceso de selección y asignación de adjudicados.</p>
+                    <a href="{{ url_for('adjudicacion') }}" class="btn btn-sm btn-outline-primary">Gestionar Adjudicación</a>
                 </div>
             </div>
         </div>
 
         <!-- Tarjeta: Reporte de Morosidad -->
-        <div class="col-lg-4 col-md-6">
-            <div class="card tool-card h-100 shadow-sm" style="border-top-color: #e74c3c;">
-                <div class="card-body d-flex flex-column text-center">
-                    <div class="icon fs-1 mb-3 mx-auto" style="color: #e74c3c;"><i class="bi bi-file-earmark-excel-fill"></i></div>
-                    <h5 class="card-title">Reporte de Morosidad</h5>
-                    <p class="card-text text-muted flex-grow-1">Consulta y exporta el listado de clientes con pagos vencidos.</p>
-                    <a href="{{ url_for('reporte_morosidad') }}" class="btn btn-primary mt-3 align-self-center">Ver Reporte</a>
+        <div class="col-lg-6">
+            <div class="card tool-card h-100">
+                <div class="tool-icon bg-red"><i class="bi bi-file-earmark-excel-fill"></i></div>
+                <div class="tool-content">
+                    <h5>Reporte de Morosidad</h5>
+                    <p>Consulta y exporta el listado de clientes con pagos vencidos.</p>
+                    <a href="{{ url_for('reporte_morosidad') }}" class="btn btn-sm btn-outline-primary">Ver Reporte</a>
                 </div>
             </div>
         </div>
         
         <!-- Tarjeta: Métricas del Negocio -->
-        <div class="col-lg-4 col-md-6">
-            <div class="card tool-card h-100 shadow-sm" style="border-top-color: #f1c40f;">
-                <div class="card-body d-flex flex-column text-center">
-                    <div class="icon fs-1 mb-3 mx-auto" style="color: #f1c40f;"><i class="bi bi-graph-up-arrow"></i></div>
-                    <h5 class="card-title">Métricas del Negocio</h5>
-                    <p class="card-text text-muted flex-grow-1">Visualiza los indicadores clave de rendimiento (KPIs) de la empresa.</p>
-                    <a href="{{ url_for('reporte_metricas') }}" class="btn btn-primary mt-3 align-self-center">Ver Métricas</a>
+        <div class="col-lg-6">
+            <div class="card tool-card h-100">
+                <div class="tool-icon bg-yellow"><i class="bi bi-graph-up-arrow"></i></div>
+                <div class="tool-content">
+                    <h5>Métricas del Negocio</h5>
+                    <p>Visualiza los indicadores clave (KPIs) de la empresa.</p>
+                    <a href="{{ url_for('reporte_metricas') }}" class="btn btn-sm btn-outline-primary">Ver Métricas</a>
                 </div>
             </div>
         </div>

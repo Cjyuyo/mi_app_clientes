@@ -13,7 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 
     <style>
-        /* --- GUÍA DE ESTILO - TEMA MIXTO (OSCURO/CLARO) --- */
+        /* --- GUÍA DE ESTILO - TEMA CORPORATIVO --- */
         :root {
             /* Paleta Sidebar Oscuro */
             --sidebar-bg: #1f2937;
@@ -22,16 +22,18 @@
             --sidebar-texto-secundario: #9ca3af;
             --sidebar-hover-bg: rgba(255, 255, 255, 0.05);
 
-            /* Paleta Contenido Claro */
-            --content-bg: #f3f4f6; /* Fondo principal gris claro */
-            --card-bg: #ffffff;    /* Tarjetas blancas */
-            --card-borde: #e5e7eb; /* Borde sutil para tarjetas */
-            --texto-principal: #111827; /* Texto principal oscuro */
-            --texto-secundario: #6b7280; /* Texto secundario gris */
+            /* Paleta Contenido Claro (Más Seria) */
+            --content-bg: #e5e7eb; /* Gris de fondo más oscuro */
+            --card-bg: #ffffff;    /* Tarjetas blancas y limpias */
+            --card-borde: #d1d5db; /* Borde más definido */
+            --texto-principal: #111827;
+            --texto-secundario: #6b7280;
 
             /* Acentos Globales */
             --color-primario: #3b82f6; 
-            --color-naranja: #f97316;
+            --color-secundario: #198754;
+            --color-terciario: #f97316;
+            --color-cuaternario: #8b5cf6;
             --blanco: #FFFFFF;
         }
 
@@ -48,7 +50,7 @@
             align-items: stretch;
         }
 
-        /* --- SIDEBAR OSCURO Y FUNCIONALIDAD DE OCULTAR/MOSTRAR --- */
+        /* --- SIDEBAR OSCURO --- */
         #sidebar {
             min-width: 260px;
             max-width: 260px;
@@ -62,7 +64,6 @@
         #sidebar.active {
             margin-left: -260px;
         }
-
         .sidebar-header { 
             padding: 1.25rem; 
             text-align: center; 
@@ -106,14 +107,14 @@
         }
         #sidebar-nav .nav-item a:hover {
             background: var(--sidebar-hover-bg);
-            border-left-color: var(--color-naranja);
+            border-left-color: var(--color-terciario);
         }
         #sidebar-nav .collapse a { 
             background: rgba(0,0,0,0.2); 
             color: var(--sidebar-texto-secundario);
         }
         
-        /* --- CONTENIDO CLARO --- */
+        /* --- CONTENIDO --- */
         #content {
             width: 100%;
             padding: 1.5rem;
@@ -126,7 +127,7 @@
             border-radius: .75rem; 
             padding: 12px 25px; 
             margin-bottom: 25px; 
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05); 
         }
         .btn-toggle-sidebar {
             border: none;
@@ -148,14 +149,12 @@
             color: var(--texto-secundario);
         }
 
-        /* --- TARJETAS EN MODO CLARO --- */
         .card {
-            background-color: var(--card-bg);
             border: 1px solid var(--card-borde);
-            color: var(--texto-principal);
+            background-color: var(--card-bg);
             border-radius: .75rem;
             margin-bottom: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         .card-header {
             background-color: transparent;
@@ -167,43 +166,52 @@
             font-weight: 600;
             color: var(--texto-principal);
         }
-        /* --- INICIO: REDISEÑO DE KPI CARDS --- */
+
+        /* --- INICIO: REDISEÑO DE KPI CARDS (ESTILO CORPORATIVO) --- */
         .kpi-card {
-            padding: 1.5rem;
-            text-align: center;
+            padding: 1.25rem;
             display: flex;
-            flex-direction: column;
-            justify-content: center;
+            align-items: center;
+            gap: 1rem;
         }
-        .kpi-card .kpi-icon {
-            font-size: 2.5rem;
-            padding: 1rem;
-            border-radius: .75rem;
-            color: var(--blanco);
-            display: inline-block;
-            margin-bottom: 1rem;
+        .kpi-card .kpi-icon-wrapper {
+            font-size: 1.8rem;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
         }
         .kpi-card .kpi-content .kpi-title {
             color: var(--texto-secundario);
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             font-weight: 500;
             text-transform: uppercase;
-            margin-bottom: 0.25rem;
+            margin-bottom: 0;
         }
         .kpi-card .kpi-content .kpi-value {
             color: var(--texto-principal);
-            font-size: 2.2rem;
+            font-size: 1.8rem;
             font-weight: 700;
-            line-height: 1;
+            line-height: 1.2;
         }
+        
+        /* Colores para los íconos */
+        .kpi-icon-wrapper.bg-blue { background-color: #e0f2fe; color: #0ea5e9; }
+        .kpi-icon-wrapper.bg-green { background-color: #dcfce7; color: #22c55e; }
+        .kpi-icon-wrapper.bg-orange { background-color: #fff7ed; color: #f97316; }
+        .kpi-icon-wrapper.bg-purple { background-color: #f5f3ff; color: #8b5cf6; }
         /* --- FIN: REDISEÑO DE KPI CARDS --- */
+
         .action-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 1.5rem;
         }
         .action-card {
-            background-color: var(--content-bg);
+            background-color: var(--card-bg); /* Cambio a blanco */
             border: 1px solid var(--card-borde);
             border-radius: .75rem;
             padding: 1.5rem;
@@ -216,13 +224,13 @@
             border-color: var(--color-primario);
             box-shadow: 0 4px 10px rgba(0,0,0,0.08);
         }
-        .action-card .action-icon {
+        .action-card .action-icon-inner {
             font-size: 2.5rem;
             margin-bottom: 1rem;
             display: inline-block;
             padding: 1.25rem;
             border-radius: 50%;
-            background-color: var(--card-bg);
+            background-color: var(--content-bg); /* Cambio a gris de fondo */
         }
         .action-card .icon-registrar { color: #3b82f6; }
         .action-card .icon-consultar { color: #8b5cf6; }
@@ -294,65 +302,78 @@
                 opacity: 1;
             }
 
-            /* --- INICIO: OPTIMIZACIÓN DE TARJETAS PARA MÓVIL --- */
             .kpi-card {
                 padding: 1rem;
             }
-            .kpi-card .kpi-icon {
-                font-size: 1.8rem; /* Icono KPI más pequeño */
-                padding: 0.7rem; /* Menos padding para el icono */
-                margin-bottom: 0.5rem;
-            }
-            .kpi-card .kpi-content .kpi-title {
-                font-size: 0.7rem; /* Título KPI más pequeño */
-            }
             .kpi-card .kpi-content .kpi-value {
-                font-size: 1.6rem; /* Valor KPI más pequeño */
+                font-size: 1.5rem;
+            }
+            .kpi-card .kpi-icon-wrapper {
+                width: 40px;
+                height: 40px;
+                font-size: 1.5rem;
             }
             .action-grid {
                 grid-template-columns: repeat(2, 1fr);
-                gap: 1rem; /* Espacio reducido entre tarjetas de acción */
+                gap: 1rem;
             }
             .action-card {
                 padding: 1rem;
             }
-            .action-card .action-icon {
-                font-size: 1.8rem; /* Icono de acción del mismo tamaño que KPI */
-                padding: 0.8rem; /* Padding similar al icono KPI */
+            .action-card .action-icon-inner {
+                font-size: 1.8rem;
+                padding: 0.8rem;
                 margin-bottom: 0.75rem;
             }
             .action-card .action-title {
-                font-size: 0.85rem; /* Título de acción más pequeño */
+                font-size: 0.85rem;
             }
             .action-card .action-desc {
-                display: none; /* Ocultar descripción para más compacidad */
+                display: none;
             }
-            /* --- FIN: OPTIMIZACIÓN DE TARJETAS PARA MÓVIL --- */
         }
-    </style>
     
-    <style>
+        /* --- INICIO: REDISEÑO DEL ENCABEZADO PRINCIPAL --- */
         .main-header {
-            background: var(--card-bg);
+            position: relative;
+            overflow: hidden;
+            background-color: #f8fafc; /* Color de fondo base */
             padding: 2rem;
             border-radius: .75rem;
             border: 1px solid var(--card-borde);
             margin-bottom: 2rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .main-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.05; /* Opacidad muy baja para sutileza */
+            z-index: 0;
+        }
+        .main-header > * {
+            position: relative;
+            z-index: 1;
         }
         .main-header h1 {
-            font-weight: 900;
-            font-size: 2.8rem;
+            font-weight: 800; /* Un poco menos grueso */
+            font-size: 2.2rem; /* Tamaño reducido */
             color: var(--texto-principal);
-            background: -webkit-linear-gradient(45deg, #111827, #6b7280);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 1px 1px 15px rgba(0,0,0,0.1);
+            background: none; /* Quitamos el degradado */
+            -webkit-background-clip: unset;
+            -webkit-text-fill-color: unset;
+            text-shadow: none; /* Quitamos la sombra */
         }
         .main-header .lead {
             color: var(--texto-secundario);
-            font-size: 1.2rem;
+            font-size: 1.1rem; /* Tamaño reducido */
+            max-width: 80%; /* Para que no ocupe todo el ancho */
         }
+        /* --- FIN: REDISEÑO DEL ENCABEZADO PRINCIPAL --- */
     </style>
 
 </head>
@@ -461,11 +482,14 @@
                     <h1>Panel de Control</h1>
                     <p class="lead mb-0">Bienvenido de nuevo, <strong>{{ g.admin.usuario }}</strong>. Aquí tienes un resumen de la actividad de hoy.</p>
                 </div>
-                <!-- INICIO: Fila de KPIs optimizada para móvil -->
+                
+                <!-- INICIO: Fila de KPIs Rediseñada -->
                 <div class="row">
-                    <div class="col-lg-3 col-md-6 col-6">
+                    <div class="col-lg-3 col-md-6 mb-4">
                         <div class="card kpi-card h-100">
-                            <div class="kpi-icon" style="background-color: #0DCAF0;"><i class="bi bi-people-fill"></i></div>
+                            <div class="kpi-icon-wrapper bg-blue">
+                                <i class="bi bi-people-fill"></i>
+                            </div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Clientes</div>
                                 <div class="kpi-value">{{ stats.clientes_cartera | default('0') }}</div>
@@ -473,20 +497,24 @@
                         </div>
                     </div>
                     {% if g.admin.rol in ['superadmin', 'gerente'] %}
-                    <div class="col-lg-3 col-md-6 col-6">
+                    <div class="col-lg-3 col-md-6 mb-4">
                         <div class="card kpi-card h-100">
-                            <div class="kpi-icon" style="background-color: #198754;"><i class="bi bi-wallet2"></i></div>
+                            <div class="kpi-icon-wrapper bg-green">
+                                <i class="bi bi-cash-stack"></i>
+                            </div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Recaudado</div>
-                                <div class="kpi-value">${{ stats.recaudado_mes | default('0') }}</div>
+                                <div class="kpi-value">${{ "%.2f"|format(stats.recaudado_mes) if stats.recaudado_mes is not none else '0.00' }}</div>
                             </div>
                         </div>
                     </div>
                     {% endif %}
                     {% if g.admin.rol in ['superadmin', 'gerente'] %}
-                    <div class="col-lg-3 col-md-6 col-6">
+                    <div class="col-lg-3 col-md-6 mb-4">
                         <div class="card kpi-card h-100">
-                            <div class="kpi-icon" style="background-color: var(--color-naranja);"><i class="bi bi-clipboard2-check-fill"></i></div>
+                             <div class="kpi-icon-wrapper bg-orange">
+                                <i class="bi bi-clipboard2-check-fill"></i>
+                            </div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Solicitudes</div>
                                 <div class="kpi-value">{{ stats.solicitudes_pendientes | default('0') }}</div>
@@ -494,17 +522,19 @@
                         </div>
                     </div>
                     {% endif %}
-                    <div class="col-lg-3 col-md-6 col-6">
+                    <div class="col-lg-3 col-md-6 mb-4">
                         <div class="card kpi-card h-100">
-                            <div class="kpi-icon" style="background-color: #6f42c1;"><i class="bi bi-graph-up-arrow"></i></div>
+                            <div class="kpi-icon-wrapper bg-purple">
+                                <i class="bi bi-graph-up-arrow"></i>
+                            </div>
                             <div class="kpi-content">
                                 <div class="kpi-title">Tasa BCV</div>
-                                <div class="kpi-value" style="font-size: 1.6rem;">{{ stats.tasa_bcv | default('N/A') }}</div>
+                                <div class="kpi-value">{{ stats.tasa_bcv | default('N/A') }}</div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <!-- FIN: Fila de KPIs optimizada para móvil -->
+                <!-- FIN: Fila de KPIs Rediseñada -->
 
                 <!-- Fila de Contenido Principal -->
                 <div class="row">
@@ -516,22 +546,22 @@
                             <div class="card-body">
                                 <div class="action-grid">
                                     <a href="{{ url_for('registrar') }}" class="action-card">
-                                        <span class="action-icon"><i class="bi bi-person-plus-fill icon-registrar"></i></span>
+                                        <span class="action-icon-inner"><i class="bi bi-person-plus-fill icon-registrar"></i></span>
                                         <div class="action-title">Registrar Cliente</div>
                                         <p class="action-desc">Crea un nuevo perfil de cliente.</p>
                                     </a>
                                     <a href="{{ url_for('consulta') }}" class="action-card">
-                                        <span class="action-icon"><i class="bi bi-search icon-consultar"></i></span>
+                                        <span class="action-icon-inner"><i class="bi bi-search icon-consultar"></i></span>
                                         <div class="action-title">Consultar Clientes</div>
                                         <p class="action-desc">Busca y gestiona perfiles.</p>
                                     </a>
                                     <a href="{{ url_for('pagos_por_conciliar') }}" class="action-card">
-                                        <span class="action-icon"><i class="bi bi-patch-check-fill icon-conciliar"></i></span>
+                                        <span class="action-icon-inner"><i class="bi bi-patch-check-fill icon-conciliar"></i></span>
                                         <div class="action-title">Conciliar Pagos</div>
                                         <p class="action-desc">Verifica y aprueba los pagos.</p>
                                     </a>
                                      <a href="{{ url_for('reporte_morosidad') }}" class="action-card">
-                                        <span class="action-icon"><i class="bi bi-file-earmark-excel-fill icon-reporte"></i></span>
+                                        <span class="action-icon-inner"><i class="bi bi-file-earmark-excel-fill icon-reporte"></i></span>
                                         <div class="action-title">Reporte de Morosidad</div>
                                         <p class="action-desc">Genera el listado de cuotas vencidas.</p>
                                     </a>
@@ -583,19 +613,21 @@
         const spinner = document.getElementById('loading-spinner');
 
         const fetchActiveSessions = async () => {
+            if (spinner) {
+                spinner.style.display = 'block';
+            }
+            
             try {
-                // Se simula una respuesta de la API para demostración
-                const users = [
-                    { username: 'Cjyuyo', is_online: true, last_seen: 'justo ahora' },
-                    { username: 'Christian', is_online: true, last_seen: 'hace 2 min' },
-                    { username: 'Heybee', is_online: false, last_seen: 'hace 8 horas' },
-                    { username: 'Karielsy', is_online: false, last_seen: 'hace 1 día' },
-                ];
+                const response = await fetch("{{ url_for('get_active_sessions') }}");
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const users = await response.json();
 
                 sessionsList.innerHTML = '';
 
-                if (users.length === 0) {
-                    sessionsList.innerHTML = '<li class="list-group-item text-center text-muted border-0 p-3">No hay usuarios activos.</li>';
+                if (!users || users.length === 0) {
+                    sessionsList.innerHTML = '<li class="list-group-item text-center text-muted border-0 p-3">No hay usuarios para mostrar.</li>';
                 } else {
                     users.forEach(user => {
                         const listItem = document.createElement('li');
@@ -626,7 +658,7 @@
         };
 
         fetchActiveSessions();
-        // setInterval(fetchActiveSessions, 30000); // Se puede reactivar para llamadas reales a la API
+        setInterval(fetchActiveSessions, 2000);
     });
 </script>
 
