@@ -43,10 +43,9 @@
         }
         #sidebar.active { margin-left: -260px; }
         
-        /* --- ESTILO CORREGIDO Y REFORZADO PARA EL LOGO --- */
+        /* --- SOLUCIÓN DEFINITIVA PARA EL LOGO --- */
         .sidebar-header {
-            /* Forzamos el padding vertical a 10px para que sea evidente */
-            padding: 10px 1rem !important; 
+            padding: 10px 1rem !important; /* Reduce el espacio vertical y fuerza el estilo */
             text-align: center;
             border-bottom: 1px solid var(--sidebar-borde);
             flex-shrink: 0;
@@ -156,7 +155,6 @@
             </a>
         </div>
         <div id="sidebar-nav">
-            <!-- MENÚ COMPLETO RESTAURADO -->
             <ul class="list-unstyled components">
                 <li class="nav-category">Navegación</li>
                 <li class="nav-item"><a href="{{ url_for('hub') }}"><i class="bi bi-house-door-fill"></i> Hub Principal</a></li>
