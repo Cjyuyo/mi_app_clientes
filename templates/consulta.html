@@ -18,28 +18,55 @@
             --borde-sutil: #e9ecef;
             --theme-color: var(--naranja-corporativo);
         }
-        body {
-            background-color: var(--gris-fondo);
-        }
-        .search-container {
-            background: var(--blanco-tarjetas);
-            padding: 1.5rem;
+        
+        /* ===== INICIO: ESTILOS DE BÚSQUEDA MODERNIZADOS ===== */
+        .main-header {
+            position: relative;
+            overflow: hidden;
+            background-color: #f8fafc;
+            padding: 2rem;
             border-radius: .75rem;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.07);
-            margin-bottom: 1.5rem;
+            border: 1px solid var(--card-borde);
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
-        .btn-theme-primary {
-            background-color: var(--theme-color);
-            border-color: var(--theme-color);
-            color: white;
-            font-weight: 500;
+        .main-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.05;
+            z-index: 0;
         }
-        .btn-theme-primary:hover {
-            filter: brightness(90%);
-            background-color: var(--theme-color);
-            border-color: var(--theme-color);
-            color: white;
+        .main-header > * {
+            position: relative;
+            z-index: 1;
         }
+        .main-header h1 {
+            font-weight: 700;
+            color: var(--texto-principal);
+        }
+        .search-form {
+            display: flex;
+            border: 1px solid var(--card-borde);
+            border-radius: .5rem;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .search-form .form-control {
+            border: none;
+            box-shadow: none !important;
+            padding: .75rem 1.25rem;
+        }
+        .search-form .btn-theme-primary {
+            border-radius: 0;
+            padding: .75rem 1.5rem;
+        }
+        /* ===== FIN: ESTILOS DE BÚSQUEDA MODERNIZADOS ===== */
+
         .client-card {
             background: var(--blanco-tarjetas);
             margin-bottom: 1.5rem;
@@ -162,12 +189,13 @@
 {% endblock %}
 
 {% block body %}
-<div class="container-fluid p-4">
-    <div class="search-container">
+<div class="container-fluid p-0">
+    <div class="main-header">
+        <h1 class="mb-3">Consulta de Clientes</h1>
         <form method="POST" action="{{ url_for('consulta') }}">
-            <div class="d-flex flex-column flex-md-row gap-2">
-                <input type="search" name="busqueda" class="form-control form-control-lg" placeholder="Buscar por Nombre o Cédula..." value="{{ busqueda or '' }}">
-                <button type="submit" class="btn btn-theme-primary btn-lg"><i class="bi bi-search"></i> Buscar</button>
+            <div class="search-form">
+                <input type="search" name="busqueda" class="form-control form-control-lg" placeholder="Buscar por Nombre, Apellido o Cédula..." value="{{ busqueda or '' }}" autofocus>
+                <button type="submit" class="btn btn-theme-primary btn-lg"><i class="bi bi-search"></i></button>
             </div>
         </form>
     </div>
@@ -337,5 +365,4 @@
         {% endfor %}
     </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 {% endblock %}

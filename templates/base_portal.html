@@ -12,9 +12,9 @@
 
     <style>
         :root {
-            --color-primario: #1f2937; /* Azul oscuro/casi negro para un look serio */
+            --color-primario: #1f2937;
             --color-acento: #F97316;
-            --content-bg: #e5e7eb; /* Mismo gris oscuro que el admin */
+            --content-bg: #e5e7eb;
             --card-bg: #FFFFFF;
             --texto-principal: #111827;
             --texto-secundario: #6b7280;
@@ -30,15 +30,14 @@
             border-bottom: 1px solid var(--card-borde);
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        .topbar .navbar-brand {
-            font-weight: 700;
-            color: var(--texto-principal);
+        .topbar .navbar-brand img {
+            height: 40px;
         }
         .main-content {
             padding: 2rem 1rem;
         }
         .content-wrapper {
-            max-width: 800px;
+            max-width: 900px;
             margin: auto;
         }
         .card {
@@ -55,17 +54,10 @@
 
 <nav class="navbar navbar-expand-lg topbar">
     <div class="container-fluid">
-        <!-- Logo actualizado para usar archivos estáticos -->
-        <a class="navbar-brand" href="#">
-            <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" style="height: 40px;">
+        <a class="navbar-brand" href="{{ url_for('portal_dashboard') }}">
+            <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors">
         </a>
-        <div class="ms-auto">
-            {% if g.cliente %}
-                <a href="{{ url_for('portal_logout') }}" class="btn btn-outline-danger btn-sm">
-                    <i class="bi bi-box-arrow-right me-1"></i> Cerrar Sesión
-                </a>
-            {% endif %}
-        </div>
+        <!-- Se elimina el botón de logout de aquí para evitar redundancia -->
     </div>
 </nav>
 
