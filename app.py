@@ -1634,7 +1634,10 @@ def generar_contrato(client_id):
     is_correct_client = 'cliente_id' in session and session['cliente_id'] == client_id
     if not is_admin and not is_correct_client:
         flash('Acceso no autorizado.', 'error')
-        return redirect(url_for('portal_dashboard')) if 'cliente_id' in session else redirect(url_for('home'))
+        if 'cliente_id' in session:
+            return redirect(url_for('portal_dashboard'))
+        else:
+            return redirect(url_for('home'))
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
@@ -1907,7 +1910,10 @@ def ver_recibo(pago_id):
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('portal_login') if 'cliente_id' in session else redirect(url_for('consulta')))
+        if 'cliente_id' in session:
+            return redirect(url_for('portal_login'))
+        else:
+            return redirect(url_for('consulta'))
     
     with conn.cursor() as cur:
         query = """
@@ -1921,7 +1927,10 @@ def ver_recibo(pago_id):
 
     if not pago:
         flash('Recibo no encontrado.', 'error')
-        return redirect(url_for('portal_dashboard') if 'cliente_id' in session else redirect(url_for('consulta')))
+        if 'cliente_id' in session:
+            return redirect(url_for('portal_dashboard'))
+        else:
+            return redirect(url_for('consulta'))
 
     # --- MODIFICACIÓN: Lógica para manejar recibos anulados ---
     if pago['estado_pago'] == 'Anulado' and pago['detalles_reporte'] and 'recibo_final_id' in pago['detalles_reporte']:
@@ -1929,7 +1938,7 @@ def ver_recibo(pago_id):
 
     # Si es un recibo de inscripción finalizado, usar su propia plantilla
     if pago['tipo_pago'] == 'Inscripción Finalizada':
-        return render_template('recibo_inscripcion.html', pago=pago, cliente=pago, is_admin_view='admin_id' in session)
+        return redirect(url_for('ver_recibo_inscripcion', pago_id=pago_id))
 
     # Para todos los demás recibos válidos
     return render_template('recibo.html', pago=pago, is_admin_view='admin_id' in session)
@@ -1939,7 +1948,11 @@ def ver_recibo(pago_id):
 def ver_recibo_inscripcion(pago_id):
     conn = get_db()
     if not conn:
-        return redirect(url_for('portal_login') if 'cliente_id' in session else redirect(url_for('consulta'))
+        if 'cliente_id' in session:
+            return redirect(url_for('portal_login'))
+        else:
+            return redirect(url_for('consulta'))
+
     with conn.cursor() as cur:
         cur.execute("""
             SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.plan_contratado 
@@ -1947,19 +1960,21 @@ def ver_recibo_inscripcion(pago_id):
             WHERE p.id = %s AND p.tipo_pago = 'Inscripción Finalizada'
         """, (pago_id,))
         pago = cur.fetchone()
+
     if not pago:
         flash('Recibo de inscripción final no encontrado.', 'error')
-        return redirect(url_for('portal_dashboard') if 'cliente_id' in session else redirect(url_for('consulta')))
+        if 'cliente_id' in session:
+            return redirect(url_for('portal_dashboard'))
+        else:
+            return redirect(url_for('consulta'))
     
-    # Convertir detalles si es un string JSON
     detalles = pago['detalles_reporte']
     if isinstance(detalles, str):
         try:
             detalles = json.loads(detalles)
         except json.JSONDecodeError:
-            detalles = {} # O manejar el error como prefieras
+            detalles = {}
     
-    # Crear un nuevo diccionario de pago con los detalles parseados
     pago_actualizado = dict(pago)
     pago_actualizado['detalles_reporte'] = detalles
 
