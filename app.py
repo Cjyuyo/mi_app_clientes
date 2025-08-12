@@ -1012,7 +1012,7 @@ def tesoreria_rebalanceo():
                 flash(f"Error: Fondos insuficientes en '{caja_origen}'.", 'danger')
                 return redirect(url_for('tesoreria_rebalanceo'))
             
-            tasa_aplicada_str = form.get('tasa_aplicada', '0').replace(',', '.')
+            tasa_aplicada_str = form.get('tasa_aplicada', '0').replace(',', '.'),
             tasa_aplicada = Decimal(tasa_aplicada_str) if tasa_aplicada_str and tasa_aplicada_str != '0' else None
             perdida_cambiaria = Decimal('0.0')
 
@@ -2453,7 +2453,7 @@ def portal_dashboard():
             """, (session['cliente_id'],))
             cita_confirmada = cur.fetchone()
 
-            # ===== LÓGICA DE 3 ETAPAS =====
+            # ===== LÓGICA DE 3 ETAPAS (CORREGIDA) =====
             estado_principal = {}
             inscripcion_completa = (cliente_dict.get('inscripcion_pagada') or 0) >= (cliente_dict.get('inscripcion_monto') or 0)
             primera_cuota_pagada = any(p.get('tipo_pago') == 'Cuota' and p.get('estado_pago') == 'Conciliado' for p in cliente_dict['pagos'])
@@ -2463,14 +2463,16 @@ def portal_dashboard():
                     'tipo': 'inscripcion', 'titulo': 'Completa tu Inscripción',
                     'mensaje': "Realiza el pago de tu inscripción para poder activar tu plan.",
                     'boton_texto': 'Pagar Inscripción', 'boton_url': url_for('portal_pagar_inscripcion'),
-                    'clase_borde': 'naranja-corporativo'
+                    'clase_borde': 'naranja-corporativo',
+                    'boton_activo': True  # **CORRECCIÓN**: El botón siempre está activo en esta etapa
                 }
             elif inscripcion_completa and not primera_cuota_pagada:
                 estado_principal = {
                     'tipo': 'activacion', 'titulo': '¡Inscripción Exitosa!',
                     'mensaje': 'Tu plan está listo para ser activado. Realiza el pago de tu primera cuota para comenzar.',
                     'boton_texto': 'Pagar 1ª Cuota', 'boton_url': url_for('portal_reportar_pago'),
-                    'clase_borde': 'azul-info'
+                    'clase_borde': 'azul-info',
+                    'boton_activo': not pago_en_proceso # Se activa si no hay otro pago en proceso
                 }
             else:
                 hoy, dia_de_vencimiento = get_venezuela_current_date(), 3
@@ -2479,21 +2481,20 @@ def portal_dashboard():
                 estado_principal = {
                     'tipo': 'cuota_mensual', 'titulo': f"Cuota de {get_nombre_mes(hoy.month)}",
                     'estado_label': estado_label, 'mensaje': mensaje_cuota,
-                    'clase_borde': estado_label.lower().replace(' ', '.')
+                    'clase_borde': estado_label.lower().replace(' ', '.'),
+                    'boton_texto': 'Reportar Pago de Cuota' if not pago_del_mes_realizado else None,
+                    'boton_url': url_for('portal_reportar_pago'),
+                    'boton_activo': not pago_del_mes_realizado and not pago_en_proceso
                 }
             
             puede_registrar_oferta = inscripcion_completa and primera_cuota_pagada
             
-            # Historial de eventos (simplificado para el ejemplo)
-            historial_eventos = [] # Reemplazar con tu lógica real si la tienes
-
             return render_template('portal_dashboard.html', 
                                    cliente=cliente_dict, 
                                    pago_en_proceso=pago_en_proceso,
                                    estado_principal=estado_principal,
                                    cita_confirmada=cita_confirmada,
-                                   puede_registrar_oferta=puede_registrar_oferta,
-                                   historial_eventos=historial_eventos)
+                                   puede_registrar_oferta=puede_registrar_oferta)
     except (psycopg2.Error, KeyError) as e:
         logging.error(f"Error en portal_dashboard: {e}")
         flash('Ocurrió un error inesperado al cargar tu portal. Inténtalo de nuevo.', 'error')

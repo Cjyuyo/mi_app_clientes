@@ -184,10 +184,9 @@
             {% endif %}
         {% endwith %}
 
-        <!-- ===== SECCIÓN DE ALERTAS DINÁMICAS (MODIFICADA) ===== -->
+        <!-- ===== SECCIÓN DE ALERTAS DINÁMICAS ===== -->
         {% if pago_en_proceso %}
             {% if pago_en_proceso.estado_reporte == 'Inconsistente' %}
-            <!-- ALERTA PARA REPORTES RECHAZADOS -->
             <div class="card info-card inconsistente">
                 <div class="info-card-header">
                     <i class="bi bi-exclamation-triangle-fill icon" style="color: var(--rojo-alerta);"></i>
@@ -210,7 +209,6 @@
                 </div>
             </div>
             {% else %}
-            <!-- ALERTA PARA REPORTES EN REVISIÓN -->
             <div class="card info-card revision">
                 <div class="info-card-header">
                     <i class="bi bi-hourglass-split icon" style="color: var(--amarillo-warning);"></i>
@@ -222,7 +220,6 @@
             </div>
             {% endif %}
         {% endif %}
-        <!-- ======================================================= -->
 
         {% if cita_confirmada %}
         <div class="card info-card cita">
@@ -241,7 +238,7 @@
         </div>
         {% endif %}
 
-        <!-- Estado Principal -->
+        <!-- ===== ESTADO PRINCIPAL (LÓGICA DE BOTÓN CORREGIDA) ===== -->
         {% if estado_principal %}
             <div class="card info-card {{ estado_principal.clase_borde }}">
                 <div class="status-header">
@@ -253,9 +250,15 @@
                 <div class="status-body mt-2">
                     <p>{{ estado_principal.mensaje | safe }}</p>
                     {% if estado_principal.boton_texto %}
-                    <a href="{{ estado_principal.boton_url }}" class="btn btn-accent btn-sm mt-2 {% if not estado_principal.puede_reportar_pago %}disabled{% endif %}">
-                        {{ estado_principal.boton_texto }}
-                    </a>
+                        {% if estado_principal.boton_activo %}
+                            <a href="{{ estado_principal.boton_url }}" class="btn btn-accent btn-sm mt-2">
+                                {{ estado_principal.boton_texto }}
+                            </a>
+                        {% else %}
+                            <button class="btn btn-accent btn-sm mt-2" disabled title="Ya tienes un pago en proceso de revisión.">
+                                {{ estado_principal.boton_texto }}
+                            </button>
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>
