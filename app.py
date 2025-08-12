@@ -1775,7 +1775,7 @@ def registrar_pago(client_id):
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, lugar_emision,
                                         tasa_dia, monto_bs, estado_pago, cuotas_cubiertas, moneda_referencia, fecha_creacion, registrado_por_id)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, %s, %s, %s);
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, %s, %s, %s);
                 """
                 cur.execute(pago_query, (client_id, pago_form['monto'], tipo_pago, forma_pago, pago_form['fecha_pago'], pago_form.get('pago_en'), 
                                          pago_form.get('por_concepto_de'), referencia, pago_form.get('banco'), pago_form.get('lugar_emision'), 
@@ -1830,20 +1830,17 @@ def conciliar_pago(pago_id):
                     ]
                 }
                 
-                # Anular los dos pagos individuales (el original inconsistente y el de la diferencia)
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id IN (%s, %s)", (pago_id, pago_padre['id']))
                 
-                # Crear el nuevo pago final consolidado
+                # CORRECCIÓN: Añadir cuotas_cubiertas=0 en la inserción
                 cur.execute("""
-                    INSERT INTO pagos (cliente_id, monto, tipo_pago, estado_pago, por_concepto_de, detalles_reporte, conciliado_por_id, fecha_pago) 
-                    VALUES (%s, %s, 'Inscripción Finalizada', 'Conciliado', 'Pago total de inscripción consolidado', %s, %s, %s) RETURNING id
+                    INSERT INTO pagos (cliente_id, monto, tipo_pago, estado_pago, por_concepto_de, detalles_reporte, conciliado_por_id, fecha_pago, cuotas_cubiertas) 
+                    VALUES (%s, %s, 'Inscripción Finalizada', 'Conciliado', 'Pago total de inscripción consolidado', %s, %s, %s, 0) RETURNING id
                 """, (cliente['id'], monto_total_pagado, json.dumps(detalles_consolidados), admin_id, pago_actual['fecha_pago']))
                 pago_final_id = cur.fetchone()[0]
 
-                # Actualizar el estado del cliente con el monto total y cambiar a INSCRITO
                 cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (monto_total_pagado, cliente['id']))
                 
-                # Registrar auditoría
                 descripcion_audit = f"Consolidó pago de inscripción para {cliente['nombre_apellido']}. Pago final N°{pago_final_id} por ${monto_total_pagado}."
                 registrar_accion_auditoria('CONSOLIDACION_PAGO', descripcion_audit, cliente['id'])
 
@@ -1853,10 +1850,8 @@ def conciliar_pago(pago_id):
                 return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
             # --- FIN DE LA NUEVA LÓGICA DE CONSOLIDACIÓN ---
 
-            # Lógica original para pagos no consolidados
             flash_msg = ""
             if pago_actual['tipo_pago'] == 'Inscripción':
-                # (Lógica original para un pago de inscripción normal)
                 inscripcion_pagada_actual = Decimal(cliente.get('inscripcion_pagada') or 0)
                 inscripcion_total = Decimal(cliente.get('inscripcion_monto') or 0)
                 nueva_inscripcion_pagada = inscripcion_pagada_actual + pago_actual['monto']
@@ -1864,10 +1859,16 @@ def conciliar_pago(pago_id):
                 if nueva_inscripcion_pagada >= inscripcion_total:
                     if cliente['proceso'] == 'RESERVA':
                         cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],))
-                    # Crear pago final y anular los abonos
+                    
                     cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente['id'],))
-                    cur.execute("INSERT INTO pagos (cliente_id, monto, tipo_pago, estado_pago, por_concepto_de, conciliado_por_id, fecha_pago) VALUES (%s, %s, 'Inscripción Finalizada', 'Conciliado', %s, %s, %s) RETURNING id", (cliente['id'], inscripcion_total, 'Pago total de inscripción', admin_id, pago_actual['fecha_pago']))
+                    
+                    # CORRECCIÓN: Añadir cuotas_cubiertas=0 en la inserción
+                    cur.execute("""
+                        INSERT INTO pagos (cliente_id, monto, tipo_pago, estado_pago, por_concepto_de, conciliado_por_id, fecha_pago, cuotas_cubiertas) 
+                        VALUES (%s, %s, 'Inscripción Finalizada', 'Conciliado', %s, %s, %s, 0) RETURNING id
+                    """, (cliente['id'], inscripcion_total, 'Pago total de inscripción', admin_id, pago_actual['fecha_pago']))
                     pago_final_id = cur.fetchone()[0]
+                    
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (inscripcion_total, cliente['id']))
                     cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
                     url_recibo = url_for('ver_recibo_inscripcion', pago_id=pago_final_id)
@@ -1878,7 +1879,6 @@ def conciliar_pago(pago_id):
                     flash_msg = f"Abono de inscripción N° {pago_id} conciliado. <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo</a>."
 
             elif pago_actual['tipo_pago'] == 'Cuota':
-                # (Lógica original para un pago de cuota normal)
                 if cliente['proceso'] == 'INSCRITO':
                     cur.execute("UPDATE clientes SET proceso = 'Ahorrador', estatus = 'ACTIVO' WHERE id = %s", (cliente['id'],))
                 valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
@@ -2227,9 +2227,10 @@ def realizar_adjudicacion():
                 monto_oferta = ganador_oferta['cuotas_ofertadas'] * valor_cuota
                 fecha_limite = get_proximo_dia_habil(get_venezuela_current_date())
                 
+                # CORRECCIÓN: Añadir cuotas_cubiertas=0 en la inserción
                 cur.execute("""
-                    INSERT INTO pagos (cliente_id, monto, tipo_pago, por_concepto_de, estado_pago, reportado_por_cliente, estado_reporte, fecha_creacion, registrado_por_id, detalles_reporte)
-                    VALUES (%s, %s, 'Pago Oferta', %s, 'Pendiente', FALSE, 'Generado por Sistema', %s, %s, %s::jsonb)
+                    INSERT INTO pagos (cliente_id, monto, tipo_pago, por_concepto_de, estado_pago, reportado_por_cliente, estado_reporte, fecha_creacion, registrado_por_id, detalles_reporte, cuotas_cubiertas)
+                    VALUES (%s, %s, 'Pago Oferta', %s, 'Pendiente', FALSE, 'Generado por Sistema', %s, %s, %s::jsonb, 0)
                 """, (ganador_oferta['id'], monto_oferta, f"Pago de oferta ganadora ({ganador_oferta['cuotas_ofertadas']} cuotas)", get_venezuela_current_datetime(), g.admin['id'], jsonify({'fecha_limite': fecha_limite.isoformat()}).get_data(as_text=True)))
                 flash(f"¡Se generó una orden de pago por ${monto_oferta} para el ganador de la oferta!", "info")
 
