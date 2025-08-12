@@ -5,168 +5,172 @@
 {% endblock %}
 
 {% block head_extra %}
-<style>
-    .main-header {
-        position: relative;
-        overflow: hidden;
-        background-color: #f8fafc;
-        padding: 2rem;
-        border-radius: .75rem;
-        border: 1px solid var(--card-borde);
-        margin-bottom: 2rem;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    }
-    .main-header::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-        opacity: 0.05;
-        z-index: 0;
-    }
-    .main-header > * {
-        position: relative;
-        z-index: 1;
-    }
-    .main-header h1 {
-        font-weight: 800;
-        font-size: 2.2rem;
-        color: var(--texto-principal);
-    }
-    .main-header .lead {
-        color: var(--texto-secundario);
-        font-size: 1.1rem;
-    }
-
-    .search-container {
-        padding: 1.5rem;
-        border-radius: .75rem;
-        background-color: var(--card-bg);
-        border: 1px solid var(--card-borde);
-        margin-bottom: 2rem;
-    }
-
-    .client-card .card-header {
-        background-color: var(--sidebar-bg);
-        color: var(--sidebar-texto);
-    }
-
-    .detail-item {
-        background-color: var(--content-bg);
-        padding: 1rem;
-        border-radius: .5rem;
-        border: 1px solid var(--card-borde);
-    }
-    .detail-item .label {
-        display: block;
-        font-size: 0.8rem;
-        font-weight: 500;
-        color: var(--texto-secundario);
-        margin-bottom: 0.25rem;
-        text-transform: uppercase;
-    }
-    .detail-item .value {
-        font-size: 1rem;
-        font-weight: 700;
-        color: var(--texto-principal);
-    }
-    
-    .nav-tabs .nav-link {
-        border-bottom: 3px solid transparent;
-    }
-    .nav-tabs .nav-link.active {
-        border-bottom-color: var(--color-primario);
-        color: var(--texto-principal);
-    }
-    
-    /* ESTILOS PARA LA LÍNEA DE TIEMPO */
-    .timeline {
-        list-style: none;
-        padding: 1rem 0 0 0;
-        position: relative;
-    }
-    .timeline:before {
-        content: '';
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: 40px;
-        width: 2px;
-        background-color: #e9ecef;
-    }
-    .timeline-item {
-        margin-bottom: 20px;
-        position: relative;
-        padding-left: 60px;
-    }
-    .timeline-icon {
-        position: absolute;
-        left: 28px;
-        top: 0;
-        width: 25px;
-        height: 25px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 1rem;
-    }
-    .timeline-body {
-        background-color: #fdfdff;
-        border-radius: .5rem;
-        padding: 1rem;
-        border: 1px solid #e9ecef;
-    }
-    .timeline-body strong {
-        display: block;
-        margin-bottom: .25rem;
-    }
-    .timeline-meta {
-        font-size: 0.8rem;
-        color: #6c757d;
-    }
-    .bg-conciliado { background-color: var(--verde-exito); }
-    .bg-revision { background-color: var(--amarillo-warning); }
-    .bg-aprobado { background-color: var(--azul-info); }
-    .bg-inconsistente { background-color: var(--rojo-alerta); }
-    .bg-anulado { background-color: var(--texto-secundario); }
-</style>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root {
+            --azul-corporativo: #2B3A55;
+            --naranja-corporativo: #F76E11;
+            --gris-fondo: #f8f9fa;
+            --blanco-tarjetas: #FFFFFF;
+            --texto-oscuro: #212529;
+            --texto-claro: #6c757d;
+            --borde-sutil: #e9ecef;
+            --theme-color: var(--naranja-corporativo);
+        }
+        body {
+            background-color: var(--gris-fondo);
+        }
+        .search-container {
+            background: var(--blanco-tarjetas);
+            padding: 1.5rem;
+            border-radius: .75rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.07);
+            margin-bottom: 1.5rem;
+        }
+        .btn-theme-primary {
+            background-color: var(--theme-color);
+            border-color: var(--theme-color);
+            color: white;
+            font-weight: 500;
+        }
+        .btn-theme-primary:hover {
+            filter: brightness(90%);
+            background-color: var(--theme-color);
+            border-color: var(--theme-color);
+            color: white;
+        }
+        .client-card {
+            background: var(--blanco-tarjetas);
+            margin-bottom: 1.5rem;
+            border-radius: .75rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.07);
+            overflow: hidden;
+        }
+        .client-header {
+            background-color: var(--azul-corporativo);
+            color: var(--blanco-tarjetas);
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .client-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 500;
+        }
+        .client-details {
+            padding: 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+        .detail-item {
+            background-color: var(--gris-fondo);
+            padding: 1rem;
+            border-radius: .5rem;
+            border: 1px solid var(--borde-sutil);
+        }
+        .detail-item .label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--texto-claro);
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+        }
+        .detail-item .value {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--texto-oscuro);
+        }
+        .detail-item .value.currency { color: #198754; }
+        .progress-item { grid-column: 1 / -1; }
+        .progress-bar-container {
+            background-color: var(--borde-sutil);
+            border-radius: .5rem;
+            height: 1.25rem;
+            overflow: hidden;
+            width: 100%;
+            margin-top: 5px;
+        }
+        .progress-bar {
+            background-color: #28a745;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: bold;
+            transition: width 0.5s ease-in-out;
+        }
+        .progress-bar-secondary { background-color: #17a2b8; }
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-top: 5px;
+            color: var(--texto-claro);
+        }
+        .history-section {
+            padding: 0 1.5rem 1.5rem 1.5rem;
+            background-color: #fcfcfc;
+            border-top: 1px solid var(--borde-sutil);
+        }
+        .nav-tabs {
+            border-bottom: 1px solid var(--borde-sutil);
+            margin-bottom: 1rem;
+        }
+        .nav-tabs .nav-link {
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: var(--texto-claro);
+            font-weight: 500;
+        }
+        .nav-tabs .nav-link.active {
+            color: var(--azul-corporativo);
+            border-bottom-color: var(--theme-color);
+            background-color: transparent;
+        }
+        .tab-content { padding-top: 0.5rem; }
+        .payment-row {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--borde-sutil);
+            gap: 1rem;
+        }
+        .payment-row:last-child { border-bottom: none; }
+        .payment-info .payment-concept { font-weight: 500; }
+        .payment-info .payment-meta { font-size: 0.85em; color: var(--texto-claro); }
+        .payment-amount { font-weight: bold; }
+        .payment-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+        .client-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 1rem 1.5rem;
+            background-color: var(--gris-fondo);
+            border-top: 1px solid var(--borde-sutil);
+        }
+    </style>
 {% endblock %}
 
 {% block body %}
-<div class="container-fluid px-0">
-    <div class="main-header">
-        <h1>Consulta de Clientes</h1>
-        <p class="lead mb-0">Busca, visualiza y gestiona la información de tus clientes.</p>
-    </div>
-
+<div class="container-fluid p-4">
     <div class="search-container">
         <form method="POST" action="{{ url_for('consulta') }}">
-            <div class="input-group input-group-lg">
-                <span class="input-group-text"><i class="bi bi-search"></i></span>
-                <input type="search" name="busqueda" class="form-control" placeholder="Buscar por Nombre o Cédula..." value="{{ busqueda or '' }}" aria-label="Buscar cliente">
-                <button type="submit" class="btn btn-primary">Buscar</button>
-                <a href="{{ url_for('hub') }}" class="btn btn-secondary d-none d-sm-block">
-                    <i class="bi bi-house-door-fill"></i>
-                </a>
+            <div class="d-flex flex-column flex-md-row gap-2">
+                <input type="search" name="busqueda" class="form-control form-control-lg" placeholder="Buscar por Nombre o Cédula..." value="{{ busqueda or '' }}">
+                <button type="submit" class="btn btn-theme-primary btn-lg"><i class="bi bi-search"></i> Buscar</button>
             </div>
         </form>
     </div>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-              {{ message }}
-              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          </div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
 
     {% if mensaje_error %}
         <div class="alert alert-warning">{{ mensaje_error }}</div>
@@ -174,134 +178,118 @@
 
     <div id="client-results">
         {% for cliente in clientes %}
-        <div class="card client-card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">{{ cliente.nombre_apellido }}</h5>
-                <span class="badge bg-light text-dark">{{ cliente.proceso or 'N/A' }}</span>
+        <div class="client-card">
+            <div class="client-header">
+                <h2>{{ cliente.nombre_apellido }}</h2>
+                <span class="badge text-bg-light">{{ cliente.proceso or 'N/A' }}</span>
             </div>
             
-            <div class="card-body p-4">
-                <div class="row g-3">
-                    <div class="col-12 col-sm-6 col-lg-4"><div class="detail-item"><span class="label">Cédula</span><span class="value">{{ cliente.cedula }}</span></div></div>
-                    <div class="col-12 col-sm-6 col-lg-4"><div class="detail-item"><span class="label">Teléfono</span><span class="value">{{ cliente.telefono or 'N/A' }}</span></div></div>
-                    <div class="col-12 col-sm-6 col-lg-4"><div class="detail-item"><span class="label">Contrato</span><span class="value">{{ cliente.contrato_nro or 'N/A' }}</span></div></div>
-                    <div class="col-12 col-sm-6 col-lg-4"><div class="detail-item"><span class="label">Grupo</span><span class="value">{{ cliente.grupo or 'N/A' }}</span></div></div>
-                    <div class="col-12 col-sm-6 col-lg-4"><div class="detail-item"><span class="label">Plan</span><span class="value">{{ cliente.plan_contratado or 'N/A' }}</span></div></div>
-                    <div class="col-12 col-sm-6 col-lg-4"><div class="detail-item"><span class="label">Asesor</span><span class="value">{{ cliente.asesor or 'N/A' }}</span></div></div>
-                    <div class="col-12 col-sm-6 col-lg-4"><div class="detail-item"><span class="label">Cuotas Pagadas</span><span class="value">{{ cliente.cuotas_pagadas_progresivas | int }} de {{ cliente.cuotas_totales | int }}</span></div></div>
-                    <div class="col-12 col-sm-6 col-lg-4"><div class="detail-item"><span class="label">Inscripción</span><span class="value">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span></div></div>
-                    <div class="col-12 col-sm-6 col-lg-4"><div class="detail-item"><span class="label">Estatus</span><span class="value">
-                        {% set estatus = cliente.estatus | upper if cliente.estatus else '' %}
-                        {% if estatus == 'ACTIVO' or estatus == 'AHORRADOR' or estatus == 'ADJUDICADO' %}<span class="badge fs-6 bg-success">{{ cliente.estatus }}</span>
-                        {% elif estatus == 'INACTIVO' or estatus == 'RETIRO' %}<span class="badge fs-6 bg-danger">{{ cliente.estatus }}</span>
-                        {% elif estatus == 'RESERVA' or estatus == 'INSCRITO' %}<span class="badge fs-6 bg-warning text-dark">{{ cliente.estatus }}</span>
-                        {% else %}<span class="badge fs-6 bg-secondary">{{ cliente.estatus }}</span>{% endif %}
-                    </span></div></div>
-                </div>
+            <div class="client-details">
+                <div class="detail-item"><span class="label">Grupo</span><span class="value">{{ cliente.grupo or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Plan</span><span class="value">{{ cliente.plan_contratado or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Cuotas Pagadas</span><span class="value">{{ cliente.cuotas_pagadas_progresivas | int }} de {{ cliente.cuotas_totales | int }}</span></div>
+                <div class="detail-item"><span class="label">Cédula</span><span class="value">{{ cliente.cedula }}</span></div>
+                <div class="detail-item"><span class="label">Contrato</span><span class="value">{{ cliente.contrato_nro or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Teléfono</span><span class="value">{{ cliente.telefono or 'N/A' }}</span></div>
+                <div class="detail-item"><span class="label">Asesor</span><span class="value">{{ cliente.asesor or 'N/A' }}</span></div>
                 
-                <hr class="my-4">
+                <div class="detail-item">
+                    <span class="label">Inscripción</span>
+                    <span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Estatus</span>
+                    <span class="value">
+                        {% set estatus = cliente.estatus | upper if cliente.estatus else '' %}
+                        {% if estatus == 'ACTIVO' or estatus == 'AHORRADOR' or estatus == 'ADJUDICADO' %}
+                            <span class="badge fs-6 bg-success">{{ cliente.estatus }}</span>
+                        {% elif estatus == 'INACTIVO' or estatus == 'RETIRO' %}
+                            <span class="badge fs-6 bg-danger">{{ cliente.estatus }}</span>
+                        {% elif estatus == 'RESERVA' or estatus == 'INSCRITO' %}
+                            <span class="badge fs-6 bg-warning text-dark">{{ cliente.estatus }}</span>
+                        {% else %}
+                            <span class="badge fs-6 bg-secondary">{{ cliente.estatus }}</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                <div class="detail-item progress-item"><span class="label">Progreso Total del Plan</span><div class="progress-bar-container"><div class="progress-bar" style="width: {{ progreso_total }}%;">{{ "%.0f"|format(progreso_total) }}%</div></div><div class="progress-label"><span>Pagadas: {{ cuotas_pagadas_total | int }}</span><span>Restantes: {{ (cuotas_totales | int) - (cuotas_pagadas_total | int) }}</span><span>Total: {{ cuotas_totales | int }}</span></div></div>
+                {% set balance = cliente.balance_regresivo|float or 0.0 %}{% set valor_cuota = cliente.valor_cuota|float or 0.0 %}{% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
+                <div class="detail-item progress-item">{% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}<span class="label">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span><div class="progress-bar-container"><div class="progress-bar progress-bar-secondary" style="width: {{ progreso_cuota_actual }}%;">{{ "%.0f"|format(progreso_cuota_actual) }}%</div></div><div class="progress-label"><span>Abonado: ${{ "%.2f"|format(balance) }}</span><span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}</span><span>Valor Cuota: ${{ "%.2f"|format(valor_cuota) }}</span></div></div>
+            </div>
 
+            <div class="history-section">
                 <ul class="nav nav-tabs" id="historyTabs-{{ cliente.id }}" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="pagos-tab-{{ cliente.id }}" data-bs-toggle="tab" data-bs-target="#pagos-content-{{ cliente.id }}" type="button" role="tab">Historial de Operaciones</button>
+                        <button class="nav-link active" id="pagos-tab-{{ cliente.id }}" data-bs-toggle="tab" data-bs-target="#pagos-content-{{ cliente.id }}" type="button" role="tab" aria-controls="pagos-content-{{ cliente.id }}" aria-selected="true">Pagos ({{ cliente.conteo_pagos }})</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="ofertas-tab-{{ cliente.id }}" data-bs-toggle="tab" data-bs-target="#ofertas-content-{{ cliente.id }}" type="button" role="tab">Historial de Ofertas</button>
+                        <button class="nav-link" id="ofertas-tab-{{ cliente.id }}" data-bs-toggle="tab" data-bs-target="#ofertas-content-{{ cliente.id }}" type="button" role="tab" aria-controls="ofertas-content-{{ cliente.id }}" aria-selected="false">Ofertas ({{ cliente.conteo_ofertas }})</button>
+                    </li>
+                     <li class="nav-item" role="presentation">
+                        <a class="nav-link" href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}">Gestiones ({{ cliente.conteo_gestiones }})</a>
                     </li>
                 </ul>
-                <div class="tab-content pt-3" id="historyTabsContent-{{ cliente.id }}">
-                    <div class="tab-pane fade show active" id="pagos-content-{{ cliente.id }}" role="tabpanel">
-                        
-                        <!-- ===== INICIO: LÍNEA DE TIEMPO INTEGRADA ===== -->
-                        <ul class="timeline">
+                <div class="tab-content" id="historyTabsContent-{{ cliente.id }}">
+                    <div class="tab-pane fade show active" id="pagos-content-{{ cliente.id }}" role="tabpanel" aria-labelledby="pagos-tab-{{ cliente.id }}">
+                        {% if cliente.pagos %}
                             {% for pago in cliente.pagos %}
-                            <li class="timeline-item">
-                                {% if pago.estado_pago == 'Conciliado' %}
-                                    <div class="timeline-icon bg-conciliado"><i class="bi bi-check-circle-fill"></i></div>
-                                    <div class="timeline-body">
-                                        <strong>Recibo Generado N°{{ pago.id }}</strong>
-                                        <p class="mb-1">Pago de {{ pago.tipo_pago }} por ${{ "%.2f"|format(pago.monto) }} fue conciliado.</p>
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <span class="timeline-meta">Conciliado el: {{ pago.fecha_pago | format_date }}</span>
-                                            <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-sm btn-outline-secondary" target="_blank">Ver Recibo</a>
-                                        </div>
-                                    </div>
-                                {% elif pago.estado_pago == 'Pendiente' %}
-                                    {% if pago.estado_reporte == 'Inconsistente' %}
-                                        <div class="timeline-icon bg-inconsistente"><i class="bi bi-exclamation-triangle-fill"></i></div>
-                                        <div class="timeline-body">
-                                            <strong>Reporte N°{{ pago.id }} Inconsistente</strong>
-                                            <p class="mb-1">El reporte de pago por ${{ "%.2f"|format(pago.monto) }} fue marcado como inconsistente.</p>
-                                            <span class="timeline-meta">Revisado el: {{ pago.fecha_revision | format_datetime }}</span>
-                                        </div>
-                                    {% elif pago.estado_reporte == 'Aprobado' %}
-                                        <div class="timeline-icon bg-aprobado"><i class="bi bi-check-lg"></i></div>
-                                        <div class="timeline-body">
-                                            <strong>Reporte N°{{ pago.id }} Aprobado</strong>
-                                            <p class="mb-1">El reporte por ${{ "%.2f"|format(pago.monto) }} fue aprobado y enviado a conciliación.</p>
-                                            <span class="timeline-meta">Aprobado el: {{ pago.fecha_revision | format_datetime }}</span>
-                                        </div>
-                                    {% else %}
-                                        <div class="timeline-icon bg-revision"><i class="bi bi-hourglass-split"></i></div>
-                                        <div class="timeline-body">
-                                            <strong>Reporte N°{{ pago.id }} en Revisión</strong>
-                                            <p class="mb-1">El cliente reportó un pago de {{ pago.tipo_pago }} por ${{ "%.2f"|format(pago.monto) }}.</p>
-                                            <span class="timeline-meta">Reportado el: {{ pago.fecha_creacion | format_datetime }}</span>
-                                        </div>
-                                    {% endif %}
-                                {% elif pago.estado_pago == 'Anulado' %}
-                                    <div class="timeline-icon bg-anulado"><i class="bi bi-x-circle-fill"></i></div>
-                                    <div class="timeline-body">
-                                        <strong>Operación N°{{ pago.id }} Anulada</strong>
-                                        <p class="mb-1">Un pago de {{ pago.tipo_pago }} por ${{ "%.2f"|format(pago.monto) }} fue anulado.</p>
-                                        <span class="timeline-meta">Fecha de operación: {{ pago.fecha_pago | format_date }}</span>
-                                    </div>
-                                {% endif %}
-                            </li>
-                            {% else %}
-                            <li class="timeline-item">
-                                <div class="timeline-icon bg-secondary"><i class="bi bi-info-circle"></i></div>
-                                <div class="timeline-body">
-                                    <strong>Sin operaciones</strong>
-                                    <p class="mb-0 text-muted">Aún no hay reportes ni pagos registrados para este cliente.</p>
+                            <div class="payment-row">
+                                <div class="payment-info">
+                                    <span class="payment-concept">{{ pago.tipo_pago }}</span>
+                                    <span class="payment-meta">{{ pago.fecha_pago | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</span>
                                 </div>
-                            </li>
+                                <div class="payment-amount">${{ "%.2f"|format(pago.monto) }}</div>
+                                <div class="payment-actions">
+                                    {% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}
+                                        <span class="badge text-bg-info">Reportado</span>
+                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="btn btn-info btn-sm">Ver Reporte</a>
+                                    {% elif pago.estado_reporte == 'Inconsistente' %}
+                                        <span class="badge text-bg-danger">Inconsistente</span>
+                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="btn btn-secondary btn-sm">Ver Reporte</a>
+                                    {% elif pago.estado_pago == 'Pendiente' %}
+                                        {% if pago.estado_reporte == 'Aprobado' %}<span class="badge text-bg-light">Aprobado</span>{% else %}<span class="badge text-bg-warning">Pendiente</span>{% endif %}
+                                        <form action="{{ url_for('conciliar_pago', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');" style="display:inline;"><button type="submit" class="btn btn-success btn-sm">Conciliar</button></form>
+                                    {% elif pago.estado_pago == 'Conciliado' %}
+                                        <span class="badge text-bg-success">Conciliado</span>
+                                        <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm" target="_blank">Ver Recibo</a>
+                                    {% elif pago.estado_pago == 'Anulado' %}
+                                        <span class="badge text-bg-danger">Anulado</span>
+                                        <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm" target="_blank">Detalles</a>
+                                    {% endif %}
+                                </div>
+                            </div>
                             {% endfor %}
-                        </ul>
-                        <!-- ===== FIN: LÍNEA DE TIEMPO INTEGRADA ===== -->
-
+                        {% else %}
+                            <p class="text-center text-muted p-3">No hay pagos registrados.</p>
+                        {% endif %}
                     </div>
-                    <div class="tab-pane fade" id="ofertas-content-{{ cliente.id }}" role="tabpanel">
-                         <div class="table-responsive">
-                            <table class="table table-sm table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Fecha</th>
-                                        <th>Cuotas Ofertadas</th>
-                                        <th>Estado</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for oferta in cliente.ofertas %}
-                                    <tr>
-                                        <td>{{ oferta.fecha_oferta | format_date }}</td>
-                                        <td>{{ oferta.cuotas_ofertadas }}</td>
-                                        <td><span class="badge bg-info">{{ oferta.estado_oferta }}</span></td>
-                                    </tr>
-                                    {% else %}
-                                    <tr>
-                                        <td colspan="3" class="text-center text-muted">No hay ofertas registradas.</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+                    <div class="tab-pane fade" id="ofertas-content-{{ cliente.id }}" role="tabpanel" aria-labelledby="ofertas-tab-{{ cliente.id }}">
+                        {% if cliente.ofertas %}
+                            {% for oferta in cliente.ofertas %}
+                            <div class="payment-row">
+                                <div class="payment-info">
+                                    <span class="payment-concept">Oferta de Adjudicación</span>
+                                    <span class="payment-meta">{{ oferta.fecha_oferta | format_date }}</span>
+                                </div>
+                                <div class="payment-amount">{{ oferta.cuotas_ofertadas }} Cuotas</div>
+                                <div class="payment-actions">
+                                    {% if oferta.estado_oferta == 'activa' %}<span class="badge text-bg-primary">Activa</span>
+                                    {% elif oferta.estado_oferta == 'ganadora' %}<span class="badge text-bg-success">Ganadora</span>
+                                    {% elif oferta.estado_oferta == 'perdida' %}<span class="badge text-bg-secondary">Perdida</span>
+                                    {% else %}<span class="badge text-bg-light">{{ oferta.estado_oferta }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-center text-muted p-3">No hay ofertas registradas.</p>
+                        {% endif %}
                     </div>
                 </div>
             </div>
 
-            <div class="card-footer bg-light d-flex flex-wrap justify-content-end gap-2">
-                <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="btn btn-primary btn-sm"><i class="bi bi-person-vcard-fill me-1"></i> Ver Perfil</a>
+            <div class="client-actions">
                 <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="btn btn-success btn-sm"><i class="bi bi-cash-coin me-1"></i> Registrar Pago</a>
                 <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#ofertaModal-{{ cliente.id }}">
                     <i class="bi bi-gem me-1"></i> Registrar Oferta
@@ -311,31 +299,31 @@
                 <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="btn btn-warning btn-sm"><i class="bi bi-pencil-square me-1"></i> Editar</a>
                 {% endif %}
                 {% if g.admin and g.admin.rol == 'superadmin' %}
-                <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" class="d-inline" onsubmit="return confirm('ADVERTENCIA: Esta acción eliminará al cliente y TODOS sus registros asociados (pagos, ofertas, etc.) de forma permanente. ¿Está absolutamente seguro?');">
+                <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('ADVERTENCIA: Esta acción eliminará al cliente y TODOS sus registros asociados (pagos, ofertas, etc.) de forma permanente. ¿Está absolutamente seguro?');">
                     <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-trash-fill me-1"></i> Eliminar</button>
                 </form>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Modal de Oferta -->
-        <div class="modal fade" id="ofertaModal-{{ cliente.id }}" tabindex="-1">
+        <div class="modal fade" id="ofertaModal-{{ cliente.id }}" tabindex="-1" aria-labelledby="ofertaModalLabel-{{ cliente.id }}" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <form action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" method="POST">
                         <div class="modal-header">
-                            <h5 class="modal-title">Registrar Oferta para {{ cliente.nombre_apellido }}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            <h5 class="modal-title" id="ofertaModalLabel-{{ cliente.id }}">Registrar Oferta para {{ cliente.nombre_apellido }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
                             <div class="mb-3">
-                                <label class="form-label">Número de Cuotas a Ofertar</label>
-                                <select class="form-select" name="cuotas_ofertadas" required>
+                                <label for="cuotas_ofertadas-{{ cliente.id }}" class="form-label">Número de Cuotas a Ofertar</label>
+                                <select class="form-select" id="cuotas_ofertadas-{{ cliente.id }}" name="cuotas_ofertadas" required>
                                     {% set cuotas_restantes = (cliente.cuotas_totales|int) - (cliente.cuotas_pagadas_progresivas|int) %}
                                     {% for i in range(1, cuotas_restantes + 1) %}
                                     <option value="{{ i }}">{{ i }} cuota(s)</option>
                                     {% endfor %}
                                 </select>
+                                <div class="form-text">Seleccione la cantidad de cuotas que el cliente desea adelantar.</div>
                             </div>
                         </div>
                         <div class="modal-footer">
@@ -349,4 +337,5 @@
         {% endfor %}
     </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 {% endblock %}

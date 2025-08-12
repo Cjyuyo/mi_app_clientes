@@ -1801,10 +1801,11 @@ def conciliar_pago(pago_id):
     
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM pagos WHERE id = %s", (pago_id,))
+            # Bloquear las filas para evitar race conditions
+            cur.execute("SELECT * FROM pagos WHERE id = %s FOR UPDATE", (pago_id,))
             pago_actual = cur.fetchone()
             if not pago_actual or pago_actual['estado_pago'] != 'Pendiente':
-                flash("El pago no se puede conciliar.", 'error')
+                flash("El pago no se puede conciliar porque no está pendiente.", 'error')
                 return redirect(url_for('pagos_por_conciliar'))
             
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s FOR UPDATE", (pago_actual['cliente_id'],))
@@ -1812,69 +1813,62 @@ def conciliar_pago(pago_id):
             cedula_cliente_para_redirect = cliente['cedula']
             admin_id = g.admin['id']
 
-            # --- INICIO DE LA NUEVA LÓGICA DE CONSOLIDACIÓN DE INSCRIPCIÓN ---
-            if pago_actual['tipo_pago'] == 'Inscripción' and pago_actual['pago_padre_id']:
-                cur.execute("SELECT * FROM pagos WHERE id = %s", (pago_actual['pago_padre_id'],))
-                pago_padre = cur.fetchone()
-                if not pago_padre:
-                    raise ValueError("No se encontró el pago original de la diferencia para la consolidación.")
-
-                monto_total_pagado = pago_actual['monto'] + pago_padre['monto']
-                
-                detalles_consolidados = {
-                    "consolidado": True,
-                    "accion": "Consolidación por pago de diferencia",
-                    "pagos_individuales": [
-                        {"id": pago_padre['id'], "monto": str(pago_padre['monto']), "referencia": pago_padre.get('referencia', 'N/A'), "forma_pago": pago_padre.get('forma_pago')},
-                        {"id": pago_actual['id'], "monto": str(pago_actual['monto']), "referencia": pago_actual.get('referencia', 'N/A'), "forma_pago": pago_actual.get('forma_pago')}
-                    ]
-                }
-                
-                cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id IN (%s, %s)", (pago_id, pago_padre['id']))
-                
-                # CORRECCIÓN: Añadir cuotas_cubiertas=0 y forma_pago='Consolidado' en la inserción
-                cur.execute("""
-                    INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, estado_pago, por_concepto_de, detalles_reporte, conciliado_por_id, fecha_pago, cuotas_cubiertas) 
-                    VALUES (%s, %s, 'Inscripción Finalizada', 'Consolidado', 'Conciliado', 'Pago total de inscripción consolidado', %s, %s, %s, 0) RETURNING id
-                """, (cliente['id'], monto_total_pagado, json.dumps(detalles_consolidados), admin_id, pago_actual['fecha_pago']))
-                pago_final_id = cur.fetchone()[0]
-
-                cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (monto_total_pagado, cliente['id']))
-                
-                descripcion_audit = f"Consolidó pago de inscripción para {cliente['nombre_apellido']}. Pago final N°{pago_final_id} por ${monto_total_pagado}."
-                registrar_accion_auditoria('CONSOLIDACION_PAGO', descripcion_audit, cliente['id'])
-
-                conn.commit()
-                url_recibo = url_for('ver_recibo_inscripcion', pago_id=pago_final_id)
-                flash(f"Pagos unificados exitosamente. <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo Consolidado</a>.", "success")
-                return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
-            # --- FIN DE LA NUEVA LÓGICA DE CONSOLIDACIÓN ---
-
             flash_msg = ""
             if pago_actual['tipo_pago'] == 'Inscripción':
                 inscripcion_pagada_actual = Decimal(cliente.get('inscripcion_pagada') or 0)
-                inscripcion_total = Decimal(cliente.get('inscripcion_monto') or 0)
+                inscripcion_total_requerida = Decimal(cliente.get('inscripcion_monto') or 0)
                 nueva_inscripcion_pagada = inscripcion_pagada_actual + pago_actual['monto']
 
-                if nueva_inscripcion_pagada >= inscripcion_total:
-                    if cliente['proceso'] == 'RESERVA':
-                        cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],))
+                # --- INICIO DE LA NUEVA LÓGICA DE CONSOLIDACIÓN DE INSCRIPCIÓN ---
+                if nueva_inscripcion_pagada >= inscripcion_total_requerida:
+                    # 1. Obtener todos los abonos de inscripción anteriores más el actual
+                    cur.execute("SELECT * FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente['id'],))
+                    abonos_anteriores = cur.fetchall()
                     
-                    cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente['id'],))
+                    pagos_a_consolidar = abonos_anteriores + [pago_actual]
+                    ids_a_anular = [p['id'] for p in pagos_a_consolidar]
                     
-                    # CORRECCIÓN: Añadir cuotas_cubiertas=0 y forma_pago='Consolidado' en la inserción
+                    # 2. Preparar detalles para el nuevo recibo final
+                    monto_total_consolidado = sum(p['monto'] for p in pagos_a_consolidar)
+                    pagos_individuales = [
+                        {"id": p['id'], "monto": str(p['monto']), "fecha": p['fecha_pago'].isoformat()}
+                        for p in pagos_a_consolidar
+                    ]
+                    detalles_consolidados = {
+                        "pagos_individuales": pagos_individuales
+                    }
+                    
+                    # 3. Crear el único recibo final de "Inscripción Finalizada"
                     cur.execute("""
-                        INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, estado_pago, por_concepto_de, conciliado_por_id, fecha_pago, cuotas_cubiertas) 
-                        VALUES (%s, %s, 'Inscripción Finalizada', 'Consolidado', 'Conciliado', 'Pago total de inscripción', %s, %s, 0) RETURNING id
-                    """, (cliente['id'], inscripcion_total, admin_id, pago_actual['fecha_pago']))
+                        INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, estado_pago, por_concepto_de, detalles_reporte, conciliado_por_id, fecha_pago, cuotas_cubiertas) 
+                        VALUES (%s, %s, 'Inscripción Finalizada', 'Consolidado', 'Conciliado', 'Pago total de inscripción consolidado', %s, %s, %s, 0) RETURNING id
+                    """, (cliente['id'], monto_total_consolidado, json.dumps(detalles_consolidados), admin_id, pago_actual['fecha_pago']))
                     pago_final_id = cur.fetchone()[0]
+
+                    # 4. Anular todos los recibos de abono (anteriores y el actual)
+                    detalle_anulacion = json.dumps({
+                        "motivo": "Consolidado en recibo final",
+                        "recibo_final_id": pago_final_id
+                    })
+                    cur.execute(
+                        "UPDATE pagos SET estado_pago = 'Anulado', detalles_reporte = %s WHERE id = ANY(%s)",
+                        (detalle_anulacion, ids_a_anular)
+                    )
                     
-                    cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (inscripcion_total, cliente['id']))
-                    cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
+                    # 5. Actualizar el estado del cliente
+                    cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (monto_total_consolidado, cliente['id']))
+                    
+                    # 6. Registrar auditoría
+                    descripcion_audit = f"Consolidó pagos de inscripción. Recibo final N°{pago_final_id} por ${monto_total_consolidado} para {cliente['nombre_apellido']}."
+                    registrar_accion_auditoria('CONSOLIDACION_INSCRIPCION', descripcion_audit, cliente['id'])
+                    
                     url_recibo = url_for('ver_recibo_inscripcion', pago_id=pago_final_id)
-                    flash_msg = f"¡Inscripción completada! <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo Final</a>."
-                else:
+                    flash_msg = f"¡Inscripción completada y consolidada! <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo Final</a>."
+                
+                # --- FIN DE LA NUEVA LÓGICA DE CONSOLIDACIÓN ---
+                else: # Si es solo un abono que no completa el total
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
+                    cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
                     url_recibo = url_for('ver_recibo', pago_id=pago_id)
                     flash_msg = f"Abono de inscripción N° {pago_id} conciliado. <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo</a>."
 
@@ -1891,10 +1885,10 @@ def conciliar_pago(pago_id):
                 nbf, ncpp, ncpr, cch = bp, cpp + pph, cpr + rph, pph + rph
                 cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s;", (ncpp, ncpr, nbf, cliente['id']))
                 cur.execute("UPDATE pagos SET cuotas_cubiertas = %s, progresivas_cubiertas = %s, regresivas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s WHERE id = %s;", (cch, pph, rph, ncpp, ncpr, nbf, pago_id))
+                cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
                 url_recibo = url_for('ver_recibo', pago_id=pago_id)
                 flash_msg = f"¡Pago de cuota N° {pago_id} conciliado! <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo</a>."
 
-            cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
             conn.commit()
             flash(flash_msg, 'success')
             return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
@@ -1907,11 +1901,14 @@ def conciliar_pago(pago_id):
             return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
     return redirect(url_for('pagos_por_conciliar'))
 
+
 @app.route('/recibo/<int:pago_id>')
 def ver_recibo(pago_id):
     conn = get_db()
     if not conn:
-        return redirect(url_for('portal_login')) if 'cliente_id' in session else redirect(url_for('consulta'))
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('portal_login') if 'cliente_id' in session else redirect(url_for('consulta')))
+    
     with conn.cursor() as cur:
         query = """
             SELECT p.*, c.nombre, c.apellido, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.cuotas_totales, c.valor_cuota, c.inscripcion_monto, c.inscripcion_pagada,
@@ -1921,23 +1918,53 @@ def ver_recibo(pago_id):
             FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s;"""
         cur.execute(query, (pago_id,))
         pago = cur.fetchone()
+
     if not pago:
         flash('Recibo no encontrado.', 'error')
-        return redirect(url_for('portal_dashboard')) if 'cliente_id' in session else redirect(url_for('consulta'))
+        return redirect(url_for('portal_dashboard') if 'cliente_id' in session else redirect(url_for('consulta')))
+
+    # --- MODIFICACIÓN: Lógica para manejar recibos anulados ---
+    if pago['estado_pago'] == 'Anulado' and pago['detalles_reporte'] and 'recibo_final_id' in pago['detalles_reporte']:
+        return render_template('recibo_anulado.html', pago=pago, is_admin_view='admin_id' in session)
+
+    # Si es un recibo de inscripción finalizado, usar su propia plantilla
+    if pago['tipo_pago'] == 'Inscripción Finalizada':
+        return render_template('recibo_inscripcion.html', pago=pago, cliente=pago, is_admin_view='admin_id' in session)
+
+    # Para todos los demás recibos válidos
     return render_template('recibo.html', pago=pago, is_admin_view='admin_id' in session)
+
 
 @app.route('/recibo_inscripcion/<int:pago_id>')
 def ver_recibo_inscripcion(pago_id):
     conn = get_db()
     if not conn:
-        return redirect(url_for('portal_login')) if 'cliente_id' in session else redirect(url_for('consulta'))
+        return redirect(url_for('portal_login') if 'cliente_id' in session else redirect(url_for('consulta'))
     with conn.cursor() as cur:
-        cur.execute("SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.plan_contratado FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s AND p.tipo_pago = 'Inscripción Finalizada';", (pago_id,))
+        cur.execute("""
+            SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.plan_contratado 
+            FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
+            WHERE p.id = %s AND p.tipo_pago = 'Inscripción Finalizada'
+        """, (pago_id,))
         pago = cur.fetchone()
     if not pago:
         flash('Recibo de inscripción final no encontrado.', 'error')
-        return redirect(url_for('portal_dashboard')) if 'cliente_id' in session else redirect(url_for('consulta'))
-    return render_template('recibo_inscripcion.html', pago=pago, cliente=pago, is_admin_view='admin_id' in session)
+        return redirect(url_for('portal_dashboard') if 'cliente_id' in session else redirect(url_for('consulta')))
+    
+    # Convertir detalles si es un string JSON
+    detalles = pago['detalles_reporte']
+    if isinstance(detalles, str):
+        try:
+            detalles = json.loads(detalles)
+        except json.JSONDecodeError:
+            detalles = {} # O manejar el error como prefieras
+    
+    # Crear un nuevo diccionario de pago con los detalles parseados
+    pago_actualizado = dict(pago)
+    pago_actualizado['detalles_reporte'] = detalles
+
+    return render_template('recibo_inscripcion.html', pago=pago_actualizado, cliente=pago, is_admin_view='admin_id' in session)
+
 
 @app.route('/anular_recibo/<int:pago_id>', methods=['POST'])
 @admin_required
@@ -1973,12 +2000,24 @@ def anular_recibo(pago_id):
                 cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s", (cpa, cra, ban, cliente_id))
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
             elif pago_a_anular['tipo_pago'] == 'Inscripción Finalizada':
-                cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
-                cur.execute("UPDATE pagos SET estado_pago = 'Conciliado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Anulado'", (cliente_id,))
-                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente_id,))
-                total_inscripcion_reactivada = cur.fetchone()[0]
-                cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'RESERVA' WHERE id = %s", (total_inscripcion_reactivada, cliente_id))
-                flash("¡Reinicio de inscripción completado! El cliente ha vuelto a 'RESERVA'.", 'success')
+                # Lógica para revertir la consolidación
+                detalles = pago_a_anular.get('detalles_reporte')
+                if detalles and 'pagos_individuales' in detalles:
+                    ids_a_restaurar = [p['id'] for p in detalles['pagos_individuales']]
+                    # Restaurar abonos a 'Conciliado' y limpiar sus detalles
+                    cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', detalles_reporte = NULL WHERE id = ANY(%s)", (ids_a_restaurar,))
+                    # Anular el recibo final
+                    cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
+                    # Recalcular el total pagado de inscripción y actualizar cliente
+                    cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE id = ANY(%s)", (ids_a_restaurar,))
+                    total_inscripcion_reactivada = cur.fetchone()[0]
+                    cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'RESERVA' WHERE id = %s", (total_inscripcion_reactivada, cliente_id))
+                    flash("¡Reversión de consolidación completada! Los abonos han sido restaurados.", 'success')
+                else:
+                    # Fallback si no hay detalles
+                    cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
+                    flash("Recibo final anulado, pero no se encontraron detalles para restaurar abonos.", 'warning')
+
             descripcion_audit = f"Anuló el recibo N° {pago_id} (Tipo: {pago_a_anular['tipo_pago']}, ${pago_a_anular['monto']}) del cliente {nombre_cliente}."
             registrar_accion_auditoria('ANULACION_RECIBO', descripcion_audit, cliente_id)
             conn.commit()
@@ -2009,22 +2048,6 @@ def verificar_recibo():
             flash("Por favor, ingrese un número de recibo válido.", "error")
 
     return render_template('verificacion_recibo.html', pago=pago)
-
-@app.route('/recibo_anulado/<int:pago_id>')
-@admin_required
-def recibo_anulado(pago_id):
-    conn = get_db()
-    if not conn:
-        flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('consulta'))
-    with conn.cursor() as cur:
-        query = "SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s AND p.estado_pago = 'Anulado';"
-        cur.execute(query, (pago_id,))
-        pago = cur.fetchone()
-    if not pago:
-        flash('Recibo anulado no encontrado.', 'error')
-        return redirect(url_for('consulta'))
-    return render_template('recibo_anulado.html', pago=pago)
 
 @app.route('/edit/<int:client_id>', methods=['GET', 'POST'])
 @admin_required
@@ -2424,7 +2447,7 @@ def portal_dashboard():
 
             estado_principal = {}
             inscripcion_completa = (cliente_dict.get('inscripcion_pagada') or 0) >= (cliente_dict.get('inscripcion_monto') or 0)
-            primera_cuota_pagada = any(p.get('tipo_pago') == 'Cuota' and p.get('estado_pago') == 'Conciliado' for p in cliente_dict['pagos'])
+            primera_cuota_pagada = any(p.get('tipo_pago') == 'Cuota' and p.get('estado_pago') == 'Conciliado' for p in cliente_dict['pagos'] if p.get('fecha_pago'))
             
             # **LÓGICA DE ETAPAS MEJORADA**
             if not inscripcion_completa:

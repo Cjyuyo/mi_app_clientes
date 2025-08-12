@@ -8,6 +8,7 @@
     <style>
         :root {
             --azul-corporativo: #2B3A55;
+            --naranja-corporativo: #F76E11;
             --rojo-terracota-alertas: #C0392B;
             --gris-fondo: #f8f9fa;
             --blanco-tarjetas: #FFFFFF;
@@ -29,7 +30,36 @@
         .info-item { background-color: var(--gris-fondo); padding: 1rem; border-radius: .5rem; }
         .info-item .label { font-size: 0.8rem; color: var(--texto-claro); display: block; }
         .info-item .value { font-size: 1rem; font-weight: 500; }
-        .info-item .value.amount { font-size: 1.25rem; font-weight: 700; color: var(--rojo-terracota-alertas); }
+        .info-item .value.amount { font-size: 1.25rem; font-weight: 700; color: var(--rojo-terracota-alertas); text-decoration: line-through; }
+        
+        /* ===== INICIO: ESTILOS PARA EL MENSAJE DE CONSOLIDACIÓN ===== */
+        .consolidation-notice {
+            background-color: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-radius: .5rem;
+        }
+        .consolidation-notice p {
+            margin: 0 0 1rem 0;
+            color: #664d03;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+        .consolidation-notice .final-receipt-info {
+            font-weight: bold;
+        }
+        .btn-ver-final {
+            background-color: var(--naranja-corporativo);
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.3rem;
+            display: inline-block;
+            margin-top: 0.5rem;
+        }
+        /* ===== FIN: ESTILOS PARA EL MENSAJE DE CONSOLIDACIÓN ===== */
+
         .actions-section { text-align: center; padding: 1.5rem; background-color: var(--gris-fondo); border-top: 1px solid var(--borde-sutil); }
         .btn { text-decoration: none; color: white; padding: .6rem 1.2rem; border: none; border-radius: .5rem; cursor: pointer; }
         .btn-volver { background-color: var(--azul-corporativo); }
@@ -40,6 +70,7 @@
             .actions-section { display: none; }
             .receipt-header { background-color: var(--rojo-terracota-alertas) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .container::after { color: rgba(192, 57, 43, 0.1) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .consolidation-notice { background-color: #fff3cd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
     </style>
 </head>
@@ -51,6 +82,18 @@
                 <div class="receipt-id text-end"><h2>Recibo Anulado</h2><p>N° {{ pago.id }}</p></div>
             </div>
             <div class="receipt-body">
+
+                <!-- ===== INICIO: MENSAJE DE CONSOLIDACIÓN MODIFICADO ===== -->
+                {% if pago.detalles_reporte and pago.detalles_reporte.recibo_final_id %}
+                <div class="consolidation-notice">
+                    <p><strong>Este recibo ha sido anulado.</strong></p>
+                    <p>El monto de este pago fue incluido en un recibo final consolidado para completar la inscripción del cliente.</p>
+                    <p>El nuevo recibo que reemplaza a este es el <span class="final-receipt-info">N° {{ pago.detalles_reporte.recibo_final_id }}</span>.</p>
+                    <a href="{{ url_for('ver_recibo_inscripcion', pago_id=pago.detalles_reporte.recibo_final_id) }}" target="_blank" class="btn-ver-final">Ver Recibo Final Consolidado</a>
+                </div>
+                {% endif %}
+                <!-- ===== FIN: MENSAJE DE CONSOLIDACIÓN MODIFICADO ===== -->
+
                 <div class="section">
                     <h3>Cliente</h3>
                     <div class="info-grid">
@@ -70,7 +113,11 @@
             </div>
             <div class="actions-section">
                 <button class="btn btn-imprimir" onclick="window.print()">Imprimir / Guardar PDF</button>
-                <a href="{{ url_for('consulta', busqueda=pago.cedula) }}" class="btn btn-volver">Volver a Consulta</a>
+                {% if is_admin_view %}
+                    <a href="{{ url_for('consulta', busqueda=pago.cedula) }}" class="btn btn-volver">Volver a Consulta</a>
+                {% else %}
+                    <a href="{{ url_for('portal_dashboard') }}" class="btn btn-volver">Volver al Portal</a>
+                {% endif %}
             </div>
         </div>
     </div>
