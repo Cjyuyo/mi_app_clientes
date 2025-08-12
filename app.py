@@ -412,13 +412,12 @@ def admin_logout():
 @app.route('/hub')
 @admin_required
 def hub():
-    # Se inicializan todas las estadísticas, incluyendo la nueva para pagos por conciliar
     stats = {
         'clientes_cartera': 0,
         'recaudado_mes': Decimal('0.0'),
         'solicitudes_pendientes': 0,
         'reportes_pendientes': 0, 
-        'pagos_por_conciliar': 0, # <-- NUEVA ESTADÍSTICA
+        'pagos_por_conciliar': 0,
         'tasa_bcv': 'N/A'
     }
     tasa_ocupacion = 0.0
@@ -437,18 +436,15 @@ def hub():
                     stats['solicitudes_pendientes'] = cur.fetchone()[0]
 
                 if g.admin['rol'] in ['superadmin', 'gerente', 'administradora']:
-                    # Contador para reportes que necesitan ser revisados
                     cur.execute("SELECT COUNT(*) FROM pagos WHERE reportado_por_cliente = TRUE AND estado_reporte = 'Pendiente de Revision'")
                     stats['reportes_pendientes'] = cur.fetchone()[0]
 
-                    # <-- INICIO DEL CAMBIO: Se añade el contador para pagos listos para conciliar -->
                     cur.execute("""
                         SELECT COUNT(*) FROM pagos 
                         WHERE estado_pago = 'Pendiente' 
                         AND (reportado_por_cliente = FALSE OR estado_reporte = 'Aprobado')
                     """)
                     stats['pagos_por_conciliar'] = cur.fetchone()[0]
-                    # <-- FIN DEL CAMBIO -->
 
                 cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
                 tasa_row = cur.fetchone()
@@ -801,15 +797,10 @@ def procesar_solicitud(solicitud_id):
 # ===== NUEVO FLUJO DE VALIDACIÓN Y CONCILIACIÓN =====
 # =================================================================================
 
-# --- PASO 1: Centro de Reportes (Bandeja de Entrada de Administración) ---
 @app.route('/reportes_por_revisar')
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def reportes_por_revisar():
-    """
-    Esta es la primera parada para todos los pagos reportados por clientes.
-    Muestra una lista de reportes que esperan ser validados (aprobados o rechazados).
-    """
     conn = get_db()
     reportes_a_revisar = []
     if not conn:
@@ -817,7 +808,6 @@ def reportes_por_revisar():
         return render_template('reportes_por_revisar.html', reportes=[], anio_actual=get_venezuela_current_date().year)
     try:
         with conn.cursor() as cur:
-            # Selecciona solo los pagos reportados por clientes que están pendientes de revisión.
             cur.execute("""
                 SELECT p.id, p.monto, p.tipo_pago, p.fecha_creacion,
                        p.cliente_id, c.nombre, c.apellido, c.cedula
@@ -831,18 +821,12 @@ def reportes_por_revisar():
         logging.error(f"Error al obtener reportes por revisar: {e}")
         flash("Error al cargar la lista de reportes pendientes de revisión.", "danger")
     
-    # Renderiza la plantilla `reportes_por_revisar.html` con la lista de reportes.
     return render_template('reportes_por_revisar.html', reportes=reportes_a_revisar, anio_actual=get_venezuela_current_date().year)
 
-# --- PASO 2: Lógica para Aprobar o Rechazar un Reporte ---
 @app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def procesar_reporte(pago_id):
-    """
-    Esta ruta maneja el formulario de la vista `ver_reporte.html`.
-    Actualiza el estado del reporte a 'Aprobado' o 'Inconsistente'.
-    """
     conn = get_db()
     accion = request.form.get('accion')
     
@@ -864,14 +848,10 @@ def procesar_reporte(pago_id):
             descripcion_audit = ''
 
             if accion == 'aprobar':
-                # Si se aprueba, el estado del reporte cambia a 'Aprobado'.
-                # Este pago ahora aparecerá en la cola de conciliación.
                 nuevo_estado_reporte = 'Aprobado'
                 descripcion_audit = f"Aprobó el reporte de pago N° {pago_id}."
 
             elif accion == 'rechazar':
-                # Si se rechaza, el estado cambia a 'Inconsistente' y se guardan los motivos.
-                # Esto activará la alerta en el portal del cliente.
                 nuevo_estado_reporte = 'Inconsistente'
                 motivo = request.form.get('motivo_rechazo')
                 diferencia_str = request.form.get('diferencia_monto', '0').replace(',', '.')
@@ -885,7 +865,6 @@ def procesar_reporte(pago_id):
                 flash('Acción no válida.', 'error')
                 return redirect(url_for('reportes_por_revisar'))
 
-            # Actualiza la tabla de pagos con el nuevo estado y los detalles.
             cur.execute(
                 """
                 UPDATE pagos SET 
@@ -906,21 +885,13 @@ def procesar_reporte(pago_id):
         conn.rollback()
         flash(f"Error al procesar el reporte: {e}", "error")
     
-    # **MODIFICADO**: Redirige de vuelta al centro de reportes para un flujo de trabajo más lógico.
     return redirect(url_for('reportes_por_revisar'))
 
 
-# --- PASO 3: Cola de Conciliación (Estación Final de Tesorería) ---
 @app.route('/pagos_por_conciliar')
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def pagos_por_conciliar():
-    """
-    Esta es la estación final de Tesorería.
-    **MODIFICADO**: Ahora solo muestra pagos que están listos para ser conciliados:
-    1. Pagos registrados directamente por un administrador.
-    2. Pagos reportados por clientes que ya fueron APROBADOS en el paso anterior.
-    """
     conn = get_db()
     pagos_a_procesar = []
     if not conn:
@@ -928,7 +899,6 @@ def pagos_por_conciliar():
         return render_template('pagos_por_conciliar.html', pagos=[], anio_actual=get_venezuela_current_date().year)
     try:
         with conn.cursor() as cur:
-            # **QUERY MODIFICADA**: Se añade la condición clave en el WHERE.
             cur.execute("""
                 SELECT p.id, p.monto, p.tipo_pago, p.fecha_creacion AS fecha_reporte,
                        p.reportado_por_cliente, p.estado_reporte, p.cliente_id,
@@ -946,7 +916,6 @@ def pagos_por_conciliar():
             for pago_row in pagos_pendientes:
                 pago = dict(pago_row)
                 
-                # **LÓGICA SIMPLIFICADA**: Si un pago está en esta vista, está listo para ser conciliado.
                 pago['status_display'] = 'Listo para Conciliar'
                 pago['status_class'] = 'primary'
                 pago['action_type'] = 'Conciliar'
@@ -961,7 +930,6 @@ def pagos_por_conciliar():
         logging.error(f"Error al obtener pagos por conciliar: {e}")
         flash("Error al cargar la lista de pagos pendientes.", "danger")
         
-    # Renderiza la plantilla `pagos_por_conciliar.html` con la lista filtrada y lista para la acción final.
     return render_template('pagos_por_conciliar.html', pagos=pagos_a_procesar, anio_actual=get_venezuela_current_date().year)
 
 
@@ -1498,7 +1466,6 @@ def perfil_cliente(cliente_id):
                     flash("Cliente no encontrado.", "error")
                     return redirect(url_for('consulta'))
                 
-                # La consulta de pagos se ordena por fecha de creación para la línea de tiempo
                 cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_creacion DESC, id DESC", (cliente_id,))
                 pagos = cur.fetchall()
                 
@@ -1508,7 +1475,6 @@ def perfil_cliente(cliente_id):
                 """, (cliente_id,))
                 gestiones = cur.fetchall()
 
-                # Esta consulta unificada es para una vista de historial más detallada, no para la línea de tiempo de pagos
                 cur.execute("""
                     SELECT 'Solicitud de ' || tipo_solicitud AS tipo, detalles, fecha_creacion AS fecha, estado, revisado_por_id, null as usuario_nombre
                     FROM solicitudes 
@@ -1550,7 +1516,7 @@ def perfil_cliente(cliente_id):
                             descripcion += f" por {evento_fmt['usuario']}"
                         
                         evento_fmt['descripcion'] = descripcion
-                    else: # Es un evento de auditoría
+                    else: 
                         evento_fmt['tipo'] = f"Auditoría: {event['tipo']}"
                         evento_fmt['descripcion'] = event.get('detalles').get('descripcion') if event.get('detalles') else 'Sin detalles'
                         evento_fmt['usuario'] = event.get('usuario_nombre')
@@ -1746,7 +1712,6 @@ def consulta():
                         cliente_dict = dict(cliente)
                         cliente_dict['nombre_apellido'] = f"{cliente.get('nombre', '')} {cliente.get('apellido', '')}".strip()
                         
-                        # Se ordena por fecha de creación para mostrar la línea de tiempo en orden cronológico correcto.
                         cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_creacion DESC, id DESC", (cliente_dict['id'],))
                         cliente_dict['pagos'] = cur.fetchall()
                         cur.execute("SELECT * FROM ofertas WHERE cliente_id = %s ORDER BY fecha_oferta DESC", (cliente_dict['id'],))
@@ -1810,7 +1775,7 @@ def registrar_pago(client_id):
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, lugar_emision,
                                         tasa_dia, monto_bs, estado_pago, cuotas_cubiertas, moneda_referencia, fecha_creacion, registrado_por_id)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, %s, %s, %s);
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, %s, %s, %s);
                 """
                 cur.execute(pago_query, (client_id, pago_form['monto'], tipo_pago, forma_pago, pago_form['fecha_pago'], pago_form.get('pago_en'), 
                                          pago_form.get('por_concepto_de'), referencia, pago_form.get('banco'), pago_form.get('lugar_emision'), 
@@ -1824,13 +1789,12 @@ def registrar_pago(client_id):
             return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
     return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
 
-# --- LÓGICA DE CONCILIACIÓN RESTAURADA Y MEJORADA ---
+# --- LÓGICA DE CONCILIACIÓN CON CONSOLIDACIÓN ---
 @app.route('/conciliar_pago/<int:pago_id>', methods=['POST'])
 @admin_required
 def conciliar_pago(pago_id):
     conn = get_db()
     cedula_cliente_para_redirect = None
-
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('pagos_por_conciliar'))
@@ -1838,89 +1802,102 @@ def conciliar_pago(pago_id):
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM pagos WHERE id = %s", (pago_id,))
-            pago_original = cur.fetchone()
-            if not pago_original or pago_original['estado_pago'] != 'Pendiente':
-                flash("El pago no se puede conciliar (ya está conciliado, anulado o no existe).", 'error')
+            pago_actual = cur.fetchone()
+            if not pago_actual or pago_actual['estado_pago'] != 'Pendiente':
+                flash("El pago no se puede conciliar.", 'error')
                 return redirect(url_for('pagos_por_conciliar'))
             
-            pago = dict(pago_original)
-            
-            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s FOR UPDATE", (pago['cliente_id'],))
+            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s FOR UPDATE", (pago_actual['cliente_id'],))
             cliente = cur.fetchone()
             cedula_cliente_para_redirect = cliente['cedula']
+            admin_id = g.admin['id']
 
-            if not cliente:
-                flash("Error: No se encontró el cliente asociado a este pago.", 'error')
-                conn.rollback()
-                return redirect(url_for('pagos_por_conciliar'))
+            # --- INICIO DE LA LÓGICA DE CONSOLIDACIÓN DE INSCRIPCIÓN ---
+            if pago_actual['tipo_pago'] == 'Inscripción' and pago_actual['pago_padre_id']:
+                cur.execute("SELECT * FROM pagos WHERE id = %s", (pago_actual['pago_padre_id'],))
+                pago_padre = cur.fetchone()
+                if not pago_padre:
+                    raise ValueError("No se encontró el pago original de la diferencia.")
 
-            monto_pagado, pago_final_id, flash_msg = Decimal(pago['monto']), None, ""
-            admin_id = g.admin['id'] if g.admin else None
+                monto_total = pago_actual['monto'] + pago_padre['monto']
+                
+                detalles_consolidados = {
+                    "consolidado": True,
+                    "pagos_individuales": [
+                        {"id": pago_padre['id'], "monto": str(pago_padre['monto']), "referencia": pago_padre.get('referencia', 'N/A'), "forma_pago": pago_padre.get('forma_pago')},
+                        {"id": pago_actual['id'], "monto": str(pago_actual['monto']), "referencia": pago_actual.get('referencia', 'N/A'), "forma_pago": pago_actual.get('forma_pago')}
+                    ]
+                }
+                
+                cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id IN (%s, %s)", (pago_id, pago_padre['id']))
+                
+                cur.execute("""
+                    INSERT INTO pagos (cliente_id, monto, tipo_pago, estado_pago, por_concepto_de, detalles_reporte, conciliado_por_id, fecha_pago) 
+                    VALUES (%s, %s, 'Inscripción Finalizada', 'Conciliado', 'Pago total de inscripción', %s, %s, %s) RETURNING id
+                """, (cliente['id'], monto_total, json.dumps(detalles_consolidados), admin_id, pago_actual['fecha_pago']))
+                pago_final_id = cur.fetchone()[0]
 
-            if pago['tipo_pago'] == 'Inscripción':
+                cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (monto_total, cliente['id']))
+                
+                conn.commit()
+                url_recibo = url_for('ver_recibo_inscripcion', pago_id=pago_final_id)
+                flash(f"Pagos unificados exitosamente. <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo Consolidado</a>.", "success")
+                return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
+            # --- FIN DE LA LÓGICA DE CONSOLIDACIÓN ---
+
+            # Lógica original para pagos no consolidados
+            flash_msg = ""
+            if pago_actual['tipo_pago'] == 'Inscripción':
+                # (Lógica original para un pago de inscripción normal)
                 inscripcion_pagada_actual = Decimal(cliente.get('inscripcion_pagada') or 0)
                 inscripcion_total = Decimal(cliente.get('inscripcion_monto') or 0)
-                nueva_inscripcion_pagada = inscripcion_pagada_actual + monto_pagado
-
-                if inscripcion_total > 0:
-                    umbral_pago_comision = inscripcion_total * (Decimal('7.7') / Decimal('16'))
-                    cur.execute("SELECT comisiones_generadas FROM caja_inscripciones WHERE cliente_id = %s", (cliente['id'],))
-                    comisiones_ya_generadas = cur.fetchone()[0]
-                    if nueva_inscripcion_pagada >= umbral_pago_comision and not comisiones_ya_generadas:
-                        calcular_y_guardar_comisiones(contrato_nro=cliente['contrato_nro'], cliente_id=cliente['id'], monto_plan=Decimal(cliente['plan_contratado']), asesor_dueno=cliente['asesor'], responsable_cierre=cliente['responsable'])
-                        cur.execute("UPDATE caja_inscripciones SET comisiones_generadas = TRUE WHERE cliente_id = %s", (cliente['id'],))
-                        flash('¡Umbral de inscripción alcanzado! Comisiones generadas.', 'info')
+                nueva_inscripcion_pagada = inscripcion_pagada_actual + pago_actual['monto']
 
                 if nueva_inscripcion_pagada >= inscripcion_total:
                     if cliente['proceso'] == 'RESERVA':
                         cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],))
-                    
+                    # Crear pago final y anular los abonos
                     cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente['id'],))
-                    cur.execute("INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, por_concepto_de, estado_pago, cuotas_cubiertas, lugar_emision, conciliado_por_id) VALUES (%s, %s, 'Inscripción Finalizada', %s, %s, %s, 'Conciliado', 0, %s, %s) RETURNING id;", (cliente['id'], inscripcion_total, pago['forma_pago'], pago['fecha_pago'], 'Pago total de inscripción', pago['lugar_emision'], admin_id))
+                    cur.execute("INSERT INTO pagos (cliente_id, monto, tipo_pago, estado_pago, por_concepto_de, conciliado_por_id, fecha_pago) VALUES (%s, %s, 'Inscripción Finalizada', 'Conciliado', %s, %s, %s) RETURNING id", (cliente['id'], inscripcion_total, 'Pago total de inscripción', admin_id, pago_actual['fecha_pago']))
                     pago_final_id = cur.fetchone()[0]
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (inscripcion_total, cliente['id']))
                     cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id = %s", (pago_id,))
-                    
                     url_recibo = url_for('ver_recibo_inscripcion', pago_id=pago_final_id)
                     flash_msg = f"¡Inscripción completada! <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo Final</a>."
                 else:
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
-                    cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
-                    
                     url_recibo = url_for('ver_recibo', pago_id=pago_id)
                     flash_msg = f"Abono de inscripción N° {pago_id} conciliado. <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo</a>."
-            
-            elif pago['tipo_pago'] == 'Cuota':
+
+            elif pago_actual['tipo_pago'] == 'Cuota':
+                # (Lógica original para un pago de cuota normal)
                 if cliente['proceso'] == 'INSCRITO':
                     cur.execute("UPDATE clientes SET proceso = 'Ahorrador', estatus = 'ACTIVO' WHERE id = %s", (cliente['id'],))
-                
                 valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
                 if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
-                
                 cpp, cpr, br = cliente.get('cuotas_pagadas_progresivas', 0), cliente.get('cuotas_pagadas_regresivas', 0), Decimal(cliente.get('balance_regresivo', 0))
-                mtd, pph, rph = monto_pagado + br, 0, 0
+                mtd, pph, rph = pago_actual['monto'] + br, 0, 0
                 if mtd >= valor_cuota: pph, mtd = 1, mtd - valor_cuota
                 bp = mtd
                 while bp >= valor_cuota: rph, bp = rph + 1, bp - valor_cuota
                 nbf, ncpp, ncpr, cch = bp, cpp + pph, cpr + rph, pph + rph
-                
                 cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s;", (ncpp, ncpr, nbf, cliente['id']))
-                cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', cuotas_cubiertas = %s, progresivas_cubiertas = %s, regresivas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s, conciliado_por_id = %s WHERE id = %s;", (cch, pph, rph, ncpp, ncpr, nbf, admin_id, pago_id))
-                
+                cur.execute("UPDATE pagos SET cuotas_cubiertas = %s, progresivas_cubiertas = %s, regresivas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s WHERE id = %s;", (cch, pph, rph, ncpp, ncpr, nbf, pago_id))
                 url_recibo = url_for('ver_recibo', pago_id=pago_id)
                 flash_msg = f"¡Pago de cuota N° {pago_id} conciliado! <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo</a>."
 
+            cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
             conn.commit()
             flash(flash_msg, 'success')
             return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
 
-    except (psycopg2.Error, ValueError, TypeError, ConnectionError) as e:
+    except (psycopg2.Error, ValueError, TypeError) as e:
         if conn: conn.rollback()
+        logging.error(f"Error al conciliar el pago {pago_id}: {e}")
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
         if cedula_cliente_para_redirect:
             return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
     return redirect(url_for('pagos_por_conciliar'))
-
 
 @app.route('/recibo/<int:pago_id>')
 def ver_recibo(pago_id):
@@ -2647,7 +2624,6 @@ def portal_reportar_pago():
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
         cliente = cur.fetchone()
         
-        # Obtener la tasa del día
         today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
         cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
         tasas_hoy = cur.fetchone()
@@ -2691,7 +2667,6 @@ def portal_reportar_pago():
                 detalles_json = json.dumps(detalles_pago) if detalles_pago else None
 
                 if pago_id_correccion:
-                    # Lógica de ACTUALIZACIÓN para un pago corregido
                     update_query = """
                         UPDATE pagos SET
                             monto = %s, forma_pago = %s, fecha_pago = %s, pago_en = %s, por_concepto_de = %s, 
@@ -2708,7 +2683,6 @@ def portal_reportar_pago():
                     ))
                     flash('✅ ¡Reporte corregido y enviado! Será verificado nuevamente.', 'success')
                 else:
-                    # Lógica de INSERCIÓN para un pago nuevo
                     pago_query = """
                         INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia, monto_bs, 
                                            estado_pago, cuotas_cubiertas, reportado_por_cliente, estado_reporte, fecha_creacion, detalles_reporte) 

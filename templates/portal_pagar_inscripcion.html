@@ -1,7 +1,7 @@
 {% extends 'base_portal.html' %}
 
 {% block title %}
-    Reportar Pago de Inscripción
+    {% if pago_origen_id %}Pagar Diferencia de Inscripción{% else %}Reportar Pago de Inscripción{% endif %}
 {% endblock %}
 
 {% block head_extra %}
@@ -41,11 +41,22 @@
 {% block body %}
 <div class="form-container">
     <div class="form-header">
-        <h1><i class="bi bi-cash-coin me-2"></i>Reportar Pago de Inscripción</h1>
+        <h1>
+            {% if pago_origen_id %}
+                <i class="bi bi-plus-circle-fill me-2"></i>Pagar Diferencia de Inscripción
+            {% else %}
+                <i class="bi bi-cash-coin me-2"></i>Reportar Pago de Inscripción
+            {% endif %}
+        </h1>
         <p>Cliente: {{ cliente.nombre_apellido }}</p>
     </div>
 
     <form action="{{ url_for('portal_pagar_inscripcion') }}" method="POST" id="form-reporte-pago" class="p-4">
+        <!-- Campo oculto para identificar el pago original en caso de ser una diferencia -->
+        {% if pago_origen_id %}
+            <input type="hidden" name="pago_origen_id" value="{{ pago_origen_id }}">
+        {% endif %}
+
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -55,12 +66,23 @@
         {% endwith %}
         
         <div class="alert alert-info">
-            <strong>Monto Pendiente de Inscripción:</strong> ${{ "%.2f"|format(monto_restante) }}
+            <strong>
+                {% if monto_precargado %}
+                    Monto de la Diferencia a Pagar:
+                {% else %}
+                    Monto Pendiente de Inscripción:
+                {% endif %}
+            </strong> 
+            ${{ "%.2f"|format(monto_precargado or monto_restante) }}
         </div>
 
         <div class="section">
             <h3>Detalles del Monto y Método</h3>
             <div class="form-grid">
+                <div class="form-group">
+                    <label for="por_concepto_de">Concepto del Pago</label>
+                    <input type="text" id="por_concepto_de" name="por_concepto_de" value="{{ concepto_pago or 'Pago de Inscripción' }}" class="form-control" readonly>
+                </div>
                 <div class="form-group">
                     <label for="pago_en" class="form-label">Pago realizado en</label>
                     <select id="pago_en" name="pago_en" class="form-select" required>
@@ -82,7 +104,7 @@
                 </div>
                 <div class="form-group">
                     <label for="monto_usd" class="form-label">Monto del Pago (USD)</label>
-                    <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" required>
+                    <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" value="{{ monto_precargado or '' }}" required {% if monto_precargado %}readonly{% endif %}>
                 </div>
                 <div class="form-group" id="monto_bs_group" style="display: none;">
                     <label for="monto_bs_calculado" class="form-label">Monto en Bs (Calculado)</label>
@@ -191,6 +213,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Inicializar vistas
     handlePagoEnChange();
     toggleFieldsByFormaPago();
+    document.getElementById('fecha_pago').valueAsDate = new Date();
 });
 </script>
 {% endblock %}
