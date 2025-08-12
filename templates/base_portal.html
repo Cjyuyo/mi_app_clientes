@@ -55,9 +55,9 @@
 
 <nav class="navbar navbar-expand-lg topbar">
     <div class="container-fluid">
-        <!-- Logo Reemplazado -->
+        <!-- Logo actualizado para usar archivos estáticos -->
         <a class="navbar-brand" href="#">
-            <img src="https://i.imgur.com/3d22jPz.png" alt="Logo Moto Plan Motors" style="height: 40px;">
+            <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" style="height: 40px;">
         </a>
         <div class="ms-auto">
             {% if g.cliente %}

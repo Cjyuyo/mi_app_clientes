@@ -52,19 +52,10 @@
     </div>
 
     <form action="{{ url_for('portal_pagar_inscripcion') }}" method="POST" id="form-reporte-pago" class="p-4">
-        <!-- Campo oculto para identificar el pago original en caso de ser una diferencia -->
         {% if pago_origen_id %}
             <input type="hidden" name="pago_origen_id" value="{{ pago_origen_id }}">
         {% endif %}
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                <div class="alert alert-{{ 'danger' if category == 'error' else category }}">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        
         <div class="alert alert-info">
             <strong>
                 {% if monto_precargado %}
@@ -143,7 +134,7 @@
 
         <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
             <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Cancelar</a>
-            <button type="submit" class="btn btn-primary" style="background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo);">
+            <button type="submit" id="submit-button" class="btn btn-primary" style="background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo);" disabled>
                 <i class="bi bi-send-fill me-2"></i> Reportar Pago
             </button>
         </div>
@@ -157,6 +148,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const tasaUsd = {{ tasas_hoy.tasa|float if tasas_hoy and tasas_hoy.tasa else 'null' }};
     const tasaEur = {{ tasas_hoy.tasa_euro|float if tasas_hoy and tasas_hoy.tasa_euro else 'null' }};
     
+    const form = document.getElementById('form-reporte-pago');
+    const submitButton = document.getElementById('submit-button');
     const pagoEnSelect = document.getElementById('pago_en');
     const formaPagoSelect = document.getElementById('forma_pago');
     const montoUsdInput = document.getElementById('monto_usd');
@@ -167,6 +160,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const referenciaInput = document.getElementById('referencia');
     const bancoGroup = document.getElementById('banco_group');
     const bancoSelect = document.getElementById('banco');
+    const fechaPagoInput = document.getElementById('fecha_pago');
+
+    function checkFormValidity() {
+        let isValid = true;
+        
+        // Campos siempre requeridos
+        if (!montoUsdInput.value || parseFloat(montoUsdInput.value) <= 0) isValid = false;
+        if (!fechaPagoInput.value) isValid = false;
+        if (!formaPagoSelect.value) isValid = false;
+
+        // Campos condicionales
+        const formaPagoValue = formaPagoSelect.value;
+        if (formaPagoValue !== 'Efectivo') {
+            if (!referenciaInput.value.trim()) isValid = false;
+        }
+        if (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil') {
+            if (!bancoSelect.value) isValid = false;
+        }
+        
+        submitButton.disabled = !isValid;
+    }
 
     function calcularMontoBs() {
         const montoUsd = parseFloat(montoUsdInput.value) || 0;
@@ -193,6 +207,7 @@ document.addEventListener('DOMContentLoaded', function() {
             montoBsGroup.style.display = 'block';
         }
         calcularMontoBs();
+        checkFormValidity();
     }
 
     function toggleFieldsByFormaPago() {
@@ -200,20 +215,26 @@ document.addEventListener('DOMContentLoaded', function() {
         const isEfectivo = formaPagoValue === 'Efectivo';
         
         referenciaGroup.style.display = isEfectivo ? 'none' : 'block';
-        referenciaInput.required = !isEfectivo;
-
         bancoGroup.style.display = (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil') ? 'block' : 'none';
-        bancoSelect.required = (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil');
+        
+        checkFormValidity();
     }
+
+    // Añadir listeners a todos los campos relevantes
+    form.querySelectorAll('input, select').forEach(element => {
+        element.addEventListener('input', checkFormValidity);
+        element.addEventListener('change', checkFormValidity);
+    });
 
     pagoEnSelect.addEventListener('change', handlePagoEnChange);
     formaPagoSelect.addEventListener('change', toggleFieldsByFormaPago);
     montoUsdInput.addEventListener('input', calcularMontoBs);
     
-    // Inicializar vistas
+    // Inicializar vistas y validación
     handlePagoEnChange();
     toggleFieldsByFormaPago();
-    document.getElementById('fecha_pago').valueAsDate = new Date();
+    fechaPagoInput.valueAsDate = new Date();
+    checkFormValidity();
 });
 </script>
 {% endblock %}

@@ -1812,38 +1812,46 @@ def conciliar_pago(pago_id):
             cedula_cliente_para_redirect = cliente['cedula']
             admin_id = g.admin['id']
 
-            # --- INICIO DE LA LÓGICA DE CONSOLIDACIÓN DE INSCRIPCIÓN ---
+            # --- INICIO DE LA NUEVA LÓGICA DE CONSOLIDACIÓN DE INSCRIPCIÓN ---
             if pago_actual['tipo_pago'] == 'Inscripción' and pago_actual['pago_padre_id']:
                 cur.execute("SELECT * FROM pagos WHERE id = %s", (pago_actual['pago_padre_id'],))
                 pago_padre = cur.fetchone()
                 if not pago_padre:
-                    raise ValueError("No se encontró el pago original de la diferencia.")
+                    raise ValueError("No se encontró el pago original de la diferencia para la consolidación.")
 
-                monto_total = pago_actual['monto'] + pago_padre['monto']
+                monto_total_pagado = pago_actual['monto'] + pago_padre['monto']
                 
                 detalles_consolidados = {
                     "consolidado": True,
+                    "accion": "Consolidación por pago de diferencia",
                     "pagos_individuales": [
                         {"id": pago_padre['id'], "monto": str(pago_padre['monto']), "referencia": pago_padre.get('referencia', 'N/A'), "forma_pago": pago_padre.get('forma_pago')},
                         {"id": pago_actual['id'], "monto": str(pago_actual['monto']), "referencia": pago_actual.get('referencia', 'N/A'), "forma_pago": pago_actual.get('forma_pago')}
                     ]
                 }
                 
+                # Anular los dos pagos individuales (el original inconsistente y el de la diferencia)
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id IN (%s, %s)", (pago_id, pago_padre['id']))
                 
+                # Crear el nuevo pago final consolidado
                 cur.execute("""
                     INSERT INTO pagos (cliente_id, monto, tipo_pago, estado_pago, por_concepto_de, detalles_reporte, conciliado_por_id, fecha_pago) 
-                    VALUES (%s, %s, 'Inscripción Finalizada', 'Conciliado', 'Pago total de inscripción', %s, %s, %s) RETURNING id
-                """, (cliente['id'], monto_total, json.dumps(detalles_consolidados), admin_id, pago_actual['fecha_pago']))
+                    VALUES (%s, %s, 'Inscripción Finalizada', 'Conciliado', 'Pago total de inscripción consolidado', %s, %s, %s) RETURNING id
+                """, (cliente['id'], monto_total_pagado, json.dumps(detalles_consolidados), admin_id, pago_actual['fecha_pago']))
                 pago_final_id = cur.fetchone()[0]
 
-                cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (monto_total, cliente['id']))
+                # Actualizar el estado del cliente con el monto total y cambiar a INSCRITO
+                cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (monto_total_pagado, cliente['id']))
                 
+                # Registrar auditoría
+                descripcion_audit = f"Consolidó pago de inscripción para {cliente['nombre_apellido']}. Pago final N°{pago_final_id} por ${monto_total_pagado}."
+                registrar_accion_auditoria('CONSOLIDACION_PAGO', descripcion_audit, cliente['id'])
+
                 conn.commit()
                 url_recibo = url_for('ver_recibo_inscripcion', pago_id=pago_final_id)
                 flash(f"Pagos unificados exitosamente. <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo Consolidado</a>.", "success")
                 return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
-            # --- FIN DE LA LÓGICA DE CONSOLIDACIÓN ---
+            # --- FIN DE LA NUEVA LÓGICA DE CONSOLIDACIÓN ---
 
             # Lógica original para pagos no consolidados
             flash_msg = ""
@@ -2460,10 +2468,10 @@ def portal_dashboard():
         flash('Ocurrió un error inesperado al cargar tu portal. Inténtalo de nuevo.', 'error')
         return redirect(url_for('portal_login'))
 
-# ===== NUEVA RUTA PARA PAGAR DIFERENCIAS =====
-@app.route('/portal/reportar_pago/diferencia/<int:pago_original_id>')
+# ===== NUEVA RUTA INTELIGENTE PARA PAGAR DIFERENCIAS =====
+@app.route('/portal/pagar_diferencia/<int:pago_original_id>')
 @portal_login_required
-def reportar_pago_diferencia(pago_original_id):
+def pagar_diferencia(pago_original_id):
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
@@ -2488,7 +2496,7 @@ def reportar_pago_diferencia(pago_original_id):
     if pago_original['detalles_reporte']:
         if isinstance(pago_original['detalles_reporte'], str):
             detalles = json.loads(pago_original['detalles_reporte'])
-        else: # Si ya es un dict/jsonb
+        else:
             detalles = pago_original['detalles_reporte']
     
     monto_diferencia = detalles.get('diferencia')
@@ -2497,15 +2505,25 @@ def reportar_pago_diferencia(pago_original_id):
         flash('No hay un monto de diferencia registrado para este pago.', 'error')
         return redirect(url_for('portal_dashboard'))
     
-    # Renderiza la plantilla de reportar pago, precargando los datos de la diferencia.
-    return render_template(
-        'portal_reportar_pago.html',
-        cliente=cliente,
-        tasas_hoy=tasas_hoy,
-        monto_precargado=monto_diferencia,
-        pago_origen_id=pago_original_id,
-        concepto_pago=f"Diferencia del pago #{pago_original_id}"
-    )
+    # Lógica inteligente para dirigir al portal correcto
+    if pago_original['tipo_pago'] == 'Inscripción':
+        return render_template(
+            'portal_pagar_inscripcion.html',
+            cliente=cliente,
+            tasas_hoy=tasas_hoy,
+            monto_precargado=monto_diferencia,
+            pago_origen_id=pago_original_id,
+            concepto_pago=f"Diferencia del pago de inscripción #{pago_original_id}"
+        )
+    else: # Para 'Cuota' y otros tipos
+        return render_template(
+            'portal_reportar_pago.html',
+            cliente=cliente,
+            tasas_hoy=tasas_hoy,
+            monto_precargado=monto_diferencia,
+            pago_origen_id=pago_original_id,
+            concepto_pago=f"Diferencia del pago #{pago_original_id}"
+        )
 
 # ===== NUEVA RUTA PARA CORREGIR REPORTES =====
 @app.route('/portal/corregir_reporte/<int:pago_id>', methods=['GET'])
@@ -2584,10 +2602,12 @@ def portal_pagar_inscripcion():
 
         try:
             with conn.cursor() as cur:
+                pago_origen_id = pago_form.get('pago_origen_id')
+
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia, monto_bs, 
-                                       estado_pago, cuotas_cubiertas, reportado_por_cliente, estado_reporte, fecha_creacion, detalles_reporte) 
-                    VALUES (%s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, TRUE, 'Pendiente de Revision', %s, %s::jsonb);
+                                       estado_pago, cuotas_cubiertas, reportado_por_cliente, estado_reporte, fecha_creacion, detalles_reporte, pago_padre_id) 
+                    VALUES (%s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, TRUE, 'Pendiente de Revision', %s, %s::jsonb, %s);
                 """
                 fecha_actual_vet = get_venezuela_current_datetime()
                 
@@ -2599,9 +2619,13 @@ def portal_pagar_inscripcion():
                     detalles_pago['usuario_binance'] = pago_form.get('binance_user')
                 detalles_json = json.dumps(detalles_pago) if detalles_pago else None
 
-                cur.execute(pago_query, (session['cliente_id'], pago_form['monto'], forma_pago, pago_form['fecha_pago'], pago_form.get('pago_en'), 
-                                         "Pago de Inscripción", pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('tasa_dia'), 
-                                         pago_form.get('monto_bs'), fecha_actual_vet, detalles_json))
+                concepto = "Pago de Diferencia de Inscripción" if pago_origen_id else "Pago de Inscripción"
+
+                cur.execute(pago_query, (
+                    session['cliente_id'], pago_form['monto'], forma_pago, pago_form['fecha_pago'], pago_form.get('pago_en'), 
+                    concepto, pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('tasa_dia'), 
+                    pago_form.get('monto_bs'), fecha_actual_vet, detalles_json, pago_origen_id
+                ))
                 conn.commit()
                 flash('✅ ¡Pago de inscripción reportado! Será verificado por un administrador.', 'success')
                 return redirect(url_for('portal_dashboard'))
