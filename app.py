@@ -2154,7 +2154,7 @@ def guardar_oferta(client_id):
                 return redirect(url_for('consulta', busqueda=cedula_cliente))
             cur.execute("INSERT INTO ofertas (cliente_id, cuotas_ofertadas, fecha_oferta, estado_oferta) VALUES (%s, %s, %s, 'activa')", (client_id, int(cuotas_ofertadas), hoy))
             descripcion_audit = f"Registró una oferta de {cuotas_ofertadas} cuotas para el cliente {nombre_cliente}."
-            registrar_accion_auditoria('REGISTRO_OFERTA', descripcion_audit, client_id)
+            registrar_accion_auditoria('REGISTRO_OFERTA', descripcion_audit, cliente_id)
             conn.commit()
             flash(f"¡Oferta de {cuotas_ofertadas} cuotas registrada exitosamente!", 'success')
     except (psycopg2.Error, ConnectionError) as e:
