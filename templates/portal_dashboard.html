@@ -3,154 +3,49 @@
 {% block title %}Mi Portal - Moto Plan{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <style>
-    :root {
-        --azul-corporativo: #2B3A55;
-        --naranja-corporativo: #F76E11;
-        --gris-fondo: #f8f9fa;
-        --blanco-tarjetas: #FFFFFF;
-        --texto-oscuro: #212529;
-        --texto-claro: #6c757d;
-        --borde-sutil: #e9ecef;
-        --verde-exito: #28a745;
-        --rojo-alerta: #C0392B;
-        --azul-info: #3498DB;
-    }
-    .portal-header {
-        background: var(--blanco-tarjetas); 
-        padding: 1rem 1.5rem; 
-        border-radius: .75rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
-        margin-bottom: 1.5rem;
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center; 
-        flex-wrap: wrap; 
-        gap: 10px;
-    }
-    .portal-header h1 { margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--azul-corporativo); }
-    .header-actions { display: flex; gap: 10px; }
-    .header-actions .btn { font-size: 0.8rem; font-weight: 500; }
-    .info-card {
-        background: var(--blanco-tarjetas); 
-        border-radius: .75rem; 
-        padding: 1.5rem;
-        margin-bottom: 1.5rem; 
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        border-left: 5px solid;
-    }
-    .info-card.cita { border-left-color: var(--azul-info); }
-    
-    .info-card.naranja-corporativo { border-left-color: var(--naranja-corporativo); }
-    .info-card.azul-info { border-left-color: var(--azul-info); }
-    .info-card.en-mora { border-left-color: var(--rojo-alerta); }
-    .info-card.vigente { border-left-color: var(--verde-exito); }
-    .info-card.pagada { border-left-color: var(--texto-claro); }
-
-    .info-card-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
-    .info-card-header .icon { font-size: 1.5rem; }
-    .info-card-header h3 { margin: 0; font-size: 1.1rem; font-weight: 500; }
-    .info-card-body p { margin-bottom: 0.25rem; }
-    .info-card-body strong { color: var(--texto-oscuro); }
-    .status-header { display: flex; justify-content: space-between; align-items: center; }
-    .status-header h3 { margin: 0; font-size: 1.1rem; font-weight: 500; }
-    .status-header .status-label { font-weight: bold; padding: 5px 12px; border-radius: 15px; color: white; font-size: 12px; }
-    .status-label.vigente { background-color: var(--verde-exito); }
-    .status-label.en-mora { background-color: var(--rojo-alerta); }
-    .status-label.pagada { background-color: var(--texto-claro); }
-    .btn-reportar { background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo); color: white; }
-    .btn-reportar:hover { background-color: #d87e12; border-color: #d87e12; color: white; }
-    .content-card { 
-        background: var(--blanco-tarjetas); 
-        border-radius: .75rem; 
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
-        overflow: hidden; 
-        margin-bottom: 1.5rem;
-    }
-    .content-card-header { 
-        background-color: var(--azul-corporativo); 
-        color: white; 
-        padding: 1.25rem 1.5rem; 
-    }
-    .content-card-header h2 { margin: 0; font-size: 1.2rem; font-weight: 500; }
-    .content-card-header p { margin: 5px 0 0; opacity: 0.9; font-size: 0.9rem; }
-    .client-details, .payment-history-body { padding: 1.5rem; }
-    .client-details {
-        display: grid; 
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); 
-        gap: 1rem; 
-    }
-    .detail-item { background-color: var(--gris-fondo); padding: 1rem; border-radius: .5rem; border: 1px solid var(--borde-sutil); }
-    .detail-item .label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--texto-claro); margin-bottom: 0.25rem; text-transform: uppercase; }
-    .detail-item .value { font-size: 1rem; font-weight: 700; color: var(--texto-oscuro); }
-    .detail-item .value.currency { color: #198754; }
-    .progress-item { grid-column: 1 / -1; }
-    .progress-bar-container { background-color: var(--borde-sutil); border-radius: .5rem; height: 1.25rem; overflow: hidden; width: 100%; margin-top: 5px; }
-    .progress-bar { background-color: var(--verde-exito); height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold; transition: width 0.5s ease-in-out; }
-    .progress-bar-secondary { background-color: #17a2b8; }
-    .progress-label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 5px; color: var(--texto-claro); }
-    .payment-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--borde-sutil); gap: 1rem; }
-    .payment-row:last-child { border-bottom: none; }
-    .payment-info .payment-concept { font-weight: 500; }
-    .payment-info .payment-meta { font-size: 0.85em; color: var(--texto-claro); }
-    .payment-amount { font-size: 1rem; font-weight: bold; }
-    .payment-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
-    .btn-recibo { font-size: 0.8rem; }
-    .time-slot-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-        gap: 0.5rem;
-        margin-top: 1rem;
-    }
-    .time-slot-grid .btn-check:disabled+.btn-outline-primary {
-        background-color: var(--gris-fondo);
-        border-color: var(--borde-sutil);
-        color: var(--texto-claro);
-        cursor: not-allowed;
-        text-decoration: line-through;
-    }
-    .time-slot-grid .btn-check:checked+.btn-outline-primary {
-        background-color: var(--azul-corporativo);
-        color: white;
-    }
-    #cita-feedback {
-        margin-top: 1rem;
+    /* Estilos para las barras de progreso */
+    .progress-bar {
+        -webkit-transition: width .6s ease;
+        -o-transition: width .6s ease;
+        transition: width .6s ease;
     }
 </style>
 {% endblock %}
 
 {% block body %}
-<div class="container-main">
-    <div class="portal-header">
-        <h1>Mi Portal, {{ session.cliente_nombre }}</h1>
-        <div class="header-actions">
-            <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="btn btn-dark btn-sm" target="_blank"><i class="bi bi-file-pdf"></i> Ver Contrato</a>
-            <a href="{{ url_for('portal_estado_cuenta') }}" class="btn btn-info btn-sm" target="_blank"><i class="bi bi-journal-text"></i> Estado de Cuenta</a>
-            <a href="{{ url_for('portal_logout') }}" class="btn btn-danger btn-sm"><i class="bi bi-box-arrow-right"></i> Cerrar Sesión</a>
+<div class="space-y-8">
+    <!-- Encabezado del Portal -->
+    <div class="bg-white p-5 rounded-xl shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
+        <h1 class="text-2xl font-bold text-slate-800">
+            Bienvenido, <span class="text-blue-600">{{ session.cliente_nombre }}</span>
+        </h1>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="text-sm bg-slate-700 text-white font-semibold py-2 px-3 rounded-lg hover:bg-slate-800 flex items-center gap-2" target="_blank"><i class="bi bi-file-pdf"></i> Ver Contrato</a>
+            <a href="{{ url_for('portal_estado_cuenta') }}" class="text-sm bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-blue-700 flex items-center gap-2" target="_blank"><i class="bi bi-journal-text"></i> Estado de Cuenta</a>
+            <a href="{{ url_for('portal_logout') }}" class="text-sm bg-red-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-red-700 flex items-center gap-2"><i class="bi bi-box-arrow-right"></i> Salir</a>
         </div>
     </div>
     
+    <!-- Alertas y Mensajes Flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+            <div class="p-4 rounded-lg {% if category == 'error' %} bg-red-100 text-red-800 {% else %} bg-blue-100 text-blue-800 {% endif %}" role="alert">
                 {{ message | safe }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
             {% endfor %}
         {% endif %}
     {% endwith %}
 
+    <!-- Tarjeta de Cita Confirmada -->
     {% if cita_confirmada %}
-    <div class="info-card cita">
-        <div class="info-card-header">
-            <i class="bi bi-calendar-check-fill icon" style="color: var(--azul-info);"></i>
-            <h3>Tu Cita Confirmada</h3>
-        </div>
-        <div class="info-card-body">
-            <p>¡Tu cita ha sido agendada con éxito!</p>
-            <ul class="list-unstyled mb-0">
+    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-green-500 flex items-start gap-4">
+        <i class="bi bi-calendar-check-fill text-3xl text-green-500"></i>
+        <div>
+            <h3 class="font-bold text-slate-800">Tu Cita Confirmada</h3>
+            <p class="text-slate-600 mt-1">¡Tu cita ha sido agendada con éxito!</p>
+            <ul class="text-sm text-slate-500 mt-2 list-disc list-inside">
                 <li><strong>Fecha:</strong> {{ cita_confirmada.detalles.fecha_cita | format_date('%A, %d de %B de %Y') }}</li>
                 <li><strong>Hora:</strong> {{ cita_confirmada.detalles.hora_cita }}</li>
                 <li><strong>Te atenderá:</strong> {{ cita_confirmada.nombre_asesor }}</li>
@@ -160,162 +55,148 @@
     </div>
     {% endif %}
 
+    <!-- Tarjeta de Estado Principal -->
     {% if estado_principal %}
-    <div class="info-card {{ estado_principal.clase_borde }}">
-        <div class="status-header">
-            <h3>{{ estado_principal.titulo }}</h3>
+    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 {{ estado_principal.clase_borde | replace('naranja-corporativo', 'border-orange-500') | replace('en-mora', 'border-red-500') | replace('vigente', 'border-green-500') | replace('azul-info', 'border-blue-500') }}">
+        <div class="flex justify-between items-center">
+            <h3 class="text-lg font-bold text-slate-800">{{ estado_principal.titulo }}</h3>
             {% if estado_principal.estado_label %}
-            <span class="status-label {{ estado_principal.estado_label | lower | replace(' ', '-') }}">{{ estado_principal.estado_label }}</span>
+            <span class="text-xs font-semibold py-1 px-3 rounded-full {{ estado_principal.estado_label | lower | replace(' ', '-') | replace('en-mora', 'bg-red-100 text-red-800') | replace('vigente', 'bg-green-100 text-green-800') | replace('pagada', 'bg-slate-100 text-slate-800') }}">{{ estado_principal.estado_label }}</span>
             {% endif %}
         </div>
-        <div class="status-body mt-2">
-            <p>{{ estado_principal.mensaje | safe }}</p>
-            {% if estado_principal.boton_texto %}
-            <a href="{{ estado_principal.boton_url }}" class="btn btn-primary btn-reportar btn-sm mt-2 {% if not estado_principal.boton_activo %}disabled{% endif %}"
-               {% if not estado_principal.boton_activo %}title="Ya tienes un pago en revisión."{% endif %}>
-                {{ estado_principal.boton_texto }}
-            </a>
-            {% endif %}
-        </div>
+        <p class="text-slate-600 mt-2">{{ estado_principal.mensaje | safe }}</p>
+        {% if estado_principal.boton_texto %}
+        <a href="{{ estado_principal.boton_url }}" class="inline-block mt-3 text-sm bg-orange-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-orange-600 {% if not estado_principal.boton_activo %}opacity-50 cursor-not-allowed{% endif %}"
+           {% if not estado_principal.boton_activo %}title="Ya tienes un pago en revisión."{% endif %}>
+            {{ estado_principal.boton_texto }}
+        </a>
+        {% endif %}
     </div>
     {% endif %}
     
-    <div class="content-card">
-        <div class="content-card-header">
-            <h2>Solicitudes y Citas</h2>
-            <p>Gestiona tu plan o agenda una cita con nosotros.</p>
-        </div>
-        <div class="card-body d-flex flex-wrap justify-content-center gap-2 p-3">
-            <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#ofertaModal" {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled title="Debes tener tu inscripción y al menos una cuota pagada para ofertar."{% endif %}>
-                <i class="bi bi-gem"></i> Registrar Oferta
+    <!-- Tarjeta de Acciones -->
+    <div class="bg-white p-5 rounded-xl shadow-sm">
+        <h2 class="text-lg font-bold text-slate-800">Solicitudes y Citas</h2>
+        <p class="text-sm text-slate-500 mb-4">Gestiona tu plan o agenda una cita con nosotros.</p>
+        <div class="flex flex-wrap gap-3">
+            <button class="flex-1 sm:flex-none text-sm bg-white text-blue-600 font-semibold py-2 px-4 rounded-lg border-2 border-blue-600 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed" data-bs-toggle="modal" data-bs-target="#ofertaModal" {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled title="Debes tener tu inscripción y al menos una cuota pagada para ofertar."{% endif %}>
+                <i class="bi bi-gem mr-1"></i> Registrar Oferta
             </button>
-            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#citaModal">
-                <i class="bi bi-calendar-check"></i> Solicitar Cita
+            <button class="flex-1 sm:flex-none text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700" data-bs-toggle="modal" data-bs-target="#citaModal">
+                <i class="bi bi-calendar-check mr-1"></i> Solicitar Cita
             </button>
             
             {% if cliente.estatus == 'CONGELADO' %}
-                <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#descongelamientoModal">
-                    <i class="bi bi-unlock-fill"></i> Descongelar Plan
+                <button class="flex-1 sm:flex-none text-sm bg-teal-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-teal-700" data-bs-toggle="modal" data-bs-target="#descongelamientoModal">
+                    <i class="bi bi-unlock-fill mr-1"></i> Descongelar Plan
                 </button>
             {% else %}
-                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#congelamientoModal" {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}>
-                    <i class="bi bi-snow"></i> Congelar Plan
+                <button class="flex-1 sm:flex-none text-sm bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-slate-700 disabled:opacity-50" data-bs-toggle="modal" data-bs-target="#congelamientoModal" {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}>
+                    <i class="bi bi-snow mr-1"></i> Congelar Plan
                 </button>
             {% endif %}
             
-            <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#retiroModal" {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}>
-                <i class="bi bi-box-arrow-left"></i> Solicitar Retiro
+            <button class="flex-1 sm:flex-none text-sm bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 disabled:opacity-50" data-bs-toggle="modal" data-bs-target="#retiroModal" {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}>
+                <i class="bi bi-box-arrow-left mr-1"></i> Solicitar Retiro
             </button>
         </div>
     </div>
     
-    <div class="content-card">
-        <div class="content-card-header">
-            <h2>Resumen de mi Plan</h2>
-            <p>Un vistazo rápido a tu progreso y estado actual.</p>
+    <!-- Tarjeta Resumen de Plan -->
+    <div class="bg-white rounded-xl shadow-sm">
+        <div class="p-5 border-b border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800">Resumen de mi Plan</h2>
+            <p class="text-sm text-slate-500">Un vistazo rápido a tu progreso y estado actual.</p>
         </div>
-        <div class="client-details">
-            <div class="detail-item"><span class="label">Grupo</span><span class="value">{{ cliente.grupo or 'N/A' }}</span></div>
-            <div class="detail-item"><span class="label">Plan</span><span class="value">{{ cliente.plan_contratado or 'N/A' }}</span></div>
-            <div class="detail-item"><span class="label">Cuotas Pagadas</span><span class="value">{{ cliente.cuotas_pagadas_progresivas | int }} de {{ cliente.cuotas_totales | int }}</span></div>
-            <div class="detail-item"><span class="label">Cédula</span><span class="value">{{ cliente.cedula }}</span></div>
-            <div class="detail-item"><span class="label">Contrato</span><span class="value">{{ cliente.contrato_nro or 'N/A' }}</span></div>
-            <div class="detail-item"><span class="label">Asesor</span><span class="value">{{ cliente.asesor or 'N/A' }}</span></div>
-
-            <div class="detail-item">
-                <span class="label">Inscripción</span>
-                <span class="value currency">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span>
-            </div>
-            <div class="detail-item">
-                <span class="label">Estatus</span>
-                <span class="value">
+        <div class="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Grupo</span><span class="font-semibold text-slate-700">{{ cliente.grupo or 'N/A' }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Plan</span><span class="font-semibold text-slate-700">{{ cliente.plan_contratado or 'N/A' }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Cuotas Pagadas</span><span class="font-semibold text-slate-700">{{ cliente.cuotas_pagadas_progresivas | int }} de {{ cliente.cuotas_totales | int }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Cédula</span><span class="font-semibold text-slate-700">{{ cliente.cedula }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Contrato</span><span class="font-semibold text-slate-700">{{ cliente.contrato_nro or 'N/A' }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Asesor</span><span class="font-semibold text-slate-700">{{ cliente.asesor or 'N/A' }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Inscripción</span><span class="font-semibold text-green-600">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Estatus</span>
+                <span class="text-sm font-semibold py-1 px-3 rounded-full inline-block mt-1
                     {% set estatus = cliente.estatus | upper if cliente.estatus else '' %}
-                    {% if estatus == 'ACTIVO' or estatus == 'AHORRADOR' or estatus == 'ADJUDICADO' %}
-                        <span class="badge fs-6 bg-success">{{ cliente.estatus }}</span>
-                    {% elif estatus == 'INACTIVO' or estatus == 'RETIRO' %}
-                        <span class="badge fs-6 bg-danger">{{ cliente.estatus }}</span>
-                    {% elif estatus == 'CONGELADO' %}
-                        <span class="badge fs-6 bg-info text-dark">{{ cliente.estatus }}</span>
-                    {% elif estatus == 'RESERVA' or estatus == 'INSCRITO' %}
-                        <span class="badge fs-6 bg-warning text-dark">{{ cliente.estatus }}</span>
-                    {% else %}
-                        <span class="badge fs-6 bg-secondary">{{ cliente.estatus }}</span>
-                    {% endif %}
+                    {% if estatus == 'ACTIVO' or estatus == 'AHORRADOR' or estatus == 'ADJUDICADO' %} bg-green-100 text-green-800
+                    {% elif estatus == 'INACTIVO' or estatus == 'RETIRO' %} bg-red-100 text-red-800
+                    {% elif estatus == 'CONGELADO' %} bg-blue-100 text-blue-800
+                    {% elif estatus == 'RESERVA' or estatus == 'INSCRITO' %} bg-yellow-100 text-yellow-800
+                    {% else %} bg-slate-100 text-slate-800
+                    {% endif %}">
+                    {{ cliente.estatus }}
                 </span>
             </div>
+            
             {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
-            <div class="detail-item progress-item"><span class="label">Progreso Total del Plan</span><div class="progress-bar-container"><div class="progress-bar" style="width: {{ progreso_total }}%;">{{ "%.0f"|format(progreso_total) }}%</div></div><div class="progress-label"><span>Pagadas: {{ cuotas_pagadas_total | int }}</span><span>Restantes: {{ (cuotas_totales | int) - (cuotas_pagadas_total | int) }}</span><span>Total: {{ cuotas_totales | int }}</span></div></div>
+            <div class="md:col-span-2 lg:col-span-3 bg-slate-50 p-3 rounded-lg">
+                <div class="flex justify-between items-center mb-1"><span class="text-xs text-slate-500 font-medium">Progreso Total del Plan</span><span class="text-sm font-semibold text-slate-600">{{ "%.0f"|format(progreso_total) }}%</span></div>
+                <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="bg-blue-600 h-2.5 rounded-full progress-bar" style="width: {{ progreso_total }}%"></div></div>
+                <div class="flex justify-between text-xs text-slate-500 mt-1"><span>Pagadas: {{ cuotas_pagadas_total | int }}</span><span>Restantes: {{ (cuotas_totales | int) - (cuotas_pagadas_total | int) }}</span><span>Total: {{ cuotas_totales | int }}</span></div>
+            </div>
+            
             {% set balance = cliente.balance_regresivo|float or 0.0 %}{% set valor_cuota = cliente.valor_cuota|float or 0.0 %}{% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
-            <div class="detail-item progress-item">{% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}<span class="label">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span><div class="progress-bar-container"><div class="progress-bar progress-bar-secondary" style="width: {{ progreso_cuota_actual }}%;">{{ "%.0f"|format(progreso_cuota_actual) }}%</div></div><div class="progress-label"><span>Abonado: ${{ "%.2f"|format(balance) }}</span><span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}</span><span>Valor Cuota: ${{ "%.2f"|format(valor_cuota) }}</span></div></div>
+            <div class="md:col-span-2 lg:col-span-3 bg-slate-50 p-3 rounded-lg">
+                {% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}<div class="flex justify-between items-center mb-1"><span class="text-xs text-slate-500 font-medium">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span><span class="text-sm font-semibold text-slate-600">{{ "%.0f"|format(progreso_cuota_actual) }}%</span></div>
+                <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="bg-teal-500 h-2.5 rounded-full progress-bar" style="width: {{ progreso_cuota_actual }}%"></div></div>
+                <div class="flex justify-between text-xs text-slate-500 mt-1"><span>Abonado: ${{ "%.2f"|format(balance) }}</span><span>Faltan: ${{ "%.2f"|format(valor_cuota - balance) }}</span><span>Valor Cuota: ${{ "%.2f"|format(valor_cuota) }}</span></div>
+            </div>
         </div>
     </div>
 
-    <div class="content-card">
-        <div class="content-card-header">
-            <h2>Historial de Pagos</h2>
+    <!-- Tarjeta Historial de Pagos -->
+    <div class="bg-white rounded-xl shadow-sm">
+        <div class="p-5 border-b border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800">Historial de Pagos</h2>
         </div>
-        <div class="payment-history-body">
+        <div class="p-5 space-y-3">
             {% if cliente.pagos %}
                 {% for pago in cliente.pagos %}
-                <div class="payment-row">
-                    <div class="payment-info">
-                        <span class="payment-concept">{{ pago.por_concepto_de or pago.tipo_pago }}</span>
-                        <span class="payment-meta">{{ pago.fecha_pago | format_date if pago.fecha_pago else pago.fecha_creacion | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</span>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-lg hover:bg-slate-50 gap-3">
+                    <div>
+                        <p class="font-semibold text-slate-700">{{ pago.por_concepto_de or pago.tipo_pago }}</p>
+                        <p class="text-xs text-slate-500">{{ pago.fecha_pago | format_date if pago.fecha_pago else pago.fecha_creacion | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</p>
                     </div>
-                    <div class="payment-amount">${{ "%.2f"|format(pago.monto) }}</div>
-                    <div class="payment-actions">
-                        {% if pago.estado_pago == 'Conciliado' %}
-                            <span class="badge text-bg-success">Conciliado</span>
-                            <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm" target="_blank">Ver Recibo</a>
-                        {% elif pago.estado_pago == 'Pendiente' %}
-                            {% if pago.estado_reporte == 'Inconsistente' %}
-                                <span class="badge text-bg-danger" title="{{ pago.detalles_reporte.motivo if pago.detalles_reporte else 'Error' }}">Inconsistente</span>
-                                <a href="{{ url_for('portal_ver_reporte', pago_id=pago.id) }}" class="btn btn-warning btn-sm">Corregir</a>
-                            {% else %}
-                                <span class="badge text-bg-warning">En Revisión</span>
-                                <a href="{{ url_for('portal_ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm">Ver Reporte</a>
+                    <div class="flex items-center gap-4 w-full sm:w-auto">
+                        <span class="font-bold text-slate-800 flex-grow sm:flex-grow-0">${{ "%.2f"|format(pago.monto) }}</span>
+                        <div class="flex items-center gap-2">
+                            {% if pago.estado_pago == 'Conciliado' %}
+                                <span class="text-xs font-semibold py-1 px-2 rounded-full bg-green-100 text-green-800">Conciliado</span>
+                                <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="text-xs bg-slate-500 text-white hover:bg-slate-600 py-1 px-2 rounded" target="_blank">Recibo</a>
+                            {% elif pago.estado_pago == 'Pendiente' %}
+                                {% if pago.estado_reporte == 'Inconsistente' %}
+                                    <span class="text-xs font-semibold py-1 px-2 rounded-full bg-red-100 text-red-800" title="{{ pago.detalles_reporte.motivo if pago.detalles_reporte else 'Error' }}">Inconsistente</span>
+                                    <a href="{{ url_for('portal_ver_reporte', pago_id=pago.id) }}" class="text-xs bg-yellow-500 text-white hover:bg-yellow-600 py-1 px-2 rounded">Corregir</a>
+                                {% else %}
+                                    <span class="text-xs font-semibold py-1 px-2 rounded-full bg-yellow-100 text-yellow-800">En Revisión</span>
+                                    <a href="{{ url_for('portal_ver_reporte', pago_id=pago.id) }}" class="text-xs bg-blue-500 text-white hover:bg-blue-600 py-1 px-2 rounded">Ver</a>
+                                {% endif %}
+                            {% elif pago.estado_pago == 'Anulado' %}
+                                 <span class="text-xs font-semibold py-1 px-2 rounded-full bg-red-100 text-red-800">Anulado</span>
+                                 <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="text-xs bg-slate-500 text-white hover:bg-slate-600 py-1 px-2 rounded" target="_blank">Detalles</a>
                             {% endif %}
-                        {% elif pago.estado_pago == 'Anulado' %}
-                             <span class="badge text-bg-danger">Anulado</span>
-                             <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm" target="_blank">Detalles</a>
-                        {% endif %}
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
             {% else %}
-                <p class="text-center text-muted p-3">Aún no tienes pagos registrados.</p>
+                <p class="text-center text-slate-500 py-4">Aún no tienes pagos registrados.</p>
             {% endif %}
         </div>
     </div>
 </div>
 
-<!-- ===== INICIO: MODALES DE SOLICITUDES ===== -->
+<!-- ===== MODALES DE SOLICITUDES (Funcionalidad con Bootstrap JS) ===== -->
+<!-- Los modales se mantienen para conservar la funcionalidad existente con Bootstrap JS -->
 <!-- Modal Registrar Oferta -->
 <div class="modal fade" id="ofertaModal" tabindex="-1" aria-labelledby="ofertaModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-lg">
             <form action="{{ url_for('portal_guardar_oferta') }}" method="POST">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="ofertaModalLabel">Registrar Oferta de Adjudicación</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Aquí puedes proponer adelantar un número de cuotas para optar por la adjudicación de tu moto.</p>
-                    <div class="mb-3">
-                        <label for="cuotas_ofertadas" class="form-label">Número de Cuotas a Ofertar</label>
-                        <select class="form-select" id="cuotas_ofertadas" name="cuotas_ofertadas" required>
-                            {% set cuotas_restantes = (cliente.cuotas_totales|int) - (cliente.cuotas_pagadas_progresivas|int) %}
-                            {% for i in range(1, cuotas_restantes + 1) %}
-                            <option value="{{ i }}">{{ i }} cuota(s)</option>
-                            {% endfor %}
-                        </select>
-                        <div class="form-text">El sistema registrará tu oferta para el próximo acto de adjudicación.</div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Enviar Oferta</button>
-                </div>
+                <div class="modal-header"><h5 class="modal-title font-bold text-slate-800" id="ofertaModalLabel">Registrar Oferta de Adjudicación</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                <div class="modal-body"><p class="text-slate-600 mb-4">Aquí puedes proponer adelantar un número de cuotas para optar por la adjudicación de tu moto.</p><div class="mb-3"><label for="cuotas_ofertadas" class="form-label">Número de Cuotas a Ofertar</label><select class="form-select" id="cuotas_ofertadas" name="cuotas_ofertadas" required>{% set cuotas_restantes = (cliente.cuotas_totales|int) - (cliente.cuotas_pagadas_progresivas|int) %}{% for i in range(1, cuotas_restantes + 1) %}<option value="{{ i }}">{{ i }} cuota(s)</option>{% endfor %}</select><div class="form-text">El sistema registrará tu oferta para el próximo acto de adjudicación.</div></div></div>
+                <div class="modal-footer bg-slate-50"><button type="button" class="bg-white text-slate-700 py-2 px-4 border border-slate-300 rounded-md shadow-sm hover:bg-slate-50" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded-md shadow-sm hover:bg-blue-700">Enviar Oferta</button></div>
             </form>
         </div>
     </div>
@@ -323,136 +204,32 @@
 
 <!-- Modal Solicitar Cita -->
 <div class="modal fade" id="citaModal" tabindex="-1" aria-labelledby="citaModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-lg">
             <form action="{{ url_for('portal_solicitar_cita') }}" method="POST">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="citaModalLabel">Solicitar Cita</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="fecha_cita" class="form-label">Selecciona una fecha</label>
-                        <input type="date" class="form-control" id="fecha_cita" name="fecha_cita" required>
-                    </div>
-                    <div id="cita-feedback" class="text-center"></div>
-                    <div class="mb-3">
-                        <label class="form-label">Selecciona una hora</label>
-                        <div id="time-slots-container" class="time-slot-grid">
-                            <!-- Horarios se cargarán aquí con JS -->
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="motivo_cita" class="form-label">Motivo de la Cita</label>
-                        <textarea class="form-control" id="motivo_cita" name="motivo_cita" rows="3" required></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Enviar Solicitud</button>
-                </div>
+                <div class="modal-header"><h5 class="modal-title font-bold text-slate-800" id="citaModalLabel">Solicitar Cita</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                <div class="modal-body"><div class="mb-3"><label for="fecha_cita" class="form-label">Selecciona una fecha</label><input type="date" class="form-control" id="fecha_cita" name="fecha_cita" required></div><div id="cita-feedback" class="text-center"></div><div class="mb-3"><label class="form-label">Selecciona una hora</label><div id="time-slots-container" class="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-2"></div></div><div class="mb-3"><label for="motivo_cita" class="form-label">Motivo de la Cita</label><textarea class="form-control" id="motivo_cita" name="motivo_cita" rows="3" required></textarea></div></div>
+                <div class="modal-footer bg-slate-50"><button type="button" class="bg-white text-slate-700 py-2 px-4 border border-slate-300 rounded-md shadow-sm hover:bg-slate-50" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded-md shadow-sm hover:bg-blue-700">Enviar Solicitud</button></div>
             </form>
         </div>
     </div>
 </div>
 
+<!-- Otros modales (Congelar, Descongelar, Retiro) se mantienen con su estructura original para preservar la funcionalidad JS -->
 <!-- Modal Congelar Plan -->
 <div class="modal fade" id="congelamientoModal" tabindex="-1" aria-labelledby="congelamientoModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form action="{{ url_for('portal_solicitar_congelamiento') }}" method="POST">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="congelamientoModalLabel">Solicitar Congelamiento de Plan</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Puedes pausar tu plan temporalmente. Durante este período, no se generarán cuotas.</p>
-                    <div class="mb-3">
-                        <label for="tiempo_congelamiento" class="form-label">Tiempo de congelamiento</label>
-                        <select class="form-select" name="tiempo_congelamiento" id="tiempo_congelamiento" required>
-                            <option value="1 mes">1 Mes</option>
-                            <option value="2 meses">2 Meses</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="motivo_congelamiento" class="form-label">Motivo</label>
-                        <textarea class="form-control" id="motivo_congelamiento" name="motivo" rows="3" required placeholder="Ej: Viaje, situación personal, etc."></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Enviar Solicitud</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content rounded-lg"><form action="{{ url_for('portal_solicitar_congelamiento') }}" method="POST"><div class="modal-header"><h5 class="modal-title" id="congelamientoModalLabel">Solicitar Congelamiento de Plan</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><p>Puedes pausar tu plan temporalmente. Durante este período, no se generarán cuotas.</p><div class="mb-3"><label for="tiempo_congelamiento" class="form-label">Tiempo de congelamiento</label><select class="form-select" name="tiempo_congelamiento" id="tiempo_congelamiento" required><option value="1 mes">1 Mes</option><option value="2 meses">2 Meses</option></select></div><div class="mb-3"><label for="motivo_congelamiento" class="form-label">Motivo</label><textarea class="form-control" id="motivo_congelamiento" name="motivo" rows="3" required placeholder="Ej: Viaje, situación personal, etc."></textarea></div></div><div class="modal-footer bg-slate-50"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Enviar Solicitud</button></div></form></div></div>
 </div>
 
 <!-- Modal Descongelar Plan -->
 <div class="modal fade" id="descongelamientoModal" tabindex="-1" aria-labelledby="descongelamientoModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form action="{{ url_for('portal_solicitar_descongelamiento') }}" method="POST">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="descongelamientoModalLabel">Solicitar Reactivación de Plan</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Tu plan se encuentra actualmente congelado. Si deseas reactivarlo antes de la fecha prevista, puedes hacerlo aquí.</p>
-                    <div class="mb-3">
-                        <label for="motivo_reactivacion" class="form-label">Motivo de la reactivación</label>
-                        <textarea class="form-control" id="motivo_reactivacion" name="motivo_reactivacion" rows="3" required placeholder="Ej: Regresé de mi viaje, mi situación ha mejorado, etc."></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Reactivar mi Plan</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content rounded-lg"><form action="{{ url_for('portal_solicitar_descongelamiento') }}" method="POST"><div class="modal-header"><h5 class="modal-title" id="descongelamientoModalLabel">Solicitar Reactivación de Plan</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><p>Tu plan se encuentra actualmente congelado. Si deseas reactivarlo antes de la fecha prevista, puedes hacerlo aquí.</p><div class="mb-3"><label for="motivo_reactivacion" class="form-label">Motivo de la reactivación</label><textarea class="form-control" id="motivo_reactivacion" name="motivo_reactivacion" rows="3" required placeholder="Ej: Regresé de mi viaje, mi situación ha mejorado, etc."></textarea></div></div><div class="modal-footer bg-slate-50"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Reactivar mi Plan</button></div></form></div></div>
 </div>
 
 <!-- Modal Solicitar Retiro -->
 <div class="modal fade" id="retiroModal" tabindex="-1" aria-labelledby="retiroModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form action="{{ url_for('portal_solicitar_retiro') }}" method="POST">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="retiroModalLabel">Solicitud de Retiro</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="retiroPaso1">
-                        <p class="fw-bold">Estás a punto de iniciar el proceso de retiro de tu plan.</p>
-                        <p>Según las cláusulas del contrato, el monto de la inscripción no es reembolsable. Se aplicará una penalización administrativa sobre las cuotas pagadas. ¿Estás seguro de que deseas continuar?</p>
-                        <div class="d-grid gap-2">
-                            <button type="button" class="btn btn-danger" id="btnRetiroSi">Sí, entiendo y deseo continuar</button>
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, cancelar</button>
-                        </div>
-                    </div>
-                    <div id="retiroPaso2" style="display: none;">
-                        <p>Para formalizar tu solicitud, debes enviar un correo electrónico a <strong>administracion@motoplanmotors.com</strong> desde tu correo registrado, indicando tu nombre completo, cédula y tu deseo de retirarte del plan.</p>
-                        <p>Por favor, confirma los datos del correo que enviaste:</p>
-                        <div class="mb-3">
-                            <label for="email_origen_retiro" class="form-label">Tu correo electrónico desde donde enviaste la solicitud</label>
-                            <input type="email" class="form-control" name="email_origen_retiro" id="email_origen_retiro" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="fecha_correo_retiro" class="form-label">Fecha de envío del correo</label>
-                            <input type="date" class="form-control" name="fecha_correo_retiro" id="fecha_correo_retiro" required>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="submit" class="btn btn-primary" id="btnConfirmarRetiro" disabled>Confirmar Envío de Correo</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content rounded-lg"><form action="{{ url_for('portal_solicitar_retiro') }}" method="POST"><div class="modal-header"><h5 class="modal-title" id="retiroModalLabel">Solicitud de Retiro</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><div id="retiroPaso1"><p class="fw-bold">Estás a punto de iniciar el proceso de retiro de tu plan.</p><p>Según las cláusulas del contrato, el monto de la inscripción no es reembolsable. Se aplicará una penalización administrativa sobre las cuotas pagadas. ¿Estás seguro de que deseas continuar?</p><div class="d-grid gap-2"><button type="button" class="btn btn-danger" id="btnRetiroSi">Sí, entiendo y deseo continuar</button><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, cancelar</button></div></div><div id="retiroPaso2" style="display: none;"><p>Para formalizar tu solicitud, debes enviar un correo electrónico a <strong>administracion@motoplanmotors.com</strong> desde tu correo registrado, indicando tu nombre completo, cédula y tu deseo de retirarte del plan.</p><p>Por favor, confirma los datos del correo que enviaste:</p><div class="mb-3"><label for="email_origen_retiro" class="form-label">Tu correo electrónico desde donde enviaste la solicitud</label><input type="email" class="form-control" name="email_origen_retiro" id="email_origen_retiro" required></div><div class="mb-3"><label for="fecha_correo_retiro" class="form-label">Fecha de envío del correo</label><input type="date" class="form-control" name="fecha_correo_retiro" id="fecha_correo_retiro" required></div></div></div><div class="modal-footer bg-slate-50"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button><button type="submit" class="btn btn-primary" id="btnConfirmarRetiro" disabled>Confirmar Envío de Correo</button></div></form></div></div>
 </div>
-<!-- ===== FIN: MODALES DE SOLICITUDES ===== -->
 {% endblock %}
 
 {% block scripts_extra %}
@@ -471,7 +248,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         fechaCitaInput.addEventListener('change', function() {
             const fecha = this.value;
-            timeSlotsContainer.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>';
+            timeSlotsContainer.innerHTML = '<div class="col-span-full text-center"><div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div></div>';
             citaFeedback.textContent = '';
 
             fetch(`{{ url_for('citas_disponibilidad') }}?fecha=${fecha}`)
@@ -479,7 +256,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     timeSlotsContainer.innerHTML = '';
                     if (!data.es_habil) {
-                        citaFeedback.textContent = data.mensaje || 'Este día no está disponible para citas.';
+                        citaFeedback.innerHTML = `<p class="text-red-600">${data.mensaje || 'Este día no está disponible para citas.'}</p>`;
                         return;
                     }
 
@@ -487,17 +264,20 @@ document.addEventListener('DOMContentLoaded', function() {
                         "Mañana": ["10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM"],
                         "Tarde": ["04:00 PM", "04:30 PM"]
                     };
-
+                    
+                    let hasSlots = false;
                     for (const turno in horarios) {
                         const turnoHeader = document.createElement('h6');
                         turnoHeader.textContent = turno;
-                        turnoHeader.className = 'w-100 mt-2';
+                        turnoHeader.className = 'col-span-full font-semibold text-sm mt-2';
                         timeSlotsContainer.appendChild(turnoHeader);
 
                         horarios[turno].forEach((hora, index) => {
+                            hasSlots = true;
                             const isOcupado = data.ocupados.includes(hora);
                             const inputId = `hora_cita_${turno}_${index}`;
                             
+                            const container = document.createElement('div');
                             const input = document.createElement('input');
                             input.type = 'radio';
                             input.className = 'btn-check';
@@ -509,18 +289,22 @@ document.addEventListener('DOMContentLoaded', function() {
                             if (isOcupado) input.disabled = true;
 
                             const label = document.createElement('label');
-                            label.className = 'btn btn-outline-primary btn-sm';
+                            label.className = 'btn btn-outline-primary w-full text-xs';
                             label.htmlFor = inputId;
                             label.textContent = hora;
-
-                            timeSlotsContainer.appendChild(input);
-                            timeSlotsContainer.appendChild(label);
+                            
+                            container.appendChild(input);
+                            container.appendChild(label);
+                            timeSlotsContainer.appendChild(container);
                         });
+                    }
+                     if (!hasSlots) {
+                        citaFeedback.innerHTML = `<p class="text-yellow-600">No hay horarios disponibles para este día.</p>`;
                     }
                 })
                 .catch(error => {
                     timeSlotsContainer.innerHTML = '';
-                    citaFeedback.textContent = 'Error al cargar los horarios. Intente de nuevo.';
+                    citaFeedback.innerHTML = '<p class="text-red-600">Error al cargar los horarios. Intente de nuevo.</p>';
                     console.error('Error:', error);
                 });
         });
@@ -528,6 +312,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const retiroModalEl = document.getElementById('retiroModal');
     if (retiroModalEl) {
+        // La lógica JS original para el modal de retiro se mantiene.
         const paso1 = retiroModalEl.querySelector('#retiroPaso1');
         const paso2 = retiroModalEl.querySelector('#retiroPaso2');
         const btnSi = retiroModalEl.querySelector('#btnRetiroSi');
