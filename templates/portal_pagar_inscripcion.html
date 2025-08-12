@@ -64,7 +64,7 @@
                     Monto Pendiente de Inscripción:
                 {% endif %}
             </strong> 
-            ${{ "%.2f"|format(monto_precargado or monto_restante) }}
+            ${{ "%.2f"|format((monto_precargado or monto_restante)|float) }}
         </div>
 
         <div class="section">
@@ -95,7 +95,7 @@
                 </div>
                 <div class="form-group">
                     <label for="monto_usd" class="form-label">Monto del Pago (USD)</label>
-                    <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" value="{{ monto_precargado or '' }}" required {% if monto_precargado %}readonly{% endif %}>
+                    <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" value="{{ (monto_precargado or '')|float }}" required {% if monto_precargado %}readonly{% endif %}>
                 </div>
                 <div class="form-group" id="monto_bs_group" style="display: none;">
                     <label for="monto_bs_calculado" class="form-label">Monto en Bs (Calculado)</label>
