@@ -1832,10 +1832,10 @@ def conciliar_pago(pago_id):
                 
                 cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE id IN (%s, %s)", (pago_id, pago_padre['id']))
                 
-                # CORRECCIÓN: Añadir cuotas_cubiertas=0 en la inserción
+                # CORRECCIÓN: Añadir cuotas_cubiertas=0 y forma_pago='Consolidado' en la inserción
                 cur.execute("""
-                    INSERT INTO pagos (cliente_id, monto, tipo_pago, estado_pago, por_concepto_de, detalles_reporte, conciliado_por_id, fecha_pago, cuotas_cubiertas) 
-                    VALUES (%s, %s, 'Inscripción Finalizada', 'Conciliado', 'Pago total de inscripción consolidado', %s, %s, %s, 0) RETURNING id
+                    INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, estado_pago, por_concepto_de, detalles_reporte, conciliado_por_id, fecha_pago, cuotas_cubiertas) 
+                    VALUES (%s, %s, 'Inscripción Finalizada', 'Consolidado', 'Conciliado', 'Pago total de inscripción consolidado', %s, %s, %s, 0) RETURNING id
                 """, (cliente['id'], monto_total_pagado, json.dumps(detalles_consolidados), admin_id, pago_actual['fecha_pago']))
                 pago_final_id = cur.fetchone()[0]
 
@@ -1862,11 +1862,11 @@ def conciliar_pago(pago_id):
                     
                     cur.execute("UPDATE pagos SET estado_pago = 'Anulado' WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente['id'],))
                     
-                    # CORRECCIÓN: Añadir cuotas_cubiertas=0 en la inserción
+                    # CORRECCIÓN: Añadir cuotas_cubiertas=0 y forma_pago='Consolidado' en la inserción
                     cur.execute("""
-                        INSERT INTO pagos (cliente_id, monto, tipo_pago, estado_pago, por_concepto_de, conciliado_por_id, fecha_pago, cuotas_cubiertas) 
-                        VALUES (%s, %s, 'Inscripción Finalizada', 'Conciliado', %s, %s, %s, 0) RETURNING id
-                    """, (cliente['id'], inscripcion_total, 'Pago total de inscripción', admin_id, pago_actual['fecha_pago']))
+                        INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, estado_pago, por_concepto_de, conciliado_por_id, fecha_pago, cuotas_cubiertas) 
+                        VALUES (%s, %s, 'Inscripción Finalizada', 'Consolidado', 'Conciliado', 'Pago total de inscripción', %s, %s, 0) RETURNING id
+                    """, (cliente['id'], inscripcion_total, admin_id, pago_actual['fecha_pago']))
                     pago_final_id = cur.fetchone()[0]
                     
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (inscripcion_total, cliente['id']))
@@ -2154,7 +2154,7 @@ def guardar_oferta(client_id):
                 return redirect(url_for('consulta', busqueda=cedula_cliente))
             cur.execute("INSERT INTO ofertas (cliente_id, cuotas_ofertadas, fecha_oferta, estado_oferta) VALUES (%s, %s, %s, 'activa')", (client_id, int(cuotas_ofertadas), hoy))
             descripcion_audit = f"Registró una oferta de {cuotas_ofertadas} cuotas para el cliente {nombre_cliente}."
-            registrar_accion_auditoria('REGISTRO_OFERTA', descripcion_audit, cliente_id)
+            registrar_accion_auditoria('REGISTRO_OFERTA', descripcion_audit, client_id)
             conn.commit()
             flash(f"¡Oferta de {cuotas_ofertadas} cuotas registrada exitosamente!", 'success')
     except (psycopg2.Error, ConnectionError) as e:
