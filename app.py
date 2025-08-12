@@ -367,7 +367,6 @@ def home():
         return redirect(url_for('hub'))
     elif g.cliente:
         return redirect(url_for('portal_dashboard'))
-    # **CAMBIO REALIZADO**: Redirige a admin_login por defecto.
     return redirect(url_for('admin_login'))
 
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -417,7 +416,7 @@ def hub():
         'clientes_cartera': 0,
         'recaudado_mes': Decimal('0.0'),
         'solicitudes_pendientes': 0,
-        'pagos_pendientes': 0,
+        'reportes_pendientes': 0, 
         'tasa_bcv': 'N/A'
     }
     tasa_ocupacion = 0.0
@@ -425,48 +424,30 @@ def hub():
     if conn:
         try:
             with conn.cursor() as cur:
-                # Clientes en cartera del asesor actual
                 cur.execute("SELECT COUNT(*) FROM clientes WHERE gestor_id = %s", (g.admin['id'],))
                 stats['clientes_cartera'] = cur.fetchone()[0]
 
-                # Recaudado en el mes (solo para admin/gerente)
                 if g.admin['rol'] in ['superadmin', 'gerente']:
                     first_day_of_month = get_venezuela_current_date().replace(day=1)
                     cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
                     stats['recaudado_mes'] = cur.fetchone()[0]
-
-                # Solicitudes pendientes (admin/gerente)
-                if g.admin['rol'] in ['superadmin', 'gerente']:
                     cur.execute("SELECT COUNT(*) FROM solicitudes WHERE estado = 'Pendiente'")
                     stats['solicitudes_pendientes'] = cur.fetchone()[0]
 
-                # **MODIFICADO**: Ahora cuenta los reportes que el admin debe revisar
                 if g.admin['rol'] in ['superadmin', 'gerente', 'administradora']:
                     cur.execute("SELECT COUNT(*) FROM pagos WHERE reportado_por_cliente = TRUE AND estado_reporte = 'Pendiente de Revision'")
-                    stats['pagos_pendientes'] = cur.fetchone()[0]
+                    stats['reportes_pendientes'] = cur.fetchone()[0]
 
-                # Tasa BCV
                 cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
                 tasa_row = cur.fetchone()
                 if tasa_row and tasa_row['tasa']:
                     stats['tasa_bcv'] = f"{tasa_row['tasa']:,.2f} Bs"
                 
-                # Cálculo de Tasa de Ocupación
                 today_str = get_venezuela_current_date().isoformat()
-                cur.execute("""
-                    SELECT COUNT(*) FROM solicitudes 
-                    WHERE tipo_solicitud = 'Cita' AND estado = 'Aprobada' 
-                    AND (detalles->>'fecha_cita') = %s
-                """, (today_str,))
+                cur.execute("SELECT COUNT(*) FROM solicitudes WHERE tipo_solicitud = 'Cita' AND estado = 'Aprobada' AND (detalles->>'fecha_cita') = %s", (today_str,))
                 citas_totales_hoy = cur.fetchone()[0]
-
-                cur.execute("""
-                    SELECT COUNT(*) FROM solicitudes 
-                    WHERE tipo_solicitud = 'Cita' AND estado = 'Completada' 
-                    AND (detalles->>'fecha_cita') = %s
-                """, (today_str,))
+                cur.execute("SELECT COUNT(*) FROM solicitudes WHERE tipo_solicitud = 'Cita' AND estado = 'Completada' AND (detalles->>'fecha_cita') = %s", (today_str,))
                 citas_completadas_hoy = cur.fetchone()[0]
-                
                 if citas_totales_hoy > 0:
                     tasa_ocupacion = (citas_completadas_hoy / citas_totales_hoy) * 100
 
@@ -474,9 +455,7 @@ def hub():
             logging.error(f"Error al calcular estadísticas para el HUB: {e}")
             flash("No se pudieron cargar todas las estadísticas del panel.", "warning")
 
-    ingresos_mes_actual = stats.get('recaudado_mes')
-
-    return render_template('hub.html', stats=stats, ingresos_mes_actual=ingresos_mes_actual, tasa_ocupacion=tasa_ocupacion)
+    return render_template('hub.html', stats=stats, tasa_ocupacion=tasa_ocupacion)
 
 
 @app.route('/api/get_active_sessions')
@@ -523,7 +502,6 @@ def hub_asesor():
 
     try:
         with conn.cursor() as cur:
-            # Marcar inasistencias automáticamente
             cur.execute("""
                 UPDATE solicitudes 
                 SET detalles = jsonb_set(detalles, '{estado_final}', '"Inasistencia"')
@@ -534,7 +512,6 @@ def hub_asesor():
             """, (asesor_id, today_str))
             conn.commit()
 
-            # Cargar citas pendientes para hoy
             cur.execute("""
                 SELECT s.id, s.detalles, c.nombre || ' ' || c.apellido as nombre_cliente
                 FROM solicitudes s JOIN clientes c ON s.cliente_id = c.id
@@ -546,7 +523,6 @@ def hub_asesor():
             """, (asesor_id, today_str))
             citas_pendientes = cur.fetchall()
 
-            # Cargar historial de citas completadas
             cur.execute("""
                 SELECT s.id, s.detalles, s.detalles->>'estado_final' as estado_final, c.nombre || ' ' || c.apellido as nombre_cliente
                 FROM solicitudes s JOIN clientes c ON s.cliente_id = c.id
@@ -625,11 +601,9 @@ def gestion_administrativa():
     if conn:
         try:
             with conn.cursor() as cur:
-                # Pagos listos para conciliar (los aprobados o los registrados por admin)
                 cur.execute("SELECT COUNT(*) FROM pagos WHERE estado_pago = 'Pendiente' AND (reportado_por_cliente = FALSE OR estado_reporte = 'Aprobado')")
                 counts['pagos_pendientes'] = cur.fetchone()[0]
                 
-                # Contador para reportes que necesitan revisión
                 cur.execute("SELECT COUNT(*) FROM pagos WHERE reportado_por_cliente = TRUE AND estado_reporte = 'Pendiente de Revision'")
                 counts['reportes_pendientes'] = cur.fetchone()[0]
                 
@@ -2422,7 +2396,6 @@ def portal_dashboard():
             cur.execute("SELECT * FROM ofertas WHERE cliente_id = %s ORDER BY fecha_oferta DESC", (session['cliente_id'],))
             cliente_dict['ofertas'] = [dict(o) for o in cur.fetchall()]
             
-            # ===== INICIO: LÓGICA CLAVE ACTUALIZADA PARA PAGOS PENDIENTES =====
             pago_en_proceso = None
             for pago in cliente_dict['pagos']:
                 if pago.get('estado_pago') == 'Pendiente':
@@ -2434,14 +2407,12 @@ def portal_dashboard():
                             except json.JSONDecodeError:
                                 pago_en_proceso['detalles_reporte'] = {'motivo': 'Error en datos', 'diferencia': '0'}
                         
-                        # **NUEVA LÓGICA PARA DIFERENCIAR ACCIONES**
                         detalles = pago_en_proceso['detalles_reporte']
                         if detalles.get('motivo') == 'Diferencia de Monto' and Decimal(detalles.get('diferencia', 0)) > 0:
                             pago_en_proceso['accion_requerida'] = 'pagar_diferencia'
                         else:
                             pago_en_proceso['accion_requerida'] = 'corregir_reporte'
                     break
-            # ===== FIN: LÓGICA CLAVE =====
 
             cita_confirmada = None
             cur.execute("""
@@ -2453,18 +2424,18 @@ def portal_dashboard():
             """, (session['cliente_id'],))
             cita_confirmada = cur.fetchone()
 
-            # ===== LÓGICA DE 3 ETAPAS (CORREGIDA) =====
             estado_principal = {}
             inscripcion_completa = (cliente_dict.get('inscripcion_pagada') or 0) >= (cliente_dict.get('inscripcion_monto') or 0)
             primera_cuota_pagada = any(p.get('tipo_pago') == 'Cuota' and p.get('estado_pago') == 'Conciliado' for p in cliente_dict['pagos'])
             
+            # **LÓGICA DE ETAPAS MEJORADA**
             if not inscripcion_completa:
                 estado_principal = {
                     'tipo': 'inscripcion', 'titulo': 'Completa tu Inscripción',
                     'mensaje': "Realiza el pago de tu inscripción para poder activar tu plan.",
                     'boton_texto': 'Pagar Inscripción', 'boton_url': url_for('portal_pagar_inscripcion'),
                     'clase_borde': 'naranja-corporativo',
-                    'boton_activo': True  # **CORRECCIÓN**: El botón siempre está activo en esta etapa
+                    'boton_activo': not pago_en_proceso
                 }
             elif inscripcion_completa and not primera_cuota_pagada:
                 estado_principal = {
@@ -2472,7 +2443,7 @@ def portal_dashboard():
                     'mensaje': 'Tu plan está listo para ser activado. Realiza el pago de tu primera cuota para comenzar.',
                     'boton_texto': 'Pagar 1ª Cuota', 'boton_url': url_for('portal_reportar_pago'),
                     'clase_borde': 'azul-info',
-                    'boton_activo': not pago_en_proceso # Se activa si no hay otro pago en proceso
+                    'boton_activo': not pago_en_proceso
                 }
             else:
                 hoy, dia_de_vencimiento = get_venezuela_current_date(), 3
