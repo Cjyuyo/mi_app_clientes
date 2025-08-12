@@ -177,7 +177,7 @@
             {% if messages %}
                 {% for category, message in messages %}
                 <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
-                    {{ message }}
+                    {{ message | safe }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
                 {% endfor %}
@@ -202,7 +202,8 @@
                         </a>
                     {% elif pago_en_proceso.accion_requerida == 'pagar_diferencia' %}
                         <p><strong>Monto Faltante:</strong> ${{ "%.2f"|format(pago_en_proceso.detalles_reporte.diferencia|float) }}</p>
-                        <a href="{{ url_for('reportar_pago_diferencia', pago_original_id=pago_en_proceso.id) }}" class="btn btn-success btn-sm mt-2">
+                        <!-- CORRECCIÓN AQUÍ -->
+                        <a href="{{ url_for('pagar_diferencia', pago_original_id=pago_en_proceso.id) }}" class="btn btn-success btn-sm mt-2">
                             <i class="bi bi-cash-coin me-1"></i> Pagar Diferencia
                         </a>
                     {% endif %}
