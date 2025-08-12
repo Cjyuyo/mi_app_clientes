@@ -114,6 +114,7 @@
         color: var(--texto-principal);
         border-color: var(--card-borde);
     }
+    
     @media (max-width: 768px) {
         .action-card .action-desc {
             display: none;
@@ -129,6 +130,7 @@
         <p class="lead mb-0">Bienvenido de nuevo, <strong>{{ g.admin.usuario }}</strong>. Aquí tienes un resumen de la actividad de hoy.</p>
     </div>
     
+    <!-- KPIs Principales -->
     <div class="row">
         <div class="col-6 col-lg-3 mb-4">
             <div class="card kpi-card h-100">
@@ -168,6 +170,7 @@
         </div>
     </div>
 
+    <!-- Centro de Operaciones y Equipo -->
     <div class="row">
         <div class="col-lg-8 mb-4 mb-lg-0">
             <div class="card h-100">
@@ -176,6 +179,33 @@
                 </div>
                 <div class="card-body">
                     <div class="row g-3">
+                        <!-- Tarjeta para Revisar Reportes con contador -->
+                        <div class="col-6 col-md-3">
+                            <a href="{{ url_for('reportes_por_revisar') }}" class="action-card position-relative">
+                                {% if stats.reportes_pendientes > 0 %}
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                    {{ stats.reportes_pendientes }}
+                                </span>
+                                {% endif %}
+                                <span class="action-icon-inner text-danger"><i class="bi bi-journal-check"></i></span>
+                                <div class="action-title">Revisar</div>
+                                <p class="action-desc d-none d-md-block">Valida reportes.</p>
+                            </a>
+                        </div>
+                        <!-- Tarjeta para Conciliar Pagos con contador -->
+                        <div class="col-6 col-md-3">
+                            <a href="{{ url_for('pagos_por_conciliar') }}" class="action-card position-relative">
+                                {% if stats.pagos_por_conciliar > 0 %}
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark">
+                                    {{ stats.pagos_por_conciliar }}
+                                </span>
+                                {% endif %}
+                                <span class="action-icon-inner text-success"><i class="bi bi-patch-check-fill"></i></span>
+                                <div class="action-title">Conciliar</div>
+                                <p class="action-desc d-none d-md-block">Verifica los pagos.</p>
+                            </a>
+                        </div>
+                        <!-- Tarjetas originales -->
                         <div class="col-6 col-md-3">
                             <a href="{{ url_for('registrar') }}" class="action-card">
                                 <span class="action-icon-inner"><i class="bi bi-person-plus-fill"></i></span>
@@ -190,14 +220,7 @@
                                 <p class="action-desc d-none d-md-block">Busca y gestiona.</p>
                             </a>
                         </div>
-                        <div class="col-6 col-md-3">
-                            <a href="{{ url_for('pagos_por_conciliar') }}" class="action-card">
-                                <span class="action-icon-inner"><i class="bi bi-patch-check-fill"></i></span>
-                                <div class="action-title">Conciliar</div>
-                                <p class="action-desc d-none d-md-block">Verifica los pagos.</p>
-                            </a>
-                        </div>
-                        <div class="col-6 col-md-3">
+                        <div class="col-6 col-md-3 mt-3">
                              <a href="{{ url_for('reporte_morosidad') }}" class="action-card">
                                 <span class="action-icon-inner"><i class="bi bi-file-earmark-excel-fill"></i></span>
                                 <div class="action-title">Morosidad</div>
@@ -267,7 +290,8 @@
         };
 
         fetchActiveSessions();
-        setInterval(fetchActiveSessions, 2000);
+        // Actualiza cada 30 segundos
+        setInterval(fetchActiveSessions, 30000); 
     });
 </script>
 {% endblock %}

@@ -412,11 +412,13 @@ def admin_logout():
 @app.route('/hub')
 @admin_required
 def hub():
+    # Se inicializan todas las estadísticas, incluyendo la nueva para pagos por conciliar
     stats = {
         'clientes_cartera': 0,
         'recaudado_mes': Decimal('0.0'),
         'solicitudes_pendientes': 0,
         'reportes_pendientes': 0, 
+        'pagos_por_conciliar': 0, # <-- NUEVA ESTADÍSTICA
         'tasa_bcv': 'N/A'
     }
     tasa_ocupacion = 0.0
@@ -435,8 +437,18 @@ def hub():
                     stats['solicitudes_pendientes'] = cur.fetchone()[0]
 
                 if g.admin['rol'] in ['superadmin', 'gerente', 'administradora']:
+                    # Contador para reportes que necesitan ser revisados
                     cur.execute("SELECT COUNT(*) FROM pagos WHERE reportado_por_cliente = TRUE AND estado_reporte = 'Pendiente de Revision'")
                     stats['reportes_pendientes'] = cur.fetchone()[0]
+
+                    # <-- INICIO DEL CAMBIO: Se añade el contador para pagos listos para conciliar -->
+                    cur.execute("""
+                        SELECT COUNT(*) FROM pagos 
+                        WHERE estado_pago = 'Pendiente' 
+                        AND (reportado_por_cliente = FALSE OR estado_reporte = 'Aprobado')
+                    """)
+                    stats['pagos_por_conciliar'] = cur.fetchone()[0]
+                    # <-- FIN DEL CAMBIO -->
 
                 cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
                 tasa_row = cur.fetchone()
