@@ -367,7 +367,8 @@ def home():
         return redirect(url_for('hub'))
     elif g.cliente:
         return redirect(url_for('portal_dashboard'))
-    return redirect(url_for('portal_login'))
+    # **CAMBIO REALIZADO**: Redirige a admin_login por defecto.
+    return redirect(url_for('admin_login'))
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
