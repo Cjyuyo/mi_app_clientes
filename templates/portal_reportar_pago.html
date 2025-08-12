@@ -1,11 +1,17 @@
-{% extends 'base_sidebar.html' %}
+{% extends 'base_portal.html' %}
 
 {% block title %}
-    {% if modo_correccion %}Corregir Reporte de Pago{% else %}Reportar Pago{% endif %}
+    {% if modo_correccion %}Corregir Reporte de Pago{% elif monto_precargado %}Pagar Diferencia de Pago{% else %}Reportar Pago de Cuota{% endif %}
 {% endblock %}
 
 {% block head_extra %}
 <style>
+    .form-container {
+        background-color: var(--blanco);
+        border-radius: .75rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.07);
+        overflow: hidden;
+    }
     .form-header {
         background-color: var(--azul-corporativo);
         color: var(--blanco);
@@ -13,14 +19,14 @@
     }
     .form-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
     .form-header p { margin: 0; opacity: 0.9; }
-    .section { margin-bottom: 2rem; }
+    .section { margin-bottom: 2.5rem; }
     .section h3 {
         font-size: 1rem;
         font-weight: 500;
-        color: var(--texto-claro);
+        color: #6c757d;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        border-bottom: 1px solid #e9ecef;
+        border-bottom: 1px solid var(--borde-sutil);
         padding-bottom: .75rem;
         margin-bottom: 1.5rem;
     }
@@ -29,15 +35,9 @@
         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         gap: 1.5rem;
     }
-    .form-group label {
-        font-weight: 500;
-        margin-bottom: .5rem;
-    }
     .conditional-fields {
         display: none;
         grid-column: 1 / -1;
-        padding-top: 1.5rem;
-        margin-top: 1.5rem;
     }
     #pagoMovilFields {
          display: grid;
@@ -48,88 +48,89 @@
 {% endblock %}
 
 {% block body %}
-<div class="container-fluid px-0">
-    <div class="card shadow-sm">
-        <div class="form-header">
-            <h1>{% if modo_correccion %}Corregir Mi Reporte de Pago{% else %}Reportar Mi Pago{% endif %}</h1>
-            <p>Para: {{ cliente.nombre_apellido }}</p>
-        </div>
-
-        <div class="card-body p-4">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-
-            {% if modo_correccion and pago_a_corregir.detalles_reporte %}
-            <div class="alert alert-warning">
-                <strong>Motivo de la inconsistencia:</strong> {{ pago_a_corregir.detalles_reporte.motivo }}. Por favor, revisa y corrige los datos a continuación.
-            </div>
+<div class="form-container">
+    <div class="form-header">
+        <h1>
+            {% if modo_correccion %}<i class="bi bi-pencil-square me-2"></i>Corregir Mi Reporte de Pago
+            {% elif monto_precargado %}<i class="bi bi-plus-circle-fill me-2"></i>Pagar Diferencia de Pago
+            {% else %}<i class="bi bi-cash-coin me-2"></i>Reportar Pago de Cuota
             {% endif %}
-
-            <div class="alert alert-info d-flex justify-content-between align-items-center">
-                <span>¿Necesitas los datos para realizar un pago?</span>
-                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#paymentInfoModal">
-                    <i class="bi bi-wallet2 me-1"></i> Ver Datos de Pago
-                </button>
-            </div>
-
-            <form action="{{ url_for('portal_reportar_pago') }}" method="POST">
-                {% if modo_correccion %}
-                <input type="hidden" name="pago_id_correccion" value="{{ pago_a_corregir.id }}">
-                {% endif %}
-
-                <div class="section mt-4">
-                    <h3>Detalles del Monto</h3>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="por_concepto_de">Concepto del Pago</label>
-                            <input type="text" id="por_concepto_de" name="por_concepto_de" value="{{ concepto_pago or pago_a_corregir.por_concepto_de or 'Cuota del mes de ' ~ mes_actual }}" class="form-control" readonly>
-                        </div>
-                        <div class="form-group">
-                            <label for="pago_en">Moneda del Pago</label>
-                            <select id="pago_en" name="pago_en" class="form-select" required>
-                                <option value="Bolívares" {% if pago_a_corregir and pago_a_corregir.pago_en == 'Bolívares' %}selected{% endif %}>Bolívares</option>
-                                <option value="Binance" {% if (pago_a_corregir and pago_a_corregir.pago_en == 'Binance') or (not pago_a_corregir and contrato_en_dolares) %}selected{% endif %}>Binance (USDT)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="monto_usd">Monto del Pago (USD)</label>
-                            <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" value="{{ monto_precargado or (pago_a_corregir.monto if pago_a_corregir else cliente.valor_cuota) | float }}" required {% if monto_precargado %}readonly{% endif %}>
-                        </div>
-                        <div class="form-group" id="tasa_dia_group" style="display: none;">
-                            <label for="tasa_dia">Tasa del Día (BCV)</label>
-                            <input type="number" id="tasa_dia" step="0.01" name="tasa_dia" value="{{ (pago_a_corregir.tasa_dia if pago_a_corregir else tasas_hoy.tasa) if tasas_hoy and tasas_hoy.tasa else '' }}" class="form-control" readonly>
-                        </div>
-                        <div class="form-group" id="monto_bs_group" style="display: none;">
-                            <label for="monto_bs_calculado">Monto en Bs (Calculado)</label>
-                            <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <h3>Información de la Transacción</h3>
-                    <div class="form-grid" id="transaction_fields_container">
-                        <!-- Los campos se generan dinámicamente aquí -->
-                    </div>
-                </div>
-
-                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
-                    <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Cancelar</a>
-                    <button type="submit" class="btn btn-primary" style="background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo);">
-                        <i class="bi bi-send-fill me-2"></i>{% if modo_correccion %}Corregir y Enviar Reporte{% else %}Reportar Mi Pago{% endif %}
-                    </button>
-                </div>
-            </form>
-        </div>
+        </h1>
+        <p>Cliente: {{ cliente.nombre_apellido }}</p>
     </div>
+
+    <form action="{{ url_for('portal_reportar_pago') }}" method="POST" class="p-4">
+        <!-- CAMPOS OCULTOS PARA MANEJAR LA LÓGICA -->
+        {% if modo_correccion %}
+            <input type="hidden" name="pago_id_correccion" value="{{ pago_a_corregir.id }}">
+        {% elif pago_origen_id %}
+            <input type="hidden" name="pago_origen_id" value="{{ pago_origen_id }}">
+        {% endif %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        {% if modo_correccion and pago_a_corregir.detalles_reporte %}
+        <div class="alert alert-warning">
+            <strong>Motivo de la inconsistencia:</strong> {{ pago_a_corregir.detalles_reporte.motivo }}. Por favor, revisa y corrige los datos a continuación.
+        </div>
+        {% endif %}
+
+        <div class="alert alert-info d-flex justify-content-between align-items-center">
+            <span>¿Necesitas los datos para realizar un pago?</span>
+            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#paymentInfoModal">
+                <i class="bi bi-wallet2 me-1"></i> Ver Datos de Pago
+            </button>
+        </div>
+
+        <div class="section">
+            <h3>Detalles del Monto</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="por_concepto_de">Concepto del Pago</label>
+                    <input type="text" id="por_concepto_de" name="por_concepto_de" value="{{ concepto_pago or (pago_a_corregir.por_concepto_de if pago_a_corregir else 'Cuota del mes de ' ~ mes_actual) }}" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="pago_en">Moneda del Pago</label>
+                    <select id="pago_en" name="pago_en" class="form-select" required>
+                        <option value="Bolívares" {% if pago_a_corregir and pago_a_corregir.pago_en == 'Bolívares' %}selected{% endif %}>Bolívares</option>
+                        <option value="Binance" {% if (pago_a_corregir and pago_a_corregir.pago_en == 'Binance') or (not pago_a_corregir and contrato_en_dolares) %}selected{% endif %}>Binance (USDT)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="monto_usd">Monto del Pago (USD)</label>
+                    <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" value="{{ monto_precargado or (pago_a_corregir.monto if pago_a_corregir else cliente.valor_cuota) | float }}" required {% if monto_precargado %}readonly{% endif %}>
+                </div>
+                <div class="form-group" id="tasa_dia_group" style="display: none;">
+                    <label for="tasa_dia">Tasa del Día (BCV)</label>
+                    <input type="number" id="tasa_dia" step="0.01" name="tasa_dia" value="{{ (pago_a_corregir.tasa_dia if pago_a_corregir else tasas_hoy.tasa) if tasas_hoy and tasas_hoy.tasa else '' }}" class="form-control" readonly>
+                </div>
+                <div class="form-group" id="monto_bs_group" style="display: none;">
+                    <label for="monto_bs_calculado">Monto en Bs (Calculado)</label>
+                    <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Información de la Transacción</h3>
+            <div class="form-grid" id="transaction_fields_container">
+                <!-- Los campos se generan dinámicamente aquí -->
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+            <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary" style="background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo);">
+                <i class="bi bi-send-fill me-2"></i>{% if modo_correccion %}Corregir y Enviar Reporte{% else %}Reportar Mi Pago{% endif %}
+            </button>
+        </div>
+    </form>
 </div>
 
 <!-- Templates para campos dinámicos -->
@@ -417,4 +418,4 @@
         calcularMontoBs();
     });
 </script>
-{% endblock %}
+{% endblock

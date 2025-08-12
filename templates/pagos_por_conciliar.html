@@ -7,17 +7,15 @@
 {% block body %}
 <div class="container-fluid px-0">
     <!-- Encabezado -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="h3 mb-0 text-gray-800">
-            <i class="bi bi-check2-circle me-2" style="color: var(--azul-corporativo);"></i>
-            Centro de Conciliación
-        </h2>
+    <div class="main-header">
+        <h1>Centro de Pagos</h1>
+        <p class="lead mb-0">Revisa los reportes de los clientes y concilia las transacciones verificadas.</p>
     </div>
 
     <div class="card shadow-sm">
         <div class="card-header bg-light py-3">
             <h6 class="m-0 font-weight-bold" style="color: var(--azul-corporativo);">
-                Pagos Pendientes y con Inconsistencias ({{ pagos|length }})
+                Pagos Pendientes de Procesar ({{ pagos|length }})
             </h6>
         </div>
         <div class="card-body p-0">
@@ -59,27 +57,34 @@
                                 <span class="badge bg-{{ pago.status_class }}">{{ pago.status_display }}</span>
                             </td>
                             <td class="p-3 text-center">
-                                <!-- LÓGICA DE ACCIONES MODIFICADA -->
-                                {% if pago.action_type == 'Revisar' %}
-                                    <a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='conciliacion') }}" class="btn btn-info btn-sm">
+                                <!-- ===== LÓGICA DE ACCIONES MEJORADA ===== -->
+                                {% if pago.action_type == 'Ver Reporte' %}
+                                    <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm" title="Revisar Reporte">
                                         <i class="bi bi-eye-fill"></i> <span class="d-none d-lg-inline">Revisar</span>
                                     </a>
-                                {% elif pago.action_type == 'Inconsistente' %}
-                                    <a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='conciliacion') }}" class="btn btn-danger btn-sm">
-                                        <i class="bi bi-exclamation-triangle-fill"></i> <span class="d-none d-lg-inline">Ver Inconsistencia</span>
+                                {% elif pago.action_type == 'Conciliar' %}
+                                    <form action="{{ url_for('conciliar_pago', pago_id=pago.id) }}" method="POST" class="d-inline">
+                                        <button type="submit" class="btn btn-success btn-sm" title="Conciliar Pago">
+                                            <i class="bi bi-check-circle-fill"></i> <span class="d-none d-lg-inline">Conciliar</span>
+                                        </button>
+                                    </form>
+                                {% elif pago.action_type == 'Rechazado' or pago.action_type == 'Inconsistente' %}
+                                     <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-danger btn-sm" title="Ver Motivo">
+                                        <i class="bi bi-exclamation-triangle-fill"></i> <span class="d-none d-lg-inline">Ver Motivo</span>
                                     </a>
                                 {% else %}
-                                    <button type="button" class="btn btn-secondary btn-sm" disabled>
+                                    <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}">
                                         <i class="bi bi-slash-circle"></i>
                                     </button>
                                 {% endif %}
+                                <!-- ======================================== -->
                             </td>
                         </tr>
                         {% else %}
                         <tr>
                             <td colspan="7" class="text-center text-muted p-5">
                                 <i class="bi bi-check-all fs-1 text-success"></i>
-                                <p class="mt-2 mb-0 h5">¡Excelente! No hay pagos pendientes por conciliar.</p>
+                                <p class="mt-2 mb-0 h5">¡Excelente! No hay pagos pendientes por procesar.</p>
                             </td>
                         </tr>
                         {% endfor %}
@@ -105,18 +110,16 @@
                                 <span class="badge bg-{{ pago.status_class }} me-2">{{ pago.status_display }}</span>
                             </div>
                             <div class="text-end">
-                                {% if pago.action_type == 'Revisar' %}
-                                    <a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='conciliacion') }}" class="btn btn-info btn-sm">
-                                        <i class="bi bi-eye-fill"></i>
-                                    </a>
-                                {% elif pago.action_type == 'Inconsistente' %}
-                                    <a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='conciliacion') }}" class="btn btn-danger btn-sm">
-                                        <i class="bi bi-exclamation-triangle-fill"></i>
-                                    </a>
+                                {% if pago.action_type == 'Ver Reporte' %}
+                                    <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-info btn-sm" title="Revisar Reporte"><i class="bi bi-eye-fill"></i></a>
+                                {% elif pago.action_type == 'Conciliar' %}
+                                    <form action="{{ url_for('conciliar_pago', pago_id=pago.id) }}" method="POST" class="d-inline">
+                                        <button type="submit" class="btn btn-success btn-sm" title="Conciliar Pago"><i class="bi bi-check-circle-fill"></i></button>
+                                    </form>
+                                {% elif pago.action_type == 'Rechazado' or pago.action_type == 'Inconsistente' %}
+                                     <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="btn btn-danger btn-sm" title="Ver Motivo"><i class="bi bi-exclamation-triangle-fill"></i></a>
                                 {% else %}
-                                    <button type="button" class="btn btn-secondary btn-sm" disabled>
-                                        <i class="bi bi-slash-circle"></i>
-                                    </button>
+                                    <button type="button" class="btn btn-secondary btn-sm" disabled title="{{ pago.disabled_reason }}"><i class="bi bi-slash-circle"></i></button>
                                 {% endif %}
                             </div>
                         </div>

@@ -1,136 +1,119 @@
 {% extends 'base_sidebar.html' %}
 
-{% block title %}
-    Revisión de Reporte #{{ pago.id }}
+{% block title %}Revisar Reporte de Pago N° {{ pago.id }}{% endblock %}
+
+{% block head_extra %}
+<style>
+    .report-container { max-width: 900px; margin: auto; }
+    .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+    .detail-item { background-color: #f8f9fa; padding: 1rem; border-radius: .5rem; }
+    .detail-item .label { font-size: 0.8rem; color: #6c757d; display: block; }
+    .detail-item .value { font-size: 1.1rem; font-weight: 500; }
+    .actions-card { border-top: 4px solid var(--naranja-corporativo); }
+    #rejection-fields { display: none; }
+</style>
 {% endblock %}
 
 {% block body %}
-    <h2 class="card-title text-center mb-4">Revisión de Reporte de Pago <span class="text-primary">#{{ pago.id }}</span></h2>
-            
-    <div class="row g-4">
-        <div class="col-lg-7">
-            <div class="card h-100">
-                <div class="card-header">
-                    <h5 class="mb-0">Detalles del Reporte</h5>
-                </div>
-                <div class="card-body">
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item d-flex justify-content-between"><strong>Cliente:</strong> <span>{{ pago.nombre_apellido }}</span></li>
-                        <li class="list-group-item d-flex justify-content-between"><strong>Cédula:</strong> <span>{{ pago.cedula }}</span></li>
-                        <li class="list-group-item d-flex justify-content-between"><strong>Monto Reportado:</strong> <span>${{ "%.2f"|format(pago.monto) }}</span></li>
-                        <li class="list-group-item d-flex justify-content-between"><strong>Fecha Reportada:</strong> <span>{{ pago.fecha_pago | format_date }}</span></li>
-                        <li class="list-group-item d-flex justify-content-between"><strong>Forma de Pago:</strong> <span>{{ pago.forma_pago }}</span></li>
-                        <li class="list-group-item d-flex justify-content-between"><strong>Referencia:</strong> <span>{{ pago.referencia or 'N/A' }}</span></li>
-                        <li class="list-group-item d-flex justify-content-between">
-                            <strong>Estado:</strong>
-                            <span class="badge fs-6 bg-{{ pago.status_class }}">{{ pago.status_display }}</span>
-                        </li>
-                    </ul>
-
-                    {% if pago.capture_url %}
-                        <h5 class="mb-3 mt-4">Comprobante Adjunto</h5>
-                        <div style="max-height: 400px; overflow: hidden; border-radius: .5rem; cursor: pointer;" onclick="window.open('{{ pago.capture_url }}', '_blank')">
-                            <img src="{{ pago.capture_url }}" alt="Comprobante de pago" style="width: 100%; height: auto; object-fit: cover;">
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
+<div class="report-container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-0">Revisar Reporte de Pago</h1>
+            <p class="lead text-muted">Reporte N° {{ pago.id }}</p>
         </div>
+        <a href="{{ url_for('reportes_por_revisar') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Volver a la lista
+        </a>
+    </div>
 
-        <div class="col-lg-5">
-            <div class="card h-100">
-                <div class="card-header">
-                    <h5 class="mb-0">Estado y Acciones</h5>
-                </div>
-                <div class="card-body">
-                    <!-- CASO 1: REPORTE INCONSISTENTE (VISTA PARA ADMIN Y CLIENTE) -->
-                    {% if pago.estado_reporte == 'Inconsistente' %}
-                        <div class="alert alert-danger">
-                            <h4 class="alert-heading"><i class="bi bi-x-octagon-fill me-2"></i>Reporte Inconsistente</h4>
-                            <p>Este reporte fue marcado como inconsistente.</p>
-                            <hr>
-                            <p class="mb-1"><strong>Motivo:</strong> {{ pago.detalles_reporte.motivo }}</p>
-                            {% if pago.detalles_reporte.diferencia and pago.detalles_reporte.diferencia|float > 0 %}
-                                <p class="mb-0"><strong>Monto Faltante:</strong> ${{ "%.2f"|format(pago.detalles_reporte.diferencia|float) }}</p>
-                            {% endif %}
-                        </div>
-
-                        <!-- ACCIÓN PARA EL CLIENTE SI HAY DIFERENCIA DE MONTO -->
-                        {% if is_client_view and pago.detalles_reporte.motivo == 'Diferencia de Monto' %}
-                        <div class="d-grid mt-3">
-                            <a href="{{ url_for('reportar_pago_diferencia', pago_original_id=pago.id) }}" class="btn btn-warning w-100">
-                                <i class="bi bi-receipt-cutoff me-2"></i>Pagar Diferencia Pendiente
-                            </a>
-                        </div>
-                        {% endif %}
-
-                    <!-- CASO 2: ACCIONES DEL ADMINISTRADOR (SI EL PAGO ESTÁ PENDIENTE) -->
-                    {% elif not is_client_view and pago.estado_reporte == 'Pendiente' %}
-                        <div class="d-grid gap-3">
-                            <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Confirma que los datos son correctos y desea APROBAR la conciliación?')">
-                                <input type="hidden" name="accion" value="aprobar">
-                                <button type="submit" class="btn btn-success w-100"><i class="bi bi-check-circle-fill me-2"></i>Aprobar Conciliación</button>
-                            </form>
-                            <hr>
-                            <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Está seguro de marcar este pago como INCONSISTENTE?')">
-                                <input type="hidden" name="accion" value="rechazar">
-                                <div class="mb-3">
-                                    <label for="motivo_rechazo" class="form-label">Motivo de la Inconsistencia</label>
-                                    <select class="form-select" name="motivo_rechazo" id="motivo_rechazo" required>
-                                        <option value="">Seleccione un motivo...</option>
-                                        <option value="Referencia Invalida">Referencia Inválida</option>
-                                        <option value="Fecha Invalida">Fecha Inválida</option>
-                                        <option value="Diferencia de Monto">Diferencia de Monto</option>
-                                        <option value="Otros">Otros</option>
-                                    </select>
-                                </div>
-                                <div class="mb-3" id="campo_diferencia" style="display: none;">
-                                    <label for="diferencia_monto" class="form-label">Monto Faltante ($)</label>
-                                    <input type="number" step="0.01" class="form-control" name="diferencia_monto" id="diferencia_monto" placeholder="Ej: 5.50">
-                                </div>
-                                <button type="submit" class="btn btn-danger w-100"><i class="bi bi-x-circle-fill me-2"></i>Confirmar Inconsistencia</button>
-                            </form>
-                        </div>
-                    
-                    <!-- CASO 3: VISTA SIMPLE (REPORTE CONCILIADO O VISTA DE CLIENTE SIN ACCIÓN) -->
-                    {% else %}
-                        <div class="alert alert-info">
-                            <p class="mb-0">Este es un reporte de solo lectura. El estado actual es <strong>{{ pago.status_display }}</strong>.</p>
-                        </div>
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Detalles del Reporte</h5>
+        </div>
+        <div class="card-body p-4">
+            <div class="detail-grid">
+                <div class="detail-item"><span class="label">Cliente</span><span class="value">{{ pago.nombre_apellido }}</span></div>
+                <div class="detail-item"><span class="label">Cédula</span><span class="value">{{ pago.cedula }}</span></div>
+                <div class="detail-item"><span class="label">Fecha del Reporte</span><span class="value">{{ pago.fecha_creacion | format_datetime }}</span></div>
+                <div class="detail-item"><span class="label">Fecha del Pago</span><span class="value">{{ pago.fecha_pago | format_date }}</span></div>
+                <div class="detail-item"><span class="label">Concepto</span><span class="value">{{ pago.por_concepto_de or pago.tipo_pago }}</span></div>
+                <div class="detail-item"><span class="label">Monto (USD)</span><span class="value fw-bold text-success">${{ "%.2f"|format(pago.monto) }}</span></div>
+                <div class="detail-item"><span class="label">Forma de Pago</span><span class="value">{{ pago.forma_pago }}</span></div>
+                <div class="detail-item"><span class="label">Referencia</span><span class="value">{{ pago.referencia or 'N/A' }}</span></div>
+                {% if pago.detalles_reporte %}
+                    {% if pago.detalles_reporte.telefono_emisor %}
+                    <div class="detail-item"><span class="label">Teléfono Emisor (Pago Móvil)</span><span class="value">{{ pago.detalles_reporte.telefono_emisor }}</span></div>
                     {% endif %}
-
-                    <!-- Botón de Volver Universal -->
-                    <div class="d-grid mt-3">
-                        {% if is_client_view %}
-                             <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary w-100 mt-2">Volver al Portal</a>
-                        {% else %}
-                             {% set return_url = url_for('pagos_por_conciliar') if origin == 'conciliacion' else url_for('consulta', busqueda=pago.cedula) %}
-                             <a href="{{ return_url }}" class="btn btn-secondary w-100 mt-2">Volver</a>
-                        {% endif %}
-                    </div>
-                </div>
+                    {% if pago.detalles_reporte.cedula_emisor %}
+                    <div class="detail-item"><span class="label">Cédula Emisor (Pago Móvil)</span><span class="value">{{ pago.detalles_reporte.cedula_emisor }}</span></div>
+                    {% endif %}
+                    {% if pago.detalles_reporte.usuario_binance %}
+                    <div class="detail-item"><span class="label">Usuario/ID (Binance)</span><span class="value">{{ pago.detalles_reporte.usuario_binance }}</span></div>
+                    {% endif %}
+                {% endif %}
             </div>
         </div>
     </div>
+
+    <div class="card shadow-sm actions-card">
+        <div class="card-header">
+            <h5 class="mb-0">Acciones de Validación</h5>
+        </div>
+        <div class="card-body p-4">
+            <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST">
+                <p>Selecciona una acción para este reporte. Si lo apruebas, pasará a la lista de conciliación. Si lo rechazas, se notificará al cliente.</p>
+                
+                <div id="rejection-fields" class="mb-3">
+                    <div class="form-group mb-3">
+                        <label for="motivo_rechazo" class="form-label"><strong>Motivo del Rechazo</strong></label>
+                        <select name="motivo_rechazo" id="motivo_rechazo" class="form-select">
+                            <option value="Referencia inválida">Referencia inválida o no encontrada</option>
+                            <option value="Diferencia de Monto">Diferencia de Monto</option>
+                            <option value="Datos incorrectos">Datos del reporte incorrectos (fecha, banco, etc.)</option>
+                            <option value="Otro">Otro (especificar en auditoría)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="diferencia-monto-group" style="display: none;">
+                        <label for="diferencia_monto" class="form-label">Monto Faltante (USD)</label>
+                        <input type="number" step="0.01" name="diferencia_monto" class="form-control" placeholder="Ej: 5.50">
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" id="btn-show-reject" class="btn btn-outline-danger">Rechazar Reporte</button>
+                    <button type="submit" name="accion" value="rechazar" id="btn-confirm-reject" class="btn btn-danger" style="display: none;">Confirmar Rechazo</button>
+                    <button type="submit" name="accion" value="aprobar" id="btn-approve" class="btn btn-success"><i class="bi bi-check-circle-fill me-1"></i> Aprobar y Enviar a Conciliación</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts_extra %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const motivoRechazo = document.getElementById('motivo_rechazo');
-    if (motivoRechazo) {
-        motivoRechazo.addEventListener('change', function() {
-            const campoDiferencia = document.getElementById('campo_diferencia');
-            const inputDiferencia = document.getElementById('diferencia_monto');
-            if (this.value === 'Diferencia de Monto') {
-                campoDiferencia.style.display = 'block';
-                inputDiferencia.required = true;
-            } else {
-                campoDiferencia.style.display = 'none';
-                inputDiferencia.required = false;
-            }
-        });
-    }
+    const btnShowReject = document.getElementById('btn-show-reject');
+    const btnConfirmReject = document.getElementById('btn-confirm-reject');
+    const btnApprove = document.getElementById('btn-approve');
+    const rejectionFields = document.getElementById('rejection-fields');
+    const motivoSelect = document.getElementById('motivo_rechazo');
+    const diferenciaGroup = document.getElementById('diferencia-monto-group');
+
+    btnShowReject.addEventListener('click', function() {
+        rejectionFields.style.display = 'block';
+        btnConfirmReject.style.display = 'inline-block';
+        btnApprove.style.display = 'none';
+        this.style.display = 'none';
+    });
+
+    motivoSelect.addEventListener('change', function() {
+        if (this.value === 'Diferencia de Monto') {
+            diferenciaGroup.style.display = 'block';
+        } else {
+            diferenciaGroup.style.display = 'none';
+        }
+    });
 });
 </script>
 {% endblock %}

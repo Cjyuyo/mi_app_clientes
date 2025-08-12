@@ -39,6 +39,9 @@
             border: 1px solid var(--card-borde);
             margin-bottom: 2rem;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .main-header::before {
             content: '';
@@ -55,15 +58,17 @@
             position: relative;
             z-index: 1;
         }
-        .main-header h1 {
+        .header-content h1 {
             font-weight: 800;
             font-size: 2.2rem;
             color: var(--texto-principal);
+            margin-bottom: 0.25rem;
         }
-        .main-header .lead {
+        .header-content .lead {
             color: var(--texto-secundario);
             font-size: 1.1rem;
             max-width: 80%;
+            margin-bottom: 0;
         }
 
         .card {
@@ -79,6 +84,7 @@
         }
         .info-card.cita { border-left-color: var(--azul-info); }
         .info-card.revision { border-left-color: var(--amarillo-warning); }
+        .info-card.inconsistente { border-left-color: var(--rojo-alerta); }
         .info-card.naranja-corporativo { border-left-color: var(--color-acento); }
         .info-card.azul-info { border-left-color: var(--azul-info); }
         .info-card.en\.mora { border-left-color: var(--rojo-alerta); }
@@ -158,8 +164,13 @@
 <body>
     <div class="container-main">
         <div class="main-header">
-            <h1>Portal del Cliente</h1>
-            <p class="lead mb-0">Bienvenido, <strong>{{ cliente.nombre_apellido }}</strong>. Aquí puedes gestionar tu plan y solicitudes.</p>
+            <div class="header-content">
+                <h1>Portal del Cliente</h1>
+                <p class="lead">Bienvenido, <strong>{{ cliente.nombre_apellido }}</strong>. Aquí puedes gestionar tu plan y solicitudes.</p>
+            </div>
+            <a href="{{ url_for('portal_logout') }}" class="btn btn-outline-danger">
+                <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
+            </a>
         </div>
         
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -173,18 +184,46 @@
             {% endif %}
         {% endwith %}
 
-        <!-- Alertas Dinámicas -->
+        <!-- ===== SECCIÓN DE ALERTAS DINÁMICAS (MODIFICADA) ===== -->
         {% if pago_en_proceso %}
-        <div class="card info-card revision">
-            <div class="info-card-header">
-                <i class="bi bi-hourglass-split icon" style="color: var(--amarillo-warning);"></i>
-                <h3>Reporte de Pago en Revisión</h3>
+            {% if pago_en_proceso.estado_reporte == 'Inconsistente' %}
+            <!-- ALERTA PARA REPORTES RECHAZADOS -->
+            <div class="card info-card inconsistente">
+                <div class="info-card-header">
+                    <i class="bi bi-exclamation-triangle-fill icon" style="color: var(--rojo-alerta);"></i>
+                    <h3>Acción Requerida en tu Reporte</h3>
+                </div>
+                <div class="info-card-body">
+                    <p>Tu reporte de pago N°{{ pago_en_proceso.id }} fue revisado y requiere tu atención.</p>
+                    <p><strong>Motivo:</strong> {{ pago_en_proceso.detalles_reporte.motivo or 'No especificado.' }}</p>
+                    
+                    {% if pago_en_proceso.accion_requerida == 'corregir_reporte' %}
+                        <a href="{{ url_for('portal_corregir_reporte', pago_id=pago_en_proceso.id) }}" class="btn btn-warning btn-sm mt-2">
+                            <i class="bi bi-pencil-fill me-1"></i> Corregir Reporte
+                        </a>
+                    {% elif pago_en_proceso.accion_requerida == 'pagar_diferencia' %}
+                        <p><strong>Monto Faltante:</strong> ${{ "%.2f"|format(pago_en_proceso.detalles_reporte.diferencia|float) }}</p>
+                        <a href="{{ url_for('reportar_pago_diferencia', pago_original_id=pago_en_proceso.id) }}" class="btn btn-success btn-sm mt-2">
+                            <i class="bi bi-cash-coin me-1"></i> Pagar Diferencia
+                        </a>
+                    {% endif %}
+                </div>
             </div>
-            <div class="info-card-body">
-                <p>Tu pago por <strong>${{ "%.2f"|format(pago_en_proceso.monto) }}</strong>, reportado el <strong>{{ pago_en_proceso.fecha_creacion | format_datetime }}</strong>, está siendo procesado por nuestro equipo.</p>
+            {% else %}
+            <!-- ALERTA PARA REPORTES EN REVISIÓN -->
+            <div class="card info-card revision">
+                <div class="info-card-header">
+                    <i class="bi bi-hourglass-split icon" style="color: var(--amarillo-warning);"></i>
+                    <h3>Reporte de Pago en Revisión</h3>
+                </div>
+                <div class="info-card-body">
+                    <p>Tu pago por <strong>${{ "%.2f"|format(pago_en_proceso.monto) }}</strong>, reportado el <strong>{{ pago_en_proceso.fecha_creacion | format_datetime }}</strong>, está siendo validado por nuestro equipo.</p>
+                </div>
             </div>
-        </div>
+            {% endif %}
         {% endif %}
+        <!-- ======================================================= -->
+
         {% if cita_confirmada %}
         <div class="card info-card cita">
             <div class="info-card-header">
@@ -310,10 +349,12 @@
                                 <span class="badge text-bg-success">Conciliado</span>
                                 <a href="{{ url_for('ver_recibo', pago_id=pago.id) }}" class="btn btn-secondary btn-sm" target="_blank">Ver Recibo</a>
                             {% elif pago.estado_pago == 'Pendiente' %}
-                                {% if pago.estado_reporte == 'Inconsistente' and pago.detalles_reporte %}
-                                    <span class="badge text-bg-danger" title="{{ pago.detalles_reporte.motivo }}">Inconsistente</span>
+                                {% if pago.estado_reporte == 'Inconsistente' %}
+                                    <span class="badge text-bg-danger" title="{{ pago.detalles_reporte.motivo }}">Requiere Acción</span>
+                                {% elif pago.estado_reporte == 'Pendiente de Revision' %}
+                                    <span class="badge text-bg-warning">En Revisión</span>
                                 {% else %}
-                                    <span class="badge text-bg-warning">Pendiente</span>
+                                     <span class="badge text-bg-info">Aprobado</span>
                                 {% endif %}
                             {% elif pago.estado_pago == 'Anulado' %}
                                 <span class="badge text-bg-danger">Anulado</span>
