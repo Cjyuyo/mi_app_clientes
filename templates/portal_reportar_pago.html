@@ -144,7 +144,15 @@
 document.addEventListener('DOMContentLoaded', function() {
     const pagoEnSelect = document.getElementById('pago_en');
     const container = document.getElementById('transaction_fields_container');
+    
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Se envuelve el código que usa 'pago_a_corregir' en una condición
+    {% if pago_a_corregir %}
     const pagoACorregir = JSON.parse('{{ pago_a_corregir | tojson | safe }}');
+    {% else %}
+    const pagoACorregir = null;
+    {% endif %}
+    // --- FIN DE LA CORRECCIÓN ---
 
     const fieldTemplates = {
         forma_pago: document.getElementById('template_forma_pago').innerHTML,
@@ -185,7 +193,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function buildTransactionFields() {
         const formaPagoValue = document.getElementById('forma_pago').value;
         
-        // Limpiar campos específicos anteriores
         const fieldsToRemove = container.querySelectorAll(':scope > div:not(:first-child)');
         fieldsToRemove.forEach(field => field.remove());
 
@@ -204,7 +211,6 @@ document.addEventListener('DOMContentLoaded', function() {
             container.innerHTML += fieldTemplates.fecha;
         }
         
-        // Rellenar datos si se está corrigiendo
         if (pagoACorregir) {
             if (document.getElementById('banco')) document.getElementById('banco').value = pagoACorregir.banco || '';
             if (document.getElementById('referencia')) document.getElementById('referencia').value = pagoACorregir.referencia || '';
@@ -219,7 +225,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     pagoEnSelect.addEventListener('change', updateFormLayout);
     
-    // Lógica para cálculo de montos en Bs
     const montoUsdInput = document.getElementById('monto_usd');
     const tasaDiaInput = document.getElementById('tasa_dia');
     const montoBsCalculadoInput = document.getElementById('monto_bs_calculado');

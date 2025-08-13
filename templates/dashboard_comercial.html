@@ -5,55 +5,60 @@
 {% endblock %}
 
 {% block body %}
-<div class="space-y-8">
+<div class="space-y-6">
+    <!-- Encabezado de la página -->
     <div class="bg-white p-6 rounded-xl shadow-sm">
         <h1 class="text-3xl font-bold text-slate-800">Dashboard Comercial</h1>
         <p class="text-slate-500 mt-1">Análisis de ingresos por inscripciones y comisiones.</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
-            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-green-100 text-green-600">
-                <i class="bi bi-graph-up-arrow text-2xl"></i>
+    <!-- KPIs Principales -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="bg-white p-4 rounded-xl shadow-sm flex items-center gap-4">
+            <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-green-100 text-green-600">
+                <i class="bi bi-graph-up-arrow text-xl"></i>
             </div>
             <div>
-                <div class="text-sm text-slate-500 font-medium">Ingresos Brutos (Inscripciones)</div>
-                <div class="text-2xl font-bold text-slate-800">${{ "{:,.2f}".format(stats.ingresos_brutos_inscripciones or 0) }}</div>
+                <div class="text-xs text-slate-500 font-medium">Ingresos Brutos</div>
+                <div class="text-xl font-bold text-slate-800">${{ "{:,.2f}".format(stats.ingresos_brutos_inscripciones or 0) }}</div>
             </div>
         </div>
-        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
-            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-orange-100 text-orange-600">
-                <i class="bi bi-wallet2 text-2xl"></i>
+        <div class="bg-white p-4 rounded-xl shadow-sm flex items-center gap-4">
+            <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600">
+                <i class="bi bi-wallet2 text-xl"></i>
             </div>
             <div>
-                <div class="text-sm text-slate-500 font-medium">Nómina Pendiente por Pagar</div>
-                <div class="text-2xl font-bold text-slate-800">${{ "{:,.2f}".format(stats.total_comisiones_pendientes or 0) }}</div>
+                <div class="text-xs text-slate-500 font-medium">Nómina Pendiente</div>
+                <div class="text-xl font-bold text-slate-800">${{ "{:,.2f}".format(stats.total_comisiones_pendientes or 0) }}</div>
             </div>
         </div>
-        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
-            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                <i class="bi bi-building-check text-2xl"></i>
+        <div class="bg-white p-4 rounded-xl shadow-sm flex items-center gap-4">
+            <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                <i class="bi bi-building-check text-xl"></i>
             </div>
             <div>
-                <div class="text-sm text-slate-500 font-medium">Sobrante de Empresa</div>
-                <div class="text-2xl font-bold text-slate-800">${{ "{:,.2f}".format(stats.total_sobrante_pendiente or 0) }}</div>
+                <div class="text-xs text-slate-500 font-medium">Sobrante Empresa</div>
+                <div class="text-xl font-bold text-slate-800">${{ "{:,.2f}".format(stats.total_sobrante_pendiente or 0) }}</div>
             </div>
         </div>
     </div>
 
+    <!-- Contratos y Comisiones -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm">
             <div class="p-5 border-b border-slate-200">
                 <h2 class="text-lg font-bold text-slate-800">Contratos Registrados</h2>
             </div>
-            <div class="overflow-x-auto">
+            
+            <!-- Vista de Tabla para Escritorio -->
+            <div class="overflow-x-auto hidden lg:block">
                 <table class="w-full text-sm text-left text-slate-500">
                     <thead class="text-xs text-slate-700 uppercase bg-slate-50">
                         <tr>
                             <th scope="col" class="px-6 py-3">Contrato</th>
                             <th scope="col" class="px-6 py-3">Cliente</th>
                             <th scope="col" class="px-6 py-3">Monto Inscripción</th>
-                            <th scope="col" class="px-6 py-3">Estado del Pago</th>
+                            <th scope="col" class="px-6 py-3">Responsable</th>
                             <th scope="col" class="px-6 py-3 text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -61,19 +66,12 @@
                         {% for contrato in contratos %}
                         <tr class="bg-white border-b hover:bg-slate-50">
                             <td class="px-6 py-4">{{ contrato.contrato_nro }}</td>
-                            <td class="px-6 py-4 font-medium text-slate-900">{{ contrato.nombre_cliente }}</td>
+                            <td class="px-6 py-4 font-medium text-slate-900"><a href="{{ url_for('perfil_cliente', cliente_id=contrato.cliente_id) }}" class="hover:underline">{{ contrato.nombre }} {{ contrato.apellido }}</a></td>
                             <td class="px-6 py-4 font-semibold">${{ "{:,.2f}".format(contrato.monto_inscripcion) }}</td>
-                            <td class="px-6 py-4">
-                                <span class="py-1 px-2.5 text-xs font-medium rounded-md 
-                                {% if contrato.estado_pago == 'Pagado' %} bg-green-100 text-green-800 
-                                {% elif contrato.estado_pago == 'Pendiente' %} bg-yellow-100 text-yellow-800 
-                                {% else %} bg-red-100 text-red-800 {% endif %}">
-                                    {{ contrato.estado_pago }}
-                                </span>
-                            </td>
+                            <td class="px-6 py-4">{{ contrato.responsable_cierre }}</td>
                             <td class="px-6 py-4 text-center">
-                                <button class="text-blue-600 hover:text-blue-800" data-bs-toggle="modal" data-bs-target="#splitModal" data-contrato-id="{{ contrato.id }}" data-monto-total="{{ contrato.monto_inscripcion }}">
-                                    Dividir Pago
+                                <button class="text-blue-600 hover:text-blue-800 font-semibold" data-bs-toggle="modal" data-bs-target="#splitModal" data-contrato-nro="{{ contrato.contrato_nro }}">
+                                    Ver Split
                                 </button>
                             </td>
                         </tr>
@@ -85,42 +83,57 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- Vista de Cuadrícula Compacta para Móvil -->
+            <div class="lg:hidden p-4">
+                <div class="grid grid-cols-2 gap-3">
+                {% for contrato in contratos %}
+                    <div class="bg-slate-50 rounded-lg p-3 space-y-2 flex flex-col justify-between">
+                        <div>
+                            <p class="font-bold text-sm text-slate-800 truncate">{{ contrato.nombre }} {{ contrato.apellido }}</p>
+                            <p class="text-xs text-slate-500">#{{ contrato.contrato_nro }}</p>
+                        </div>
+                        <div>
+                             <p class="font-semibold text-slate-800">${{ "{:,.2f}".format(contrato.monto_inscripcion) }}</p>
+                             <p class="text-xs text-slate-500">Resp: {{ contrato.responsable_cierre }}</p>
+                        </div>
+                        <div class="text-right pt-1">
+                            <button class="text-blue-600 hover:text-blue-800 font-semibold text-xs" data-bs-toggle="modal" data-bs-target="#splitModal" data-contrato-nro="{{ contrato.contrato_nro }}">
+                                Ver Split
+                            </button>
+                        </div>
+                    </div>
+                {% else %}
+                    <p class="col-span-2 text-center p-6 text-slate-500">No hay contratos registrados.</p>
+                {% endfor %}
+                </div>
+            </div>
         </div>
-        <div class="lg:col-span-1 bg-white rounded-xl shadow-sm overflow-hidden">
+
+        <div class="lg:col-span-1 bg-white rounded-xl shadow-sm">
             <div class="p-5 border-b border-slate-200">
                 <h2 class="text-lg font-bold text-slate-800">Resumen de Comisiones</h2>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm text-left text-slate-500">
-                    <thead class="text-xs text-slate-700 uppercase bg-slate-50">
-                        <tr>
-                            <th scope="col" class="px-6 py-3">Asesor</th>
-                            <th scope="col" class="px-6 py-3 text-right">Monto</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {# ----- CORRECCIÓN AQUÍ ----- #}
-                        {# Se cambió el bucle para iterar sobre la lista `resumen_asesores`. #}
-                        {% for resumen in resumen_asesores %}
-                        <tr class="bg-white border-b hover:bg-slate-50">
-                            <td class="px-6 py-4 font-medium text-slate-900">{{ resumen.nombre_beneficiario }}</td>
-                            <td class="px-6 py-4 text-right font-semibold">${{ "{:,.2f}".format(resumen.total_pendiente) }}</td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="2" class="text-center p-6 text-slate-500">No hay comisiones pendientes.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div class="divide-y divide-slate-100">
+                {% for resumen in resumen_asesores %}
+                <div class="p-3 flex justify-between items-center hover:bg-slate-50">
+                    <span class="font-medium text-sm text-slate-900">{{ resumen.nombre_beneficiario }}</span>
+                    <span class="font-semibold text-sm">${{ "{:,.2f}".format(resumen.total_pendiente) }}</span>
+                </div>
+                {% else %}
+                <p class="text-center p-6 text-slate-500">No hay comisiones pendientes.</p>
+                {% endfor %}
             </div>
         </div>
     </div>
 
+    <!-- Modals -->
     <div class="modal fade" id="splitModal" tabindex="-1">
-        </div>
+        <!-- Contenido del modal -->
+    </div>
     <div class="modal fade" id="historialModal" tabindex="-1">
-        </div>
+        <!-- Contenido del modal -->
+    </div>
 </div>
 {% endblock %}
 
