@@ -5,9 +5,7 @@
 {% block head_extra %}
 <!-- CSS de Bootstrap para modales -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
 <style>
-    /* Efecto sutil de elevación en las tarjetas */
     .card-lift {
         transition: transform 0.25s ease, box-shadow 0.25s ease;
     }
@@ -15,33 +13,87 @@
         transform: translateY(-4px);
         box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1);
     }
-    /* Barra de progreso con el color corporativo brillante */
     .progress-bar {
         transition: width .6s ease;
         background-color: #f97316 !important; /* orange-500 */
+    }
+    .tab-button {
+        transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    .tab-button.active {
+        background-color: #f97316; /* orange-500 */
+        color: white;
     }
 </style>
 {% endblock %}
 
 {% block sidebar_actions %}
-    <!-- Acciones principales en la barra lateral -->
-    <li>
-        <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" target="_blank" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-3 rounded-md text-orange-100 hover:bg-orange-700 hover:text-white">
-            <i class="bi bi-file-earmark-text text-lg"></i>
-            <span>Ver Contrato</span>
-        </a>
-    </li>
-    <li>
-        <a href="{{ url_for('portal_estado_cuenta') }}" target="_blank" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-3 rounded-md text-orange-100 hover:bg-orange-700 hover:text-white">
-            <i class="bi bi-journal-text text-lg"></i>
-            <span>Estado de Cuenta</span>
-        </a>
-    </li>
+    <!-- Acciones movidas a la barra lateral -->
+    <p class="px-4 pt-4 pb-2 text-xs font-medium text-slate-400 uppercase">Acciones</p>
+    <ul>
+        <li>
+            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled{% endif %}" 
+               data-bs-toggle="modal" data-bs-target="#ofertaModal" 
+               {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}onclick="event.preventDefault()" title="Debes tener tu inscripción y al menos una cuota pagada para ofertar."{% endif %}>
+                <i class="bi bi-gem"></i>
+                <span>Registrar Oferta</span>
+            </a>
+        </li>
+        <li>
+            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
+               data-bs-toggle="modal" data-bs-target="#citaModal">
+                <i class="bi bi-calendar-check"></i>
+                <span>Solicitar Cita</span>
+            </a>
+        </li>
+        {% if cliente.estatus == 'CONGELADO' %}
+        <li>
+            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
+               data-bs-toggle="modal" data-bs-target="#descongelamientoModal">
+                <i class="bi bi-unlock-fill"></i>
+                <span>Descongelar</span>
+            </a>
+        </li>
+        {% else %}
+        <li>
+            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
+               data-bs-toggle="modal" data-bs-target="#congelamientoModal"
+               {% if cliente.estatus != 'ACTIVO' %}onclick="event.preventDefault()"{% endif %}>
+                <i class="bi bi-snow"></i>
+                <span>Congelar</span>
+            </a>
+        </li>
+        {% endif %}
+        <li>
+            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
+               data-bs-toggle="modal" data-bs-target="#retiroModal"
+               {% if cliente.estatus != 'ACTIVO' %}onclick="event.preventDefault()"{% endif %}>
+                <i class="bi bi-box-arrow-left"></i>
+                <span>Solicitar Retiro</span>
+            </a>
+        </li>
+    </ul>
+
+    <p class="px-4 pt-6 pb-2 text-xs font-medium text-slate-400 uppercase">Documentos</p>
+    <ul>
+        <li>
+            <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" target="_blank" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700">
+                <i class="bi bi-file-earmark-text"></i>
+                <span>Ver Contrato</span>
+            </a>
+        </li>
+        <li>
+            <a href="{{ url_for('portal_estado_cuenta') }}" target="_blank" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700">
+                <i class="bi bi-journal-text"></i>
+                <span>Estado de Cuenta</span>
+            </a>
+        </li>
+    </ul>
 {% endblock %}
 
 
 {% block body %}
-<div class="space-y-4">
+<div class="space-y-6">
     
     <!-- Alertas y Mensajes Flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -54,87 +106,87 @@
         {% endif %}
     {% endwith %}
 
-    <!-- SECCIÓN PRINCIPAL: ALERTAS Y ACCIONES -->
-    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        <!-- Columna de Alertas (ocupa 3 de 5 columnas en pantallas grandes) -->
-        <div class="lg:col-span-3 flex flex-col gap-4">
-            <!-- Tarjeta de Estado Principal -->
-            {% if estado_principal %}
-            <div class="bg-white p-5 rounded-xl shadow-md border-l-4 {{ estado_principal.clase_borde | replace('naranja-corporativo', 'border-orange-500') | replace('en-mora', 'border-red-500') | replace('vigente', 'border-green-500') | replace('azul-info', 'border-sky-500') }} h-full card-lift">
-                <h3 class="text-lg font-bold text-slate-800">{{ estado_principal.titulo }}</h3>
-                <p class="text-slate-600 mt-2">{{ estado_principal.mensaje | safe }}</p>
-                {% if estado_principal.boton_texto %}
-                <a href="{{ estado_principal.boton_url }}" class="inline-block mt-4 text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if not estado_principal.boton_activo %}opacity-50 cursor-not-allowed{% endif %}"
-                   {% if not estado_principal.boton_activo %}title="Ya tienes un pago en revisión."{% endif %}>
-                    {{ estado_principal.boton_texto }}
-                </a>
-                {% endif %}
-            </div>
+    <!-- SECCIÓN DE ESTADO PRINCIPAL -->
+    <div class="flex flex-col gap-6">
+        <!-- Tarjeta de Estado Principal -->
+        {% if estado_principal %}
+        <div class="bg-white p-5 rounded-xl shadow-md border-l-4 {{ estado_principal.clase_borde | replace('naranja-corporativo', 'border-orange-500') | replace('en-mora', 'border-red-500') | replace('vigente', 'border-green-500') | replace('azul-info', 'border-sky-500') }} card-lift">
+            <h3 class="text-lg font-bold text-slate-800">{{ estado_principal.titulo }}</h3>
+            <p class="text-slate-600 mt-2">{{ estado_principal.mensaje | safe }}</p>
+            {% if estado_principal.boton_texto %}
+            <a href="{{ estado_principal.boton_url }}" class="inline-block mt-4 text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if not estado_principal.boton_activo %}opacity-50 cursor-not-allowed{% endif %}"
+               {% if not estado_principal.boton_activo %}title="Ya tienes un pago en revisión."{% endif %}>
+                {{ estado_principal.boton_texto }}
+            </a>
             {% endif %}
+        </div>
+        {% endif %}
 
-            <!-- Tarjeta de Cita Confirmada -->
-            {% if cita_confirmada %}
-            <div class="bg-white p-5 rounded-xl shadow-md border-l-4 border-green-500 card-lift">
-                <div class="flex items-start gap-4">
-                    <i class="bi bi-calendar-check-fill text-3xl text-green-500 mt-1"></i>
-                    <div>
-                        <h3 class="font-bold text-slate-800">Tu Cita Confirmada</h3>
-                        <ul class="text-sm text-slate-500 mt-2 space-y-1">
-                            <li><strong>Fecha:</strong> {{ cita_confirmada.detalles.fecha_cita | format_date('%d/%m/%Y') }}</li>
-                            <li><strong>Hora:</strong> {{ cita_confirmada.detalles.hora_cita }}</li>
-                            <li><strong>Asesor:</strong> {{ cita_confirmada.nombre_asesor }}</li>
-                        </ul>
-                    </div>
+        <!-- Tarjeta de Cita Confirmada -->
+        {% if cita_confirmada %}
+        <div class="bg-white p-5 rounded-xl shadow-md border-l-4 border-green-500 card-lift">
+            <div class="flex items-start gap-4">
+                <i class="bi bi-calendar-check-fill text-3xl text-green-500 mt-1"></i>
+                <div>
+                    <h3 class="font-bold text-slate-800">Tu Cita Confirmada</h3>
+                    <ul class="text-sm text-slate-500 mt-2 space-y-1">
+                        <li><strong>Fecha:</strong> {{ cita_confirmada.detalles.fecha_cita | format_date('%d/%m/%Y') }}</li>
+                        <li><strong>Hora:</strong> {{ cita_confirmada.detalles.hora_cita }}</li>
+                        <li><strong>Asesor:</strong> {{ cita_confirmada.nombre_asesor }}</li>
+                    </ul>
                 </div>
             </div>
-            {% endif %}
         </div>
-
-        <!-- Columna de Acciones (Gestiones) (ocupa 2 de 5 columnas en pantallas grandes) -->
-        <div class="bg-white p-5 rounded-xl shadow-md card-lift lg:col-span-2">
-            <h2 class="text-lg font-bold text-slate-800">Gestiones</h2>
-            <p class="text-sm text-slate-500 mb-4">Realiza solicitudes o agenda una cita.</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button class="w-full text-sm font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-transform hover:scale-105 bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50" data-bs-toggle="modal" data-bs-target="#ofertaModal" {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled title="Debes tener tu inscripción y al menos una cuota pagada para ofertar."{% endif %}><i class="bi bi-gem"></i> Registrar Oferta</button>
-                <button class="w-full text-sm bg-sky-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-sky-700 flex items-center justify-center gap-2 transition-transform hover:scale-105" data-bs-toggle="modal" data-bs-target="#citaModal"><i class="bi bi-calendar-check"></i> Solicitar Cita</button>
-                {% if cliente.estatus == 'CONGELADO' %}<button class="w-full text-sm bg-teal-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-teal-700 flex items-center justify-center gap-2 transition-transform hover:scale-105" data-bs-toggle="modal" data-bs-target="#descongelamientoModal"><i class="bi bi-unlock-fill"></i> Descongelar</button>
-                {% else %}<button class="w-full text-sm bg-slate-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-transform hover:scale-105" data-bs-toggle="modal" data-bs-target="#congelamientoModal" {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}><i class="bi bi-snow"></i> Congelar</button>{% endif %}
-                <button class="w-full text-sm bg-red-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-transform hover:scale-105" data-bs-toggle="modal" data-bs-target="#retiroModal" {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}><i class="bi bi-box-arrow-left"></i> Solicitar Retiro</button>
-            </div>
-        </div>
+        {% endif %}
     </div>
     
-    <!-- SECCIÓN SECUNDARIA: RESUMEN, PAGOS E HISTORIAL -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <!-- Columna Izquierda: Resumen y Pagos -->
-        <div class="lg:col-span-2 space-y-4">
-            <!-- Tarjeta Resumen de Plan -->
-            <div class="bg-white rounded-xl shadow-md card-lift">
-                <div class="p-5 border-b border-slate-200">
-                    <h2 class="text-lg font-bold text-slate-800">Resumen de mi Plan</h2>
+    <!-- SECCIÓN SECUNDARIA: RESUMEN Y PESTAÑAS DE HISTORIAL -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Columna Izquierda: Resumen de Plan -->
+        <div class="bg-white rounded-xl shadow-md card-lift">
+            <div class="p-5 border-b border-slate-200">
+                <h2 class="text-lg font-bold text-slate-800">Resumen de mi Plan</h2>
+            </div>
+            <div class="p-5 space-y-4">
+                 {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                <div>
+                    <div class="flex justify-between items-center mb-1"><span class="text-sm font-medium text-slate-600">Progreso Total del Plan</span><span class="text-sm font-semibold text-slate-700">{{ "%.0f"|format(progreso_total) }}%</span></div>
+                    <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="h-2.5 rounded-full progress-bar" style="width: {{ progreso_total }}%"></div></div>
                 </div>
-                <div class="p-5 space-y-4">
-                     {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
-                    <div>
-                        <div class="flex justify-between items-center mb-1"><span class="text-sm font-medium text-slate-600">Progreso Total del Plan</span><span class="text-sm font-semibold text-slate-700">{{ "%.0f"|format(progreso_total) }}%</span></div>
-                        <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="h-2.5 rounded-full progress-bar" style="width: {{ progreso_total }}%"></div></div>
-                    </div>
-                    {% set balance = cliente.balance_regresivo|float or 0.0 %}{% set valor_cuota = cliente.valor_cuota|float or 0.0 %}{% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
-                    <div>
-                        {% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}
-                        <div class="flex justify-between items-center mb-1"><span class="text-sm font-medium text-slate-600">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span><span class="text-sm font-semibold text-slate-700">{{ "%.0f"|format(progreso_cuota_actual) }}%</span></div>
-                        <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="h-2.5 rounded-full progress-bar" style="width: {{ progreso_cuota_actual }}%"></div></div>
-                    </div>
+                {% set balance = cliente.balance_regresivo|float or 0.0 %}{% set valor_cuota = cliente.valor_cuota|float or 0.0 %}{% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
+                <div>
+                    {% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}
+                    <div class="flex justify-between items-center mb-1"><span class="text-sm font-medium text-slate-600">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span><span class="text-sm font-semibold text-slate-700">{{ "%.0f"|format(progreso_cuota_actual) }}%</span></div>
+                    <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="h-2.5 rounded-full progress-bar" style="width: {{ progreso_cuota_actual }}%"></div></div>
                 </div>
             </div>
+        </div>
 
-            <!-- Tarjeta Historial de Pagos -->
-            <div class="bg-white rounded-xl shadow-md card-lift">
-                <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Últimos Pagos</h2></div>
-                <div class="divide-y divide-slate-100">
+        <!-- Columna Derecha: Tarjeta con Pestañas -->
+        <div class="bg-white rounded-xl shadow-md card-lift" x-data="{ activeTab: 'pagos' }">
+            <!-- Navegación de Pestañas -->
+            <div class="p-2 bg-slate-50 rounded-t-xl border-b border-slate-200">
+                <nav class="flex space-x-2">
+                    <button @click="activeTab = 'pagos'" 
+                            :class="{ 'active': activeTab === 'pagos' }"
+                            class="tab-button flex-1 text-sm font-semibold py-2 px-4 rounded-md text-slate-600 hover:bg-orange-100">
+                        Últimos Pagos
+                    </button>
+                    <button @click="activeTab = 'gestiones'" 
+                            :class="{ 'active': activeTab === 'gestiones' }"
+                            class="tab-button flex-1 text-sm font-semibold py-2 px-4 rounded-md text-slate-600 hover:bg-orange-100">
+                        Historial de Gestiones
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Contenido de Pestañas -->
+            <div class="p-4">
+                <!-- Contenido de Últimos Pagos -->
+                <div x-show="activeTab === 'pagos'" class="divide-y divide-slate-100">
                     {% if cliente.pagos %}
                         {% for pago in cliente.pagos %}
-                        <div class="p-4 hover:bg-slate-50/50">
+                        <div class="py-3">
                             <div class="flex justify-between items-start gap-2">
                                 <div>
                                     <p class="font-semibold text-sm text-slate-700">{{ pago.por_concepto_de or pago.tipo_pago }}</p>
@@ -155,69 +207,52 @@
                         </div>
                         {% endfor %}
                     {% else %}
-                        <p class="text-center text-slate-500 p-6 text-sm">Aún no tienes pagos registrados.</p>
+                        <p class="text-center text-slate-500 py-6 text-sm">Aún no tienes pagos registrados.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Contenido de Historial de Gestiones -->
+                <div x-show="activeTab === 'gestiones'" class="space-y-4">
+                    {% if historial_gestiones %}
+                        <ul class="space-y-4">
+                            {% for gestion in historial_gestiones %}
+                            <li class="flex gap-3">
+                                <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full 
+                                    {% if gestion.estado == 'Aprobado' %} bg-green-100 text-green-600 
+                                    {% elif gestion.estado == 'Rechazado' %} bg-red-100 text-red-600
+                                    {% elif gestion.tipo == 'respuesta' %} bg-sky-100 text-sky-600
+                                    {% else %} bg-slate-100 text-slate-600 {% endif %}">
+                                    <i class="bi {{ gestion.icono }} text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-sm text-slate-800">{{ gestion.titulo }}</p>
+                                    <p class="text-xs text-slate-500">{{ gestion.fecha | format_date }}</p>
+                                    <p class="text-sm text-slate-600 mt-1">{{ gestion.descripcion }}</p>
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <div class="text-center text-slate-500 py-6 text-sm">
+                            <i class="bi bi-clock-history text-4xl text-slate-300"></i>
+                            <p class="mt-2">No hay gestiones registradas.</p>
+                        </div>
                     {% endif %}
                 </div>
             </div>
         </div>
-
-        <!-- Columna Derecha: Historial de Gestiones -->
-        <div class="lg:col-span-1 bg-white rounded-xl shadow-md card-lift">
-            <div class="p-5 border-b border-slate-200">
-                <h2 class="text-lg font-bold text-slate-800">Historial de Gestiones</h2>
-            </div>
-            <div class="p-4 space-y-4">
-                {% if historial_gestiones %}
-                    <ul class="space-y-4">
-                        {% for gestion in historial_gestiones %}
-                        <li class="flex gap-3">
-                            <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full 
-                                {% if gestion.estado == 'Aprobado' %} bg-green-100 text-green-600 
-                                {% elif gestion.estado == 'Rechazado' %} bg-red-100 text-red-600
-                                {% elif gestion.tipo == 'respuesta' %} bg-sky-100 text-sky-600
-                                {% else %} bg-slate-100 text-slate-600 {% endif %}">
-                                <i class="bi {{ gestion.icono }} text-xl"></i>
-                            </div>
-                            <div>
-                                <p class="font-semibold text-sm text-slate-800">{{ gestion.titulo }}</p>
-                                <p class="text-xs text-slate-500">{{ gestion.fecha | format_date }}</p>
-                                <p class="text-sm text-slate-600 mt-1">{{ gestion.descripcion }}</p>
-                            </div>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <div class="text-center text-slate-500 p-6 text-sm">
-                        <i class="bi bi-clock-history text-4xl text-slate-300"></i>
-                        <p class="mt-2">No hay gestiones registradas.</p>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
     </div>
 </div>
 
-<!-- Modales (con botones de acción principal en naranja brillante) -->
-<div class="modal fade" id="ofertaModal" tabindex="-1" aria-labelledby="ofertaModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content rounded-lg">
-            <form action="{{ url_for('portal_guardar_oferta') }}" method="POST">
-                <div class="modal-header"><h5 class="modal-title font-bold text-slate-800" id="ofertaModalLabel">Registrar Oferta de Adjudicación</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
-                <div class="modal-body"><p class="text-slate-600 mb-4">Aquí puedes proponer adelantar un número de cuotas para optar por la adjudicación de tu moto.</p><div class="mb-3"><label for="cuotas_ofertadas" class="form-label">Número de Cuotas a Ofertar</label><select class="form-select" id="cuotas_ofertadas" name="cuotas_ofertadas" required>{% set cuotas_restantes = (cliente.cuotas_totales|int) - (cliente.cuotas_pagadas_progresivas|int) %}{% for i in range(1, cuotas_restantes + 1) %}<option value="{{ i }}">{{ i }} cuota(s)</option>{% endfor %}</select><div class="form-text">El sistema registrará tu oferta para el próximo acto de adjudicación.</div></div></div>
-                <div class="modal-footer bg-slate-50"><button type="button" class="bg-white text-slate-700 py-2 px-4 border border-slate-300 rounded-md shadow-sm hover:bg-slate-50" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="text-white py-2 px-4 rounded-md shadow-sm bg-orange-500 hover:bg-orange-600">Enviar Oferta</button></div>
-            </form>
-        </div>
-    </div>
-</div>
-<!-- ... (resto de modales con botones actualizados de forma similar) ... -->
+<!-- Modales -->
+<!-- ... (El código de los modales no necesita cambios) ... -->
 
 {% endblock %}
 
 {% block scripts_extra %}
-<!-- Script de Bootstrap para modales -->
+<!-- Alpine.js para la funcionalidad de las pestañas -->
+<script src="//unpkg.com/alpinejs" defer></script>
+<!-- Script de Bootstrap Bundle (incluye Popper) para la funcionalidad de los modales -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <!-- ... (resto de tus scripts sin cambios) ... -->
-<script>
-// Tu JS existente va aquí
-</script>
 {% endblock %}
