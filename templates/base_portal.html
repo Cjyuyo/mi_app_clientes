@@ -34,19 +34,49 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
+        /* Prevents scrolling of the body when the mobile menu is open */
+        .body-no-scroll {
+            overflow: hidden;
+        }
+        @media (min-width: 768px) {
+            .body-no-scroll {
+                overflow: auto;
+            }
+        }
+        /* Alpine.js cloak to prevent flash of unstyled content */
+        [x-cloak] { display: none !important; }
     </style>
     {% endblock %}
 </head>
 
-<body class="bg-slate-100">
+<body class="bg-slate-100" x-data="{ navOpen: false }" :class="{ 'body-no-scroll': navOpen }">
 
-    <div class="flex flex-col md:flex-row">
-        
-        <aside class="w-full md:w-64 bg-slate-800 text-white md:min-h-screen">
-            <div class="p-4 border-b border-slate-700">
-                <h1 class="text-xl font-bold text-center md:text-left">Moto Plan</h1>
+    <!-- This div wraps the entire page structure -->
+    <div class="relative min-h-screen md:flex">
+
+        <!-- Mobile Header: Visible only on small screens -->
+        <header class="md:hidden bg-slate-800 text-white p-4 flex justify-between items-center sticky top-0 z-30 shadow-md">
+            <h1 class="text-xl font-bold">Moto Plan</h1>
+            <button @click="navOpen = !navOpen" class="text-2xl" aria-label="Toggle menu">
+                <i class="bi" :class="navOpen ? 'bi-x-lg' : 'bi-list'"></i>
+            </button>
+        </header>
+
+        <!-- Overlay for mobile menu: Dims the content when menu is open -->
+        <div x-show="navOpen" x-cloak class="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden" @click="navOpen = false"></div>
+
+        <!-- Sidebar / Navigation Panel -->
+        <aside 
+            class="bg-slate-800 text-white w-64 absolute inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-40"
+            :class="{'translate-x-0': navOpen}"
+        >
+            <!-- Desktop header inside sidebar -->
+            <div class="p-4 border-b border-slate-700 hidden md:block">
+                <h1 class="text-xl font-bold text-center">Moto Plan</h1>
             </div>
-            <nav>
+
+            <!-- Navigation Links -->
+            <nav class="p-4 md:p-0">
                 {% block sidebar_actions %}
                 <p class="px-4 pt-4 pb-2 text-xs font-medium text-slate-400 uppercase">Acciones</p>
                 <ul>
@@ -112,9 +142,10 @@
             </nav>
         </aside>
 
-        <main class="flex-1 p-4 sm:p-6 md:p-8">
+        <!-- Main Content -->
+        <main class="flex-1 p-4">
             {% block body %}
-            <div class="space-y-6">
+            <div class="space-y-4">
 
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
@@ -126,13 +157,15 @@
                     {% endif %}
                 {% endwith %}
             
-                <div class="flex flex-col gap-6">
+                <!-- Main content grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
                     {% if estado_principal %}
-                    <div class="bg-white p-5 rounded-xl shadow-md border-l-4 {{ estado_principal.clase_borde | replace('naranja-corporativo', 'border-orange-500') | replace('en-mora', 'border-red-500') | replace('vigente', 'border-green-500') | replace('azul-info', 'border-sky-500') }} card-lift">
-                        <h3 class="text-lg font-bold text-slate-800">{{ estado_principal.titulo }}</h3>
-                        <p class="text-slate-600 mt-2">{{ estado_principal.mensaje | safe }}</p>
+                    <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow-md border-l-4 {{ estado_principal.clase_borde | replace('naranja-corporativo', 'border-orange-500') | replace('en-mora', 'border-red-500') | replace('vigente', 'border-green-500') | replace('azul-info', 'border-sky-500') }} card-lift">
+                        <h3 class="text-base font-semibold text-slate-800">{{ estado_principal.titulo }}</h3>
+                        <p class="text-slate-600 text-sm mt-1">{{ estado_principal.mensaje | safe }}</p>
                         {% if estado_principal.boton_texto %}
-                        <a href="{{ estado_principal.boton_url }}" class="inline-block mt-4 text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if not estado_principal.boton_activo %}opacity-50 cursor-not-allowed{% endif %}"
+                        <a href="{{ estado_principal.boton_url }}" class="inline-block mt-3 text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if not estado_principal.boton_activo %}opacity-50 cursor-not-allowed{% endif %}"
                            {% if not estado_principal.boton_activo %}title="Ya tienes un pago en revisión."{% endif %}>
                             {{ estado_principal.boton_texto }}
                         </a>
@@ -141,12 +174,12 @@
                     {% endif %}
             
                     {% if cita_confirmada %}
-                    <div class="bg-white p-5 rounded-xl shadow-md border-l-4 border-green-500 card-lift">
-                        <div class="flex items-start gap-4">
-                            <i class="bi bi-calendar-check-fill text-3xl text-green-500 mt-1"></i>
+                    <div class="bg-white p-4 rounded-xl shadow-md border-l-4 border-green-500 card-lift">
+                        <div class="flex items-start gap-3">
+                            <i class="bi bi-calendar-check-fill text-2xl text-green-500"></i>
                             <div>
-                                <h3 class="font-bold text-slate-800">Tu Cita Confirmada</h3>
-                                <ul class="text-sm text-slate-500 mt-2 space-y-1">
+                                <h3 class="font-semibold text-slate-800">Tu Cita Confirmada</h3>
+                                <ul class="text-xs text-slate-500 mt-1 space-y-0.5">
                                     <li><strong>Fecha:</strong> {{ cita_confirmada.detalles.fecha_cita | format_date('%d/%m/%Y') }}</li>
                                     <li><strong>Hora:</strong> {{ cita_confirmada.detalles.hora_cita }}</li>
                                     <li><strong>Asesor:</strong> {{ cita_confirmada.nombre_asesor }}</li>
@@ -155,100 +188,94 @@
                         </div>
                     </div>
                     {% endif %}
-                </div>
-            
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
                     <div class="bg-white rounded-xl shadow-md card-lift">
-                        <div class="p-5 border-b border-slate-200">
-                            <h2 class="text-lg font-bold text-slate-800">Resumen de mi Plan</h2>
+                        <div class="p-4 border-b border-slate-200">
+                            <h2 class="text-base font-semibold text-slate-800">Resumen de mi Plan</h2>
                         </div>
-                        <div class="p-5 space-y-4">
+                        <div class="p-4 space-y-3">
                              {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
                             <div>
-                                <div class="flex justify-between items-center mb-1"><span class="text-sm font-medium text-slate-600">Progreso Total del Plan</span><span class="text-sm font-semibold text-slate-700">{{ "%.0f"|format(progreso_total) }}%</span></div>
-                                <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="h-2.5 rounded-full progress-bar" style="width: {{ progreso_total }}%"></div></div>
+                                <div class="flex justify-between items-center mb-1"><span class="text-xs font-medium text-slate-600">Progreso Total del Plan</span><span class="text-xs font-semibold text-slate-700">{{ "%.0f"|format(progreso_total) }}%</span></div>
+                                <div class="w-full bg-slate-200 rounded-full h-2"><div class="h-2 rounded-full progress-bar" style="width: {{ progreso_total }}%"></div></div>
                             </div>
                             {% set balance = cliente.balance_regresivo|float or 0.0 %}{% set valor_cuota = cliente.valor_cuota|float or 0.0 %}{% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
                             <div>
                                 {% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}
-                                <div class="flex justify-between items-center mb-1"><span class="text-sm font-medium text-slate-600">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span><span class="text-sm font-semibold text-slate-700">{{ "%.0f"|format(progreso_cuota_actual) }}%</span></div>
-                                <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="h-2.5 rounded-full progress-bar" style="width: {{ progreso_cuota_actual }}%"></div></div>
+                                <div class="flex justify-between items-center mb-1"><span class="text-xs font-medium text-slate-600">Abono a cuota N° {{ cuota_regresiva_objetivo }}</span><span class="text-xs font-semibold text-slate-700">{{ "%.0f"|format(progreso_cuota_actual) }}%</span></div>
+                                <div class="w-full bg-slate-200 rounded-full h-2"><div class="h-2 rounded-full progress-bar" style="width: {{ progreso_cuota_actual }}%"></div></div>
                             </div>
                         </div>
                     </div>
             
                     <div class="bg-white rounded-xl shadow-md card-lift" x-data="{ activeTab: 'pagos' }">
                         <div class="p-2 bg-slate-50 rounded-t-xl border-b border-slate-200">
-                            <nav class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                                <button @click="activeTab = 'pagos'"
-                                        :class="{ 'active': activeTab === 'pagos' }"
-                                        class="tab-button flex-1 text-sm font-semibold py-2 px-4 rounded-md text-slate-600 hover:bg-orange-100">
-                                    Últimos Pagos
+                            <nav class="flex space-x-2">
+                                <button @click="activeTab = 'pagos'" :class="{ 'active': activeTab === 'pagos' }" class="tab-button flex-1 text-xs font-semibold py-2 px-3 rounded-md text-slate-600 hover:bg-orange-100">
+                                    Pagos
                                 </button>
-                                <button @click="activeTab = 'gestiones'"
-                                        :class="{ 'active': activeTab === 'gestiones' }"
-                                        class="tab-button flex-1 text-sm font-semibold py-2 px-4 rounded-md text-slate-600 hover:bg-orange-100">
-                                    Historial de Gestiones
+                                <button @click="activeTab = 'gestiones'" :class="{ 'active': activeTab === 'gestiones' }" class="tab-button flex-1 text-xs font-semibold py-2 px-3 rounded-md text-slate-600 hover:bg-orange-100">
+                                    Gestiones
                                 </button>
                             </nav>
                         </div>
             
-                        <div class="p-4">
+                        <div class="p-3">
                             <div x-show="activeTab === 'pagos'">
                                 {% if cliente.pagos %}
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {% for pago in cliente.pagos %}
-                                        <div class="bg-slate-50 p-4 rounded-lg shadow-sm border border-slate-200 flex flex-col justify-between">
+                                        <div class="bg-slate-50 p-3 rounded-lg shadow-sm border border-slate-200 flex flex-col justify-between">
                                             <div>
                                                 <div class="flex justify-between items-start gap-2">
-                                                    <p class="font-semibold text-slate-700 flex-1">{{ pago.por_concepto_de or pago.tipo_pago }}</p>
-                                                    <p class="font-bold text-slate-800 text-right">${{ "%.2f"|format(pago.monto) }}</p>
+                                                    <p class="font-semibold text-xs text-slate-700 flex-1">{{ pago.por_concepto_de or pago.tipo_pago }}</p>
+                                                    <p class="font-bold text-xs text-slate-800 text-right">${{ "%.2f"|format(pago.monto) }}</p>
                                                 </div>
                                                 <p class="text-xs text-slate-500 mt-1">{{ pago.fecha_pago | format_date if pago.fecha_pago else pago.fecha_creacion | format_date }}</p>
                                             </div>
-                                            <div class="mt-3 pt-3 border-t border-slate-200 flex justify-between items-center">
+                                            <div class="mt-2 pt-2 border-t border-slate-200 flex justify-between items-center">
                                                  {% if pago.estado_pago == 'Conciliado' %}<span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-green-100 text-green-800">Conciliado</span>
                                                  {% elif pago.estado_pago == 'Pendiente' %}<span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-yellow-100 text-yellow-800">En Revisión</span>
                                                  {% elif pago.estado_pago == 'Anulado' %}<span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-red-100 text-red-800">Anulado</span>{% endif %}
                                                 <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-orange-500 hover:text-orange-600">
-                                                    <i class="bi bi-receipt"></i> Ver Recibo
+                                                    <i class="bi bi-receipt"></i> Recibo
                                                 </a>
                                             </div>
                                         </div>
                                         {% endfor %}
                                     </div>
                                 {% else %}
-                                    <div class="text-center text-slate-500 py-6 text-sm">
-                                        <i class="bi bi-receipt-cutoff text-4xl text-slate-300"></i>
-                                        <p class="mt-2">Aún no tienes pagos registrados.</p>
+                                    <div class="text-center text-slate-500 py-4 text-sm">
+                                        <i class="bi bi-receipt-cutoff text-3xl text-slate-300"></i>
+                                        <p class="mt-2 text-xs">Aún no tienes pagos registrados.</p>
                                     </div>
                                 {% endif %}
                             </div>
             
-                            <div x-show="activeTab === 'gestiones'" class="space-y-4">
+                            <div x-show="activeTab === 'gestiones'" class="space-y-3">
                                 {% if historial_gestiones %}
-                                    <ul class="space-y-4">
+                                    <ul class="space-y-3">
                                         {% for gestion in historial_gestiones %}
                                         <li class="flex gap-3">
-                                            <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full
+                                            <div class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full
                                                 {% if gestion.estado == 'Aprobado' %} bg-green-100 text-green-600
                                                 {% elif gestion.estado == 'Rechazado' %} bg-red-100 text-red-600
                                                 {% elif gestion.tipo == 'respuesta' %} bg-sky-100 text-sky-600
                                                 {% else %} bg-slate-100 text-slate-600 {% endif %}">
-                                                <i class="bi {{ gestion.icono }} text-xl"></i>
+                                                <i class="bi {{ gestion.icono }} text-lg"></i>
                                             </div>
                                             <div>
-                                                <p class="font-semibold text-sm text-slate-800">{{ gestion.titulo }}</p>
+                                                <p class="font-semibold text-xs text-slate-800">{{ gestion.titulo }}</p>
                                                 <p class="text-xs text-slate-500">{{ gestion.fecha | format_date }}</p>
-                                                <p class="text-sm text-slate-600 mt-1">{{ gestion.descripcion }}</p>
+                                                <p class="text-xs text-slate-600 mt-1">{{ gestion.descripcion }}</p>
                                             </div>
                                         </li>
                                         {% endfor %}
                                     </ul>
                                 {% else %}
-                                    <div class="text-center text-slate-500 py-6 text-sm">
-                                        <i class="bi bi-clock-history text-4xl text-slate-300"></i>
-                                        <p class="mt-2">No hay gestiones registradas.</p>
+                                    <div class="text-center text-slate-500 py-4 text-sm">
+                                        <i class="bi bi-clock-history text-3xl text-slate-300"></i>
+                                        <p class="mt-2 text-xs">No hay gestiones registradas.</p>
                                     </div>
                                 {% endif %}
                             </div>
