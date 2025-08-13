@@ -102,7 +102,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for asesor, monto in stats.comisiones_por_asesor.items() %}
+                        {% for asesor, monto in resumen_asesores.items() %}
                         <tr class="bg-white border-b hover:bg-slate-50">
                             <td class="px-6 py-4 font-medium text-slate-900">{{ asesor }}</td>
                             <td class="px-6 py-4 text-right font-semibold">${{ "{:,.2f}".format(monto) }}</td>

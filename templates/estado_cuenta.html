@@ -85,7 +85,9 @@
                         <tfoot>
                             <tr class="bg-slate-100 font-bold">
                                 <td colspan="4" class="px-6 py-3 text-right text-slate-800">Saldo Final</td>
-                                <td class="px-6 py-3 text-right text-slate-800">${{ "%.2f"|format(saldo_final) }}</td>
+                                <td class="px-6 py-3 text-right text-slate-800">
+                                    {% if movimientos %}${{ "%.2f"|format(movimientos[-1].saldo) }}{% else %}$0.00{% endif %}
+                                </td>
                             </tr>
                         </tfoot>
                     </table>
@@ -102,4 +104,3 @@
     </div>
 </body>
 </html>
-

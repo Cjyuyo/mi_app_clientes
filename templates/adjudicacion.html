@@ -30,8 +30,8 @@
             <div class="bg-white rounded-xl shadow-sm" x-data="{ activeTab: 'ahorradores' }">
                 <div class="px-5 border-b border-slate-200">
                     <nav class="-mb-px flex space-x-6">
-                        <button @click="activeTab = 'ahorradores'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'ahorradores', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ahorradores' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ahorradores ({{ participantes.ahorradores|length }})</button>
-                        <button @click="activeTab = 'ofertas'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'ofertas', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ofertas' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ofertas Activas ({{ participantes.ofertas|length }})</button>
+                        <button @click="activeTab = 'ahorradores'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'ahorradores', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ahorradores' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ahorradores ({{ clientes_elegibles_ahorro|length }})</button>
+                        <button @click="activeTab = 'ofertas'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'ofertas', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ofertas' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ofertas Activas ({{ ofertas_activas|length }})</button>
                     </nav>
                 </div>
                 <div class="p-5">
@@ -47,7 +47,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for p in participantes.ahorradores %}
+                                    {% for p in clientes_elegibles_ahorro %}
                                     <tr class="bg-white border-b hover:bg-slate-50">
                                         <td class="px-6 py-4 font-medium text-slate-900">{{ p.nombre_apellido }}</td>
                                         <td class="px-6 py-4">{{ p.cedula }}</td>
@@ -72,7 +72,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for p in participantes.ofertas %}
+                                    {% for p in ofertas_activas %}
                                     <tr class="bg-white border-b hover:bg-slate-50">
                                         <td class="px-6 py-4 font-medium text-slate-900">{{ p.nombre_apellido }}</td>
                                         <td class="px-6 py-4">{{ p.cedula }}</td>

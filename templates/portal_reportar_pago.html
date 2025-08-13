@@ -1,7 +1,7 @@
 {% extends 'base_portal.html' %}
 
 {% block title %}
-    {% if pago_origen_id %}Pagar Diferencia de Inscripción{% else %}Reportar Pago de Inscripción{% endif %}
+    {% if modo_correccion %}Corregir Reporte de Pago{% elif monto_precargado %}Pagar Diferencia de Pago{% else %}Reportar Pago de Cuota{% endif %}
 {% endblock %}
 
 {% block body %}
@@ -9,189 +9,240 @@
     <!-- Encabezado del Formulario -->
     <div class="bg-slate-800 text-white p-5">
         <h1 class="text-2xl font-bold">
-            {% if pago_origen_id %}
-                <i class="bi bi-plus-circle-fill mr-2"></i>Pagar Diferencia de Inscripción
-            {% else %}
-                <i class="bi bi-cash-coin mr-2"></i>Reportar Pago de Inscripción
+            {% if modo_correccion %}<i class="bi bi-pencil-square mr-2"></i>Corregir Mi Reporte de Pago
+            {% elif monto_precargado %}<i class="bi bi-plus-circle-fill mr-2"></i>Pagar Diferencia de Pago
+            {% else %}<i class="bi bi-cash-coin mr-2"></i>Reportar Pago de Cuota
             {% endif %}
         </h1>
         <p class="text-sm text-slate-300">Cliente: {{ cliente.nombre_apellido }}</p>
     </div>
 
-    <form action="{{ url_for('portal_pagar_inscripcion') }}" method="POST" id="form-reporte-pago" class="p-6 space-y-8">
-        {% if pago_origen_id %}
-            <input type="hidden" name="pago_origen_id" value="{{ pago_origen_id }}">
+    <form action="{{ url_for('portal_reportar_pago') }}" method="POST" class="p-6 space-y-8">
+        <!-- Campos Ocultos -->
+        {% if modo_correccion %}<input type="hidden" name="pago_id_correccion" value="{{ pago_a_corregir.id }}">{% elif pago_origen_id %}<input type="hidden" name="pago_origen_id" value="{{ pago_origen_id }}">{% endif %}
+
+        <!-- Mensajes -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}{% for category, message in messages %}<div class="p-4 rounded-md text-sm {% if category == 'error' %} bg-red-100 text-red-800 {% else %} bg-blue-100 text-blue-800 {% endif %}">{{ message }}</div>{% endfor %}{% endif %}
+        {% endwith %}
+        {% if modo_correccion and pago_a_corregir.detalles_reporte %}
+        <div class="p-4 rounded-md text-sm bg-yellow-100 text-yellow-800"><strong>Motivo de la inconsistencia:</strong> {{ pago_a_corregir.detalles_reporte.motivo }}. Por favor, revisa y corrige los datos.</div>
         {% endif %}
 
-        <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-800 p-4 rounded-r-lg">
-            <strong class="font-semibold">
-                {% if monto_precargado %}
-                    Monto de la Diferencia a Pagar:
-                {% else %}
-                    Monto Pendiente de Inscripción:
-                {% endif %}
-            </strong> 
-            <span class="text-lg font-bold">${{ "%.2f"|format((monto_precargado or monto_restante)|float) }}</span>
+        <div class="bg-slate-50 p-4 rounded-lg flex justify-between items-center">
+            <span class="text-sm text-slate-700">¿Necesitas los datos para realizar un pago?</span>
+            <button type="button" class="text-sm bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-blue-700" data-bs-toggle="modal" data-bs-target="#paymentInfoModal">
+                <i class="bi bi-wallet2 mr-1"></i> Ver Datos
+            </button>
         </div>
 
-        <!-- Sección de Detalles del Monto -->
+        <!-- Sección Detalles del Monto -->
         <div>
-            <h2 class="text-lg font-semibold text-slate-700 border-b pb-2 mb-4">Detalles del Monto y Método</h2>
+            <h2 class="text-lg font-semibold text-slate-700 border-b pb-2 mb-4">Detalles del Monto</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label for="por_concepto_de" class="block text-sm font-medium text-slate-700">Concepto del Pago</label>
-                    <input type="text" id="por_concepto_de" name="por_concepto_de" value="{{ concepto_pago or 'Pago de Inscripción' }}" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" readonly>
+                    <label for="por_concepto_de" class="block text-sm font-medium text-slate-700">Concepto</label>
+                    <input type="text" id="por_concepto_de" name="por_concepto_de" value="{{ concepto_pago or (pago_a_corregir.por_concepto_de if pago_a_corregir else 'Cuota del mes de ' ~ mes_actual) }}" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" readonly>
                 </div>
                 <div>
-                    <label for="pago_en" class="block text-sm font-medium text-slate-700">Pago realizado en</label>
+                    <label for="pago_en" class="block text-sm font-medium text-slate-700">Moneda del Pago</label>
                     <select id="pago_en" name="pago_en" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
-                        <option value="Efectivo USD" selected>Efectivo USD</option>
-                        <option value="Dolar/BCV">Bolívares (Tasa Dólar BCV)</option>
-                        <option value="Euro/BCV">Bolívares (Tasa Euro BCV)</option>
-                        <option value="USDT">USDT (Binance)</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="forma_pago" class="block text-sm font-medium text-slate-700">Forma de Pago</label>
-                    <select id="forma_pago" name="forma_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
-                        <option value="" selected disabled>Seleccione...</option>
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Transferencia Bancaria">Transferencia Bancaria</option>
-                        <option value="Pago Movil">Pago Móvil</option>
-                        <option value="Binance">Binance</option>
+                        <option value="Bolívares" {% if pago_a_corregir and pago_a_corregir.pago_en == 'Bolívares' %}selected{% endif %}>Bolívares</option>
+                        <option value="Binance" {% if (pago_a_corregir and pago_a_corregir.pago_en == 'Binance') or (not pago_a_corregir and contrato_en_dolares) %}selected{% endif %}>Binance (USDT)</option>
                     </select>
                 </div>
                 <div>
                     <label for="monto_usd" class="block text-sm font-medium text-slate-700">Monto del Pago (USD)</label>
-                    <input type="number" id="monto_usd" step="0.01" name="monto" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" value="{{ (monto_precargado or '')|float }}" required {% if monto_precargado %}readonly{% endif %}>
+                    <input type="number" id="monto_usd" step="0.01" name="monto" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" value="{{ (monto_precargado or (pago_a_corregir.monto if pago_a_corregir else cliente.valor_cuota)) | float }}" required {% if monto_precargado %}readonly{% endif %}>
+                </div>
+                <div id="tasa_dia_group" style="display: none;">
+                    <label for="tasa_dia" class="block text-sm font-medium text-slate-700">Tasa del Día (BCV)</label>
+                    <input type="number" id="tasa_dia" step="0.01" name="tasa_dia" value="{{ (pago_a_corregir.tasa_dia if pago_a_corregir else tasas_hoy.tasa) if tasas_hoy and tasas_hoy.tasa else '' }}" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" readonly>
                 </div>
                 <div id="monto_bs_group" style="display: none;" class="md:col-span-2">
                     <label for="monto_bs_calculado" class="block text-sm font-medium text-slate-700">Monto en Bs (Calculado)</label>
                     <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" readonly>
-                    <input type="hidden" id="tasa_dia" name="tasa_dia">
                 </div>
             </div>
         </div>
 
-        <!-- Sección de Información Adicional -->
+        <!-- Sección Información de la Transacción -->
         <div>
-            <h2 class="text-lg font-semibold text-slate-700 border-b pb-2 mb-4">Información Adicional</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div id="banco_group" style="display: none;">
-                    <label for="banco" class="block text-sm font-medium text-slate-700">Banco</label>
-                    <select id="banco" name="banco" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                        <option value="">Seleccione un banco...</option>
-                        <option value="0102 - Banco de Venezuela S.A.C.A.">0102 - Banco de Venezuela</option>
-                        <option value="0105 - Mercantil Banco Universal C.A.">0105 - Mercantil</option>
-                        <option value="0108 - BBVA Banco Provincial">0108 - BBVA Provincial</option>
-                        <option value="0134 - Banesco Banco Universal C.A.">0134 - Banesco</option>
-                        <option value="0151 - BFC Banco Fondo Común C.A.">0151 - BFC</option>
-                        <option value="0172 - Bancamiga Banco Universal C.A.">0172 - Bancamiga</option>
-                        <option value="0191 - Banco Nacional de Crédito (BNC)">0191 - BNC</option>
-                    </select>
-                </div>
-                <div id="referencia_group" style="display: none;">
-                    <label for="referencia" class="block text-sm font-medium text-slate-700">N° de Referencia</label>
-                    <input type="text" id="referencia" name="referencia" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label for="fecha_pago" class="block text-sm font-medium text-slate-700">Fecha del Pago</label>
-                    <input type="date" id="fecha_pago" name="fecha_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
-                </div>
+            <h2 class="text-lg font-semibold text-slate-700 border-b pb-2 mb-4">Información de la Transacción</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="transaction_fields_container">
+                <!-- Los campos se generan dinámicamente aquí -->
             </div>
         </div>
 
-        <!-- Acciones del Formulario -->
+        <!-- Acciones -->
         <div class="flex justify-end gap-3 pt-4 border-t">
             <a href="{{ url_for('portal_dashboard') }}" class="text-sm bg-white text-slate-700 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50">Cancelar</a>
-            <button type="submit" id="submit-button" class="text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50" disabled>
-                <i class="bi bi-send-fill mr-1"></i> Reportar Pago
+            <button type="submit" class="text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700">
+                <i class="bi bi-send-fill mr-1"></i>{% if modo_correccion %}Corregir y Enviar{% else %}Reportar Pago{% endif %}
             </button>
         </div>
     </form>
 </div>
+
+<!-- Templates para campos dinámicos -->
+<template id="template_forma_pago">
+    <div>
+        <label for="forma_pago" class="block text-sm font-medium text-slate-700">Forma de Pago</label>
+        <select id="forma_pago" name="forma_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></select>
+    </div>
+</template>
+<template id="template_referencia">
+    <div>
+        <label for="referencia" class="block text-sm font-medium text-slate-700">N° de Referencia</label>
+        <input type="text" id="referencia" name="referencia" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+    </div>
+</template>
+<template id="template_fecha">
+    <div>
+        <label for="fecha_pago" class="block text-sm font-medium text-slate-700">Fecha del Pago</label>
+        <input type="date" id="fecha_pago" name="fecha_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+    </div>
+</template>
+<template id="template_pago_movil">
+    <div>
+        <label for="telefono_emisor" class="block text-sm font-medium text-slate-700">Teléfono Emisor</label>
+        <input type="tel" id="telefono_emisor" name="telefono_emisor" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+    </div>
+    <div>
+        <label for="cedula_emisor" class="block text-sm font-medium text-slate-700">Cédula Emisor</label>
+        <input type="text" id="cedula_emisor" name="cedula_emisor" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+    </div>
+</template>
+<template id="template_banco">
+    <div>
+        <label for="banco" class="block text-sm font-medium text-slate-700">Banco</label>
+        <select id="banco" name="banco" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+            <option value="">Seleccione un banco...</option>
+            <option value="0102 - Banco de Venezuela S.A.C.A.">0102 - Banco de Venezuela</option>
+            <option value="0105 - Mercantil Banco Universal C.A.">0105 - Mercantil</option>
+            <option value="0108 - BBVA Banco Provincial">0108 - BBVA Provincial</option>
+            <option value="0134 - Banesco Banco Universal C.A.">0134 - Banesco</option>
+            <option value="0151 - BFC Banco Fondo Común C.A.">0151 - BFC</option>
+            <option value="0172 - Bancamiga Banco Universal C.A.">0172 - Bancamiga</option>
+            <option value="0191 - Banco Nacional de Crédito (BNC)">0191 - BNC</option>
+        </select>
+    </div>
+</template>
+<template id="template_binance">
+    <div>
+        <label for="usuario_binance" class="block text-sm font-medium text-slate-700">Usuario o ID de Binance</label>
+        <input type="text" id="usuario_binance" name="usuario_binance" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+    </div>
+</template>
+
+<!-- Modal con Datos de Pago -->
+<div class="modal fade" id="paymentInfoModal" tabindex="-1">...</div>
 {% endblock %}
 
 {% block scripts_extra %}
 <script>
-// El script original se mantiene para la funcionalidad
 document.addEventListener('DOMContentLoaded', function() {
-    const tasaUsd = {{ tasas_hoy.tasa|float if tasas_hoy and tasas_hoy.tasa else 'null' }};
-    const tasaEur = {{ tasas_hoy.tasa_euro|float if tasas_hoy and tasas_hoy.tasa_euro else 'null' }};
-    
-    const form = document.getElementById('form-reporte-pago');
-    const submitButton = document.getElementById('submit-button');
     const pagoEnSelect = document.getElementById('pago_en');
-    const formaPagoSelect = document.getElementById('forma_pago');
+    const container = document.getElementById('transaction_fields_container');
+    const pagoACorregir = JSON.parse('{{ pago_a_corregir | tojson | safe }}');
+
+    const fieldTemplates = {
+        forma_pago: document.getElementById('template_forma_pago').innerHTML,
+        referencia: document.getElementById('template_referencia').innerHTML,
+        fecha: document.getElementById('template_fecha').innerHTML,
+        pago_movil: document.getElementById('template_pago_movil').innerHTML,
+        banco: document.getElementById('template_banco').innerHTML,
+        binance: document.getElementById('template_binance').innerHTML,
+    };
+
+    function updateFormLayout() {
+        const pagoEnValue = pagoEnSelect.value;
+        container.innerHTML = ''; 
+
+        let formaPagoOptions = '';
+        if (pagoEnValue === 'Bolívares') {
+            formaPagoOptions = `
+                <option value="">Seleccione...</option>
+                <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+                <option value="Pago Movil">Pago Móvil</option>
+            `;
+        } else if (pagoEnValue === 'Binance') {
+            formaPagoOptions = `<option value="Binance" selected>Binance</option>`;
+        }
+        
+        container.innerHTML += fieldTemplates.forma_pago;
+        const formaPagoSelect = document.getElementById('forma_pago');
+        formaPagoSelect.innerHTML = formaPagoOptions;
+        
+        if (pagoACorregir && pagoACorregir.forma_pago) {
+            formaPagoSelect.value = pagoACorregir.forma_pago;
+        }
+
+        formaPagoSelect.addEventListener('change', buildTransactionFields);
+        buildTransactionFields();
+    }
+
+    function buildTransactionFields() {
+        const formaPagoValue = document.getElementById('forma_pago').value;
+        
+        // Limpiar campos específicos anteriores
+        const fieldsToRemove = container.querySelectorAll(':scope > div:not(:first-child)');
+        fieldsToRemove.forEach(field => field.remove());
+
+        if (formaPagoValue === 'Transferencia Bancaria') {
+            container.innerHTML += fieldTemplates.banco;
+            container.innerHTML += fieldTemplates.referencia;
+            container.innerHTML += fieldTemplates.fecha;
+        } else if (formaPagoValue === 'Pago Movil') {
+            container.innerHTML += fieldTemplates.banco;
+            container.innerHTML += fieldTemplates.pago_movil;
+            container.innerHTML += fieldTemplates.referencia;
+            container.innerHTML += fieldTemplates.fecha;
+        } else if (formaPagoValue === 'Binance') {
+            container.innerHTML += fieldTemplates.binance;
+            container.innerHTML += fieldTemplates.referencia;
+            container.innerHTML += fieldTemplates.fecha;
+        }
+        
+        // Rellenar datos si se está corrigiendo
+        if (pagoACorregir) {
+            if (document.getElementById('banco')) document.getElementById('banco').value = pagoACorregir.banco || '';
+            if (document.getElementById('referencia')) document.getElementById('referencia').value = pagoACorregir.referencia || '';
+            if (document.getElementById('fecha_pago')) document.getElementById('fecha_pago').value = pagoACorregir.fecha_pago ? pagoACorregir.fecha_pago.split(' ')[0] : '';
+            if (pagoACorregir.detalles_reporte) {
+                if (document.getElementById('telefono_emisor')) document.getElementById('telefono_emisor').value = pagoACorregir.detalles_reporte.telefono_emisor || '';
+                if (document.getElementById('cedula_emisor')) document.getElementById('cedula_emisor').value = pagoACorregir.detalles_reporte.cedula_emisor || '';
+                if (document.getElementById('usuario_binance')) document.getElementById('usuario_binance').value = pagoACorregir.detalles_reporte.usuario_binance || '';
+            }
+        }
+    }
+
+    pagoEnSelect.addEventListener('change', updateFormLayout);
+    
+    // Lógica para cálculo de montos en Bs
     const montoUsdInput = document.getElementById('monto_usd');
     const tasaDiaInput = document.getElementById('tasa_dia');
-    const montoBsGroup = document.getElementById('monto_bs_group');
     const montoBsCalculadoInput = document.getElementById('monto_bs_calculado');
-    const referenciaGroup = document.getElementById('referencia_group');
-    const referenciaInput = document.getElementById('referencia');
-    const bancoGroup = document.getElementById('banco_group');
-    const bancoSelect = document.getElementById('banco');
-    const fechaPagoInput = document.getElementById('fecha_pago');
-
-    function checkFormValidity() {
-        let isValid = true;
-        if (!montoUsdInput.value || parseFloat(montoUsdInput.value) <= 0) isValid = false;
-        if (!fechaPagoInput.value) isValid = false;
-        if (!formaPagoSelect.value) isValid = false;
-        const formaPagoValue = formaPagoSelect.value;
-        if (formaPagoValue !== 'Efectivo') {
-            if (!referenciaInput.value.trim()) isValid = false;
-        }
-        if (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil') {
-            if (!bancoSelect.value) isValid = false;
-        }
-        submitButton.disabled = !isValid;
-    }
+    const montoBsGroup = document.getElementById('monto_bs_group');
+    const tasaDiaGroup = document.getElementById('tasa_dia_group');
 
     function calcularMontoBs() {
         const montoUsd = parseFloat(montoUsdInput.value) || 0;
         const tasaDia = parseFloat(tasaDiaInput.value) || 0;
-        montoBsCalculadoInput.value = (montoUsd > 0 && tasaDia > 0) ? (montoUsd * tasaDia).toFixed(2) : '';
-    }
-
-    function handlePagoEnChange() {
-        const pagoEnValue = pagoEnSelect.value;
-        tasaDiaInput.value = '';
-        montoBsGroup.style.display = 'none';
-        if (pagoEnValue === 'Dolar/BCV') {
-            tasaDiaInput.value = tasaUsd || '';
-            if (!tasaUsd) alert('No se pudo cargar la tasa de cambio para hoy.');
+        if (montoUsd > 0 && tasaDia > 0) {
+            montoBsCalculadoInput.value = (montoUsd * tasaDia).toFixed(2);
             montoBsGroup.style.display = 'block';
-        } else if (pagoEnValue === 'Euro/BCV') {
-            tasaDiaInput.value = tasaEur || '';
-            if (!tasaEur) alert('No se pudo cargar la tasa de cambio para hoy.');
-            montoBsGroup.style.display = 'block';
+            tasaDiaGroup.style.display = 'block';
+        } else {
+            montoBsCalculadoInput.value = '';
+            montoBsGroup.style.display = 'none';
+            tasaDiaGroup.style.display = 'none';
         }
-        calcularMontoBs();
-        checkFormValidity();
     }
-
-    function toggleFieldsByFormaPago() {
-        const formaPagoValue = formaPagoSelect.value;
-        const isEfectivo = formaPagoValue === 'Efectivo';
-        referenciaGroup.style.display = isEfectivo ? 'none' : 'block';
-        bancoGroup.style.display = (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil') ? 'block' : 'none';
-        checkFormValidity();
-    }
-
-    form.querySelectorAll('input, select').forEach(el => {
-        el.addEventListener('input', checkFormValidity);
-        el.addEventListener('change', checkFormValidity);
-    });
-
-    pagoEnSelect.addEventListener('change', handlePagoEnChange);
-    formaPagoSelect.addEventListener('change', toggleFieldsByFormaPago);
     montoUsdInput.addEventListener('input', calcularMontoBs);
     
-    handlePagoEnChange();
-    toggleFieldsByFormaPago();
-    fechaPagoInput.valueAsDate = new Date();
-    checkFormValidity();
+    updateFormLayout();
+    calcularMontoBs();
 });
 </script>
 {% endblock %}
