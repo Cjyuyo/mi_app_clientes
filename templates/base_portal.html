@@ -1,270 +1,266 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{% endblock %} | Portal del Cliente</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+{% extends "base_portal.html" %}
 
-    <style>
-        :root {
-            --color-azul-corp: #2B3A55;
-            --color-naranja-corp: #F99417;
-        }
+{% block title %}Mi Portal - Moto Plan{% endblock %}
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #eff6ff; /* Color de fondo base (blue-50) */
-            padding-bottom: 72px; /* Espacio para la barra de navegación inferior en móviles */
-        }
-        
-        @media (min-width: 768px) {
-            body {
-                padding-bottom: 0; /* Quitar el padding en vistas de escritorio */
-            }
-        }
+{% block head_extra %}
+<!-- CSS de Bootstrap para modales -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    .card-lift {
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .card-lift:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    .progress-bar {
+        transition: width .6s ease;
+        background-color: #f97316 !important; /* orange-500 */
+    }
+    .tab-button {
+        transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    .tab-button.active {
+        background-color: #f97316; /* orange-500 */
+        color: white;
+    }
+    .disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
 
-        /* Estilos para el fondo dinámico "Aurora" */
-        @keyframes slow-pan {
-            0% { transform: translate(0, 0); }
-            25% { transform: translate(20px, -10px); }
-            50% { transform: translate(40px, 0px); }
-            75% { transform: translate(20px, 10px); }
-            100% { transform: translate(0, 0); }
-        }
-
-        .aurora-background-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            overflow: hidden;
-        }
-
-        .aurora-background-container::before,
-        .aurora-background-container::after {
-            content: '';
-            position: absolute;
-            width: 50vw;
-            height: 50vh;
-            border-radius: 50%;
-            opacity: 0.15;
-            filter: blur(100px);
-            animation: slow-pan 25s linear infinite;
-        }
-
-        .aurora-background-container::before {
-            background: radial-gradient(circle, #2563eb, transparent 70%);
-            top: 5%;
-            left: -10%;
-        }
-
-        .aurora-background-container::after {
-            background: radial-gradient(circle, #0d9488, transparent 70%);
-            bottom: 5%;
-            right: -10%;
-            animation-delay: -12.5s;
-        }
-        
-        /* Estilos para la Sidebar */
-        .sidebar {
-            transition: transform 0.3s ease-in-out;
-        }
-        .sidebar-link {
-            transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
-        }
-        .sidebar-link.active {
-            background-color: var(--color-naranja-corp); /* Color corporativo naranja */
-            color: #ffffff; /* white */
-            font-weight: 600;
-        }
-        .sidebar-link.active i {
-            color: #ffffff;
-        }
-        .sidebar-link.disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .sidebar-overlay {
-            transition: opacity 0.3s ease-in-out;
-        }
-        .sidebar-nav::-webkit-scrollbar { display: none; }
-        .sidebar-nav { -ms-overflow-style: none; scrollbar-width: none; }
-    </style>
-    
-    <style>
-        html, body {
-            /* Oculta cualquier desbordamiento horizontal en toda la página */
-            overflow-x: hidden;
-            width: 100%;
-        }
-
-        body {
-            /* Asegura que el body use el 100% del ancho disponible sin excederse */
-            position: relative;
-        }
-
-        /*
-        Esta es una de las reglas más importantes para el diseño responsivo.
-        Asegura que el padding y los bordes se incluyan en el ancho total
-        de un elemento, en lugar de sumarse, previniendo desbordamientos.
-        */
-        * {
-            box-sizing: border-box;
-        }
-
-        /*
-        Esta regla fuerza a que el texto largo que no tiene espacios 
-        (como una referencia o un enlace) se rompa y pase a la siguiente línea
-        en lugar de causar un scroll horizontal.
-        */
-        p, span, a, h1, h2, h3, h4, div {
-            overflow-wrap: break-word;
-            word-wrap: break-word; /* Compatibilidad con navegadores antiguos */
-        }
-    </style>
-    {% block head_extra %}{% endblock %}
-</head>
-<body>
-
-<div class="aurora-background-container"></div>
-
-<div class="flex h-screen relative z-10">
-    <aside id="sidebar" class="sidebar bg-[#2B3A55]/95 backdrop-blur-lg text-slate-100 w-64 flex-shrink-0 flex flex-col fixed h-full z-40 -translate-x-full md:translate-x-0 border-r border-white/20">
-        <div class="flex items-center justify-center h-20 border-b border-slate-700">
-            <a href="{{ url_for('portal_dashboard') }}">
-                <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="h-16">
+{% block sidebar_actions %}
+    <!-- Acciones movidas a la barra lateral -->
+    <p class="px-4 pt-4 pb-2 text-xs font-medium text-slate-400 uppercase">Acciones</p>
+    <ul>
+        <li>
+            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled{% endif %}" 
+               data-bs-toggle="modal" data-bs-target="#ofertaModal" 
+               {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}onclick="event.preventDefault()" title="Debes tener tu inscripción y al menos una cuota pagada para ofertar."{% endif %}>
+                <i class="bi bi-gem"></i>
+                <span>Registrar Oferta</span>
             </a>
+        </li>
+        <li>
+            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
+               data-bs-toggle="modal" data-bs-target="#citaModal">
+                <i class="bi bi-calendar-check"></i>
+                <span>Solicitar Cita</span>
+            </a>
+        </li>
+        {% if cliente.estatus == 'CONGELADO' %}
+        <li>
+            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
+               data-bs-toggle="modal" data-bs-target="#descongelamientoModal">
+                <i class="bi bi-unlock-fill"></i>
+                <span>Descongelar</span>
+            </a>
+        </li>
+        {% else %}
+        <li>
+            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
+               data-bs-toggle="modal" data-bs-target="#congelamientoModal"
+               {% if cliente.estatus != 'ACTIVO' %}onclick="event.preventDefault()"{% endif %}>
+                <i class="bi bi-snow"></i>
+                <span>Congelar</span>
+            </a>
+        </li>
+        {% endif %}
+        <li>
+            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
+               data-bs-toggle="modal" data-bs-target="#retiroModal"
+               {% if cliente.estatus != 'ACTIVO' %}onclick="event.preventDefault()"{% endif %}>
+                <i class="bi bi-box-arrow-left"></i>
+                <span>Solicitar Retiro</span>
+            </a>
+        </li>
+    </ul>
+
+    <p class="px-4 pt-6 pb-2 text-xs font-medium text-slate-400 uppercase">Documentos</p>
+    <ul>
+        <li>
+            <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" target="_blank" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700">
+                <i class="bi bi-file-earmark-text"></i>
+                <span>Ver Contrato</span>
+            </a>
+        </li>
+        <li>
+            <a href="{{ url_for('portal_estado_cuenta') }}" target="_blank" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700">
+                <i class="bi bi-journal-text"></i>
+                <span>Estado de Cuenta</span>
+            </a>
+        </li>
+    </ul>
+{% endblock %}
+
+
+{% block body %}
+<div class="space-y-6">
+    
+    <!-- Alertas y Mensajes Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="p-4 rounded-lg {% if category == 'error' %} bg-red-100 text-red-800 {% else %} bg-orange-100 text-orange-800 {% endif %}" role="alert">
+                {{ message | safe }}
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- SECCIÓN DE ESTADO PRINCIPAL -->
+    <div class="flex flex-col gap-6">
+        <!-- Tarjeta de Estado Principal -->
+        {% if estado_principal %}
+        <div class="bg-white p-5 rounded-xl shadow-md border-l-4 {{ estado_principal.clase_borde | replace('naranja-corporativo', 'border-orange-500') | replace('en-mora', 'border-red-500') | replace('vigente', 'border-green-500') | replace('azul-info', 'border-sky-500') }} card-lift">
+            <h3 class="text-lg font-bold text-slate-800">{{ estado_principal.titulo }}</h3>
+            <p class="text-slate-600 mt-2">{{ estado_principal.mensaje | safe }}</p>
+            {% if estado_principal.boton_texto %}
+            <a href="{{ estado_principal.boton_url }}" class="inline-block mt-4 text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if not estado_principal.boton_activo %}opacity-50 cursor-not-allowed{% endif %}"
+               {% if not estado_principal.boton_activo %}title="Ya tienes un pago en revisión."{% endif %}>
+                {{ estado_principal.boton_texto }}
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Tarjeta de Cita Confirmada -->
+        {% if cita_confirmada %}
+        <div class="bg-white p-5 rounded-xl shadow-md border-l-4 border-green-500 card-lift">
+            <div class="flex items-start gap-4">
+                <i class="bi bi-calendar-check-fill text-3xl text-green-500 mt-1"></i>
+                <div>
+                    <h3 class="font-bold text-slate-800">Tu Cita Confirmada</h3>
+                    <ul class="text-sm text-slate-500 mt-2 space-y-1">
+                        <li><strong>Fecha:</strong> {{ cita_confirmada.detalles.fecha_cita | format_date('%d/%m/%Y') }}</li>
+                        <li><strong>Hora:</strong> {{ cita_confirmada.detalles.hora_cita }}</li>
+                        <li><strong>Asesor:</strong> {{ cita_confirmada.nombre_asesor }}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- SECCIÓN SECUNDARIA: RESUMEN Y PESTAÑAS DE HISTORIAL -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Columna Izquierda: Resumen de Plan -->
+        <div class="bg-white rounded-xl shadow-md card-lift">
+            <div class="p-5 border-b border-slate-200">
+                <h2 class="text-lg font-bold text-slate-800">Resumen de mi Plan</h2>
+            </div>
+            <div class="p-5 space-y-4">
+                 {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                <div>
+                    <div class="flex justify-between items-center mb-1"><span class="text-sm font-medium text-slate-600">Progreso Total del Plan</span><span class="text-sm font-semibold text-slate-700">{{ "%.0f"|format(progreso_total) }}%</span></div>
+                    <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="h-2.5 rounded-full progress-bar" style="width: {{ progreso_total }}%"></div></div>
+                </div>
+                {% set balance = cliente.balance_regresivo|float or 0.0 %}{% set valor_cuota = cliente.valor_cuota|float or 0.0 %}{% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
+                <div>
+                    {% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}
+                    <div class="flex justify-between items-center mb-1"><span class="text-sm font-medium text-slate-600">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span><span class="text-sm font-semibold text-slate-700">{{ "%.0f"|format(progreso_cuota_actual) }}%</span></div>
+                    <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="h-2.5 rounded-full progress-bar" style="width: {{ progreso_cuota_actual }}%"></div></div>
+                </div>
+            </div>
         </div>
 
-        <nav class="flex-1 overflow-y-auto sidebar-nav py-4 space-y-2">
-            {# NOTA: Para el efecto hover naranja, deberás cambiar las clases en los enlaces que llenan este bloque #}
-            {# Busca 'hover:bg-slate-700' o similar y cámbialo a 'hover:bg-[#F99417]' en la plantilla hija #}
-            {% block sidebar_actions %}{% endblock %}
-        </nav>
-    </aside>
+        <!-- Columna Derecha: Tarjeta con Pestañas -->
+        <div class="bg-white rounded-xl shadow-md card-lift" x-data="{ activeTab: 'pagos' }">
+            <!-- Navegación de Pestañas -->
+            <div class="p-2 bg-slate-50 rounded-t-xl border-b border-slate-200">
+                <nav class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                    <button @click="activeTab = 'pagos'" 
+                            :class="{ 'active': activeTab === 'pagos' }"
+                            class="tab-button flex-1 text-sm font-semibold py-2 px-4 rounded-md text-slate-600 hover:bg-orange-100">
+                        Últimos Pagos
+                    </button>
+                    <button @click="activeTab = 'gestiones'" 
+                            :class="{ 'active': activeTab === 'gestiones' }"
+                            class="tab-button flex-1 text-sm font-semibold py-2 px-4 rounded-md text-slate-600 hover:bg-orange-100">
+                        Historial de Gestiones
+                    </button>
+                </nav>
+            </div>
 
-    <div id="sidebar-overlay" class="sidebar-overlay fixed inset-0 bg-black bg-opacity-50 z-30 opacity-0 pointer-events-none md:hidden"></div>
-
-    <div class="flex-1 flex flex-col overflow-hidden md:ml-64">
-        <header class="bg-white/80 backdrop-blur-lg border-b border-slate-200/60 h-20 flex items-center justify-between px-6 flex-shrink-0 sticky top-0 z-20">
-            <div class="flex items-center space-x-4">
-                <button id="sidebar-toggle-desktop" class="text-slate-600 hover:text-slate-900">
-                    <i class="bi bi-list text-2xl"></i>
-                </button>
-                <h1 class="text-lg font-semibold text-slate-900 truncate">
-                    {% block page_title %}
-                        Bienvenido, {{ session.cliente_nombre.split(' ')[0] }}
-                    {% endblock %}
-                </h1>
+            <!-- Contenido de Pestañas -->
+            <div class="p-4">
+                <!-- Contenido de Últimos Pagos -->
+                <div x-show="activeTab === 'pagos'">
+                    {% if cliente.pagos %}
+                        <!-- CAMBIO: Se usa un grid para mostrar los pagos en bloques -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {% for pago in cliente.pagos %}
+                            <div class="bg-slate-50 p-4 rounded-lg shadow-sm border border-slate-200 flex flex-col justify-between">
+                                <div>
+                                    <div class="flex justify-between items-start gap-2">
+                                        <p class="font-semibold text-slate-700 flex-1">{{ pago.por_concepto_de or pago.tipo_pago }}</p>
+                                        <p class="font-bold text-slate-800 text-right">${{ "%.2f"|format(pago.monto) }}</p>
+                                    </div>
+                                    <p class="text-xs text-slate-500 mt-1">{{ pago.fecha_pago | format_date if pago.fecha_pago else pago.fecha_creacion | format_date }}</p>
+                                </div>
+                                <div class="mt-3 pt-3 border-t border-slate-200 flex justify-between items-center">
+                                     {% if pago.estado_pago == 'Conciliado' %}<span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-green-100 text-green-800">Conciliado</span>
+                                     {% elif pago.estado_pago == 'Pendiente' %}<span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-yellow-100 text-yellow-800">En Revisión</span>
+                                     {% elif pago.estado_pago == 'Anulado' %}<span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-red-100 text-red-800">Anulado</span>{% endif %}
+                                    <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-orange-500 hover:text-orange-600">
+                                        <i class="bi bi-receipt"></i> Ver Recibo
+                                    </a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center text-slate-500 py-6 text-sm">
+                            <i class="bi bi-receipt-cutoff text-4xl text-slate-300"></i>
+                            <p class="mt-2">Aún no tienes pagos registrados.</p>
+                        </div>
+                    {% endif %}
                 </div>
-            
-            <div x-data="{ open: false }" class="relative">
-                <button @click="open = !open" class="flex items-center space-x-2 p-2 rounded-full hover:bg-slate-200/50">
-                    <span class="font-semibold text-sm text-slate-700 hidden sm:block">{{ session.cliente_nombre }}</span>
-                    <i class="bi bi-person-circle text-2xl text-slate-600"></i>
-                </button>
-                <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 mt-2 w-48 bg-white/95 backdrop-blur-sm rounded-md shadow-lg py-1 z-50 border border-slate-200">
-                    <a href="{{ url_for('portal_logout') }}" class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-500/10 rounded-md">
-                        <i class="bi bi-box-arrow-right mr-2"></i>Cerrar Sesión
-                    </a>
+
+                <!-- Contenido de Historial de Gestiones -->
+                <div x-show="activeTab === 'gestiones'" class="space-y-4">
+                    {% if historial_gestiones %}
+                        <ul class="space-y-4">
+                            {% for gestion in historial_gestiones %}
+                            <li class="flex gap-3">
+                                <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full 
+                                    {% if gestion.estado == 'Aprobado' %} bg-green-100 text-green-600 
+                                    {% elif gestion.estado == 'Rechazado' %} bg-red-100 text-red-600
+                                    {% elif gestion.tipo == 'respuesta' %} bg-sky-100 text-sky-600
+                                    {% else %} bg-slate-100 text-slate-600 {% endif %}">
+                                    <i class="bi {{ gestion.icono }} text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-sm text-slate-800">{{ gestion.titulo }}</p>
+                                    <p class="text-xs text-slate-500">{{ gestion.fecha | format_date }}</p>
+                                    <p class="text-sm text-slate-600 mt-1">{{ gestion.descripcion }}</p>
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <div class="text-center text-slate-500 py-6 text-sm">
+                            <i class="bi bi-clock-history text-4xl text-slate-300"></i>
+                            <p class="mt-2">No hay gestiones registradas.</p>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
-        </header>
-
-        <main class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
-            <div class="max-w-7xl mx-auto">
-                {% block body %}{% endblock %}
-            </div>
-        </main>
-        
-        <footer class="text-center py-4 px-6 border-t border-slate-200/60 bg-white/80 backdrop-blur-lg text-sm">
-            <small class="text-slate-500">&copy; 2024 - Portal del Cliente de Moto Plan Motors.</small>
-        </footer>
+        </div>
     </div>
 </div>
 
-<nav class="fixed bottom-0 left-0 right-0 h-18 bg-[#2B3A55]/95 backdrop-blur-lg border-t border-white/20 flex justify-around items-center z-30 md:hidden">
-    <a href="{{ url_for('portal_dashboard') }}" class="flex flex-col items-center justify-center text-slate-300 hover:text-[#F99417] transition-colors p-2 rounded-lg">
-        <i class="bi bi-house-door-fill text-2xl"></i>
-        <span class="text-xs mt-1">Inicio</span>
-    </a>
-    <a href="{{ url_for('portal_pagos') }}" class="flex flex-col items-center justify-center text-slate-300 hover:text-[#F99417] transition-colors p-2 rounded-lg">
-        <i class="bi bi-receipt-cutoff text-2xl"></i>
-        <span class="text-xs mt-1">Pagos</span>
-    </a>
-    <a href="{{ url_for('portal_documentos') }}" class="flex flex-col items-center justify-center text-slate-300 hover:text-[#F99417] transition-colors p-2 rounded-lg">
-        <i class="bi bi-file-earmark-text-fill text-2xl"></i>
-        <span class="text-xs mt-1">Docs</span>
-    </a>
-    <button id="sidebar-toggle-mobile" class="flex flex-col items-center justify-center text-slate-300 hover:text-[#F99417] transition-colors p-2 rounded-lg">
-        <i class="bi bi-list text-2xl"></i>
-        <span class="text-xs mt-1">Menú</span>
-    </button>
-</nav>
+<!-- Modales -->
+<!-- ... (El código de los modales no necesita cambios) ... -->
+
+{% endblock %}
+
+{% block scripts_extra %}
+<!-- Alpine.js para la funcionalidad de las pestañas -->
 <script src="//unpkg.com/alpinejs" defer></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const sidebar = document.getElementById('sidebar');
-        const sidebarToggleDesktop = document.getElementById('sidebar-toggle-desktop');
-        const sidebarToggleMobile = document.getElementById('sidebar-toggle-mobile');
-        const sidebarOverlay = document.getElementById('sidebar-overlay');
-        const mainContent = document.querySelector('.flex-1.flex.flex-col.overflow-hidden');
-
-        let isSidebarVisible = window.innerWidth >= 768;
-
-        const updateSidebarState = () => {
-             if (window.innerWidth < 768) {
-                // En móvil, la sidebar siempre está oculta por defecto al cargar
-                sidebar.classList.add('-translate-x-full');
-                sidebarOverlay.classList.add('opacity-0', 'pointer-events-none');
-                mainContent.classList.remove('md:ml-64');
-                isSidebarVisible = false;
-             } else {
-                // En desktop, depende del estado guardado o el defecto
-                if (isSidebarVisible) {
-                    sidebar.classList.remove('-translate-x-full');
-                    mainContent.classList.add('md:ml-64');
-                } else {
-                    sidebar.classList.add('-translate-x-full');
-                    mainContent.classList.remove('md:ml-64');
-                }
-                sidebarOverlay.classList.add('opacity-0', 'pointer-events-none');
-             }
-        }
-
-        const toggleSidebar = () => {
-            isSidebarVisible = !isSidebarVisible;
-            sidebar.classList.toggle('-translate-x-full');
-            
-            if (window.innerWidth < 768) {
-                // En móvil, gestionamos el overlay
-                sidebarOverlay.classList.toggle('opacity-0');
-                sidebarOverlay.classList.toggle('pointer-events-none');
-            } else {
-                // En desktop, gestionamos el margen
-                mainContent.classList.toggle('md:ml-64');
-            }
-        };
-
-        // Event listeners
-        if (sidebarToggleDesktop) sidebarToggleDesktop.addEventListener('click', toggleSidebar);
-        if (sidebarToggleMobile) sidebarToggleMobile.addEventListener('click', toggleSidebar);
-        if (sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
-        
-        // Ajustar al cargar y al cambiar tamaño de la ventana
-        updateSidebarState();
-        window.addEventListener('resize', updateSidebarState);
-    });
-</script>
-{% block scripts_extra %}{% endblock %}
-
-</body>
-</html>
+<!-- Script de Bootstrap Bundle (incluye Popper) para la funcionalidad de los modales -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<!-- ... (resto de tus scripts sin cambios) ... -->
+{% endblock %}
