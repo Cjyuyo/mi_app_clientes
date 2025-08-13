@@ -98,6 +98,38 @@
         .sidebar-nav::-webkit-scrollbar { display: none; }
         .sidebar-nav { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
+    
+    <style>
+        html, body {
+            /* Oculta cualquier desbordamiento horizontal en toda la página */
+            overflow-x: hidden;
+            width: 100%;
+        }
+
+        body {
+            /* Asegura que el body use el 100% del ancho disponible sin excederse */
+            position: relative;
+        }
+
+        /*
+        Esta es una de las reglas más importantes para el diseño responsivo.
+        Asegura que el padding y los bordes se incluyan en el ancho total
+        de un elemento, en lugar de sumarse, previniendo desbordamientos.
+        */
+        * {
+            box-sizing: border-box;
+        }
+
+        /*
+        Esta regla fuerza a que el texto largo que no tiene espacios 
+        (como una referencia o un enlace) se rompa y pase a la siguiente línea
+        en lugar de causar un scroll horizontal.
+        */
+        p, span, a, h1, h2, h3, h4, div {
+            overflow-wrap: break-word;
+            word-wrap: break-word; /* Compatibilidad con navegadores antiguos */
+        }
+    </style>
     {% block head_extra %}{% endblock %}
 </head>
 <body>
