@@ -2507,6 +2507,29 @@ def portal_dashboard():
         flash('Ocurrió un error inesperado al cargar tu portal. Inténtalo de nuevo.', 'error')
         return redirect(url_for('portal_login'))
 
+# ===== INICIO DE LAS RUTAS AÑADIDAS PARA SOLUCIONAR EL ERROR =====
+@app.route('/portal/pagos')
+@portal_login_required
+def portal_pagos():
+    """
+    Ruta para mostrar la página de pagos del cliente.
+    POR AHORA: Muestra un mensaje temporal.
+    A FUTURO: Debería renderizar una plantilla como 'portal_pagos.html'.
+    """
+    return "<h1>Página de Pagos</h1><p>En construcción.</p>"
+
+@app.route('/portal/documentos')
+@portal_login_required
+def portal_documentos():
+    """
+    Ruta para mostrar la página de documentos del cliente.
+    POR AHORA: Muestra un mensaje temporal.
+    A FUTURO: Debería renderizar una plantilla como 'portal_documentos.html'.
+    """
+    return "<h1>Página de Documentos</h1><p>En construcción.</p>"
+# ===== FIN DE LAS RUTAS AÑADIDAS =====
+
+
 # ===== NUEVA RUTA INTELIGENTE PARA PAGAR DIFERENCIAS =====
 @app.route('/portal/pagar_diferencia/<int:pago_original_id>')
 @portal_login_required
