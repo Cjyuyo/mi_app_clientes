@@ -24,6 +24,10 @@
         background-color: #f97316; /* orange-500 */
         color: white;
     }
+    .disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
 </style>
 {% endblock %}
 
@@ -141,6 +145,7 @@
     </div>
     
     <!-- SECCIÓN SECUNDARIA: RESUMEN Y PESTAÑAS DE HISTORIAL -->
+    <!-- OPTIMIZACIÓN: Se mantiene el grid que apila las columnas en móvil (grid-cols-1) y las pone lado a lado en pantallas grandes (lg:grid-cols-2) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Columna Izquierda: Resumen de Plan -->
         <div class="bg-white rounded-xl shadow-md card-lift">
@@ -166,7 +171,8 @@
         <div class="bg-white rounded-xl shadow-md card-lift" x-data="{ activeTab: 'pagos' }">
             <!-- Navegación de Pestañas -->
             <div class="p-2 bg-slate-50 rounded-t-xl border-b border-slate-200">
-                <nav class="flex space-x-2">
+                <!-- OPTIMIZACIÓN: Las pestañas ahora se apilan en pantallas muy pequeñas (flex-col) y se ponen en fila en pantallas 'sm' o más grandes (sm:flex-row) -->
+                <nav class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                     <button @click="activeTab = 'pagos'" 
                             :class="{ 'active': activeTab === 'pagos' }"
                             class="tab-button flex-1 text-sm font-semibold py-2 px-4 rounded-md text-slate-600 hover:bg-orange-100">
@@ -187,19 +193,22 @@
                     {% if cliente.pagos %}
                         {% for pago in cliente.pagos %}
                         <div class="py-3">
-                            <div class="flex justify-between items-start gap-2">
+                            <!-- OPTIMIZACIÓN: El contenido de cada pago se apila en móvil (flex-col) y se pone en fila en pantallas 'sm' o más grandes (sm:flex-row) para mejor legibilidad. -->
+                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                                 <div>
                                     <p class="font-semibold text-sm text-slate-700">{{ pago.por_concepto_de or pago.tipo_pago }}</p>
                                     <p class="text-xs text-slate-500">{{ pago.fecha_pago | format_date if pago.fecha_pago else pago.fecha_creacion | format_date }}</p>
                                 </div>
-                                <div class="text-right flex-shrink-0">
+                                <!-- OPTIMIZACIÓN: El texto se alinea a la izquierda en móvil y a la derecha en pantallas más grandes. -->
+                                <div class="text-left sm:text-right flex-shrink-0 mt-2 sm:mt-0">
                                     <p class="font-bold text-slate-800">${{ "%.2f"|format(pago.monto) }}</p>
                                     {% if pago.estado_pago == 'Conciliado' %}<span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-green-100 text-green-800">Conciliado</span>
                                     {% elif pago.estado_pago == 'Pendiente' %}<span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-yellow-100 text-yellow-800">En Revisión</span>
                                     {% elif pago.estado_pago == 'Anulado' %}<span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-red-100 text-red-800">Anulado</span>{% endif %}
                                 </div>
                             </div>
-                            <div class="mt-2 text-right">
+                            <!-- OPTIMIZACIÓN: El botón de recibo se alinea a la izquierda en móvil. -->
+                            <div class="mt-2 text-left sm:text-right">
                                 <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-orange-500 hover:text-orange-600">
                                     <i class="bi bi-receipt"></i> Ver Recibo
                                 </a>
