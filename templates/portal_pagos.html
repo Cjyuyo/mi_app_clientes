@@ -1,0 +1,56 @@
+{% extends "base_portal.html" %}
+
+{% block title %}Mis Pagos{% endblock %}
+
+{% block page_title %}Historial de Pagos{% endblock %}
+
+{% block body %}
+<div class="bg-white/70 backdrop-blur-lg p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200/50">
+    <h2 class="text-xl font-bold text-slate-800 mb-6">Todos tus Movimientos</h2>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+            <thead class="border-b-2 border-slate-200">
+                <tr>
+                    <th scope="col" class="px-4 py-3 font-semibold text-slate-600 uppercase tracking-wider">Fecha</th>
+                    <th scope="col" class="px-4 py-3 font-semibold text-slate-600 uppercase tracking-wider">Concepto</th>
+                    <th scope="col" class="px-4 py-3 font-semibold text-slate-600 uppercase tracking-wider text-right">Monto (USD)</th>
+                    <th scope="col" class="px-4 py-3 font-semibold text-slate-600 uppercase tracking-wider text-center">Estado</th>
+                    <th scope="col" class="px-4 py-3 font-semibold text-slate-600 uppercase tracking-wider text-center">Recibo</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200/80">
+                {% for pago in pagos %}
+                <tr class="hover:bg-slate-500/5">
+                    <td class="px-4 py-4 text-slate-500">{{ pago.fecha_pago | format_date if pago.fecha_pago else 'N/A' }}</td>
+                    <td class="px-4 py-4 font-medium text-slate-800">{{ pago.por_concepto_de }}</td>
+                    <td class="px-4 py-4 text-right font-mono text-slate-700">${{ "%.2f"|format(pago.monto) }}</td>
+                    <td class="px-4 py-4 text-center">
+                        {% if pago.estado_pago == 'Conciliado' or pago.tipo_pago == 'Inscripción Finalizada' %}
+                            <span class="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">Conciliado</span>
+                        {% elif pago.estado_pago == 'Pendiente' %}
+                            <span class="px-2 py-1 text-xs font-semibold text-yellow-800 bg-yellow-100 rounded-full">En Revisión</span>
+                        {% else %}
+                             <span class="px-2 py-1 text-xs font-semibold text-gray-800 bg-gray-100 rounded-full">{{ pago.estado_pago }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-4 text-center">
+                        {% if pago.estado_pago == 'Conciliado' or pago.tipo_pago == 'Inscripción Finalizada' %}
+                            <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" target="_blank" class="text-blue-600 hover:text-blue-800" title="Ver Recibo">
+                                <i class="bi bi-receipt-cutoff text-lg"></i>
+                            </a>
+                        {% else %}
+                            <span class="text-slate-400"><i class="bi bi-receipt-cutoff text-lg"></i></span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center p-8 text-slate-500">Aún no has realizado ningún pago.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
