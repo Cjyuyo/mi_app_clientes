@@ -1,0 +1,136 @@
+{% extends "base_portal.html" %}
+
+{% block title %}Estado de Cuenta - {{ cliente.nombre }} {{ cliente.apellido }}{% endblock %}
+
+{% block head_extra %}
+<style>
+    @media print {
+        body, .aurora-background {
+            background: #fff !important;
+        }
+        .no-print {
+            display: none;
+        }
+        .printable-section {
+            visibility: visible !important;
+            position: static !important;
+            box-shadow: none !important;
+            border: none !important;
+            backdrop-filter: none !important;
+            background: none !important;
+            margin-bottom: 2rem;
+        }
+        body * {
+            visibility: hidden;
+        }
+        .printable-section * {
+            visibility: visible;
+        }
+        .print-text-black {
+            color: #000 !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="space-y-8">
+    <!-- Encabezado y Resumen -->
+    <div class="bg-white/70 backdrop-blur-lg p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200/50 printable-section">
+        <div class="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-800 print-text-black">Estado de Cuenta</h1>
+                <p class="text-slate-500 print-text-black">Contrato N° {{ cliente.contrato_nro }}</p>
+            </div>
+            <div class="text-left sm:text-right">
+                <p class="font-semibold text-slate-700 print-text-black">{{ cliente.nombre }} {{ cliente.apellido }}</p>
+                <p class="text-sm text-slate-500 print-text-black">C.I. {{ cliente.cedula }}</p>
+            </div>
+        </div>
+
+        <!-- Tarjetas de Resumen -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-6 border-t border-slate-200/80">
+            <div class="bg-blue-500/10 p-4 rounded-xl">
+                <p class="text-sm font-medium text-blue-800">Saldo Actual</p>
+                <p class="text-2xl font-bold text-blue-900">${{ "%.2f"|format(saldo_final) }}</p>
+            </div>
+            <div class="bg-green-500/10 p-4 rounded-xl">
+                <p class="text-sm font-medium text-green-800">Total Pagado</p>
+                <p class="text-2xl font-bold text-green-900">${{ "%.2f"|format(total_pagado) }}</p>
+            </div>
+            <div class="bg-slate-500/10 p-4 rounded-xl">
+                <p class="text-sm font-medium text-slate-800">Próximo Pago</p>
+                <p class="text-2xl font-bold text-slate-900">{{ proximo_pago_fecha | format_date if proximo_pago_fecha else 'N/A' }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Historial de Movimientos Financieros -->
+    <div class="bg-white/70 backdrop-blur-lg p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200/50 printable-section">
+        <h2 class="text-xl font-bold text-slate-800 mb-4 print-text-black">Historial de Movimientos Financieros</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+                <thead class="border-b-2 border-slate-200">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 font-semibold text-slate-600 uppercase tracking-wider">Fecha</th>
+                        <th scope="col" class="px-4 py-3 font-semibold text-slate-600 uppercase tracking-wider">Concepto</th>
+                        <th scope="col" class="px-4 py-3 font-semibold text-slate-600 uppercase tracking-wider text-right">Débito (USD)</th>
+                        <th scope="col" class="px-4 py-3 font-semibold text-slate-600 uppercase tracking-wider text-right">Crédito (USD)</th>
+                        <th scope="col" class="px-4 py-3 font-semibold text-slate-600 uppercase tracking-wider text-right">Saldo (USD)</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200/80">
+                    {% for movimiento in historial_financiero %}
+                    <tr class="hover:bg-slate-500/5">
+                        <td class="px-4 py-4 text-slate-500 print-text-black">{{ movimiento.fecha | format_date }}</td>
+                        <td class="px-4 py-4 font-medium text-slate-800 print-text-black">{{ movimiento.concepto }}</td>
+                        <td class="px-4 py-4 text-right text-red-600 font-mono print-text-black">{{ "$%.2f"|format(movimiento.debito) if movimiento.debito else '' }}</td>
+                        <td class="px-4 py-4 text-right text-green-600 font-mono print-text-black">{{ "$%.2f"|format(movimiento.credito) if movimiento.credito else '' }}</td>
+                        <td class="px-4 py-4 text-right font-semibold text-slate-800 font-mono print-text-black">${{ "%.2f"|format(movimiento.saldo_parcial) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center p-8 text-slate-500">No hay movimientos financieros.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Historial de Gestiones y Comunicaciones -->
+    <div class="bg-white/70 backdrop-blur-lg p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200/50 printable-section">
+        <h2 class="text-xl font-bold text-slate-800 mb-4 print-text-black">Historial de Gestiones y Comunicaciones</h2>
+        <div class="space-y-4">
+            {% if historial_gestiones %}
+                <ul class="space-y-4">
+                    {% for gestion in historial_gestiones %}
+                    <li class="flex gap-3">
+                        <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full 
+                            {% if gestion.estado == 'Aprobado' %} bg-green-100 text-green-600 
+                            {% elif gestion.estado == 'Rechazado' %} bg-red-100 text-red-600
+                            {% elif gestion.tipo == 'respuesta' %} bg-blue-100 text-blue-600
+                            {% else %} bg-slate-100 text-slate-600 {% endif %}">
+                            <i class="bi {{ gestion.icono }} text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-sm text-slate-800 print-text-black">{{ gestion.titulo }}</p>
+                            <p class="text-xs text-slate-500 print-text-black">{{ gestion.fecha | format_date }}</p>
+                            <p class="text-sm text-slate-600 mt-1 print-text-black">{{ gestion.descripcion }}</p>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-center text-slate-500 p-6">No hay gestiones registradas.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="text-center mt-6 no-print">
+        <button onclick="window.print()" class="bg-slate-700 text-white font-semibold py-3 px-6 rounded-lg hover:bg-slate-800 transition-transform hover:scale-105 inline-flex items-center gap-2 shadow-lg">
+            <i class="bi bi-printer-fill"></i> Imprimir / Guardar PDF
+        </button>
+    </div>
+</div>
+{% endblock %}

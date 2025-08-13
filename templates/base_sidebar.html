@@ -20,8 +20,49 @@
         /* Estilos personalizados y configuración de Tailwind */
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* slate-50 */
         }
+        
+        /* Estilos para el fondo dinámico "Aurora" */
+        @keyframes slow-pan {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(20px, -10px); }
+            50% { transform: translate(40px, 0px); }
+            75% { transform: translate(20px, 10px); }
+            100% { transform: translate(0, 0); }
+        }
+
+        .aurora-background {
+            position: relative;
+            overflow-x: hidden;
+            background-color: #f1f5f9; /* slate-100 */
+        }
+
+        .aurora-background::before,
+        .aurora-background::after {
+            content: '';
+            position: absolute;
+            width: 50vw;
+            height: 50vh;
+            border-radius: 50%;
+            opacity: 0.15;
+            filter: blur(100px);
+            z-index: 0;
+            animation: slow-pan 25s linear infinite;
+        }
+
+        .aurora-background::before {
+            background: radial-gradient(circle, #4f46e5, transparent 70%); /* indigo-600 */
+            top: 5%;
+            left: -10%;
+        }
+
+        .aurora-background::after {
+            background: radial-gradient(circle, #0d9488, transparent 70%); /* teal-600 */
+            bottom: 5%;
+            right: -10%;
+            animation-delay: -12.5s;
+        }
+
         .sidebar {
             transition: transform 0.3s ease-in-out;
         }
@@ -52,16 +93,14 @@
     </style>
     {% block head_extra %}{% endblock %}
 </head>
-<body class="bg-slate-50 text-slate-800">
+<body class="aurora-background">
 
-<div class="flex h-screen bg-slate-50">
+<div class="flex h-screen">
     <!-- Sidebar -->
-    <aside id="sidebar" class="sidebar bg-slate-800 text-slate-100 w-64 flex-shrink-0 flex flex-col fixed lg:relative lg:translate-x-0 h-full z-40 -translate-x-full">
+    <aside id="sidebar" class="sidebar bg-slate-800/80 backdrop-blur-lg text-slate-100 w-64 flex-shrink-0 flex flex-col fixed lg:relative lg:translate-x-0 h-full z-40 -translate-x-full border-r border-slate-700/50">
         <!-- Logo -->
-        <div class="flex items-center justify-center p-2 border-b border-slate-700 h-20 flex-shrink-0">
+        <div class="flex items-center justify-center p-2 border-b border-slate-700/50 h-20 flex-shrink-0">
             <a href="{{ url_for('hub') }}">
-                <!-- ***** CORRECCIÓN AQUÍ ***** -->
-                <!-- Se aumentó la altura del logo a h-16 y se ajustó el contenedor a h-20 -->
                 <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="h-16">
             </a>
         </div>
@@ -73,13 +112,13 @@
                     <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Navegación</span>
                 </li>
                 <li>
-                    <a href="{{ url_for('hub') }}" class="sidebar-link flex items-center px-4 py-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-md mx-2">
+                    <a href="{{ url_for('hub') }}" class="sidebar-link flex items-center px-4 py-3 text-slate-300 hover:bg-slate-700/50 hover:text-white rounded-md mx-2">
                         <i class="bi bi-house-door-fill text-lg w-8 text-center text-slate-400"></i>
                         <span class="ml-2">Hub Principal</span>
                     </a>
                 </li>
                 <li>
-                    <a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center px-4 py-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-md mx-2">
+                    <a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center px-4 py-3 text-slate-300 hover:bg-slate-700/50 hover:text-white rounded-md mx-2">
                         <i class="bi bi-person-workspace text-lg w-8 text-center text-slate-400"></i>
                         <span class="ml-2">HUB de Asesor</span>
                     </a>
@@ -87,7 +126,7 @@
                 
                 <!-- Clientes Dropdown -->
                 <li class="px-2">
-                    <button @click="openMenu = (openMenu === 'clientes' ? '' : 'clientes')" class="w-full flex items-center justify-between px-2 py-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-md sidebar-link">
+                    <button @click="openMenu = (openMenu === 'clientes' ? '' : 'clientes')" class="w-full flex items-center justify-between px-2 py-3 text-slate-300 hover:bg-slate-700/50 hover:text-white rounded-md sidebar-link">
                         <span class="flex items-center">
                             <i class="bi bi-people-fill text-lg w-8 text-center text-slate-400"></i>
                             <span class="ml-2">Clientes</span>
@@ -107,7 +146,7 @@
                 </li>
                 <!-- Administración y Finanzas Dropdown -->
                 <li class="px-2">
-                    <button @click="openMenu = (openMenu === 'finanzas' ? '' : 'finanzas')" class="w-full flex items-center justify-between px-2 py-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-md sidebar-link">
+                    <button @click="openMenu = (openMenu === 'finanzas' ? '' : 'finanzas')" class="w-full flex items-center justify-between px-2 py-3 text-slate-300 hover:bg-slate-700/50 hover:text-white rounded-md sidebar-link">
                         <span class="flex items-center">
                             <i class="bi bi-bank text-lg w-8 text-center text-slate-400"></i>
                             <span class="ml-2">Admón. y Finanzas</span>
@@ -126,7 +165,7 @@
                 </li>
                 <!-- Comercial Dropdown -->
                 <li class="px-2">
-                    <button @click="openMenu = (openMenu === 'comercial' ? '' : 'comercial')" class="w-full flex items-center justify-between px-2 py-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-md sidebar-link">
+                    <button @click="openMenu = (openMenu === 'comercial' ? '' : 'comercial')" class="w-full flex items-center justify-between px-2 py-3 text-slate-300 hover:bg-slate-700/50 hover:text-white rounded-md sidebar-link">
                         <span class="flex items-center">
                             <i class="bi bi-briefcase-fill text-lg w-8 text-center text-slate-400"></i>
                             <span class="ml-2">Comercial</span>
@@ -139,7 +178,7 @@
                 </li>
                 <!-- Reportes y Auditoría Dropdown -->
                 <li class="px-2">
-                    <button @click="openMenu = (openMenu === 'reportes' ? '' : 'reportes')" class="w-full flex items-center justify-between px-2 py-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-md sidebar-link">
+                    <button @click="openMenu = (openMenu === 'reportes' ? '' : 'reportes')" class="w-full flex items-center justify-between px-2 py-3 text-slate-300 hover:bg-slate-700/50 hover:text-white rounded-md sidebar-link">
                         <span class="flex items-center">
                             <i class="bi bi-file-earmark-text-fill text-lg w-8 text-center text-slate-400"></i>
                             <span class="ml-2">Reportes y Auditoría</span>
@@ -158,7 +197,7 @@
                     <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Externo</span>
                 </li>
                 <li>
-                    <a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center px-4 py-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-md mx-2">
+                    <a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center px-4 py-3 text-slate-300 hover:bg-slate-700/50 hover:text-white rounded-md mx-2">
                         <i class="bi bi-box-arrow-up-right text-lg w-8 text-center text-slate-400"></i>
                         <span class="ml-2">Portal Cliente</span>
                     </a>
@@ -171,9 +210,9 @@
     <div id="sidebar-overlay" class="sidebar-overlay fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden opacity-0 pointer-events-none"></div>
 
     <!-- Contenido Principal -->
-    <div class="flex-1 flex flex-col overflow-hidden">
+    <div class="flex-1 flex flex-col overflow-hidden relative z-10">
         <!-- Topbar -->
-        <header class="bg-slate-100 lg:bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 flex-shrink-0">
+        <header class="bg-white/50 backdrop-blur-sm border-b border-slate-200/50 h-16 flex items-center justify-between px-6 flex-shrink-0">
             <!-- Botón para abrir sidebar en móvil -->
             <button id="sidebar-toggle" class="lg:hidden text-slate-600 hover:text-slate-900">
                 <i class="bi bi-list text-2xl"></i>
@@ -183,13 +222,13 @@
             <!-- Menú de Usuario -->
             {% if g.admin %}
             <div x-data="{ open: false }" class="relative">
-                <button @click="open = !open" class="flex items-center space-x-2 p-2 rounded-full hover:bg-slate-100">
+                <button @click="open = !open" class="flex items-center space-x-2 p-2 rounded-full hover:bg-slate-200/50">
                     <span class="font-semibold text-sm text-slate-700 hidden sm:block">{{ g.admin.usuario }}</span>
                     <i class="bi bi-person-circle text-2xl text-slate-500"></i>
                 </button>
                 <div x-show="open" @click.away="open = false" x-transition
-                     class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-slate-200">
-                    <a href="{{ url_for('admin_logout') }}" class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md">
+                     class="absolute right-0 mt-2 w-48 bg-white/80 backdrop-blur-sm rounded-md shadow-lg py-1 z-50 border border-slate-200">
+                    <a href="{{ url_for('admin_logout') }}" class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-500/10 rounded-md">
                         <i class="bi bi-box-arrow-right mr-2"></i>Cerrar Sesión
                     </a>
                 </div>
@@ -198,12 +237,12 @@
         </header>
 
         <!-- Área de Contenido -->
-        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-4 sm:p-6">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-transparent p-4 sm:p-6">
             {% block body %}{% endblock %}
         </main>
         
         <!-- Footer -->
-        <footer class="text-center py-4 px-6 border-t border-slate-200 bg-white text-sm">
+        <footer class="text-center py-4 px-6 border-t border-slate-200/50 bg-white/50 backdrop-blur-sm text-sm">
             <small class="text-slate-500">&copy; {{ g.anio_actual | default('2024') }} - Sistema de Gestión.</small>
         </footer>
     </div>
