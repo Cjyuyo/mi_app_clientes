@@ -6,6 +6,15 @@
 
 {% block head_extra %}
     <style>
+        /* Estilos para las transiciones suaves de Alpine.js */
+        [x-cloak] { display: none !important; }
+        .transition-enter-start, .transition-leave-end {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        .transition-enter-active, .transition-leave-active {
+            transition: all 0.3s ease-out;
+        }
         /* Estilos para las barras de progreso */
         .progress-bar {
             -webkit-transition: width .6s ease;
@@ -40,7 +49,8 @@
     <!-- Resultados de Clientes -->
     <div id="client-results" class="space-y-6">
         {% for cliente in clientes %}
-        <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200" x-data="{ activeTab: 'pagos-{{ cliente.id }}' }">
+        <!-- Se añade 'showOfferForm: false' al estado de Alpine.js para controlar el formulario -->
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200" x-data="{ activeTab: 'pagos-{{ cliente.id }}', showOfferForm: false }">
             <!-- Encabezado de la Tarjeta de Cliente -->
             <div class="p-5 border-b border-slate-200 flex justify-between items-start">
                 <div>
@@ -93,12 +103,11 @@
             <!-- Acciones de la Tarjeta -->
             <div class="bg-slate-50 p-4 border-t border-slate-200 flex flex-wrap items-center justify-end gap-2">
                 <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700"><i class="bi bi-cash-coin mr-1"></i> Registrar Pago</a>
-                <button type="button" class="text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700" data-bs-toggle="modal" data-bs-target="#ofertaModal-{{ cliente.id }}">
+                <!-- El botón ahora usa @click para mostrar/ocultar el formulario -->
+                <button type="button" @click="showOfferForm = !showOfferForm" class="text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700">
                     <i class="bi bi-gem mr-1"></i> Registrar Oferta
                 </button>
                 <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="text-sm bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-slate-700" target="_blank"><i class="bi bi-file-earmark-pdf-fill mr-1"></i> Contrato</a>
-                <!-- ***** CORRECCIÓN AQUÍ ***** -->
-                <!-- Se eliminó la condición 'if' que ocultaba el botón de editar -->
                 <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="text-sm bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-yellow-600"><i class="bi bi-pencil-square mr-1"></i> Editar</a>
                 {% if g.admin and g.admin.rol == 'superadmin' %}
                 <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="return confirm('ADVERTENCIA: Esta acción eliminará al cliente y TODOS sus registros asociados (pagos, ofertas, etc.) de forma permanente. ¿Está absolutamente seguro?');">
@@ -106,35 +115,31 @@
                 </form>
                 {% endif %}
             </div>
-        </div>
 
-        <!-- Modal para Registrar Oferta -->
-        <div class="modal fade" id="ofertaModal-{{ cliente.id }}" tabindex="-1" aria-labelledby="ofertaModalLabel-{{ cliente.id }}" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content rounded-lg">
-                    <form action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" method="POST">
-                        <div class="modal-header">
-                            <h5 class="modal-title font-bold text-slate-800" id="ofertaModalLabel-{{ cliente.id }}">Registrar Oferta para {{ cliente.nombre_apellido }}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <p class="text-slate-600 mb-4">Seleccione la cantidad de cuotas que el cliente desea adelantar para el próximo acto de adjudicación.</p>
-                            <div class="mb-3">
-                                <label for="cuotas_ofertadas-modal-{{ cliente.id }}" class="form-label font-medium text-slate-700">Número de Cuotas a Ofertar</label>
-                                <select class="form-select mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" id="cuotas_ofertadas-modal-{{ cliente.id }}" name="cuotas_ofertadas" required>
-                                    {% set cuotas_restantes = (cliente.cuotas_totales|int) - (cliente.cuotas_pagadas_progresivas|int) %}
-                                    {% for i in range(1, cuotas_restantes + 1) %}
-                                    <option value="{{ i }}">{{ i }} cuota(s)</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
-                        <div class="modal-footer bg-slate-50">
-                            <button type="button" class="bg-white text-slate-700 py-2 px-4 border border-slate-300 rounded-md shadow-sm hover:bg-slate-50" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded-md shadow-sm hover:bg-blue-700">Guardar Oferta</button>
-                        </div>
-                    </form>
-                </div>
+            <!-- Formulario de Oferta Plegable -->
+            <div x-show="showOfferForm" x-cloak 
+                 class="p-5 border-t border-slate-200 bg-slate-100"
+                 x-transition:enter="transition-enter-active"
+                 x-transition:enter-start="transition-enter-start"
+                 x-transition:leave="transition-leave-active"
+                 x-transition:leave-end="transition-leave-end">
+                <form action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" method="POST">
+                    <h3 class="font-bold text-slate-800 mb-2">Registrar Oferta para {{ cliente.nombre_apellido }}</h3>
+                    <p class="text-sm text-slate-600 mb-4">Seleccione la cantidad de cuotas que el cliente desea adelantar para el próximo acto de adjudicación.</p>
+                    <div>
+                        <label for="cuotas_ofertadas-{{ cliente.id }}" class="form-label font-medium text-slate-700">Número de Cuotas a Ofertar</label>
+                        <select class="form-select mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" id="cuotas_ofertadas-{{ cliente.id }}" name="cuotas_ofertadas" required>
+                            {% set cuotas_restantes = (cliente.cuotas_totales|int) - (cliente.cuotas_pagadas_progresivas|int) %}
+                            {% for i in range(1, cuotas_restantes + 1) %}
+                            <option value="{{ i }}">{{ i }} cuota(s)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="flex justify-end gap-2 mt-4">
+                        <button type="button" @click="showOfferForm = false" class="bg-white text-slate-700 py-2 px-4 border border-slate-300 rounded-md shadow-sm hover:bg-slate-50">Cancelar</button>
+                        <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded-md shadow-sm hover:bg-blue-700">Guardar Oferta</button>
+                    </div>
+                </form>
             </div>
         </div>
         {% endfor %}
@@ -143,6 +148,5 @@
 {% endblock %}
 
 {% block scripts_extra %}
-    <!-- Se necesita Bootstrap JS para la funcionalidad de los modales -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- No se necesita Bootstrap JS para esta funcionalidad -->
 {% endblock %}
