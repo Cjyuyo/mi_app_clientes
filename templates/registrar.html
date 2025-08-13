@@ -6,220 +6,134 @@
 
 {% block head_extra %}
 <style>
-    /* Estilos para integrar el formulario con el diseño base */
-    .form-wrapper {
-        max-width: 1200px;
-        margin: 0 auto;
+    /* Estilos para los inputs de radio personalizados (si es necesario) */
+    .form-radio {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        border-radius: 50%;
+        width: 16px;
+        height: 16px;
+        border: 2px solid #d1d5db;
+        transition: 0.2s all linear;
+        margin-right: 0.5rem;
     }
-
-    .form-header {
-        position: relative;
-        overflow: hidden;
-        background-color: var(--card-bg);
-        padding: 2rem;
-        border-radius: .75rem;
-        border: 1px solid var(--card-borde);
-        margin-bottom: 2rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.07);
-    }
-    .form-header h1 {
-        font-weight: 800;
-        font-size: 2.2rem;
-        color: var(--texto-principal);
-    }
-    .form-header p {
-        color: var(--texto-secundario);
-        font-size: 1.1rem;
-        margin-bottom: 0;
-    }
-
-    .form-section {
-        background-color: var(--card-bg);
-        border: 1px solid var(--card-borde);
-        border-radius: .75rem;
-        margin-bottom: 2rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.07);
-    }
-    .form-section-header {
-        padding: 1rem 1.5rem;
-        border-bottom: 1px solid var(--card-borde);
-        background-color: #f9fafb;
-    }
-    .form-section-header h3 {
-        font-size: 1.1rem;
-        font-weight: 600;
-        margin: 0;
-        color: var(--texto-principal);
-    }
-    .form-section-body {
-        padding: 1.5rem;
-    }
-
-    .form-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.5rem;
-    }
-
-    .form-group label {
-        display: block;
-        font-weight: 500;
-        margin-bottom: 0.5rem;
-        color: var(--texto-secundario);
-        font-size: 0.9rem;
-    }
-
-    .button-group {
-        display: flex;
-        justify-content: flex-end;
-        gap: 1rem;
-        padding: 1.5rem;
-        background-color: #f9fafb;
-        border-top: 1px solid var(--card-borde);
-        border-radius: 0 0 .75rem .75rem;
+    .form-radio:checked {
+        border: 6px solid #2563eb; /* blue-600 */
     }
 </style>
 {% endblock %}
 
 {% block body %}
-<div class="form-wrapper">
-    <div class="form-header">
-        <h1><i class="bi bi-person-plus-fill me-3"></i>Registrar Nuevo Cliente</h1>
-        <p>Complete todos los campos para crear un nuevo perfil de cliente.</p>
+<div class="max-w-4xl mx-auto">
+    <!-- Encabezado -->
+    <div class="bg-white p-6 rounded-xl shadow-md mb-6">
+        <div class="flex items-center gap-4">
+            <div class="bg-blue-100 text-blue-600 p-3 rounded-full">
+                <i class="bi bi-person-plus-fill text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">Registrar Nuevo Cliente</h1>
+                <p class="text-slate-500">Complete los campos para crear un nuevo perfil de cliente en el sistema.</p>
+            </div>
+        </div>
     </div>
 
-    <form id="registroForm" action="{{ url_for('registrar_cliente') }}" method="POST">
-        <!-- Campos Ocultos -->
-        <input type="hidden" name="foto_cliente" id="foto_cliente" class="form-control-validate" required>
-        <input type="hidden" name="foto_cedula" id="foto_cedula" class="form-control-validate" required>
-        <input type="hidden" name="asesor" id="asesor-hidden-input" class="form-control-validate" required>
-        <input type="hidden" name="responsable" id="responsable-hidden-input" class="form-control-validate" required>
+    <form id="registroForm" action="{{ url_for('registrar_cliente') }}" method="POST" class="space-y-6">
+        <!-- Campos Ocultos (sin cambios) -->
+        <input type="hidden" name="foto_cliente" id="foto_cliente" required>
+        <input type="hidden" name="foto_cedula" id="foto_cedula" required>
+        <input type="hidden" name="asesor" id="asesor-hidden-input" required>
+        <input type="hidden" name="responsable" id="responsable-hidden-input" required>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                <div class="p-4 rounded-lg {% if category == 'error' %} bg-red-100 text-red-800 {% else %} bg-blue-100 text-blue-800 {% endif %}" role="alert">
                     {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
 
-        <div class="form-section">
-            <div class="form-section-header">
-                <h3><i class="bi bi-person-badge me-2"></i>Información Personal y de Contacto</h3>
-            </div>
-            <div class="form-section-body">
-                <div class="form-grid">
-                    <div class="form-group"><label for="nombre_apellido">Nombre y Apellido</label><input type="text" id="nombre_apellido" name="nombre_apellido" class="form-control form-control-validate" required></div>
-                    <div class="form-group"><label for="cedula">Nº Cédula</label><input type="text" id="cedula" name="cedula" class="form-control form-control-validate" required></div>
-                    <div class="form-group"><label for="telefono">Teléfono</label><input type="text" id="telefono" name="telefono" class="form-control form-control-validate" required></div>
-                    <div class="form-group"><label for="email">Correo Electrónico</label><input type="email" id="email" name="email" class="form-control form-control-validate"></div>
-                    <div class="form-group" style="grid-column: 1 / -1;"><label for="direccion">Dirección</label><textarea id="direccion" name="direccion" rows="2" class="form-control form-control-validate"></textarea></div>
-                    <div class="form-group"><label for="fecha_ingreso">Fecha de Ingreso</label><input type="date" id="fecha_ingreso" name="fecha_ingreso" class="form-control form-control-validate" required></div>
-                </div>
+        <!-- Sección de Información Personal -->
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-person-badge"></i>Información Personal y de Contacto</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div><label for="nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label><input type="text" id="nombre_apellido" name="nombre_apellido" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
+                <div><label for="cedula" class="block text-sm font-medium text-slate-700">Nº Cédula</label><input type="text" id="cedula" name="cedula" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
+                <div><label for="telefono" class="block text-sm font-medium text-slate-700">Teléfono</label><input type="text" id="telefono" name="telefono" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
+                <div><label for="email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label><input type="email" id="email" name="email" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></div>
+                <div class="md:col-span-2"><label for="direccion" class="block text-sm font-medium text-slate-700">Dirección</label><textarea id="direccion" name="direccion" rows="2" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea></div>
+                <div><label for="fecha_ingreso" class="block text-sm font-medium text-slate-700">Fecha de Ingreso</label><input type="date" id="fecha_ingreso" name="fecha_ingreso" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
             </div>
         </div>
 
-        <div class="form-section">
-            <div class="form-section-header">
-                <h3><i class="bi bi-person-heart me-2"></i>Beneficiario en caso de Fallecimiento</h3>
-            </div>
-            <div class="form-section-body">
-                <div class="form-grid">
-                    <div class="form-group"><label for="beneficiario_nombre">Nombre y Apellido</label><input type="text" id="beneficiario_nombre" name="beneficiario_nombre" class="form-control form-control-validate"></div>
-                    <div class="form-group"><label for="beneficiario_cedula">Nº Cédula</label><input type="text" id="beneficiario_cedula" name="beneficiario_cedula" class="form-control form-control-validate"></div>
-                    <div class="form-group"><label for="beneficiario_telefono">Teléfono</label><input type="text" id="beneficiario_telefono" name="beneficiario_telefono" class="form-control form-control-validate"></div>
-                </div>
+        <!-- Sección de Beneficiario -->
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-person-heart"></i>Beneficiario en caso de Fallecimiento</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div><label for="beneficiario_nombre" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label><input type="text" id="beneficiario_nombre" name="beneficiario_nombre" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></div>
+                <div><label for="beneficiario_cedula" class="block text-sm font-medium text-slate-700">Nº Cédula</label><input type="text" id="beneficiario_cedula" name="beneficiario_cedula" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></div>
+                <div><label for="beneficiario_telefono" class="block text-sm font-medium text-slate-700">Teléfono</label><input type="text" id="beneficiario_telefono" name="beneficiario_telefono" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></div>
             </div>
         </div>
 
-        <div class="form-section">
-            <div class="form-section-header">
-                <h3><i class="bi bi-file-earmark-text me-2"></i>Detalles del Plan y Contrato</h3>
-            </div>
-            <div class="form-section-body">
-                <div class="form-grid">
-                    <div class="form-group"><label for="contrato_nro">Nº Contrato</label><input type="text" id="contrato_nro" name="contrato_nro" class="form-control form-control-validate" required></div>
-                    <div class="form-group"><label for="plan_contratado">Plan Contratado (Valor USD)</label><select id="plan_contratado" name="plan_contratado" class="form-select form-control-validate" required><option value="" disabled selected>-- Seleccione --</option></select></div>
-                    <div class="form-group"><label for="inscripcion_monto">Monto Inscripción (16%)</label><input type="number" id="inscripcion_monto" step="0.01" name="inscripcion_monto" class="form-control form-control-validate" required readonly></div>
-                    <div class="form-group"><label for="cuotas_totales">Total de Cuotas</label><select id="cuotas_totales" name="cuotas_totales" class="form-select form-control-validate" required><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
-                    <div class="form-group"><label for="valor_cuota">Cuota Mensual (USD)</label><input type="number" id="valor_cuota" step="0.01" name="valor_cuota" class="form-control form-control-validate" required></div>
-                    <div class="form-group"><label for="moneda_pago">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="form-select form-control-validate" required><option value="USD">USD</option><option value="BsBCV">Bs (Tasa BCV)</option></select></div>
-                </div>
+        <!-- Sección de Detalles del Plan -->
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-file-earmark-text"></i>Detalles del Plan y Contrato</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div><label for="contrato_nro" class="block text-sm font-medium text-slate-700">Nº Contrato</label><input type="text" id="contrato_nro" name="contrato_nro" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
+                <div><label for="plan_contratado" class="block text-sm font-medium text-slate-700">Plan Contratado (Valor USD)</label><select id="plan_contratado" name="plan_contratado" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="" disabled selected>-- Seleccione --</option></select></div>
+                <div><label for="inscripcion_monto" class="block text-sm font-medium text-slate-700">Monto Inscripción (16%)</label><input type="number" id="inscripcion_monto" step="0.01" name="inscripcion_monto" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100" required readonly></div>
+                <div><label for="cuotas_totales" class="block text-sm font-medium text-slate-700">Total de Cuotas</label><select id="cuotas_totales" name="cuotas_totales" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
+                <div><label for="valor_cuota" class="block text-sm font-medium text-slate-700">Cuota Mensual (USD)</label><input type="number" id="valor_cuota" step="0.01" name="valor_cuota" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
+                <div><label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="USD">USD</option><option value="BsBCV">Bs (Tasa BCV)</option></select></div>
             </div>
         </div>
 
-        <div class="form-section">
-            <div class="form-section-header">
-                <h3><i class="bi bi-camera me-2"></i>Verificación de Identidad</h3>
-            </div>
-            <div class="form-section-body">
-                <div class="alert alert-info"><i class="bi bi-info-circle-fill me-2"></i>Use los siguientes botones para capturar las fotos requeridas.</div>
-                <div class="row">
-                    <div class="col-md-6 text-center mb-3">
-                        <h6>Foto del Cliente</h6>
-                        <img id="preview-cliente" src="https://placehold.co/400x300/eee/ccc?text=Foto+Cliente" class="img-fluid rounded border mb-2" style="max-height: 250px;">
-                        <button type="button" class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cliente"><i class="bi bi-person-bounding-box me-2"></i>Tomar Foto Cliente</button>
-                    </div>
-                    <div class="col-md-6 text-center mb-3">
-                        <h6>Foto de la Cédula</h6>
-                        <img id="preview-cedula" src="https://placehold.co/400x300/eee/ccc?text=Foto+Cédula" class="img-fluid rounded border mb-2" style="max-height: 250px;">
-                         <button type="button" class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cedula"><i class="bi bi-credit-card-2-front me-2"></i>Tomar Foto Cédula</button>
-                    </div>
+        <!-- Sección de Verificación de Identidad -->
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-camera"></i>Verificación de Identidad</h3>
+            <div class="p-4 bg-blue-50 text-blue-700 rounded-lg text-sm mb-4 flex items-center gap-3"><i class="bi bi-info-circle-fill"></i>Use los siguientes botones para capturar las fotos requeridas.</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="text-center">
+                    <h6 class="font-semibold text-slate-700 mb-2">Foto del Cliente</h6>
+                    <img id="preview-cliente" src="https://placehold.co/400x300/e2e8f0/94a3b8?text=Foto+Cliente" class="w-full h-48 object-cover rounded-lg border-2 border-dashed border-slate-300 mb-3">
+                    <button type="button" class="w-full bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 flex items-center justify-center gap-2" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cliente"><i class="bi bi-person-bounding-box"></i>Tomar Foto Cliente</button>
+                </div>
+                <div class="text-center">
+                    <h6 class="font-semibold text-slate-700 mb-2">Foto de la Cédula</h6>
+                    <img id="preview-cedula" src="https://placehold.co/400x300/e2e8f0/94a3b8?text=Foto+C%C3%A9dula" class="w-full h-48 object-cover rounded-lg border-2 border-dashed border-slate-300 mb-3">
+                    <button type="button" class="w-full bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 flex items-center justify-center gap-2" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cedula"><i class="bi bi-credit-card-2-front"></i>Tomar Foto Cédula</button>
                 </div>
             </div>
         </div>
-
-        <div class="form-section">
-            <div class="form-section-header">
-                <h3><i class="bi bi-briefcase me-2"></i>Información Administrativa (Uso Interno)</h3>
+        
+        <!-- Sección de Información Administrativa -->
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-briefcase"></i>Información Administrativa (Uso Interno)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div><label for="escenario_cierre" class="block text-sm font-medium text-slate-700">1. Escenario de Cierre</label><select id="escenario_cierre" name="escenario_cierre_selector" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="" selected>-- Seleccione --</option><option value="Asesor">Cierre por Asesor</option><option value="Gerencia">Cierre por Gerencia</option><option value="Presidencia">Cierre por Presidencia</option></select></div>
+                <div id="asesor-container"><label for="asesor-placeholder" class="block text-sm font-medium text-slate-700">2. Asesor</label><input type="text" id="asesor-placeholder" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100" placeholder="Seleccione escenario" disabled></div>
+                <div id="responsable-container"><label for="responsable-placeholder" class="block text-sm font-medium text-slate-700">3. Responsable</label><input type="text" id="responsable-placeholder" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100" placeholder="Seleccione escenario" disabled></div>
+                <div><label for="ciclo_cobranza" class="block text-sm font-medium text-slate-700">Ciclo de Cobranza</label><select id="ciclo_cobranza" name="ciclo_cobranza" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="15 al 02">Del 15 al 02</option><option value="20 al 10">Del 20 al 10</option></select></div>
+                <div class="md:col-span-2"><label for="grupo" class="block text-sm font-medium text-slate-700">Grupo</label><input type="text" id="grupo" name="grupo" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></div>
             </div>
-            <div class="form-section-body">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="escenario_cierre">1. Escenario de Cierre</label>
-                        <select id="escenario_cierre" name="escenario_cierre_selector" class="form-select form-control-validate" required>
-                            <option value="" selected>-- Seleccione --</option>
-                            <option value="Asesor">Cierre por Asesor</option>
-                            <option value="Gerencia">Cierre por Gerencia</option>
-                            <option value="Presidencia">Cierre por Presidencia</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="asesor-container">
-                        <label for="asesor-placeholder">2. Asesor</label>
-                        <input type="text" id="asesor-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>
-                    </div>
-                    <div class="form-group" id="responsable-container">
-                        <label for="responsable-placeholder">3. Responsable</label>
-                        <input type="text" id="responsable-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>
-                    </div>
-                    <div class="form-group">
-                        <label for="ciclo_cobranza">Ciclo de Cobranza</label>
-                        <select id="ciclo_cobranza" name="ciclo_cobranza" class="form-select form-control-validate" required>
-                            <option value="15 al 02">Del 15 de cada mes al 02 del mes siguiente</option>
-                            <option value="20 al 10">Del 20 de cada mes al 10 del mes siguiente</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="grupo">Grupo</label>
-                        <input type="text" id="grupo" name="grupo" class="form-control">
-                    </div>
-                </div>
-            </div>
-            <div class="button-group">
-                <a href="{{ url_for('hub') }}" class="btn btn-secondary">Cancelar</a>
-                <button type="submit" id="submitBtn" class="btn btn-primary" disabled>
-                    <i class="bi bi-file-earmark-text me-2"></i>
-                    Continuar al Contrato
-                </button>
-            </div>
+        </div>
+        
+        <!-- Botones de Acción -->
+        <div class="flex justify-end gap-4 pt-4">
+            <a href="{{ url_for('hub') }}" class="bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50">Cancelar</a>
+            <button type="submit" id="submitBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" disabled>
+                <i class="bi bi-file-earmark-text"></i>
+                Continuar al Contrato
+            </button>
         </div>
     </form>
 </div>
 
-<!-- Modal de la Cámara (sin cambios) -->
+<!-- Modal de la Cámara (sin cambios en la estructura, solo clases de Bootstrap) -->
 <div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -256,6 +170,7 @@
 <!-- El script existente no necesita cambios, por lo que se mantiene igual -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Llenar el select de planes
     const planSelect = document.getElementById('plan_contratado');
     const inscripcionInput = document.getElementById('inscripcion_monto');
     const montoInicial = 1100, montoFinal = 4000, incremento = 50;
@@ -272,17 +187,25 @@ document.addEventListener('DOMContentLoaded', function() {
             inscripcionInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
     });
+
+    // Lógica para el escenario de cierre
     const escenarioSelect = document.getElementById('escenario_cierre');
     const asesorContainer = document.getElementById('asesor-container');
     const responsableContainer = document.getElementById('responsable-container');
     const asesorHiddenInput = document.getElementById('asesor-hidden-input');
     const responsableHiddenInput = document.getElementById('responsable-hidden-input');
+    
+    const baseInputClasses = 'mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500';
+    const disabledInputClasses = 'mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100';
+
     escenarioSelect.addEventListener('change', function() {
         const escenario = this.value;
+        // Limpiar contenedores y valores ocultos
         asesorContainer.innerHTML = '';
         responsableContainer.innerHTML = '';
         asesorHiddenInput.value = '';
         responsableHiddenInput.value = '';
+
         const updateAsesorHidden = (value) => {
             asesorHiddenInput.value = value;
             asesorHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -291,35 +214,40 @@ document.addEventListener('DOMContentLoaded', function() {
             responsableHiddenInput.value = value;
             responsableHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
         };
+
         if (!escenario) {
-            asesorContainer.innerHTML = `<label for="asesor-placeholder" class="form-label">2. Asesor</label><input type="text" id="asesor-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>`;
-            responsableContainer.innerHTML = `<label for="responsable-placeholder" class="form-label">3. Responsable</label><input type="text" id="responsable-placeholder" class="form-control" placeholder="Seleccione un escenario" disabled>`;
+            asesorContainer.innerHTML = `<label for="asesor-placeholder" class="block text-sm font-medium text-slate-700">2. Asesor</label><input type="text" id="asesor-placeholder" class="${disabledInputClasses}" placeholder="Seleccione escenario" disabled>`;
+            responsableContainer.innerHTML = `<label for="responsable-placeholder" class="block text-sm font-medium text-slate-700">3. Responsable</label><input type="text" id="responsable-placeholder" class="${disabledInputClasses}" placeholder="Seleccione escenario" disabled>`;
             updateAsesorHidden('');
             updateResponsableHidden('');
             return;
         }
-        responsableContainer.innerHTML = `<label for="responsable-text" class="form-label">3. Responsable</label><input type="text" id="responsable-text" class="form-control form-control-validate" required>`;
+
+        responsableContainer.innerHTML = `<label for="responsable-text" class="block text-sm font-medium text-slate-700">3. Responsable</label><input type="text" id="responsable-text" class="${baseInputClasses}" required>`;
         const responsableText = document.getElementById('responsable-text');
         responsableText.addEventListener('input', () => updateResponsableHidden(responsableText.value));
+
         if (escenario === 'Asesor') {
-            asesorContainer.innerHTML = `<label for="asesor-text" class="form-label">2. Asesor</label><input type="text" id="asesor-text" class="form-control form-control-validate" required>`;
+            asesorContainer.innerHTML = `<label for="asesor-text" class="block text-sm font-medium text-slate-700">2. Asesor</label><input type="text" id="asesor-text" class="${baseInputClasses}" required>`;
             const asesorText = document.getElementById('asesor-text');
             asesorText.addEventListener('input', () => updateAsesorHidden(asesorText.value));
             asesorText.focus();
         } else if (escenario === 'Gerencia') {
-            asesorContainer.innerHTML = `<label for="asesor-select" class="form-label">2. Asesor</label><select id="asesor-select" class="form-select form-control-validate" required><option value="Yusbelis Espinoza" selected>Yusbelis Espinoza</option></select>`;
+            asesorContainer.innerHTML = `<label for="asesor-select" class="block text-sm font-medium text-slate-700">2. Asesor</label><select id="asesor-select" class="${baseInputClasses}" required><option value="Yusbelis Espinoza" selected>Yusbelis Espinoza</option></select>`;
             updateAsesorHidden('Yusbelis Espinoza');
             responsableText.focus();
         } else if (escenario === 'Presidencia') {
             let asesorOptions = '<option value="" selected disabled>Seleccione presidente...</option>';
             ['Carlos Ramirez', 'Karielsy Rios'].forEach(p => { asesorOptions += `<option value="${p}">${p}</option>`; });
-            asesorContainer.innerHTML = `<label for="asesor-select" class="form-label">2. Asesor</label><select id="asesor-select" class="form-select form-control-validate" required>${asesorOptions}</select>`;
+            asesorContainer.innerHTML = `<label for="asesor-select" class="block text-sm font-medium text-slate-700">2. Asesor</label><select id="asesor-select" class="${baseInputClasses}" required>${asesorOptions}</select>`;
             const asesorSelect = document.getElementById('asesor-select');
             asesorSelect.addEventListener('change', () => updateAsesorHidden(asesorSelect.value));
         }
         updateAsesorHidden(asesorHiddenInput.value);
         updateResponsableHidden(responsableHiddenInput.value);
     });
+
+    // Lógica de la cámara (sin cambios)
     const cameraModal = document.getElementById('cameraModal');
     const video = document.getElementById('video-feed');
     const canvas = document.getElementById('capture-canvas');
@@ -376,12 +304,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const submitBtn = document.getElementById('submitBtn');
     const form = document.getElementById('registroForm');
+    
+    // Función para validar el formulario
     const validateForm = () => {
-        for (const field of form.querySelectorAll('.form-control-validate')) {
-            if (field.hasAttribute('required') && (!field.value || field.value.trim() === '')) return false;
+        for (const field of form.querySelectorAll('[required]')) {
+            if (!field.value || field.value.trim() === '') return false;
         }
         return true;
     };
+
     const updateButtonState = () => {
         if (validateForm()) {
             submitBtn.disabled = false;
@@ -389,10 +320,12 @@ document.addEventListener('DOMContentLoaded', function() {
             submitBtn.disabled = true;
         }
     };
+
     if (form) {
         form.addEventListener('input', updateButtonState);
         form.addEventListener('change', updateButtonState);
     }
+
     if (savePhotoBtn) {
         savePhotoBtn.addEventListener('click', () => {
             if (capturedImageData && currentCaptureType) {
@@ -405,7 +338,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (modalInstance) modalInstance.hide();
         });
     }
-    updateButtonState();
+    
+    updateButtonState(); // Llamada inicial para establecer el estado del botón
+
     if(form) {
         form.addEventListener('submit', function(e) {
             if (form.getAttribute('data-submitted') === 'true') { e.preventDefault(); return; }

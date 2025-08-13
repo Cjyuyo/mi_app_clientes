@@ -68,13 +68,18 @@
     <!-- Encabezado -->
     <header class="bg-white/50 backdrop-blur-sm shadow-sm sticky top-0 z-50">
         <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-center items-center h-28">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo a la izquierda -->
                 <a href="{{ url_for('portal_dashboard') }}">
-                    <!-- DIV con fondo de color corporativo para dar contraste al logo -->
-                    <div style="background-color: #F99417;" class="p-3 rounded-2xl shadow-lg">
-                        <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="h-24">
+                    <div style="background-color: #2B3A55;" class="p-2 rounded-lg shadow-md">
+                        <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="h-12">
                     </div>
                 </a>
+                
+                <!-- Acciones del usuario a la derecha -->
+                <div class="flex items-center gap-4">
+                    {% block header_actions %}{% endblock %}
+                </div>
             </div>
         </nav>
     </header>
