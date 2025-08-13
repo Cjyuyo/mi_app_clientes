@@ -66,11 +66,12 @@
         <!-- Mobile Header: Visible only on small screens -->
         <header class="md:hidden bg-slate-800 text-white p-4 flex justify-between items-center sticky top-0 z-30 shadow-md">
             <a href="{{ url_for('portal_dashboard') }}">
-                <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan" class="h-8">
+                <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan" class="h-10">
             </a>
             <div class="flex items-center gap-4">
-                 <a href="{{ url_for('portal_logout') }}" class="text-white hover:text-slate-300" title="Cerrar Sesión">
-                    <i class="bi bi-person-circle text-xl"></i>
+                 <a href="{{ url_for('portal_logout') }}" class="flex items-center gap-2 text-white hover:text-slate-300" title="Cerrar Sesión">
+                    <i class="bi bi-box-arrow-right text-xl"></i>
+                    <span class="text-xs font-medium">Salir</span>
                 </a>
                 <button @click="navOpen = !navOpen" class="text-2xl" aria-label="Toggle menu">
                     <i class="bi" :class="navOpen ? 'bi-x-lg' : 'bi-list'"></i>
@@ -88,10 +89,10 @@
         >
             <div class="flex justify-between items-center p-4 border-b border-slate-700">
                 <a href="{{ url_for('portal_dashboard') }}">
-                    <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan" class="h-10">
+                    <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan" class="h-12">
                 </a>
-                <a href="{{ url_for('portal_logout') }}" class="hidden md:block text-white hover:text-slate-300" title="Cerrar Sesión">
-                    <i class="bi bi-person-circle text-2xl"></i>
+                <a href="{{ url_for('portal_logout') }}" class="hidden md:flex items-center gap-2 text-white hover:text-slate-300" title="Cerrar Sesión">
+                     <i class="bi bi-box-arrow-right text-xl"></i>
                 </a>
             </div>
 
