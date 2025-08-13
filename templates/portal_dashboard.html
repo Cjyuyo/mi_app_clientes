@@ -15,7 +15,6 @@
 
 {% block body %}
 <div class="space-y-6">
-    <!-- Encabezado del Portal -->
     <div class="bg-white p-5 rounded-xl shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
         <h1 class="text-2xl font-bold text-slate-800">
             Bienvenido, <span class="text-blue-600">{{ session.cliente_nombre }}</span>
@@ -27,7 +26,6 @@
         </div>
     </div>
     
-    <!-- Alertas y Mensajes Flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -38,11 +36,8 @@
         {% endif %}
     {% endwith %}
 
-    <!-- SECCIÓN PRINCIPAL: ALERTAS Y ACCIONES -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Columna de Alertas -->
         <div class="space-y-6">
-            <!-- Tarjeta de Estado Principal -->
             {% if estado_principal %}
             <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 {{ estado_principal.clase_borde | replace('naranja-corporativo', 'border-orange-500') | replace('en-mora', 'border-red-500') | replace('vigente', 'border-green-500') | replace('azul-info', 'border-blue-500') }} h-full">
                 <h3 class="text-lg font-bold text-slate-800">{{ estado_principal.titulo }}</h3>
@@ -56,7 +51,6 @@
             </div>
             {% endif %}
 
-            <!-- Tarjeta de Cita Confirmada -->
             {% if cita_confirmada %}
             <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-green-500">
                 <div class="flex items-start gap-4">
@@ -74,7 +68,6 @@
             {% endif %}
         </div>
 
-        <!-- Columna de Acciones (Gestiones) -->
         <div class="bg-white p-5 rounded-xl shadow-sm">
             <h2 class="text-lg font-bold text-slate-800">Gestiones</h2>
             <p class="text-sm text-slate-500 mb-4">Realiza solicitudes o agenda una cita.</p>
@@ -88,9 +81,7 @@
         </div>
     </div>
     
-    <!-- SECCIÓN SECUNDARIA: RESUMEN E HISTORIAL -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Tarjeta Resumen de Plan -->
         <div class="lg:col-span-2 bg-white rounded-xl shadow-sm">
             <div class="p-5 border-b border-slate-200">
                 <h2 class="text-lg font-bold text-slate-800">Resumen de mi Plan</h2>
@@ -110,12 +101,13 @@
             </div>
         </div>
 
-        <!-- Tarjeta Historial de Pagos -->
         <div class="lg:col-span-1 bg-white rounded-xl shadow-sm">
             <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Últimos Pagos</h2></div>
             <div class="divide-y divide-slate-100">
                 {% if cliente.pagos %}
-                    {% for pago in cliente.pagos|slice(0, 5) %} <!-- Limitar a los últimos 5 pagos -->
+                    {# ----- CORRECCIÓN AQUÍ ----- #}
+                    {# Se cambió `|slice(0, 5)` por `[:5]` para tomar los primeros 5 elementos de la lista. #}
+                    {% for pago in cliente.pagos[:5] %}
                     <div class="p-4">
                         <div class="flex justify-between items-start gap-2">
                             <div>
@@ -139,7 +131,6 @@
     </div>
 </div>
 
-<!-- Modales -->
 <div class="modal fade" id="ofertaModal" tabindex="-1" aria-labelledby="ofertaModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content rounded-lg">

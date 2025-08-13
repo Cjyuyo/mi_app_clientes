@@ -6,13 +6,11 @@
 
 {% block body %}
 <div class="space-y-8">
-    <!-- Encabezado de la página -->
     <div class="bg-white p-6 rounded-xl shadow-sm">
         <h1 class="text-3xl font-bold text-slate-800">Dashboard Comercial</h1>
         <p class="text-slate-500 mt-1">Análisis de ingresos por inscripciones y comisiones.</p>
     </div>
 
-    <!-- KPIs Principales -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
             <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-green-100 text-green-600">
@@ -43,7 +41,6 @@
         </div>
     </div>
 
-    <!-- Contratos y Comisiones -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
             <div class="p-5 border-b border-slate-200">
@@ -102,10 +99,12 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for asesor, monto in resumen_asesores.items() %}
+                        {# ----- CORRECCIÓN AQUÍ ----- #}
+                        {# Se cambió el bucle para iterar sobre la lista `resumen_asesores`. #}
+                        {% for resumen in resumen_asesores %}
                         <tr class="bg-white border-b hover:bg-slate-50">
-                            <td class="px-6 py-4 font-medium text-slate-900">{{ asesor }}</td>
-                            <td class="px-6 py-4 text-right font-semibold">${{ "{:,.2f}".format(monto) }}</td>
+                            <td class="px-6 py-4 font-medium text-slate-900">{{ resumen.nombre_beneficiario }}</td>
+                            <td class="px-6 py-4 text-right font-semibold">${{ "{:,.2f}".format(resumen.total_pendiente) }}</td>
                         </tr>
                         {% else %}
                         <tr>
@@ -118,13 +117,10 @@
         </div>
     </div>
 
-    <!-- Modals (se mantiene la estructura de Bootstrap para la funcionalidad) -->
     <div class="modal fade" id="splitModal" tabindex="-1">
-        <!-- Contenido del modal -->
-    </div>
+        </div>
     <div class="modal fade" id="historialModal" tabindex="-1">
-        <!-- Contenido del modal -->
-    </div>
+        </div>
 </div>
 {% endblock %}
 
