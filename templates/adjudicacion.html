@@ -54,7 +54,7 @@
                                         <td class="px-6 py-4">{{ p.cuotas_pagadas_progresivas }}</td>
                                     </tr>
                                     {% else %}
-                                    <tr><td colspan="3" class="text-center p-4">No hay ahorradores participantes.</td></tr>
+                                    <tr><td colspan="3" class="text-center p-4 text-slate-500">No hay ahorradores participantes.</td></tr>
                                     {% endfor %}
                                 </tbody>
                             </table>
@@ -79,7 +79,7 @@
                                         <td class="px-6 py-4 font-bold">{{ p.cuotas_ofertadas }}</td>
                                     </tr>
                                     {% else %}
-                                    <tr><td colspan="3" class="text-center p-4">No hay ofertas activas.</td></tr>
+                                    <tr><td colspan="3" class="text-center p-4 text-slate-500">No hay ofertas activas.</td></tr>
                                     {% endfor %}
                                 </tbody>
                             </table>
@@ -89,7 +89,7 @@
             </div>
 
             <!-- Historial de Adjudicaciones -->
-            <div class="bg-white rounded-xl shadow-sm">
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
                 <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Historial de Adjudicaciones</h2></div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left text-slate-500">
@@ -108,7 +108,7 @@
                                 <td class="px-6 py-4"><span class="py-1 px-2.5 bg-green-100 text-green-800 text-xs font-medium rounded-md">{{ h.metodo }}</span></td>
                             </tr>
                             {% else %}
-                            <tr><td colspan="3" class="text-center p-4">No hay adjudicaciones en el historial.</td></tr>
+                            <tr><td colspan="3" class="text-center p-4 text-slate-500">No hay adjudicaciones en el historial.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>

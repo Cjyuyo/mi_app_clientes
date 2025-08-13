@@ -52,10 +52,39 @@
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left text-slate-500">
                     <thead class="text-xs text-slate-700 uppercase bg-slate-50">
-                        <!-- Encabezados de la tabla de contratos -->
+                        <tr>
+                            <th scope="col" class="px-6 py-3">Contrato</th>
+                            <th scope="col" class="px-6 py-3">Cliente</th>
+                            <th scope="col" class="px-6 py-3">Monto Inscripción</th>
+                            <th scope="col" class="px-6 py-3">Estado del Pago</th>
+                            <th scope="col" class="px-6 py-3 text-center">Acciones</th>
+                        </tr>
                     </thead>
                     <tbody>
-                        <!-- Contenido de la tabla de contratos -->
+                        {% for contrato in contratos %}
+                        <tr class="bg-white border-b hover:bg-slate-50">
+                            <td class="px-6 py-4">{{ contrato.contrato_nro }}</td>
+                            <td class="px-6 py-4 font-medium text-slate-900">{{ contrato.nombre_cliente }}</td>
+                            <td class="px-6 py-4 font-semibold">${{ "{:,.2f}".format(contrato.monto_inscripcion) }}</td>
+                            <td class="px-6 py-4">
+                                <span class="py-1 px-2.5 text-xs font-medium rounded-md 
+                                {% if contrato.estado_pago == 'Pagado' %} bg-green-100 text-green-800 
+                                {% elif contrato.estado_pago == 'Pendiente' %} bg-yellow-100 text-yellow-800 
+                                {% else %} bg-red-100 text-red-800 {% endif %}">
+                                    {{ contrato.estado_pago }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <button class="text-blue-600 hover:text-blue-800" data-bs-toggle="modal" data-bs-target="#splitModal" data-contrato-id="{{ contrato.id }}" data-monto-total="{{ contrato.monto_inscripcion }}">
+                                    Dividir Pago
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center p-6 text-slate-500">No hay contratos registrados.</td>
+                        </tr>
+                        {% endfor %}
                     </tbody>
                 </table>
             </div>
@@ -67,17 +96,29 @@
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left text-slate-500">
                     <thead class="text-xs text-slate-700 uppercase bg-slate-50">
-                        <!-- Encabezados de la tabla de comisiones -->
+                        <tr>
+                            <th scope="col" class="px-6 py-3">Asesor</th>
+                            <th scope="col" class="px-6 py-3 text-right">Monto</th>
+                        </tr>
                     </thead>
                     <tbody>
-                        <!-- Contenido de la tabla de comisiones -->
+                        {% for asesor, monto in stats.comisiones_por_asesor.items() %}
+                        <tr class="bg-white border-b hover:bg-slate-50">
+                            <td class="px-6 py-4 font-medium text-slate-900">{{ asesor }}</td>
+                            <td class="px-6 py-4 text-right font-semibold">${{ "{:,.2f}".format(monto) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="2" class="text-center p-6 text-slate-500">No hay comisiones pendientes.</td>
+                        </tr>
+                        {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <!-- Modals -->
+    <!-- Modals (se mantiene la estructura de Bootstrap para la funcionalidad) -->
     <div class="modal fade" id="splitModal" tabindex="-1">
         <!-- Contenido del modal -->
     </div>
