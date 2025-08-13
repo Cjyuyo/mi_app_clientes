@@ -171,7 +171,10 @@
     <!-- Contenido Principal -->
     <div class="flex-1 flex flex-col overflow-hidden">
         <!-- Topbar -->
-        <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 flex-shrink-0">
+        <!-- ***** CORRECCIÓN AQUÍ ***** -->
+        <!-- 'lg:bg-white' hace que el fondo sea blanco solo en pantallas grandes -->
+        <!-- 'bg-slate-100' es el color de fondo por defecto (para móvil) -->
+        <header class="bg-slate-100 lg:bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 flex-shrink-0">
             <!-- Botón para abrir sidebar en móvil -->
             <button id="sidebar-toggle" class="lg:hidden text-slate-600 hover:text-slate-900">
                 <i class="bi bi-list text-2xl"></i>
