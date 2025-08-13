@@ -34,7 +34,7 @@
         .aurora-background {
             position: relative;
             overflow-x: hidden;
-            background-color: #f1f5f9; /* slate-100 */
+            background-color: #eff6ff; /* CORRECCIÓN: Color de fondo a blue-50 */
         }
 
         .aurora-background::before,
@@ -51,7 +51,7 @@
         }
 
         .aurora-background::before {
-            background: radial-gradient(circle, #4f46e5, transparent 70%); /* indigo-600 */
+            background: radial-gradient(circle, #2563eb, transparent 70%); /* CORRECCIÓN: Tono azul */
             top: 5%;
             left: -10%;
         }
@@ -99,9 +99,9 @@
     <!-- Sidebar -->
     <aside id="sidebar" class="sidebar bg-slate-800/80 backdrop-blur-lg text-slate-100 w-64 flex-shrink-0 flex flex-col fixed lg:relative lg:translate-x-0 h-full z-40 -translate-x-full border-r border-slate-700/50">
         <!-- Logo -->
-        <div class="flex items-center justify-center p-2 border-b border-slate-700/50 h-20 flex-shrink-0">
+        <div class="flex items-center justify-center p-4 border-b border-slate-700/50 h-24 flex-shrink-0">
             <a href="{{ url_for('hub') }}">
-                <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="h-16">
+                <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="h-20">
             </a>
         </div>
 
@@ -237,7 +237,7 @@
         </header>
 
         <!-- Área de Contenido -->
-        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-transparent p-4 sm:p-6">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-white/50 backdrop-blur-sm p-4 sm:p-6">
             {% block body %}{% endblock %}
         </main>
         

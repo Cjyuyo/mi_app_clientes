@@ -959,7 +959,7 @@ def tesoreria_rebalanceo():
             tipo_operacion, nota, caja_origen = form.get('tipo_operacion'), form.get('nota'), form.get('caja_origen')
             monto_origen_str, moneda_origen = form.get('monto_origen', '0').replace(',', '.'), form.get('moneda_origen')
             monto_origen = Decimal(monto_origen_str)
-            if not all([tipo_operacion, caja_origen, monto_origen > 0, nota]):
+            if not all([tipo_operacion, nota, caja_origen, monto_origen > 0]):
                 flash("Error: Tipo, Nota, Caja Origen y Monto son obligatorios.", 'danger')
                 return redirect(url_for('tesoreria_rebalanceo'))
             if balances_actuales.get(caja_origen, Decimal('0.0')) < monto_origen:
@@ -1872,7 +1872,7 @@ def conciliar_pago(pago_id):
                 else: # Si es solo un abono que no completa el total
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
                     cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
-                    url_recibo = url_for('ver_recibo', pago_id=pago_id)
+                    url_recibo = url_for('generar_recibo_pago', pago_id=pago_id)
                     flash_msg = f"Abono de inscripción N° {pago_id} conciliado. <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo</a>."
 
             elif pago_actual['tipo_pago'] == 'Cuota':
@@ -1889,7 +1889,7 @@ def conciliar_pago(pago_id):
                 cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s;", (ncpp, ncpr, nbf, cliente['id']))
                 cur.execute("UPDATE pagos SET cuotas_cubiertas = %s, progresivas_cubiertas = %s, regresivas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s WHERE id = %s;", (cch, pph, rph, ncpp, ncpr, nbf, pago_id))
                 cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
-                url_recibo = url_for('ver_recibo', pago_id=pago_id)
+                url_recibo = url_for('generar_recibo_pago', pago_id=pago_id)
                 flash_msg = f"¡Pago de cuota N° {pago_id} conciliado! <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo</a>."
 
             conn.commit()
@@ -1906,7 +1906,7 @@ def conciliar_pago(pago_id):
 
 
 @app.route('/recibo/<int:pago_id>')
-def ver_recibo(pago_id):
+def generar_recibo_pago(pago_id):
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
