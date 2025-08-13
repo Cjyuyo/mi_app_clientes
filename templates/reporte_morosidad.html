@@ -4,133 +4,62 @@
     Reporte de Morosidad
 {% endblock %}
 
-{% block head_extra %}
-<style>
-    .main-header {
-        position: relative;
-        overflow: hidden;
-        background-color: #f8fafc;
-        padding: 2rem;
-        border-radius: .75rem;
-        border: 1px solid var(--card-borde);
-        margin-bottom: 2rem;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    }
-    .main-header::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-        opacity: 0.05;
-        z-index: 0;
-    }
-    .main-header > * {
-        position: relative;
-        z-index: 1;
-    }
-    .main-header h1 {
-        font-weight: 800;
-        font-size: 2.2rem;
-        color: var(--texto-principal);
-    }
-    .main-header .lead {
-        color: var(--texto-secundario);
-        font-size: 1.1rem;
-    }
-    .kpi-card {
-        padding: 1.25rem;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-    }
-    .kpi-card .kpi-icon-wrapper {
-        font-size: 1.8rem;
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-    .kpi-card .kpi-content .kpi-title {
-        color: var(--texto-secundario);
-        font-size: 0.85rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        margin-bottom: 0;
-    }
-    .kpi-card .kpi-content .kpi-value {
-        color: var(--texto-principal);
-        font-size: 1.8rem;
-        font-weight: 700;
-        line-height: 1.2;
-    }
-    .kpi-icon-wrapper.bg-red { background-color: #fee2e2; color: #ef4444; }
-</style>
-{% endblock %}
-
 {% block body %}
-    <div class="main-header">
-        <h1>Reporte de Clientes en Mora</h1>
-        <p class="lead">Ahorradores sin pago de cuota conciliado para {{ mes_actual }} {{ anio_actual }}.</p>
+<div class="space-y-8">
+    <!-- Encabezado de la página -->
+    <div class="bg-white p-6 rounded-xl shadow-sm">
+        <h1 class="text-3xl font-bold text-slate-800">Reporte de Clientes en Mora</h1>
+        <p class="text-slate-500 mt-1">Ahorradores sin pago de cuota conciliado para {{ mes_actual }} {{ anio_actual }}.</p>
     </div>
 
-    <div class="row g-4 mb-4">
-        <div class="col-12 col-md-6">
-            <div class="card kpi-card h-100">
-                <div class="kpi-icon-wrapper bg-red"><i class="bi bi-people-fill"></i></div>
-                <div class="kpi-content">
-                    <div class="kpi-title">Total Clientes en Mora</div>
-                    <div class="kpi-value">{{ resumen.total_clientes_mora }}</div>
-                </div>
+    <!-- KPIs de Morosidad -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
+            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-red-100 text-red-600">
+                <i class="bi bi-people-fill text-2xl"></i>
+            </div>
+            <div>
+                <div class="text-sm text-slate-500 font-medium">Total Clientes en Mora</div>
+                <div class="text-2xl font-bold text-slate-800">{{ resumen.total_clientes_mora }}</div>
             </div>
         </div>
-        <div class="col-12 col-md-6">
-             <div class="card kpi-card h-100">
-                <div class="kpi-icon-wrapper bg-red"><i class="bi bi-cash-stack"></i></div>
-                <div class="kpi-content">
-                    <div class="kpi-title">Monto Total en Mora</div>
-                    <div class="kpi-value">${{ "{:,.2f}".format(resumen.monto_total_mora) }}</div>
-                </div>
+        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
+            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-red-100 text-red-600">
+                <i class="bi bi-cash-stack text-2xl"></i>
+            </div>
+            <div>
+                <div class="text-sm text-slate-500 font-medium">Monto Total en Mora</div>
+                <div class="text-2xl font-bold text-slate-800">${{ "{:,.2f}".format(resumen.monto_total_mora) }}</div>
             </div>
         </div>
     </div>
 
-    {% if clientes_en_mora %}
-        {% for cliente in clientes_en_mora %}
-        <div class="card mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">{{ cliente.nombre }} {{ cliente.apellido }}</h5>
-            </div>
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-12 col-sm-6 col-md-3">
-                        <strong>Cédula:</strong> {{ cliente.cedula }}
-                    </div>
-                    <div class="col-12 col-sm-6 col-md-3">
-                        <strong>Teléfono:</strong> {{ cliente.telefono or 'N/A' }}
-                    </div>
-                    <div class="col-12 col-sm-6 col-md-3">
-                        <strong>Último Pago:</strong>
-                        {% if cliente.ultimo_pago_fecha %}
-                            {{ cliente.ultimo_pago_fecha.strftime('%d/%m/%Y') }}
-                        {% else %}
-                            <span class="text-muted">Sin pagos</span>
-                        {% endif %}
-                    </div>
-                    <div class="col-12 col-sm-6 col-md-3">
-                        <strong>Valor Cuota:</strong> ${{ "{:,.2f}".format(cliente.valor_cuota) }}
+    <!-- Lista de Clientes en Mora -->
+    <div class="space-y-4">
+        {% if clientes_en_mora %}
+            {% for cliente in clientes_en_mora %}
+            <div class="bg-white rounded-xl shadow-sm">
+                <div class="p-5">
+                    <div class="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800">{{ cliente.nombre }} {{ cliente.apellido }}</h3>
+                            <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-sm">
+                                <p class="text-slate-600"><strong>Cédula:</strong> {{ cliente.cedula }}</p>
+                                <p class="text-slate-600"><strong>Teléfono:</strong> {{ cliente.telefono or 'N/A' }}</p>
+                                <p class="text-slate-600"><strong>Último Pago:</strong> 
+                                    {% if cliente.ultimo_pago_fecha %}{{ cliente.ultimo_pago_fecha.strftime('%d/%m/%Y') }}{% else %}<span class="text-slate-400">Sin pagos</span>{% endif %}
+                                </p>
+                                <p class="text-slate-600"><strong>Valor Cuota:</strong> ${{ "{:,.2f}".format(cliente.valor_cuota) }}</p>
+                            </div>
+                        </div>
+                        <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="text-sm bg-slate-700 text-white font-semibold py-2 px-3 rounded-lg hover:bg-slate-800 flex-shrink-0">
+                            <i class="bi bi-person-lines-fill mr-1"></i> Gestionar
+                        </a>
                     </div>
                 </div>
-            </div>
-            <div class="card-footer bg-light">
-                <div class="d-flex flex-wrap gap-2 align-items-center">
-                    <form action="{{ url_for('asignar_gestor', cliente_id=cliente.id) }}" method="POST" class="d-flex flex-grow-1" style="min-width: 250px;">
-                        <select name="gestor_id" class="form-select me-2" aria-label="Asignar gestor">
+                <div class="bg-slate-50 p-4 border-t border-slate-200">
+                    <form action="{{ url_for('asignar_gestor', cliente_id=cliente.id) }}" method="POST" class="flex flex-col sm:flex-row items-center gap-2">
+                        <select name="gestor_id" class="w-full sm:w-auto flex-grow rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
                             <option value="">Asignar a un gestor...</option>
                             {% for gestor in gestores %}
                             <option value="{{ gestor.id }}" {% if cliente.gestor_id == gestor.id %}selected{% endif %}>
@@ -138,22 +67,22 @@
                             </option>
                             {% endfor %}
                         </select>
-                        <button type="submit" class="btn btn-sm btn-outline-primary flex-shrink-0">
-                            <i class="bi bi-check-lg"></i> Guardar
+                        <button type="submit" class="w-full sm:w-auto text-sm bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-blue-700 flex-shrink-0">
+                            <i class="bi bi-check-lg"></i> Guardar Asignación
                         </button>
                     </form>
-                    <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="btn btn-dark" title="Ver Perfil y Gestiones">
-                        <i class="bi bi-person-lines-fill"></i> Gestionar
-                    </a>
                 </div>
             </div>
-        </div>
-        {% endfor %}
-    {% else %}
-        <div class="text-center p-5 bg-white rounded-3 shadow-sm">
-            <i class="bi bi-check-circle-fill fs-1 text-success mb-3"></i>
-            <h3 class="mb-1">¡Excelente!</h3>
-            <p class="lead text-muted">No se encontraron clientes en estado de morosidad.</p>
-        </div>
-    {% endif %}
+            {% endfor %}
+        {% else %}
+            <div class="text-center p-8 bg-white rounded-xl shadow-sm">
+                <div class="flex flex-col items-center">
+                    <i class="bi bi-check-circle-fill text-5xl text-green-500"></i>
+                    <h3 class="mt-4 font-bold text-slate-800">¡Excelente!</h3>
+                    <p class="text-slate-500">No se encontraron clientes en estado de morosidad.</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
 {% endblock %}

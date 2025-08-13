@@ -6,144 +6,72 @@
 
 {% block head_extra %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        .main-header {
-            position: relative;
-            overflow: hidden;
-            background-color: #f8fafc;
-            padding: 2rem;
-            border-radius: .75rem;
-            border: 1px solid var(--card-borde);
-            margin-bottom: 2rem;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-        .main-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-            opacity: 0.05;
-            z-index: 0;
-        }
-        .main-header > * {
-            position: relative;
-            z-index: 1;
-        }
-        .main-header h1 {
-            font-weight: 800;
-            font-size: 2.2rem;
-            color: var(--texto-principal);
-        }
-        .main-header .lead {
-            color: var(--texto-secundario);
-            font-size: 1.1rem;
-        }
-        .kpi-card {
-            padding: 1.25rem;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-        .kpi-card .kpi-icon-wrapper {
-            font-size: 1.8rem;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-        .kpi-card .kpi-content .kpi-title {
-            color: var(--texto-secundario);
-            font-size: 0.85rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            margin-bottom: 0;
-        }
-        .kpi-card .kpi-content .kpi-value {
-            color: var(--texto-principal);
-            font-size: 1.8rem;
-            font-weight: 700;
-            line-height: 1.2;
-        }
-        .kpi-icon-wrapper.bg-green { background-color: #dcfce7; color: #16a34a; }
-        .kpi-icon-wrapper.bg-blue { background-color: #e0f2fe; color: #0ea5e9; }
-        .kpi-icon-wrapper.bg-red { background-color: #fee2e2; color: #ef4444; }
-        .kpi-icon-wrapper.bg-purple { background-color: #f5f3ff; color: #8b5cf6; }
-    </style>
 {% endblock %}
 
 {% block body %}
-    <div class="main-header">
-        <h1>Dashboard de Rendimiento</h1>
-        <p class="lead">Análisis de los indicadores clave para {{ metrics.mes_actual }} {{ metrics.anio_actual }}.</p>
+<div class="space-y-8">
+    <!-- Encabezado de la página -->
+    <div class="bg-white p-6 rounded-xl shadow-sm">
+        <h1 class="text-3xl font-bold text-slate-800">Dashboard de Rendimiento</h1>
+        <p class="text-slate-500 mt-1">Análisis de los indicadores clave para {{ metrics.mes_actual }} {{ metrics.anio_actual }}.</p>
     </div>
 
-    <div class="row g-4">
-        <div class="col-12 col-md-6">
-            <div class="card kpi-card h-100">
-                <div class="kpi-icon-wrapper bg-green"><i class="bi bi-cash-stack"></i></div>
-                <div class="kpi-content">
-                    <div class="kpi-title">Ingresos del Mes</div>
-                    <div class="kpi-value">${{ "{:,.2f}".format(metrics.ingresos_mes_conciliados) }}</div>
-                </div>
+    <!-- KPIs Principales -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
+            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-green-100 text-green-600">
+                <i class="bi bi-cash-stack text-2xl"></i>
+            </div>
+            <div>
+                <div class="text-sm text-slate-500 font-medium">Ingresos del Mes</div>
+                <div class="text-2xl font-bold text-slate-800">${{ "{:,.2f}".format(metrics.ingresos_mes_conciliados) }}</div>
             </div>
         </div>
-        <div class="col-12 col-md-6">
-            <div class="card kpi-card h-100">
-                <div class="kpi-icon-wrapper bg-blue"><i class="bi bi-people-fill"></i></div>
-                <div class="kpi-content">
-                    <div class="kpi-title">Clientes Activos</div>
-                    <div class="kpi-value">{{ metrics.clientes_activos }}</div>
-                </div>
+        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
+            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                <i class="bi bi-people-fill text-2xl"></i>
+            </div>
+            <div>
+                <div class="text-sm text-slate-500 font-medium">Clientes Activos</div>
+                <div class="text-2xl font-bold text-slate-800">{{ metrics.clientes_activos }}</div>
             </div>
         </div>
-        <div class="col-12 col-md-6">
-            <div class="card kpi-card h-100">
-                <div class="kpi-icon-wrapper bg-red"><i class="bi bi-graph-down-arrow"></i></div>
-                <div class="kpi-content">
-                    <div class="kpi-title">Índice de Morosidad</div>
-                    <div class="kpi-value">{{ "%.1f"|format(metrics.indice_morosidad) }}%</div>
-                </div>
+        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
+            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-red-100 text-red-600">
+                <i class="bi bi-graph-down-arrow text-2xl"></i>
+            </div>
+            <div>
+                <div class="text-sm text-slate-500 font-medium">Índice de Morosidad</div>
+                <div class="text-2xl font-bold text-slate-800">{{ "%.1f"|format(metrics.indice_morosidad) }}%</div>
             </div>
         </div>
-        <div class="col-12 col-md-6">
-            <div class="card kpi-card h-100">
-                <div class="kpi-icon-wrapper bg-purple"><i class="bi bi-award-fill"></i></div>
-                <div class="kpi-content">
-                    <div class="kpi-title">Total Adjudicados</div>
-                    <div class="kpi-value">{{ metrics.clientes_adjudicados }}</div>
-                </div>
+        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
+            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-purple-100 text-purple-600">
+                <i class="bi bi-award-fill text-2xl"></i>
+            </div>
+            <div>
+                <div class="text-sm text-slate-500 font-medium">Total Adjudicados</div>
+                <div class="text-2xl font-bold text-slate-800">{{ metrics.clientes_adjudicados }}</div>
             </div>
         </div>
     </div>
 
-    <div class="row g-4 mt-2">
-        <div class="col-12 col-lg-7">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="mb-4">Ingresos Mensuales (Últimos 6 Meses)</h5>
-                    <div style="height: 350px;">
-                        <canvas id="incomeChart"></canvas>
-                    </div>
-                </div>
+    <!-- Gráficos -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-sm">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">Ingresos Mensuales (Últimos 6 Meses)</h2>
+            <div class="h-80">
+                <canvas id="incomeChart"></canvas>
             </div>
         </div>
-        <div class="col-12 col-lg-5">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="mb-4">Composición de Clientes Activos</h5>
-                    <div style="height: 350px;">
-                        <canvas id="clientsChart"></canvas>
-                    </div>
-                </div>
+        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">Composición de Clientes Activos</h2>
+            <div class="h-80">
+                <canvas id="clientsChart"></canvas>
             </div>
         </div>
     </div>
+</div>
 {% endblock %}
 
 {% block scripts_extra %}
@@ -151,6 +79,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     const incomeData = JSON.parse('{{ metrics.ingresos_ultimos_meses | tojson | safe }}');
     const clientData = JSON.parse('{{ metrics.composicion_clientes | tojson | safe }}');
+    
+    // Gráfico de Ingresos
     const incomeCtx = document.getElementById('incomeChart')?.getContext('2d');
     if (incomeCtx) { 
         new Chart(incomeCtx, { 
@@ -167,13 +97,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 }] 
             }, 
             options: { 
-                scales: { y: { beginAtZero: true, ticks: { callback: function(value) { return '$' + new Intl.NumberFormat().format(value); } } } }, 
+                scales: { 
+                    y: { 
+                        beginAtZero: true, 
+                        ticks: { 
+                            callback: function(value) { return '$' + new Intl.NumberFormat().format(value); } 
+                        } 
+                    } 
+                }, 
                 responsive: true, 
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y); } } } } 
+                plugins: { 
+                    legend: { display: false }, 
+                    tooltip: { 
+                        callbacks: { 
+                            label: function(context) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y); } 
+                        } 
+                    } 
+                } 
             } 
         }); 
     }
+
+    // Gráfico de Clientes
     const clientsCtx = document.getElementById('clientsChart')?.getContext('2d');
     if (clientsCtx) { 
         new Chart(clientsCtx, { 
@@ -191,7 +137,9 @@ document.addEventListener('DOMContentLoaded', () => {
             options: { 
                 responsive: true, 
                 maintainAspectRatio: false,
-                plugins: { legend: { position: 'top' } } 
+                plugins: { 
+                    legend: { position: 'top' } 
+                } 
             } 
         }); 
     }

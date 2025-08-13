@@ -5,32 +5,43 @@
 {% endblock %}
 
 {% block body %}
-    <div class="main-header text-white text-center mb-4" style="background: linear-gradient(135deg, #E74C3C 0%, #c0392b 100%); border-radius: .75rem;">
-        <h1><i class="bi bi-box-arrow-left"></i> Gestión de Retiros</h1>
-        <p class="lead">Procesa las solicitudes de retiro de planes de ahorro.</p>
+<div class="space-y-8">
+    <!-- Encabezado de la página -->
+    <div class="bg-gradient-to-r from-red-600 to-red-800 text-white p-6 rounded-xl shadow-lg">
+        <h1 class="text-3xl font-bold">Gestión de Retiros</h1>
+        <p class="mt-1 opacity-90">Procesa las solicitudes de retiro de los planes de ahorro.</p>
     </div>
 
-    <div class="card content-card">
-        <div class="card-header d-flex justify-content-between align-items-center" style="color: #E74C3C;">
-            <span><i class="bi bi-clock-history"></i> Solicitudes Pendientes</span>
-            <span class="badge bg-danger rounded-pill">{{ solicitudes.retiros|length }}</span>
+    <!-- Tarjeta de Solicitudes Pendientes -->
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-200 flex justify-between items-center">
+            <h2 class="text-lg font-bold text-slate-800">
+                <i class="bi bi-clock-history mr-2 text-red-600"></i> Solicitudes Pendientes
+            </h2>
+            <span class="py-1 px-2.5 bg-red-100 text-red-800 text-xs font-semibold rounded-full">{{ solicitudes.retiros|length }}</span>
         </div>
-        <div class="list-group list-group-flush">
+        <div class="divide-y divide-slate-200">
             {% for solicitud in solicitudes.retiros %}
-            <div class="list-group-item d-flex justify-content-between align-items-center p-3">
+            <div class="p-4 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <div>
-                    <strong>{{ solicitud.nombre_cliente }}</strong><br>
-                    <small class="text-muted">Solicitado: {{ solicitud.fecha_creacion | format_datetime }}</small>
+                    <h3 class="font-semibold text-slate-800">{{ solicitud.nombre_cliente }}</h3>
+                    <p class="text-xs text-slate-500 mt-1">Solicitado: {{ solicitud.fecha_creacion | format_datetime }}</p>
                 </div>
-                <form action="{{ url_for('procesar_solicitud', solicitud_id=solicitud.id) }}" method="POST" class="d-inline">
+                <form action="{{ url_for('procesar_solicitud', solicitud_id=solicitud.id) }}" method="POST" class="flex items-center gap-2 flex-shrink-0">
                     <input type="hidden" name="tipo" value="retiro">
-                    <button type="submit" name="accion" value="aprobar" class="btn btn-sm btn-outline-success me-2">Aprobar</button>
-                    <button type="submit" name="accion" value="rechazar" class="btn btn-sm btn-outline-danger">Rechazar</button>
+                    <button type="submit" name="accion" value="aprobar" class="text-sm bg-green-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-green-700">Aprobar</button>
+                    <button type="submit" name="accion" value="rechazar" class="text-sm bg-red-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-red-700">Rechazar</button>
                 </form>
             </div>
             {% else %}
-            <div class="list-group-item text-muted text-center p-4">No hay solicitudes de retiro pendientes.</div>
+            <div class="text-center text-slate-500 p-8">
+                <div class="flex flex-col items-center">
+                    <i class="bi bi-check2-circle text-4xl text-green-500"></i>
+                    <p class="mt-3 font-medium">No hay solicitudes de retiro pendientes.</p>
+                </div>
+            </div>
             {% endfor %}
         </div>
     </div>
+</div>
 {% endblock %}

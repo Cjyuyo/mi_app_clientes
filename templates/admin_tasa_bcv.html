@@ -5,53 +5,84 @@
 {% endblock %}
 
 {% block body %}
-    <div class="main-header text-white text-center mb-4" style="background-color: var(--naranja-corporativo); border-radius: .5rem;">
-        <h1><i class="bi bi-currency-exchange"></i> Gestión de Tasas de Cambio</h1>
-        <p class="lead">Establece la tasa del día y consulta el historial de cambios.</p>
+<div class="space-y-8">
+    <!-- Encabezado de la página -->
+    <div class="bg-white p-6 rounded-xl shadow-sm">
+        <h1 class="text-3xl font-bold text-slate-800">Gestión de Tasas de Cambio</h1>
+        <p class="text-slate-500 mt-1">Establece la tasa del día y consulta el historial de cambios.</p>
     </div>
 
-    <div class="row g-4">
-        <div class="col-lg-5">
-            <div class="card content-card">
-                <div class="card-header" style="background-color: var(--naranja-corporativo); color: white;">
-                    <h5 class="mb-0">Establecer Tasa del Día</h5>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Columna del Formulario -->
+        <div class="lg:col-span-1">
+            <div class="bg-white rounded-xl shadow-sm">
+                <div class="p-5 border-b border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-800">Establecer Tasa del Día</h2>
                 </div>
-                <div class="card-body p-4">
-                    <form method="POST" action="{{ url_for('admin_tasa_bcv') }}">
-                        <div class="mb-3">
-                            <label for="tasa_usd" class="form-label fw-bold">Tasa Dólar (USD)</label>
-                            <div class="input-group">
-                                <span class="input-group-text">Bs.</span>
-                                <input type="text" class="form-control" id="tasa_usd" name="tasa_usd" value="{{ tasas_de_hoy.usd if tasas_de_hoy.usd is not none else '' }}" placeholder="Ej: 36.50" required>
+                <div class="p-5">
+                    <form method="POST" action="{{ url_for('admin_tasa_bcv') }}" class="space-y-4">
+                        <div>
+                            <label for="tasa_usd" class="block text-sm font-medium text-slate-700 mb-1">Tasa Dólar (USD)</label>
+                            <div class="relative">
+                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                    <span class="text-slate-500 sm:text-sm">Bs.</span>
+                                </div>
+                                <input type="text" inputmode="decimal" class="block w-full rounded-md border-slate-300 py-2 pl-10 pr-4 shadow-sm focus:border-blue-500 focus:ring-blue-500" id="tasa_usd" name="tasa_usd" value="{{ tasas_de_hoy.usd if tasas_de_hoy.usd is not none else '' }}" placeholder="Ej: 36.50" required>
                             </div>
                         </div>
-                        <div class="mb-4">
-                            <label for="tasa_eur" class="form-label fw-bold">Tasa Euro (EUR)</label>
-                            <div class="input-group">
-                                <span class="input-group-text">Bs.</span>
-                                <input type="text" class="form-control" id="tasa_eur" name="tasa_eur" value="{{ tasas_de_hoy.eur if tasas_de_hoy.eur is not none else '' }}" placeholder="Ej: 40.20" required>
+                        <div>
+                            <label for="tasa_eur" class="block text-sm font-medium text-slate-700 mb-1">Tasa Euro (EUR)</label>
+                            <div class="relative">
+                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                    <span class="text-slate-500 sm:text-sm">Bs.</span>
+                                </div>
+                                <input type="text" inputmode="decimal" class="block w-full rounded-md border-slate-300 py-2 pl-10 pr-4 shadow-sm focus:border-blue-500 focus:ring-blue-500" id="tasa_eur" name="tasa_eur" value="{{ tasas_de_hoy.eur if tasas_de_hoy.eur is not none else '' }}" placeholder="Ej: 40.20" required>
                             </div>
                         </div>
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary btn-lg" style="background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo);">Guardar Tasa</button>
+                        <div class="pt-2">
+                            <button type="submit" class="w-full justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                Guardar Tasa
+                            </button>
                         </div>
                     </form>
                 </div>
             </div>
         </div>
-        <div class="col-lg-7">
-            <div class="card content-card">
-                <div class="card-header" style="background-color: var(--azul-profundo-finanzas); color: white;">
-                    <h5 class="mb-0">Historial Reciente (Últimos 30 días)</h5>
+
+        <!-- Columna del Historial -->
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="p-5 border-b border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-800">Historial Reciente (Últimos 30 días)</h2>
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover mb-0">
-                            <!-- Contenido de la tabla de historial -->
-                        </table>
-                    </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left text-slate-500">
+                        <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">Fecha</th>
+                                <th scope="col" class="px-6 py-3">Tasa USD (Bs.)</th>
+                                <th scope="col" class="px-6 py-3">Tasa EUR (Bs.)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tasa in historial %}
+                            <tr class="bg-white border-b hover:bg-slate-50">
+                                <td class="px-6 py-4 font-medium text-slate-900">{{ tasa.fecha | format_date }}</td>
+                                <td class="px-6 py-4">{{ "{:,.2f}".format(tasa.tasa_usd) }}</td>
+                                <td class="px-6 py-4">{{ "{:,.2f}".format(tasa.tasa_eur) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center p-6 text-slate-500">
+                                    No hay historial de tasas para mostrar.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
+</div>
 {% endblock %}

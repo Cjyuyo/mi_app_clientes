@@ -4,53 +4,88 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Estado de Cuenta - {{ cliente.nombre_apellido }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <style>
-        :root {
-            --azul-corporativo: #2B3A55;
-            --gris-fondo: #f8f9fa;
-        }
-        body {
-            font-family: 'Roboto', sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: var(--gris-fondo);
-        }
-        .container {
-            max-width: 800px;
-            margin: auto;
-            background: white;
-            border-radius: .75rem;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        .report-header {
-            background-color: var(--azul-corporativo);
-            color: white;
-            padding: 1.5rem 2rem;
-            text-align: center;
-        }
+        body { font-family: 'Inter', sans-serif; }
         @media print {
-            body { background-color: #fff; padding: 0; }
-            .container { box-shadow: none; border: 1px solid #ccc; }
-            .actions-section { display: none; }
-            .report-header { background-color: var(--azul-corporativo) !important; -webkit-print-color-adjust: exact; }
+            .no-print { display: none !important; }
+            body { background-color: #fff; }
+            .print-container { box-shadow: none !important; border: 1px solid #e5e7eb; }
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="report-header">
-            <h1>Estado de Cuenta</h1>
-            <p>Moto Plan Motors C.A.</p>
+<body class="bg-slate-100 p-4 sm:p-8">
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg print-container">
+        <!-- Encabezado del Documento -->
+        <div class="bg-slate-800 text-white p-6 sm:p-8 rounded-t-xl text-center">
+            <h1 class="text-3xl font-bold">Estado de Cuenta</h1>
+            <p class="text-sm opacity-90 mt-1">Moto Plan Motors C.A.</p>
         </div>
-        <div class="report-body p-4">
-            <!-- Contenido del estado de cuenta -->
+        
+        <!-- Cuerpo del Documento -->
+        <div class="p-6 sm:p-8 space-y-6">
+            <!-- Detalles del Cliente y Plan -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-slate-50 p-4 rounded-lg">
+                    <h3 class="text-sm font-semibold text-slate-500 mb-2">CLIENTE</h3>
+                    <p class="font-bold text-slate-800">{{ cliente.nombre_apellido }}</p>
+                    <p class="text-sm text-slate-600">C.I. {{ cliente.cedula }}</p>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-lg">
+                    <h3 class="text-sm font-semibold text-slate-500 mb-2">PLAN</h3>
+                    <p class="font-bold text-slate-800">{{ cliente.plan_contratado }}</p>
+                    <p class="text-sm text-slate-600">Contrato N° {{ cliente.contrato_nro }}</p>
+                </div>
+            </div>
+
+            <!-- Tabla de Movimientos -->
+            <div>
+                <h3 class="text-lg font-bold text-slate-800 mt-6 mb-4">Historial de Pagos y Movimientos</h3>
+                <div class="overflow-x-auto border rounded-lg">
+                    <table class="w-full text-sm text-left text-slate-500">
+                        <thead class="text-xs text-slate-700 uppercase bg-slate-100">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">Fecha</th>
+                                <th scope="col" class="px-6 py-3">Concepto</th>
+                                <th scope="col" class="px-6 py-3 text-right">Débito (USD)</th>
+                                <th scope="col" class="px-6 py-3 text-right">Crédito (USD)</th>
+                                <th scope="col" class="px-6 py-3 text-right">Saldo (USD)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Aquí iría el bucle con los movimientos -->
+                            <tr class="bg-white border-b"><td class="px-6 py-4">01/01/2024</td><td class="px-6 py-4 font-medium text-slate-900">Inscripción</td><td class="px-6 py-4 text-right text-red-600">$150.00</td><td class="px-6 py-4 text-right"></td><td class="px-6 py-4 text-right font-semibold text-slate-800">$-150.00</td></tr>
+                            <tr class="bg-white border-b"><td class="px-6 py-4">01/01/2024</td><td class="px-6 py-4 font-medium text-slate-900">Pago de Inscripción</td><td class="px-6 py-4 text-right"></td><td class="px-6 py-4 text-right text-green-600">$150.00</td><td class="px-6 py-4 text-right font-semibold text-slate-800">$0.00</td></tr>
+                            <!-- Fin del bucle -->
+                        </tbody>
+                        <tfoot>
+                            <tr class="bg-slate-100 font-bold">
+                                <td colspan="4" class="px-6 py-3 text-right text-slate-800">Saldo Final</td>
+                                <td class="px-6 py-3 text-right text-slate-800">$0.00</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
         </div>
-        <div class="actions-section text-center p-3 bg-light border-top">
-            <button class="btn btn-primary" onclick="window.print()">Imprimir / Guardar PDF</button>
-        </div>
+    </div>
+    
+    <!-- Acciones -->
+    <div class="no-print max-w-4xl mx-auto mt-6 text-center">
+        <button class="bg-slate-700 text-white font-semibold py-2 px-4 rounded-lg hover:bg-slate-800" onclick="window.print()">
+            <i class="bi bi-printer-fill mr-1"></i> Imprimir / Guardar PDF
+        </button>
     </div>
 </body>
 </html>

@@ -2,118 +2,98 @@
 
 {% block title %}Revisar Reporte de Pago N° {{ pago.id }}{% endblock %}
 
-{% block head_extra %}
-<style>
-    .report-container { max-width: 900px; margin: auto; }
-    .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
-    .detail-item { background-color: #f8f9fa; padding: 1rem; border-radius: .5rem; }
-    .detail-item .label { font-size: 0.8rem; color: #6c757d; display: block; }
-    .detail-item .value { font-size: 1.1rem; font-weight: 500; }
-    .actions-card { border-top: 4px solid var(--naranja-corporativo); }
-    #rejection-fields { display: none; }
-</style>
-{% endblock %}
-
 {% block body %}
-<div class="report-container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+<div class="max-w-4xl mx-auto space-y-8">
+    <!-- Encabezado de la página -->
+    <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
-            <h1 class="mb-0">Revisar Reporte de Pago</h1>
-            <p class="lead text-muted">Reporte N° {{ pago.id }}</p>
+            <h1 class="text-3xl font-bold text-slate-800">Revisar Reporte de Pago</h1>
+            <p class="text-slate-500 mt-1">Reporte N° {{ pago.id }}</p>
         </div>
-        <a href="{{ url_for('reportes_por_revisar') }}" class="btn btn-secondary">
-            <i class="bi bi-arrow-left me-1"></i> Volver a la lista
+        <a href="{{ url_for('reportes_por_revisar') }}" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-slate-700 bg-slate-100 hover:bg-slate-200">
+            <i class="bi bi-arrow-left mr-2"></i> Volver a la lista
         </a>
     </div>
 
-    <div class="card shadow-sm mb-4">
-        <div class="card-header">
-            <h5 class="mb-0">Detalles del Reporte</h5>
+    <!-- Tarjeta de Detalles del Reporte -->
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800">Detalles del Reporte</h2>
         </div>
-        <div class="card-body p-4">
-            <div class="detail-grid">
-                <div class="detail-item"><span class="label">Cliente</span><span class="value">{{ pago.nombre_apellido }}</span></div>
-                <div class="detail-item"><span class="label">Cédula</span><span class="value">{{ pago.cedula }}</span></div>
-                <div class="detail-item"><span class="label">Fecha del Reporte</span><span class="value">{{ pago.fecha_creacion | format_datetime }}</span></div>
-                <div class="detail-item"><span class="label">Fecha del Pago</span><span class="value">{{ pago.fecha_pago | format_date }}</span></div>
-                <div class="detail-item"><span class="label">Concepto</span><span class="value">{{ pago.por_concepto_de or pago.tipo_pago }}</span></div>
-                <div class="detail-item"><span class="label">Monto (USD)</span><span class="value fw-bold text-success">${{ "%.2f"|format(pago.monto) }}</span></div>
-                <div class="detail-item"><span class="label">Forma de Pago</span><span class="value">{{ pago.forma_pago }}</span></div>
-                <div class="detail-item"><span class="label">Referencia</span><span class="value">{{ pago.referencia or 'N/A' }}</span></div>
-                {% if pago.detalles_reporte %}
-                    {% if pago.detalles_reporte.telefono_emisor %}
-                    <div class="detail-item"><span class="label">Teléfono Emisor (Pago Móvil)</span><span class="value">{{ pago.detalles_reporte.telefono_emisor }}</span></div>
-                    {% endif %}
-                    {% if pago.detalles_reporte.cedula_emisor %}
-                    <div class="detail-item"><span class="label">Cédula Emisor (Pago Móvil)</span><span class="value">{{ pago.detalles_reporte.cedula_emisor }}</span></div>
-                    {% endif %}
-                    {% if pago.detalles_reporte.usuario_binance %}
-                    <div class="detail-item"><span class="label">Usuario/ID (Binance)</span><span class="value">{{ pago.detalles_reporte.usuario_binance }}</span></div>
-                    {% endif %}
+        <div class="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Cliente</span><span class="font-semibold text-slate-700">{{ pago.nombre_apellido }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Cédula</span><span class="font-semibold text-slate-700">{{ pago.cedula }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Fecha del Reporte</span><span class="font-semibold text-slate-700">{{ pago.fecha_creacion | format_datetime }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Fecha del Pago</span><span class="font-semibold text-slate-700">{{ pago.fecha_pago | format_date }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Concepto</span><span class="font-semibold text-slate-700">{{ pago.por_concepto_de or pago.tipo_pago }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Monto (USD)</span><span class="font-bold text-xl text-green-600">${{ "%.2f"|format(pago.monto) }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Forma de Pago</span><span class="font-semibold text-slate-700">{{ pago.forma_pago }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Referencia</span><span class="font-semibold text-slate-700">{{ pago.referencia or 'N/A' }}</span></div>
+            {% if pago.detalles_reporte %}
+                {% if pago.detalles_reporte.telefono_emisor %}
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Teléfono Emisor</span><span class="font-semibold text-slate-700">{{ pago.detalles_reporte.telefono_emisor }}</span></div>
                 {% endif %}
-            </div>
+                {% if pago.detalles_reporte.cedula_emisor %}
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Cédula Emisor</span><span class="font-semibold text-slate-700">{{ pago.detalles_reporte.cedula_emisor }}</span></div>
+                {% endif %}
+                {% if pago.detalles_reporte.usuario_binance %}
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Usuario/ID Binance</span><span class="font-semibold text-slate-700">{{ pago.detalles_reporte.usuario_binance }}</span></div>
+                {% endif %}
+            {% endif %}
         </div>
     </div>
 
-    <div class="card shadow-sm actions-card">
-        <div class="card-header">
-            <h5 class="mb-0">Acciones de Validación</h5>
+    <!-- Tarjeta de Acciones -->
+    <div class="bg-white rounded-xl shadow-sm" x-data="{ showRejection: false }">
+        <div class="p-5 border-b border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800">Acciones de Validación</h2>
         </div>
-        <div class="card-body p-4">
+        <div class="p-5">
             <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST">
-                <p>Selecciona una acción para este reporte. Si lo apruebas, pasará a la lista de conciliación. Si lo rechazas, se notificará al cliente.</p>
+                <p class="text-sm text-slate-600 mb-4">Selecciona una acción para este reporte. Si lo apruebas, pasará a la lista de conciliación. Si lo rechazas, se notificará al cliente.</p>
                 
-                <div id="rejection-fields" class="mb-3">
-                    <div class="form-group mb-3">
-                        <label for="motivo_rechazo" class="form-label"><strong>Motivo del Rechazo</strong></label>
-                        <select name="motivo_rechazo" id="motivo_rechazo" class="form-select">
-                            <option value="Referencia inválida">Referencia inválida o no encontrada</option>
-                            <option value="Diferencia de Monto">Diferencia de Monto</option>
-                            <option value="Datos incorrectos">Datos del reporte incorrectos (fecha, banco, etc.)</option>
-                            <option value="Otro">Otro (especificar en auditoría)</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="diferencia-monto-group" style="display: none;">
-                        <label for="diferencia_monto" class="form-label">Monto Faltante (USD)</label>
-                        <input type="number" step="0.01" name="diferencia_monto" class="form-control" placeholder="Ej: 5.50">
+                <div x-show="showRejection" x-transition class="bg-red-50 p-4 rounded-lg mb-4 border border-red-200">
+                    <div class="space-y-4">
+                        <div>
+                            <label for="motivo_rechazo" class="block text-sm font-medium text-slate-700"><strong>Motivo del Rechazo</strong></label>
+                            <select name="motivo_rechazo" id="motivo_rechazo" x-on:change="diferenciaGroup.style.display = $event.target.value === 'Diferencia de Monto' ? 'block' : 'none'" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm">
+                                <option value="Referencia inválida">Referencia inválida o no encontrada</option>
+                                <option value="Diferencia de Monto">Diferencia de Monto</option>
+                                <option value="Datos incorrectos">Datos del reporte incorrectos (fecha, banco, etc.)</option>
+                                <option value="Otro">Otro (especificar en auditoría)</option>
+                            </select>
+                        </div>
+                        <div id="diferencia-monto-group" style="display: none;">
+                            <label for="diferencia_monto" class="block text-sm font-medium text-slate-700">Monto Faltante (USD)</label>
+                            <input type="number" step="0.01" name="diferencia_monto" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" placeholder="Ej: 5.50">
+                        </div>
                     </div>
                 </div>
 
-                <div class="d-flex justify-content-end gap-2">
-                    <button type="button" id="btn-show-reject" class="btn btn-outline-danger">Rechazar Reporte</button>
-                    <button type="submit" name="accion" value="rechazar" id="btn-confirm-reject" class="btn btn-danger" style="display: none;">Confirmar Rechazo</button>
-                    <button type="submit" name="accion" value="aprobar" id="btn-approve" class="btn btn-success"><i class="bi bi-check-circle-fill me-1"></i> Aprobar y Enviar a Conciliación</button>
+                <div class="flex justify-end gap-3">
+                    <template x-if="!showRejection">
+                        <button type="button" @click="showRejection = true" class="text-sm bg-white text-red-600 font-semibold py-2 px-4 rounded-lg border border-red-300 hover:bg-red-50">
+                            Rechazar Reporte
+                        </button>
+                    </template>
+                     <template x-if="showRejection">
+                        <button type="button" @click="showRejection = false" class="text-sm bg-white text-slate-700 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50">
+                            Cancelar
+                        </button>
+                    </template>
+                    <template x-if="showRejection">
+                        <button type="submit" name="accion" value="rechazar" class="text-sm bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700">
+                            Confirmar Rechazo
+                        </button>
+                    </template>
+                    <template x-if="!showRejection">
+                        <button type="submit" name="accion" value="aprobar" class="text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700">
+                            <i class="bi bi-check-circle-fill mr-1"></i> Aprobar y Enviar a Conciliación
+                        </button>
+                    </template>
                 </div>
             </form>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts_extra %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const btnShowReject = document.getElementById('btn-show-reject');
-    const btnConfirmReject = document.getElementById('btn-confirm-reject');
-    const btnApprove = document.getElementById('btn-approve');
-    const rejectionFields = document.getElementById('rejection-fields');
-    const motivoSelect = document.getElementById('motivo_rechazo');
-    const diferenciaGroup = document.getElementById('diferencia-monto-group');
-
-    btnShowReject.addEventListener('click', function() {
-        rejectionFields.style.display = 'block';
-        btnConfirmReject.style.display = 'inline-block';
-        btnApprove.style.display = 'none';
-        this.style.display = 'none';
-    });
-
-    motivoSelect.addEventListener('change', function() {
-        if (this.value === 'Diferencia de Monto') {
-            diferenciaGroup.style.display = 'block';
-        } else {
-            diferenciaGroup.style.display = 'none';
-        }
-    });
-});
-</script>
 {% endblock %}

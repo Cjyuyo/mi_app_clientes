@@ -1,96 +1,134 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Adjudicación</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --azul-corporativo: #2B3A55;
-            --verde-exito-adjudicacion: #28a745;
-            --gris-fondo: #f8f9fa;
-        }
-        body {
-            background-color: var(--gris-fondo);
-            font-family: 'Roboto', sans-serif;
-        }
-        .main-header {
-            background-color: var(--verde-exito-adjudicacion);
-            color: white;
-            padding: 2.5rem 1.5rem;
-            border-radius: .75rem;
-            margin-bottom: 2rem;
-            text-align: center;
-        }
-        .content-card {
-            background-color: white;
-            border-radius: .75rem;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.07);
-        }
-        .btn-primary {
-            background-color: var(--verde-exito-adjudicacion);
-            border-color: var(--verde-exito-adjudicacion);
-        }
-    </style>
-</head>
-<body>
-    <div class="container py-4">
-        <div class="main-header">
-            <h1><i class="bi bi-trophy-fill"></i> Sistema de Adjudicación</h1>
-            <p class="lead mb-0">Realiza la adjudicación mensual por ahorro, sorteo y oferta.</p>
-        </div>
-        <div class="text-end mb-3">
-            <a href="{{ url_for('hub') }}" class="btn btn-secondary">
-                <i class="bi bi-house-door-fill me-2"></i>Volver al Hub
-            </a>
-        </div>
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        <div class="row g-4">
-            <div class="col-lg-8">
-                <div class="content-card card mb-4">
-                    <div class="card-header">
-                        <i class="bi bi-people-fill"></i> Participantes del Mes
-                    </div>
-                    <div class="card-body">
-                        <!-- Contenido de las pestañas de participantes -->
-                    </div>
+{% extends 'base_sidebar.html' %}
+
+{% block title %}
+    Sistema de Adjudicación
+{% endblock %}
+
+{% block body %}
+<div class="space-y-8">
+    <!-- Encabezado de la página -->
+    <div class="bg-white p-6 rounded-xl shadow-sm">
+        <h1 class="text-3xl font-bold text-slate-800">Sistema de Adjudicación</h1>
+        <p class="text-slate-500 mt-1">Realiza la adjudicación mensual por ahorro, sorteo y oferta.</p>
+    </div>
+
+    <!-- Mensajes Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="p-4 rounded-md {% if category == 'error' %} bg-red-100 text-red-800 {% else %} bg-green-100 text-green-800 {% endif %}" role="alert">
+                {{ message }}
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Columna Principal -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Participantes del Mes -->
+            <div class="bg-white rounded-xl shadow-sm" x-data="{ activeTab: 'ahorradores' }">
+                <div class="px-5 border-b border-slate-200">
+                    <nav class="-mb-px flex space-x-6">
+                        <button @click="activeTab = 'ahorradores'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'ahorradores', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ahorradores' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ahorradores ({{ participantes.ahorradores|length }})</button>
+                        <button @click="activeTab = 'ofertas'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'ofertas', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ofertas' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ofertas Activas ({{ participantes.ofertas|length }})</button>
+                    </nav>
                 </div>
-                <div class="content-card card">
-                    <div class="card-header">
-                        <i class="bi bi-clock-history"></i> Historial de Adjudicaciones
+                <div class="p-5">
+                    <!-- Pestaña Ahorradores -->
+                    <div x-show="activeTab === 'ahorradores'">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm text-left text-slate-500">
+                                <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3">Cliente</th>
+                                        <th scope="col" class="px-6 py-3">Cédula</th>
+                                        <th scope="col" class="px-6 py-3">Cuotas Pagadas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for p in participantes.ahorradores %}
+                                    <tr class="bg-white border-b hover:bg-slate-50">
+                                        <td class="px-6 py-4 font-medium text-slate-900">{{ p.nombre_apellido }}</td>
+                                        <td class="px-6 py-4">{{ p.cedula }}</td>
+                                        <td class="px-6 py-4">{{ p.cuotas_pagadas_progresivas }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr><td colspan="3" class="text-center p-4">No hay ahorradores participantes.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <!-- Tabla de historial -->
+                    <!-- Pestaña Ofertas -->
+                    <div x-show="activeTab === 'ofertas'">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm text-left text-slate-500">
+                                <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3">Cliente</th>
+                                        <th scope="col" class="px-6 py-3">Cédula</th>
+                                        <th scope="col" class="px-6 py-3">Cuotas Ofertadas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for p in participantes.ofertas %}
+                                    <tr class="bg-white border-b hover:bg-slate-50">
+                                        <td class="px-6 py-4 font-medium text-slate-900">{{ p.nombre_apellido }}</td>
+                                        <td class="px-6 py-4">{{ p.cedula }}</td>
+                                        <td class="px-6 py-4 font-bold">{{ p.cuotas_ofertadas }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr><td colspan="3" class="text-center p-4">No hay ofertas activas.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-lg-4">
-                <div class="content-card card">
-                    <div class="card-body text-center p-4">
-                        <h5 class="card-title">Iniciar Proceso</h5>
-                        <p class="card-text text-muted">Esta acción seleccionará a los ganadores de forma irreversible.</p>
-                        <form action="{{ url_for('realizar_adjudicacion') }}" method="POST" onsubmit="return confirm('¿Está seguro? Esta acción es final.');">
-                            <button type="submit" class="btn btn-primary w-100 fs-5 fw-bold">
-                                <i class="bi bi-play-circle-fill"></i> Iniciar Adjudicación
-                            </button>
-                        </form>
-                    </div>
+
+            <!-- Historial de Adjudicaciones -->
+            <div class="bg-white rounded-xl shadow-sm">
+                <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Historial de Adjudicaciones</h2></div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left text-slate-500">
+                        <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">Fecha</th>
+                                <th scope="col" class="px-6 py-3">Cliente</th>
+                                <th scope="col" class="px-6 py-3">Método</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for h in historial %}
+                            <tr class="bg-white border-b hover:bg-slate-50">
+                                <td class="px-6 py-4">{{ h.fecha_adjudicacion | format_date }}</td>
+                                <td class="px-6 py-4 font-medium text-slate-900">{{ h.nombre_cliente }}</td>
+                                <td class="px-6 py-4"><span class="py-1 px-2.5 bg-green-100 text-green-800 text-xs font-medium rounded-md">{{ h.metodo }}</span></td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="3" class="text-center p-4">No hay adjudicaciones en el historial.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
+            </div>
+        </div>
+
+        <!-- Columna de Acción -->
+        <div class="lg:col-span-1">
+            <div class="bg-white rounded-xl shadow-sm p-6 text-center">
+                <i class="bi bi-trophy-fill text-5xl text-green-500"></i>
+                <h3 class="text-xl font-bold text-slate-800 mt-4">Iniciar Proceso</h3>
+                <p class="text-slate-500 text-sm mt-2 mb-4">Esta acción seleccionará a los ganadores del mes de forma irreversible. Asegúrate de que todos los datos son correctos antes de proceder.</p>
+                <form action="{{ url_for('realizar_adjudicacion') }}" method="POST" onsubmit="return confirm('¿Está seguro de que desea iniciar el proceso de adjudicación? Esta acción es final e irreversible.');">
+                    <button type="submit" class="w-full text-lg font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg py-3">
+                        <i class="bi bi-play-circle-fill mr-2"></i> Iniciar Adjudicación
+                    </button>
+                </form>
             </div>
         </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+</div>
+{% endblock %}

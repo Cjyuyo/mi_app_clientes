@@ -2,78 +2,77 @@
 
 {% block title %}Reportes de Pago por Revisar{% endblock %}
 
-{% block head_extra %}
-<style>
-    .table-hover tbody tr:hover {
-        background-color: #f8f9fa;
-    }
-    .status-badge {
-        font-size: 0.8rem;
-        padding: .4em .7em;
-        border-radius: .25rem;
-    }
-</style>
-{% endblock %}
-
 {% block body %}
-<div class="container-fluid px-0">
-    <div class="main-header">
-        <h1>Centro de Reportes de Pago</h1>
-        <p class="lead mb-0">Valida los pagos reportados por los clientes antes de enviarlos a conciliación.</p>
+<div class="space-y-8">
+    <!-- Encabezado de la página -->
+    <div class="bg-white p-6 rounded-xl shadow-sm">
+        <h1 class="text-3xl font-bold text-slate-800">Centro de Reportes de Pago</h1>
+        <p class="text-slate-500 mt-1">Valida los pagos reportados por los clientes antes de enviarlos a conciliación.</p>
     </div>
 
+    <!-- Mensajes Flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
+        <div class="space-y-4">
         {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          <div class="p-4 rounded-md {% if category == 'error' %} bg-red-100 text-red-800 {% else %} bg-blue-100 text-blue-800 {% endif %}" role="alert">
               {{ message | safe }}
-              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
           </div>
         {% endfor %}
+        </div>
       {% endif %}
     {% endwith %}
 
-    <div class="card shadow-sm">
-        <div class="card-header">
-            <h5 class="mb-0">Reportes Pendientes de Revisión</h5>
+    <!-- Tarjeta de Contenido Principal -->
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800">
+                Reportes Pendientes de Revisión
+            </h2>
         </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th scope="col">Fecha Reporte</th>
-                            <th scope="col">Cliente</th>
-                            <th scope="col">Cédula</th>
-                            <th scope="col">Concepto</th>
-                            <th scope="col">Monto (USD)</th>
-                            <th scope="col" class="text-end">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for reporte in reportes %}
-                        <tr>
-                            <td>{{ reporte.fecha_creacion | format_datetime('%d/%m/%Y %I:%M %p') }}</td>
-                            <td>{{ reporte.nombre }} {{ reporte.apellido }}</td>
-                            <td>{{ reporte.cedula }}</td>
-                            <td><span class="badge bg-info text-dark">{{ reporte.tipo_pago }}</span></td>
-                            <td>${{ "%.2f"|format(reporte.monto) }}</td>
-                            <td class="text-end">
-                                <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="btn btn-primary btn-sm">
-                                    <i class="bi bi-eye-fill me-1"></i> Revisar
-                                </a>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="6" class="text-center py-4">
-                                <p class="mb-0 text-muted">¡Excelente! No hay reportes pendientes por revisar.</p>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+
+        <!-- Tabla de Reportes -->
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left text-slate-500">
+                <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3">Fecha Reporte</th>
+                        <th scope="col" class="px-6 py-3">Cliente</th>
+                        <th scope="col" class="px-6 py-3">Cédula</th>
+                        <th scope="col" class="px-6 py-3">Concepto</th>
+                        <th scope="col" class="px-6 py-3">Monto (USD)</th>
+                        <th scope="col" class="px-6 py-3 text-right">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for reporte in reportes %}
+                    <tr class="bg-white border-b hover:bg-slate-50">
+                        <td class="px-6 py-4">{{ reporte.fecha_creacion | format_datetime('%d/%m/%Y %I:%M %p') }}</td>
+                        <td class="px-6 py-4 font-medium text-slate-900">{{ reporte.nombre }} {{ reporte.apellido }}</td>
+                        <td class="px-6 py-4">{{ reporte.cedula }}</td>
+                        <td class="px-6 py-4">
+                            <span class="py-1 px-2.5 bg-indigo-100 text-indigo-800 text-xs font-medium rounded-md">{{ reporte.tipo_pago }}</span>
+                        </td>
+                        <td class="px-6 py-4 font-semibold text-slate-800">${{ "%.2f"|format(reporte.monto) }}</td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="text-sm bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-blue-700">
+                                <i class="bi bi-eye-fill mr-1"></i> Revisar
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-slate-500 p-8">
+                            <div class="flex flex-col items-center">
+                                <i class="bi bi-check2-circle text-4xl text-green-500"></i>
+                                <p class="mt-3 font-medium">¡Excelente!</p>
+                                <p class="text-xs">No hay reportes pendientes por revisar.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>

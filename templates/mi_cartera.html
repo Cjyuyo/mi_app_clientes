@@ -5,68 +5,72 @@
 {% endblock %}
 
 {% block body %}
-<div class="container-fluid px-0">
-
+<div class="space-y-8">
     <!-- Encabezado de la página -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="h3 mb-0 text-gray-800">
-            <i class="bi bi-briefcase-fill me-2" style="color: var(--azul-corporativo);"></i>
-            Mi Cartera de Cobranza
-        </h2>
+    <div class="bg-white p-6 rounded-xl shadow-sm">
+        <h1 class="text-3xl font-bold text-slate-800">Mi Cartera de Cobranza</h1>
+        <p class="text-slate-500 mt-1">Clientes asignados para tu gestión y seguimiento.</p>
     </div>
 
     <!-- Tarjeta de Contenido Principal -->
-    <div class="card shadow-sm">
-        <div class="card-header bg-light py-3 d-flex flex-row align-items-center justify-content-between">
-            <h6 class="m-0 font-weight-bold" style="color: var(--azul-corporativo);">
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <h2 class="text-lg font-bold text-slate-800">
                 Clientes Asignados ({{ clientes|length }})
-            </h6>
+            </h2>
             <!-- Barra de Búsqueda -->
-            <div class="col-md-4">
-                <div class="input-group">
-                    <span class="input-group-text" id="basic-addon1"><i class="bi bi-search"></i></span>
-                    <input type="text" id="searchInput" class="form-control" placeholder="Buscar por nombre o cédula..." aria-label="Buscar">
+            <div class="w-full sm:w-auto sm:max-w-xs">
+                <div class="relative">
+                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                        <i class="bi bi-search text-slate-400"></i>
+                    </div>
+                    <input type="text" id="searchInput" class="block w-full rounded-md border-slate-300 py-2 pl-10 pr-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="Buscar por nombre o cédula...">
                 </div>
             </div>
         </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table id="clientsTable" class="table table-hover table-striped mb-0 align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="p-3">Cliente</th>
-                            <th class="p-3">Cédula</th>
-                            <th class="p-3">Teléfono</th>
-                            <th class="p-3">Proceso Actual</th>
-                            <th class="p-3 text-end">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for cliente in clientes %}
-                        <tr>
-                            <td class="p-3 fw-bold">{{ cliente.nombre }} {{ cliente.apellido }}</td>
-                            <td class="p-3">{{ cliente.cedula }}</td>
-                            <td class="p-3">{{ cliente.telefono or 'N/A' }}</td>
-                            <td class="p-3">
-                                <span class="badge rounded-pill text-bg-primary">{{ cliente.proceso }}</span>
-                            </td>
-                            <td class="p-3 text-end">
-                                <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="btn btn-primary btn-sm" title="Ver Perfil Completo y Gestiones">
-                                    <i class="bi bi-person-lines-fill me-1"></i> Ver Perfil
-                                </a>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr id="no-results-row">
-                            <td colspan="5" class="text-center text-muted p-5">
-                                <i class="bi bi-folder2-open fs-2"></i>
-                                <p class="mt-2 mb-0">No tienes clientes asignados en tu cartera actualmente.</p>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+        
+        <!-- Tabla de Clientes -->
+        <div class="overflow-x-auto">
+            <table id="clientsTable" class="w-full text-sm text-left text-slate-500">
+                <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3">Cliente</th>
+                        <th scope="col" class="px-6 py-3">Cédula</th>
+                        <th scope="col" class="px-6 py-3">Teléfono</th>
+                        <th scope="col" class="px-6 py-3">Proceso Actual</th>
+                        <th scope="col" class="px-6 py-3 text-right">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cliente in clientes %}
+                    <tr class="bg-white border-b hover:bg-slate-50">
+                        <th scope="row" class="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">
+                            {{ cliente.nombre }} {{ cliente.apellido }}
+                        </th>
+                        <td class="px-6 py-4">{{ cliente.cedula }}</td>
+                        <td class="px-6 py-4">{{ cliente.telefono or 'N/A' }}</td>
+                        <td class="px-6 py-4">
+                            <span class="py-1 px-2.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-md">{{ cliente.proceso }}</span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="font-medium text-blue-600 hover:underline">
+                                Ver Perfil
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr id="no-results-row">
+                        <td colspan="5" class="text-center text-slate-500 p-8">
+                            <div class="flex flex-col items-center">
+                                <i class="bi bi-folder2-open text-4xl text-slate-400"></i>
+                                <p class="mt-3 font-medium">No tienes clientes asignados.</p>
+                                <p class="text-xs">Tu cartera se encuentra vacía actualmente.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -102,10 +106,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Mostrar u ocultar la fila de "no hay resultados" si existe
             if(noResultsRow) {
-                if (found || rows.length === 1) { // Si se encontró algo o si la única fila es la de "no resultados"
-                    noResultsRow.style.display = "none";
-                } else {
+                // Si no se encontró nada y hay más de una fila (la de no-results)
+                if (!found && rows.length > 1) {
                     noResultsRow.style.display = "";
+                } else {
+                    noResultsRow.style.display = "none";
                 }
             }
         });

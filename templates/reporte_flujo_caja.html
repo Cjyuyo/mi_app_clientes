@@ -4,168 +4,104 @@
     Reporte de Flujo de Caja
 {% endblock %}
 
-{% block head_extra %}
-<style>
-    .main-header {
-        position: relative;
-        overflow: hidden;
-        background-color: #f8fafc;
-        padding: 2rem;
-        border-radius: .75rem;
-        border: 1px solid var(--card-borde);
-        margin-bottom: 2rem;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    }
-    .main-header::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-        opacity: 0.05;
-        z-index: 0;
-    }
-    .main-header > * {
-        position: relative;
-        z-index: 1;
-    }
-    .main-header h1 {
-        font-weight: 800;
-        font-size: 2.2rem;
-        color: var(--texto-principal);
-    }
-    .main-header .lead {
-        color: var(--texto-secundario);
-        font-size: 1.1rem;
-    }
-    .balance-card {
-        background-color: #fff;
-        border: 1px solid var(--card-borde);
-        border-radius: .75rem;
-        padding: 1.25rem;
-        height: 100%;
-    }
-    .balance-card .label {
-        font-size: 0.9rem;
-        color: var(--texto-secundario);
-        margin-bottom: 0.25rem;
-    }
-    .balance-card .amount {
-        font-size: 1.75rem;
-        font-weight: 700;
-        color: var(--texto-principal);
-    }
-    .tasa-card {
-        background-color: #fff;
-        border: 1px solid var(--card-borde);
-        border-radius: .75rem;
-        padding: 1rem;
-    }
-</style>
-{% endblock %}
-
 {% block body %}
-    <div class="main-header">
-        <h1><i class="bi bi-wallet2 me-2"></i>Reporte de Flujo de Caja</h1>
-        <p class="lead mb-0">Análisis de balances y movimientos de tesorería.</p>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('reporte_flujo_caja') }}" class="row g-3 align-items-end">
-                <div class="col-md-5">
-                    <label for="fecha_reporte" class="form-label">Consultar Balances al Cierre del Día:</label>
-                    <input type="date" id="fecha_reporte" name="fecha_reporte" value="{{ fecha_reporte }}" class="form-control">
-                </div>
-                <div class="col-md-auto">
-                    <button type="submit" class="btn btn-primary w-100">Generar Reporte</button>
-                </div>
+<div class="space-y-8">
+    <!-- Encabezado y Filtro -->
+    <div class="bg-white p-6 rounded-xl shadow-sm">
+        <div class="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-800">Reporte de Flujo de Caja</h1>
+                <p class="text-slate-500 mt-1">Análisis de balances y movimientos de tesorería.</p>
+            </div>
+            <form method="POST" action="{{ url_for('reporte_flujo_caja') }}" class="flex items-center gap-2">
+                <label for="fecha_reporte" class="text-sm font-medium text-slate-700 whitespace-nowrap">Cierre del día:</label>
+                <input type="date" id="fecha_reporte" name="fecha_reporte" value="{{ fecha_reporte }}" class="rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                <button type="submit" class="py-2 px-4 rounded-md text-white bg-blue-600 hover:bg-blue-700">Generar</button>
             </form>
         </div>
     </div>
 
-    <div class="row g-4 mb-4">
-        <div class="col-md-6">
-            <div class="tasa-card text-center">
-                <div class="label">Tasa Dólar (BCV) al {{ fecha_reporte | format_date }}</div>
-                <div class="amount text-success fs-4">Bs. {{ "{:,.2f}".format(tasas_del_dia.usd) }}</div>
-            </div>
+    <!-- Tasas del Día -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white p-4 rounded-xl shadow-sm text-center">
+            <div class="text-sm text-slate-500">Tasa Dólar (BCV) al {{ fecha_reporte | format_date }}</div>
+            <div class="text-xl font-bold text-green-600 mt-1">Bs. {{ "{:,.2f}".format(tasas_del_dia.usd) }}</div>
         </div>
-        <div class="col-md-6">
-            <div class="tasa-card text-center">
-                <div class="label">Tasa Euro (BCV) al {{ fecha_reporte | format_date }}</div>
-                <div class="amount text-primary fs-4">Bs. {{ "{:,.2f}".format(tasas_del_dia.eur) }}</div>
-            </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm text-center">
+            <div class="text-sm text-slate-500">Tasa Euro (BCV) al {{ fecha_reporte | format_date }}</div>
+            <div class="text-xl font-bold text-blue-600 mt-1">Bs. {{ "{:,.2f}".format(tasas_del_dia.eur) }}</div>
         </div>
     </div>
 
-    <div class="row g-4">
-        <div class="col-lg-5">
-            <div class="card">
-                <div class="card-header">
-                    <h6>Balances al {{ fecha_reporte | format_date }}</h6>
-                </div>
-                <div class="card-body">
-                    <div class="balance-card bg-primary-subtle border-primary-subtle text-center p-3 mb-3">
-                        <div class="label">Balance General Consolidado (USD)</div>
-                        <div class="amount text-primary">${{ "{:,.2f}".format(resumen.balance_general_consolidado_usd) }}</div>
-                    </div>
-                    <div class="row g-3">
-                        <div class="col-6"><div class="balance-card text-center"><div class="label">Efectivo USD</div><div class="amount text-success fs-5">${{ "{:,.2f}".format(resumen.EFECTIVO_USD) }}</div></div></div>
-                        <div class="col-6"><div class="balance-card text-center"><div class="label">Binance USDT</div><div class="amount text-warning fs-5">${{ "{:,.2f}".format(resumen.BINANCE_USDT) }}</div></div></div>
-                        <div class="col-6"><div class="balance-card text-center"><div class="label">Caja Bs (USD Ref)</div><div class="amount text-info fs-5">Bs. {{ "{:,.2f}".format(resumen.CAJA_BS_USD) }}</div></div></div>
-                        <div class="col-6"><div class="balance-card text-center"><div class="label">Caja Bs (EUR Ref)</div><div class="amount text-info fs-5">Bs. {{ "{:,.2f}".format(resumen.CAJA_BS_EUR) }}</div></div></div>
-                        <div class="col-12">
-                            <div class="balance-card text-center">
-                                <div class="label mb-2">Consolidado Bolívares (BS)</div>
-                                <div class="amount text-secondary fs-5">Bs. {{ "{:,.2f}".format(resumen.balance_bs_consolidado_bs) }}</div>
-                                <div class="small mt-1"><strong>Equivale a:</strong> ${{ "{:,.2f}".format(resumen.balance_bs_consolidado_usd) }}</div>
-                            </div>
-                        </div>
-                        <div class="col-6"><div class="balance-card text-center"><div class="label">Pérdida Devaluación</div><div class="amount text-danger fs-5">(${{ "{:,.2f}".format(resumen.acumulado_perdida_devaluacion) }})</div></div></div>
-                        <div class="col-6"><div class="balance-card text-center"><div class="label">Pérdida Conversión</div><div class="amount text-danger fs-5">(${{ "{:,.2f}".format(resumen.acumulado_perdida_conversion) }})</div></div></div>
-                    </div>
-                </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Columna de Balances -->
+        <div class="lg:col-span-1 space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm text-center">
+                <div class="text-sm font-medium text-slate-500">Balance General Consolidado</div>
+                <div class="text-3xl font-bold text-blue-700 mt-2">${{ "{:,.2f}".format(resumen.balance_general_consolidado_usd) }}</div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-slate-500">Efectivo USD</div><div class="font-bold text-slate-800">${{ "{:,.2f}".format(resumen.EFECTIVO_USD) }}</div></div>
+                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-slate-500">Binance USDT</div><div class="font-bold text-slate-800">${{ "{:,.2f}".format(resumen.BINANCE_USDT) }}</div></div>
+                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-slate-500">Caja Bs (USD Ref)</div><div class="font-bold text-slate-800">Bs. {{ "{:,.2f}".format(resumen.CAJA_BS_USD) }}</div></div>
+                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-slate-500">Caja Bs (EUR Ref)</div><div class="font-bold text-slate-800">Bs. {{ "{:,.2f}".format(resumen.CAJA_BS_EUR) }}</div></div>
+            </div>
+             <div class="bg-white p-4 rounded-xl shadow-sm text-center">
+                <div class="text-sm font-medium text-slate-500">Consolidado Bolívares (BS)</div>
+                <div class="text-xl font-bold text-slate-800 mt-1">Bs. {{ "{:,.2f}".format(resumen.balance_bs_consolidado_bs) }}</div>
+                <div class="text-xs text-slate-500">Equivale a: ${{ "{:,.2f}".format(resumen.balance_bs_consolidado_usd) }}</div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-red-500">Pérdida Devaluación</div><div class="font-bold text-red-600">(${{ "{:,.2f}".format(resumen.acumulado_perdida_devaluacion) }})</div></div>
+                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-red-500">Pérdida Conversión</div><div class="font-bold text-red-600">(${{ "{:,.2f}".format(resumen.acumulado_perdida_conversion) }})</div></div>
             </div>
         </div>
-        <div class="col-lg-7">
-            <div class="card h-100">
-                <div class="card-header">
-                    <h6>Historial de Movimientos del Día</h6>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover mb-0 align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Hora</th><th>Tipo</th><th>Detalle</th><th class="text-end">Monto</th><th>Usuario</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for mov in historial %}
-                                <tr>
-                                    <td>{{ mov.timestamp.strftime('%H:%M') }}</td>
-                                    <td><span class="badge bg-dark">{{ (mov.tipo_operacion or '').replace('_', ' ')|title }}</span></td>
-                                    <td>{{ mov.detalle }}</td>
-                                    <td class="text-end">
-                                        {% if mov.monto_ingreso and mov.monto_ingreso > 0 %}
-                                            <span class="text-success fw-bold">+{{ mov.moneda_ingreso }} {{ "{:,.2f}".format(mov.monto_ingreso) }}</span>
-                                        {% elif mov.monto_egreso and mov.monto_egreso > 0 %}
-                                            <span class="text-danger fw-bold">-{{ mov.moneda_egreso }} {{ "{:,.2f}".format(mov.monto_egreso) }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ mov.usuario }}</td>
-                                </tr>
-                                {% else %}
-                                <tr><td colspan="5" class="text-center text-muted p-5">No se registraron movimientos.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+
+        <!-- Columna de Historial -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="p-5 border-b border-slate-200">
+                <h2 class="text-lg font-bold text-slate-800">Historial de Movimientos del Día</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left text-slate-500">
+                    <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">Hora</th>
+                            <th scope="col" class="px-6 py-3">Tipo</th>
+                            <th scope="col" class="px-6 py-3">Detalle</th>
+                            <th scope="col" class="px-6 py-3 text-right">Monto</th>
+                            <th scope="col" class="px-6 py-3">Usuario</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mov in historial %}
+                        <tr class="bg-white border-b hover:bg-slate-50">
+                            <td class="px-6 py-4">{{ mov.timestamp.strftime('%I:%M %p') }}</td>
+                            <td class="px-6 py-4"><span class="py-1 px-2.5 bg-slate-100 text-slate-800 text-xs font-medium rounded-md">{{ (mov.tipo_operacion or '').replace('_', ' ')|title }}</span></td>
+                            <td class="px-6 py-4">{{ mov.detalle }}</td>
+                            <td class="px-6 py-4 text-right font-semibold">
+                                {% if mov.monto_ingreso and mov.monto_ingreso > 0 %}
+                                    <span class="text-green-600">+{{ mov.moneda_ingreso }} {{ "{:,.2f}".format(mov.monto_ingreso) }}</span>
+                                {% elif mov.monto_egreso and mov.monto_egreso > 0 %}
+                                    <span class="text-red-600">-{{ mov.moneda_egreso }} {{ "{:,.2f}".format(mov.monto_egreso) }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4">{{ mov.usuario }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-slate-500 p-8">
+                                <div class="flex flex-col items-center">
+                                    <i class="bi bi-journal-x text-4xl text-slate-400"></i>
+                                    <p class="mt-3 font-medium">No se registraron movimientos.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
+</div>
 {% endblock %}

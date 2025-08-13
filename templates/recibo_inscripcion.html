@@ -4,125 +4,103 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recibo de Inscripción N° {{ pago.id }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --azul-corporativo: #2B3A55;
-            --gris-fondo: #f8f9fa;
-            --blanco-tarjetas: #FFFFFF;
-            --texto-oscuro: #212529;
-            --texto-claro: #6c757d;
-            --borde-sutil: #e9ecef;
-            --verde-exito: #28a745;
-        }
-        body { font-family: 'Roboto', sans-serif; margin: 0; padding: 20px; background-color: var(--gris-fondo); }
-        .container { max-width: 800px; margin: auto; background: var(--blanco-tarjetas); border-radius: .75rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
-        .receipt-header { background-color: var(--verde-exito); color: var(--blanco-tarjetas); padding: 2rem; display: flex; justify-content: space-between; align-items: center; }
-        .header-info h1 { margin: 0; font-size: 1.5rem; }
-        .receipt-id p { margin: 5px 0 0; font-size: 1.5rem; font-weight: 700; }
-        .receipt-body { padding: 2rem; }
-        .section { margin-bottom: 2rem; }
-        .section h3 { font-size: 1rem; color: var(--texto-claro); text-transform: uppercase; border-bottom: 1px solid var(--borde-sutil); padding-bottom: .75rem; margin-bottom: 1rem; }
-        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
-        .info-item { background-color: var(--gris-fondo); padding: 1rem; border-radius: .5rem; }
-        .info-item .label { font-size: 0.8rem; color: var(--texto-claro); display: block; }
-        .info-item .value { font-size: 1rem; font-weight: 500; }
-        .info-item .value.amount { font-size: 1.25rem; font-weight: 700; color: var(--verde-exito); }
-        .qr-section { text-align: center; padding: 1.5rem; background-color: var(--gris-fondo); border-top: 1px solid var(--borde-sutil); }
-        .footer-note { padding: 1rem 2rem; text-align: center; font-size: 0.8rem; color: var(--texto-claro); background-color: var(--gris-fondo); }
-        .actions-section { text-align: center; padding: 1.5rem; background-color: var(--gris-fondo); border-top: 1px solid var(--borde-sutil); display: flex; justify-content: center; gap: 10px; }
-        .btn { text-decoration: none; color: white; padding: .6rem 1.2rem; border: none; border-radius: .5rem; cursor: pointer; }
-        .btn-anular { background-color: #dc3545; }
-        .btn-volver { background-color: var(--azul-corporativo); }
-        .btn-imprimir { background-color: var(--texto-claro); }
-        
-        /* Estilos para la tabla de pagos consolidados */
-        .consolidated-payments-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-        .consolidated-payments-table th, .consolidated-payments-table td { text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--borde-sutil); }
-        .consolidated-payments-table th { background-color: var(--gris-fondo); font-weight: 500; font-size: 0.9rem; }
-        .consolidated-payments-table td { font-size: 0.9rem; }
-        .consolidated-payments-table tr:last-child td { border-bottom: none; }
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+    <style>
+        body { font-family: 'Inter', sans-serif; }
         @media print {
-            body { background-color: #fff; padding: 0; }
-            .container { box-shadow: none; border: 1px solid #ccc; }
-            .actions-section { display: none; }
-            .receipt-header { background-color: var(--verde-exito) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .no-print { display: none !important; }
+            body { background-color: #fff; }
+            .print-container { box-shadow: none !important; border: 1px solid #e5e7eb; }
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="receipt-header">
-            <div class="header-info">
-                <h1>MOTO PLAN MOTORS C.A</h1>
-                <p>R.I.F.: J-50408559-1</p>
-                <p>Fecha y Hora de Conciliación (VEN): {{ pago.fecha_pago | format_datetime('%d/%m/%Y %I:%M %p') if pago.fecha_pago else 'N/A' }}</p>
-            </div>
-            <div class="receipt-id text-end">
-                <h2>Recibo de Inscripción</h2>
-                <p>N° {{ pago.id }}</p>
+<body class="bg-slate-100 p-4 sm:p-8">
+    <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-lg print-container">
+        <!-- Encabezado del Recibo -->
+        <div class="bg-green-600 text-white p-6 sm:p-8 rounded-t-xl">
+            <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
+                <div>
+                    <h1 class="text-2xl font-bold">MOTO PLAN MOTORS C.A</h1>
+                    <p class="text-sm opacity-90">R.I.F.: J-50408559-1</p>
+                    <p class="text-xs opacity-80 mt-2">Conciliado: {{ pago.fecha_pago | format_datetime('%d/%m/%Y %I:%M %p') if pago.fecha_pago else 'N/A' }}</p>
+                </div>
+                <div class="text-left sm:text-right">
+                    <h2 class="text-lg font-semibold">Recibo de Inscripción</h2>
+                    <p class="text-3xl font-bold">N° {{ pago.id }}</p>
+                </div>
             </div>
         </div>
-        <div class="receipt-body">
+        
+        <!-- Cuerpo del Recibo -->
+        <div class="p-6 sm:p-8 space-y-6">
             <div class="section">
-                <h3>Cliente</h3>
-                <div class="info-grid">
-                    <div class="info-item"><span class="label">Hemos Recibido de</span><span class="value">{{ pago.nombre_apellido }}</span></div>
-                    <div class="info-item"><span class="label">C.I. o R.I.F.</span><span class="value">{{ pago.cedula }}</span></div>
+                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider border-b pb-2 mb-4">Cliente</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                    <div><span class="text-slate-500">Hemos Recibido de:</span><br><strong class="text-slate-800">{{ pago.nombre_apellido }}</strong></div>
+                    <div><span class="text-slate-500">C.I. o R.I.F.:</span><br><strong class="text-slate-800">{{ pago.cedula }}</strong></div>
                 </div>
             </div>
             <div class="section">
-                <h3>Detalles de la Inscripción</h3>
-                <div class="info-grid">
-                    <div class="info-item"><span class="label">Monto Total de Inscripción (USD)</span><span class="value amount">${{ "%.2f"|format(pago.monto) }}</span></div>
-                    <div class="info-item"><span class="label">Plan Contratado</span><span class="value">{{ pago.plan_contratado or 'N/A' }}</span></div>
-                    <div class="info-item" style="grid-column: 1 / -1;"><span class="label">Por Concepto De</span><span class="value"><strong>Reserva operativa por incorporación al plan (monto no reembolsable)</strong><small class="d-block text-muted mt-1" style="font-size: 0.8em; line-height: 1.4;">Fondo destinado a respaldar la sostenibilidad del sistema de venta programada, garantizando la responsabilidad financiera, el funcionamiento operativo del grupo y la viabilidad del modelo bajo principios de rentabilidad.</small></span></div>
+                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider border-b pb-2 mb-4">Detalles de la Inscripción</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                    <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Monto Total (USD)</span><span class="block font-bold text-lg text-green-600">${{ "%.2f"|format(pago.monto) }}</span></div>
+                    <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Plan Contratado</span><span class="block font-semibold text-slate-700">{{ pago.plan_contratado or 'N/A' }}</span></div>
+                    <div class="sm:col-span-2 bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Por Concepto De</span><strong class="text-slate-700">Reserva operativa por incorporación al plan (monto no reembolsable)</strong></div>
                 </div>
             </div>
 
-            <!-- ===== INICIO: NUEVA SECCIÓN DE PAGOS CONSOLIDADOS ===== -->
             {% if pago.detalles_reporte and pago.detalles_reporte.pagos_individuales %}
             <div class="section">
-                <h3>Detalle de Pagos Consolidados</h3>
-                <table class="consolidated-payments-table">
-                    <thead>
-                        <tr>
-                            <th>ID Recibo Anulado</th>
-                            <th>Fecha del Abono</th>
-                            <th>Monto (USD)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for abono in pago.detalles_reporte.pagos_individuales %}
-                        <tr>
-                            <td>#{{ abono.id }}</td>
-                            <td>{{ abono.fecha | format_datetime('%d/%m/%Y') }}</td>
-                            <td>${{ "%.2f"|format(abono.monto|float) }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider border-b pb-2 mb-4">Detalle de Pagos Consolidados</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-slate-500">
+                            <tr><th class="py-2 pr-3">ID Recibo Anulado</th><th class="py-2 px-3">Fecha del Abono</th><th class="py-2 pl-3 text-right">Monto (USD)</th></tr>
+                        </thead>
+                        <tbody class="divide-y">
+                            {% for abono in pago.detalles_reporte.pagos_individuales %}
+                            <tr>
+                                <td class="py-2 pr-3 text-slate-600">#{{ abono.id }}</td>
+                                <td class="py-2 px-3 text-slate-600">{{ abono.fecha | format_datetime('%d/%m/%Y') }}</td>
+                                <td class="py-2 pl-3 text-right font-semibold text-slate-800">${{ "%.2f"|format(abono.monto|float) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
             {% endif %}
-            <!-- ===== FIN: NUEVA SECCIÓN DE PAGOS CONSOLIDADOS ===== -->
-
         </div>
-        <div class="qr-section">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('verificar_recibo', pago_id=pago.id, _external=True) }}&size=120x120&q=M" alt="Código QR de Verificación">
-            <p style="font-size: 12px; color: #606770; margin-top: 10px;">Escanee para verificar la validez de este recibo</p>
+        
+        <!-- Pie de Página y QR -->
+        <div class="bg-slate-50 p-6 sm:p-8 rounded-b-xl text-center space-y-2">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('verificar_recibo', pago_id=pago.id, _external=True) }}&size=120x120&q=M" alt="Código QR de Verificación" class="mx-auto">
+            <p class="text-xs text-slate-500">Escanee para verificar la validez de este recibo</p>
+            <p class="text-xs text-slate-500 pt-2 border-t border-slate-200">Monto cancelado no será devuelto bajo ningún concepto una vez preparado el contrato.</p>
         </div>
-        <div class="footer-note"><p class="mb-0">Monto cancelado no será devuelto bajo ningún concepto una vez preparado el contrato.</p></div>
-        <div class="actions-section">
-            <button class="btn btn-imprimir" onclick="window.print()">Imprimir / Guardar PDF</button>
-            {% if is_admin_view %}<a href="{{ url_for('consulta', busqueda=pago.cedula) }}" class="btn btn-volver">Volver a Consulta</a>
-            {% else %}<a href="{{ url_for('portal_dashboard') }}" class="btn btn-volver">Volver al Portal</a>{% endif %}
-            {% if is_admin_view and g.admin and g.admin.rol in ['superadmin', 'gerente'] and pago.estado_pago != 'Anulado' %}
-            <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Estás seguro? Anular este recibo revertirá la consolidación y restaurará los abonos individuales.');">
-                <button type="submit" class="btn btn-anular">Anular Inscripción</button>
-            </form>
-            {% endif %}
-        </div>
+    </div>
+    
+    <!-- Acciones -->
+    <div class="no-print max-w-3xl mx-auto mt-6 text-center flex items-center justify-center gap-3">
+        <button class="bg-slate-700 text-white font-semibold py-2 px-4 rounded-lg hover:bg-slate-800" onclick="window.print()"><i class="bi bi-printer-fill mr-1"></i> Imprimir / PDF</button>
+        {% if is_admin_view %}<a href="{{ url_for('consulta', busqueda=pago.cedula) }}" class="bg-slate-200 text-slate-800 font-semibold py-2 px-4 rounded-lg hover:bg-slate-300">Volver</a>{% else %}<a href="{{ url_for('portal_dashboard') }}" class="bg-slate-200 text-slate-800 font-semibold py-2 px-4 rounded-lg hover:bg-slate-300">Volver</a>{% endif %}
+        {% if is_admin_view and g.admin and g.admin.rol in ['superadmin', 'gerente'] and pago.estado_pago != 'Anulado' %}
+        <form action="{{ url_for('anular_recibo', pago_id=pago.id) }}" method="POST" class="inline" onsubmit="return confirm('¿Estás seguro? Anular este recibo revertirá la consolidación y restaurará los abonos individuales.');">
+            <button type="submit" class="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700">Anular Inscripción</button>
+        </form>
+        {% endif %}
     </div>
 </body>
 </html>
+
