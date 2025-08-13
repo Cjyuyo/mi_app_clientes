@@ -70,10 +70,7 @@
         .sidebar {
             transition: transform 0.3s ease-in-out;
         }
-        /* Color corporativo para la barra lateral */
-        .sidebar-bg-corporate {
-            background-color: rgba(43, 58, 85, 0.95); /* #2B3A55 con 95% de opacidad */
-        }
+        
         .sidebar-link {
             transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
         }
@@ -107,10 +104,10 @@
 <div class="aurora-background-container"></div>
 
 <div class="flex h-screen relative z-10">
-    <!-- Sidebar -->
-    <aside id="sidebar" class="sidebar sidebar-bg-corporate backdrop-blur-lg text-slate-100 w-64 flex-shrink-0 flex flex-col fixed h-full z-40 -translate-x-full border-r border-slate-600/50">
+    <!-- Sidebar con efecto vidrio -->
+    <aside id="sidebar" class="sidebar bg-slate-800/80 backdrop-blur-lg text-slate-100 w-64 flex-shrink-0 flex flex-col fixed h-full z-40 -translate-x-full border-r border-white/20">
         <!-- Logo -->
-        <div class="flex items-center justify-center p-4 border-b border-slate-600/50 h-28 flex-shrink-0">
+        <div class="flex items-center justify-center p-4 border-b border-white/20 h-28 flex-shrink-0">
             <a href="{{ url_for('hub') }}">
                 <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="h-24">
             </a>
@@ -123,13 +120,13 @@
                     <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Navegación</span>
                 </li>
                 <li>
-                    <a href="{{ url_for('hub') }}" class="sidebar-link flex items-center px-4 py-3 text-slate-100 hover:bg-slate-700/50 hover:text-white rounded-md mx-2">
+                    <a href="{{ url_for('hub') }}" class="sidebar-link flex items-center px-4 py-3 text-slate-100 hover:bg-white/10 hover:text-white rounded-md mx-2">
                         <i class="bi bi-house-door-fill text-lg w-8 text-center text-slate-400"></i>
                         <span class="ml-2">Hub Principal</span>
                     </a>
                 </li>
                 <li>
-                    <a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center px-4 py-3 text-slate-100 hover:bg-slate-700/50 hover:text-white rounded-md mx-2">
+                    <a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center px-4 py-3 text-slate-100 hover:bg-white/10 hover:text-white rounded-md mx-2">
                         <i class="bi bi-person-workspace text-lg w-8 text-center text-slate-400"></i>
                         <span class="ml-2">HUB de Asesor</span>
                     </a>
@@ -137,7 +134,7 @@
                 
                 <!-- Clientes Dropdown -->
                 <li class="px-2">
-                    <button @click="openMenu = (openMenu === 'clientes' ? '' : 'clientes')" class="w-full flex items-center justify-between px-2 py-3 text-slate-100 hover:bg-slate-700/50 hover:text-white rounded-md sidebar-link">
+                    <button @click="openMenu = (openMenu === 'clientes' ? '' : 'clientes')" class="w-full flex items-center justify-between px-2 py-3 text-slate-100 hover:bg-white/10 hover:text-white rounded-md sidebar-link">
                         <span class="flex items-center">
                             <i class="bi bi-people-fill text-lg w-8 text-center text-slate-400"></i>
                             <span class="ml-2">Clientes</span>
@@ -145,9 +142,9 @@
                         <i class="bi bi-chevron-down transition-transform text-xs mr-2" :class="openMenu === 'clientes' && 'rotate-180'"></i>
                     </button>
                     <ul x-show="openMenu === 'clientes'" x-transition class="mt-1 space-y-1">
-                        <li><a href="{{ url_for('registrar') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Registrar Cliente</a></li>
-                        <li><a href="{{ url_for('consulta') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Consultar Clientes</a></li>
-                        <li><a href="{{ url_for('mi_cartera') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Mi Cartera de Cobranza</a></li>
+                        <li><a href="{{ url_for('registrar') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-200 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Registrar Cliente</a></li>
+                        <li><a href="{{ url_for('consulta') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-200 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Consultar Clientes</a></li>
+                        <li><a href="{{ url_for('mi_cartera') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-200 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Mi Cartera de Cobranza</a></li>
                     </ul>
                 </li>
 
@@ -157,7 +154,7 @@
                 </li>
                 <!-- Administración y Finanzas Dropdown -->
                 <li class="px-2">
-                    <button @click="openMenu = (openMenu === 'finanzas' ? '' : 'finanzas')" class="w-full flex items-center justify-between px-2 py-3 text-slate-100 hover:bg-slate-700/50 hover:text-white rounded-md sidebar-link">
+                    <button @click="openMenu = (openMenu === 'finanzas' ? '' : 'finanzas')" class="w-full flex items-center justify-between px-2 py-3 text-slate-100 hover:bg-white/10 hover:text-white rounded-md sidebar-link">
                         <span class="flex items-center">
                             <i class="bi bi-bank text-lg w-8 text-center text-slate-400"></i>
                             <span class="ml-2">Admón. y Finanzas</span>
@@ -165,18 +162,18 @@
                         <i class="bi bi-chevron-down transition-transform text-xs mr-2" :class="openMenu === 'finanzas' && 'rotate-180'"></i>
                     </button>
                     <ul x-show="openMenu === 'finanzas'" x-transition class="mt-1 space-y-1">
-                        <li><a href="{{ url_for('gestion_administrativa') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Gestión General</a></li>
-                        <li><a href="{{ url_for('pagos_por_conciliar') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Centro de Conciliación</a></li>
-                        <li><a href="{{ url_for('solicitudes_hub') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Gestión de Solicitudes</a></li>
-                        <li><a href="{{ url_for('adjudicacion') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Sistema de Adjudicación</a></li>
-                        <li><a href="{{ url_for('reporte_flujo_caja') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Flujo de Caja</a></li>
-                        <li><a href="{{ url_for('tesoreria_rebalanceo') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Rebalanceo de Tesorería</a></li>
-                        <li><a href="{{ url_for('admin_tasa_bcv') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Tasa de Cambio (BCV)</a></li>
+                        <li><a href="{{ url_for('gestion_administrativa') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-200 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Gestión General</a></li>
+                        <li><a href="{{ url_for('pagos_por_conciliar') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-200 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Centro de Conciliación</a></li>
+                        <li><a href="{{ url_for('solicitudes_hub') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-200 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Gestión de Solicitudes</a></li>
+                        <li><a href="{{ url_for('adjudicacion') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-200 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Sistema de Adjudicación</a></li>
+                        <li><a href="{{ url_for('reporte_flujo_caja') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-200 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Flujo de Caja</a></li>
+                        <li><a href="{{ url_for('tesoreria_rebalanceo') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-200 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Rebalanceo de Tesorería</a></li>
+                        <li><a href="{{ url_for('admin_tasa_bcv') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-200 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Tasa de Cambio (BCV)</a></li>
                     </ul>
                 </li>
                 <!-- Comercial Dropdown -->
                 <li class="px-2">
-                    <button @click="openMenu = (openMenu === 'comercial' ? '' : 'comercial')" class="w-full flex items-center justify-between px-2 py-3 text-slate-100 hover:bg-slate-700/50 hover:text-white rounded-md sidebar-link">
+                    <button @click="openMenu = (openMenu === 'comercial' ? '' : 'comercial')" class="w-full flex items-center justify-between px-2 py-3 text-slate-100 hover:bg-white/10 hover:text-white rounded-md sidebar-link">
                         <span class="flex items-center">
                             <i class="bi bi-briefcase-fill text-lg w-8 text-center text-slate-400"></i>
                             <span class="ml-2">Comercial</span>
@@ -184,12 +181,12 @@
                         <i class="bi bi-chevron-down transition-transform text-xs mr-2" :class="openMenu === 'comercial' && 'rotate-180'"></i>
                     </button>
                     <ul x-show="openMenu === 'comercial'" x-transition class="mt-1 space-y-1">
-                        <li><a href="{{ url_for('dashboard_comercial') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Dashboard Comercial</a></li>
+                        <li><a href="{{ url_for('dashboard_comercial') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-200 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Dashboard Comercial</a></li>
                     </ul>
                 </li>
                 <!-- Reportes y Auditoría Dropdown -->
                 <li class="px-2">
-                    <button @click="openMenu = (openMenu === 'reportes' ? '' : 'reportes')" class="w-full flex items-center justify-between px-2 py-3 text-slate-100 hover:bg-slate-700/50 hover:text-white rounded-md sidebar-link">
+                    <button @click="openMenu = (openMenu === 'reportes' ? '' : 'reportes')" class="w-full flex items-center justify-between px-2 py-3 text-slate-100 hover:bg-white/10 hover:text-white rounded-md sidebar-link">
                         <span class="flex items-center">
                             <i class="bi bi-file-earmark-text-fill text-lg w-8 text-center text-slate-400"></i>
                             <span class="ml-2">Reportes y Auditoría</span>
@@ -197,9 +194,9 @@
                         <i class="bi bi-chevron-down transition-transform text-xs mr-2" :class="openMenu === 'reportes' && 'rotate-180'"></i>
                     </button>
                     <ul x-show="openMenu === 'reportes'" x-transition class="mt-1 space-y-1">
-                        <li><a href="{{ url_for('reporte_morosidad') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Reporte de Morosidad</a></li>
-                        <li><a href="{{ url_for('reporte_metricas') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Métricas del Negocio</a></li>
-                        <li><a href="{{ url_for('auditoria') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Visor de Auditoría</a></li>
+                        <li><a href="{{ url_for('reporte_morosidad') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-200 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Reporte de Morosidad</a></li>
+                        <li><a href="{{ url_for('reporte_metricas') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-200 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Métricas del Negocio</a></li>
+                        <li><a href="{{ url_for('auditoria') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-200 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Visor de Auditoría</a></li>
                     </ul>
                 </li>
                 {% endif %}
@@ -208,7 +205,7 @@
                     <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Externo</span>
                 </li>
                 <li>
-                    <a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center px-4 py-3 text-slate-100 hover:bg-slate-700/50 hover:text-white rounded-md mx-2">
+                    <a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center px-4 py-3 text-slate-100 hover:bg-white/10 hover:text-white rounded-md mx-2">
                         <i class="bi bi-box-arrow-up-right text-lg w-8 text-center text-slate-400"></i>
                         <span class="ml-2">Portal Cliente</span>
                     </a>
@@ -222,8 +219,8 @@
 
     <!-- Contenido Principal -->
     <div class="flex-1 flex flex-col overflow-hidden">
-        <!-- Topbar -->
-        <header class="bg-white/50 backdrop-blur-sm border-b border-slate-200/50 h-16 flex items-center justify-between px-6 flex-shrink-0">
+        <!-- Topbar con efecto vidrio -->
+        <header class="bg-white/80 backdrop-blur-lg border-b border-slate-200/60 h-16 flex items-center justify-between px-6 flex-shrink-0 sticky top-0 z-20">
             <!-- Botón para abrir sidebar -->
             <button id="sidebar-toggle" class="text-slate-600 hover:text-slate-900">
                 <i class="bi bi-list text-2xl"></i>
@@ -238,7 +235,7 @@
                     <i class="bi bi-person-circle text-2xl text-slate-500"></i>
                 </button>
                 <div x-show="open" @click.away="open = false" x-transition
-                     class="absolute right-0 mt-2 w-48 bg-white/80 backdrop-blur-sm rounded-md shadow-lg py-1 z-50 border border-slate-200">
+                     class="absolute right-0 mt-2 w-48 bg-white/80 backdrop-blur-lg rounded-md shadow-lg py-1 z-50 border border-slate-200">
                     <a href="{{ url_for('admin_logout') }}" class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-500/10 rounded-md">
                         <i class="bi bi-box-arrow-right mr-2"></i>Cerrar Sesión
                     </a>
@@ -252,8 +249,8 @@
             {% block body %}{% endblock %}
         </main>
         
-        <!-- Footer -->
-        <footer class="text-center py-4 px-6 border-t border-slate-200/50 bg-white/50 backdrop-blur-sm text-sm">
+        <!-- Footer con efecto vidrio -->
+        <footer class="text-center py-4 px-6 border-t border-slate-200/60 bg-white/80 backdrop-blur-lg text-sm">
             <small class="text-slate-500">&copy; {{ g.anio_actual | default('2024') }} - Sistema de Gestión.</small>
         </footer>
     </div>

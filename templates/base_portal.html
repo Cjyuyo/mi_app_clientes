@@ -8,7 +8,7 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Bootstrap Icons (para los iconos) -->
+    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
     <!-- Google Fonts: Inter -->
@@ -19,16 +19,11 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-        }
-        /* Color de fondo principal más suave */
-        .main-content-bg {
             background-color: #f8fafc; /* slate-50 */
         }
+        /* Estilos de la barra lateral para transiciones suaves */
         .sidebar-link {
             transition: background-color 0.2s ease, color 0.2s ease;
-        }
-        .sidebar-link:hover {
-            background-color: rgba(0, 0, 0, 0.1); /* Sutil oscurecimiento sobre el naranja */
         }
     </style>
     {% block head_extra %}{% endblock %}
@@ -36,10 +31,10 @@
 <body class="main-content-bg">
 
 <div class="flex h-screen">
-    <!-- Sidebar Fija -->
-    <aside class="w-64 flex-shrink-0 flex flex-col text-white" style="background-color: #F99417;">
+    <!-- Sidebar con efecto vidrio (glassmorphism) -->
+    <aside class="w-64 flex-shrink-0 flex flex-col text-white bg-orange-500/80 backdrop-blur-lg border-r border-white/20">
         <!-- Logo -->
-        <div class="flex items-center justify-center h-24 border-b border-white/20">
+        <div class="flex items-center justify-center h-20">
             <a href="{{ url_for('portal_dashboard') }}">
                 <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="h-16">
             </a>
@@ -48,7 +43,7 @@
         <!-- Contenido del Sidebar -->
         <div class="flex flex-col flex-grow p-4">
             <div class="text-center mb-6">
-                <h2 class="text-lg font-semibold">{{ session.cliente_nombre }}</h2>
+                <h2 class="text-xl font-semibold text-white">{{ session.cliente_nombre }}</h2>
                 <p class="text-sm text-orange-100">¡Bienvenido!</p>
             </div>
             
@@ -60,8 +55,9 @@
                 </ul>
             </nav>
 
+            <!-- Botón de Salir -->
             <div class="mt-auto">
-                 <a href="{{ url_for('portal_logout') }}" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-3 rounded-md text-orange-100">
+                 <a href="{{ url_for('portal_logout') }}" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-3 rounded-md text-orange-100 hover:bg-white/20 hover:text-white">
                     <i class="bi bi-box-arrow-right text-lg"></i>
                     <span>Salir</span>
                 </a>
@@ -71,7 +67,17 @@
 
     <!-- Contenido Principal -->
     <div class="flex-1 flex flex-col overflow-hidden">
-        <main class="flex-1 overflow-x-hidden overflow-y-auto p-6">
+        <!-- Header Fijo con Efecto Vidrio -->
+        <header class="sticky top-0 z-10 bg-slate-50/80 backdrop-blur-lg border-b border-slate-200/60">
+            <div class="px-4 md:px-6 py-4">
+                <h1 class="text-xl font-semibold text-slate-900">
+                    {% block page_title %}Mi Portal{% endblock %}
+                </h1>
+            </div>
+        </header>
+
+        <!-- Área de Contenido con Scroll -->
+        <main class="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6">
             <div class="max-w-7xl mx-auto">
                 {% block body %}{% endblock %}
             </div>
