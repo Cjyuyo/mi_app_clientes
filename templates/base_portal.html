@@ -20,83 +20,63 @@
         body {
             font-family: 'Inter', sans-serif;
         }
-        /* Estilos para dar "vida" y un "marco" visual al portal */
-        @keyframes slow-pan {
-            0% { transform: translate(0, 0); }
-            25% { transform: translate(20px, -10px); }
-            50% { transform: translate(40px, 0px); }
-            75% { transform: translate(20px, 10px); }
-            100% { transform: translate(0, 0); }
+        /* Color de fondo principal más suave */
+        .main-content-bg {
+            background-color: #f8fafc; /* slate-50 */
         }
-
-        .aurora-background {
-            position: relative;
-            overflow-x: hidden;
+        .sidebar-link {
+            transition: background-color 0.2s ease, color 0.2s ease;
         }
-
-        .aurora-background::before,
-        .aurora-background::after {
-            content: '';
-            position: absolute;
-            width: 50vw;
-            height: 50vh;
-            border-radius: 50%;
-            opacity: 0.1;
-            filter: blur(100px);
-            z-index: 0;
-            animation: slow-pan 25s linear infinite;
-        }
-
-        .aurora-background::before {
-            background: radial-gradient(circle, #F99417, transparent 70%); /* Naranja Corporativo */
-            top: -10%;
-            left: -15%;
-        }
-
-        .aurora-background::after {
-            background: radial-gradient(circle, #FFC700, transparent 70%); /* Amarillo Cálido */
-            bottom: -10%;
-            right: -15%;
-            animation-delay: -12.5s;
+        .sidebar-link:hover {
+            background-color: rgba(0, 0, 0, 0.1); /* Sutil oscurecimiento sobre el naranja */
         }
     </style>
     {% block head_extra %}{% endblock %}
 </head>
-<body class="bg-slate-50 text-slate-800 aurora-background">
+<body class="main-content-bg">
 
-<div class="min-h-screen flex flex-col relative z-10">
-    <!-- Encabezado -->
-    <header class="bg-white/50 backdrop-blur-sm shadow-sm sticky top-0 z-50">
-        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-20">
-                <!-- Logo a la izquierda -->
-                <a href="{{ url_for('portal_dashboard') }}">
-                    <div style="background-color: #2B3A55;" class="p-2 rounded-lg shadow-md">
-                        <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="h-12">
-                    </div>
-                </a>
-                
-                <!-- Acciones del usuario a la derecha -->
-                <div class="flex items-center gap-4">
-                    {% block header_actions %}{% endblock %}
-                </div>
+<div class="flex h-screen">
+    <!-- Sidebar Fija -->
+    <aside class="w-64 flex-shrink-0 flex flex-col text-white" style="background-color: #F99417;">
+        <!-- Logo -->
+        <div class="flex items-center justify-center h-24 border-b border-white/20">
+            <a href="{{ url_for('portal_dashboard') }}">
+                <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="h-16">
+            </a>
+        </div>
+
+        <!-- Contenido del Sidebar -->
+        <div class="flex flex-col flex-grow p-4">
+            <div class="text-center mb-6">
+                <h2 class="text-lg font-semibold">{{ session.cliente_nombre }}</h2>
+                <p class="text-sm text-orange-100">¡Bienvenido!</p>
             </div>
-        </nav>
-    </header>
+            
+            <nav class="flex-grow">
+                <ul class="space-y-2">
+                    {% block sidebar_actions %}
+                    <!-- Los botones de acción se insertarán aquí desde el dashboard -->
+                    {% endblock %}
+                </ul>
+            </nav>
+
+            <div class="mt-auto">
+                 <a href="{{ url_for('portal_logout') }}" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-3 rounded-md text-orange-100">
+                    <i class="bi bi-box-arrow-right text-lg"></i>
+                    <span>Salir</span>
+                </a>
+            </div>
+        </div>
+    </aside>
 
     <!-- Contenido Principal -->
-    <main class="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div class="max-w-7xl mx-auto">
-            {% block body %}{% endblock %}
-        </div>
-    </main>
-
-    <!-- Footer -->
-    <footer class="bg-white/50 backdrop-blur-sm mt-8">
-        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 text-center">
-            <p class="text-sm text-slate-500">&copy; {{ g.anio_actual | default('2024') }} - Moto Plan Motors. Todos los derechos reservados.</p>
-        </div>
-    </footer>
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto p-6">
+            <div class="max-w-7xl mx-auto">
+                {% block body %}{% endblock %}
+            </div>
+        </main>
+    </div>
 </div>
 
 {% block scripts_extra %}{% endblock %}

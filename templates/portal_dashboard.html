@@ -20,20 +20,25 @@
         -webkit-transition: width .6s ease;
         -o-transition: width .6s ease;
         transition: width .6s ease;
+        background-color: #F99417 !important; /* Forzar color naranja */
     }
 </style>
 {% endblock %}
 
-{% block header_actions %}
-    <!-- Contenido del encabezado: Mensaje de bienvenida y botones -->
-    <h1 class="text-lg font-bold text-slate-800 hidden md:block">
-        Bienvenido, <span style="color: #F99417;">{{ session.cliente_nombre }}</span>
-    </h1>
-    <div class="flex flex-wrap items-center gap-2">
-        <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="text-sm bg-slate-700 text-white font-semibold py-2 px-3 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-2" target="_blank"><i class="bi bi-file-pdf"></i> Ver Contrato</a>
-        <a href="{{ url_for('portal_estado_cuenta') }}" class="text-sm text-white font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2" style="background-color: #F99417;" onmouseover="this.style.backgroundColor='#E88300'" onmouseout="this.style.backgroundColor='#F99417'"><i class="bi bi-journal-text"></i> Estado de Cuenta</a>
-        <a href="{{ url_for('portal_logout') }}" class="text-sm bg-red-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"><i class="bi bi-box-arrow-right"></i> Salir</a>
-    </div>
+{% block sidebar_actions %}
+    <!-- Botones de acción que aparecerán en la nueva sidebar fija -->
+    <li>
+        <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" target="_blank" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-3 rounded-md text-orange-100">
+            <i class="bi bi-file-pdf text-lg"></i>
+            <span>Ver Contrato</span>
+        </a>
+    </li>
+    <li>
+        <a href="{{ url_for('portal_estado_cuenta') }}" target="_blank" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-3 rounded-md text-orange-100">
+            <i class="bi bi-journal-text text-lg"></i>
+            <span>Estado de Cuenta</span>
+        </a>
+    </li>
 {% endblock %}
 
 
@@ -57,7 +62,7 @@
         <div class="space-y-6">
             <!-- Tarjeta de Estado Principal -->
             {% if estado_principal %}
-            <div class="bg-white/80 backdrop-blur-sm p-5 rounded-xl shadow-lg border-l-4 {{ estado_principal.clase_borde | replace('naranja-corporativo', 'border-orange-500') | replace('en-mora', 'border-red-500') | replace('vigente', 'border-green-500') | replace('azul-info', 'border-blue-500') }} h-full card-lift">
+            <div class="bg-white p-5 rounded-xl shadow-lg border-l-4 {{ estado_principal.clase_borde | replace('naranja-corporativo', 'border-orange-500') | replace('en-mora', 'border-red-500') | replace('vigente', 'border-green-500') | replace('azul-info', 'border-blue-500') }} h-full card-lift">
                 <h3 class="text-lg font-bold text-slate-800">{{ estado_principal.titulo }}</h3>
                 <p class="text-slate-600 mt-2">{{ estado_principal.mensaje | safe }}</p>
                 {% if estado_principal.boton_texto %}
@@ -72,7 +77,7 @@
 
             <!-- Tarjeta de Cita Confirmada -->
             {% if cita_confirmada %}
-            <div class="bg-white/80 backdrop-blur-sm p-5 rounded-xl shadow-lg border-l-4 border-green-500 card-lift">
+            <div class="bg-white p-5 rounded-xl shadow-lg border-l-4 border-green-500 card-lift">
                 <div class="flex items-start gap-4">
                     <i class="bi bi-calendar-check-fill text-3xl text-green-500 mt-1"></i>
                     <div>
@@ -89,11 +94,11 @@
         </div>
 
         <!-- Columna de Acciones (Gestiones) -->
-        <div class="bg-white/80 backdrop-blur-sm p-5 rounded-xl shadow-lg card-lift">
+        <div class="bg-white p-5 rounded-xl shadow-lg card-lift">
             <h2 class="text-lg font-bold text-slate-800">Gestiones</h2>
             <p class="text-sm text-slate-500 mb-4">Realiza solicitudes o agenda una cita.</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button class="w-full text-sm bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-transform hover:scale-105" data-bs-toggle="modal" data-bs-target="#ofertaModal" {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled title="Debes tener tu inscripción y al menos una cuota pagada para ofertar."{% endif %}><i class="bi bi-gem"></i> Registrar Oferta</button>
+                <button class="w-full text-sm font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-transform hover:scale-105" style="background-color: #F99417; color: white;" onmouseover="this.style.backgroundColor='#E88300'" onmouseout="this.style.backgroundColor='#F99417'" data-bs-toggle="modal" data-bs-target="#ofertaModal" {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled title="Debes tener tu inscripción y al menos una cuota pagada para ofertar."{% endif %}><i class="bi bi-gem"></i> Registrar Oferta</button>
                 <button class="w-full text-sm bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-transform hover:scale-105" data-bs-toggle="modal" data-bs-target="#citaModal"><i class="bi bi-calendar-check"></i> Solicitar Cita</button>
                 {% if cliente.estatus == 'CONGELADO' %}<button class="w-full text-sm bg-teal-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-teal-700 flex items-center justify-center gap-2 transition-transform hover:scale-105" data-bs-toggle="modal" data-bs-target="#descongelamientoModal"><i class="bi bi-unlock-fill"></i> Descongelar</button>
                 {% else %}<button class="w-full text-sm bg-slate-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-transform hover:scale-105" data-bs-toggle="modal" data-bs-target="#congelamientoModal" {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}><i class="bi bi-snow"></i> Congelar</button>{% endif %}
@@ -107,7 +112,7 @@
         <!-- Columna Izquierda: Resumen y Pagos -->
         <div class="lg:col-span-2 space-y-6">
             <!-- Tarjeta Resumen de Plan -->
-            <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg card-lift">
+            <div class="bg-white rounded-xl shadow-lg card-lift">
                 <div class="p-5 border-b border-slate-200">
                     <h2 class="text-lg font-bold text-slate-800">Resumen de mi Plan</h2>
                 </div>
@@ -115,19 +120,19 @@
                      {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
                     <div>
                         <div class="flex justify-between items-center mb-1"><span class="text-sm font-medium text-slate-600">Progreso Total del Plan</span><span class="text-sm font-semibold text-slate-700">{{ "%.0f"|format(progreso_total) }}%</span></div>
-                        <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="bg-blue-600 h-2.5 rounded-full progress-bar" style="width: {{ progreso_total }}%"></div></div>
+                        <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="h-2.5 rounded-full progress-bar" style="width: {{ progreso_total }}%"></div></div>
                     </div>
                     {% set balance = cliente.balance_regresivo|float or 0.0 %}{% set valor_cuota = cliente.valor_cuota|float or 0.0 %}{% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
                     <div>
                         {% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}
                         <div class="flex justify-between items-center mb-1"><span class="text-sm font-medium text-slate-600">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span><span class="text-sm font-semibold text-slate-700">{{ "%.0f"|format(progreso_cuota_actual) }}%</span></div>
-                        <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="bg-teal-500 h-2.5 rounded-full progress-bar" style="width: {{ progreso_cuota_actual }}%"></div></div>
+                        <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="h-2.5 rounded-full progress-bar" style="width: {{ progreso_cuota_actual }}%"></div></div>
                     </div>
                 </div>
             </div>
 
             <!-- Tarjeta Historial de Pagos -->
-            <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg card-lift">
+            <div class="bg-white rounded-xl shadow-lg card-lift">
                 <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Últimos Pagos</h2></div>
                 <div class="divide-y divide-slate-100">
                     {% if cliente.pagos %}
@@ -146,7 +151,7 @@
                                 </div>
                             </div>
                             <div class="mt-2 text-right">
-                                <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" target="_blank" class="text-xs text-blue-600 hover:text-blue-800 font-semibold inline-flex items-center gap-1">
+                                <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1" style="color: #F99417;">
                                     <i class="bi bi-receipt"></i> Ver Recibo
                                 </a>
                             </div>
@@ -160,7 +165,7 @@
         </div>
 
         <!-- Columna Derecha: Historial de Gestiones -->
-        <div class="lg:col-span-1 bg-white/80 backdrop-blur-sm rounded-xl shadow-lg card-lift">
+        <div class="lg:col-span-1 bg-white rounded-xl shadow-lg card-lift">
             <div class="p-5 border-b border-slate-200">
                 <h2 class="text-lg font-bold text-slate-800">Historial de Gestiones</h2>
             </div>
