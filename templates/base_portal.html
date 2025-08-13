@@ -12,6 +12,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
+        :root {
+            --color-azul-corp: #2B3A55;
+            --color-naranja-corp: #F99417;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
             background-color: #eff6ff; /* Color de fondo base (blue-50) */
@@ -76,7 +81,7 @@
             transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
         }
         .sidebar-link.active {
-            background-color: #2563eb; /* blue-600 */
+            background-color: var(--color-naranja-corp); /* Color corporativo naranja */
             color: #ffffff; /* white */
             font-weight: 600;
         }
@@ -100,7 +105,7 @@
 <div class="aurora-background-container"></div>
 
 <div class="flex h-screen relative z-10">
-    <aside id="sidebar" class="sidebar bg-slate-800/80 backdrop-blur-lg text-slate-100 w-64 flex-shrink-0 flex flex-col fixed h-full z-40 -translate-x-full md:translate-x-0 border-r border-white/20">
+    <aside id="sidebar" class="sidebar bg-[#2B3A55]/95 backdrop-blur-lg text-slate-100 w-64 flex-shrink-0 flex flex-col fixed h-full z-40 -translate-x-full md:translate-x-0 border-r border-white/20">
         <div class="flex items-center justify-center h-20 border-b border-slate-700">
             <a href="{{ url_for('portal_dashboard') }}">
                 <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="h-16">
@@ -108,6 +113,8 @@
         </div>
 
         <nav class="flex-1 overflow-y-auto sidebar-nav py-4 space-y-2">
+            {# NOTA: Para el efecto hover naranja, deberás cambiar las clases en los enlaces que llenan este bloque #}
+            {# Busca 'hover:bg-slate-700' o similar y cámbialo a 'hover:bg-[#F99417]' en la plantilla hija #}
             {% block sidebar_actions %}{% endblock %}
         </nav>
     </aside>
@@ -120,10 +127,12 @@
                 <button id="sidebar-toggle-desktop" class="text-slate-600 hover:text-slate-900">
                     <i class="bi bi-list text-2xl"></i>
                 </button>
-                <h1 class="text-xl font-semibold text-slate-900">
-                    {% block page_title %}Mi Portal{% endblock %}
+                <h1 class="text-lg font-semibold text-slate-900 truncate">
+                    {% block page_title %}
+                        Bienvenido, {{ session.cliente_nombre.split(' ')[0] }}
+                    {% endblock %}
                 </h1>
-            </div>
+                </div>
             
             <div x-data="{ open: false }" class="relative">
                 <button @click="open = !open" class="flex items-center space-x-2 p-2 rounded-full hover:bg-slate-200/50">
@@ -150,25 +159,24 @@
     </div>
 </div>
 
-<nav class="fixed bottom-0 left-0 right-0 h-18 bg-slate-800/90 backdrop-blur-lg border-t border-white/20 flex justify-around items-center z-30 md:hidden">
-    <a href="{{ url_for('portal_dashboard') }}" class="flex flex-col items-center justify-center text-slate-300 hover:text-white transition-colors p-2 rounded-lg">
+<nav class="fixed bottom-0 left-0 right-0 h-18 bg-[#2B3A55]/95 backdrop-blur-lg border-t border-white/20 flex justify-around items-center z-30 md:hidden">
+    <a href="{{ url_for('portal_dashboard') }}" class="flex flex-col items-center justify-center text-slate-300 hover:text-[#F99417] transition-colors p-2 rounded-lg">
         <i class="bi bi-house-door-fill text-2xl"></i>
         <span class="text-xs mt-1">Inicio</span>
     </a>
-    <a href="#" class="flex flex-col items-center justify-center text-slate-300 hover:text-white transition-colors p-2 rounded-lg">
+    <a href="{{ url_for('portal_pagos') }}" class="flex flex-col items-center justify-center text-slate-300 hover:text-[#F99417] transition-colors p-2 rounded-lg">
         <i class="bi bi-receipt-cutoff text-2xl"></i>
         <span class="text-xs mt-1">Pagos</span>
     </a>
-    <a href="#" class="flex flex-col items-center justify-center text-slate-300 hover:text-white transition-colors p-2 rounded-lg">
+    <a href="{{ url_for('portal_documentos') }}" class="flex flex-col items-center justify-center text-slate-300 hover:text-[#F99417] transition-colors p-2 rounded-lg">
         <i class="bi bi-file-earmark-text-fill text-2xl"></i>
         <span class="text-xs mt-1">Docs</span>
     </a>
-    <button id="sidebar-toggle-mobile" class="flex flex-col items-center justify-center text-slate-300 hover:text-white transition-colors p-2 rounded-lg">
+    <button id="sidebar-toggle-mobile" class="flex flex-col items-center justify-center text-slate-300 hover:text-[#F99417] transition-colors p-2 rounded-lg">
         <i class="bi bi-list text-2xl"></i>
         <span class="text-xs mt-1">Menú</span>
     </button>
 </nav>
-
 <script src="//unpkg.com/alpinejs" defer></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
