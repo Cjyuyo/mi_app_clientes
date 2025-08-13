@@ -70,6 +70,10 @@
         .sidebar {
             transition: transform 0.3s ease-in-out;
         }
+        /* Color corporativo para la barra lateral */
+        .sidebar-bg-corporate {
+            background-color: rgba(43, 58, 85, 0.95); /* #2B3A55 con 95% de opacidad */
+        }
         .sidebar-link {
             transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
         }
@@ -104,9 +108,9 @@
 
 <div class="flex h-screen relative z-10">
     <!-- Sidebar -->
-    <aside id="sidebar" class="sidebar bg-blue-900/95 backdrop-blur-lg text-blue-100 w-64 flex-shrink-0 flex flex-col fixed h-full z-40 -translate-x-full border-r border-blue-800/50">
+    <aside id="sidebar" class="sidebar sidebar-bg-corporate backdrop-blur-lg text-slate-100 w-64 flex-shrink-0 flex flex-col fixed h-full z-40 -translate-x-full border-r border-slate-600/50">
         <!-- Logo -->
-        <div class="flex items-center justify-center p-4 border-b border-blue-800/50 h-28 flex-shrink-0">
+        <div class="flex items-center justify-center p-4 border-b border-slate-600/50 h-28 flex-shrink-0">
             <a href="{{ url_for('hub') }}">
                 <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="h-24">
             </a>
@@ -116,96 +120,96 @@
         <nav class="flex-1 overflow-y-auto sidebar-nav" x-data="{ openMenu: '' }">
             <ul class="py-4 space-y-1">
                 <li class="px-4 mb-2">
-                    <span class="text-xs font-medium text-blue-300 uppercase tracking-wider">Navegación</span>
+                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Navegación</span>
                 </li>
                 <li>
-                    <a href="{{ url_for('hub') }}" class="sidebar-link flex items-center px-4 py-3 text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-md mx-2">
-                        <i class="bi bi-house-door-fill text-lg w-8 text-center text-blue-300"></i>
+                    <a href="{{ url_for('hub') }}" class="sidebar-link flex items-center px-4 py-3 text-slate-100 hover:bg-slate-700/50 hover:text-white rounded-md mx-2">
+                        <i class="bi bi-house-door-fill text-lg w-8 text-center text-slate-400"></i>
                         <span class="ml-2">Hub Principal</span>
                     </a>
                 </li>
                 <li>
-                    <a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center px-4 py-3 text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-md mx-2">
-                        <i class="bi bi-person-workspace text-lg w-8 text-center text-blue-300"></i>
+                    <a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center px-4 py-3 text-slate-100 hover:bg-slate-700/50 hover:text-white rounded-md mx-2">
+                        <i class="bi bi-person-workspace text-lg w-8 text-center text-slate-400"></i>
                         <span class="ml-2">HUB de Asesor</span>
                     </a>
                 </li>
                 
                 <!-- Clientes Dropdown -->
                 <li class="px-2">
-                    <button @click="openMenu = (openMenu === 'clientes' ? '' : 'clientes')" class="w-full flex items-center justify-between px-2 py-3 text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-md sidebar-link">
+                    <button @click="openMenu = (openMenu === 'clientes' ? '' : 'clientes')" class="w-full flex items-center justify-between px-2 py-3 text-slate-100 hover:bg-slate-700/50 hover:text-white rounded-md sidebar-link">
                         <span class="flex items-center">
-                            <i class="bi bi-people-fill text-lg w-8 text-center text-blue-300"></i>
+                            <i class="bi bi-people-fill text-lg w-8 text-center text-slate-400"></i>
                             <span class="ml-2">Clientes</span>
                         </span>
                         <i class="bi bi-chevron-down transition-transform text-xs mr-2" :class="openMenu === 'clientes' && 'rotate-180'"></i>
                     </button>
                     <ul x-show="openMenu === 'clientes'" x-transition class="mt-1 space-y-1">
-                        <li><a href="{{ url_for('registrar') }}" class="block pl-14 pr-4 py-2 text-sm text-blue-100 hover:text-white border-l-4 border-blue-700 hover:border-blue-500">Registrar Cliente</a></li>
-                        <li><a href="{{ url_for('consulta') }}" class="block pl-14 pr-4 py-2 text-sm text-blue-100 hover:text-white border-l-4 border-blue-700 hover:border-blue-500">Consultar Clientes</a></li>
-                        <li><a href="{{ url_for('mi_cartera') }}" class="block pl-14 pr-4 py-2 text-sm text-blue-100 hover:text-white border-l-4 border-blue-700 hover:border-blue-500">Mi Cartera de Cobranza</a></li>
+                        <li><a href="{{ url_for('registrar') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Registrar Cliente</a></li>
+                        <li><a href="{{ url_for('consulta') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Consultar Clientes</a></li>
+                        <li><a href="{{ url_for('mi_cartera') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Mi Cartera de Cobranza</a></li>
                     </ul>
                 </li>
 
                 {% if g.admin and g.admin.rol in ['superadmin', 'gerente'] %}
                 <li class="px-4 mt-6 mb-2">
-                    <span class="text-xs font-medium text-blue-300 uppercase tracking-wider">Operaciones</span>
+                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Operaciones</span>
                 </li>
                 <!-- Administración y Finanzas Dropdown -->
                 <li class="px-2">
-                    <button @click="openMenu = (openMenu === 'finanzas' ? '' : 'finanzas')" class="w-full flex items-center justify-between px-2 py-3 text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-md sidebar-link">
+                    <button @click="openMenu = (openMenu === 'finanzas' ? '' : 'finanzas')" class="w-full flex items-center justify-between px-2 py-3 text-slate-100 hover:bg-slate-700/50 hover:text-white rounded-md sidebar-link">
                         <span class="flex items-center">
-                            <i class="bi bi-bank text-lg w-8 text-center text-blue-300"></i>
+                            <i class="bi bi-bank text-lg w-8 text-center text-slate-400"></i>
                             <span class="ml-2">Admón. y Finanzas</span>
                         </span>
                         <i class="bi bi-chevron-down transition-transform text-xs mr-2" :class="openMenu === 'finanzas' && 'rotate-180'"></i>
                     </button>
                     <ul x-show="openMenu === 'finanzas'" x-transition class="mt-1 space-y-1">
-                        <li><a href="{{ url_for('gestion_administrativa') }}" class="block pl-14 pr-4 py-2 text-sm text-blue-100 hover:text-white border-l-4 border-blue-700 hover:border-blue-500">Gestión General</a></li>
-                        <li><a href="{{ url_for('pagos_por_conciliar') }}" class="block pl-14 pr-4 py-2 text-sm text-blue-100 hover:text-white border-l-4 border-blue-700 hover:border-blue-500">Centro de Conciliación</a></li>
-                        <li><a href="{{ url_for('solicitudes_hub') }}" class="block pl-14 pr-4 py-2 text-sm text-blue-100 hover:text-white border-l-4 border-blue-700 hover:border-blue-500">Gestión de Solicitudes</a></li>
-                        <li><a href="{{ url_for('adjudicacion') }}" class="block pl-14 pr-4 py-2 text-sm text-blue-100 hover:text-white border-l-4 border-blue-700 hover:border-blue-500">Sistema de Adjudicación</a></li>
-                        <li><a href="{{ url_for('reporte_flujo_caja') }}" class="block pl-14 pr-4 py-2 text-sm text-blue-100 hover:text-white border-l-4 border-blue-700 hover:border-blue-500">Flujo de Caja</a></li>
-                        <li><a href="{{ url_for('tesoreria_rebalanceo') }}" class="block pl-14 pr-4 py-2 text-sm text-blue-100 hover:text-white border-l-4 border-blue-700 hover:border-blue-500">Rebalanceo de Tesorería</a></li>
-                        <li><a href="{{ url_for('admin_tasa_bcv') }}" class="block pl-14 pr-4 py-2 text-sm text-blue-100 hover:text-white border-l-4 border-blue-700 hover:border-blue-500">Tasa de Cambio (BCV)</a></li>
+                        <li><a href="{{ url_for('gestion_administrativa') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Gestión General</a></li>
+                        <li><a href="{{ url_for('pagos_por_conciliar') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Centro de Conciliación</a></li>
+                        <li><a href="{{ url_for('solicitudes_hub') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Gestión de Solicitudes</a></li>
+                        <li><a href="{{ url_for('adjudicacion') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Sistema de Adjudicación</a></li>
+                        <li><a href="{{ url_for('reporte_flujo_caja') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Flujo de Caja</a></li>
+                        <li><a href="{{ url_for('tesoreria_rebalanceo') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Rebalanceo de Tesorería</a></li>
+                        <li><a href="{{ url_for('admin_tasa_bcv') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Tasa de Cambio (BCV)</a></li>
                     </ul>
                 </li>
                 <!-- Comercial Dropdown -->
                 <li class="px-2">
-                    <button @click="openMenu = (openMenu === 'comercial' ? '' : 'comercial')" class="w-full flex items-center justify-between px-2 py-3 text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-md sidebar-link">
+                    <button @click="openMenu = (openMenu === 'comercial' ? '' : 'comercial')" class="w-full flex items-center justify-between px-2 py-3 text-slate-100 hover:bg-slate-700/50 hover:text-white rounded-md sidebar-link">
                         <span class="flex items-center">
-                            <i class="bi bi-briefcase-fill text-lg w-8 text-center text-blue-300"></i>
+                            <i class="bi bi-briefcase-fill text-lg w-8 text-center text-slate-400"></i>
                             <span class="ml-2">Comercial</span>
                         </span>
                         <i class="bi bi-chevron-down transition-transform text-xs mr-2" :class="openMenu === 'comercial' && 'rotate-180'"></i>
                     </button>
                     <ul x-show="openMenu === 'comercial'" x-transition class="mt-1 space-y-1">
-                        <li><a href="{{ url_for('dashboard_comercial') }}" class="block pl-14 pr-4 py-2 text-sm text-blue-100 hover:text-white border-l-4 border-blue-700 hover:border-blue-500">Dashboard Comercial</a></li>
+                        <li><a href="{{ url_for('dashboard_comercial') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Dashboard Comercial</a></li>
                     </ul>
                 </li>
                 <!-- Reportes y Auditoría Dropdown -->
                 <li class="px-2">
-                    <button @click="openMenu = (openMenu === 'reportes' ? '' : 'reportes')" class="w-full flex items-center justify-between px-2 py-3 text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-md sidebar-link">
+                    <button @click="openMenu = (openMenu === 'reportes' ? '' : 'reportes')" class="w-full flex items-center justify-between px-2 py-3 text-slate-100 hover:bg-slate-700/50 hover:text-white rounded-md sidebar-link">
                         <span class="flex items-center">
-                            <i class="bi bi-file-earmark-text-fill text-lg w-8 text-center text-blue-300"></i>
+                            <i class="bi bi-file-earmark-text-fill text-lg w-8 text-center text-slate-400"></i>
                             <span class="ml-2">Reportes y Auditoría</span>
                         </span>
                         <i class="bi bi-chevron-down transition-transform text-xs mr-2" :class="openMenu === 'reportes' && 'rotate-180'"></i>
                     </button>
                     <ul x-show="openMenu === 'reportes'" x-transition class="mt-1 space-y-1">
-                        <li><a href="{{ url_for('reporte_morosidad') }}" class="block pl-14 pr-4 py-2 text-sm text-blue-100 hover:text-white border-l-4 border-blue-700 hover:border-blue-500">Reporte de Morosidad</a></li>
-                        <li><a href="{{ url_for('reporte_metricas') }}" class="block pl-14 pr-4 py-2 text-sm text-blue-100 hover:text-white border-l-4 border-blue-700 hover:border-blue-500">Métricas del Negocio</a></li>
-                        <li><a href="{{ url_for('auditoria') }}" class="block pl-14 pr-4 py-2 text-sm text-blue-100 hover:text-white border-l-4 border-blue-700 hover:border-blue-500">Visor de Auditoría</a></li>
+                        <li><a href="{{ url_for('reporte_morosidad') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Reporte de Morosidad</a></li>
+                        <li><a href="{{ url_for('reporte_metricas') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Métricas del Negocio</a></li>
+                        <li><a href="{{ url_for('auditoria') }}" class="block pl-14 pr-4 py-2 text-sm text-slate-100 hover:text-white border-l-4 border-slate-600 hover:border-slate-500">Visor de Auditoría</a></li>
                     </ul>
                 </li>
                 {% endif %}
 
                 <li class="px-4 mt-6 mb-2">
-                    <span class="text-xs font-medium text-blue-300 uppercase tracking-wider">Externo</span>
+                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Externo</span>
                 </li>
                 <li>
-                    <a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center px-4 py-3 text-blue-100 hover:bg-blue-700/50 hover:text-white rounded-md mx-2">
-                        <i class="bi bi-box-arrow-up-right text-lg w-8 text-center text-blue-300"></i>
+                    <a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center px-4 py-3 text-slate-100 hover:bg-slate-700/50 hover:text-white rounded-md mx-2">
+                        <i class="bi bi-box-arrow-up-right text-lg w-8 text-center text-slate-400"></i>
                         <span class="ml-2">Portal Cliente</span>
                     </a>
                 </li>

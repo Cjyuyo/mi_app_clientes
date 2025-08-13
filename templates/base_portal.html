@@ -48,13 +48,13 @@
         }
 
         .aurora-background::before {
-            background: radial-gradient(circle, #3b82f6, transparent 70%);
+            background: radial-gradient(circle, #F99417, transparent 70%); /* Naranja Corporativo */
             top: -10%;
             left: -15%;
         }
 
         .aurora-background::after {
-            background: radial-gradient(circle, #14b8a6, transparent 70%);
+            background: radial-gradient(circle, #FFC700, transparent 70%); /* Amarillo Cálido */
             bottom: -10%;
             right: -15%;
             animation-delay: -12.5s;
@@ -68,9 +68,12 @@
     <!-- Encabezado -->
     <header class="bg-white/50 backdrop-blur-sm shadow-sm sticky top-0 z-50">
         <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-center items-center h-20">
+            <div class="flex justify-center items-center h-28">
                 <a href="{{ url_for('portal_dashboard') }}">
-                    <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="h-14">
+                    <!-- DIV con fondo de color corporativo para dar contraste al logo -->
+                    <div style="background-color: #F99417;" class="p-3 rounded-2xl shadow-lg">
+                        <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="h-24">
+                    </div>
                 </a>
             </div>
         </nav>
