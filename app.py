@@ -2507,27 +2507,77 @@ def portal_dashboard():
         flash('Ocurrió un error inesperado al cargar tu portal. Inténtalo de nuevo.', 'error')
         return redirect(url_for('portal_login'))
 
-# ===== INICIO DE LAS RUTAS AÑADIDAS PARA SOLUCIONAR EL ERROR =====
+# ===== INICIO DE LA SOLUCIÓN PARA LAS RUTAS DEL PORTAL =====
 @app.route('/portal/pagos')
 @portal_login_required
 def portal_pagos():
     """
-    Ruta para mostrar la página de pagos del cliente.
-    POR AHORA: Muestra un mensaje temporal.
-    A FUTURO: Debería renderizar una plantilla como 'portal_pagos.html'.
+    Muestra el historial de pagos del cliente en el portal.
     """
-    return "<h1>Página de Pagos</h1><p>En construcción.</p>"
+    if g.cliente is None:
+        return redirect(url_for('portal_login'))
+    
+    conn = get_db()
+    if not conn:
+        flash('No se pudo conectar con la base de datos.', 'error')
+        return redirect(url_for('portal_dashboard'))
+    
+    try:
+        with conn.cursor() as cur:
+            # Obtener todos los pagos del cliente, mostrando los más recientes primero
+            cur.execute("""
+                SELECT * FROM pagos 
+                WHERE cliente_id = %s AND estado_pago != 'Anulado'
+                ORDER BY fecha_pago DESC, id DESC;
+            """, (session['cliente_id'],))
+            pagos = cur.fetchall()
+
+            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
+            cliente = cur.fetchone()
+
+        return render_template('portal_pagos.html', cliente=cliente, pagos=pagos)
+
+    except psycopg2.Error as e:
+        logging.error(f"Error en portal_pagos: {e}")
+        flash('Ocurrió un error al cargar tu historial de pagos.', 'error')
+        return redirect(url_for('portal_dashboard'))
 
 @app.route('/portal/documentos')
 @portal_login_required
 def portal_documentos():
     """
-    Ruta para mostrar la página de documentos del cliente.
-    POR AHORA: Muestra un mensaje temporal.
-    A FUTURO: Debería renderizar una plantilla como 'portal_documentos.html'.
+    Muestra los documentos relevantes del cliente, como su contrato.
     """
-    return "<h1>Página de Documentos</h1><p>En construcción.</p>"
-# ===== FIN DE LAS RUTAS AÑADIDAS =====
+    if g.cliente is None:
+        return redirect(url_for('portal_login'))
+
+    conn = get_db()
+    if not conn:
+        flash('No se pudo conectar con la base de datos.', 'error')
+        return redirect(url_for('portal_dashboard'))
+        
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
+            cliente = cur.fetchone()
+
+        # Preparamos una lista de documentos. Por ahora solo el contrato.
+        documentos = [
+            {
+                'nombre': f"Contrato N° {cliente['contrato_nro']}",
+                'descripcion': 'Copia digital de tu contrato de plan de ahorro.',
+                'url': url_for('generar_contrato', client_id=cliente['id']),
+                'icono': 'bi-file-text-fill'
+            }
+        ]
+        
+        return render_template('portal_documentos.html', cliente=cliente, documentos=documentos)
+    
+    except psycopg2.Error as e:
+        logging.error(f"Error en portal_documentos: {e}")
+        flash('Ocurrió un error al cargar tus documentos.', 'error')
+        return redirect(url_for('portal_dashboard'))
+# ===== FIN DE LA SOLUCIÓN =====
 
 
 # ===== NUEVA RUTA INTELIGENTE PARA PAGAR DIFERENCIAS =====
