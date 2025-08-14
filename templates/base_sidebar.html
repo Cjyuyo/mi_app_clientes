@@ -80,9 +80,10 @@
 
         <!-- Sidebar -->
         <aside 
-            class="sidebar bg-[#2B3A55] text-slate-100 w-full md:w-64 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-50 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out"
-            :class="{'!translate-x-0': sidebarOpen}"
+            class="sidebar bg-[#2B3A55] text-slate-100 w-full flex-shrink-0 flex flex-col fixed top-0 left-0 right-0 z-40 transform -translate-y-full transition-transform duration-300 ease-in-out h-auto max-h-[80vh] overflow-y-auto rounded-b-xl shadow-lg md:relative md:w-64 md:h-full md:max-h-none md:translate-y-0 md:rounded-b-none md:shadow-none"
+            :class="{'!translate-y-0': sidebarOpen}"
             >
+            <!-- Header interno del sidebar, visible solo en escritorio -->
             <div class="hidden md:flex items-center justify-center h-20 px-4 border-b border-white/20 flex-shrink-0">
                 <a href="{{ url_for('hub') }}">
                     <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="w-40">
@@ -90,7 +91,7 @@
             </div>
 
             <!-- Navigation Links -->
-            <nav class="flex-1 flex flex-col justify-between p-2 pt-20 md:pt-2 overflow-y-auto" x-data="{ openMenu: '' }">
+            <nav class="flex-1 flex flex-col justify-between p-4 pt-20 md:pt-4" x-data="{ openMenu: '' }">
                 <!-- Grupo de links superior -->
                 <div class="px-2">
                     <ul class="space-y-1">
