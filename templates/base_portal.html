@@ -23,9 +23,6 @@
             transition: width .6s ease;
             background-color: #f97316 !important;
         }
-        .tab-button {
-            transition: background-color 0.2s ease, color 0.2s ease;
-        }
         .tab-button.active {
             background-color: #f97316;
             color: white;
@@ -34,32 +31,17 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
-        .body-no-scroll {
-            overflow: hidden;
-        }
-        @media (min-width: 768px) {
-            .body-no-scroll {
-                overflow: auto;
-            }
-        }
+        .body-no-scroll { overflow: hidden; }
+        @media (min-width: 768px) { .body-no-scroll { overflow: auto; } }
         [x-cloak] { display: none !important; }
-        .horizontal-scroll::-webkit-scrollbar {
-            height: 4px;
-        }
-        .horizontal-scroll::-webkit-scrollbar-thumb {
-            background-color: #d1d5db;
-            border-radius: 20px;
-        }
+        .horizontal-scroll::-webkit-scrollbar { height: 4px; }
+        .horizontal-scroll::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 20px; }
     </style>
     {% endblock %}
 </head>
 
 <body class="bg-slate-100" x-data="{ navOpen: false }" :class="{ 'body-no-scroll': navOpen }">
 
-    <!-- ================================================================== -->
-    <!-- Mobile Header                                                    -->
-    <!-- CAMBIO: Se eliminó el botón de cerrar sesión de esta barra.        -->
-    <!-- ================================================================== -->
     <header class="md:hidden bg-slate-800 text-white h-16 px-4 flex justify-between items-center sticky top-0 z-30 shadow-md">
         <a href="{{ url_for('portal_dashboard') }}">
             <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan" class="w-32">
@@ -71,94 +53,94 @@
 
     <div class="relative min-h-screen md:flex">
 
-        <!-- Overlay for mobile menu -->
         <div x-show="navOpen" x-cloak class="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden" @click="navOpen = false"></div>
 
-        <!-- ================================================================== -->
-        <!-- Sidebar / Navigation Panel                                       -->
-        <!-- CAMBIOS:                                                         -->
-        <!-- 1. Se usa flex-col y h-full para que ocupe toda la altura.       -->
-        <!-- 2. El logo ahora está solo en la cabecera del sidebar.           -->
-        <!-- 3. Se añadió el botón de logout para móvil al final del menú.    -->
-        <!-- ================================================================== -->
         <aside 
             class="bg-slate-800 text-white w-full md:w-64 fixed top-0 inset-x-0 md:static transform -translate-y-full md:transform-none transition-transform duration-300 ease-in-out z-40 flex flex-col h-full"
             :class="{'translate-y-0': navOpen}"
         >
-            <!-- Desktop Header with Logo only -->
             <div class="flex justify-center items-center h-20 px-4 border-b border-slate-700 flex-shrink-0">
                 <a href="{{ url_for('portal_dashboard') }}">
                     <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan" class="w-40">
                 </a>
             </div>
 
-            <!-- Navigation Links -->
-            <nav class="flex-1 overflow-y-auto p-4 pt-20 md:pt-4">
+            <!-- ================================================================== -->
+            <!-- Navigation Links                                                 -->
+            <!-- CAMBIO: Se convirtió en un flex-col para empujar los últimos    -->
+            <!-- elementos hacia abajo usando mt-auto.                          -->
+            <!-- ================================================================== -->
+            <nav class="flex-1 flex flex-col p-4 pt-20 md:pt-4 overflow-y-auto">
                 {% block sidebar_actions %}
-                <p class="px-4 pt-4 pb-2 text-xs font-medium text-slate-400 uppercase">Acciones</p>
-                <ul>
-                    <li>
-                        <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled{% endif %}"
-                           data-bs-toggle="modal" data-bs-target="#ofertaModal"
-                           {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}onclick="event.preventDefault()" title="Debes tener tu inscripción y al menos una cuota pagada para ofertar."{% endif %}>
-                            <i class="bi bi-gem"></i>
-                            <span>Registrar Oferta</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
-                           data-bs-toggle="modal" data-bs-target="#citaModal">
-                            <i class="bi bi-calendar-check"></i>
-                            <span>Solicitar Cita</span>
-                        </a>
-                    </li>
-                    {% if cliente.estatus == 'CONGELADO' %}
-                    <li>
-                        <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
-                           data-bs-toggle="modal" data-bs-target="#descongelamientoModal">
-                            <i class="bi bi-unlock-fill"></i>
-                            <span>Descongelar</span>
-                        </a>
-                    </li>
-                    {% else %}
-                    <li>
-                        <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
-                           data-bs-toggle="modal" data-bs-target="#congelamientoModal"
-                           {% if cliente.estatus != 'ACTIVO' %}onclick="event.preventDefault()"{% endif %}>
-                            <i class="bi bi-snow"></i>
-                            <span>Congelar</span>
-                        </a>
-                    </li>
-                    {% endif %}
-                    <li>
-                        <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
-                           data-bs-toggle="modal" data-bs-target="#retiroModal"
-                           {% if cliente.estatus != 'ACTIVO' %}onclick="event.preventDefault()"{% endif %}>
-                            <i class="bi bi-box-arrow-left"></i>
-                            <span>Solicitar Retiro</span>
-                        </a>
-                    </li>
-                </ul>
+                <!-- Top section of links -->
+                <div>
+                    <p class="px-4 pt-4 pb-2 text-xs font-medium text-slate-400 uppercase">Acciones</p>
+                    <ul>
+                        <li>
+                            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled{% endif %}"
+                               data-bs-toggle="modal" data-bs-target="#ofertaModal"
+                               {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}onclick="event.preventDefault()" title="Debes tener tu inscripción y al menos una cuota pagada para ofertar."{% endif %}>
+                                <i class="bi bi-gem"></i>
+                                <span>Registrar Oferta</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
+                               data-bs-toggle="modal" data-bs-target="#citaModal">
+                                <i class="bi bi-calendar-check"></i>
+                                <span>Solicitar Cita</span>
+                            </a>
+                        </li>
+                        {% if cliente.estatus == 'CONGELADO' %}
+                        <li>
+                            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
+                               data-bs-toggle="modal" data-bs-target="#descongelamientoModal">
+                                <i class="bi bi-unlock-fill"></i>
+                                <span>Descongelar</span>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li>
+                            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
+                               data-bs-toggle="modal" data-bs-target="#congelamientoModal"
+                               {% if cliente.estatus != 'ACTIVO' %}onclick="event.preventDefault()"{% endif %}>
+                                <i class="bi bi-snow"></i>
+                                <span>Congelar</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li>
+                            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
+                               data-bs-toggle="modal" data-bs-target="#retiroModal"
+                               {% if cliente.estatus != 'ACTIVO' %}onclick="event.preventDefault()"{% endif %}>
+                                <i class="bi bi-box-arrow-left"></i>
+                                <span>Solicitar Retiro</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
 
-                <p class="px-4 pt-6 pb-2 text-xs font-medium text-slate-400 uppercase">Documentos</p>
-                <ul>
-                    <li>
-                        <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" target="_blank" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700">
-                            <i class="bi bi-file-earmark-text"></i>
-                            <span>Ver Contrato</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ url_for('portal_estado_cuenta') }}" target="_blank" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700">
-                            <i class="bi bi-journal-text"></i>
-                            <span>Estado de Cuenta</span>
-                        </a>
-                    </li>
-                </ul>
+                <!-- Bottom section of links -->
+                <div class="mt-auto">
+                    <p class="px-4 pt-6 pb-2 text-xs font-medium text-slate-400 uppercase">Documentos</p>
+                    <ul>
+                        <li>
+                            <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" target="_blank" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700">
+                                <i class="bi bi-file-earmark-text"></i>
+                                <span>Ver Contrato</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('portal_estado_cuenta') }}" target="_blank" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700">
+                                <i class="bi bi-journal-text"></i>
+                                <span>Estado de Cuenta</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
                 {% endblock %}
             </nav>
             
-            <!-- Mobile Logout Button -->
             <div class="p-4 border-t border-slate-700 md:hidden">
                 <a href="{{ url_for('portal_logout') }}" class="flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-red-400 hover:bg-red-500/20">
                     <i class="bi bi-box-arrow-right"></i>
@@ -169,13 +151,10 @@
 
         <!-- ================================================================== -->
         <!-- Main Content Area                                                -->
-        <!-- CAMBIOS:                                                         -->
-        <!-- 1. Se envuelve en un flex-col para gestionar el header y main.   -->
-        <!-- 2. Se añade un header solo para desktop con el botón de logout.  -->
+        <!-- CAMBIO: Se usa grid y grid-rows para crear un sticky footer.     -->
         <!-- ================================================================== -->
-        <div class="flex-1 flex flex-col">
+        <div class="flex-1 grid grid-rows-[auto_1fr_auto]">
             
-            <!-- Desktop Header with Logout -->
             <header class="hidden md:flex justify-end items-center h-20 px-6 flex-shrink-0">
                  <a href="{{ url_for('portal_logout') }}" class="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors" title="Cerrar Sesión">
                      <span class="font-medium text-sm">Salir</span>
@@ -183,8 +162,7 @@
                 </a>
             </header>
 
-            <!-- Main Content -->
-            <main class="flex-1 p-2 md:p-6 md:pt-0">
+            <main class="p-2 md:p-6 md:pt-0">
                 {% block body %}
                 <div class="space-y-4">
 
@@ -198,7 +176,6 @@
                         {% endif %}
                     {% endwith %}
                 
-                    <!-- Main content grid -->
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
                         {% if estado_principal %}
@@ -326,6 +303,9 @@
                 </div>
                 {% endblock %}
             </main>
+            
+            <!-- Este es un footer invisible que ocupa espacio para empujar el contenido hacia arriba, pero no se renderiza. -->
+            <footer></footer>
         </div>
     </div>
 
@@ -335,4 +315,4 @@
     {% endblock %}
 
 </body>
-</html
+</html>
