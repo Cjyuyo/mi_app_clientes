@@ -22,6 +22,8 @@
         border: 6px solid #2563eb; /* blue-600 */
     }
 </style>
+<!-- Librería para notificaciones y alertas visuales -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 {% endblock %}
 
 {% block body %}
@@ -87,7 +89,6 @@
                 <div><label for="plan_contratado" class="block text-sm font-medium text-slate-700">Plan Contratado (Valor USD)</label><select id="plan_contratado" name="plan_contratado" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="" disabled selected>-- Seleccione --</option></select></div>
                 <div><label for="inscripcion_monto" class="block text-sm font-medium text-slate-700">Monto Inscripción (16%)</label><input type="number" id="inscripcion_monto" step="0.01" name="inscripcion_monto" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100" required readonly></div>
                 <div><label for="cuotas_totales" class="block text-sm font-medium text-slate-700">Total de Cuotas</label><select id="cuotas_totales" name="cuotas_totales" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
-                <!-- CAMBIO: Campo de cuota ahora es readonly y la etiqueta es genérica -->
                 <div><label for="valor_cuota" class="block text-sm font-medium text-slate-700">Cuota Mensual</label><input type="number" id="valor_cuota" step="0.01" name="valor_cuota" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100 focus:border-blue-500 focus:ring-blue-500" required readonly></div>
                 <div><label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="USD">Divisas (USD)</option><option value="BsBCV">Bolívares (Tasa BCV)</option></select></div>
             </div>
@@ -134,7 +135,7 @@
     </form>
 </div>
 
-<!-- Modal de la Cámara (sin cambios en la estructura, solo clases de Bootstrap) -->
+<!-- Modal de la Cámara -->
 <div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -178,7 +179,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const cuotaInput = document.getElementById('valor_cuota');
     const cuotaLabel = document.querySelector('label[for="valor_cuota"]');
 
-    // Llenar el select de planes
     const montoInicial = 1100, montoFinal = 4000, incremento = 50;
     for (let monto = montoInicial; monto <= montoFinal; monto += incremento) {
         const option = document.createElement('option');
@@ -191,54 +191,94 @@ document.addEventListener('DOMContentLoaded', function() {
         const montoPlan = parseFloat(planSelect.value);
         const plazo = parseInt(plazoSelect.value, 10);
         const tipoMoneda = monedaSelect.value;
-
-        // Actualizar la etiqueta del campo de cuota para mostrar la moneda
         cuotaLabel.textContent = `Cuota Mensual (${tipoMoneda === 'USD' ? 'USD' : 'Bs'})`;
-
-        // Validaciones para evitar cálculos con valores nulos o incorrectos
         if (isNaN(montoPlan) || montoPlan <= 0 || !tipoMoneda) {
             cuotaInput.value = '';
             return;
         }
         if (![24, 36, 48].includes(plazo)) {
-            console.error("Error: El plazo debe ser 24, 36 o 48.");
             cuotaInput.value = '';
             return;
         }
-
-        // Reglas de negocio para el cálculo de la cuota
         const baseDivisas = 0.0496;
         const baseBs = 0.0557;
         const base = (tipoMoneda === 'USD') ? baseDivisas : baseBs;
         const factorCuota = base * (24 / plazo);
         const cuota = montoPlan * factorCuota;
-
-        // Actualizar el campo de la cuota con el valor calculado
         cuotaInput.value = cuota.toFixed(2);
-        
-        // Disparar un evento 'input' para que la validación del formulario reconozca el cambio
         cuotaInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
-    // Event listener para el cambio de plan
     planSelect.addEventListener('change', function() {
         const valorPlan = parseFloat(this.value);
         if (!isNaN(valorPlan)) {
-            // Calcular y mostrar el 16% de la inscripción
             inscripcionInput.value = (valorPlan * 0.16).toFixed(2);
             inscripcionInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
-        calcularYActualizarCuota(); // Recalcular la cuota mensual
+        calcularYActualizarCuota();
     });
 
-    // Añadir listeners a los otros campos que afectan el cálculo
     plazoSelect.addEventListener('change', calcularYActualizarCuota);
     monedaSelect.addEventListener('change', calcularYActualizarCuota);
 
-    // --- FIN DE LA LÓGICA DE CÁLCULO ---
+    // --- Lógica para el escenario de cierre (sin cambios) ---
+    // ... (El código existente se mantiene igual)
 
+    // --- Lógica de la cámara (sin cambios) ---
+    // ... (El código existente se mantiene igual)
+    
+    // --- LÓGICA DE VALIDACIÓN Y SUBMIT ---
+    const submitBtn = document.getElementById('submitBtn');
+    const form = document.getElementById('registroForm');
+    
+    const validateForm = () => {
+        for (const field of form.querySelectorAll('[required]')) {
+            if (!field.value || field.value.trim() === '') return false;
+        }
+        return true;
+    };
 
-    // Lógica para el escenario de cierre (sin cambios)
+    const updateButtonState = () => {
+        submitBtn.disabled = !validateForm();
+    };
+
+    if (form) {
+        form.addEventListener('input', updateButtonState);
+        form.addEventListener('change', updateButtonState);
+    }
+    
+    updateButtonState();
+
+    if(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault(); // Prevenir el envío automático del formulario
+
+            // Mostrar la alerta de confirmación
+            Swal.fire({
+                title: '¿Confirmar Registro?',
+                text: "Se creará un nuevo perfil de cliente con los datos ingresados. ¿Está seguro?",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, registrar cliente',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                // Si el usuario confirma, proceder con el envío
+                if (result.isConfirmed) {
+                    if (form.getAttribute('data-submitted') === 'true') { return; }
+                    form.setAttribute('data-submitted', 'true');
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
+                    
+                    // Enviar el formulario programáticamente
+                    form.submit();
+                }
+            });
+        });
+    }
+
+    // --- El resto de la lógica de cámara y escenario de cierre se mantiene aquí ---
     const escenarioSelect = document.getElementById('escenario_cierre');
     const asesorContainer = document.getElementById('asesor-container');
     const responsableContainer = document.getElementById('responsable-container');
@@ -296,7 +336,6 @@ document.addEventListener('DOMContentLoaded', function() {
         updateResponsableHidden(responsableHiddenInput.value);
     });
 
-    // Lógica de la cámara (sin cambios)
     const cameraModal = document.getElementById('cameraModal');
     const video = document.getElementById('video-feed');
     const canvas = document.getElementById('capture-canvas');
@@ -351,30 +390,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     if (retakeBtn) retakeBtn.addEventListener('click', () => { capturedImageData = null; toggleViews(false); });
     
-    const submitBtn = document.getElementById('submitBtn');
-    const form = document.getElementById('registroForm');
-    
-    // Función para validar el formulario
-    const validateForm = () => {
-        for (const field of form.querySelectorAll('[required]')) {
-            if (!field.value || field.value.trim() === '') return false;
-        }
-        return true;
-    };
-
-    const updateButtonState = () => {
-        if (validateForm()) {
-            submitBtn.disabled = false;
-        } else {
-            submitBtn.disabled = true;
-        }
-    };
-
-    if (form) {
-        form.addEventListener('input', updateButtonState);
-        form.addEventListener('change', updateButtonState);
-    }
-
     if (savePhotoBtn) {
         savePhotoBtn.addEventListener('click', () => {
             if (capturedImageData && currentCaptureType) {
@@ -385,17 +400,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const modalInstance = bootstrap.Modal.getInstance(cameraModal);
             if (modalInstance) modalInstance.hide();
-        });
-    }
-    
-    updateButtonState(); // Llamada inicial para establecer el estado del botón
-
-    if(form) {
-        form.addEventListener('submit', function(e) {
-            if (form.getAttribute('data-submitted') === 'true') { e.preventDefault(); return; }
-            form.setAttribute('data-submitted', 'true');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
         });
     }
 });

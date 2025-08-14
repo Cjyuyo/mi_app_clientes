@@ -5,6 +5,8 @@
 {% endblock %}
 
 {% block head_extra %}
+    <!-- Librería para notificaciones y alertas visuales -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         /* Estilos para las transiciones suaves de Alpine.js */
         [x-cloak] { display: none !important; }
@@ -49,7 +51,6 @@
     <!-- Resultados de Clientes -->
     <div id="client-results" class="space-y-6">
         {% for cliente in clientes %}
-        <!-- Se añade 'showOfferForm: false' al estado de Alpine.js para controlar el formulario -->
         <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200" x-data="{ activeTab: 'pagos-{{ cliente.id }}', showOfferForm: false }">
             <!-- Encabezado de la Tarjeta de Cliente -->
             <div class="p-5 border-b border-slate-200 flex justify-between items-start">
@@ -92,7 +93,7 @@
             <div class="p-5">
                 <!-- Contenido de Pagos -->
                 <div x-show="activeTab === 'pagos-{{ cliente.id }}'" class="space-y-3">
-                    {% if cliente.pagos %}{% for pago in cliente.pagos %}<div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50"><div><p class="font-semibold text-slate-700">{{ pago.tipo_pago }}</p><p class="text-xs text-slate-500">{{ pago.fecha_pago | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</p></div><div class="flex items-center space-x-4"><span class="font-bold text-slate-800">${{ "%.2f"|format(pago.monto) }}</span><div class="flex items-center space-x-2">{% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-blue-100 text-blue-800">Reportado</span><a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="text-xs bg-blue-500 text-white hover:bg-blue-600 py-1 px-2 rounded">Ver Reporte</a>{% elif pago.estado_reporte == 'Inconsistente' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-red-100 text-red-800">Inconsistente</span><a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="text-xs bg-slate-500 text-white hover:bg-slate-600 py-1 px-2 rounded">Ver Reporte</a>{% elif pago.estado_pago == 'Pendiente' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-yellow-100 text-yellow-800">Pendiente</span><form action="{{ url_for('conciliar_pago', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Confirmas que deseas conciliar este pago?');"><button type="submit" class="text-xs bg-green-500 text-white hover:bg-green-600 py-1 px-2 rounded">Conciliar</button></form>{% elif pago.estado_pago == 'Conciliado' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-green-100 text-green-800">Conciliado</span><a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" class="text-xs bg-slate-500 text-white hover:bg-slate-600 py-1 px-2 rounded" target="_blank">Ver Recibo</a>{% elif pago.estado_pago == 'Anulado' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-red-100 text-red-800">Anulado</span><a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" class="text-xs bg-slate-500 text-white hover:bg-slate-600 py-1 px-2 rounded" target="_blank">Detalles</a>{% endif %}</div></div></div>{% endfor %}{% else %}<p class="text-center text-slate-500 py-4">No hay pagos registrados.</p>{% endif %}
+                    {% if cliente.pagos %}{% for pago in cliente.pagos %}<div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50"><div><p class="font-semibold text-slate-700">{{ pago.tipo_pago }}</p><p class="text-xs text-slate-500">{{ pago.fecha_pago | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</p></div><div class="flex items-center space-x-4"><span class="font-bold text-slate-800">${{ "%.2f"|format(pago.monto) }}</span><div class="flex items-center space-x-2">{% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-blue-100 text-blue-800">Reportado</span><a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="text-xs bg-blue-500 text-white hover:bg-blue-600 py-1 px-2 rounded">Ver Reporte</a>{% elif pago.estado_reporte == 'Inconsistente' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-red-100 text-red-800">Inconsistente</span><a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="text-xs bg-slate-500 text-white hover:bg-slate-600 py-1 px-2 rounded">Ver Reporte</a>{% elif pago.estado_pago == 'Pendiente' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-yellow-100 text-yellow-800">Pendiente</span><form action="{{ url_for('conciliar_pago', pago_id=pago.id) }}" method="POST" onsubmit="event.preventDefault(); confirmConciliar(this);"><button type="submit" class="text-xs bg-green-500 text-white hover:bg-green-600 py-1 px-2 rounded">Conciliar</button></form>{% elif pago.estado_pago == 'Conciliado' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-green-100 text-green-800">Conciliado</span><a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" class="text-xs bg-slate-500 text-white hover:bg-slate-600 py-1 px-2 rounded" target="_blank">Ver Recibo</a>{% elif pago.estado_pago == 'Anulado' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-red-100 text-red-800">Anulado</span><a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" class="text-xs bg-slate-500 text-white hover:bg-slate-600 py-1 px-2 rounded" target="_blank">Detalles</a>{% endif %}</div></div></div>{% endfor %}{% else %}<p class="text-center text-slate-500 py-4">No hay pagos registrados.</p>{% endif %}
                 </div>
                 <!-- Contenido de Ofertas -->
                 <div x-show="activeTab === 'ofertas-{{ cliente.id }}'" class="space-y-3">
@@ -103,14 +104,15 @@
             <!-- Acciones de la Tarjeta -->
             <div class="bg-slate-50 p-4 border-t border-slate-200 flex flex-wrap items-center justify-end gap-2">
                 <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700"><i class="bi bi-cash-coin mr-1"></i> Registrar Pago</a>
-                <!-- El botón ahora usa @click para mostrar/ocultar el formulario -->
                 <button type="button" @click="showOfferForm = !showOfferForm" class="text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700">
                     <i class="bi bi-gem mr-1"></i> Registrar Oferta
                 </button>
                 <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="text-sm bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-slate-700" target="_blank"><i class="bi bi-file-earmark-pdf-fill mr-1"></i> Contrato</a>
-                <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="text-sm bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-yellow-600"><i class="bi bi-pencil-square mr-1"></i> Editar</a>
+                <!-- CAMBIO: Se añade un evento onclick para la confirmación de edición -->
+                <a href="#" onclick="confirmEdit('{{ url_for('edit_client', client_id=cliente.id) }}')" class="text-sm bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-yellow-600"><i class="bi bi-pencil-square mr-1"></i> Editar</a>
                 {% if g.admin and g.admin.rol == 'superadmin' %}
-                <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="return confirm('ADVERTENCIA: Esta acción eliminará al cliente y TODOS sus registros asociados (pagos, ofertas, etc.) de forma permanente. ¿Está absolutamente seguro?');">
+                <!-- CAMBIO: El onsubmit ahora previene el envío y llama a una función JS -->
+                <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="event.preventDefault(); confirmDelete(this);">
                     <button type="submit" class="text-sm bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700"><i class="bi bi-trash-fill mr-1"></i> Eliminar</button>
                 </form>
                 {% endif %}
@@ -148,5 +150,59 @@
 {% endblock %}
 
 {% block scripts_extra %}
-    <!-- No se necesita Bootstrap JS para esta funcionalidad -->
+<script>
+    // Función para confirmar la eliminación de un cliente
+    function confirmDelete(form) {
+        Swal.fire({
+            title: '¿Está seguro?',
+            text: "¡Esta acción es irreversible! Se eliminará al cliente y todos sus registros asociados (pagos, ofertas, etc.).",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, eliminarlo',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                form.submit();
+            }
+        });
+    }
+
+    // Función para confirmar la edición de un cliente
+    function confirmEdit(url) {
+        Swal.fire({
+            title: '¿Desea editar este cliente?',
+            text: "Será redirigido a la página de edición para modificar los datos del cliente.",
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, editar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = url;
+            }
+        });
+    }
+
+    // Función para confirmar la conciliación de un pago
+    function confirmConciliar(form) {
+        Swal.fire({
+            title: '¿Confirmar Conciliación?',
+            text: "El pago se marcará como 'Conciliado' y se actualizará el estado de cuenta del cliente.",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, conciliar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                form.submit();
+            }
+        });
+    }
+</script>
 {% endblock %}
