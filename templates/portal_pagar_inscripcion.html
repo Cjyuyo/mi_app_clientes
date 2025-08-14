@@ -119,18 +119,21 @@
                         <label for="monto_usd" class="form-label">Monto del Pago (USD)</label>
                         <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" value="{{ (monto_precargado or '')|float }}" required {% if monto_precargado %}readonly{% endif %}>
                     </div>
-                    <!-- Campos ocultos para el cálculo -->
-                    <input type="hidden" id="tasa_dia" name="tasa_dia">
-                    <input type="hidden" id="monto_bs_calculado" name="monto_bs">
+                    <!-- CAMBIO: Se restaura la casilla original de Monto en Bs -->
+                    <div class="form-group" id="monto_bs_group" style="display: none;">
+                        <label for="monto_bs_calculado" class="form-label">Monto en Bs (Calculado)</label>
+                        <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
+                        <input type="hidden" id="tasa_dia" name="tasa_dia">
+                    </div>
                 </div>
-                <!-- CAMBIO: Contenedor flex para alinear el botón y el billboard de la tasa -->
+                <!-- Contenedor flex para alinear el botón y el billboard de la tasa -->
                 <div class="d-flex align-items-center gap-3 mt-3">
                     <div id="ver-datos-container" style="display: none;">
                         <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#paymentDataModal">
                             <i class="bi bi-info-circle-fill me-1"></i> Ver Datos para Pagar
                         </button>
                     </div>
-                    <!-- CAMBIO: "Mini billboard" para la tasa y el monto en Bs -->
+                    <!-- "Mini billboard" para la tasa y el monto en Bs -->
                     <div id="tasa-info-display" class="tasa-billboard" style="display: none;">
                         <!-- El contenido se inyectará aquí con JavaScript -->
                     </div>
@@ -205,6 +208,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const formaPagoSelect = document.getElementById('forma_pago');
     const montoUsdInput = document.getElementById('monto_usd');
     const tasaDiaInput = document.getElementById('tasa_dia');
+    const montoBsGroup = document.getElementById('monto_bs_group');
     const montoBsCalculadoInput = document.getElementById('monto_bs_calculado');
     const referenciaGroup = document.getElementById('referencia_group');
     const referenciaInput = document.getElementById('referencia');
@@ -255,13 +259,17 @@ document.addEventListener('DOMContentLoaded', function() {
         submitButton.disabled = !isValid;
     }
 
-    // CAMBIO: Se actualiza esta función para manejar el nuevo billboard
-    function updateAndDisplayRateInfo() {
+    // CAMBIO: Se actualiza esta función para manejar el nuevo billboard y la casilla de monto
+    function calcularYActualizarMontos() {
         const montoUsd = parseFloat(montoUsdInput.value) || 0;
         const tasaDia = parseFloat(tasaDiaInput.value) || 0;
         
-        // Actualizar campo oculto para el formulario
-        montoBsCalculadoInput.value = (montoUsd > 0 && tasaDia > 0) ? (montoUsd * tasaDia).toFixed(2) : '';
+        // Actualizar la casilla del formulario
+        if (montoUsd > 0 && tasaDia > 0) {
+            montoBsCalculadoInput.value = (montoUsd * tasaDia).toFixed(2);
+        } else {
+            montoBsCalculadoInput.value = '';
+        }
 
         // Actualizar el billboard informativo
         if (tasaDia > 0) {
@@ -276,6 +284,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function handlePagoEnChange() {
         const pagoEnValue = pagoEnSelect.value;
         tasaDiaInput.value = ''; // Limpiar el valor oculto
+        montoBsGroup.style.display = 'none'; // Ocultar la casilla por defecto
         
         let currentRate = null;
         if (pagoEnValue === 'Dolar/BCV') currentRate = tasaUsd;
@@ -283,12 +292,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (currentRate) {
             tasaDiaInput.value = currentRate; // Guardar tasa en el campo oculto
+            montoBsGroup.style.display = 'block'; // Mostrar la casilla de monto en Bs
         } else {
             if (pagoEnValue !== 'Efectivo USD' && pagoEnValue !== 'USDT') {
                 alert('No se pudo cargar la tasa de cambio para hoy. El cálculo en Bs no funcionará.');
             }
         }
-        updateAndDisplayRateInfo(); // Actualizar y mostrar el billboard
+        calcularYActualizarMontos(); // Actualizar y mostrar el billboard y la casilla
         checkFormValidity();
     }
 
@@ -340,7 +350,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     pagoEnSelect.addEventListener('change', handlePagoEnChange);
     formaPagoSelect.addEventListener('change', toggleFieldsByFormaPago);
-    montoUsdInput.addEventListener('input', updateAndDisplayRateInfo); // Se llama a la nueva función
+    montoUsdInput.addEventListener('input', calcularYActualizarMontos); // Se llama a la nueva función
     
     // Inicialización
     handlePagoEnChange();
