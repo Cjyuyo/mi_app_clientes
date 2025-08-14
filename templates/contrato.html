@@ -91,7 +91,8 @@
         
         <!-- Encabezado para la vista en pantalla (oculto en impresión) -->
         <header class="text-center mb-8 pb-4 border-b print:hidden">
-            <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}" alt="Logo Moto Plan Motors" class="h-auto max-w-md mx-auto mb-6 rounded-lg shadow-md">
+            <!-- CORRECCIÓN: Se ajusta el tamaño y se eliminan los estilos de sombra y borde para evitar el efecto de "caja" -->
+            <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}" alt="Logo Moto Plan Motors" class="h-24 w-auto mx-auto mb-6">
             <h1 class="text-xl font-bold text-slate-800">CONTRATO DE ADHESIÓN – PLAN DE AHORRO PROGRAMADO</h1>
             <p class="text-sm text-slate-500">MOTO PLAN MOTORS, C.A. | RIF: J-50408959-1</p>
         </header>
