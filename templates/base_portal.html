@@ -9,7 +9,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- CAMBIO: Se actualiza al nuevo nombre del logo SVG -->
     <link rel="preload" as="image" href="{{ url_for('static', filename='BLANCOlargo.svg') }}">
     
     {% block head_extra %}
@@ -45,7 +44,6 @@
     <!-- Mobile Header -->
     <header class="md:hidden bg-slate-800 text-white h-16 px-4 flex justify-between items-center sticky top-0 z-50 shadow-md flex-shrink-0">
         <a href="{{ url_for('portal_dashboard') }}">
-            <!-- CAMBIO: Se actualiza al nuevo nombre del logo SVG -->
             <img src="{{ url_for('static', filename='BLANCOlargo.svg') }}" alt="Logo Moto Plan" class="w-32">
         </a>
         <button @click="navOpen = !navOpen" class="text-2xl" aria-label="Toggle menu">
@@ -55,10 +53,8 @@
 
     <div class="flex-1 md:flex min-h-0">
 
-        <!-- Overlay for mobile -->
-        <div x-show="navOpen" x-cloak class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" @click="navOpen = false"></div>
-
         <!-- Sidebar -->
+        <!-- CAMBIO: Se ajustan las clases para que el menú se deslice desde arriba en móvil -->
         <aside 
             class="sidebar bg-slate-800 text-white w-full flex-shrink-0 flex flex-col fixed top-0 left-0 right-0 z-40 transform -translate-y-full transition-transform duration-300 ease-in-out h-auto max-h-[80vh] overflow-y-auto rounded-b-xl shadow-lg md:relative md:w-72 md:h-full md:max-h-none md:translate-y-0 md:rounded-b-none md:shadow-none"
             :class="{'!translate-y-0': navOpen}"
@@ -66,11 +62,11 @@
             <!-- Header interno del sidebar, visible solo en escritorio -->
             <div class="hidden md:flex justify-center items-center h-20 px-4 border-b border-slate-700 flex-shrink-0">
                 <a href="{{ url_for('portal_dashboard') }}">
-                    <!-- CAMBIO: Se actualiza al nuevo nombre del logo SVG -->
                     <img src="{{ url_for('static', filename='BLANCOlargo.svg') }}" alt="Logo Moto Plan" class="w-40">
                 </a>
             </div>
 
+            <!-- CAMBIO: Se añade padding-top para que el contenido del menú no quede debajo del header en móvil -->
             <nav class="flex-1 flex flex-col p-4 pt-20 md:pt-4">
                 {% block sidebar_actions %}
                 <!-- Top section of links -->
@@ -152,9 +148,6 @@
 
         <!-- Main Content Area -->
         <div class="flex-1 flex flex-col overflow-y-auto">
-            
-            <!-- SECCIÓN ELIMINADA: Se quitó el header que contenía el botón de salir -->
-
             <main class="flex-1 p-2 md:p-6">
                 {% block body %}
                 <!-- El contenido del dashboard va aquí -->
