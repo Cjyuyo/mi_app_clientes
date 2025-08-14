@@ -87,8 +87,9 @@
                 <div><label for="plan_contratado" class="block text-sm font-medium text-slate-700">Plan Contratado (Valor USD)</label><select id="plan_contratado" name="plan_contratado" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="" disabled selected>-- Seleccione --</option></select></div>
                 <div><label for="inscripcion_monto" class="block text-sm font-medium text-slate-700">Monto Inscripción (16%)</label><input type="number" id="inscripcion_monto" step="0.01" name="inscripcion_monto" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100" required readonly></div>
                 <div><label for="cuotas_totales" class="block text-sm font-medium text-slate-700">Total de Cuotas</label><select id="cuotas_totales" name="cuotas_totales" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
-                <div><label for="valor_cuota" class="block text-sm font-medium text-slate-700">Cuota Mensual (USD)</label><input type="number" id="valor_cuota" step="0.01" name="valor_cuota" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
-                <div><label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="USD">USD</option><option value="BsBCV">Bs (Tasa BCV)</option></select></div>
+                <!-- CAMBIO: Campo de cuota ahora es readonly y la etiqueta es genérica -->
+                <div><label for="valor_cuota" class="block text-sm font-medium text-slate-700">Cuota Mensual</label><input type="number" id="valor_cuota" step="0.01" name="valor_cuota" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100 focus:border-blue-500 focus:ring-blue-500" required readonly></div>
+                <div><label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="USD">Divisas (USD)</option><option value="BsBCV">Bolívares (Tasa BCV)</option></select></div>
             </div>
         </div>
 
@@ -167,12 +168,17 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<!-- El script existente no necesita cambios, por lo que se mantiene igual -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Llenar el select de planes
+    // --- LÓGICA DE CÁLCULO AUTOMÁTICO ---
     const planSelect = document.getElementById('plan_contratado');
     const inscripcionInput = document.getElementById('inscripcion_monto');
+    const plazoSelect = document.getElementById('cuotas_totales');
+    const monedaSelect = document.getElementById('moneda_pago');
+    const cuotaInput = document.getElementById('valor_cuota');
+    const cuotaLabel = document.querySelector('label[for="valor_cuota"]');
+
+    // Llenar el select de planes
     const montoInicial = 1100, montoFinal = 4000, incremento = 50;
     for (let monto = montoInicial; monto <= montoFinal; monto += incremento) {
         const option = document.createElement('option');
@@ -180,15 +186,59 @@ document.addEventListener('DOMContentLoaded', function() {
         option.textContent = `$${monto.toLocaleString('es-CO')}`;
         planSelect.appendChild(option);
     }
+
+    function calcularYActualizarCuota() {
+        const montoPlan = parseFloat(planSelect.value);
+        const plazo = parseInt(plazoSelect.value, 10);
+        const tipoMoneda = monedaSelect.value;
+
+        // Actualizar la etiqueta del campo de cuota para mostrar la moneda
+        cuotaLabel.textContent = `Cuota Mensual (${tipoMoneda === 'USD' ? 'USD' : 'Bs'})`;
+
+        // Validaciones para evitar cálculos con valores nulos o incorrectos
+        if (isNaN(montoPlan) || montoPlan <= 0 || !tipoMoneda) {
+            cuotaInput.value = '';
+            return;
+        }
+        if (![24, 36, 48].includes(plazo)) {
+            console.error("Error: El plazo debe ser 24, 36 o 48.");
+            cuotaInput.value = '';
+            return;
+        }
+
+        // Reglas de negocio para el cálculo de la cuota
+        const baseDivisas = 0.0496;
+        const baseBs = 0.0557;
+        const base = (tipoMoneda === 'USD') ? baseDivisas : baseBs;
+        const factorCuota = base * (24 / plazo);
+        const cuota = montoPlan * factorCuota;
+
+        // Actualizar el campo de la cuota con el valor calculado
+        cuotaInput.value = cuota.toFixed(2);
+        
+        // Disparar un evento 'input' para que la validación del formulario reconozca el cambio
+        cuotaInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    // Event listener para el cambio de plan
     planSelect.addEventListener('change', function() {
         const valorPlan = parseFloat(this.value);
         if (!isNaN(valorPlan)) {
+            // Calcular y mostrar el 16% de la inscripción
             inscripcionInput.value = (valorPlan * 0.16).toFixed(2);
             inscripcionInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
+        calcularYActualizarCuota(); // Recalcular la cuota mensual
     });
 
-    // Lógica para el escenario de cierre
+    // Añadir listeners a los otros campos que afectan el cálculo
+    plazoSelect.addEventListener('change', calcularYActualizarCuota);
+    monedaSelect.addEventListener('change', calcularYActualizarCuota);
+
+    // --- FIN DE LA LÓGICA DE CÁLCULO ---
+
+
+    // Lógica para el escenario de cierre (sin cambios)
     const escenarioSelect = document.getElementById('escenario_cierre');
     const asesorContainer = document.getElementById('asesor-container');
     const responsableContainer = document.getElementById('responsable-container');
@@ -200,7 +250,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     escenarioSelect.addEventListener('change', function() {
         const escenario = this.value;
-        // Limpiar contenedores y valores ocultos
         asesorContainer.innerHTML = '';
         responsableContainer.innerHTML = '';
         asesorHiddenInput.value = '';

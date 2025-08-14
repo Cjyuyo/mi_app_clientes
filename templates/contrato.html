@@ -15,42 +15,38 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- CAMBIO: Se actualiza el nombre del archivo del logo -->
     <link rel="preload" as="image" href="{{ url_for('static', filename='MOTO PLANcontrato.svg') }}">
 
     <style>
         body { font-family: 'Inter', sans-serif; }
         .signature-pad { border: 2px dashed #cbd5e1; cursor: crosshair; border-radius: 0.5rem; }
         
-        /* Estilos para la impresión */
         @media print {
             .no-print { display: none !important; }
             body {
                 background-color: #fff;
                 font-size: 10pt;
-                position: relative; /* Necesario para la marca de agua */
+                position: relative;
             }
             
-            /* Marca de Agua: Se coloca detrás del contenido en cada página */
             body::after {
                 content: "";
-                /* CAMBIO: Se actualiza el nombre del archivo del logo */
                 background-image: url("{{ url_for('static', filename='MOTO PLANcontrato.svg') }}");
                 background-position: center;
                 background-repeat: no-repeat;
                 background-size: contain;
                 opacity: 0.15; 
-                position: fixed; /* La posición fija hace que se repita en cada página */
+                position: fixed;
                 top: 50%;
                 left: 50%;
                 transform: translate(-50%, -50%);
-                width: 80vw; /* Usa un porcentaje del ancho de la ventana */
-                height: 80vh; /* Usa un porcentaje del alto de la ventana */
-                z-index: -1; /* Se asegura que esté detrás de todo */
+                width: 80vw;
+                height: 80vh;
+                z-index: -1;
             }
 
             h1, h2, h3, p, ul, ol, div {
-                page-break-inside: avoid; /* Evita que los elementos se corten entre páginas */
+                page-break-inside: avoid;
             }
         }
     </style>
@@ -83,20 +79,15 @@
     </form>
     {% endif %}
     
-    <!-- Encabezado para la impresión (oculto en pantalla) -->
     <div class="hidden print:flex print:fixed print:top-0 print:left-0 print:right-0 print:w-full print:justify-center print:items-center print:p-4 print:border-b print:bg-white">
-        <!-- CAMBIO: Se actualiza el nombre del archivo del logo -->
         <img src="{{ url_for('static', filename='MOTO PLANcontrato.svg') }}" alt="Logo Moto Plan Motors" class="h-16">
     </div>
 
-    <!-- Contenedor principal con margen superior para la impresión -->
     <main class="max-w-4xl mx-auto my-8 p-6 sm:p-10 bg-white rounded-xl shadow-lg print:my-0 print:shadow-none print:border-none print:mt-24">
         
-        <!-- Encabezado para la vista en pantalla (oculto en impresión) -->
         <header class="text-center mb-6 pb-2 border-b print:hidden print:h-0">
-            <!-- CAMBIO: Se actualiza el nombre del archivo del logo -->
             <img src="{{ url_for('static', filename='MOTO PLANcontrato.svg') }}" alt="Logo Moto Plan Motors" class="h-40 w-auto mx-auto mb-4">
-            <h1 class="text-xl font-bold text-slate-800">CONTRATO DE ADHESIÓN – PLAN DE AHORRO PROGRAMADO</h1>
+            <h1 class="text-xl font-bold text-slate-800">CONTRATO DE ADHESIÓN AL SISTEMA DE PLAN DE AHORRO PROGRAMADO</h1>
             <p class="text-sm text-slate-500">MOTO PLAN MOTORS, C.A. | RIF: J-50408959-1</p>
         </header>
 
@@ -110,13 +101,64 @@
         </section>
 
         <article class="prose prose-sm max-w-none text-justify">
-            <p>Entre <strong>MOTO PLAN MOTORS, C.A.</strong>, ... y <strong>{{ cliente.nombre_apellido }}</strong>, ... se ha convenido en celebrar el presente Contrato...</p>
-            <h3>CAPÍTULO I: DISPOSICIONES GENERALES</h3>
-            <p><strong>PRIMERA: OBJETO.</strong> ...</p>
-            <!-- ... (resto de las cláusulas) ... -->
-            <h3>CAPÍTULO V: DISPOSICIONES FINALES</h3>
-            <p><strong>DECIMOCUARTA: DOMICILIO Y JURISDICCIÓN.</strong> ...</p>
-            <p>Leído y conformado el presente contrato...</p>
+            <p>Entre las partes, por un lado, <strong>MOTO PLAN MOTORS, C.A.</strong>, sociedad mercantil constituida bajo las leyes de la República Bolivariana de Venezuela, inscrita en el Registro Mercantil Primero del Estado Portuguesa bajo el número de tomo 66-A RM410, número 18 del año 2023, con RIF J-50408959-1 e inscrita en el RUPDAE, en lo sucesivo denominada “<strong>LA EMPRESA</strong>”, y por otro lado, el solicitante identificado en la solicitud de inscripción anexa, en lo sucesivo denominado “<strong>EL CLIENTE</strong>”, convienen en celebrar el presente Contrato de Adhesión, el cual se regirá por las siguientes cláusulas:</p>
+            
+            <h3 class="font-bold mt-4">CAPÍTULO I: DISPOSICIONES GENERALES Y NATURALEZA DEL CONTRATO</h3>
+            <p><strong>Cláusula 1.</strong> LA EMPRESA es una persona jurídica legalmente constituida. EL CLIENTE se adhiere voluntariamente a este contrato. <em class="text-xs">Fundamento Legal: Código de Comercio y Código Civil.</em></p>
+            <p><strong>Cláusula 2.</strong> El contrato tiene por objeto la incorporación a un plan de ahorro programado, con fines de autofinanciamiento. LA EMPRESA no vende bienes directamente. <em class="text-xs">Fundamento Legal: Art. 112 Constitución y Art. 1161 Código Civil.</em></p>
+            <p><strong>Cláusula 3.</strong> EL CLIENTE declara haber recibido asesoría clara, personalizada y oportuna. <em class="text-xs">Fundamento Legal: Ley sobre Mensajes de Datos y Firmas Electrónicas, Arts. 12 y 13.</em></p>
+            <p><strong>Cláusula 4.</strong> Definiciones contractuales básicas (grupo, cuota, adjudicación, beneficiario, etc.).</p>
+            <p><strong>Cláusula 4 BIS.</strong> La asesoría fue grabada con consentimiento expreso de EL CLIENTE y podrá usarse como prueba válida en caso de controversia. <em class="text-xs">Fundamento Legal: Ley sobre Mensajes de Datos y Firmas Electrónicas, Arts. 12 y 13.</em></p>
+
+            <h3 class="font-bold mt-4">CAPÍTULO II: DE LOS GRUPOS, PLAZOS Y EL BIEN A ADQUIRIR</h3>
+            <p><strong>Cláusula 5.</strong> Cuota de inscripción única equivalente al 16% del monto contratado.</p>
+            <p><strong>Cláusula 6.</strong> Los grupos se conforman por 54 personas y se activan al alcanzar al menos el 85% de integración.</p>
+            <p><strong>Cláusula 7.</strong> Duración máxima del plan: 24 meses. <em class="text-xs">Fundamento Legal: Autonomía de la voluntad contractual.</em></p>
+            <p><strong>Cláusula 8.</strong> El monto adjudicado se ajusta al precio del bien. LA EMPRESA no garantiza disponibilidad de modelos.</p>
+
+            <h3 class="font-bold mt-4">CAPÍTULO III: DE LA CUOTA MENSUAL Y LOS PAGOS</h3>
+            <p><strong>Cláusula 9.</strong> La cuota mensual incluye: 9.1. Aporte neto al fondo. 9.2. Costos operativos y utilidad (hasta 30%). 9.3. Penalidad por atraso. 9.4. Impuestos (como el IVA del 16%). <em class="text-xs">Fundamento Legal: Código de Comercio Art. 127, Ley del IVA, Constitución Art. 316.</em></p>
+            <p><strong>Cláusula 10.</strong> Se exige el pago completo y puntual de 24 cuotas mensuales, sin interrupciones ni fraccionamientos. <em class="text-xs">Fundamento Legal: Art. 115 Código de Comercio.</em></p>
+            
+            <!-- INICIO DE LA LÓGICA CONDICIONAL PARA LA CLÁUSULA 11 -->
+            <p><strong>Cláusula 11. Moneda y Forma de Pago.</strong> Las partes acuerdan que la modalidad de pago será una de las dos siguientes, según lo seleccionado expresamente por EL CLIENTE en la solicitud de inscripción.</p>
+            {% if cliente.moneda_pago == 'BsBCV' %}
+            <div class="p-3 bg-blue-50 border-l-4 border-blue-500 text-slate-700">
+                <h4 class="font-semibold">Opción de Pago en Bolívares (Bs.) con Libre Convertibilidad:</h4>
+                <p>Los pagos deben realizarse preferentemente en Bolívares (Bs.), al valor equivalente según la tasa oficial del BCV. También se aceptan pagos en divisas convertibles, bajo el principio de libre convertibilidad.</p>
+                <p class="text-xs italic mt-1">Fundamento Legal: Ley del BCV (Art. 3 y 121), Convenio Cambiario N.º 1, Código de Comercio (Art. 115 y 128), TSJ Sala Civil N.º 703/2016.</p>
+            </div>
+            {% elif cliente.moneda_pago == 'USD' %}
+            <div class="p-3 bg-green-50 border-l-4 border-green-500 text-slate-700">
+                <h4 class="font-semibold">Opción de Pago Exclusivo en Divisas (USD):</h4>
+                <p>Los pagos derivados del presente contrato deberán ser realizados única y exclusivamente en dólares estadounidenses (USD), sin posibilidad de sustitución en bolívares u otra moneda. Las partes acuerdan expresamente que la moneda de pago exigida es el dólar americano, no siendo válida su convertibilidad ni su pago en bolívares bajo ningún supuesto.</p>
+                <p class="text-xs italic mt-1">Fundamento Legal: Artículo 128 de la Ley del Banco Central de Venezuela y jurisprudencia aplicable.</p>
+            </div>
+            {% else %}
+            <div class="p-3 bg-red-50 border-l-4 border-red-500 text-slate-700">
+                <p><strong>Error:</strong> No se ha especificado una modalidad de pago válida en el registro del cliente.</p>
+            </div>
+            {% endif %}
+            <!-- FIN DE LA LÓGICA CONDICIONAL -->
+
+            <h3 class="font-bold mt-4">CAPÍTULO IV: DEL PROCESO DE ENTREGA (ADJUDICACIÓN)</h3>
+            <p><strong>Cláusula 12.</strong> El evento de adjudicación se realiza una vez al mes entre clientes solventes. <em class="text-xs">Fundamento Legal: Art. 1136 Código Civil.</em></p>
+            <p><strong>Cláusula 13.</strong> Formas de adjudicación: 13.1. Por oferta (el cliente ofrece adelanto de cuotas y se toma en cuenta la mejor oferta del grupo). 13.2. Por Antigüedad (A partir de la cuota doce (12), se adjudicará al cliente solvente con el mayor número de cuotas pagadas. En caso de empate, se considerará la antigüedad de incorporación al grupo). 13.3. Por finiquito (el cliente paga todo y recibe el monto en 60 días).</p>
+            <p><strong>Cláusula 14.</strong> Para recibir el monto adjudicado, EL CLIENTE debe presentar garantías: fiador, hipoteca, o reserva de dominio.</p>
+            <p><strong>Cláusula 15.</strong> LA EMPRESA dispone de hasta 60 días hábiles para entregar el monto adjudicado tras validar las garantías.</p>
+
+            <h3 class="font-bold mt-4">CAPÍTULO V: INCUMPLIMIENTOS DE PAGO</h3>
+            <p><strong>Cláusula 16.</strong> El atraso en el pago inhabilita al cliente para participar en adjudicaciones y genera penalidad. <em class="text-xs">Fundamento Legal: Código Civil Art. 1160.</em></p>
+            <p><strong>Cláusula 17.</strong> Si un cliente no adjudicado deja de pagar tres (3) cuotas consecutivas, LA EMPRESA podrá anular el contrato sin previo aviso.</p>
+            <p><strong>Cláusula 18.</strong> Si el cliente ya fue adjudicado y deja de pagar, LA EMPRESA podrá ejecutar el contrato judicialmente, recuperar el bien y exigir el pago completo de lo adeudado, aplicando un cargo por mora diaria del 0,2% sobre el monto vencido.</p>
+
+            <h3 class="font-bold mt-4">CAPÍTULO VI: DERECHOS DEL CLIENTE NO ADJUDICADO</h3>
+            <p><strong>Cláusula 19.</strong> Mientras no haya sido adjudicado, EL CLIENTE podrá: 19.1. Retracto: dentro de los primeros 7 días desde la firma. 19.2. Cambio de grupo: a uno de mayor o menor monto. 19.3. Traspaso: a un tercero solvente, con aprobación de LA EMPRESA. 19.4. Rescisión voluntaria: se reintegrarán solo los aportes netos de forma programada, descontando gastos. 19.5. Designación de beneficiario: para heredar el contrato en caso de fallecimiento. <em class="text-xs">Fundamento Legal: Art. 1161 Código Civil y autonomía contractual.</em></p>
+
+            <h3 class="font-bold mt-4">CAPÍTULO VII: DOMICILIO, JURISDICCIÓN Y MEDIOS ELECTRÓNICOS</h3>
+            <p><strong>Cláusula 20.</strong> Las partes se someten a la jurisdicción de los tribunales venezolanos y acuerdan como domicilio el indicado en la solicitud.</p>
+            <p><strong>Cláusula X. Firma y Documentos Electrónicos.</strong> Este contrato podrá ser firmado electrónicamente. Los recibos, notificaciones y comunicaciones podrán emitirse en formato digital, siendo plenamente válidos y exigibles. <em class="text-xs">Fundamento Legal: Ley sobre Mensajes de Datos y Firmas Electrónicas, Artículos 6, 7, 9, 12 y 13.</em></p>
+
         </article>
         
         <footer class="mt-10 pt-8 border-t">
@@ -150,8 +192,45 @@
     
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
     <script>
-    // La lógica de JS para las firmas se mantiene
-    document.addEventListener('DOMContentLoaded', function() { /* ... */ });
+    // La lógica de JS para las firmas se mantiene sin cambios
+    document.addEventListener('DOMContentLoaded', function() {
+        const setupSignaturePad = (canvasId, inputId) => {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return null;
+            const signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)' });
+            const form = document.getElementById('form-finalizar-registro') || document.getElementById(`form${canvasId.includes('cliente') ? 'FirmaCliente' : 'FirmaEmpresa'}`);
+            if (form) {
+                form.addEventListener('submit', function(event) {
+                    if (signaturePad.isEmpty()) {
+                        alert("Por favor, provea una firma.");
+                        event.preventDefault();
+                    } else {
+                        const input = document.getElementById(inputId);
+                        if (input) input.value = signaturePad.toDataURL('image/png');
+                    }
+                });
+            }
+            return signaturePad;
+        };
+
+        const padCliente = setupSignaturePad('signature-pad-cliente', 'firma_cliente_input');
+        const padEmpresa = setupSignaturePad('signature-pad-empresa', 'firma_empresa_input');
+        const padClienteExistente = setupSignaturePad('signature-pad-cliente', 'firma_cliente_input_existente');
+        const padEmpresaExistente = setupSignaturePad('signature-pad-empresa', 'firma_empresa_input_existente');
+
+        document.querySelectorAll('.clear-signature-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const targetId = this.getAttribute('data-target');
+                if (targetId === 'signature-pad-cliente') {
+                    if (padCliente) padCliente.clear();
+                    if (padClienteExistente) padClienteExistente.clear();
+                } else if (targetId === 'signature-pad-empresa') {
+                    if (padEmpresa) padEmpresa.clear();
+                    if (padEmpresaExistente) padEmpresaExistente.clear();
+                }
+            });
+        });
+    });
     </script>
 </body>
 </html>
