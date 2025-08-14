@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Se revierte a PNG temporalmente para asegurar la visibilidad del logo -->
+    <!-- Se usa el logo PNG comprimido que funciona correctamente -->
     <link rel="preload" as="image" href="{{ url_for('static', filename='Moto Plan Motors.png') }}">
 
     <style>
@@ -115,7 +115,7 @@
                         
                         {% if g.admin and g.admin.rol in ['superadmin', 'gerente'] %}
                         <li class="px-2 mt-6 mb-2">
-                            <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Operaciones</span>
+                            <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Gestión</span>
                         </li>
                         <li>
                             <button @click="openMenu = (openMenu === 'clientes' ? '' : 'clientes')" class="w-full flex items-center justify-between px-2 py-2.5 text-slate-100 rounded-md hover:bg-white/5">
@@ -135,7 +135,8 @@
                             <button @click="openMenu = (openMenu === 'finanzas' ? '' : 'finanzas')" class="w-full flex items-center justify-between px-2 py-2.5 text-slate-100 rounded-md hover:bg-white/5">
                                 <span class="flex items-center">
                                     <i class="bi bi-bank text-lg w-8 text-center text-slate-400"></i>
-                                    <span class="ml-2">Admón. y Finanzas</span>
+                                    <!-- CORRECCIÓN: Se cambia "Admón." por "Administración" -->
+                                    <span class="ml-2">Administración y Finanzas</span>
                                 </span>
                                 <i class="bi bi-chevron-down transition-transform text-xs" :class="openMenu === 'finanzas' && 'rotate-180'"></i>
                             </button>
