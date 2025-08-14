@@ -15,8 +15,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- CAMBIO: Se actualiza el nombre del archivo a .svg -->
-    <link rel="preload" as="image" href="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.svg') }}">
+    <!-- CAMBIO: Se actualiza el nombre del archivo a .png -->
+    <link rel="preload" as="image" href="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}">
 
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -34,8 +34,8 @@
             /* Marca de Agua: Se coloca detrás del contenido en cada página */
             body::after {
                 content: "";
-                /* CAMBIO: Se actualiza el nombre del archivo a .svg */
-                background-image: url("{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.svg') }}");
+                /* CAMBIO: Se actualiza el nombre del archivo a .png */
+                background-image: url("{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}");
                 background-position: center;
                 background-repeat: no-repeat;
                 background-size: contain;
@@ -85,8 +85,8 @@
     
     <!-- Encabezado para la impresión (oculto en pantalla) -->
     <div class="hidden print:flex print:fixed print:top-0 print:left-0 print:right-0 print:w-full print:justify-center print:items-center print:p-4 print:border-b print:bg-white">
-        <!-- CAMBIO: Se actualiza el nombre del archivo a .svg -->
-        <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.svg') }}" alt="Logo Moto Plan Motors" class="h-16">
+        <!-- CAMBIO: Se actualiza el nombre del archivo a .png -->
+        <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}" alt="Logo Moto Plan Motors" class="h-16">
     </div>
 
     <!-- Contenedor principal con margen superior para la impresión -->
@@ -94,8 +94,8 @@
         
         <!-- Encabezado para la vista en pantalla (oculto en impresión) -->
         <header class="text-center mb-6 pb-2 border-b print:hidden print:h-0">
-            <!-- CAMBIO: Se actualiza el nombre del archivo a .svg -->
-            <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.svg') }}" alt="Logo Moto Plan Motors" class="h-40 w-auto mx-auto mb-4">
+            <!-- CAMBIO: Se actualiza el nombre del archivo a .png -->
+            <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}" alt="Logo Moto Plan Motors" class="h-40 w-auto mx-auto mb-4">
             <h1 class="text-xl font-bold text-slate-800">CONTRATO DE ADHESIÓN – PLAN DE AHORRO PROGRAMADO</h1>
             <p class="text-sm text-slate-500">MOTO PLAN MOTORS, C.A. | RIF: J-50408959-1</p>
         </header>
