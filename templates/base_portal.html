@@ -9,6 +9,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- CORRECCIÓN: Se actualiza al nuevo nombre del logo -->
     <link rel="preload" as="image" href="{{ url_for('static', filename='BLANCO_Mesa de trabajo 1.png') }}">
     
     {% block head_extra %}
@@ -58,7 +59,7 @@
 
         <!-- Sidebar -->
         <aside 
-            class="sidebar bg-slate-800 text-white w-full flex-shrink-0 flex flex-col fixed top-0 left-0 right-0 z-40 transform -translate-y-full transition-transform duration-300 ease-in-out h-auto max-h-[80vh] overflow-y-auto rounded-b-xl shadow-lg md:relative md:w-64 md:h-full md:max-h-none md:translate-y-0 md:rounded-b-none md:shadow-none"
+            class="sidebar bg-slate-800 text-white w-full flex-shrink-0 flex flex-col fixed top-0 left-0 right-0 z-40 transform -translate-y-full transition-transform duration-300 ease-in-out h-auto max-h-[80vh] overflow-y-auto rounded-b-xl shadow-lg md:relative md:w-72 md:h-full md:max-h-none md:translate-y-0 md:rounded-b-none md:shadow-none"
             :class="{'!translate-y-0': navOpen}"
         >
             <!-- Header interno del sidebar, visible solo en escritorio -->
