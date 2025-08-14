@@ -24,24 +24,31 @@
         /* Estilos para la impresión */
         @media print {
             .no-print { display: none !important; }
-            body { background-color: #fff; font-size: 10pt; }
-            .print-container { box-shadow: none !important; border: none !important; }
-            h1, h2, h3, p, ul, ol, div { page-break-inside: avoid; }
-            
-            /* Encabezado repetido para cada página impresa */
-            .print-header {
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                padding: 1rem;
-                border-bottom: 1px solid #e5e7eb;
+            body {
+                background-color: #fff;
+                font-size: 10pt;
+                position: relative; /* Necesario para la marca de agua */
             }
-            main {
-                margin-top: 120px; /* Espacio para el encabezado impreso */
+            
+            /* Marca de Agua: Se coloca detrás del contenido en cada página */
+            body::after {
+                content: "";
+                background-image: url("{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}");
+                background-position: center;
+                background-repeat: no-repeat;
+                background-size: contain;
+                opacity: 0.08; /* Opacidad muy baja para que no interfiera con el texto */
+                position: fixed; /* La posición fija hace que se repita en cada página */
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 70vw; /* Usa un porcentaje del ancho de la ventana */
+                height: 70vh; /* Usa un porcentaje del alto de la ventana */
+                z-index: -1; /* Se asegura que esté detrás de todo */
+            }
+
+            h1, h2, h3, p, ul, ol, div {
+                page-break-inside: avoid; /* Evita que los elementos se corten entre páginas */
             }
         }
     </style>
@@ -74,15 +81,17 @@
     </form>
     {% endif %}
     
-    <!-- Encabezado para la impresión -->
-    <div class="print-header hidden">
-        <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}" alt="Logo Moto Plan Motors" class="h-20">
+    <!-- Encabezado para la impresión (oculto en pantalla) -->
+    <div class="hidden print:flex print:fixed print:top-0 print:left-0 print:right-0 print:w-full print:justify-center print:items-center print:p-4 print:border-b print:bg-white">
+        <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}" alt="Logo Moto Plan Motors" class="h-16">
     </div>
 
-    <main class="max-w-4xl mx-auto my-8 p-6 sm:p-10 bg-white rounded-xl shadow-lg print-container">
-        <header class="text-center mb-8 pb-4 border-b">
-            <!-- CORRECCIÓN: Se aumenta el tamaño del logo a h-48 -->
-            <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}" alt="Logo Moto Plan Motors" class="h-48 mx-auto mb-6">
+    <!-- Contenedor principal con margen superior para la impresión -->
+    <main class="max-w-4xl mx-auto my-8 p-6 sm:p-10 bg-white rounded-xl shadow-lg print:my-0 print:shadow-none print:border-none print:mt-24">
+        
+        <!-- Encabezado para la vista en pantalla (oculto en impresión) -->
+        <header class="text-center mb-8 pb-4 border-b print:hidden">
+            <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}" alt="Logo Moto Plan Motors" class="h-auto max-w-md mx-auto mb-6 rounded-lg shadow-md">
             <h1 class="text-xl font-bold text-slate-800">CONTRATO DE ADHESIÓN – PLAN DE AHORRO PROGRAMADO</h1>
             <p class="text-sm text-slate-500">MOTO PLAN MOTORS, C.A. | RIF: J-50408959-1</p>
         </header>
