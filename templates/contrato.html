@@ -37,7 +37,6 @@
                 background-position: center;
                 background-repeat: no-repeat;
                 background-size: contain;
-                /* CORRECCIÓN: Se aumenta la opacidad y el tamaño para mayor predominancia */
                 opacity: 0.15; 
                 position: fixed; /* La posición fija hace que se repita en cada página */
                 top: 50%;
@@ -91,8 +90,8 @@
     <main class="max-w-4xl mx-auto my-8 p-6 sm:p-10 bg-white rounded-xl shadow-lg print:my-0 print:shadow-none print:border-none print:mt-24">
         
         <!-- Encabezado para la vista en pantalla (oculto en impresión) -->
-        <header class="text-center mb-8 pb-4 border-b print:hidden">
-            <!-- CORRECCIÓN: Se aumenta el tamaño del logo para mayor predominancia -->
+        <!-- CORRECCIÓN: Se añade print:h-0 para forzar a que el encabezado no ocupe espacio al imprimir -->
+        <header class="text-center mb-8 pb-4 border-b print:hidden print:h-0">
             <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}" alt="Logo Moto Plan Motors" class="h-32 w-auto mx-auto mb-6">
             <h1 class="text-xl font-bold text-slate-800">CONTRATO DE ADHESIÓN – PLAN DE AHORRO PROGRAMADO</h1>
             <p class="text-sm text-slate-500">MOTO PLAN MOTORS, C.A. | RIF: J-50408959-1</p>
