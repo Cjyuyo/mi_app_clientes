@@ -153,14 +153,9 @@
         <!-- Main Content Area -->
         <div class="flex-1 flex flex-col overflow-y-auto">
             
-            <header class="hidden md:flex justify-end items-center h-20 px-6 flex-shrink-0">
-                 <a href="{{ url_for('portal_logout') }}" class="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors" title="Cerrar Sesión">
-                     <span class="font-medium text-sm">Salir</span>
-                     <i class="bi bi-box-arrow-right text-xl"></i>
-                </a>
-            </header>
+            <!-- SECCIÓN ELIMINADA: Se quitó el header que contenía el botón de salir -->
 
-            <main class="flex-1 p-2 md:p-6 md:pt-0">
+            <main class="flex-1 p-2 md:p-6">
                 {% block body %}
                 <!-- El contenido del dashboard va aquí -->
                 {% endblock %}
