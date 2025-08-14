@@ -81,8 +81,9 @@
         <div x-show="sidebarOpen" x-cloak class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" @click="sidebarOpen = false"></div>
 
         <!-- Sidebar -->
+        <!-- CORRECCIÓN: Se aumenta el ancho del sidebar a w-80 para acomodar texto largo -->
         <aside 
-            class="sidebar bg-[#2B3A55] text-slate-100 w-full flex-shrink-0 flex flex-col fixed top-0 left-0 right-0 z-40 transform -translate-y-full transition-transform duration-300 ease-in-out h-auto max-h-[80vh] overflow-y-auto rounded-b-xl shadow-lg md:relative md:w-64 md:h-full md:max-h-none md:translate-y-0 md:rounded-b-none md:shadow-none"
+            class="sidebar bg-[#2B3A55] text-slate-100 w-full flex-shrink-0 flex flex-col fixed top-0 left-0 right-0 z-40 transform -translate-y-full transition-transform duration-300 ease-in-out h-auto max-h-[80vh] overflow-y-auto rounded-b-xl shadow-lg md:relative md:w-80 md:h-full md:max-h-none md:translate-y-0 md:rounded-b-none md:shadow-none"
             :class="{'!translate-y-0': sidebarOpen}"
             >
             <!-- Header interno del sidebar, visible solo en escritorio -->
@@ -120,10 +121,10 @@
                         <li>
                             <button @click="openMenu = (openMenu === 'clientes' ? '' : 'clientes')" class="w-full flex items-center justify-between px-2 py-2.5 text-slate-100 rounded-md hover:bg-white/5">
                                 <span class="flex items-center">
-                                    <i class="bi bi-people-fill text-lg w-8 text-center text-slate-400"></i>
-                                    <span class="ml-2">Clientes</span>
+                                    <i class="bi bi-people-fill text-lg w-8 text-center text-slate-400 flex-shrink-0"></i>
+                                    <span class="ml-2 whitespace-nowrap">Clientes</span>
                                 </span>
-                                <i class="bi bi-chevron-down transition-transform text-xs" :class="openMenu === 'clientes' && 'rotate-180'"></i>
+                                <i class="bi bi-chevron-down transition-transform text-xs ml-2 flex-shrink-0" :class="openMenu === 'clientes' && 'rotate-180'"></i>
                             </button>
                             <ul x-show="openMenu === 'clientes'" x-transition class="mt-1 space-y-1 pl-8">
                                 <li><a href="{{ url_for('registrar') }}" class="sidebar-link block pl-5 pr-4 py-2 text-sm text-slate-200 hover:text-white">Registrar Cliente</a></li>
@@ -134,11 +135,10 @@
                         <li>
                             <button @click="openMenu = (openMenu === 'finanzas' ? '' : 'finanzas')" class="w-full flex items-center justify-between px-2 py-2.5 text-slate-100 rounded-md hover:bg-white/5">
                                 <span class="flex items-center">
-                                    <i class="bi bi-bank text-lg w-8 text-center text-slate-400"></i>
-                                    <!-- CORRECCIÓN: Se cambia "Admón." por "Administración" -->
-                                    <span class="ml-2">Administración y Finanzas</span>
+                                    <i class="bi bi-bank text-lg w-8 text-center text-slate-400 flex-shrink-0"></i>
+                                    <span class="ml-2 whitespace-nowrap">Administración y Finanzas</span>
                                 </span>
-                                <i class="bi bi-chevron-down transition-transform text-xs" :class="openMenu === 'finanzas' && 'rotate-180'"></i>
+                                <i class="bi bi-chevron-down transition-transform text-xs ml-2 flex-shrink-0" :class="openMenu === 'finanzas' && 'rotate-180'"></i>
                             </button>
                             <ul x-show="openMenu === 'finanzas'" x-transition class="mt-1 space-y-1 pl-8">
                                 <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link block pl-5 pr-4 py-2 text-sm text-slate-200 hover:text-white">Gestión General</a></li>
@@ -153,10 +153,10 @@
                         <li>
                             <button @click="openMenu = (openMenu === 'comercial' ? '' : 'comercial')" class="w-full flex items-center justify-between px-2 py-2.5 text-slate-100 rounded-md hover:bg-white/5">
                                 <span class="flex items-center">
-                                    <i class="bi bi-briefcase-fill text-lg w-8 text-center text-slate-400"></i>
-                                    <span class="ml-2">Comercial</span>
+                                    <i class="bi bi-briefcase-fill text-lg w-8 text-center text-slate-400 flex-shrink-0"></i>
+                                    <span class="ml-2 whitespace-nowrap">Comercial</span>
                                 </span>
-                                <i class="bi bi-chevron-down transition-transform text-xs" :class="openMenu === 'comercial' && 'rotate-180'"></i>
+                                <i class="bi bi-chevron-down transition-transform text-xs ml-2 flex-shrink-0" :class="openMenu === 'comercial' && 'rotate-180'"></i>
                             </button>
                             <ul x-show="openMenu === 'comercial'" x-transition class="mt-1 space-y-1 pl-8">
                                 <li><a href="{{ url_for('dashboard_comercial') }}" class="sidebar-link block pl-5 pr-4 py-2 text-sm text-slate-200 hover:text-white">Dashboard Comercial</a></li>
@@ -165,10 +165,10 @@
                         <li>
                             <button @click="openMenu = (openMenu === 'reportes' ? '' : 'reportes')" class="w-full flex items-center justify-between px-2 py-2.5 text-slate-100 rounded-md hover:bg-white/5">
                                 <span class="flex items-center">
-                                    <i class="bi bi-file-earmark-text-fill text-lg w-8 text-center text-slate-400"></i>
-                                    <span class="ml-2">Reportes y Auditoría</span>
+                                    <i class="bi bi-file-earmark-text-fill text-lg w-8 text-center text-slate-400 flex-shrink-0"></i>
+                                    <span class="ml-2 whitespace-nowrap">Reportes y Auditoría</span>
                                 </span>
-                                <i class="bi bi-chevron-down transition-transform text-xs" :class="openMenu === 'reportes' && 'rotate-180'"></i>
+                                <i class="bi bi-chevron-down transition-transform text-xs ml-2 flex-shrink-0" :class="openMenu === 'reportes' && 'rotate-180'"></i>
                             </button>
                             <ul x-show="openMenu === 'reportes'" x-transition class="mt-1 space-y-1 pl-8">
                                 <li><a href="{{ url_for('reporte_morosidad') }}" class="sidebar-link block pl-5 pr-4 py-2 text-sm text-slate-200 hover:text-white">Reporte de Morosidad</a></li>
