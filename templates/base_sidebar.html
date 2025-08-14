@@ -10,8 +10,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Se usa el logo PNG comprimido que funciona correctamente -->
-    <link rel="preload" as="image" href="{{ url_for('static', filename='Moto Plan Motors.png') }}">
+    <!-- CORRECCIÓN: Se actualiza al nuevo nombre del logo -->
+    <link rel="preload" as="image" href="{{ url_for('static', filename='BLANCO_Mesa de trabajo 1.png') }}">
 
     <style>
         :root {
@@ -69,7 +69,7 @@
     <!-- Mobile Header -->
     <header class="md:hidden bg-[#2B3A55] text-white h-16 px-4 flex justify-between items-center sticky top-0 z-50 shadow-md flex-shrink-0">
         <a href="{{ url_for('hub') }}">
-            <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan" class="w-32">
+            <img src="{{ url_for('static', filename='BLANCO_Mesa de trabajo 1.png') }}" alt="Logo Moto Plan" class="w-32">
         </a>
         <button @click="sidebarOpen = !sidebarOpen" class="text-2xl" aria-label="Toggle menu">
             <i class="bi" :class="sidebarOpen ? 'bi-x-lg' : 'bi-list'"></i>
@@ -81,7 +81,6 @@
         <div x-show="sidebarOpen" x-cloak class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" @click="sidebarOpen = false"></div>
 
         <!-- Sidebar -->
-        <!-- CORRECCIÓN: Se aumenta el ancho del sidebar a w-80 para acomodar texto largo -->
         <aside 
             class="sidebar bg-[#2B3A55] text-slate-100 w-full flex-shrink-0 flex flex-col fixed top-0 left-0 right-0 z-40 transform -translate-y-full transition-transform duration-300 ease-in-out h-auto max-h-[80vh] overflow-y-auto rounded-b-xl shadow-lg md:relative md:w-80 md:h-full md:max-h-none md:translate-y-0 md:rounded-b-none md:shadow-none"
             :class="{'!translate-y-0': sidebarOpen}"
@@ -89,7 +88,7 @@
             <!-- Header interno del sidebar, visible solo en escritorio -->
             <div class="hidden md:flex items-center justify-center h-20 px-4 border-b border-white/20 flex-shrink-0">
                 <a href="{{ url_for('hub') }}">
-                    <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="w-40">
+                    <img src="{{ url_for('static', filename='BLANCO_Mesa de trabajo 1.png') }}" alt="Logo Moto Plan Motors" class="w-40">
                 </a>
             </div>
 
