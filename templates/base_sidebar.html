@@ -10,7 +10,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="preload" as="image" href="{{ url_for('static', filename='Moto-Plan-Motors.svg') }}">
+    <!-- Se revierte a PNG temporalmente para asegurar la visibilidad del logo -->
+    <link rel="preload" as="image" href="{{ url_for('static', filename='Moto Plan Motors.png') }}">
 
     <style>
         :root {
@@ -68,7 +69,7 @@
     <!-- Mobile Header -->
     <header class="md:hidden bg-[#2B3A55] text-white h-16 px-4 flex justify-between items-center sticky top-0 z-50 shadow-md flex-shrink-0">
         <a href="{{ url_for('hub') }}">
-            <img src="{{ url_for('static', filename='Moto-Plan-Motors.svg') }}" alt="Logo Moto Plan" class="w-32">
+            <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan" class="w-32">
         </a>
         <button @click="sidebarOpen = !sidebarOpen" class="text-2xl" aria-label="Toggle menu">
             <i class="bi" :class="sidebarOpen ? 'bi-x-lg' : 'bi-list'"></i>
@@ -87,7 +88,7 @@
             <!-- Header interno del sidebar, visible solo en escritorio -->
             <div class="hidden md:flex items-center justify-center h-20 px-4 border-b border-white/20 flex-shrink-0">
                 <a href="{{ url_for('hub') }}">
-                    <img src="{{ url_for('static', filename='Moto-Plan-Motors.svg') }}" alt="Logo Moto Plan Motors" class="w-40">
+                    <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="w-40">
                 </a>
             </div>
 
@@ -112,6 +113,10 @@
                             </a>
                         </li>
                         
+                        {% if g.admin and g.admin.rol in ['superadmin', 'gerente'] %}
+                        <li class="px-2 mt-6 mb-2">
+                            <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Operaciones</span>
+                        </li>
                         <li>
                             <button @click="openMenu = (openMenu === 'clientes' ? '' : 'clientes')" class="w-full flex items-center justify-between px-2 py-2.5 text-slate-100 rounded-md hover:bg-white/5">
                                 <span class="flex items-center">
@@ -125,11 +130,6 @@
                                 <li><a href="{{ url_for('consulta') }}" class="sidebar-link block pl-5 pr-4 py-2 text-sm text-slate-200 hover:text-white">Consultar Clientes</a></li>
                                 <li><a href="{{ url_for('mi_cartera') }}" class="sidebar-link block pl-5 pr-4 py-2 text-sm text-slate-200 hover:text-white">Mi Cartera de Cobranza</a></li>
                             </ul>
-                        </li>
-
-                        {% if g.admin and g.admin.rol in ['superadmin', 'gerente'] %}
-                        <li class="px-2 mt-6 mb-2">
-                            <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Operaciones</span>
                         </li>
                         <li>
                             <button @click="openMenu = (openMenu === 'finanzas' ? '' : 'finanzas')" class="w-full flex items-center justify-between px-2 py-2.5 text-slate-100 rounded-md hover:bg-white/5">
