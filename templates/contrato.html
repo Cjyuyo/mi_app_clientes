@@ -5,14 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contrato de Adhesión - {{ cliente.contrato_nro }}</title>
     
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
+    <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="preload" as="image" href="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}">
+    <!-- CAMBIO: Se actualiza el nombre del archivo a .svg -->
+    <link rel="preload" as="image" href="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.svg') }}">
 
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -30,7 +34,8 @@
             /* Marca de Agua: Se coloca detrás del contenido en cada página */
             body::after {
                 content: "";
-                background-image: url("{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}");
+                /* CAMBIO: Se actualiza el nombre del archivo a .svg */
+                background-image: url("{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.svg') }}");
                 background-position: center;
                 background-repeat: no-repeat;
                 background-size: contain;
@@ -51,6 +56,7 @@
     </style>
 </head>
 <body class="bg-slate-100">
+    <!-- Barra de Acciones (Solo visible en pantalla) -->
     <div class="no-print sticky top-0 bg-slate-800 text-white p-3 shadow-md z-50">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             
@@ -77,14 +83,19 @@
     </form>
     {% endif %}
     
+    <!-- Encabezado para la impresión (oculto en pantalla) -->
     <div class="hidden print:flex print:fixed print:top-0 print:left-0 print:right-0 print:w-full print:justify-center print:items-center print:p-4 print:border-b print:bg-white">
-        <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}" alt="Logo Moto Plan Motors" class="h-16">
+        <!-- CAMBIO: Se actualiza el nombre del archivo a .svg -->
+        <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.svg') }}" alt="Logo Moto Plan Motors" class="h-16">
     </div>
 
+    <!-- Contenedor principal con margen superior para la impresión -->
     <main class="max-w-4xl mx-auto my-8 p-6 sm:p-10 bg-white rounded-xl shadow-lg print:my-0 print:shadow-none print:border-none print:mt-24">
         
+        <!-- Encabezado para la vista en pantalla (oculto en impresión) -->
         <header class="text-center mb-6 pb-2 border-b print:hidden print:h-0">
-            <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}" alt="Logo Moto Plan Motors" class="h-40 w-auto mx-auto mb-4">
+            <!-- CAMBIO: Se actualiza el nombre del archivo a .svg -->
+            <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.svg') }}" alt="Logo Moto Plan Motors" class="h-40 w-auto mx-auto mb-4">
             <h1 class="text-xl font-bold text-slate-800">CONTRATO DE ADHESIÓN – PLAN DE AHORRO PROGRAMADO</h1>
             <p class="text-sm text-slate-500">MOTO PLAN MOTORS, C.A. | RIF: J-50408959-1</p>
         </header>
@@ -102,6 +113,7 @@
             <p>Entre <strong>MOTO PLAN MOTORS, C.A.</strong>, ... y <strong>{{ cliente.nombre_apellido }}</strong>, ... se ha convenido en celebrar el presente Contrato...</p>
             <h3>CAPÍTULO I: DISPOSICIONES GENERALES</h3>
             <p><strong>PRIMERA: OBJETO.</strong> ...</p>
+            <!-- ... (resto de las cláusulas) ... -->
             <h3>CAPÍTULO V: DISPOSICIONES FINALES</h3>
             <p><strong>DECIMOCUARTA: DOMICILIO Y JURISDICCIÓN.</strong> ...</p>
             <p>Leído y conformado el presente contrato...</p>
