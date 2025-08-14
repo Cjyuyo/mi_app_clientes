@@ -15,15 +15,34 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preload" as="image" href="{{ url_for('static', filename='MOTO-PLAN-COLOR.svg') }}">
 
     <style>
         body { font-family: 'Inter', sans-serif; }
         .signature-pad { border: 2px dashed #cbd5e1; cursor: crosshair; border-radius: 0.5rem; }
+        
+        /* Estilos para la impresión */
         @media print {
             .no-print { display: none !important; }
             body { background-color: #fff; font-size: 10pt; }
             .print-container { box-shadow: none !important; border: none !important; }
             h1, h2, h3, p, ul, ol, div { page-break-inside: avoid; }
+            
+            /* Encabezado repetido para cada página impresa */
+            .print-header {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 1rem;
+                border-bottom: 1px solid #e5e7eb;
+            }
+            main {
+                margin-top: 100px; /* Espacio para el encabezado impreso */
+            }
         }
     </style>
 </head>
@@ -31,7 +50,13 @@
     <!-- Barra de Acciones (Solo visible en pantalla) -->
     <div class="no-print sticky top-0 bg-slate-800 text-white p-3 shadow-md z-50">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <a href="{{ url_for('hub') }}" class="font-semibold hover:text-slate-300"><i class="bi bi-arrow-left"></i> Volver al Panel</a>
+            
+            {% if modo_pre_registro %}
+                <a href="{{ url_for('hub') }}" class="font-semibold hover:text-slate-300"><i class="bi bi-arrow-left"></i> Volver al Panel</a>
+            {% else %}
+                <a href="{{ url_for('portal_dashboard') }}" class="font-semibold hover:text-slate-300"><i class="bi bi-arrow-left"></i> Volver a Zona Cliente</a>
+            {% endif %}
+
             <div>
                 {% if modo_pre_registro %}
                     <button type="submit" form="form-finalizar-registro" id="btn-finalizar-registro" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"><i class="bi bi-check-circle-fill"></i> Guardar Cliente y Contrato</button>
@@ -48,9 +73,16 @@
         <input type="hidden" name="firma_cliente" id="firma_cliente_input"><input type="hidden" name="firma_empresa" id="firma_empresa_input">
     </form>
     {% endif %}
+    
+    <!-- Encabezado para la impresión -->
+    <div class="print-header hidden">
+        <img src="{{ url_for('static', filename='MOTO-PLAN-COLOR.svg') }}" alt="Logo Moto Plan Motors" class="h-12">
+    </div>
 
     <main class="max-w-4xl mx-auto my-8 p-6 sm:p-10 bg-white rounded-xl shadow-lg print-container">
         <header class="text-center mb-8 pb-4 border-b">
+            <!-- Logo integrado en el encabezado principal -->
+            <img src="{{ url_for('static', filename='MOTO-PLAN-COLOR.svg') }}" alt="Logo Moto Plan Motors" class="h-16 mx-auto mb-4">
             <h1 class="text-xl font-bold text-slate-800">CONTRATO DE ADHESIÓN – PLAN DE AHORRO PROGRAMADO</h1>
             <p class="text-sm text-slate-500">MOTO PLAN MOTORS, C.A. | RIF: J-50408959-1</p>
         </header>

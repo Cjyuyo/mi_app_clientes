@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="preload" as="image" href="{{ url_for('static', filename='Moto Plan Motors.png') }}">
+    <link rel="preload" as="image" href="{{ url_for('static', filename='Moto-Plan-Motors.svg') }}">
 
     <style>
         :root {
@@ -68,7 +68,7 @@
     <!-- Mobile Header -->
     <header class="md:hidden bg-[#2B3A55] text-white h-16 px-4 flex justify-between items-center sticky top-0 z-50 shadow-md flex-shrink-0">
         <a href="{{ url_for('hub') }}">
-            <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan" class="w-32">
+            <img src="{{ url_for('static', filename='Moto-Plan-Motors.svg') }}" alt="Logo Moto Plan" class="w-32">
         </a>
         <button @click="sidebarOpen = !sidebarOpen" class="text-2xl" aria-label="Toggle menu">
             <i class="bi" :class="sidebarOpen ? 'bi-x-lg' : 'bi-list'"></i>
@@ -87,7 +87,7 @@
             <!-- Header interno del sidebar, visible solo en escritorio -->
             <div class="hidden md:flex items-center justify-center h-20 px-4 border-b border-white/20 flex-shrink-0">
                 <a href="{{ url_for('hub') }}">
-                    <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan Motors" class="w-40">
+                    <img src="{{ url_for('static', filename='Moto-Plan-Motors.svg') }}" alt="Logo Moto Plan Motors" class="w-40">
                 </a>
             </div>
 
