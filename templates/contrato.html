@@ -37,13 +37,14 @@
                 background-position: center;
                 background-repeat: no-repeat;
                 background-size: contain;
-                opacity: 0.08; /* Opacidad muy baja para que no interfiera con el texto */
+                /* CORRECCIÓN: Se aumenta la opacidad y el tamaño para mayor predominancia */
+                opacity: 0.15; 
                 position: fixed; /* La posición fija hace que se repita en cada página */
                 top: 50%;
                 left: 50%;
                 transform: translate(-50%, -50%);
-                width: 70vw; /* Usa un porcentaje del ancho de la ventana */
-                height: 70vh; /* Usa un porcentaje del alto de la ventana */
+                width: 80vw; /* Usa un porcentaje del ancho de la ventana */
+                height: 80vh; /* Usa un porcentaje del alto de la ventana */
                 z-index: -1; /* Se asegura que esté detrás de todo */
             }
 
@@ -91,8 +92,8 @@
         
         <!-- Encabezado para la vista en pantalla (oculto en impresión) -->
         <header class="text-center mb-8 pb-4 border-b print:hidden">
-            <!-- CORRECCIÓN: Se ajusta el tamaño y se eliminan los estilos de sombra y borde para evitar el efecto de "caja" -->
-            <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}" alt="Logo Moto Plan Motors" class="h-24 w-auto mx-auto mb-6">
+            <!-- CORRECCIÓN: Se aumenta el tamaño del logo para mayor predominancia -->
+            <img src="{{ url_for('static', filename='NEGRO_Mesa de trabajo 1.png') }}" alt="Logo Moto Plan Motors" class="h-32 w-auto mx-auto mb-6">
             <h1 class="text-xl font-bold text-slate-800">CONTRATO DE ADHESIÓN – PLAN DE AHORRO PROGRAMADO</h1>
             <p class="text-sm text-slate-500">MOTO PLAN MOTORS, C.A. | RIF: J-50408959-1</p>
         </header>
