@@ -6,18 +6,6 @@
 
 {% block head_extra %}
 <style>
-    /* --- CAMBIO: Se define un estilo reutilizable para el botón de reportar --- */
-    .btn-reportar {
-        background-color: #f97316; /* Naranja corporativo */
-        border-color: #f97316;
-        color: white;
-    }
-    .btn-reportar:hover, .btn-reportar:focus {
-        background-color: #dd6b20; /* Naranja más oscuro para interacción */
-        border-color: #dd6b20;
-        color: white;
-    }
-
     .form-container {
         background-color: white;
         border-radius: .75rem;
@@ -47,11 +35,31 @@
         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         gap: 1.5rem;
     }
+    /* Estilos para la información de pago en el modal */
+    .payment-info-modal strong {
+        display: block;
+        color: #495057;
+    }
+    .payment-info-modal span {
+        font-size: 1.1rem;
+        color: #212529;
+        font-weight: 500;
+    }
+    /* Estilos para el mini billboard de la tasa */
+    .tasa-billboard {
+        background-color: #e9ecef;
+        border-radius: .5rem;
+        padding: .5rem 1rem;
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+    .tasa-billboard strong {
+        color: #495057;
+    }
 </style>
 {% endblock %}
 
 {% block body %}
-<!-- CORRECCIÓN: Se añade un contenedor para limitar el ancho y centrar el formulario -->
 <div class="max-w-4xl mx-auto">
     <div class="form-container">
         <div class="form-header">
@@ -77,7 +85,7 @@
                     {% else %}
                         Monto Pendiente de Inscripción:
                     {% endif %}
-                </strong> 
+                </strong>
                 ${{ "%.2f"|format((monto_precargado or monto_restante)|float) }}
             </div>
 
@@ -111,19 +119,29 @@
                         <label for="monto_usd" class="form-label">Monto del Pago (USD)</label>
                         <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" value="{{ (monto_precargado or '')|float }}" required {% if monto_precargado %}readonly{% endif %}>
                     </div>
-                    <div class="form-group" id="monto_bs_group" style="display: none;">
-                        <label for="monto_bs_calculado" class="form-label">Monto en Bs (Calculado)</label>
-                        <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
-                        <input type="hidden" id="tasa_dia" name="tasa_dia">
+                    <!-- Campos ocultos para el cálculo -->
+                    <input type="hidden" id="tasa_dia" name="tasa_dia">
+                    <input type="hidden" id="monto_bs_calculado" name="monto_bs">
+                </div>
+                <!-- CAMBIO: Contenedor flex para alinear el botón y el billboard de la tasa -->
+                <div class="d-flex align-items-center gap-3 mt-3">
+                    <div id="ver-datos-container" style="display: none;">
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#paymentDataModal">
+                            <i class="bi bi-info-circle-fill me-1"></i> Ver Datos para Pagar
+                        </button>
+                    </div>
+                    <!-- CAMBIO: "Mini billboard" para la tasa y el monto en Bs -->
+                    <div id="tasa-info-display" class="tasa-billboard" style="display: none;">
+                        <!-- El contenido se inyectará aquí con JavaScript -->
                     </div>
                 </div>
             </div>
 
             <div class="section">
-                <h3>Información Adicional</h3>
+                <h3>Información Adicional del Reporte</h3>
                 <div class="form-grid">
                     <div class="form-group" id="banco_group" style="display: none;">
-                        <label for="banco" class="form-label">Banco</label>
+                        <label for="banco" class="form-label">Banco Origen</label>
                         <select id="banco" name="banco" class="form-select">
                             <option value="">Seleccione un banco...</option>
                             <option value="0102 - Banco de Venezuela S.A.C.A.">0102 - Banco de Venezuela</option>
@@ -148,13 +166,30 @@
 
             <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
                 <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Cancelar</a>
-                <!-- CAMBIO: Se actualiza el botón con la nueva clase de estilo y el nuevo ícono -->
-                <button type="submit" id="submit-button" class="btn btn-reportar" disabled>
+                <button type="submit" id="submit-button" class="inline-block text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 disabled:opacity-50" disabled>
                     <i class="bi bi-telegram me-2"></i> Reportar Pago
                 </button>
             </div>
         </form>
     </div>
+</div>
+
+<!-- Modal para mostrar los datos de pago -->
+<div class="modal fade" id="paymentDataModal" tabindex="-1" aria-labelledby="paymentDataModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="paymentDataModalLabel">Datos de Pago</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body payment-info-modal" id="modal-body-content">
+        <!-- El contenido se inyectará aquí con JavaScript -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -163,14 +198,13 @@
 document.addEventListener('DOMContentLoaded', function() {
     const tasaUsd = {{ tasas_hoy.tasa|float if tasas_hoy and tasas_hoy.tasa else 'null' }};
     const tasaEur = {{ tasas_hoy.tasa_euro|float if tasas_hoy and tasas_hoy.tasa_euro else 'null' }};
-    
+
     const form = document.getElementById('form-reporte-pago');
     const submitButton = document.getElementById('submit-button');
     const pagoEnSelect = document.getElementById('pago_en');
     const formaPagoSelect = document.getElementById('forma_pago');
     const montoUsdInput = document.getElementById('monto_usd');
     const tasaDiaInput = document.getElementById('tasa_dia');
-    const montoBsGroup = document.getElementById('monto_bs_group');
     const montoBsCalculadoInput = document.getElementById('monto_bs_calculado');
     const referenciaGroup = document.getElementById('referencia_group');
     const referenciaInput = document.getElementById('referencia');
@@ -178,15 +212,39 @@ document.addEventListener('DOMContentLoaded', function() {
     const bancoSelect = document.getElementById('banco');
     const fechaPagoInput = document.getElementById('fecha_pago');
 
+    const verDatosContainer = document.getElementById('ver-datos-container');
+    const modalTitle = document.getElementById('paymentDataModalLabel');
+    const modalBody = document.getElementById('modal-body-content');
+    const tasaInfoDisplay = document.getElementById('tasa-info-display');
+    
+    function copyToClipboard(textToCopy, buttonElement) {
+        const textArea = document.createElement("textarea");
+        textArea.value = textToCopy;
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            buttonElement.textContent = 'Copiado!';
+            buttonElement.classList.remove('btn-primary');
+            buttonElement.classList.add('btn-success');
+            setTimeout(() => {
+                buttonElement.textContent = 'Copiar';
+                buttonElement.classList.remove('btn-success');
+                buttonElement.classList.add('btn-primary');
+            }, 2000);
+        } catch (err) {
+            console.error('No se pudo copiar: ', err);
+        }
+        document.body.removeChild(textArea);
+    }
+
     function checkFormValidity() {
         let isValid = true;
-        
-        // Campos siempre requeridos
         if (!montoUsdInput.value || parseFloat(montoUsdInput.value) <= 0) isValid = false;
         if (!fechaPagoInput.value) isValid = false;
         if (!formaPagoSelect.value) isValid = false;
-
-        // Campos condicionales
         const formaPagoValue = formaPagoSelect.value;
         if (formaPagoValue !== 'Efectivo') {
             if (!referenciaInput.value.trim()) isValid = false;
@@ -194,49 +252,87 @@ document.addEventListener('DOMContentLoaded', function() {
         if (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil') {
             if (!bancoSelect.value) isValid = false;
         }
-        
         submitButton.disabled = !isValid;
     }
 
-    function calcularMontoBs() {
+    // CAMBIO: Se actualiza esta función para manejar el nuevo billboard
+    function updateAndDisplayRateInfo() {
         const montoUsd = parseFloat(montoUsdInput.value) || 0;
         const tasaDia = parseFloat(tasaDiaInput.value) || 0;
-        if (montoUsd > 0 && tasaDia > 0) {
-            montoBsCalculadoInput.value = (montoUsd * tasaDia).toFixed(2);
+        
+        // Actualizar campo oculto para el formulario
+        montoBsCalculadoInput.value = (montoUsd > 0 && tasaDia > 0) ? (montoUsd * tasaDia).toFixed(2) : '';
+
+        // Actualizar el billboard informativo
+        if (tasaDia > 0) {
+            let montoBsTexto = (montoUsd > 0) ? `<strong>Total a Pagar:</strong> ${(montoUsd * tasaDia).toFixed(2)} Bs.` : '';
+            tasaInfoDisplay.innerHTML = `<strong>Tasa del Día:</strong> ${tasaDia.toFixed(4)}<br>${montoBsTexto}`;
+            tasaInfoDisplay.style.display = 'block';
         } else {
-            montoBsCalculadoInput.value = '';
+            tasaInfoDisplay.style.display = 'none';
         }
     }
 
     function handlePagoEnChange() {
         const pagoEnValue = pagoEnSelect.value;
-        tasaDiaInput.value = '';
-        montoBsGroup.style.display = 'none';
+        tasaDiaInput.value = ''; // Limpiar el valor oculto
         
-        if (pagoEnValue === 'Dolar/BCV') {
-            tasaDiaInput.value = tasaUsd || '';
-            if (!tasaUsd) alert('No se pudo cargar la tasa de cambio para hoy. El cálculo en Bs no funcionará.');
-            montoBsGroup.style.display = 'block';
-        } else if (pagoEnValue === 'Euro/BCV') {
-            tasaDiaInput.value = tasaEur || '';
-            if (!tasaEur) alert('No se pudo cargar la tasa de cambio para hoy. El cálculo en Bs no funcionará.');
-            montoBsGroup.style.display = 'block';
+        let currentRate = null;
+        if (pagoEnValue === 'Dolar/BCV') currentRate = tasaUsd;
+        else if (pagoEnValue === 'Euro/BCV') currentRate = tasaEur;
+
+        if (currentRate) {
+            tasaDiaInput.value = currentRate; // Guardar tasa en el campo oculto
+        } else {
+            if (pagoEnValue !== 'Efectivo USD' && pagoEnValue !== 'USDT') {
+                alert('No se pudo cargar la tasa de cambio para hoy. El cálculo en Bs no funcionará.');
+            }
         }
-        calcularMontoBs();
+        updateAndDisplayRateInfo(); // Actualizar y mostrar el billboard
         checkFormValidity();
     }
 
     function toggleFieldsByFormaPago() {
         const formaPagoValue = formaPagoSelect.value;
         const isEfectivo = formaPagoValue === 'Efectivo';
-        
+
         referenciaGroup.style.display = isEfectivo ? 'none' : 'block';
         bancoGroup.style.display = (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil') ? 'block' : 'none';
+        verDatosContainer.style.display = isEfectivo ? 'none' : 'block';
         
+        let title = "Datos de Pago";
+        let content = "";
+        let dataToCopy = "";
+
+        switch(formaPagoValue) {
+            case 'Binance':
+                title = "Datos de Binance (USDT)";
+                dataToCopy = "motoplanmotors";
+                content = `<strong>Usuario Binance:</strong> <span id="copy-data">${dataToCopy}</span><br><strong>Correo:</strong> <span>motoplanmotors@gmail.com</span><br><strong>Red:</strong> <span>TRC20</span>`;
+                break;
+            case 'Pago Movil':
+                title = "Datos para Pago Móvil";
+                dataToCopy = "04121234567";
+                content = `<strong>Banco:</strong> <span>0102 - Venezuela</span><br><strong>Teléfono:</strong> <span id="copy-data">${dataToCopy}</span><br><strong>Cédula:</strong> <span>J-123456789</span>`;
+                break;
+            case 'Transferencia Bancaria':
+                title = "Datos para Transferencia";
+                dataToCopy = "01340001000100010001";
+                content = `<strong>Beneficiario:</strong> <span>Moto Plan Motors C.A.</span><br><strong>RIF:</strong> <span>J-123456789</span><br><strong>Banco:</strong> <span>Banesco</span><br><strong>N° de Cuenta:</strong> <span id="copy-data">${dataToCopy}</span>`;
+                break;
+        }
+
+        modalTitle.textContent = title;
+        if (dataToCopy) {
+            modalBody.innerHTML = content + `<button type="button" id="copy-btn" class="btn btn-primary btn-sm mt-3">Copiar</button>`;
+            document.getElementById('copy-btn').onclick = function() { copyToClipboard(dataToCopy, this); };
+        } else {
+            modalBody.innerHTML = content;
+        }
+
         checkFormValidity();
     }
 
-    // Añadir listeners a todos los campos relevantes
     form.querySelectorAll('input, select').forEach(element => {
         element.addEventListener('input', checkFormValidity);
         element.addEventListener('change', checkFormValidity);
@@ -244,9 +340,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     pagoEnSelect.addEventListener('change', handlePagoEnChange);
     formaPagoSelect.addEventListener('change', toggleFieldsByFormaPago);
-    montoUsdInput.addEventListener('input', calcularMontoBs);
+    montoUsdInput.addEventListener('input', updateAndDisplayRateInfo); // Se llama a la nueva función
     
-    // Inicializar vistas y validación
+    // Inicialización
     handlePagoEnChange();
     toggleFieldsByFormaPago();
     fechaPagoInput.valueAsDate = new Date();
