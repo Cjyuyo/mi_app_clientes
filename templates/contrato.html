@@ -85,18 +85,23 @@
 
     <main class="max-w-4xl mx-auto my-8 p-6 sm:p-10 bg-white rounded-xl shadow-lg print:my-0 print:shadow-none print:border-none print:mt-24">
         
-        <header class="text-center mb-6 pb-2 border-b print:hidden print:h-0">
-            <img src="{{ url_for('static', filename='MOTO PLANcontrato.svg') }}" alt="Logo Moto Plan Motors" class="h-40 w-auto mx-auto mb-4">
-            <h1 class="text-xl font-bold text-slate-800">CONTRATO DE ADHESIÓN AL SISTEMA DE PLAN DE AHORRO PROGRAMADO</h1>
-            <p class="text-sm text-slate-500">MOTO PLAN MOTORS, C.A. | RIF: J-50408959-1</p>
+        <header class="text-center mb-6 pb-2 border-b">
+            <img src="{{ url_for('static', filename='MOTO PLANcontrato.svg') }}" alt="Logo Moto Plan Motors" class="h-40 w-auto mx-auto mb-4 print:hidden">
+            <!-- Título dinámico del contrato -->
+            {% if cliente.moneda_pago == 'BsBCV' %}
+                <h1 class="text-xl font-bold text-slate-800">CONTRATO DE ADHESIÓN AL SISTEMA DE PLAN DE AHORRO PROGRAMADO: PAGO EN BOLÍVARES (Bs.), CON OPCIÓN DE DIVISAS SEGÚN LIBRE CONVERTIBILIDAD</h1>
+            {% else %}
+                <h1 class="text-xl font-bold text-slate-800">CONTRATO DE ADHESIÓN AL SISTEMA DE PLAN DE AHORRO PROGRAMADO: PAGO EN DIVISAS (USD.), SIN OPCIÓN DE CONVERTIBILIDAD</h1>
+            {% endif %}
         </header>
 
         <section class="bg-slate-50 border border-slate-200 rounded-lg p-6 mb-8">
             <h2 class="text-lg font-bold text-center text-slate-800 mb-4">Resumen del Contrato</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-                <div><h3 class="font-semibold text-slate-600 mb-2">Adherente</h3><p><strong>Nombre:</strong> {{ cliente.nombre_apellido }}</p><p><strong>Cédula:</strong> V-{{ cliente.cedula }}</p><p><strong>Teléfono:</strong> {{ cliente.telefono }}</p></div>
-                <div><h3 class="font-semibold text-slate-600 mb-2">Plan</h3><p><strong>Nº Contrato:</strong> {{ cliente.contrato_nro }}</p><p><strong>Plan:</strong> {{ cliente.plan_contratado }}</p><p><strong>Cuotas:</strong> {{ cliente.cuotas_totales }}</p></div>
-                <div><h3 class="font-semibold text-slate-600 mb-2">Beneficiario</h3><p><strong>Nombre:</strong> {{ cliente.beneficiario_nombre | default('N/A') }}</p><p><strong>Cédula:</strong> {{ cliente.beneficiario_cedula | default('N/A') }}</p></div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
+                <div><h3 class="font-semibold text-slate-600 mb-2">Adherente</h3><p>{{ cliente.nombre_apellido }}</p><p>C.I: V-{{ cliente.cedula }}</p></div>
+                <div><h3 class="font-semibold text-slate-600 mb-2">Plan Contratado</h3><p><strong>Monto:</strong> ${{ "%.2f"|format(cliente.plan_contratado|float) }}</p><p><strong>Bien:</strong> Moto 0km</p></div>
+                <div><h3 class="font-semibold text-slate-600 mb-2">Condiciones</h3><p><strong>Plazo:</strong> {{ cliente.cuotas_totales }} meses</p><p><strong>Cuota:</strong> ${{ "%.2f"|format(cliente.valor_cuota|float) }}</p></div>
+                <div><h3 class="font-semibold text-slate-600 mb-2">Modalidad</h3><p><strong>Moneda:</strong> {% if cliente.moneda_pago == 'BsBCV' %}Bolívares (Tasa BCV){% else %}Divisas (USD){% endif %}</p><p><strong>Total:</strong> ${{ "%.2f"|format( (cliente.valor_cuota|float) * (cliente.cuotas_totales|int) ) }}</p></div>
             </div>
         </section>
 
@@ -113,47 +118,37 @@
             <h3 class="font-bold mt-4">CAPÍTULO II: DE LOS GRUPOS, PLAZOS Y EL BIEN A ADQUIRIR</h3>
             <p><strong>Cláusula 5.</strong> Cuota de inscripción única equivalente al 16% del monto contratado.</p>
             <p><strong>Cláusula 6.</strong> Los grupos se conforman por 54 personas y se activan al alcanzar al menos el 85% de integración.</p>
-            <p><strong>Cláusula 7.</strong> Duración máxima del plan: 24 meses. <em class="text-xs">Fundamento Legal: Autonomía de la voluntad contractual.</em></p>
-            <p><strong>Cláusula 8.</strong> El monto adjudicado se ajusta al precio del bien. LA EMPRESA no garantiza disponibilidad de modelos.</p>
+            <p><strong>Cláusula 7.</strong> Duración máxima del plan: {{ cliente.cuotas_totales }} meses. <em class="text-xs">Fundamento Legal: Autonomía de la voluntad contractual.</em></p>
+            <p><strong>Cláusula 8.</strong> LA EMPRESA no garantiza la disponibilidad de modelos específicos ni asume responsabilidad por inventarios, variaciones de costos, incrementos de precios, cambios en las características, descontinuación del modelo o cualquier otra circunstancia comercial ajena a su control. En caso de que, al momento de la adjudicación, el valor del bien supere el monto originalmente contratado o adjudicado, EL CLIENTE se obliga a pagar la diferencia correspondiente como condición previa para la entrega, pudiendo optar por otro modelo o versión disponible que se ajuste al monto adjudicado. <em class="text-xs">Fundamento Legal: Artículos 1.141, 1.159 y 1.160 del Código Civil Venezolano.</em></p>
 
             <h3 class="font-bold mt-4">CAPÍTULO III: DE LA CUOTA MENSUAL Y LOS PAGOS</h3>
             <p><strong>Cláusula 9.</strong> La cuota mensual incluye: 9.1. Aporte neto al fondo. 9.2. Costos operativos y utilidad (hasta 30%). 9.3. Penalidad por atraso. 9.4. Impuestos (como el IVA del 16%). <em class="text-xs">Fundamento Legal: Código de Comercio Art. 127, Ley del IVA, Constitución Art. 316.</em></p>
-            <p><strong>Cláusula 10.</strong> Se exige el pago completo y puntual de 24 cuotas mensuales, sin interrupciones ni fraccionamientos. <em class="text-xs">Fundamento Legal: Art. 115 Código de Comercio.</em></p>
+            <p><strong>Cláusula 10.</strong> Se exige el pago completo y puntual de {{ cliente.cuotas_totales }} cuotas mensuales, sin interrupciones ni fraccionamientos. <em class="text-xs">Fundamento Legal: Art. 115 Código de Comercio.</em></p>
             
-            <!-- INICIO DE LA LÓGICA CONDICIONAL PARA LA CLÁUSULA 11 -->
-            <p><strong>Cláusula 11. Moneda y Forma de Pago.</strong> Las partes acuerdan que la modalidad de pago será una de las dos siguientes, según lo seleccionado expresamente por EL CLIENTE en la solicitud de inscripción.</p>
             {% if cliente.moneda_pago == 'BsBCV' %}
-            <div class="p-3 bg-blue-50 border-l-4 border-blue-500 text-slate-700">
-                <h4 class="font-semibold">Opción de Pago en Bolívares (Bs.) con Libre Convertibilidad:</h4>
-                <p>Los pagos deben realizarse preferentemente en Bolívares (Bs.), al valor equivalente según la tasa oficial del BCV. También se aceptan pagos en divisas convertibles, bajo el principio de libre convertibilidad.</p>
-                <p class="text-xs italic mt-1">Fundamento Legal: Ley del BCV (Art. 3 y 121), Convenio Cambiario N.º 1, Código de Comercio (Art. 115 y 128), TSJ Sala Civil N.º 703/2016.</p>
-            </div>
-            {% elif cliente.moneda_pago == 'USD' %}
-            <div class="p-3 bg-green-50 border-l-4 border-green-500 text-slate-700">
-                <h4 class="font-semibold">Opción de Pago Exclusivo en Divisas (USD):</h4>
-                <p>Los pagos derivados del presente contrato deberán ser realizados única y exclusivamente en dólares estadounidenses (USD), sin posibilidad de sustitución en bolívares u otra moneda. Las partes acuerdan expresamente que la moneda de pago exigida es el dólar americano, no siendo válida su convertibilidad ni su pago en bolívares bajo ningún supuesto.</p>
-                <p class="text-xs italic mt-1">Fundamento Legal: Artículo 128 de la Ley del Banco Central de Venezuela y jurisprudencia aplicable.</p>
-            </div>
+            <p><strong>Cláusula 11.</strong> Los pagos deben realizarse preferentemente en Bolívares (Bs.), al valor equivalente según la tasa oficial del BCV. También se aceptan pagos en divisas convertibles, bajo el principio de libre convertibilidad. <em class="text-xs">Fundamento Legal: Ley del BCV (Art. 3 y 121), Convenio Cambiario N.º 1, Código de Comercio (Art. 115 y 128), TSJ Sala Civil N.º 703/2016.</em></p>
             {% else %}
-            <div class="p-3 bg-red-50 border-l-4 border-red-500 text-slate-700">
-                <p><strong>Error:</strong> No se ha especificado una modalidad de pago válida en el registro del cliente.</p>
-            </div>
+            <p><strong>Cláusula 11. Forma de Pago: Obligación en Moneda Extranjera (USD).</strong> Los pagos derivados del presente contrato, incluyendo cuota de inscripción, cuotas mensuales, penalidades, impuestos y cualquier otro compromiso económico, deberán ser realizados única y exclusivamente en dólares estadounidenses (USD), sin posibilidad de sustitución en bolívares u otra moneda. Las partes acuerdan expresamente que la moneda de pago exigida es el dólar americano, no siendo válida su convertibilidad ni su pago en bolívares bajo ningún supuesto. Esta condición constituye una convención especial clara, escrita y previa entre las partes, conforme a lo establecido en el artículo 128 de la Ley del Banco Central de Venezuela. <em class="text-xs">Fundamento Legal: Artículo 128 de la Ley del Banco Central de Venezuela y jurisprudencia aplicable.</em></p>
             {% endif %}
-            <!-- FIN DE LA LÓGICA CONDICIONAL -->
 
             <h3 class="font-bold mt-4">CAPÍTULO IV: DEL PROCESO DE ENTREGA (ADJUDICACIÓN)</h3>
             <p><strong>Cláusula 12.</strong> El evento de adjudicación se realiza una vez al mes entre clientes solventes. <em class="text-xs">Fundamento Legal: Art. 1136 Código Civil.</em></p>
-            <p><strong>Cláusula 13.</strong> Formas de adjudicación: 13.1. Por oferta (el cliente ofrece adelanto de cuotas y se toma en cuenta la mejor oferta del grupo). 13.2. Por Antigüedad (A partir de la cuota doce (12), se adjudicará al cliente solvente con el mayor número de cuotas pagadas. En caso de empate, se considerará la antigüedad de incorporación al grupo). 13.3. Por finiquito (el cliente paga todo y recibe el monto en 60 días).</p>
+            <p><strong>Cláusula 13.</strong> Formas de adjudicación: 13.1. Por oferta (el cliente ofrece adelanto de cuotas y se toma en cuenta la mejor oferta del grupo). 13.2. Mecanismo de Asignación por Antigüedad: A partir de la cuota número doce (12), EL CLIENTE podrá participar en el evento de asignación por antigüedad. Este mecanismo otorga el derecho a la adjudicación al CLIENTE que tenga el mayor número de cuotas efectivamente pagadas, tomadas de mayor a menor entre todos los integrantes que cumplan con el requisito mínimo de doce (12) cuotas canceladas y estén solventes. En caso de empate, se otorgará la adjudicación al cliente con mayor antigüedad en la fecha de incorporación al grupo. 13.3. Por finiquito (el cliente paga todo y recibe el monto en 60 días).</p>
             <p><strong>Cláusula 14.</strong> Para recibir el monto adjudicado, EL CLIENTE debe presentar garantías: fiador, hipoteca, o reserva de dominio.</p>
             <p><strong>Cláusula 15.</strong> LA EMPRESA dispone de hasta 60 días hábiles para entregar el monto adjudicado tras validar las garantías.</p>
 
             <h3 class="font-bold mt-4">CAPÍTULO V: INCUMPLIMIENTOS DE PAGO</h3>
             <p><strong>Cláusula 16.</strong> El atraso en el pago inhabilita al cliente para participar en adjudicaciones y genera penalidad. <em class="text-xs">Fundamento Legal: Código Civil Art. 1160.</em></p>
             <p><strong>Cláusula 17.</strong> Si un cliente no adjudicado deja de pagar tres (3) cuotas consecutivas, LA EMPRESA podrá anular el contrato sin previo aviso.</p>
-            <p><strong>Cláusula 18.</strong> Si el cliente ya fue adjudicado y deja de pagar, LA EMPRESA podrá ejecutar el contrato judicialmente, recuperar el bien y exigir el pago completo de lo adeudado, aplicando un cargo por mora diaria del 0,2% sobre el monto vencido.</p>
+            <p><strong>Cláusula 18.</strong> Si el cliente ya fue adjudicado y deja de pagar, LA EMPRESA podrá ejecutar el contrato judicialmente, recuperar el bien entregado y exigir el pago completo de lo adeudado. Se aplicará, además, un cargo por mora diaria equivalente al 0,2% del monto vencido por cada día de retraso, más los gastos legales correspondientes.</p>
 
             <h3 class="font-bold mt-4">CAPÍTULO VI: DERECHOS DEL CLIENTE NO ADJUDICADO</h3>
-            <p><strong>Cláusula 19.</strong> Mientras no haya sido adjudicado, EL CLIENTE podrá: 19.1. Retracto: dentro de los primeros 7 días desde la firma. 19.2. Cambio de grupo: a uno de mayor o menor monto. 19.3. Traspaso: a un tercero solvente, con aprobación de LA EMPRESA. 19.4. Rescisión voluntaria: se reintegrarán solo los aportes netos de forma programada, descontando gastos. 19.5. Designación de beneficiario: para heredar el contrato en caso de fallecimiento. <em class="text-xs">Fundamento Legal: Art. 1161 Código Civil y autonomía contractual.</em></p>
+            <p><strong>Cláusula 19.</strong> Mientras no haya sido adjudicado, EL CLIENTE podrá:</p>
+            <p><strong>19.1. Retracto:</strong> Dentro de los primeros siete (7) días continuos contados a partir de la firma del presente contrato, EL CLIENTE podrá desistir de su incorporación al plan sin necesidad de presentar causa justificada. A partir del octavo (8°) día, el contrato se entenderá firme y vinculante para ambas partes, y cualquier solicitud de retiro estará sujeta a las condiciones previstas en este documento, manteniéndose en todo caso como no devolutiva la cuota de inscripción pactada desde la firma. Dicha cuota constituye un margen económico necesario para garantizar la viabilidad del grupo y evitar que LA EMPRESA asuma pérdidas cuando un integrante se retira antes de la entrega. <em class="text-xs">Fundamento Legal: Artículos 1.141 y 1.161 del Código Civil Venezolano y artículo 56 de la Ley Orgánica de Precios Justos.</em></p>
+            <p><strong>19.2. Cambio de grupo:</strong> a uno de mayor o menor monto.</p>
+            <p><strong>19.3. Traspaso:</strong> a un tercero solvente, con aprobación de LA EMPRESA.</p>
+            <p><strong>19.4. Rescisión Voluntaria:</strong> EL CLIENTE podrá solicitar la rescisión del contrato en cualquier momento únicamente por causa justificada, entendiendo por tal aquellas situaciones comprobables que imposibiliten de manera objetiva la continuidad en el plan. No se aceptarán retiros fundamentados exclusivamente en motivos personales. En caso de proceder la rescisión, LA EMPRESA reintegrará exclusivamente los aportes netos efectuados por EL CLIENTE, descontando la cuota de inscripción (concepto no devolutivo), el IVA, el IGTF y cualquier otro tributo o costo operativo. El reintegro se efectuará cuota a cuota, a medida que el grupo complete su ciclo de {{ cliente.cuotas_totales }} cuotas, para no afectar la sostenibilidad del fondo común. <em class="text-xs">Fundamento Legal: Artículos 1.141, 1.159 y 1.161 del Código Civil Venezolano.</em></p>
+            <p><strong>19.5. Designación de beneficiario:</strong> para heredar el contrato en caso de fallecimiento.</p>
 
             <h3 class="font-bold mt-4">CAPÍTULO VII: DOMICILIO, JURISDICCIÓN Y MEDIOS ELECTRÓNICOS</h3>
             <p><strong>Cláusula 20.</strong> Las partes se someten a la jurisdicción de los tribunales venezolanos y acuerdan como domicilio el indicado en la solicitud.</p>
@@ -162,6 +157,7 @@
         </article>
         
         <footer class="mt-10 pt-8 border-t">
+            <p class="text-center font-semibold mb-6">FIRMA DEL CLIENTE: Declara haber leído, comprendido y aceptado todas las cláusulas del presente contrato.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div class="text-center">
                     {% if modo_pre_registro %}
