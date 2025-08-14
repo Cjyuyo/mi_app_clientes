@@ -51,107 +51,110 @@
 {% endblock %}
 
 {% block body %}
-<div class="form-container">
-    <div class="form-header">
-        <h1>
-            {% if pago_origen_id %}
-                <i class="bi bi-plus-circle-fill me-2"></i>Pagar Diferencia de Inscripción
-            {% else %}
-                <i class="bi bi-cash-coin me-2"></i>Reportar Pago de Inscripción
-            {% endif %}
-        </h1>
-        <p>Cliente: {{ cliente.nombre_apellido }}</p>
-    </div>
-
-    <form action="{{ url_for('portal_pagar_inscripcion') }}" method="POST" id="form-reporte-pago" class="p-4">
-        {% if pago_origen_id %}
-            <input type="hidden" name="pago_origen_id" value="{{ pago_origen_id }}">
-        {% endif %}
-
-        <div class="alert alert-info">
-            <strong>
-                {% if monto_precargado %}
-                    Monto de la Diferencia a Pagar:
+<!-- CORRECCIÓN: Se añade un contenedor para limitar el ancho y centrar el formulario -->
+<div class="max-w-4xl mx-auto">
+    <div class="form-container">
+        <div class="form-header">
+            <h1>
+                {% if pago_origen_id %}
+                    <i class="bi bi-plus-circle-fill me-2"></i>Pagar Diferencia de Inscripción
                 {% else %}
-                    Monto Pendiente de Inscripción:
+                    <i class="bi bi-cash-coin me-2"></i>Reportar Pago de Inscripción
                 {% endif %}
-            </strong> 
-            ${{ "%.2f"|format((monto_precargado or monto_restante)|float) }}
+            </h1>
+            <p>Cliente: {{ cliente.nombre_apellido }}</p>
         </div>
 
-        <div class="section">
-            <h3>Detalles del Monto y Método</h3>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="por_concepto_de">Concepto del Pago</label>
-                    <input type="text" id="por_concepto_de" name="por_concepto_de" value="{{ concepto_pago or 'Pago de Inscripción' }}" class="form-control" readonly>
-                </div>
-                <div class="form-group">
-                    <label for="pago_en" class="form-label">Pago realizado en</label>
-                    <select id="pago_en" name="pago_en" class="form-select" required>
-                        <option value="Efectivo USD" selected>Efectivo USD</option>
-                        <option value="Dolar/BCV">Bolívares (Tasa Dólar BCV)</option>
-                        <option value="Euro/BCV">Bolívares (Tasa Euro BCV)</option>
-                        <option value="USDT">USDT (Binance)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="forma_pago" class="form-label">Forma de Pago</label>
-                    <select id="forma_pago" name="forma_pago" class="form-select" required>
-                        <option value="" selected disabled>Seleccione...</option>
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Transferencia Bancaria">Transferencia Bancaria</option>
-                        <option value="Pago Movil">Pago Móvil</option>
-                        <option value="Binance">Binance</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="monto_usd" class="form-label">Monto del Pago (USD)</label>
-                    <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" value="{{ (monto_precargado or '')|float }}" required {% if monto_precargado %}readonly{% endif %}>
-                </div>
-                <div class="form-group" id="monto_bs_group" style="display: none;">
-                    <label for="monto_bs_calculado" class="form-label">Monto en Bs (Calculado)</label>
-                    <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
-                    <input type="hidden" id="tasa_dia" name="tasa_dia">
+        <form action="{{ url_for('portal_pagar_inscripcion') }}" method="POST" id="form-reporte-pago" class="p-4">
+            {% if pago_origen_id %}
+                <input type="hidden" name="pago_origen_id" value="{{ pago_origen_id }}">
+            {% endif %}
+
+            <div class="alert alert-info">
+                <strong>
+                    {% if monto_precargado %}
+                        Monto de la Diferencia a Pagar:
+                    {% else %}
+                        Monto Pendiente de Inscripción:
+                    {% endif %}
+                </strong> 
+                ${{ "%.2f"|format((monto_precargado or monto_restante)|float) }}
+            </div>
+
+            <div class="section">
+                <h3>Detalles del Monto y Método</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="por_concepto_de">Concepto del Pago</label>
+                        <input type="text" id="por_concepto_de" name="por_concepto_de" value="{{ concepto_pago or 'Pago de Inscripción' }}" class="form-control" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="pago_en" class="form-label">Pago realizado en</label>
+                        <select id="pago_en" name="pago_en" class="form-select" required>
+                            <option value="Efectivo USD" selected>Efectivo USD</option>
+                            <option value="Dolar/BCV">Bolívares (Tasa Dólar BCV)</option>
+                            <option value="Euro/BCV">Bolívares (Tasa Euro BCV)</option>
+                            <option value="USDT">USDT (Binance)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="forma_pago" class="form-label">Forma de Pago</label>
+                        <select id="forma_pago" name="forma_pago" class="form-select" required>
+                            <option value="" selected disabled>Seleccione...</option>
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+                            <option value="Pago Movil">Pago Móvil</option>
+                            <option value="Binance">Binance</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="monto_usd" class="form-label">Monto del Pago (USD)</label>
+                        <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" value="{{ (monto_precargado or '')|float }}" required {% if monto_precargado %}readonly{% endif %}>
+                    </div>
+                    <div class="form-group" id="monto_bs_group" style="display: none;">
+                        <label for="monto_bs_calculado" class="form-label">Monto en Bs (Calculado)</label>
+                        <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
+                        <input type="hidden" id="tasa_dia" name="tasa_dia">
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="section">
-            <h3>Información Adicional</h3>
-            <div class="form-grid">
-                <div class="form-group" id="banco_group" style="display: none;">
-                    <label for="banco" class="form-label">Banco</label>
-                    <select id="banco" name="banco" class="form-select">
-                        <option value="">Seleccione un banco...</option>
-                        <option value="0102 - Banco de Venezuela S.A.C.A.">0102 - Banco de Venezuela</option>
-                        <option value="0105 - Mercantil Banco Universal C.A.">0105 - Mercantil</option>
-                        <option value="0108 - BBVA Banco Provincial">0108 - BBVA Provincial</option>
-                        <option value="0134 - Banesco Banco Universal C.A.">0134 - Banesco</option>
-                        <option value="0151 - BFC Banco Fondo Común C.A.">0151 - BFC</option>
-                        <option value="0172 - Bancamiga Banco Universal C.A.">0172 - Bancamiga</option>
-                        <option value="0191 - Banco Nacional de Crédito (BNC)">0191 - BNC</option>
-                    </select>
-                </div>
-                <div class="form-group" id="referencia_group" style="display: none;">
-                    <label for="referencia" class="form-label">N° de Referencia</label>
-                    <input type="text" id="referencia" name="referencia" class="form-control">
-                </div>
-                <div class="form-group">
-                    <label for="fecha_pago" class="form-label">Fecha del Pago</label>
-                    <input type="date" id="fecha_pago" name="fecha_pago" class="form-control" required>
+            <div class="section">
+                <h3>Información Adicional</h3>
+                <div class="form-grid">
+                    <div class="form-group" id="banco_group" style="display: none;">
+                        <label for="banco" class="form-label">Banco</label>
+                        <select id="banco" name="banco" class="form-select">
+                            <option value="">Seleccione un banco...</option>
+                            <option value="0102 - Banco de Venezuela S.A.C.A.">0102 - Banco de Venezuela</option>
+                            <option value="0105 - Mercantil Banco Universal C.A.">0105 - Mercantil</option>
+                            <option value="0108 - BBVA Banco Provincial">0108 - BBVA Provincial</option>
+                            <option value="0134 - Banesco Banco Universal C.A.">0134 - Banesco</option>
+                            <option value="0151 - BFC Banco Fondo Común C.A.">0151 - BFC</option>
+                            <option value="0172 - Bancamiga Banco Universal C.A.">0172 - Bancamiga</option>
+                            <option value="0191 - Banco Nacional de Crédito (BNC)">0191 - BNC</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="referencia_group" style="display: none;">
+                        <label for="referencia" class="form-label">N° de Referencia</label>
+                        <input type="text" id="referencia" name="referencia" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="fecha_pago" class="form-label">Fecha del Pago</label>
+                        <input type="date" id="fecha_pago" name="fecha_pago" class="form-control" required>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
-            <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Cancelar</a>
-            <!-- CAMBIO: Se actualiza el botón con la nueva clase de estilo y el nuevo ícono -->
-            <button type="submit" id="submit-button" class="btn btn-reportar" disabled>
-                <i class="bi bi-telegram me-2"></i> Reportar Pago
-            </button>
-        </div>
-    </form>
+            <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Cancelar</a>
+                <!-- CAMBIO: Se actualiza el botón con la nueva clase de estilo y el nuevo ícono -->
+                <button type="submit" id="submit-button" class="btn btn-reportar" disabled>
+                    <i class="bi bi-telegram me-2"></i> Reportar Pago
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}
 
