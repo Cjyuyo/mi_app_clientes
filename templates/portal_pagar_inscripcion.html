@@ -6,15 +6,27 @@
 
 {% block head_extra %}
 <style>
+    /* --- CAMBIO: Se define un estilo reutilizable para el botón de reportar --- */
+    .btn-reportar {
+        background-color: #f97316; /* Naranja corporativo */
+        border-color: #f97316;
+        color: white;
+    }
+    .btn-reportar:hover, .btn-reportar:focus {
+        background-color: #dd6b20; /* Naranja más oscuro para interacción */
+        border-color: #dd6b20;
+        color: white;
+    }
+
     .form-container {
-        background-color: var(--blanco);
+        background-color: white;
         border-radius: .75rem;
         box-shadow: 0 4px 15px rgba(0,0,0,0.07);
         overflow: hidden;
     }
     .form-header {
-        background-color: var(--azul-corporativo);
-        color: var(--blanco);
+        background-color: #2B3A55; /* Azul corporativo */
+        color: white;
         padding: 1.5rem 2rem;
     }
     .form-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
@@ -26,7 +38,7 @@
         color: #6c757d;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        border-bottom: 1px solid var(--borde-sutil);
+        border-bottom: 1px solid #e5e7eb;
         padding-bottom: .75rem;
         margin-bottom: 1.5rem;
     }
@@ -134,8 +146,9 @@
 
         <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
             <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Cancelar</a>
-            <button type="submit" id="submit-button" class="btn btn-primary" style="background-color: var(--naranja-corporativo); border-color: var(--naranja-corporativo);" disabled>
-                <i class="bi bi-send-fill me-2"></i> Reportar Pago
+            <!-- CAMBIO: Se actualiza el botón con la nueva clase de estilo y el nuevo ícono -->
+            <button type="submit" id="submit-button" class="btn btn-reportar" disabled>
+                <i class="bi bi-telegram me-2"></i> Reportar Pago
             </button>
         </div>
     </form>

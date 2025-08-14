@@ -26,6 +26,16 @@
     .form-radio:checked {
         border: 6px solid #2563eb; /* blue-600 */
     }
+    
+    /* --- NUEVO: Estilos para la animación del spinner --- */
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .animate-spin {
+      animation: spin 1s linear infinite;
+      display: inline-block; /* Necesario para que la transformación funcione */
+    }
 </style>
 <!-- Librería para notificaciones y alertas visuales -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -132,7 +142,7 @@
         <!-- Botones de Acción -->
         <div class="flex justify-end gap-4 pt-4">
             <a href="{{ url_for('hub') }}" class="bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50">Cancelar</a>
-            <button type="submit" id="submitBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" disabled>
+            <button type="submit" id="submitBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2" disabled>
                 <i class="bi bi-file-earmark-text"></i>
                 Continuar al Contrato
             </button>
@@ -177,228 +187,241 @@
 <!-- CORRECCIÓN: Se añade el script de Bootstrap JS para que funcionen los modales -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // --- LÓGICA DE CÁLCULO AUTOMÁTICO ---
-    const planSelect = document.getElementById('plan_contratado');
-    const inscripcionInput = document.getElementById('inscripcion_monto');
-    const plazoSelect = document.getElementById('cuotas_totales');
-    const monedaSelect = document.getElementById('moneda_pago');
-    const cuotaInput = document.getElementById('valor_cuota');
-    const cuotaLabel = document.querySelector('label[for="valor_cuota"]');
-
-    const montoInicial = 1100, montoFinal = 4000, incremento = 50;
-    for (let monto = montoInicial; monto <= montoFinal; monto += incremento) {
-        const option = document.createElement('option');
-        option.value = monto;
-        option.textContent = `$${monto.toLocaleString('es-CO')}`;
-        planSelect.appendChild(option);
-    }
-
-    function calcularYActualizarCuota() {
-        const montoPlan = parseFloat(planSelect.value);
-        const plazo = parseInt(plazoSelect.value, 10);
-        const tipoMoneda = monedaSelect.value;
-        cuotaLabel.textContent = `Cuota Mensual (${tipoMoneda === 'USD' ? 'USD' : 'Bs'})`;
-        if (isNaN(montoPlan) || montoPlan <= 0 || !tipoMoneda) {
-            cuotaInput.value = '';
-            return;
-        }
-        if (![24, 36, 48].includes(plazo)) {
-            cuotaInput.value = '';
-            return;
-        }
-        const baseDivisas = 0.0496;
-        const baseBs = 0.0557;
-        const base = (tipoMoneda === 'USD') ? baseDivisas : baseBs;
-        const factorCuota = base * (24 / plazo);
-        const cuota = montoPlan * factorCuota;
-        cuotaInput.value = cuota.toFixed(2);
-        cuotaInput.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-
-    planSelect.addEventListener('change', function() {
-        const valorPlan = parseFloat(this.value);
-        if (!isNaN(valorPlan)) {
-            inscripcionInput.value = (valorPlan * 0.16).toFixed(2);
-            inscripcionInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        calcularYActualizarCuota();
-    });
-
-    plazoSelect.addEventListener('change', calcularYActualizarCuota);
-    monedaSelect.addEventListener('change', calcularYActualizarCuota);
-
-    // --- Lógica para el escenario de cierre ---
-    const escenarioSelect = document.getElementById('escenario_cierre');
-    const asesorContainer = document.getElementById('asesor-container');
-    const responsableContainer = document.getElementById('responsable-container');
-    const asesorHiddenInput = document.getElementById('asesor-hidden-input');
-    const responsableHiddenInput = document.getElementById('responsable-hidden-input');
-    
-    const baseInputClasses = 'mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500';
-    const disabledInputClasses = 'mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100';
-
-    escenarioSelect.addEventListener('change', function() {
-        const escenario = this.value;
-        asesorContainer.innerHTML = '';
-        responsableContainer.innerHTML = '';
-        asesorHiddenInput.value = '';
-        responsableHiddenInput.value = '';
-
-        const updateAsesorHidden = (value) => {
-            asesorHiddenInput.value = value;
-            asesorHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
-        };
-        const updateResponsableHidden = (value) => {
-            responsableHiddenInput.value = value;
-            responsableHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
-        };
-
-        if (!escenario) {
-            asesorContainer.innerHTML = `<label for="asesor-placeholder" class="block text-sm font-medium text-slate-700">2. Asesor</label><input type="text" id="asesor-placeholder" class="${disabledInputClasses}" placeholder="Seleccione escenario" disabled>`;
-            responsableContainer.innerHTML = `<label for="responsable-placeholder" class="block text-sm font-medium text-slate-700">3. Responsable</label><input type="text" id="responsable-placeholder" class="${disabledInputClasses}" placeholder="Seleccione escenario" disabled>`;
-            updateAsesorHidden('');
-            updateResponsableHidden('');
-            return;
-        }
-
-        responsableContainer.innerHTML = `<label for="responsable-text" class="block text-sm font-medium text-slate-700">3. Responsable</label><input type="text" id="responsable-text" class="${baseInputClasses}" required>`;
-        const responsableText = document.getElementById('responsable-text');
-        responsableText.addEventListener('input', () => updateResponsableHidden(responsableText.value));
-
-        if (escenario === 'Asesor') {
-            asesorContainer.innerHTML = `<label for="asesor-text" class="block text-sm font-medium text-slate-700">2. Asesor</label><input type="text" id="asesor-text" class="${baseInputClasses}" required>`;
-            const asesorText = document.getElementById('asesor-text');
-            asesorText.addEventListener('input', () => updateAsesorHidden(asesorText.value));
-            asesorText.focus();
-        } else if (escenario === 'Gerencia') {
-            asesorContainer.innerHTML = `<label for="asesor-select" class="block text-sm font-medium text-slate-700">2. Asesor</label><select id="asesor-select" class="${baseInputClasses}" required><option value="Yusbelis Espinoza" selected>Yusbelis Espinoza</option></select>`;
-            updateAsesorHidden('Yusbelis Espinoza');
-            responsableText.focus();
-        } else if (escenario === 'Presidencia') {
-            let asesorOptions = '<option value="" selected disabled>Seleccione presidente...</option>';
-            ['Carlos Ramirez', 'Karielsy Rios'].forEach(p => { asesorOptions += `<option value="${p}">${p}</option>`; });
-            asesorContainer.innerHTML = `<label for="asesor-select" class="block text-sm font-medium text-slate-700">2. Asesor</label><select id="asesor-select" class="${baseInputClasses}" required>${asesorOptions}</select>`;
-            const asesorSelect = document.getElementById('asesor-select');
-            asesorSelect.addEventListener('change', () => updateAsesorHidden(asesorSelect.value));
-        }
-        updateAsesorHidden(asesorHiddenInput.value);
-        updateResponsableHidden(responsableHiddenInput.value);
-    });
-
-    // --- Lógica de la cámara ---
-    const cameraModal = document.getElementById('cameraModal');
-    const video = document.getElementById('video-feed');
-    const canvas = document.getElementById('capture-canvas');
-    const captureBtn = document.getElementById('capture-btn');
-    const retakeBtn = document.getElementById('retake-btn');
-    const savePhotoBtn = document.getElementById('save-photo-btn');
-    const flipCameraBtn = document.getElementById('flip-camera-btn');
-    let stream, currentCaptureType = null, capturedImageData = null, currentFacingMode = 'user';
-    function toggleViews(showConfirmation) {
-        if (!cameraModal) return;
-        cameraModal.querySelector('.live-view').style.display = showConfirmation ? 'none' : 'block';
-        cameraModal.querySelector('.live-view-footer').style.display = showConfirmation ? 'none' : 'flex';
-        cameraModal.querySelector('.confirmation-view').style.display = showConfirmation ? 'block' : 'none';
-        cameraModal.querySelector('.confirmation-view-footer').style.display = showConfirmation ? 'flex' : 'none';
-    }
-    async function startCamera(facingMode) {
-        if (stream) stream.getTracks().forEach(track => track.stop());
-        try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode } });
-            video.srcObject = stream;
-            await video.play();
-        } catch (err) {
-            console.error("Error starting camera: ", err);
-            const modalInstance = bootstrap.Modal.getInstance(cameraModal);
-            if (modalInstance) modalInstance.hide();
-        }
-    }
-    if (cameraModal) {
-        cameraModal.addEventListener('show.bs.modal', async (event) => {
-            currentCaptureType = event.relatedTarget.getAttribute('data-capture-type');
-            cameraModal.querySelector('.modal-title').textContent = currentCaptureType === 'cedula' ? 'Capturar Foto de la Cédula' : 'Capturar Foto del Cliente';
-            currentFacingMode = currentCaptureType === 'cedula' ? 'environment' : 'user';
-            toggleViews(false);
-            await startCamera(currentFacingMode);
-        });
-        cameraModal.addEventListener('hide.bs.modal', () => { if (stream) stream.getTracks().forEach(track => track.stop()); });
-    }
-    if (flipCameraBtn) {
-        flipCameraBtn.addEventListener('click', () => {
-            currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
-            startCamera(currentFacingMode);
+    /**
+     * --- NUEVA FUNCIÓN ---
+     * Deshabilita los botones de tipo 'submit' dentro de un formulario y muestra un texto de "Procesando".
+     * @param {HTMLFormElement} form - El formulario que se está enviando.
+     */
+    function handleFormSubmit(form) {
+        const submitButtons = form.querySelectorAll('button[type="submit"]');
+        submitButtons.forEach(button => {
+            button.disabled = true;
+            // Usamos la clase de Bootstrap Icons que ya está en el proyecto
+            button.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
         });
     }
-    if (captureBtn) {
-        captureBtn.addEventListener('click', () => {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-            capturedImageData = canvas.toDataURL('image/jpeg');
-            toggleViews(true);
-        });
-    }
-    if (retakeBtn) retakeBtn.addEventListener('click', () => { capturedImageData = null; toggleViews(false); });
-    
-    if (savePhotoBtn) {
-        savePhotoBtn.addEventListener('click', () => {
-            if (capturedImageData && currentCaptureType) {
-                document.getElementById(`preview-${currentCaptureType}`).src = capturedImageData;
-                const inputElement = document.getElementById(`foto_${currentCaptureType}`);
-                inputElement.value = capturedImageData;
-                inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- LÓGICA DE CÁLCULO AUTOMÁTICO ---
+        const planSelect = document.getElementById('plan_contratado');
+        const inscripcionInput = document.getElementById('inscripcion_monto');
+        const plazoSelect = document.getElementById('cuotas_totales');
+        const monedaSelect = document.getElementById('moneda_pago');
+        const cuotaInput = document.getElementById('valor_cuota');
+        const cuotaLabel = document.querySelector('label[for="valor_cuota"]');
+
+        const montoInicial = 1100, montoFinal = 4000, incremento = 50;
+        for (let monto = montoInicial; monto <= montoFinal; monto += incremento) {
+            const option = document.createElement('option');
+            option.value = monto;
+            option.textContent = `$${monto.toLocaleString('es-CO')}`;
+            planSelect.appendChild(option);
+        }
+
+        function calcularYActualizarCuota() {
+            const montoPlan = parseFloat(planSelect.value);
+            const plazo = parseInt(plazoSelect.value, 10);
+            const tipoMoneda = monedaSelect.value;
+            cuotaLabel.textContent = `Cuota Mensual (${tipoMoneda === 'USD' ? 'USD' : 'Bs'})`;
+            if (isNaN(montoPlan) || montoPlan <= 0 || !tipoMoneda) {
+                cuotaInput.value = '';
+                return;
             }
-            const modalInstance = bootstrap.Modal.getInstance(cameraModal);
-            if (modalInstance) modalInstance.hide();
-        });
-    }
-
-    // --- LÓGICA DE VALIDACIÓN Y SUBMIT ---
-    const submitBtn = document.getElementById('submitBtn');
-    const form = document.getElementById('registroForm');
-    
-    const validateForm = () => {
-        for (const field of form.querySelectorAll('[required]')) {
-            if (!field.value || field.value.trim() === '') return false;
+            if (![24, 36, 48].includes(plazo)) {
+                cuotaInput.value = '';
+                return;
+            }
+            const baseDivisas = 0.0496;
+            const baseBs = 0.0557;
+            const base = (tipoMoneda === 'USD') ? baseDivisas : baseBs;
+            const factorCuota = base * (24 / plazo);
+            const cuota = montoPlan * factorCuota;
+            cuotaInput.value = cuota.toFixed(2);
+            cuotaInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
-        return true;
-    };
 
-    const updateButtonState = () => {
-        submitBtn.disabled = !validateForm();
-    };
-
-    if (form) {
-        form.addEventListener('input', updateButtonState);
-        form.addEventListener('change', updateButtonState);
-    }
-    
-    updateButtonState();
-
-    if(form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            Swal.fire({
-                title: '¿Confirmar Registro?',
-                text: "Se creará un nuevo perfil de cliente con los datos ingresados. ¿Está seguro?",
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Sí, registrar cliente',
-                cancelButtonText: 'Cancelar'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    if (form.getAttribute('data-submitted') === 'true') { return; }
-                    form.setAttribute('data-submitted', 'true');
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
-                    form.submit();
-                }
-            });
+        planSelect.addEventListener('change', function() {
+            const valorPlan = parseFloat(this.value);
+            if (!isNaN(valorPlan)) {
+                inscripcionInput.value = (valorPlan * 0.16).toFixed(2);
+                inscripcionInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            calcularYActualizarCuota();
         });
-    }
-});
+
+        plazoSelect.addEventListener('change', calcularYActualizarCuota);
+        monedaSelect.addEventListener('change', calcularYActualizarCuota);
+
+        // --- Lógica para el escenario de cierre ---
+        const escenarioSelect = document.getElementById('escenario_cierre');
+        const asesorContainer = document.getElementById('asesor-container');
+        const responsableContainer = document.getElementById('responsable-container');
+        const asesorHiddenInput = document.getElementById('asesor-hidden-input');
+        const responsableHiddenInput = document.getElementById('responsable-hidden-input');
+        
+        const baseInputClasses = 'mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500';
+        const disabledInputClasses = 'mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100';
+
+        escenarioSelect.addEventListener('change', function() {
+            const escenario = this.value;
+            asesorContainer.innerHTML = '';
+            responsableContainer.innerHTML = '';
+            asesorHiddenInput.value = '';
+            responsableHiddenInput.value = '';
+
+            const updateAsesorHidden = (value) => {
+                asesorHiddenInput.value = value;
+                asesorHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
+            };
+            const updateResponsableHidden = (value) => {
+                responsableHiddenInput.value = value;
+                responsableHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
+            };
+
+            if (!escenario) {
+                asesorContainer.innerHTML = `<label for="asesor-placeholder" class="block text-sm font-medium text-slate-700">2. Asesor</label><input type="text" id="asesor-placeholder" class="${disabledInputClasses}" placeholder="Seleccione escenario" disabled>`;
+                responsableContainer.innerHTML = `<label for="responsable-placeholder" class="block text-sm font-medium text-slate-700">3. Responsable</label><input type="text" id="responsable-placeholder" class="${disabledInputClasses}" placeholder="Seleccione escenario" disabled>`;
+                updateAsesorHidden('');
+                updateResponsableHidden('');
+                return;
+            }
+
+            responsableContainer.innerHTML = `<label for="responsable-text" class="block text-sm font-medium text-slate-700">3. Responsable</label><input type="text" id="responsable-text" class="${baseInputClasses}" required>`;
+            const responsableText = document.getElementById('responsable-text');
+            responsableText.addEventListener('input', () => updateResponsableHidden(responsableText.value));
+
+            if (escenario === 'Asesor') {
+                asesorContainer.innerHTML = `<label for="asesor-text" class="block text-sm font-medium text-slate-700">2. Asesor</label><input type="text" id="asesor-text" class="${baseInputClasses}" required>`;
+                const asesorText = document.getElementById('asesor-text');
+                asesorText.addEventListener('input', () => updateAsesorHidden(asesorText.value));
+                asesorText.focus();
+            } else if (escenario === 'Gerencia') {
+                asesorContainer.innerHTML = `<label for="asesor-select" class="block text-sm font-medium text-slate-700">2. Asesor</label><select id="asesor-select" class="${baseInputClasses}" required><option value="Yusbelis Espinoza" selected>Yusbelis Espinoza</option></select>`;
+                updateAsesorHidden('Yusbelis Espinoza');
+                responsableText.focus();
+            } else if (escenario === 'Presidencia') {
+                let asesorOptions = '<option value="" selected disabled>Seleccione presidente...</option>';
+                ['Carlos Ramirez', 'Karielsy Rios'].forEach(p => { asesorOptions += `<option value="${p}">${p}</option>`; });
+                asesorContainer.innerHTML = `<label for="asesor-select" class="block text-sm font-medium text-slate-700">2. Asesor</label><select id="asesor-select" class="${baseInputClasses}" required>${asesorOptions}</select>`;
+                const asesorSelect = document.getElementById('asesor-select');
+                asesorSelect.addEventListener('change', () => updateAsesorHidden(asesorSelect.value));
+            }
+            updateAsesorHidden(asesorHiddenInput.value);
+            updateResponsableHidden(responsableHiddenInput.value);
+        });
+
+        // --- Lógica de la cámara ---
+        const cameraModal = document.getElementById('cameraModal');
+        const video = document.getElementById('video-feed');
+        const canvas = document.getElementById('capture-canvas');
+        const captureBtn = document.getElementById('capture-btn');
+        const retakeBtn = document.getElementById('retake-btn');
+        const savePhotoBtn = document.getElementById('save-photo-btn');
+        const flipCameraBtn = document.getElementById('flip-camera-btn');
+        let stream, currentCaptureType = null, capturedImageData = null, currentFacingMode = 'user';
+        function toggleViews(showConfirmation) {
+            if (!cameraModal) return;
+            cameraModal.querySelector('.live-view').style.display = showConfirmation ? 'none' : 'block';
+            cameraModal.querySelector('.live-view-footer').style.display = showConfirmation ? 'none' : 'flex';
+            cameraModal.querySelector('.confirmation-view').style.display = showConfirmation ? 'block' : 'none';
+            cameraModal.querySelector('.confirmation-view-footer').style.display = showConfirmation ? 'flex' : 'none';
+        }
+        async function startCamera(facingMode) {
+            if (stream) stream.getTracks().forEach(track => track.stop());
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode } });
+                video.srcObject = stream;
+                await video.play();
+            } catch (err) {
+                console.error("Error starting camera: ", err);
+                const modalInstance = bootstrap.Modal.getInstance(cameraModal);
+                if (modalInstance) modalInstance.hide();
+            }
+        }
+        if (cameraModal) {
+            cameraModal.addEventListener('show.bs.modal', async (event) => {
+                currentCaptureType = event.relatedTarget.getAttribute('data-capture-type');
+                cameraModal.querySelector('.modal-title').textContent = currentCaptureType === 'cedula' ? 'Capturar Foto de la Cédula' : 'Capturar Foto del Cliente';
+                currentFacingMode = currentCaptureType === 'cedula' ? 'environment' : 'user';
+                toggleViews(false);
+                await startCamera(currentFacingMode);
+            });
+            cameraModal.addEventListener('hide.bs.modal', () => { if (stream) stream.getTracks().forEach(track => track.stop()); });
+        }
+        if (flipCameraBtn) {
+            flipCameraBtn.addEventListener('click', () => {
+                currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+                startCamera(currentFacingMode);
+            });
+        }
+        if (captureBtn) {
+            captureBtn.addEventListener('click', () => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+                capturedImageData = canvas.toDataURL('image/jpeg');
+                toggleViews(true);
+            });
+        }
+        if (retakeBtn) retakeBtn.addEventListener('click', () => { capturedImageData = null; toggleViews(false); });
+        
+        if (savePhotoBtn) {
+            savePhotoBtn.addEventListener('click', () => {
+                if (capturedImageData && currentCaptureType) {
+                    document.getElementById(`preview-${currentCaptureType}`).src = capturedImageData;
+                    const inputElement = document.getElementById(`foto_${currentCaptureType}`);
+                    inputElement.value = capturedImageData;
+                    inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                const modalInstance = bootstrap.Modal.getInstance(cameraModal);
+                if (modalInstance) modalInstance.hide();
+            });
+        }
+
+        // --- LÓGICA DE VALIDACIÓN Y SUBMIT ---
+        const submitBtn = document.getElementById('submitBtn');
+        const form = document.getElementById('registroForm');
+        
+        const validateForm = () => {
+            for (const field of form.querySelectorAll('[required]')) {
+                if (!field.value || field.value.trim() === '') return false;
+            }
+            return true;
+        };
+
+        const updateButtonState = () => {
+            submitBtn.disabled = !validateForm();
+        };
+
+        if (form) {
+            form.addEventListener('input', updateButtonState);
+            form.addEventListener('change', updateButtonState);
+        }
+        
+        updateButtonState();
+
+        if(form) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                Swal.fire({
+                    title: '¿Confirmar Registro?',
+                    text: "Se creará un nuevo perfil de cliente con los datos ingresados. ¿Está seguro?",
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Sí, registrar cliente',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // CAMBIO: Se llama a la función reutilizable para deshabilitar el botón
+                        handleFormSubmit(form);
+                        // Se envía el formulario
+                        form.submit();
+                    }
+                });
+            });
+        }
+    });
 </script>
 {% endblock %}

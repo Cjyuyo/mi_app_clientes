@@ -27,6 +27,16 @@
         opacity: 0.5;
         cursor: not-allowed;
     }
+
+    /* --- NUEVO: Estilos para la animación del spinner --- */
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .animate-spin {
+      animation: spin 1s linear infinite;
+      display: inline-block; /* Necesario para que la transformación funcione */
+    }
 </style>
 {% endblock %}
 
@@ -160,7 +170,6 @@
 
         <div class="bg-white rounded-xl shadow-md card-lift" x-data="{ activeTab: 'pagos' }">
             <div class="p-2 bg-slate-50 rounded-t-xl border-b border-slate-200">
-                <!-- CAMBIO REALIZADO AQUÍ: Se eliminaron las clases flex-col y sm:flex-row para que las pestañas siempre estén en fila -->
                 <nav class="flex space-x-2">
                     <button @click="activeTab = 'pagos'" 
                             :class="{ 'active': activeTab === 'pagos' }"
@@ -243,9 +252,80 @@
     </div>
 </div>
 
+<!-- --- NUEVO: Modales para las acciones de la barra lateral --- -->
+<!-- Nota: Se han añadido modales de ejemplo. Debes personalizarlos con los campos de formulario correctos. -->
+
+<!-- Modal para Registrar Oferta -->
+<div class="modal fade" id="ofertaModal" tabindex="-1" aria-labelledby="ofertaModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" method="POST" onsubmit="handleFormSubmit(this)">
+        <div class="modal-header">
+          <h5 class="modal-title" id="ofertaModalLabel">Registrar Oferta de Adjudicación</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p>Selecciona la cantidad de cuotas que deseas adelantar para el próximo acto de adjudicación.</p>
+          <label for="cuotas_ofertadas" class="form-label mt-2">Número de Cuotas a Ofertar</label>
+          <select class="form-select" id="cuotas_ofertadas" name="cuotas_ofertadas" required>
+              {% set cuotas_pagadas = cliente.cuotas_pagadas_progresivas|int %}
+              {% set cuotas_restantes = (cliente.cuotas_totales|int) - cuotas_pagadas %}
+              {% for i in range(1, cuotas_restantes + 1) %}
+              <option value="{{ i }}">{{ i }} cuota(s)</option>
+              {% endfor %}
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="background-color: #f97316; border-color: #f97316;">Guardar Oferta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para Solicitar Cita -->
+<div class="modal fade" id="citaModal" tabindex="-1" aria-labelledby="citaModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form action="{{ url_for('portal_solicitar_cita') }}" method="POST" onsubmit="handleFormSubmit(this)">
+        <div class="modal-header">
+          <h5 class="modal-title" id="citaModalLabel">Solicitar Cita</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p>Describe brevemente el motivo de tu cita para asignarte con el asesor correcto.</p>
+          <label for="motivo_cita" class="form-label mt-2">Motivo de la Cita</label>
+          <textarea class="form-control" id="motivo_cita" name="motivo_cita" rows="3" required></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="background-color: #f97316; border-color: #f97316;">Enviar Solicitud</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Otros modales (congelar, descongelar, retiro) seguirían la misma estructura -->
+
 {% endblock %}
 
 {% block scripts_extra %}
 <script src="//unpkg.com/alpinejs" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-{% endblock %}.
+<script>
+    /**
+     * --- NUEVA FUNCIÓN ---
+     * Deshabilita los botones de tipo 'submit' dentro de un formulario y muestra un texto de "Procesando".
+     * @param {HTMLFormElement} form - El formulario que se está enviando.
+     */
+    function handleFormSubmit(form) {
+        const submitButtons = form.querySelectorAll('button[type="submit"]');
+        submitButtons.forEach(button => {
+            button.disabled = true;
+            button.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
+        });
+    }
+</script>
+{% endblock %}
