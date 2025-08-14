@@ -169,6 +169,8 @@
 {% endblock %}
 
 {% block scripts_extra %}
+<!-- CORRECCIÓN: Se añade el script de Bootstrap JS para que funcionen los modales -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // --- LÓGICA DE CÁLCULO AUTOMÁTICO ---
@@ -221,64 +223,7 @@ document.addEventListener('DOMContentLoaded', function() {
     plazoSelect.addEventListener('change', calcularYActualizarCuota);
     monedaSelect.addEventListener('change', calcularYActualizarCuota);
 
-    // --- Lógica para el escenario de cierre (sin cambios) ---
-    // ... (El código existente se mantiene igual)
-
-    // --- Lógica de la cámara (sin cambios) ---
-    // ... (El código existente se mantiene igual)
-    
-    // --- LÓGICA DE VALIDACIÓN Y SUBMIT ---
-    const submitBtn = document.getElementById('submitBtn');
-    const form = document.getElementById('registroForm');
-    
-    const validateForm = () => {
-        for (const field of form.querySelectorAll('[required]')) {
-            if (!field.value || field.value.trim() === '') return false;
-        }
-        return true;
-    };
-
-    const updateButtonState = () => {
-        submitBtn.disabled = !validateForm();
-    };
-
-    if (form) {
-        form.addEventListener('input', updateButtonState);
-        form.addEventListener('change', updateButtonState);
-    }
-    
-    updateButtonState();
-
-    if(form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault(); // Prevenir el envío automático del formulario
-
-            // Mostrar la alerta de confirmación
-            Swal.fire({
-                title: '¿Confirmar Registro?',
-                text: "Se creará un nuevo perfil de cliente con los datos ingresados. ¿Está seguro?",
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Sí, registrar cliente',
-                cancelButtonText: 'Cancelar'
-            }).then((result) => {
-                // Si el usuario confirma, proceder con el envío
-                if (result.isConfirmed) {
-                    if (form.getAttribute('data-submitted') === 'true') { return; }
-                    form.setAttribute('data-submitted', 'true');
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
-                    
-                    // Enviar el formulario programáticamente
-                    form.submit();
-                }
-            });
-        });
-    }
-
-    // --- El resto de la lógica de cámara y escenario de cierre se mantiene aquí ---
+    // --- Lógica para el escenario de cierre ---
     const escenarioSelect = document.getElementById('escenario_cierre');
     const asesorContainer = document.getElementById('asesor-container');
     const responsableContainer = document.getElementById('responsable-container');
@@ -336,6 +281,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateResponsableHidden(responsableHiddenInput.value);
     });
 
+    // --- Lógica de la cámara ---
     const cameraModal = document.getElementById('cameraModal');
     const video = document.getElementById('video-feed');
     const canvas = document.getElementById('capture-canvas');
@@ -400,6 +346,52 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const modalInstance = bootstrap.Modal.getInstance(cameraModal);
             if (modalInstance) modalInstance.hide();
+        });
+    }
+
+    // --- LÓGICA DE VALIDACIÓN Y SUBMIT ---
+    const submitBtn = document.getElementById('submitBtn');
+    const form = document.getElementById('registroForm');
+    
+    const validateForm = () => {
+        for (const field of form.querySelectorAll('[required]')) {
+            if (!field.value || field.value.trim() === '') return false;
+        }
+        return true;
+    };
+
+    const updateButtonState = () => {
+        submitBtn.disabled = !validateForm();
+    };
+
+    if (form) {
+        form.addEventListener('input', updateButtonState);
+        form.addEventListener('change', updateButtonState);
+    }
+    
+    updateButtonState();
+
+    if(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            Swal.fire({
+                title: '¿Confirmar Registro?',
+                text: "Se creará un nuevo perfil de cliente con los datos ingresados. ¿Está seguro?",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, registrar cliente',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    if (form.getAttribute('data-submitted') === 'true') { return; }
+                    form.setAttribute('data-submitted', 'true');
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
+                    form.submit();
+                }
+            });
         });
     }
 });
