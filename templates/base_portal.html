@@ -34,7 +34,6 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
-        /* Prevents scrolling of the body when the mobile menu is open */
         .body-no-scroll {
             overflow: hidden;
         }
@@ -43,10 +42,7 @@
                 overflow: auto;
             }
         }
-        /* Alpine.js cloak to prevent flash of unstyled content */
         [x-cloak] { display: none !important; }
-
-        /* Custom scrollbar for horizontal payments */
         .horizontal-scroll::-webkit-scrollbar {
             height: 4px;
         }
@@ -60,60 +56,44 @@
 
 <body class="bg-slate-100" x-data="{ navOpen: false }" :class="{ 'body-no-scroll': navOpen }">
 
-    <!-- This div wraps the entire page structure -->
+    <!-- ================================================================== -->
+    <!-- Mobile Header                                                    -->
+    <!-- CAMBIO: Se eliminó el botón de cerrar sesión de esta barra.        -->
+    <!-- ================================================================== -->
+    <header class="md:hidden bg-slate-800 text-white h-16 px-4 flex justify-between items-center sticky top-0 z-30 shadow-md">
+        <a href="{{ url_for('portal_dashboard') }}">
+            <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan" class="w-32">
+        </a>
+        <button @click="navOpen = !navOpen" class="text-2xl" aria-label="Toggle menu">
+            <i class="bi" :class="navOpen ? 'bi-x-lg' : 'bi-list'"></i>
+        </button>
+    </header>
+
     <div class="relative min-h-screen md:flex">
 
+        <!-- Overlay for mobile menu -->
+        <div x-show="navOpen" x-cloak class="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden" @click="navOpen = false"></div>
+
         <!-- ================================================================== -->
-        <!-- Mobile Header: Visible only on small screens                     -->
+        <!-- Sidebar / Navigation Panel                                       -->
         <!-- CAMBIOS:                                                         -->
-        <!-- 1. Se redujo la altura de la barra a h-16 (4rem).                -->
-        <!-- 2. Se ajustó el padding horizontal a px-3.                       -->
-        <!-- 3. Se redujo el tamaño del logo a w-32 para mejor alineación.    -->
-        <!-- 4. Se eliminó el texto "Salir" del botón de logout.              -->
+        <!-- 1. Se usa flex-col y h-full para que ocupe toda la altura.       -->
+        <!-- 2. El logo ahora está solo en la cabecera del sidebar.           -->
+        <!-- 3. Se añadió el botón de logout para móvil al final del menú.    -->
         <!-- ================================================================== -->
-        <header class="md:hidden bg-slate-800 text-white h-16 px-3 flex justify-between items-center sticky top-0 z-30 shadow-md">
-            <a href="{{ url_for('portal_dashboard') }}">
-                <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan" class="w-32">
-            </a>
-            <div class="flex items-center gap-3">
-                 <a href="{{ url_for('portal_logout') }}" class="text-white hover:text-slate-300" title="Cerrar Sesión">
-                    <i class="bi bi-box-arrow-right text-2xl"></i>
-                </a>
-                <button @click="navOpen = !navOpen" class="text-2xl" aria-label="Toggle menu">
-                    <i class="bi" :class="navOpen ? 'bi-x-lg' : 'bi-list'"></i>
-                </button>
-            </div>
-        </header>
-
-        <!-- Overlay for mobile menu: Dims the content when menu is open -->
-        <div x-show="navOpen" x-cloak class="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden" @click="navOpen = false"></div>
-
-        <!-- Sidebar / Navigation Panel -->
         <aside 
-            class="bg-slate-800 text-white w-full md:w-64 fixed top-0 inset-x-0 md:static transform -translate-y-full md:transform-none transition-transform duration-300 ease-in-out z-40"
+            class="bg-slate-800 text-white w-full md:w-64 fixed top-0 inset-x-0 md:static transform -translate-y-full md:transform-none transition-transform duration-300 ease-in-out z-40 flex flex-col h-full"
             :class="{'translate-y-0': navOpen}"
         >
-            <!-- ================================================================== -->
-            <!-- Desktop Header (Inside Sidebar)                                  -->
-            <!-- CAMBIOS:                                                         -->
-            <!-- 1. Se estableció una altura fija de h-20 (5rem) para la barra.   -->
-            <!-- 2. Se ajustó el padding a px-4.                                  -->
-            <!-- 3. Se reubicó el botón de logout aquí, con texto visible.        -->
-            <!-- ================================================================== -->
-            <div class="flex justify-between items-center h-20 px-4 border-b border-slate-700">
+            <!-- Desktop Header with Logo only -->
+            <div class="flex justify-center items-center h-20 px-4 border-b border-slate-700 flex-shrink-0">
                 <a href="{{ url_for('portal_dashboard') }}">
                     <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan" class="w-40">
                 </a>
-                <div class="hidden md:block">
-                    <a href="{{ url_for('portal_logout') }}" class="flex items-center gap-2 text-white hover:bg-slate-700 p-2 rounded-md" title="Cerrar Sesión">
-                         <i class="bi bi-box-arrow-right text-xl"></i>
-                         <span>Salir</span>
-                    </a>
-                </div>
             </div>
 
             <!-- Navigation Links -->
-            <nav class="p-4 pt-20 md:pt-4 md:p-0">
+            <nav class="flex-1 overflow-y-auto p-4 pt-20 md:pt-4">
                 {% block sidebar_actions %}
                 <p class="px-4 pt-4 pb-2 text-xs font-medium text-slate-400 uppercase">Acciones</p>
                 <ul>
@@ -177,152 +157,176 @@
                 </ul>
                 {% endblock %}
             </nav>
+            
+            <!-- Mobile Logout Button -->
+            <div class="p-4 border-t border-slate-700 md:hidden">
+                <a href="{{ url_for('portal_logout') }}" class="flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-red-400 hover:bg-red-500/20">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span>Cerrar Sesión</span>
+                </a>
+            </div>
         </aside>
 
-        <!-- Main Content -->
-        <!-- CAMBIO: Se redujo el padding en vistas móviles (p-2) y se mantuvo en escritorio (md:p-6) para optimizar el espacio sin márgenes excesivos. -->
-        <main class="flex-1 p-2 md:p-6">
-            {% block body %}
-            <div class="space-y-4">
-
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                        <div class="p-4 rounded-lg {% if category == 'error' %} bg-red-100 text-red-800 {% else %} bg-orange-100 text-orange-800 {% endif %}" role="alert">
-                            {{ message | safe }}
-                        </div>
-                        {% endfor %}
-                    {% endif %}
-                {% endwith %}
+        <!-- ================================================================== -->
+        <!-- Main Content Area                                                -->
+        <!-- CAMBIOS:                                                         -->
+        <!-- 1. Se envuelve en un flex-col para gestionar el header y main.   -->
+        <!-- 2. Se añade un header solo para desktop con el botón de logout.  -->
+        <!-- ================================================================== -->
+        <div class="flex-1 flex flex-col">
             
-                <!-- Main content grid -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- Desktop Header with Logout -->
+            <header class="hidden md:flex justify-end items-center h-20 px-6 flex-shrink-0">
+                 <a href="{{ url_for('portal_logout') }}" class="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors" title="Cerrar Sesión">
+                     <span class="font-medium text-sm">Salir</span>
+                     <i class="bi bi-box-arrow-right text-xl"></i>
+                </a>
+            </header>
 
-                    {% if estado_principal %}
-                    <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow-md border-l-4 {{ estado_principal.clase_borde | replace('naranja-corporativo', 'border-orange-500') | replace('en-mora', 'border-red-500') | replace('vigente', 'border-green-500') | replace('azul-info', 'border-sky-500') }} card-lift">
-                        <h3 class="text-base font-semibold text-slate-800">{{ estado_principal.titulo }}</h3>
-                        <p class="text-slate-600 text-sm mt-1">{{ estado_principal.mensaje | safe }}</p>
-                        {% if estado_principal.boton_texto %}
-                        <a href="{{ estado_principal.boton_url }}" class="inline-block mt-3 text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if not estado_principal.boton_activo %}opacity-50 cursor-not-allowed{% endif %}"
-                           {% if not estado_principal.boton_activo %}title="Ya tienes un pago en revisión."{% endif %}>
-                            {{ estado_principal.boton_texto }}
-                        </a>
+            <!-- Main Content -->
+            <main class="flex-1 p-2 md:p-6 md:pt-0">
+                {% block body %}
+                <div class="space-y-4">
+
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                            <div class="p-4 rounded-lg {% if category == 'error' %} bg-red-100 text-red-800 {% else %} bg-orange-100 text-orange-800 {% endif %}" role="alert">
+                                {{ message | safe }}
+                            </div>
+                            {% endfor %}
                         {% endif %}
-                    </div>
-                    {% endif %}
-            
-                    {% if cita_confirmada %}
-                    <div class="bg-white p-4 rounded-xl shadow-md border-l-4 border-green-500 card-lift">
-                        <div class="flex items-start gap-3">
-                            <i class="bi bi-calendar-check-fill text-2xl text-green-500"></i>
-                            <div>
-                                <h3 class="font-semibold text-slate-800">Tu Cita Confirmada</h3>
-                                <ul class="text-xs text-slate-500 mt-1 space-y-0.5">
-                                    <li><strong>Fecha:</strong> {{ cita_confirmada.detalles.fecha_cita | format_date('%d/%m/%Y') }}</li>
-                                    <li><strong>Hora:</strong> {{ cita_confirmada.detalles.hora_cita }}</li>
-                                    <li><strong>Asesor:</strong> {{ cita_confirmada.nombre_asesor }}</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
+                    {% endwith %}
                 
-                    <div class="bg-white rounded-xl shadow-md card-lift">
-                        <div class="p-4 border-b border-slate-200">
-                            <h2 class="text-base font-semibold text-slate-800">Resumen de mi Plan</h2>
+                    <!-- Main content grid -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+                        {% if estado_principal %}
+                        <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow-md border-l-4 {{ estado_principal.clase_borde | replace('naranja-corporativo', 'border-orange-500') | replace('en-mora', 'border-red-500') | replace('vigente', 'border-green-500') | replace('azul-info', 'border-sky-500') }} card-lift">
+                            <h3 class="text-base font-semibold text-slate-800">{{ estado_principal.titulo }}</h3>
+                            <p class="text-slate-600 text-sm mt-1">{{ estado_principal.mensaje | safe }}</p>
+                            {% if estado_principal.boton_texto %}
+                            <a href="{{ estado_principal.boton_url }}" class="inline-block mt-3 text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if not estado_principal.boton_activo %}opacity-50 cursor-not-allowed{% endif %}"
+                               {% if not estado_principal.boton_activo %}title="Ya tienes un pago en revisión."{% endif %}>
+                                {{ estado_principal.boton_texto }}
+                            </a>
+                            {% endif %}
                         </div>
-                        <div class="p-4 space-y-3">
-                             {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
-                            <div>
-                                <div class="flex justify-between items-center mb-1"><span class="text-xs font-medium text-slate-600">Progreso Total del Plan</span><span class="text-xs font-semibold text-slate-700">{{ "%.0f"|format(progreso_total) }}%</span></div>
-                                <div class="w-full bg-slate-200 rounded-full h-2"><div class="h-2 rounded-full progress-bar" style="width: {{ progreso_total }}%"></div></div>
-                            </div>
-                            {% set balance = cliente.balance_regresivo|float or 0.0 %}{% set valor_cuota = cliente.valor_cuota|float or 0.0 %}{% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
-                            <div>
-                                {% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}
-                                <div class="flex justify-between items-center mb-1"><span class="text-xs font-medium text-slate-600">Abono a cuota N° {{ cuota_regresiva_objetivo }}</span><span class="text-xs font-semibold text-slate-700">{{ "%.0f"|format(progreso_cuota_actual) }}%</span></div>
-                                <div class="w-full bg-slate-200 rounded-full h-2"><div class="h-2 rounded-full progress-bar" style="width: {{ progreso_cuota_actual }}%"></div></div>
-                            </div>
-                        </div>
-                    </div>
-            
-                    <div class="bg-white rounded-xl shadow-md card-lift lg:col-span-2" x-data="{ activeTab: 'pagos' }">
-                        <div class="p-2 bg-slate-50 rounded-t-xl border-b border-slate-200">
-                            <nav class="flex gap-2">
-                                <button @click="activeTab = 'pagos'" :class="{ 'active': activeTab === 'pagos' }" class="tab-button flex-1 text-xs font-semibold py-2 px-3 rounded-md text-slate-600 hover:bg-orange-100">
-                                    Pagos
-                                </button>
-                                <button @click="activeTab = 'gestiones'" :class="{ 'active': activeTab === 'gestiones' }" class="tab-button flex-1 text-xs font-semibold py-2 px-3 rounded-md text-slate-600 hover:bg-orange-100">
-                                    Gestiones
-                                </button>
-                            </nav>
-                        </div>
-            
-                        <div class="p-3">
-                            <div x-show="activeTab === 'pagos'">
-                                {% if cliente.pagos %}
-                                    <div class="flex space-x-4 overflow-x-auto p-1 horizontal-scroll sm:grid sm:grid-cols-2 sm:gap-4 sm:space-x-0 sm:p-0">
-                                        {% for pago in cliente.pagos %}
-                                        <div class="flex-shrink-0 w-3/4 sm:w-auto bg-slate-50 p-3 rounded-lg shadow-sm border border-slate-200 flex flex-col justify-between">
-                                            <div>
-                                                <div class="flex justify-between items-start gap-2">
-                                                    <p class="font-semibold text-xs text-slate-700 flex-1">{{ pago.por_concepto_de or pago.tipo_pago }}</p>
-                                                    <p class="font-bold text-xs text-slate-800 text-right">${{ "%.2f"|format(pago.monto) }}</p>
-                                                </div>
-                                                <p class="text-xs text-slate-500 mt-1">{{ pago.fecha_pago | format_date if pago.fecha_pago else pago.fecha_creacion | format_date }}</p>
-                                            </div>
-                                            <div class="mt-2 pt-2 border-t border-slate-200 flex justify-between items-center">
-                                                 {% if pago.estado_pago == 'Conciliado' %}<span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-green-100 text-green-800">Conciliado</span>
-                                                 {% elif pago.estado_pago == 'Pendiente' %}<span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-yellow-100 text-yellow-800">En Revisión</span>
-                                                 {% elif pago.estado_pago == 'Anulado' %}<span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-red-100 text-red-800">Anulado</span>{% endif %}
-                                                <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-orange-500 hover:text-orange-600">
-                                                    <i class="bi bi-receipt"></i> Recibo
-                                                </a>
-                                            </div>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                {% else %}
-                                    <div class="text-center text-slate-500 py-4 text-sm">
-                                        <i class="bi bi-receipt-cutoff text-3xl text-slate-300"></i>
-                                        <p class="mt-2 text-xs">Aún no tienes pagos registrados.</p>
-                                    </div>
-                                {% endif %}
-                            </div>
-            
-                            <div x-show="activeTab === 'gestiones'" class="space-y-3">
-                                {% if historial_gestiones %}
-                                    <ul class="space-y-3">
-                                        {% for gestion in historial_gestiones %}
-                                        <li class="flex gap-3">
-                                            <div class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full
-                                                {% if gestion.estado == 'Aprobado' %} bg-green-100 text-green-600
-                                                {% elif gestion.estado == 'Rechazado' %} bg-red-100 text-red-600
-                                                {% elif gestion.tipo == 'respuesta' %} bg-sky-100 text-sky-600
-                                                {% else %} bg-slate-100 text-slate-600 {% endif %}">
-                                                <i class="bi {{ gestion.icono }} text-lg"></i>
-                                            </div>
-                                            <div>
-                                                <p class="font-semibold text-xs text-slate-800">{{ gestion.titulo }}</p>
-                                                <p class="text-xs text-slate-500">{{ gestion.fecha | format_date }}</p>
-                                                <p class="text-xs text-slate-600 mt-1">{{ gestion.descripcion }}</p>
-                                            </div>
-                                        </li>
-                                        {% endfor %}
+                        {% endif %}
+                
+                        {% if cita_confirmada %}
+                        <div class="bg-white p-4 rounded-xl shadow-md border-l-4 border-green-500 card-lift">
+                            <div class="flex items-start gap-3">
+                                <i class="bi bi-calendar-check-fill text-2xl text-green-500"></i>
+                                <div>
+                                    <h3 class="font-semibold text-slate-800">Tu Cita Confirmada</h3>
+                                    <ul class="text-xs text-slate-500 mt-1 space-y-0.5">
+                                        <li><strong>Fecha:</strong> {{ cita_confirmada.detalles.fecha_cita | format_date('%d/%m/%Y') }}</li>
+                                        <li><strong>Hora:</strong> {{ cita_confirmada.detalles.hora_cita }}</li>
+                                        <li><strong>Asesor:</strong> {{ cita_confirmada.nombre_asesor }}</li>
                                     </ul>
-                                {% else %}
-                                    <div class="text-center text-slate-500 py-4 text-sm">
-                                        <i class="bi bi-clock-history text-3xl text-slate-300"></i>
-                                        <p class="mt-2 text-xs">No hay gestiones registradas.</p>
-                                    </div>
-                                {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    
+                        <div class="bg-white rounded-xl shadow-md card-lift">
+                            <div class="p-4 border-b border-slate-200">
+                                <h2 class="text-base font-semibold text-slate-800">Resumen de mi Plan</h2>
+                            </div>
+                            <div class="p-4 space-y-3">
+                                 {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                                <div>
+                                    <div class="flex justify-between items-center mb-1"><span class="text-xs font-medium text-slate-600">Progreso Total del Plan</span><span class="text-xs font-semibold text-slate-700">{{ "%.0f"|format(progreso_total) }}%</span></div>
+                                    <div class="w-full bg-slate-200 rounded-full h-2"><div class="h-2 rounded-full progress-bar" style="width: {{ progreso_total }}%"></div></div>
+                                </div>
+                                {% set balance = cliente.balance_regresivo|float or 0.0 %}{% set valor_cuota = cliente.valor_cuota|float or 0.0 %}{% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
+                                <div>
+                                    {% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}
+                                    <div class="flex justify-between items-center mb-1"><span class="text-xs font-medium text-slate-600">Abono a cuota N° {{ cuota_regresiva_objetivo }}</span><span class="text-xs font-semibold text-slate-700">{{ "%.0f"|format(progreso_cuota_actual) }}%</span></div>
+                                    <div class="w-full bg-slate-200 rounded-full h-2"><div class="h-2 rounded-full progress-bar" style="width: {{ progreso_cuota_actual }}%"></div></div>
+                                </div>
+                            </div>
+                        </div>
+                
+                        <div class="bg-white rounded-xl shadow-md card-lift lg:col-span-2" x-data="{ activeTab: 'pagos' }">
+                            <div class="p-2 bg-slate-50 rounded-t-xl border-b border-slate-200">
+                                <nav class="flex gap-2">
+                                    <button @click="activeTab = 'pagos'" :class="{ 'active': activeTab === 'pagos' }" class="tab-button flex-1 text-xs font-semibold py-2 px-3 rounded-md text-slate-600 hover:bg-orange-100">
+                                        Pagos
+                                    </button>
+                                    <button @click="activeTab = 'gestiones'" :class="{ 'active': activeTab === 'gestiones' }" class="tab-button flex-1 text-xs font-semibold py-2 px-3 rounded-md text-slate-600 hover:bg-orange-100">
+                                        Gestiones
+                                    </button>
+                                </nav>
+                            </div>
+                
+                            <div class="p-3">
+                                <div x-show="activeTab === 'pagos'">
+                                    {% if cliente.pagos %}
+                                        <div class="flex space-x-4 overflow-x-auto p-1 horizontal-scroll sm:grid sm:grid-cols-2 sm:gap-4 sm:space-x-0 sm:p-0">
+                                            {% for pago in cliente.pagos %}
+                                            <div class="flex-shrink-0 w-3/4 sm:w-auto bg-slate-50 p-3 rounded-lg shadow-sm border border-slate-200 flex flex-col justify-between">
+                                                <div>
+                                                    <div class="flex justify-between items-start gap-2">
+                                                        <p class="font-semibold text-xs text-slate-700 flex-1">{{ pago.por_concepto_de or pago.tipo_pago }}</p>
+                                                        <p class="font-bold text-xs text-slate-800 text-right">${{ "%.2f"|format(pago.monto) }}</p>
+                                                    </div>
+                                                    <p class="text-xs text-slate-500 mt-1">{{ pago.fecha_pago | format_date if pago.fecha_pago else pago.fecha_creacion | format_date }}</p>
+                                                </div>
+                                                <div class="mt-2 pt-2 border-t border-slate-200 flex justify-between items-center">
+                                                     {% if pago.estado_pago == 'Conciliado' %}<span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-green-100 text-green-800">Conciliado</span>
+                                                     {% elif pago.estado_pago == 'Pendiente' %}<span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-yellow-100 text-yellow-800">En Revisión</span>
+                                                     {% elif pago.estado_pago == 'Anulado' %}<span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-red-100 text-red-800">Anulado</span>{% endif %}
+                                                    <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-orange-500 hover:text-orange-600">
+                                                        <i class="bi bi-receipt"></i> Recibo
+                                                    </a>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <div class="text-center text-slate-500 py-4 text-sm">
+                                            <i class="bi bi-receipt-cutoff text-3xl text-slate-300"></i>
+                                            <p class="mt-2 text-xs">Aún no tienes pagos registrados.</p>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                
+                                <div x-show="activeTab === 'gestiones'" class="space-y-3">
+                                    {% if historial_gestiones %}
+                                        <ul class="space-y-3">
+                                            {% for gestion in historial_gestiones %}
+                                            <li class="flex gap-3">
+                                                <div class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full
+                                                    {% if gestion.estado == 'Aprobado' %} bg-green-100 text-green-600
+                                                    {% elif gestion.estado == 'Rechazado' %} bg-red-100 text-red-600
+                                                    {% elif gestion.tipo == 'respuesta' %} bg-sky-100 text-sky-600
+                                                    {% else %} bg-slate-100 text-slate-600 {% endif %}">
+                                                    <i class="bi {{ gestion.icono }} text-lg"></i>
+                                                </div>
+                                                <div>
+                                                    <p class="font-semibold text-xs text-slate-800">{{ gestion.titulo }}</p>
+                                                    <p class="text-xs text-slate-500">{{ gestion.fecha | format_date }}</p>
+                                                    <p class="text-xs text-slate-600 mt-1">{{ gestion.descripcion }}</p>
+                                                </div>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <div class="text-center text-slate-500 py-4 text-sm">
+                                            <i class="bi bi-clock-history text-3xl text-slate-300"></i>
+                                            <p class="mt-2 text-xs">No hay gestiones registradas.</p>
+                                        </div>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            {% endblock %}
-        </main>
+                {% endblock %}
+            </main>
+        </div>
     </div>
 
     {% block scripts_extra %}
@@ -331,4 +335,4 @@
     {% endblock %}
 
 </body>
-</html>
+</html
