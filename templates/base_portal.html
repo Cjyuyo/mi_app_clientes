@@ -63,16 +63,21 @@
     <!-- This div wraps the entire page structure -->
     <div class="relative min-h-screen md:flex">
 
-        <!-- Mobile Header: Visible only on small screens -->
-        <header class="md:hidden bg-slate-800 text-white p-4 flex justify-between items-center sticky top-0 z-30 shadow-md">
+        <!-- ================================================================== -->
+        <!-- Mobile Header: Visible only on small screens                     -->
+        <!-- CAMBIOS:                                                         -->
+        <!-- 1. Se redujo la altura de la barra a h-16 (4rem).                -->
+        <!-- 2. Se ajustó el padding horizontal a px-3.                       -->
+        <!-- 3. Se redujo el tamaño del logo a w-32 para mejor alineación.    -->
+        <!-- 4. Se eliminó el texto "Salir" del botón de logout.              -->
+        <!-- ================================================================== -->
+        <header class="md:hidden bg-slate-800 text-white h-16 px-3 flex justify-between items-center sticky top-0 z-30 shadow-md">
             <a href="{{ url_for('portal_dashboard') }}">
-                <!-- CAMBIO AQUÍ: Se aumentó el tamaño del logo en móvil -->
-                <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan" class="w-48">
+                <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan" class="w-32">
             </a>
-            <div class="flex items-center gap-4">
-                 <a href="{{ url_for('portal_logout') }}" class="flex items-center gap-2 text-white hover:text-slate-300" title="Cerrar Sesión">
-                    <i class="bi bi-box-arrow-right text-xl"></i>
-                    <span class="text-xs font-medium">Salir</span>
+            <div class="flex items-center gap-3">
+                 <a href="{{ url_for('portal_logout') }}" class="text-white hover:text-slate-300" title="Cerrar Sesión">
+                    <i class="bi bi-box-arrow-right text-2xl"></i>
                 </a>
                 <button @click="navOpen = !navOpen" class="text-2xl" aria-label="Toggle menu">
                     <i class="bi" :class="navOpen ? 'bi-x-lg' : 'bi-list'"></i>
@@ -88,14 +93,23 @@
             class="bg-slate-800 text-white w-full md:w-64 fixed top-0 inset-x-0 md:static transform -translate-y-full md:transform-none transition-transform duration-300 ease-in-out z-40"
             :class="{'translate-y-0': navOpen}"
         >
-            <div class="flex justify-between items-center p-4 border-b border-slate-700">
+            <!-- ================================================================== -->
+            <!-- Desktop Header (Inside Sidebar)                                  -->
+            <!-- CAMBIOS:                                                         -->
+            <!-- 1. Se estableció una altura fija de h-20 (5rem) para la barra.   -->
+            <!-- 2. Se ajustó el padding a px-4.                                  -->
+            <!-- 3. Se reubicó el botón de logout aquí, con texto visible.        -->
+            <!-- ================================================================== -->
+            <div class="flex justify-between items-center h-20 px-4 border-b border-slate-700">
                 <a href="{{ url_for('portal_dashboard') }}">
-                    <!-- CAMBIO AQUÍ: Se aumentó el tamaño del logo en escritorio -->
-                    <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan" class="w-56">
+                    <img src="{{ url_for('static', filename='Moto Plan Motors.png') }}" alt="Logo Moto Plan" class="w-40">
                 </a>
-                <a href="{{ url_for('portal_logout') }}" class="hidden md:flex items-center gap-2 text-white hover:text-slate-300" title="Cerrar Sesión">
-                     <i class="bi bi-box-arrow-right text-xl"></i>
-                </a>
+                <div class="hidden md:block">
+                    <a href="{{ url_for('portal_logout') }}" class="flex items-center gap-2 text-white hover:bg-slate-700 p-2 rounded-md" title="Cerrar Sesión">
+                         <i class="bi bi-box-arrow-right text-xl"></i>
+                         <span>Salir</span>
+                    </a>
+                </div>
             </div>
 
             <!-- Navigation Links -->
@@ -166,7 +180,8 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 p-4">
+        <!-- CAMBIO: Se redujo el padding en vistas móviles (p-2) y se mantuvo en escritorio (md:p-6) para optimizar el espacio sin márgenes excesivos. -->
+        <main class="flex-1 p-2 md:p-6">
             {% block body %}
             <div class="space-y-4">
 
