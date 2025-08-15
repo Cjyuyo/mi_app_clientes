@@ -3041,6 +3041,101 @@ def portal_pagar_inscripcion():
     return render_template('portal_pagar_inscripcion.html', cliente=cliente, monto_restante=monto_restante, tasas_hoy=tasas_hoy)
 
 
+@app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora')
+def procesar_reporte(pago_id):
+    conn = get_db()
+    accion = request.form.get('accion')
+    
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('reportes_por_revisar'))
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT cliente_id, monto FROM pagos WHERE id = %s", (pago_id,))
+            pago = cur.fetchone()
+            if not pago:
+                flash("El pago no existe.", "error")
+                return redirect(url_for('reportes_por_revisar'))
+            cliente_id = pago['cliente_id']
+
+            nuevo_estado_reporte = ''
+            detalles_json = None
+            descripcion_audit = ''
+
+            if accion == 'aprobar':
+                nuevo_estado_reporte = 'Aprobado'
+                descripcion_audit = f"Aprobó el reporte de pago N° {pago_id}."
+                cur.execute(
+                    "UPDATE pagos SET estado_reporte = %s, revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
+                    (nuevo_estado_reporte, g.admin['id'], pago_id)
+                )
+
+            elif accion == 'rechazar':
+                nuevo_estado_reporte = 'Inconsistente'
+                motivo = request.form.get('motivo_rechazo')
+                
+                if motivo == 'Diferencia de Monto':
+                    monto_recibido_str = request.form.get('diferencia_monto', '0').replace(',', '.')
+                    monto_recibido = Decimal(monto_recibido_str) if monto_recibido_str else Decimal('0')
+                    monto_reportado = pago['monto']
+                    
+                    if monto_recibido <= 0 or monto_recibido >= monto_reportado:
+                        flash("El monto recibido debe ser mayor a cero y menor que el monto reportado.", "error")
+                        return redirect(url_for('reportes_por_revisar'))
+
+                    monto_pendiente = monto_reportado - monto_recibido
+                    
+                    detalles_rechazo = {
+                        'motivo': motivo,
+                        'mensaje_estandar': "El monto reportado no coincide con el movimiento bancario, debe pagar diferencia.",
+                        'monto_original_reportado': str(monto_reportado),
+                        'monto_recibido_real': str(monto_recibido),
+                        'monto_pendiente': str(monto_pendiente)
+                    }
+                    detalles_json = json.dumps(detalles_rechazo)
+
+                    # Actualizar el pago original con el monto real recibido
+                    cur.execute(
+                        "UPDATE pagos SET monto = %s, estado_reporte = %s, revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s WHERE id = %s",
+                        (monto_recibido, nuevo_estado_reporte, g.admin['id'], detalles_json, pago_id)
+                    )
+                    
+                    # >>> CAMBIO ESPECIFICO: Fix NOT NULL cuotas_cubiertas en pagos por diferencia
+                    # Crear la nueva orden de pago por la diferencia
+                    concepto_orden = f"Diferencia pendiente del reporte #{pago_id}"
+                    cur.execute("""
+                        INSERT INTO pagos (cliente_id, monto, tipo_pago, por_concepto_de, estado_pago, reportado_por_cliente, estado_reporte, fecha_creacion, registrado_por_id, pago_padre_id, cuotas_cubiertas)
+                        VALUES (%s, %s, 'Diferencia', %s, 'Pendiente', FALSE, 'Generado por Sistema', %s, %s, %s, 0)
+                    """, (cliente_id, monto_pendiente, concepto_orden, get_venezuela_current_datetime(), g.admin['id'], pago_id))
+                    # <<< FIN CAMBIO
+                    
+                    descripcion_audit = f"Rechazó reporte #{pago_id} por diferencia. Monto real: ${monto_recibido}. Se generó orden por diferencia de ${monto_pendiente}."
+
+                else: # Otros motivos de rechazo
+                    detalles_rechazo = {'motivo': motivo}
+                    detalles_json = json.dumps(detalles_rechazo)
+                    descripcion_audit = f"Rechazó el reporte N° {pago_id}. Motivo: {motivo}."
+                    cur.execute(
+                        "UPDATE pagos SET estado_reporte = %s, revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s WHERE id = %s",
+                        (nuevo_estado_reporte, g.admin['id'], detalles_json, pago_id)
+                    )
+            else:
+                flash('Acción no válida.', 'error')
+                return redirect(url_for('reportes_por_revisar'))
+
+            registrar_accion_auditoria('REVISION_REPORTE_PAGO', descripcion_audit, cliente_id)
+            conn.commit()
+            flash(f"El reporte de pago ha sido procesado exitosamente.", 'success')
+
+    except (psycopg2.Error, ValueError, InvalidOperation) as e:
+        conn.rollback()
+        flash(f"Error al procesar el reporte: {e}", "error")
+    
+    return redirect(url_for('reportes_por_revisar'))
+
 @app.route('/portal/reportar_pago', methods=['GET', 'POST'])
 @portal_login_required
 def portal_reportar_pago():
@@ -3557,4 +3652,3 @@ def ver_reporte(pago_id):
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
-    
