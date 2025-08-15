@@ -35,13 +35,15 @@
                         {% endif %}
                     </td>
                     <td class="px-4 py-4 text-center">
+                        <!-- INICIO CAMBIO HOJA DE RUTA PUNTO 1: El enlace para ver el recibo solo es visible si el pago está consolidado. -->
                         {% if pago.estado_pago == 'Conciliado' or pago.tipo_pago == 'Inscripción Finalizada' %}
                             <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" target="_blank" class="text-blue-600 hover:text-blue-800" title="Ver Recibo">
                                 <i class="bi bi-receipt-cutoff text-lg"></i>
                             </a>
                         {% else %}
-                            <span class="text-slate-400"><i class="bi bi-receipt-cutoff text-lg"></i></span>
+                            <span class="text-slate-400" title="Recibo no disponible"><i class="bi bi-receipt-cutoff text-lg"></i></span>
                         {% endif %}
+                        <!-- FIN CAMBIO HOJA DE RUTA PUNTO 1 -->
                     </td>
                 </tr>
                 {% else %}

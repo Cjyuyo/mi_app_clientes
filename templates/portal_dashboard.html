@@ -206,9 +206,11 @@
                                 </div>
                                 
                                 <div class="mt-2">
+                                     {% if pago.estado_pago == 'Conciliado' or pago.tipo_pago == 'Inscripción Finalizada' %}
                                      <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-orange-500 hover:text-orange-600">
                                         <i class="bi bi-receipt"></i> Ver Recibo
                                     </a>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -252,14 +254,14 @@
     </div>
 </div>
 
-<!-- --- NUEVO: Modales para las acciones de la barra lateral --- -->
-<!-- Nota: Se han añadido modales de ejemplo. Debes personalizarlos con los campos de formulario correctos. -->
+<!-- INICIO CAMBIOS HOJA DE RUTA -->
 
-<!-- Modal para Registrar Oferta -->
+<!-- Modal para Registrar Oferta (PUNTO 5) -->
 <div class="modal fade" id="ofertaModal" tabindex="-1" aria-labelledby="ofertaModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <form action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" method="POST" onsubmit="handleFormSubmit(this)">
+      <!-- Se cambia la acción del formulario a la nueva ruta del portal -->
+      <form action="{{ url_for('portal_guardar_oferta') }}" method="POST" onsubmit="handleFormSubmit(this)">
         <div class="modal-header">
           <h5 class="modal-title" id="ofertaModalLabel">Registrar Oferta de Adjudicación</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -284,19 +286,44 @@
   </div>
 </div>
 
-<!-- Modal para Solicitar Cita -->
+<!-- Modal para Solicitar Cita (PUNTO 2) -->
 <div class="modal fade" id="citaModal" tabindex="-1" aria-labelledby="citaModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <form action="{{ url_for('portal_solicitar_cita') }}" method="POST" onsubmit="handleFormSubmit(this)">
+      <!-- Se añade x-data para manejar el estado del formulario -->
+      <form action="{{ url_for('portal_solicitar_cita') }}" method="POST" onsubmit="handleFormSubmit(this)" x-data="{ motivo: '' }">
         <div class="modal-header">
           <h5 class="modal-title" id="citaModalLabel">Solicitar Cita</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <p>Describe brevemente el motivo de tu cita para asignarte con el asesor correcto.</p>
-          <label for="motivo_cita" class="form-label mt-2">Motivo de la Cita</label>
-          <textarea class="form-control" id="motivo_cita" name="motivo_cita" rows="3" required></textarea>
+            <div class="mb-3">
+                <label for="fecha_cita" class="form-label">Fecha deseada</label>
+                <input type="date" class="form-control" id="fecha_cita" name="fecha_cita" required>
+            </div>
+            <div class="mb-3">
+                <label for="hora_cita" class="form-label">Hora deseada</label>
+                <select class="form-select" id="hora_cita" name="hora_cita" required>
+                    <!-- Los horarios se cargarán aquí con JS -->
+                    <option value="">Seleccione una fecha primero</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="motivo_cita" class="form-label">Motivo de la Cita</label>
+                <!-- Se cambia a un selector con la opción "Otro" -->
+                <select class="form-select" id="motivo_cita" name="motivo_cita" x-model="motivo" required>
+                    <option value="">Seleccione un motivo...</option>
+                    <option value="Información sobre adjudicación">Información sobre adjudicación</option>
+                    <option value="Consulta sobre pagos">Consulta sobre pagos</option>
+                    <option value="Actualización de datos">Actualización de datos</option>
+                    <option value="Otro">Otro motivo</option>
+                </select>
+            </div>
+            <!-- Campo de texto que aparece si se selecciona "Otro" -->
+            <div class="mb-3" x-show="motivo === 'Otro'" x-transition>
+                <label for="motivo_otro_texto" class="form-label">Especifique el motivo</label>
+                <textarea class="form-control" id="motivo_otro_texto" name="motivo_otro_texto" rows="2"></textarea>
+            </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -307,7 +334,67 @@
   </div>
 </div>
 
-<!-- Otros modales (congelar, descongelar, retiro) seguirían la misma estructura -->
+<!-- Modal para Congelar (PUNTO 3) -->
+<div class="modal fade" id="congelamientoModal" tabindex="-1" aria-labelledby="congelamientoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form action="{{ url_for('portal_solicitar_congelamiento') }}" method="POST" onsubmit="handleFormSubmit(this)">
+        <div class="modal-header">
+          <h5 class="modal-title" id="congelamientoModalLabel">Solicitar Congelamiento</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <div class="mb-3">
+                <label for="tiempo_congelamiento" class="form-label">Tiempo de congelamiento</label>
+                <select class="form-select" name="tiempo_congelamiento" id="tiempo_congelamiento" required>
+                    <option value="1 mes">1 mes</option>
+                    <option value="2 meses">2 meses</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="motivo_congelamiento" class="form-label">Motivo</label>
+                <textarea class="form-control" id="motivo_congelamiento" name="motivo" rows="3" required placeholder="Ej: Viaje, situación personal, etc."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="background-color: #f97316; border-color: #f97316;">Enviar Solicitud</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para Retiro (PUNTO 3) -->
+<div class="modal fade" id="retiroModal" tabindex="-1" aria-labelledby="retiroModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form action="{{ url_for('portal_solicitar_retiro') }}" method="POST" onsubmit="handleFormSubmit(this)">
+        <div class="modal-header">
+          <h5 class="modal-title" id="retiroModalLabel">Solicitar Retiro</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <p class="text-sm text-slate-600">Para iniciar el proceso de retiro, debes enviar un correo formalizando tu solicitud. Luego, registra aquí los datos de dicho correo.</p>
+            <div class="mb-3 mt-3">
+                <label for="fecha_correo_retiro" class="form-label">Fecha de envío del correo</label>
+                <input type="date" class="form-control" id="fecha_correo_retiro" name="fecha_correo_retiro" required>
+            </div>
+            <div class="mb-3">
+                <label for="email_origen_retiro" class="form-label">Correo desde el que se envió</label>
+                <input type="email" class="form-control" id="email_origen_retiro" name="email_origen_retiro" required placeholder="ejemplo@correo.com">
+            </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="background-color: #f97316; border-color: #f97316;">Confirmar y Solicitar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- FIN CAMBIOS HOJA DE RUTA -->
 
 {% endblock %}
 
@@ -327,5 +414,56 @@
             button.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
         });
     }
+
+    // INICIO CAMBIO HOJA DE RUTA PUNTO 2
+    document.addEventListener('DOMContentLoaded', function () {
+        const fechaInput = document.getElementById('fecha_cita');
+        const horaSelect = document.getElementById('hora_cita');
+
+        const horariosBase = {
+            "manana": ["09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM"],
+            "tarde": ["02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM"]
+        };
+
+        fechaInput.addEventListener('change', async function() {
+            const fechaSeleccionada = this.value;
+            if (!fechaSeleccionada) {
+                horaSelect.innerHTML = '<option value="">Seleccione una fecha primero</option>';
+                return;
+            }
+
+            horaSelect.innerHTML = '<option value="">Cargando horarios...</option>';
+            horaSelect.disabled = true;
+
+            try {
+                const response = await fetch(`/citas/disponibilidad?fecha=${fechaSeleccionada}`);
+                const data = await response.json();
+
+                horaSelect.innerHTML = '';
+                if (data.es_habil) {
+                    const horariosDisponibles = [...horariosBase.manana, ...horariosBase.tarde].filter(hora => !data.ocupados.includes(hora));
+                    
+                    if (horariosDisponibles.length > 0) {
+                        horariosDisponibles.forEach(hora => {
+                            const option = document.createElement('option');
+                            option.value = hora;
+                            option.textContent = hora;
+                            horaSelect.appendChild(option);
+                        });
+                    } else {
+                        horaSelect.innerHTML = '<option value="">No hay horarios disponibles</option>';
+                    }
+                } else {
+                    horaSelect.innerHTML = `<option value="">${data.mensaje || 'Día no hábil'}</option>`;
+                }
+            } catch (error) {
+                console.error('Error al cargar horarios:', error);
+                horaSelect.innerHTML = '<option value="">Error al cargar</option>';
+            } finally {
+                horaSelect.disabled = false;
+            }
+        });
+    });
+    // FIN CAMBIO HOJA DE RUTA PUNTO 2
 </script>
 {% endblock %}

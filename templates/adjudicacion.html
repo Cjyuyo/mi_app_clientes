@@ -9,6 +9,7 @@
 {% endblock %}
 
 {% block body %}
+<!-- INICIO CAMBIO HOJA DE RUTA PUNTO 8 -->
 <div class="space-y-8" x-data="adjudicacion()">
     <!-- Encabezado de la página -->
     <div class="bg-white p-6 rounded-xl shadow-sm">
@@ -32,8 +33,8 @@
         <div class="bg-white rounded-xl shadow-sm" x-data="{ activeTab: 'ahorradores' }">
             <div class="px-5 border-b border-slate-200">
                 <nav class="-mb-px flex space-x-6">
-                    <button @click="activeTab = 'ahorradores'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'ahorradores', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ahorradores' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ahorradores ({{ clientes_elegibles_ahorro|length }})</button>
-                    <button @click="activeTab = 'ofertas'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'ofertas', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ofertas' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ofertas Activas ({{ ofertas_activas|length }})</button>
+                    <button @click="activeTab = 'ahorradores'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'ahorradores', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ahorradores' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ahorradores ({{ clientes_elegibles_ahorro|length }})</button>
+                    <button @click="activeTab = 'ofertas'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'ofertas', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ofertas' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ofertas Activas ({{ ofertas_activas|length }})</button>
                 </nav>
             </div>
             <div class="p-5">
@@ -43,126 +44,83 @@
                         <table class="w-full text-sm text-left text-slate-500">
                             <thead class="text-xs text-slate-700 uppercase bg-slate-50">
                                 <tr>
-                                    <th scope="col" class="p-4">
-                                        <div class="flex items-center">
-                                            <input type="checkbox" @change="toggleSelectAllAhorradores($event)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                        </div>
-                                    </th>
                                     <th scope="col" class="px-6 py-3">Cliente</th>
                                     <th scope="col" class="px-6 py-3">Cédula</th>
-                                    <th scope="col" class="px-6 py-3">Cuotas Pagadas</th>
+                                    <th scope="col" class="px-6 py-3 text-center">Plan Contratado</th>
+                                    <th scope="col" class="px-6 py-3 text-center">Cuotas Pagadas</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for p in clientes_elegibles_ahorro|sort(attribute='cuotas_pagadas_progresivas', reverse=True) %}
                                 <tr class="bg-white border-b hover:bg-slate-50">
-                                    <td class="p-4">
-                                        <div class="flex items-center">
-                                            <input type="checkbox" value="{{ p.id }}" x-model="selectedAhorradores" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                        </div>
-                                    </td>
                                     <td class="px-6 py-4 font-medium text-slate-900">{{ p.nombre_apellido }}</td>
                                     <td class="px-6 py-4">{{ p.cedula }}</td>
-                                    <td class="px-6 py-4">{{ p.cuotas_pagadas_progresivas }}</td>
+                                    <td class="px-6 py-4 text-center font-semibold text-slate-600">${{ "%.2f"|format(p.plan_contratado|float) if p.plan_contratado else 'N/A' }}</td>
+                                    <td class="px-6 py-4 text-center font-bold">{{ p.cuotas_pagadas_progresivas }}</td>
                                 </tr>
                                 {% else %}
-                                <tr><td colspan="4" class="text-center p-4 text-slate-500">No hay ahorradores participantes.</td></tr>
+                                <tr><td colspan="4" class="text-center p-4 text-slate-500">No hay ahorradores elegibles.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
-                    </div>
-                    <div class="mt-4 text-right">
-                        <button @click="iniciarPreAdjudicacion('ahorradores')" :disabled="selectedAhorradores.length === 0" class="font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed">
-                            Pre-adjudicar Ahorradores Seleccionados
-                        </button>
                     </div>
                 </div>
                 <!-- Pestaña Ofertas -->
                 <div x-show="activeTab === 'ofertas'">
                     <div class="overflow-x-auto">
-                        {% set ofertas_ordenadas = ofertas_activas|sort(attribute='puntaje_total', reverse=True) %}
                         <table class="w-full text-sm text-left text-slate-500">
                             <thead class="text-xs text-slate-700 uppercase bg-slate-50">
                                 <tr>
-                                    <th scope="col" class="p-4">
-                                        <div class="flex items-center">
-                                            <input type="checkbox" @change="toggleSelectAllOfertas($event)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                        </div>
-                                    </th>
                                     <th scope="col" class="px-6 py-3 text-center">Pos.</th>
                                     <th scope="col" class="px-6 py-3">Cliente</th>
-                                    <th scope="col" class="px-6 py-3 text-center">Plan</th>
-                                    <th scope="col" class="px-6 py-3 text-center">Pagadas</th>
-                                    <th scope="col" class="px-6 py-3 text-center">Ofertadas</th>
-                                    <th scope="col" class="px-6 py-3 text-center">% Oferta</th>
-                                    <th scope="col" class="px-6 py-3 text-center">% Total</th>
+                                    <th scope="col" class="px-6 py-3 text-center">Plan Contratado</th>
+                                    <th scope="col" class="px-6 py-3 text-center">Cuotas Ofertadas</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for oferta in ofertas_ordenadas %}
+                                {% for oferta in ofertas_activas|sort(attribute='cuotas_ofertadas', reverse=True) %}
                                 <tr class="border-b hover:bg-slate-50 {% if loop.first %} bg-green-50 {% endif %}">
-                                    <td class="p-4">
-                                        <div class="flex items-center">
-                                            <input type="checkbox" value="{{ oferta.id }}" x-model="selectedOfertas" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                        </div>
-                                    </td>
                                     <td class="px-6 py-4 font-bold text-slate-900 text-center">
                                         {% if loop.first %}<i class="bi bi-trophy-fill text-yellow-500"></i>{% endif %} {{ loop.index }}
                                     </td>
                                     <td class="px-6 py-4 font-medium text-slate-900">{{ oferta.nombre_apellido }}</td>
-                                    <td class="px-6 py-4 text-center">{{ oferta.cuotas_totales }}</td>
-                                    <td class="px-6 py-4 text-center">{{ oferta.cuotas_pagadas_progresivas }}</td>
-                                    <td class="px-6 py-4 text-center font-bold">{{ oferta.cuotas_ofertadas }}</td>
-                                    <td class="px-6 py-4 text-center">{{ "%.1f"|format(oferta.porcentaje_oferta) }}%</td>
-                                    <td class="px-6 py-4 text-center font-bold">{{ "%.1f"|format(oferta.puntaje_total) }}%</td>
+                                    <td class="px-6 py-4 text-center font-semibold text-slate-600">${{ "%.2f"|format(oferta.plan_contratado|float) if oferta.plan_contratado else 'N/A' }}</td>
+                                    <td class="px-6 py-4 text-center font-bold text-lg">{{ oferta.cuotas_ofertadas }}</td>
                                 </tr>
                                 {% else %}
-                                <tr><td colspan="8" class="text-center p-4 text-slate-500">No hay ofertas activas.</td></tr>
+                                <tr><td colspan="4" class="text-center p-4 text-slate-500">No hay ofertas activas.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
-                    <div class="mt-4 text-right">
-                        <button @click="iniciarPreAdjudicacion('ofertas')" :disabled="selectedOfertas.length === 0" class="font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed">
-                            Pre-adjudicar Ofertas Seleccionadas
-                        </button>
-                    </div>
                 </div>
+            </div>
+            <div class="p-5 border-t border-slate-200 text-right">
+                 <button @click="iniciarPreAdjudicacion()" class="font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-lg py-2 px-4">
+                    Iniciar Pre-adjudicación Manual
+                </button>
             </div>
         </div>
     </div>
 
     <!-- Vista de Pre-adjudicación Manual -->
     <div x-show="preAdjudicacionIniciada" x-cloak>
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Columna de Participantes -->
             <div class="bg-white rounded-xl shadow-sm p-4">
                 <h3 class="font-bold text-slate-800 text-center mb-2">Participantes</h3>
-                <div class="flex items-center justify-between p-2">
-                    <div class="flex items-center">
-                        <input type="checkbox" @change="toggleSelectAll($event)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                        <label class="ml-2 text-sm text-slate-600">Seleccionar Todos</label>
-                    </div>
-                    <div x-show="selectedParticipantes.length > 0" class="flex gap-1">
-                        <button @click="moveSelected('adjudicados')" title="Adjudicar Seleccionados" class="btn btn-xs btn-success"><i class="bi bi-check-lg"></i></button>
-                        <button @click="moveSelected('opcionales')" title="Mover a Opcionales" class="btn btn-xs btn-warning"><i class="bi bi-hourglass-split"></i></button>
-                        <button @click="moveSelected('descartados')" title="Mover a Descartados" class="btn btn-xs btn-danger"><i class="bi bi-x-lg"></i></button>
-                    </div>
-                </div>
                 <div id="lista-participantes" class="min-h-[200px] bg-slate-100 rounded-lg p-2 space-y-2">
                     <template x-for="cliente in participantes" :key="cliente.id">
-                        <div class="bg-white p-3 rounded-md shadow-sm cursor-grab border flex justify-between items-center">
-                            <div class="flex items-center">
-                                <input type="checkbox" :value="cliente.id" x-model="selectedParticipantes" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3">
-                                <div>
-                                    <p class="font-semibold text-sm" x-text="cliente.nombre_apellido"></p>
-                                    <template x-if="cliente.tipo === 'Oferta'">
-                                        <p class="text-xs text-slate-500">Oferta: <span x-text="cliente.cuotas_ofertadas"></span> (<span x-text="cliente.puntaje_total.toFixed(1)"></span>%)</p>
-                                    </template>
-                                    <template x-if="cliente.tipo === 'Ahorrador'">
-                                        <p class="text-xs text-blue-500 font-semibold">Ahorrador (Pagadas: <span x-text="cliente.cuotas_pagadas_progresivas"></span>)</p>
-                                    </template>
-                                </div>
+                        <div class="bg-white p-3 rounded-md shadow-sm cursor-grab border-l-4 flex justify-between items-center" :class="{ 'border-blue-500': cliente.tipo === 'Ahorrador', 'border-orange-500': cliente.tipo === 'Oferta' }">
+                            <div>
+                                <p class="font-semibold text-sm" x-text="cliente.nombre_apellido"></p>
+                                <p class="text-xs text-slate-500" x-text="`Plan: $${parseFloat(cliente.plan_contratado || 0).toFixed(2)}`"></p>
+                                <template x-if="cliente.tipo === 'Oferta'">
+                                    <p class="text-xs text-orange-600 font-semibold"><i class="bi bi-gem"></i> Oferta: <span x-text="cliente.cuotas_ofertadas"></span> cuotas</p>
+                                </template>
+                                <template x-if="cliente.tipo === 'Ahorrador'">
+                                    <p class="text-xs text-blue-600 font-semibold"><i class="bi bi-piggy-bank-fill"></i> Ahorrador (Pagadas: <span x-text="cliente.cuotas_pagadas_progresivas"></span>)</p>
+                                </template>
                             </div>
                             <i class="bi bi-grip-vertical text-slate-400"></i>
                         </div>
@@ -172,59 +130,23 @@
 
             <!-- Columna de Adjudicados -->
             <div class="bg-white rounded-xl shadow-sm p-4">
-                <h3 class="font-bold text-green-600 text-center mb-2">Adjudicados</h3>
+                <div class="text-center mb-2">
+                    <h3 class="font-bold text-green-600">Adjudicados</h3>
+                    <div class="text-sm text-slate-500 mt-1">
+                        Presupuesto: <span class="font-bold text-slate-800" x-text="`$${presupuestoAdjudicados.toLocaleString('es-VE', {minimumFractionDigits: 2})}`"></span>
+                    </div>
+                </div>
                 <div id="lista-adjudicados" class="min-h-[200px] bg-green-50 rounded-lg p-2 space-y-2">
                      <template x-for="cliente in adjudicados" :key="cliente.id">
-                        <div class="bg-white p-3 rounded-md shadow-sm cursor-grab border-l-4 border-green-500 flex justify-between items-center">
+                        <div class="bg-white p-3 rounded-md shadow-sm cursor-grab border-l-4 flex justify-between items-center" :class="{ 'border-blue-500': cliente.tipo === 'Ahorrador', 'border-orange-500': cliente.tipo === 'Oferta' }">
                             <div>
                                 <p class="font-semibold text-sm" x-text="cliente.nombre_apellido"></p>
+                                <p class="text-xs text-slate-500" x-text="`Plan: $${parseFloat(cliente.plan_contratado || 0).toFixed(2)}`"></p>
                                 <template x-if="cliente.tipo === 'Oferta'">
-                                    <p class="text-xs text-slate-500">Oferta: <span x-text="cliente.cuotas_ofertadas"></span> (<span x-text="cliente.puntaje_total.toFixed(1)"></span>%)</p>
+                                    <p class="text-xs text-orange-600 font-semibold"><i class="bi bi-gem"></i> Oferta: <span x-text="cliente.cuotas_ofertadas"></span> cuotas</p>
                                 </template>
                                 <template x-if="cliente.tipo === 'Ahorrador'">
-                                    <p class="text-xs text-blue-500 font-semibold">Ahorrador (Pagadas: <span x-text="cliente.cuotas_pagadas_progresivas"></span>)</p>
-                                </template>
-                            </div>
-                            <i class="bi bi-grip-vertical text-slate-400"></i>
-                        </div>
-                    </template>
-                </div>
-            </div>
-
-            <!-- Columna de Opcionales -->
-            <div class="bg-white rounded-xl shadow-sm p-4">
-                <h3 class="font-bold text-yellow-600 text-center mb-2">Opcionales (Stand by)</h3>
-                <div id="lista-opcionales" class="min-h-[200px] bg-yellow-50 rounded-lg p-2 space-y-2">
-                    <template x-for="cliente in opcionales" :key="cliente.id">
-                        <div class="bg-white p-3 rounded-md shadow-sm cursor-grab border-l-4 border-yellow-500 flex justify-between items-center">
-                           <div>
-                                <p class="font-semibold text-sm" x-text="cliente.nombre_apellido"></p>
-                                <template x-if="cliente.tipo === 'Oferta'">
-                                    <p class="text-xs text-slate-500">Oferta: <span x-text="cliente.cuotas_ofertadas"></span> (<span x-text="cliente.puntaje_total.toFixed(1)"></span>%)</p>
-                                </template>
-                                <template x-if="cliente.tipo === 'Ahorrador'">
-                                    <p class="text-xs text-blue-500 font-semibold">Ahorrador (Pagadas: <span x-text="cliente.cuotas_pagadas_progresivas"></span>)</p>
-                                </template>
-                            </div>
-                            <i class="bi bi-grip-vertical text-slate-400"></i>
-                        </div>
-                    </template>
-                </div>
-            </div>
-            
-            <!-- Columna de Descartados -->
-             <div class="bg-white rounded-xl shadow-sm p-4">
-                <h3 class="font-bold text-red-600 text-center mb-2">Descartados</h3>
-                <div id="lista-descartados" class="min-h-[200px] bg-red-50 rounded-lg p-2 space-y-2">
-                    <template x-for="cliente in descartados" :key="cliente.id">
-                        <div class="bg-white p-3 rounded-md shadow-sm cursor-grab border-l-4 border-red-500 flex justify-between items-center">
-                            <div>
-                                <p class="font-semibold text-sm" x-text="cliente.nombre_apellido"></p>
-                                <template x-if="cliente.tipo === 'Oferta'">
-                                    <p class="text-xs text-slate-500">Oferta: <span x-text="cliente.cuotas_ofertadas"></span> (<span x-text="cliente.puntaje_total.toFixed(1)"></span>%)</p>
-                                </template>
-                                <template x-if="cliente.tipo === 'Ahorrador'">
-                                    <p class="text-xs text-blue-500 font-semibold">Ahorrador (Pagadas: <span x-text="cliente.cuotas_pagadas_progresivas"></span>)</p>
+                                    <p class="text-xs text-blue-600 font-semibold"><i class="bi bi-piggy-bank-fill"></i> Ahorrador (Pagadas: <span x-text="cliente.cuotas_pagadas_progresivas"></span>)</p>
                                 </template>
                             </div>
                             <i class="bi bi-grip-vertical text-slate-400"></i>
@@ -236,9 +158,12 @@
         <!-- Botones de Acción Final -->
         <div class="mt-6 flex justify-end gap-4">
             <button @click="cancelarPreAdjudicacion()" class="font-semibold text-slate-600 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg py-2 px-4">Cancelar</button>
-            <button @click="confirmarAdjudicacionFinal()" class="font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg py-2 px-6">
-                <i class="bi bi-check-circle-fill mr-2"></i> Confirmar Adjudicación Final
-            </button>
+            <form action="{{ url_for('realizar_adjudicacion') }}" method="POST" onsubmit="return confirmarAdjudicacionFinal()">
+                <input type="hidden" name="ganadores_json" :value="JSON.stringify(adjudicados.map(c => c.id))">
+                <button type="submit" class="font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg py-2 px-6">
+                    <i class="bi bi-check-circle-fill mr-2"></i> Confirmar Adjudicación Final
+                </button>
+            </form>
         </div>
     </div>
 </div>
@@ -249,30 +174,26 @@ function adjudicacion() {
         preAdjudicacionIniciada: false,
         participantes: [],
         adjudicados: [],
-        opcionales: [],
-        descartados: [],
-        selectedParticipantes: [],
-        // CAMBIO: Nuevos arrays para selecciones por pestaña
-        selectedAhorradores: [],
-        selectedOfertas: [],
+        presupuestoAdjudicados: 0,
+        
+        init() {
+            this.$watch('adjudicados', (newValue) => {
+                this.presupuestoAdjudicados = newValue.reduce((total, cliente) => {
+                    const monto = parseFloat(cliente.plan_contratado) || 0;
+                    return total + monto;
+                }, 0);
+            });
+        },
 
-        iniciarPreAdjudicacion(tipo) {
+        iniciarPreAdjudicacion() {
             this.cancelarPreAdjudicacion();
-            let listaInicial = [];
+            const todosAhorradores = {{ clientes_elegibles_ahorro | tojson }};
+            const todasOfertas = {{ ofertas_activas | tojson }};
             
-            if (tipo === 'ahorradores') {
-                const todosAhorradores = {{ clientes_elegibles_ahorro | tojson }};
-                const selectedIds = new Set(this.selectedAhorradores.map(id => parseInt(id)));
-                listaInicial = todosAhorradores.filter(c => selectedIds.has(c.id))
-                                              .map(c => ({ ...c, tipo: 'Ahorrador' }))
-                                              .sort((a, b) => (b.cuotas_pagadas_progresivas || 0) - (a.cuotas_pagadas_progresivas || 0));
-            } else if (tipo === 'ofertas') {
-                const todasOfertas = {{ ofertas_activas | tojson }};
-                const selectedIds = new Set(this.selectedOfertas.map(id => parseInt(id)));
-                listaInicial = todasOfertas.filter(o => selectedIds.has(o.id))
-                                          .map(o => ({ ...o, tipo: 'Oferta' }))
-                                          .sort((a, b) => (b.puntaje_total || 0) - (a.puntaje_total || 0));
-            }
+            let listaInicial = [
+                ...todosAhorradores.map(c => ({ ...c, tipo: 'Ahorrador' })),
+                ...todasOfertas.map(o => ({ ...o, tipo: 'Oferta' }))
+            ];
 
             this.participantes = listaInicial;
             this.preAdjudicacionIniciada = true;
@@ -280,87 +201,43 @@ function adjudicacion() {
             this.$nextTick(() => this.initSortable());
         },
 
-        toggleSelectAllAhorradores(event) {
-            const todosAhorradores = {{ clientes_elegibles_ahorro | tojson }};
-            if (event.target.checked) {
-                this.selectedAhorradores = todosAhorradores.map(p => p.id.toString());
-            } else {
-                this.selectedAhorradores = [];
-            }
-        },
-        
-        toggleSelectAllOfertas(event) {
-            const todasOfertas = {{ ofertas_activas | tojson }};
-            if (event.target.checked) {
-                this.selectedOfertas = todasOfertas.map(p => p.id.toString());
-            } else {
-                this.selectedOfertas = [];
-            }
-        },
-
-        toggleSelectAll(event) {
-            if (event.target.checked) {
-                this.selectedParticipantes = this.participantes.map(p => p.id);
-            } else {
-                this.selectedParticipantes = [];
-            }
-        },
-
-        moveSelected(targetListKey) {
-            const selectedIds = new Set(this.selectedParticipantes);
-            const itemsToMove = this.participantes.filter(p => selectedIds.has(p.id));
-            
-            this[targetListKey].push(...itemsToMove);
-            this.participantes = this.participantes.filter(p => !selectedIds.has(p.id));
-            
-            this.selectedParticipantes = [];
-            document.querySelector('input[type="checkbox"]').checked = false;
-        },
-
         cancelarPreAdjudicacion() {
             this.preAdjudicacionIniciada = false;
             this.participantes = [];
             this.adjudicados = [];
-            this.opcionales = [];
-            this.descartados = [];
-            this.selectedParticipantes = [];
-            this.selectedAhorradores = [];
-            this.selectedOfertas = [];
-        },
-
-        confirmarAdjudicacionFinal() {
-            const adjudicadosData = this.adjudicados.map(c => ({ id: c.id, tipo: c.tipo }));
-            const opcionalesData = this.opcionales.map(c => ({ id: c.id, tipo: c.tipo }));
-
-            if (adjudicadosData.length === 0) {
-                alert('Debe seleccionar al menos un cliente como "Adjudicado" para continuar.');
-                return;
-            }
-
-            console.log("Adjudicados:", adjudicadosData);
-            console.log("Opcionales:", opcionalesData);
-            
-            alert('¡Adjudicación finalizada con éxito! Se enviarán las notificaciones correspondientes.');
-            this.cancelarPreAdjudicacion();
         },
 
         initSortable() {
             const vm = this;
-            const createSortable = (id) => {
-                new Sortable(document.getElementById(id), {
-                    group: 'shared',
+            const createSortable = (id, groupName) => {
+                return new Sortable(document.getElementById(id), {
+                    group: groupName,
                     animation: 150,
                     onEnd: function (evt) {
                         const fromListKey = evt.from.id.replace('lista-', '');
                         const toListKey = evt.to.id.replace('lista-', '');
+                        
+                        // Evita mover entre listas que no sean participantes y adjudicados
+                        if (!['participantes', 'adjudicados'].includes(fromListKey) || !['participantes', 'adjudicados'].includes(toListKey)) {
+                            return;
+                        }
+
                         const item = vm[fromListKey].splice(evt.oldIndex, 1)[0];
                         vm[toListKey].splice(evt.newIndex, 0, item);
                     },
                 });
             };
-            ['participantes', 'adjudicados', 'opcionales', 'descartados'].forEach(id => createSortable(`lista-${id}`));
+            createSortable('lista-participantes', 'adjudicacion');
+            createSortable('lista-adjudicados', 'adjudicacion');
         }
     }
 }
+
+function confirmarAdjudicacionFinal() {
+    // Esta función se puede usar para una validación final antes de enviar el formulario.
+    // Por ahora, solo retorna true para permitir el envío.
+    return true;
+}
 </script>
+<!-- FIN CAMBIO HOJA DE RUTA PUNTO 8 -->
 {% endblock %}

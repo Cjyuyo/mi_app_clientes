@@ -412,6 +412,7 @@ def admin_logout():
 @app.route('/hub')
 @admin_required
 def hub():
+    # INICIO CAMBIO HOJA DE RUTA PUNTO 9
     stats = {
         'clientes_cartera': 0,
         'recaudado_mes': Decimal('0.0'),
@@ -425,16 +426,25 @@ def hub():
     if conn:
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT COUNT(*) FROM clientes WHERE gestor_id = %s", (g.admin['id'],))
+                # La consulta de clientes en cartera debe ser para todos los roles que gestionan clientes
+                if g.admin['rol'] in ['superadmin', 'gerente', 'administradora']:
+                     cur.execute("SELECT COUNT(*) FROM clientes WHERE estatus = 'ACTIVO'")
+                else: # Asesores solo ven su cartera
+                    cur.execute("SELECT COUNT(*) FROM clientes WHERE gestor_id = %s AND estatus = 'ACTIVO'", (g.admin['id'],))
                 stats['clientes_cartera'] = cur.fetchone()[0]
 
+                # Recaudado del mes solo para roles gerenciales
                 if g.admin['rol'] in ['superadmin', 'gerente']:
                     first_day_of_month = get_venezuela_current_date().replace(day=1)
                     cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
                     stats['recaudado_mes'] = cur.fetchone()[0]
+                
+                # Solicitudes pendientes para roles administrativos y gerenciales
+                if g.admin['rol'] in ['superadmin', 'gerente', 'administradora']:
                     cur.execute("SELECT COUNT(*) FROM solicitudes WHERE estado = 'Pendiente'")
                     stats['solicitudes_pendientes'] = cur.fetchone()[0]
 
+                # Reportes y pagos por conciliar para roles administrativos y gerenciales
                 if g.admin['rol'] in ['superadmin', 'gerente', 'administradora']:
                     cur.execute("SELECT COUNT(*) FROM pagos WHERE reportado_por_cliente = TRUE AND estado_reporte = 'Pendiente de Revision'")
                     stats['reportes_pendientes'] = cur.fetchone()[0]
@@ -446,24 +456,28 @@ def hub():
                     """)
                     stats['pagos_por_conciliar'] = cur.fetchone()[0]
 
+                # Tasa BCV para todos
                 cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
                 tasa_row = cur.fetchone()
                 if tasa_row and tasa_row['tasa']:
                     stats['tasa_bcv'] = f"{tasa_row['tasa']:,.2f} Bs"
                 
-                today_str = get_venezuela_current_date().isoformat()
-                cur.execute("SELECT COUNT(*) FROM solicitudes WHERE tipo_solicitud = 'Cita' AND estado = 'Aprobada' AND (detalles->>'fecha_cita') = %s", (today_str,))
-                citas_totales_hoy = cur.fetchone()[0]
-                cur.execute("SELECT COUNT(*) FROM solicitudes WHERE tipo_solicitud = 'Cita' AND estado = 'Completada' AND (detalles->>'fecha_cita') = %s", (today_str,))
-                citas_completadas_hoy = cur.fetchone()[0]
-                if citas_totales_hoy > 0:
-                    tasa_ocupacion = (citas_completadas_hoy / citas_totales_hoy) * 100
+                # Tasa de ocupación para roles que gestionan citas
+                if g.admin['rol'] in ['superadmin', 'gerente', 'administradora']:
+                    today_str = get_venezuela_current_date().isoformat()
+                    cur.execute("SELECT COUNT(*) FROM solicitudes WHERE tipo_solicitud = 'Cita' AND estado IN ('Aprobada', 'Completada') AND (detalles->>'fecha_cita') = %s", (today_str,))
+                    citas_totales_hoy = cur.fetchone()[0]
+                    cur.execute("SELECT COUNT(*) FROM solicitudes WHERE tipo_solicitud = 'Cita' AND estado = 'Completada' AND (detalles->>'fecha_cita') = %s", (today_str,))
+                    citas_completadas_hoy = cur.fetchone()[0]
+                    if citas_totales_hoy > 0:
+                        tasa_ocupacion = (citas_completadas_hoy / citas_totales_hoy) * 100
 
         except psycopg2.Error as e:
             logging.error(f"Error al calcular estadísticas para el HUB: {e}")
             flash("No se pudieron cargar todas las estadísticas del panel.", "warning")
 
     return render_template('hub.html', stats=stats, tasa_ocupacion=tasa_ocupacion)
+    # FIN CAMBIO HOJA DE RUTA PUNTO 9
 
 
 @app.route('/api/get_active_sessions')
@@ -1128,6 +1142,7 @@ def pagar_nomina_comercial():
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def get_split_contrato(contrato_nro):
+    # INICIO CAMBIO HOJA DE RUTA PUNTO 7
     conn = get_db()
     if not conn: return jsonify({'error': 'Error de conexión'}), 500
     try:
@@ -1137,29 +1152,36 @@ def get_split_contrato(contrato_nro):
             cur.execute("SELECT cli.plan_contratado, ci.sobrante_empresa FROM caja_inscripciones ci JOIN clientes cli ON ci.cliente_id = cli.id WHERE ci.contrato_nro = %s;", (contrato_nro,))
             contrato_info = cur.fetchone()
             if not contrato_info: return jsonify({'error': 'Contrato no encontrado'}), 404
+            
             try:
                 plan_contratado_decimal = Decimal(contrato_info['plan_contratado'])
             except (TypeError, InvalidOperation, ValueError):
                 plan_contratado_decimal = Decimal('0.00')
-            pool_total, total_pagado = plan_contratado_decimal * Decimal('0.16'), sum(c['monto_comision'] for c in comisiones)
+
+            pool_total = plan_contratado_decimal * Decimal('0.16')
+            total_pagado = sum(c['monto_comision'] for c in comisiones)
+            
             comisiones_json = [{'beneficiario': c['nombre_beneficiario'], 'concepto': c['concepto'], 'monto': f"{c['monto_comision']:,.2f}"} for c in comisiones]
+            
             response_data = {
                 'comisiones': comisiones_json,
                 'resumen': {
                     'pool_total': f"{pool_total:,.2f}",
                     'total_comisiones': f"{total_pagado:,.2f}",
-                    'sobrante_empresa': f"{contrato_info['sobrante_empresa']:,.2f}" if contrato_info['sobrante_empresa'] is not None else "N/A"
+                    'sobrante_empresa': f"{contrato_info['sobrante_empresa']:,.2f}" if contrato_info['sobrante_empresa'] is not None else "0.00"
                 }
             }
             return jsonify(response_data)
-    except psycopg2.Error as e:
+    except (psycopg2.Error, TypeError) as e:
         logging.error(f"Error en get_split_contrato para {contrato_nro}: {e}")
         return jsonify({'error': 'Error al consultar la base de datos'}), 500
+    # FIN CAMBIO HOJA DE RUTA PUNTO 7
 
 @app.route('/comercial/historial_asesor/<string:nombre_beneficiario>')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def get_historial_asesor(nombre_beneficiario):
+    # INICIO CAMBIO HOJA DE RUTA PUNTO 7
     conn = get_db()
     if not conn: return jsonify({'error': 'Error de conexión'}), 500
     try:
@@ -1175,15 +1197,21 @@ def get_historial_asesor(nombre_beneficiario):
             historial = cur.fetchall()
             historial_json = []
             for item in historial:
+                try:
+                    plan_contratado_val = Decimal(item['plan_contratado'])
+                except (TypeError, InvalidOperation, ValueError):
+                    plan_contratado_val = Decimal('0.00')
+
                 historial_json.append({
                     'concepto': item['concepto'], 'monto': f"{item['monto_comision']:,.2f}",
                     'contrato_nro': item['contrato_nro'], 'cliente': f"{item['nombre']} {item['apellido']}",
-                    'plan_contratado': f"{Decimal(item['plan_contratado']):,.2f}", 'responsable_cierre': item['responsable_cierre']
+                    'plan_contratado': f"{plan_contratado_val:,.2f}", 'responsable_cierre': item['responsable_cierre']
                 })
             return jsonify(historial_json)
-    except psycopg2.Error as e:
+    except (psycopg2.Error, TypeError) as e:
         logging.error(f"Error en get_historial_asesor para {nombre_beneficiario}: {e}")
         return jsonify({'error': 'Error al consultar la base de datos'}), 500
+    # FIN CAMBIO HOJA DE RUTA PUNTO 7
 
 # --- RUTAS DE REPORTES Y GESTIÓN DE COBRANZA ---
 @app.route('/mi_cartera')
@@ -1907,13 +1935,11 @@ def conciliar_pago(pago_id):
 
 @app.route('/recibo/<int:pago_id>')
 def generar_recibo_pago(pago_id):
+    # INICIO CAMBIO HOJA DE RUTA PUNTO 1
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
-        if 'cliente_id' in session:
-            return redirect(url_for('portal_login'))
-        else:
-            return redirect(url_for('consulta'))
+        return redirect(url_for('home'))
     
     with conn.cursor() as cur:
         query = """
@@ -1927,20 +1953,21 @@ def generar_recibo_pago(pago_id):
 
     if not pago:
         flash('Recibo no encontrado.', 'error')
-        if 'cliente_id' in session:
-            return redirect(url_for('portal_dashboard'))
-        else:
-            return redirect(url_for('consulta'))
+        return redirect(url_for('home'))
 
-    # --- MODIFICACIÓN: Lógica para manejar recibos anulados ---
+    # Verificación de seguridad
+    if pago['estado_pago'] not in ['Conciliado', 'Anulado'] and pago['tipo_pago'] != 'Inscripción Finalizada':
+        flash('Este recibo no puede ser visualizado porque el pago no ha sido conciliado.', 'warning')
+        return redirect(url_for('home'))
+    
+    # FIN CAMBIO HOJA DE RUTA PUNTO 1
+
     if pago['estado_pago'] == 'Anulado' and pago['detalles_reporte'] and 'recibo_final_id' in pago['detalles_reporte']:
         return render_template('recibo_anulado.html', pago=pago, is_admin_view='admin_id' in session)
 
-    # Si es un recibo de inscripción finalizado, usar su propia plantilla
     if pago['tipo_pago'] == 'Inscripción Finalizada':
         return redirect(url_for('ver_recibo_inscripcion', pago_id=pago_id))
 
-    # Para todos los demás recibos válidos
     return render_template('recibo.html', pago=pago, is_admin_view='admin_id' in session)
 
 
@@ -2203,6 +2230,7 @@ def guardar_oferta(client_id):
 @app.route('/adjudicacion', methods=['GET'])
 @admin_required
 def adjudicacion():
+    # INICIO CAMBIO HOJA DE RUTA PUNTO 8
     conn = get_db()
     clientes_elegibles_ahorro, ofertas_activas, historial = [], [], []
     if not conn:
@@ -2210,16 +2238,39 @@ def adjudicacion():
         return render_template('adjudicacion.html', clientes_elegibles_ahorro=clientes_elegibles_ahorro, ofertas_activas=ofertas_activas, historial=historial)
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, meses_retraso_entrega FROM clientes WHERE TRIM(UPPER(proceso)) = 'AHORRADOR' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega) AND TRIM(UPPER(estatus)) = 'ACTIVO' ORDER BY nombre, apellido;")
+            cur.execute("""
+                SELECT id, (nombre || ' ' || apellido) as nombre_apellido, cedula, cuotas_pagadas_progresivas, 
+                       meses_retraso_entrega, plan_contratado 
+                FROM clientes 
+                WHERE TRIM(UPPER(proceso)) = 'AHORRADOR' AND cuotas_pagadas_progresivas >= (12 + meses_retraso_entrega) 
+                AND TRIM(UPPER(estatus)) = 'ACTIVO' ORDER BY nombre, apellido;
+            """)
             clientes_elegibles_ahorro = cur.fetchall()
-            cur.execute("SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula FROM ofertas o JOIN clientes c ON o.cliente_id = c.id WHERE o.estado_oferta = 'activa' AND TRIM(UPPER(c.proceso)) = 'AHORRADOR' ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;")
+            
+            cur.execute("""
+                SELECT o.cuotas_ofertadas, c.id, (c.nombre || ' ' || c.apellido) as nombre_apellido, 
+                       c.cedula, c.plan_contratado
+                FROM ofertas o JOIN clientes c ON o.cliente_id = c.id 
+                WHERE o.estado_oferta = 'activa' AND TRIM(UPPER(c.proceso)) = 'AHORRADOR' 
+                ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;
+            """)
             ofertas_activas = cur.fetchall()
-            cur.execute("SELECT a.id, a.fecha_adjudicacion, (gs.nombre || ' ' || gs.apellido) as nombre_ganador_sorteo, (go.nombre || ' ' || go.apellido) as nombre_ganador_oferta FROM adjudicaciones a LEFT JOIN clientes gs ON a.ganador_sorteo_id = gs.id LEFT JOIN clientes go ON a.ganador_oferta_id = go.id ORDER BY a.fecha_adjudicacion DESC;")
+
+            cur.execute("""
+                SELECT a.id, a.fecha_adjudicacion, 
+                       (gs.nombre || ' ' || gs.apellido) as nombre_ganador_sorteo, 
+                       (go.nombre || ' ' || go.apellido) as nombre_ganador_oferta 
+                FROM adjudicaciones a 
+                LEFT JOIN clientes gs ON a.ganador_sorteo_id = gs.id 
+                LEFT JOIN clientes go ON a.ganador_oferta_id = go.id 
+                ORDER BY a.fecha_adjudicacion DESC;
+            """)
             historial = cur.fetchall()
     except psycopg2.Error as e:
         flash(f"Error al cargar datos para la adjudicación: {e}", "error")
         clientes_elegibles_ahorro, ofertas_activas, historial = [], [], []
     return render_template('adjudicacion.html', clientes_elegibles_ahorro=clientes_elegibles_ahorro, ofertas_activas=ofertas_activas, historial=historial)
+    # FIN CAMBIO HOJA DE RUTA PUNTO 8
 
 @app.route('/realizar_adjudicacion', methods=['POST'])
 @admin_required
@@ -2843,6 +2894,7 @@ def portal_reportar_pago():
 @app.route('/portal/estado_cuenta')
 @portal_login_required
 def portal_estado_cuenta():
+    # INICIO CAMBIO HOJA DE RUTA PUNTO 4
     if g.cliente is None:
         return redirect(url_for('portal_login'))
     conn = get_db()
@@ -2853,13 +2905,19 @@ def portal_estado_cuenta():
         with conn.cursor() as cur:
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
             cliente = cur.fetchone()
-            cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_pago DESC, id DESC;", (session['cliente_id'],))
+            if not cliente:
+                flash('Cliente no encontrado.', 'error')
+                return redirect(url_for('portal_login'))
+            
+            cur.execute("SELECT * FROM pagos WHERE cliente_id = %s AND estado_pago != 'Anulado' ORDER BY fecha_pago DESC, id DESC;", (session['cliente_id'],))
             pagos = cur.fetchall()
+            
             fecha_generacion = get_venezuela_current_date().strftime('%d/%m/%Y')
             return render_template('estado_cuenta.html', cliente=cliente, pagos=pagos, fecha_generacion=fecha_generacion)
     except psycopg2.Error as e:
         flash(f'Ocurrió un error al generar el estado de cuenta: {e}', 'error')
         return redirect(url_for('portal_dashboard'))
+    # FIN CAMBIO HOJA DE RUTA PUNTO 4
 
 @app.route('/portal/logout')
 def portal_logout():
@@ -2870,91 +2928,96 @@ def portal_logout():
 @app.route('/citas/disponibilidad')
 @portal_login_required
 def citas_disponibilidad():
+    # INICIO CAMBIO HOJA DE RUTA PUNTO 2
     fecha_str = request.args.get('fecha')
     if not fecha_str: return jsonify({'error': 'Fecha no proporcionada'}), 400
     try:
         fecha_obj = datetime.strptime(fecha_str, '%Y-%m-%d').date()
     except ValueError:
         return jsonify({'error': 'Formato de fecha inválido'}), 400
+    
+    if fecha_obj < get_venezuela_current_date():
+        return jsonify({'ocupados': [], 'es_habil': False, 'mensaje': 'No se pueden agendar citas en fechas pasadas.'})
     if fecha_obj.weekday() >= 5:
-        return jsonify({'ocupados': [], 'es_habil': False, 'mensaje': 'No se pueden agendar citas los fines de semana.'})
+        return jsonify({'ocupados': [], 'es_habil': False, 'mensaje': 'No se agendan citas los fines de semana.'})
+    
     feriados = get_feriados_venezuela(fecha_obj.year)
     if fecha_obj in feriados:
         return jsonify({'ocupados': [], 'es_habil': False, 'mensaje': 'El día seleccionado es feriado.'})
+    
     conn = get_db()
     if not conn: return jsonify({'error': 'Error de conexión con la base de datos'}), 500
+    
     citas_ocupadas = []
     try:
         with conn.cursor() as cur:
+            # Se buscan citas que ya estén aprobadas para esa fecha
             query = "SELECT detalles->>'hora_cita' as hora_ocupada FROM solicitudes WHERE tipo_solicitud = 'Cita' AND estado = 'Aprobada' AND (detalles->>'fecha_cita')::date = %s"
             cur.execute(query, (fecha_obj,))
             resultados = cur.fetchall()
             citas_ocupadas = [row['hora_ocupada'] for row in resultados if row['hora_ocupada']]
-            
-            if fecha_obj == get_venezuela_current_date():
-                hora_actual_str = get_venezuela_current_datetime().strftime('%I:%M %p')
-                hora_actual = datetime.strptime(hora_actual_str, '%I:%M %p')
-                
-                horarios_disponibles = {
-                    "manana": ["10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM"],
-                    "tarde": ["04:00 PM", "04:30 PM"]
-                }
-                todos_los_horarios = horarios_disponibles['manana'] + horarios_disponibles['tarde']
-                for hora_slot in todos_los_horarios:
-                    hora_slot_dt = datetime.strptime(hora_slot, '%I:%M %p')
-                    if hora_actual > hora_slot_dt:
-                        citas_ocupadas.append(hora_slot)
-
     except psycopg2.Error as e:
         logging.error(f"Error al consultar disponibilidad de citas: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
+        
     return jsonify({'ocupados': list(set(citas_ocupadas)), 'es_habil': True})
+    # FIN CAMBIO HOJA DE RUTA PUNTO 2
 
 @app.route('/portal/guardar_oferta', methods=['POST'])
 @portal_login_required
 def portal_guardar_oferta():
-    conn, cuotas_ofertadas, cliente_id = get_db(), request.form.get('cuotas_ofertadas'), session['cliente_id']
+    # INICIO CAMBIO HOJA DE RUTA PUNTO 5
+    conn = get_db()
+    cuotas_ofertadas = request.form.get('cuotas_ofertadas')
+    cliente_id = session['cliente_id']
+
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('portal_dashboard'))
+    
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT inscripcion_monto, inscripcion_pagada FROM clientes WHERE id = %s", (cliente_id,))
-            cliente = cur.fetchone()
-            inscripcion_completa = (cliente['inscripcion_pagada'] or 0) >= (cliente['inscripcion_monto'] or 0)
-            cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'", (cliente_id,))
-            primera_cuota_pagada = cur.fetchone() is not None
-            
-            if not (inscripcion_completa and primera_cuota_pagada):
-                flash("No cumples con los requisitos para registrar una oferta en este momento.", 'error')
-                return redirect(url_for('portal_dashboard'))
-
             if not cuotas_ofertadas or not cuotas_ofertadas.isdigit() or int(cuotas_ofertadas) <= 0:
                 flash("Debe ingresar un número válido de cuotas para la oferta.", 'error')
                 return redirect(url_for('portal_dashboard'))
-            cur.execute("INSERT INTO ofertas (cliente_id, cuotas_ofertadas, fecha_oferta, estado_oferta) VALUES (%s, %s, %s, 'activa')", (cliente_id, int(cuotas_ofertadas), get_venezuela_current_date()))
+
+            cur.execute("INSERT INTO ofertas (cliente_id, cuotas_ofertadas, fecha_oferta, estado_oferta) VALUES (%s, %s, %s, 'activa')", 
+                        (cliente_id, int(cuotas_ofertadas), get_venezuela_current_date()))
+            
             conn.commit()
             registrar_accion_auditoria('REGISTRO_OFERTA_CLIENTE', f"Cliente ofertó {cuotas_ofertadas} cuota(s).")
             flash(f"¡Tu oferta de {cuotas_ofertadas} cuotas ha sido registrada exitosamente!", 'success')
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"Ocurrió un error al registrar tu oferta: {e}", 'error')
+        
     return redirect(url_for('portal_dashboard'))
+    # FIN CAMBIO HOJA DE RUTA PUNTO 5
 
 @app.route('/portal/solicitar_cita', methods=['POST'])
 @portal_login_required
 def portal_solicitar_cita():
-    conn, cliente_id = get_db(), session['cliente_id']
-    fecha_cita, hora_cita, motivo_cita = request.form.get('fecha_cita'), request.form.get('hora_cita'), request.form.get('motivo_cita')
-    if not all([fecha_cita, hora_cita, motivo_cita]):
+    # INICIO CAMBIO HOJA DE RUTA PUNTO 2
+    conn = get_db()
+    cliente_id = session['cliente_id']
+    fecha_cita = request.form.get('fecha_cita')
+    hora_cita = request.form.get('hora_cita')
+    motivo_cita_select = request.form.get('motivo_cita')
+    motivo_otro_texto = request.form.get('motivo_otro_texto')
+
+    if not all([fecha_cita, hora_cita, motivo_cita_select]):
         flash('Todos los campos son requeridos para solicitar la cita.', 'error')
         return redirect(url_for('portal_dashboard'))
+
+    motivo_final = motivo_otro_texto if motivo_cita_select == 'Otro' else motivo_cita_select
+
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('portal_dashboard'))
+    
     try:
         with conn.cursor() as cur:
-            detalles = jsonify({'fecha_cita': fecha_cita, 'hora_cita': hora_cita, 'motivo': motivo_cita}).get_data(as_text=True)
+            detalles = json.dumps({'fecha_cita': fecha_cita, 'hora_cita': hora_cita, 'motivo': motivo_final})
             cur.execute("INSERT INTO solicitudes (cliente_id, tipo_solicitud, detalles, fecha_creacion, estado) VALUES (%s, 'Cita', %s, %s, 'Pendiente')",
                         (cliente_id, detalles, get_venezuela_current_datetime()))
             conn.commit()
@@ -2963,20 +3026,27 @@ def portal_solicitar_cita():
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"Error al enviar tu solicitud: {e}", 'error')
+        
     return redirect(url_for('portal_dashboard'))
+    # FIN CAMBIO HOJA DE RUTA PUNTO 2
 
 @app.route('/portal/solicitar_congelamiento', methods=['POST'])
 @portal_login_required
 def portal_solicitar_congelamiento():
-    conn, cliente_id = get_db(), session['cliente_id']
+    # INICIO CAMBIO HOJA DE RUTA PUNTO 3
+    conn = get_db()
+    cliente_id = session['cliente_id']
     motivo = request.form.get('motivo')
     tiempo = request.form.get('tiempo_congelamiento')
+
     if not motivo or not tiempo:
         flash("El motivo y el tiempo son requeridos para la solicitud.", "error")
         return redirect(url_for('portal_dashboard'))
+
     if not conn:
         flash("Error de conexión.", 'error')
         return redirect(url_for('portal_dashboard'))
+        
     try:
         with conn.cursor() as cur:
             detalles = json.dumps({'motivo': motivo, 'tiempo_congelamiento': tiempo})
@@ -2988,7 +3058,9 @@ def portal_solicitar_congelamiento():
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"Error al enviar tu solicitud: {e}", 'error')
+        
     return redirect(url_for('portal_dashboard'))
+    # FIN CAMBIO HOJA DE RUTA PUNTO 3
 
 @app.route('/portal/solicitar_descongelamiento', methods=['POST'])
 @portal_login_required
@@ -3014,21 +3086,27 @@ def portal_solicitar_descongelamiento():
 @app.route('/portal/solicitar_retiro', methods=['POST'])
 @portal_login_required
 def portal_solicitar_retiro():
-    conn, cliente_id = get_db(), session['cliente_id']
-    fecha_correo, email_origen = request.form.get('fecha_correo_retiro'), request.form.get('email_origen_retiro')
+    # INICIO CAMBIO HOJA DE RUTA PUNTO 3
+    conn = get_db()
+    cliente_id = session['cliente_id']
+    fecha_correo = request.form.get('fecha_correo_retiro')
+    email_origen = request.form.get('email_origen_retiro')
+
     if not fecha_correo or not email_origen:
         flash("Error: La fecha y el correo de origen son necesarios para procesar la solicitud de retiro.", 'danger')
         return redirect(url_for('portal_dashboard'))
+
     if not conn:
         flash("Error de conexión con la base de datos.", 'error')
         return redirect(url_for('portal_dashboard'))
+        
     try:
         with conn.cursor() as cur:
-            detalles = jsonify({
+            detalles = json.dumps({
                 'mensaje': 'Cliente confirma envío de correo para formalizar retiro.', 
                 'fecha_envio_correo': fecha_correo, 
                 'email_origen': email_origen
-            }).get_data(as_text=True)
+            })
             cur.execute("INSERT INTO solicitudes (cliente_id, tipo_solicitud, detalles, fecha_creacion, estado) VALUES (%s, 'Retiro', %s, %s, 'Pendiente')",
                         (cliente_id, detalles, get_venezuela_current_datetime()))
             conn.commit()
@@ -3037,18 +3115,24 @@ def portal_solicitar_retiro():
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"Error al enviar tu solicitud: {e}", 'error')
+        
     return redirect(url_for('portal_dashboard'))
+    # FIN CAMBIO HOJA DE RUTA PUNTO 3
 
 @app.route('/portal/ver_reporte/<int:pago_id>')
 @portal_login_required
 def portal_ver_reporte(pago_id):
+    # INICIO CAMBIO HOJA DE RUTA PUNTO 6
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('portal_dashboard'))
+    
     with conn.cursor() as cur:
+        # Se añade la condición para asegurar que el pago pertenece al cliente en sesión
         cur.execute("SELECT * FROM pagos WHERE id = %s AND cliente_id = %s", (pago_id, session['cliente_id']))
         pago = cur.fetchone()
+
     if not pago:
         flash('El reporte de pago solicitado no existe o no tienes permiso para verlo.', 'danger')
         return redirect(url_for('portal_dashboard'))
@@ -3061,7 +3145,9 @@ def portal_ver_reporte(pago_id):
             except json.JSONDecodeError:
                 pago_dict['detalles_reporte'] = {}
 
+    # Se reutiliza la plantilla ver_reporte.html, indicando que es la vista del cliente
     return render_template('ver_reporte.html', pago=pago_dict, is_client_view=True)
+    # FIN CAMBIO HOJA DE RUTA PUNTO 6
 
 # ===== RUTAS DE ADMINISTRACIÓN (ACTUALIZADAS) =====
 

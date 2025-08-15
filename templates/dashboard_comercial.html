@@ -116,10 +116,13 @@
             </div>
             <div class="divide-y divide-slate-100">
                 {% for resumen in resumen_asesores %}
-                <div class="p-3 flex justify-between items-center hover:bg-slate-50">
+                <!-- INICIO CAMBIO HOJA DE RUTA PUNTO 7: Se añaden atributos para el modal de historial -->
+                <div class="p-3 flex justify-between items-center hover:bg-slate-50 cursor-pointer"
+                     data-bs-toggle="modal" data-bs-target="#historialModal" data-beneficiario="{{ resumen.nombre_beneficiario }}">
                     <span class="font-medium text-sm text-slate-900">{{ resumen.nombre_beneficiario }}</span>
                     <span class="font-semibold text-sm">${{ "{:,.2f}".format(resumen.total_pendiente) }}</span>
                 </div>
+                <!-- FIN CAMBIO HOJA DE RUTA PUNTO 7 -->
                 {% else %}
                 <p class="text-center p-6 text-slate-500">No hay comisiones pendientes.</p>
                 {% endfor %}
@@ -127,18 +130,129 @@
         </div>
     </div>
 
-    <!-- Modals -->
-    <div class="modal fade" id="splitModal" tabindex="-1">
-        <!-- Contenido del modal -->
+    <!-- INICIO CAMBIO HOJA DE RUTA PUNTO 7: Se añaden los modales -->
+    <!-- Modal para Ver Split -->
+    <div class="modal fade" id="splitModal" tabindex="-1" aria-labelledby="splitModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="splitModalTitle">Split de Comisiones</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="splitModalBody">
+            <!-- Contenido dinámico aquí -->
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="modal fade" id="historialModal" tabindex="-1">
-        <!-- Contenido del modal -->
+
+    <!-- Modal para Historial de Asesor -->
+    <div class="modal fade" id="historialModal" tabindex="-1" aria-labelledby="historialModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="historialModalTitle">Historial de Comisiones Pendientes</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="historialModalBody">
+            <!-- Contenido dinámico aquí -->
+          </div>
+        </div>
+      </div>
     </div>
+    <!-- FIN CAMBIO HOJA DE RUTA PUNTO 7 -->
 </div>
 {% endblock %}
 
 {% block scripts_extra %}
+<!-- INICIO CAMBIO HOJA DE RUTA PUNTO 7: Se añade el script para cargar datos en los modales -->
 <script>
-    // Tu script para los modales
+document.addEventListener('DOMContentLoaded', function () {
+    const splitModalEl = document.getElementById('splitModal');
+    const historialModalEl = document.getElementById('historialModal');
+
+    // Handler para el modal de Split de Comisiones
+    splitModalEl.addEventListener('show.bs.modal', async function (event) {
+        const button = event.relatedTarget;
+        const contratoNro = button.getAttribute('data-contrato-nro');
+        const modalTitle = splitModalEl.querySelector('.modal-title');
+        const modalBody = splitModalEl.querySelector('.modal-body');
+
+        modalTitle.textContent = `Cargando split para Contrato #${contratoNro}...`;
+        modalBody.innerHTML = `<div class="d-flex justify-content-center p-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
+
+        try {
+            const response = await fetch(`/comercial/split_contrato/${contratoNro}`);
+            if (!response.ok) throw new Error(`Error ${response.status}: No se pudo cargar la información.`);
+            const data = await response.json();
+
+            modalTitle.textContent = `Split de Comisiones - Contrato #${contratoNro}`;
+            let content = '<ul class="list-group list-group-flush">';
+            data.comisiones.forEach(c => {
+                content += `<li class="list-group-item d-flex justify-content-between align-items-center"><div><p class="mb-0 fw-bold">${c.beneficiario}</p><small class="text-muted">${c.concepto}</small></div><span class="badge bg-primary rounded-pill fs-6">$${c.monto}</span></li>`;
+            });
+            content += '</ul>';
+            content += `<div class="mt-4 p-3 bg-light rounded">
+                            <div class="d-flex justify-content-between"><span>Pool Total (16%):</span> <span class="fw-bold">$${data.resumen.pool_total}</span></div>
+                            <div class="d-flex justify-content-between"><span>Total Comisiones:</span> <span class="fw-bold">$${data.resumen.total_comisiones}</span></div>
+                            <hr>
+                            <div class="d-flex justify-content-between text-success fw-bold"><span>Sobrante Empresa:</span> <span>$${data.resumen.sobrante_empresa}</span></div>
+                        </div>`;
+            modalBody.innerHTML = content;
+        } catch (error) {
+            modalTitle.textContent = 'Error';
+            modalBody.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+        }
+    });
+
+    // Handler para el modal de Historial de Asesor
+    historialModalEl.addEventListener('show.bs.modal', async function (event) {
+        const triggerElement = event.relatedTarget;
+        const beneficiario = triggerElement.getAttribute('data-beneficiario');
+        const modalTitle = historialModalEl.querySelector('.modal-title');
+        const modalBody = historialModalEl.querySelector('.modal-body');
+
+        modalTitle.textContent = `Cargando historial para ${beneficiario}...`;
+        modalBody.innerHTML = `<div class="d-flex justify-content-center p-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
+
+        try {
+            const response = await fetch(`/comercial/historial_asesor/${encodeURIComponent(beneficiario)}`);
+            if (!response.ok) throw new Error(`Error ${response.status}: No se pudo cargar el historial.`);
+            const data = await response.json();
+            
+            modalTitle.textContent = `Comisiones Pendientes de ${beneficiario}`;
+            if (data.length === 0) {
+                modalBody.innerHTML = '<p class="text-center text-muted">No hay comisiones pendientes para este beneficiario.</p>';
+                return;
+            }
+
+            let tableContent = `<div class="table-responsive"><table class="table table-sm table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Contrato</th>
+                                            <th>Cliente</th>
+                                            <th>Concepto</th>
+                                            <th class="text-end">Monto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>`;
+            data.forEach(item => {
+                tableContent += `<tr>
+                                    <td>${item.contrato_nro}</td>
+                                    <td>${item.cliente}</td>
+                                    <td>${item.concepto}</td>
+                                    <td class="text-end fw-bold">$${item.monto}</td>
+                                 </tr>`;
+            });
+            tableContent += '</tbody></table></div>';
+            modalBody.innerHTML = tableContent;
+
+        } catch (error) {
+            modalTitle.textContent = 'Error';
+            modalBody.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+        }
+    });
+});
 </script>
+<!-- FIN CAMBIO HOJA DE RUTA PUNTO 7 -->
 {% endblock %}
