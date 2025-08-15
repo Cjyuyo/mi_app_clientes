@@ -821,6 +821,47 @@ def procesar_solicitud(solicitud_id):
     
     return redirect(redirect_url)
 
+@app.route('/solicitudes/cancelar_cita_admin/<int:solicitud_id>', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora')
+def cancelar_cita_admin(solicitud_id):
+    """
+    Ruta para que un administrador cancele una cita.
+    Esta función resuelve el BuildError al proporcionar el endpoint faltante.
+    """
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión.", "danger")
+        return redirect(url_for('gestion_citas'))
+    
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT cliente_id, estado FROM solicitudes WHERE id = %s", (solicitud_id,))
+            solicitud = cur.fetchone()
+
+            if not solicitud:
+                flash("La cita que intenta cancelar no existe.", "error")
+                return redirect(url_for('gestion_citas'))
+
+            # Permite cancelar citas que están pendientes o ya aprobadas
+            if solicitud['estado'] not in ['Aprobada', 'Pendiente']:
+                flash("Esta cita no se puede cancelar porque ya ha sido procesada o cancelada.", "warning")
+                return redirect(url_for('gestion_citas'))
+
+            cur.execute("UPDATE solicitudes SET estado = 'Cancelada', revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s", (g.admin['id'], solicitud_id))
+            
+            descripcion_audit = f"Canceló (admin) la solicitud de Cita N° {solicitud_id}."
+            registrar_accion_auditoria('GESTION_SOLICITUD', descripcion_audit, solicitud['cliente_id'])
+            
+            conn.commit()
+            flash("La cita ha sido cancelada exitosamente.", "success")
+
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error al cancelar la cita: {e}", "error")
+
+    return redirect(url_for('gestion_citas'))
+
 # =================================================================================
 # ===== NUEVO FLUJO DE VALIDACIÓN Y CONCILIACIÓN =====
 # =================================================================================
@@ -3268,3 +3309,4 @@ def ver_reporte(pago_id):
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+
