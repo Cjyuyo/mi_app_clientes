@@ -30,7 +30,7 @@
 
     <!-- Vista Principal: Antes de la Pre-adjudicación -->
     <div x-show="!preAdjudicacionIniciada">
-        <div class="bg-white rounded-xl shadow-sm" x-data="{ activeTab: 'ahorradores' }">
+        <div class="bg-white rounded-xl shadow-sm" x-data="{ activeTab: 'ofertas' }">
             <div class="px-5 border-b border-slate-200">
                 <nav class="-mb-px flex space-x-6">
                     <button @click="activeTab = 'ahorradores'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'ahorradores', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ahorradores' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ahorradores ({{ clientes_elegibles_ahorro|length }})</button>
@@ -71,24 +71,48 @@
                         <table class="w-full text-sm text-left text-slate-500">
                             <thead class="text-xs text-slate-700 uppercase bg-slate-50">
                                 <tr>
+                                    <!-- >>> CAMBIO ESPECIFICO: Checkbox de seleccion -->
+                                    <th scope="col" class="p-4">
+                                        <div class="flex items-center">
+                                            <input id="checkbox-all" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                                            <label for="checkbox-all" class="sr-only">checkbox</label>
+                                        </div>
+                                    </th>
+                                    <!-- <<< FIN CAMBIO -->
                                     <th scope="col" class="px-6 py-3 text-center">Pos.</th>
                                     <th scope="col" class="px-6 py-3">Cliente</th>
                                     <th scope="col" class="px-6 py-3 text-center">Plan Contratado</th>
+                                    <!-- >>> CAMBIO ESPECIFICO: Nuevas columnas de datos -->
+                                    <th scope="col" class="px-6 py-3 text-center">Cuotas Pagadas</th>
+                                    <th scope="col" class="px-6 py-3 text-center">Frecuencia Ofertas</th>
+                                    <!-- <<< FIN CAMBIO -->
                                     <th scope="col" class="px-6 py-3 text-center">Cuotas Ofertadas</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for oferta in ofertas_activas|sort(attribute='cuotas_ofertadas', reverse=True) %}
                                 <tr class="border-b hover:bg-slate-50 {% if loop.first %} bg-green-50 {% endif %}">
+                                    <!-- >>> CAMBIO ESPECIFICO: Botón de selección individual por fila -->
+                                    <td class="w-4 p-4">
+                                        <div class="flex items-center">
+                                            <input id="checkbox-table-{{ oferta.id }}" name="seleccion_individual" value="{{ oferta.id }}" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                                            <label for="checkbox-table-{{ oferta.id }}" class="sr-only">checkbox</label>
+                                        </div>
+                                    </td>
+                                    <!-- <<< FIN CAMBIO -->
                                     <td class="px-6 py-4 font-bold text-slate-900 text-center">
                                         {% if loop.first %}<i class="bi bi-trophy-fill text-yellow-500"></i>{% endif %} {{ loop.index }}
                                     </td>
                                     <td class="px-6 py-4 font-medium text-slate-900">{{ oferta.nombre_apellido }}</td>
                                     <td class="px-6 py-4 text-center font-semibold text-slate-600">${{ "%.2f"|format(oferta.plan_contratado|float) if oferta.plan_contratado else 'N/A' }}</td>
+                                    <!-- >>> CAMBIO ESPECIFICO: Nuevas columnas de datos -->
+                                    <td class="px-6 py-4 text-center font-semibold text-slate-600">{{ oferta.cuotas_pagadas }}</td>
+                                    <td class="px-6 py-4 text-center font-semibold text-slate-600">{{ oferta.frecuencia_ofertas }}</td>
+                                    <!-- <<< FIN CAMBIO -->
                                     <td class="px-6 py-4 text-center font-bold text-lg">{{ oferta.cuotas_ofertadas }}</td>
                                 </tr>
                                 {% else %}
-                                <tr><td colspan="4" class="text-center p-4 text-slate-500">No hay ofertas activas.</td></tr>
+                                <tr><td colspan="7" class="text-center p-4 text-slate-500">No hay ofertas activas.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>

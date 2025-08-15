@@ -1558,54 +1558,110 @@ def perfil_cliente(cliente_id):
                 """, (cliente_id,))
                 gestiones = cur.fetchall()
 
+# >>> CAMBIO ESPECIFICO: Historial Unificado
+                # Unificar todos los eventos del cliente en una sola lista para el historial.
                 cur.execute("""
-                    SELECT 'Solicitud de ' || tipo_solicitud AS tipo, detalles, fecha_creacion AS fecha, estado, revisado_por_id, null as usuario_nombre
-                    FROM solicitudes 
-                    WHERE cliente_id = %s
+                    SELECT 
+                        'solicitud' as origen,
+                        id,
+                        'Solicitud de ' || tipo_solicitud AS tipo, 
+                        detalles, 
+                        fecha_creacion AS fecha, 
+                        estado, 
+                        revisado_por_id, 
+                        null as usuario_nombre,
+                        null as monto
+                    FROM solicitudes WHERE cliente_id = %s
                     UNION ALL
-                    SELECT accion AS tipo, detalles, timestamp AS fecha, 'N/A' as estado, usuario_id as revisado_por_id, usuario_nombre
-                    FROM registros_auditoria
-                    WHERE cliente_afectado_id = %s
+                    SELECT 
+                        'auditoria' as origen,
+                        id,
+                        accion AS tipo, 
+                        detalles, 
+                        timestamp AS fecha, 
+                        'N/A' as estado, 
+                        usuario_id as revisado_por_id, 
+                        usuario_nombre,
+                        null as monto
+                    FROM registros_auditoria WHERE cliente_afectado_id = %s
+                    UNION ALL
+                    SELECT
+                        'oferta' as origen,
+                        id,
+                        'Participación en Oferta' as tipo,
+                        json_build_object('cuotas', cuotas_ofertadas) as detalles,
+                        fecha_oferta::timestamp as fecha,
+                        estado_oferta as estado,
+                        null as revisado_por_id,
+                        'Cliente' as usuario_nombre,
+                        null as monto
+                    FROM ofertas WHERE cliente_id = %s
+                    UNION ALL
+                    SELECT
+                        'gestion' as origen,
+                        g.id,
+                        'Gestión de Cobranza' as tipo,
+                        json_build_object('nota', g.nota) as detalles,
+                        g.fecha_creacion as fecha,
+                        'Realizada' as estado,
+                        g.gestor_id as revisado_por_id,
+                        a.usuario as usuario_nombre,
+                        null as monto
+                    FROM gestiones_cobranza g JOIN administradores a ON g.gestor_id = a.id
+                    WHERE g.cliente_id = %s
                     ORDER BY fecha DESC;
-                """, (cliente_id, cliente_id))
+                """, (cliente_id, cliente_id, cliente_id, cliente_id))
                 
                 raw_events = cur.fetchall()
                 admin_cache = {}
 
                 for event in raw_events:
-                    evento_fmt = {'fecha': event['fecha']}
-                    if event['tipo'].startswith('Solicitud'):
-                        evento_fmt['tipo'] = event['tipo']
-                        detalles = event.get('detalles', {})
-                        if isinstance(detalles, str):
-                            try:
-                                detalles = json.loads(detalles)
-                            except json.JSONDecodeError:
-                                detalles = {}
+                    evento_fmt = {'fecha': event['fecha'], 'origen': event['origen']}
+                    detalles = event.get('detalles', {})
+                    if isinstance(detalles, str):
+                        try: detalles = json.loads(detalles)
+                        except json.JSONDecodeError: detalles = {}
 
+                    # Formateo basado en el origen del evento
+                    if event['origen'] == 'solicitud':
+                        evento_fmt['tipo'] = event['tipo']
                         descripcion = f"Estado: {event['estado']}"
                         if 'motivo' in detalles:
                             descripcion += f" - Motivo: {detalles.get('motivo', '')}"
                         if 'fecha_cita' in detalles:
                             descripcion += f" - Cita para el {detalles.get('fecha_cita')} a las {detalles.get('hora_cita')}"
-
-                        if event['estado'] != 'Pendiente':
-                            revisado_por_id = event.get('revisado_por_id')
-                            if revisado_por_id and revisado_por_id not in admin_cache:
-                                cur.execute("SELECT usuario FROM administradores WHERE id = %s", (revisado_por_id,))
-                                admin = cur.fetchone()
-                                admin_cache[revisado_por_id] = admin['usuario'] if admin else 'N/A'
-                            evento_fmt['usuario'] = admin_cache.get(revisado_por_id, 'Sistema')
-                            descripcion += f" por {evento_fmt['usuario']}"
                         
+                        revisado_por_id = event.get('revisado_por_id')
+                        if revisado_por_id and revisado_por_id not in admin_cache:
+                            cur.execute("SELECT usuario FROM administradores WHERE id = %s", (revisado_por_id,))
+                            admin = cur.fetchone()
+                            admin_cache[revisado_por_id] = admin['usuario'] if admin else 'N/A'
+                        
+                        usuario = admin_cache.get(revisado_por_id, 'Sistema')
+                        if event['estado'] != 'Pendiente':
+                            descripcion += f" por {usuario}"
+                        
+                        evento_fmt['usuario'] = usuario
                         evento_fmt['descripcion'] = descripcion
-                    else: 
+
+                    elif event['origen'] == 'oferta':
+                        evento_fmt['tipo'] = event['tipo']
+                        evento_fmt['descripcion'] = f"Cliente ofertó {detalles.get('cuotas', 0)} cuotas. Estado de la oferta: {event['estado'].capitalize()}."
+                        evento_fmt['usuario'] = 'Cliente'
+
+                    elif event['origen'] == 'gestion':
+                        evento_fmt['tipo'] = event['tipo']
+                        evento_fmt['descripcion'] = detalles.get('nota', 'Sin detalles.')
+                        evento_fmt['usuario'] = event.get('usuario_nombre', 'N/A')
+                    
+                    else: # Auditoria y otros
                         evento_fmt['tipo'] = f"Auditoría: {event['tipo']}"
-                        evento_fmt['descripcion'] = event.get('detalles').get('descripcion') if event.get('detalles') else 'Sin detalles'
+                        evento_fmt['descripcion'] = event.get('descripcion') or (detalles.get('descripcion') if isinstance(detalles, dict) else 'Sin detalles')
                         evento_fmt['usuario'] = event.get('usuario_nombre')
 
                     historial_eventos.append(evento_fmt)
-        except psycopg2.Error as e:
+# <<< FIN CAMBIO
+        except (psycopg2.Error, json.JSONDecodeError) as e:
             flash(f"Error al cargar el perfil del cliente: {e}", "error")
             return redirect(url_for('consulta'))
     return render_template('cliente_perfil.html', cliente=cliente, pagos=pagos, gestiones=gestiones, historial_eventos=historial_eventos, anio_actual=get_venezuela_current_date().year)
@@ -2309,7 +2365,25 @@ def adjudicacion():
                 WHERE o.estado_oferta = 'activa' AND TRIM(UPPER(c.proceso)) = 'AHORRADOR' 
                 ORDER BY o.cuotas_ofertadas DESC, o.fecha_oferta ASC;
             """)
-            ofertas_activas = cur.fetchall()
+            ofertas_activas_raw = cur.fetchall()
+
+# >>> CAMBIO ESPECIFICO: Agregar cuotas_pagadas y frecuencia_ofertas
+            ofertas_activas = []
+            for oferta in ofertas_activas_raw:
+                oferta_dict = dict(oferta)
+                
+                # Calcular cuotas_pagadas
+                cur.execute("SELECT COUNT(*) FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'", (oferta['id'],))
+                cuotas_pagadas = cur.fetchone()[0]
+                oferta_dict['cuotas_pagadas'] = cuotas_pagadas if cuotas_pagadas is not None else 0
+
+                # Calcular frecuencia_ofertas
+                cur.execute("SELECT COUNT(*) FROM ofertas WHERE cliente_id = %s", (oferta['id'],))
+                frecuencia_ofertas = cur.fetchone()[0]
+                oferta_dict['frecuencia_ofertas'] = frecuencia_ofertas if frecuencia_ofertas is not None else 0
+                
+                ofertas_activas.append(oferta_dict)
+# <<< FIN CAMBIO
 
             cur.execute("""
                 SELECT a.id, a.fecha_adjudicacion, 
@@ -3309,4 +3383,3 @@ def ver_reporte(pago_id):
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
-
