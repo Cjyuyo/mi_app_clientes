@@ -2590,7 +2590,7 @@ def portal_dashboard():
             for o in ofertas:
                  historial_gestiones.append({
                     'titulo': f"Oferta Registrada",
-                    'fecha': o['fecha_oferta'],
+                    'fecha': datetime.combine(o['fecha_oferta'], time.min), # Convertir date a datetime
                     'descripcion': f"Ofertaste {o['cuotas_ofertadas']} cuotas. Estado: {o['estado_oferta'].capitalize()}",
                     'estado': 'Aprobada' if o['estado_oferta'] == 'activa' else 'Rechazada',
                     'icono': 'bi-gem'
