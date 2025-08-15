@@ -3041,34 +3041,6 @@ def portal_pagar_inscripcion():
     return render_template('portal_pagar_inscripcion.html', cliente=cliente, monto_restante=monto_restante, tasas_hoy=tasas_hoy)
 
 
-@app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
-@admin_required
-@rol_requerido('superadmin', 'gerente', 'administradora')
-def procesar_reporte(pago_id):
-    conn = get_db()
-    accion = request.form.get('accion')
-    
-    if not conn:
-        flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('reportes_por_revisar'))
-
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT cliente_id, monto FROM pagos WHERE id = %s", (pago_id,))
-            pago = cur.fetchone()
-            if not pago:
-                flash("El pago no existe.", "error")
-                return redirect(url_for('reportes_por_revisar'))
-            cliente_id = pago['cliente_id']
-
-            nuevo_estado_reporte = ''
-            detalles_json = None
-            descripcion_audit = ''
-
-            if accion == 'aprobar':
-                # ... (rest of the duplicate function code) ...
-    
-    return redirect(url_for('reportes_por_revisar'))
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT cliente_id, monto FROM pagos WHERE id = %s", (pago_id,))
