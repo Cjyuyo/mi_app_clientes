@@ -2596,6 +2596,13 @@ def portal_dashboard():
                     'icono': 'bi-gem'
                 })
             
+            # Corrección para TypeError: se estandarizan las fechas a UTC antes de ordenar.
+            for gestion in historial_gestiones:
+                if gestion['fecha'].tzinfo is None:
+                    gestion['fecha'] = pytz.utc.localize(gestion['fecha'])
+                else:
+                    gestion['fecha'] = gestion['fecha'].astimezone(pytz.utc)
+            
             historial_gestiones.sort(key=lambda x: x['fecha'], reverse=True)
             # FIN DE LA CORRECCIÓN
 
