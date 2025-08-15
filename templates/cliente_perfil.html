@@ -63,7 +63,7 @@
             <!-- Pestaña de Gestión de Cobranza -->
             <div x-show="activeTab === 'gestiones'">
                 <h3 class="text-lg font-bold text-slate-800 mb-4">Registrar Nueva Gestión</h3>
-                <form action="{{ url_for('registrar_gestion', cliente_id=cliente.id) }}" method="POST">
+                <form action="{{ url_for('agregar_gestion', cliente_id=cliente.id) }}" method="POST">
                     <div class="space-y-4">
                         <div>
                             <label for="tipo_gestion" class="block text-sm font-medium text-slate-700">Tipo de Gestión</label>
@@ -78,7 +78,7 @@
                         </div>
                         <div>
                             <label for="resultado" class="block text-sm font-medium text-slate-700">Resultado / Observaciones</label>
-                            <textarea id="resultado" name="resultado" rows="4" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" required></textarea>
+                            <textarea id="resultado" name="nota" rows="4" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" required></textarea>
                         </div>
                         <div class="text-right">
                             <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
@@ -93,10 +93,10 @@
                     {% for gestion in gestiones %}
                         <div class="p-4 bg-slate-50 rounded-lg">
                             <div class="flex justify-between items-center">
-                                <span class="font-semibold text-slate-700">{{ gestion.tipo_gestion }}</span>
-                                <span class="text-xs text-slate-500">{{ gestion.fecha_gestion | format_datetime }} por {{ gestion.nombre_gestor }}</span>
+                                <span class="font-semibold text-slate-700">{{ gestion.tipo_gestion or 'Gestión General' }}</span>
+                                <span class="text-xs text-slate-500">{{ gestion.fecha_creacion | format_datetime }} por {{ gestion.gestor_nombre }}</span>
                             </div>
-                            <p class="text-sm text-slate-600 mt-2">{{ gestion.resultado }}</p>
+                            <p class="text-sm text-slate-600 mt-2">{{ gestion.nota }}</p>
                         </div>
                     {% else %}
                         <p class="text-center text-slate-500 py-4">No hay gestiones registradas.</p>
@@ -135,8 +135,18 @@
                 {% for evento in historial_eventos %}
                     <div class="p-4 bg-slate-50 rounded-lg">
                         <div class="flex justify-between items-center">
-                            <span class="font-semibold text-slate-700">{{ evento.evento }}</span>
-                            <span class="text-xs text-slate-500">{{ evento.timestamp | format_datetime }}</span>
+                             <div class="flex items-center gap-2">
+                                <span class="font-semibold text-slate-700">{{ evento.tipo }}</span>
+                                <!-- >>> CAMBIO ESPECIFICO: Botón para ver reporte de cita en historial de admin -->
+                                {# Esta condición asume que app.py pasará los detalles completos de la solicitud de cita #}
+                                {% if evento.origen == 'solicitud' and 'Cita' in evento.tipo and evento.estado == 'Completada' and evento.detalles and evento.detalles.reporte %}
+                                <a href="{{ url_for('ver_reporte_cita', solicitud_id=evento.id) }}" target="_blank" class="text-xs bg-sky-600 text-white font-semibold py-1 px-2 rounded-md hover:bg-sky-700">
+                                    <i class="bi bi-file-earmark-text"></i> Ver Reporte
+                                </a>
+                                {% endif %}
+                                <!-- <<< FIN CAMBIO -->
+                            </div>
+                            <span class="text-xs text-slate-500">{{ evento.fecha | format_datetime }} por {{ evento.usuario }}</span>
                         </div>
                         <p class="text-sm text-slate-600 mt-2">{{ evento.descripcion }}</p>
                     </div>

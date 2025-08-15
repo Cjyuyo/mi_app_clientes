@@ -2,6 +2,11 @@
 
 {% block title %}Reportes de Pago por Revisar{% endblock %}
 
+{% block head_extra %}
+    <!-- Alpine.js para la interactividad del modal -->
+    <script src="//unpkg.com/alpinejs" defer></script>
+{% endblock %}
+
 {% block body %}
 <div class="space-y-8">
     <!-- Encabezado de la página -->
@@ -55,9 +60,20 @@
                         </td>
                         <td class="px-6 py-4 font-semibold text-slate-800">${{ "%.2f"|format(reporte.monto) }}</td>
                         <td class="px-6 py-4 text-right">
-                            <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="text-sm bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-blue-700">
-                                <i class="bi bi-eye-fill mr-1"></i> Revisar
-                            </a>
+                            <!-- >>> CAMBIO ESPECIFICO: Acciones rápidas de Aprobar/Rechazar y modal de rechazo -->
+                            <div class="flex items-center justify-end gap-2">
+                                <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="text-xs bg-slate-500 text-white font-semibold py-2 px-3 rounded-lg hover:bg-slate-600">Revisar</a>
+                                
+                                <form action="{{ url_for('procesar_reporte', pago_id=reporte.id) }}" method="POST" onsubmit="return confirm('¿Está seguro de que desea aprobar este reporte?')">
+                                    <input type="hidden" name="accion" value="aprobar">
+                                    <button type="submit" class="text-xs bg-green-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-green-700">Aprobar</button>
+                                </form>
+
+                                <button type="button" class="text-xs bg-red-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-red-700" data-bs-toggle="modal" data-bs-target="#rechazarModal-{{ reporte.id }}">
+                                    Rechazar
+                                </button>
+                            </div>
+                            <!-- <<< FIN CAMBIO -->
                         </td>
                     </tr>
                     {% else %}
@@ -76,4 +92,44 @@
         </div>
     </div>
 </div>
+
+<!-- >>> CAMBIO ESPECIFICO: Modales de rechazo para cada reporte -->
+{% for reporte in reportes %}
+<div class="modal fade" id="rechazarModal-{{ reporte.id }}" tabindex="-1" aria-labelledby="rechazarModalLabel-{{ reporte.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-xl" x-data="{ motivo: '' }">
+            <form action="{{ url_for('procesar_reporte', pago_id=reporte.id) }}" method="POST">
+                <input type="hidden" name="accion" value="rechazar">
+                <div class="modal-header">
+                    <h5 class="modal-title font-bold text-slate-800" id="rechazarModalLabel-{{ reporte.id }}">Rechazar Reporte #{{ reporte.id }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4 space-y-4">
+                    <p>Cliente: <strong>{{ reporte.nombre }} {{ reporte.apellido }}</strong></p>
+                    <div>
+                        <label for="motivo_rechazo-{{ reporte.id }}" class="form-label">Motivo del Rechazo</label>
+                        <select name="motivo_rechazo" id="motivo_rechazo-{{ reporte.id }}" class="form-select w-full" x-model="motivo" required>
+                            <option value="">Seleccione un motivo...</option>
+                            <option value="Referencia Inválida">Referencia Inválida</option>
+                            <option value="Diferencia de Monto">Diferencia de Monto</option>
+                            <option value="Datos Incompletos">Datos Incompletos</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    
+                    <div x-show="motivo === 'Diferencia de Monto'" x-transition>
+                        <label for="diferencia_monto-{{ reporte.id }}" class="form-label">Monto de la Diferencia (USD)</label>
+                        <input type="number" step="0.01" name="diferencia_monto" id="diferencia_monto-{{ reporte.id }}" class="form-input w-full" placeholder="Ej: 5.50">
+                    </div>
+                </div>
+                <div class="modal-footer bg-slate-50">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Confirmar Rechazo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+<!-- <<< FIN CAMBIO -->
 {% endblock %}

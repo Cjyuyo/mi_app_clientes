@@ -67,7 +67,9 @@
                     <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Pago Realizado En</span><span class="block font-semibold text-slate-700">{{ pago.pago_en or 'N/A' }}</span></div>
                     <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Forma de Pago</span><span class="block font-semibold text-slate-700">{{ pago.forma_pago }}</span></div>
                     {% if pago.monto_bs and pago.monto_bs > 0 %}
-                    <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Tasa Aplicada</span><span class="block font-semibold text-slate-700">{{ "{:,.2f}".format(pago.tasa_dia) }} Bs.</span></div>
+                    <!-- >>> CAMBIO ESPECIFICO: Mostrar tasa de cambio usada en recibos en Bs -->
+                    <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Tasa Aplicada (Bs / {{ pago.moneda_referencia or 'USD' }})</span><span class="block font-semibold text-slate-700">{{ "{:,.2f}".format(pago.tasa_dia) }} Bs.</span></div>
+                    <!-- <<< FIN CAMBIO -->
                     <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Monto Pagado (Bs.)</span><span class="block font-semibold text-slate-700">{{ "{:,.2f}".format(pago.monto_bs) }} Bs.</span></div>
                     {% endif %}
                     <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Banco / Referencia</span><span class="block font-semibold text-slate-700">{% if pago.banco and pago.banco.strip() %}{{ pago.banco }}{% endif %}{% if pago.referencia and pago.referencia.strip() %} / {{ pago.referencia }}{% endif %}{% if not (pago.banco and pago.banco.strip()) and not (pago.referencia and pago.referencia.strip()) %}N/A{% endif %}</span></div>

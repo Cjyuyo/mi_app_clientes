@@ -4,6 +4,11 @@
     HUB de Asesor - {{ g.admin.usuario }}
 {% endblock %}
 
+{% block head_extra %}
+    <!-- Alpine.js para la interactividad del modal -->
+    <script src="//unpkg.com/alpinejs" defer></script>
+{% endblock %}
+
 {% block body %}
 <div class="space-y-8">
     <!-- Encabezado de la página -->
@@ -66,9 +71,17 @@
                                 <p class="text-sm text-slate-600 mt-1"><strong>Hora:</strong> {{ cita.detalles.hora_cita }}</p>
                                 <p class="text-xs text-slate-500"><strong>Motivo:</strong> {{ cita.detalles.motivo }}</p>
                             </div>
-                            <button class="text-sm bg-sky-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-sky-700 flex-shrink-0" data-bs-toggle="modal" data-bs-target="#gestionarCitaModal-{{ cita.id }}">
-                                Gestionar Cita
-                            </button>
+                            <!-- >>> CAMBIO ESPECIFICO: Citas del mismo día no disponibles si la hora pasó -->
+                            {% set ahora = get_venezuela_current_datetime() %}
+                            {% set hora_cita_dt = ahora.strptime(cita.detalles.fecha_cita + ' ' + cita.detalles.hora_cita, '%Y-%m-%d %I:%M %p') %}
+                            {% if ahora.date() == hora_cita_dt.date() and ahora.time() > hora_cita_dt.time() %}
+                                <span class="text-sm text-slate-500 font-semibold py-2 px-3 rounded-lg bg-slate-100">Cita Expirada</span>
+                            {% else %}
+                                <button class="text-sm bg-sky-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-sky-700 flex-shrink-0" data-bs-toggle="modal" data-bs-target="#gestionarCitaModal-{{ cita.id }}">
+                                    Gestionar Cita
+                                </button>
+                            {% endif %}
+                            <!-- <<< FIN CAMBIO -->
                         </div>
                     </div>
                     {% else %}
@@ -88,7 +101,9 @@
     {% for cita in citas_pendientes %}
     <div class="modal fade" id="gestionarCitaModal-{{ cita.id }}" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-xl">
+            <!-- >>> CAMBIO ESPECIFICO: Lógica de contador y estado para gestión de cita -->
+            <div class="modal-content rounded-xl" x-data="gestionCita({{ cita.id }})" @hide.bs.modal="detenerContador()">
+            <!-- <<< FIN CAMBIO -->
                 <div class="modal-header">
                     <h5 class="modal-title font-bold text-slate-800">Gestionar Cita con {{ cita.nombre_cliente }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -96,54 +111,86 @@
                 <div class="modal-body p-4">
                     <p class="text-slate-600 mb-4">Registra el inicio y fin de la atención para esta cita.</p>
                     
-                    <form action="{{ url_for('registrar_interaccion_cita', cita_id=cita.id) }}" method="POST" class="mb-4">
-                        <input type="hidden" name="accion" value="iniciar">
-                        <button type="submit" class="w-full text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700">
-                            <i class="bi bi-play-circle-fill mr-2"></i> Iniciar Atención
+                    <!-- >>> CAMBIO ESPECIFICO: Botón para iniciar atención y visualización del contador -->
+                    <div x-show="!atencionIniciada" class="mb-4">
+                        <button type="button" @click="iniciarAtencion" class="w-full text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700">
+                            <i class="bi bi-play-circle-fill mr-2"></i> Se ha registrado el inicio de la atención
                         </button>
-                    </form>
+                    </div>
+
+                    <div x-show="atencionIniciada" x-cloak class="text-center p-3 mb-4 bg-slate-100 rounded-lg">
+                        <p class="text-sm text-slate-600">Tiempo de atención transcurrido</p>
+                        <p class="text-2xl font-bold text-slate-800" x-text="timer"></p>
+                    </div>
+                    <!-- <<< FIN CAMBIO -->
 
                     <hr class="my-3">
                     
-                    <form action="{{ url_for('registrar_interaccion_cita', cita_id=cita.id) }}" method="POST">
+                    <!-- >>> CAMBIO ESPECIFICO: Formulario para finalizar atención -->
+                    <form :action="'/registrar_interaccion/' + citaId" method="POST">
                         <input type="hidden" name="accion" value="finalizar">
-                        <div>
-                            <label for="reporte-{{ cita.id }}" class="block text-sm font-medium text-slate-700">Reporte / Observaciones</label>
-                            <textarea id="reporte-{{ cita.id }}" name="reporte" rows="4" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></textarea>
+                        <div x-show="atencionIniciada" x-cloak>
+                            <label :for="'reporte-' + citaId" class="block text-sm font-medium text-slate-700">Descripción</label>
+                            <textarea :id="'reporte-' + citaId" name="reporte" rows="4" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" x-model="descripcionReporte" required placeholder="Añada aquí las observaciones de la cita..."></textarea>
                         </div>
                         <div class="mt-4 text-right">
-                             <button type="button" class="text-sm bg-white text-red-600 font-semibold py-2 px-4 rounded-lg border border-red-300 hover:bg-red-50" data-bs-toggle="modal" data-bs-target="#cancelarCitaModal-{{ cita.id }}">Cancelar Cita</button>
-                            <button type="submit" class="text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700">
-                                <i class="bi bi-check-circle-fill mr-2"></i> Finalizar y Guardar Reporte
+                            <button type="button" class="text-sm bg-white text-slate-700 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50" data-bs-dismiss="modal">Cerrar</button>
+                            <button type="submit" x-show="atencionIniciada" x-cloak
+                                    :disabled="descripcionReporte.trim() === ''"
+                                    class="text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed">
+                                <i class="bi bi-check-circle-fill mr-2"></i> Finalizar Atención
                             </button>
                         </div>
                     </form>
+                    <!-- <<< FIN CAMBIO -->
                 </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Modal de Confirmación para Cancelar Cita -->
-    <div class="modal fade" id="cancelarCitaModal-{{ cita.id }}" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-xl">
-                <form action="{{ url_for('cancelar_cita_admin', solicitud_id=cita.id) }}" method="POST">
-                    <div class="modal-header">
-                        <h5 class="modal-title font-bold text-red-600">Confirmar Cancelación</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p>¿Estás seguro de que deseas cancelar esta cita? Esta acción no se puede deshacer.</p>
-                        <input type="hidden" name="origin" value="hub_asesor">
-                    </div>
-                    <div class="modal-footer bg-slate-50">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, mantener</button>
-                        <button type="submit" class="btn btn-danger">Sí, cancelar cita</button>
-                    </div>
-                </form>
             </div>
         </div>
     </div>
     {% endfor %}
 </div>
+{% endblock %}
+
+{% block scripts_extra %}
+<!-- >>> CAMBIO ESPECIFICO: Script para gestionar el estado de la cita (contador, etc.) -->
+<script>
+    function gestionCita(citaId) {
+        return {
+            citaId: citaId,
+            atencionIniciada: false,
+            descripcionReporte: '',
+            startTime: null,
+            intervalId: null,
+            timer: '00:00:00',
+            iniciarAtencion() {
+                // Enviar la señal de inicio al backend sin recargar la página
+                fetch(`/citas/registrar_interaccion/${this.citaId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ 'accion': 'iniciar' })
+                }).then(response => {
+                    if (response.ok) {
+                        this.atencionIniciada = true;
+                        this.startTime = Date.now();
+                        this.intervalId = setInterval(() => {
+                            const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+                            const hours = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+                            const minutes = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+                            const seconds = String(elapsed % 60).padStart(2, '0');
+                            this.timer = `${hours}:${minutes}:${seconds}`;
+                        }, 1000);
+                    } else {
+                        alert('Error al registrar el inicio de la atención.');
+                    }
+                }).catch(() => alert('Error de conexión.'));
+            },
+            detenerContador() {
+                if (this.intervalId) {
+                    clearInterval(this.intervalId);
+                }
+            }
+        }
+    }
+</script>
+<!-- <<< FIN CAMBIO -->
 {% endblock %}

@@ -1,3 +1,4 @@
+<!-- >>> CAMBIO ESPECIFICO: Estado de Cuenta Integral -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -5,102 +6,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Estado de Cuenta - {{ cliente.nombre_apellido }}</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    
-    <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .print-text-black { color: #000 !important; }
         @media print {
+            body { background-color: #fff !important; }
             .no-print { display: none !important; }
-            body { background-color: #fff; }
-            .print-container { box-shadow: none !important; border: 1px solid #e5e7eb; }
+            .printable-section {
+                box-shadow: none !important;
+                border: 1px solid #e5e7eb !important;
+                padding: 1.5rem !important;
+                margin: 0 !important;
+            }
         }
     </style>
 </head>
-<body class="bg-slate-100 p-4 sm:p-8">
-    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg print-container">
-        <!-- Encabezado del Documento -->
-        <div class="bg-slate-800 text-white p-6 sm:p-8 rounded-t-xl text-center">
-            <h1 class="text-3xl font-bold">Estado de Cuenta</h1>
-            <p class="text-sm opacity-90 mt-1">Moto Plan Motors C.A.</p>
-        </div>
-        
-        <!-- Cuerpo del Documento -->
-        <div class="p-6 sm:p-8 space-y-6">
-            <!-- Detalles del Cliente y Plan -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-slate-50 p-4 rounded-lg">
-                    <h3 class="text-sm font-semibold text-slate-500 mb-2">CLIENTE</h3>
-                    <p class="font-bold text-slate-800">{{ cliente.nombre_apellido }}</p>
-                    <p class="text-sm text-slate-600">C.I. {{ cliente.cedula }}</p>
-                </div>
-                <div class="bg-slate-50 p-4 rounded-lg">
-                    <h3 class="text-sm font-semibold text-slate-500 mb-2">PLAN</h3>
-                    <p class="font-bold text-slate-800">{{ cliente.plan_contratado }}</p>
-                    <p class="text-sm text-slate-600">Contrato N° {{ cliente.contrato_nro }}</p>
-                </div>
-            </div>
-
-            <!-- Tabla de Movimientos -->
-            <div>
-                <h3 class="text-lg font-bold text-slate-800 mt-6 mb-4">Historial de Pagos y Movimientos</h3>
-                <div class="overflow-x-auto border rounded-lg">
-                    <table class="w-full text-sm text-left text-slate-500">
-                        <thead class="text-xs text-slate-700 uppercase bg-slate-100">
-                            <tr>
-                                <th scope="col" class="px-6 py-3">Fecha</th>
-                                <th scope="col" class="px-6 py-3">Concepto</th>
-                                <th scope="col" class="px-6 py-3 text-right">Débito (USD)</th>
-                                <th scope="col" class="px-6 py-3 text-right">Crédito (USD)</th>
-                                <th scope="col" class="px-6 py-3 text-right">Saldo (USD)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for movimiento in movimientos %}
-                            <tr class="bg-white border-b">
-                                <td class="px-6 py-4">{{ movimiento.fecha | format_date }}</td>
-                                <td class="px-6 py-4 font-medium text-slate-900">{{ movimiento.concepto }}</td>
-                                <td class="px-6 py-4 text-right text-red-600">
-                                    {% if movimiento.debito %}${{ "%.2f"|format(movimiento.debito) }}{% endif %}
-                                </td>
-                                <td class="px-6 py-4 text-right text-green-600">
-                                    {% if movimiento.credito %}${{ "%.2f"|format(movimiento.credito) }}{% endif %}
-                                </td>
-                                <td class="px-6 py-4 text-right font-semibold text-slate-800">${{ "%.2f"|format(movimiento.saldo) }}</td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="5" class="text-center p-6 text-slate-500">No hay movimientos en el estado de cuenta.</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                        <tfoot>
-                            <tr class="bg-slate-100 font-bold">
-                                <td colspan="4" class="px-6 py-3 text-right text-slate-800">Saldo Final</td>
-                                <td class="px-6 py-3 text-right text-slate-800">
-                                    {% if movimientos %}${{ "%.2f"|format(movimientos[-1].saldo) }}{% else %}$0.00{% endif %}
-                                </td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
-        </div>
+<body class="p-4 sm:p-8">
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg">
+        {% include '_estado_cuenta_content.html' %}
     </div>
     
-    <!-- Acciones -->
     <div class="no-print max-w-4xl mx-auto mt-6 text-center">
-        <button class="bg-slate-700 text-white font-semibold py-2 px-4 rounded-lg hover:bg-slate-800" onclick="window.print()">
-            <i class="bi bi-printer-fill mr-1"></i> Imprimir / Guardar PDF
+        <button onclick="window.print()" class="bg-slate-700 text-white font-semibold py-2 px-4 rounded-lg hover:bg-slate-800 inline-flex items-center gap-2">
+            <i class="bi bi-printer-fill"></i> Imprimir / Guardar PDF
         </button>
     </div>
 </body>
 </html>
+<!-- <<< FIN CAMBIO -->
