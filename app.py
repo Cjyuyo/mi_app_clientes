@@ -2688,6 +2688,33 @@ def portal_documentos():
         logging.error(f"Error en portal_documentos: {e}")
         flash('Ocurrió un error al cargar tus documentos.', 'error')
         return redirect(url_for('portal_dashboard'))
+
+@app.route('/portal/citas/cancelar/<int:solicitud_id>', methods=['POST'])
+@portal_login_required
+def cancelar_cita_cliente(solicitud_id):
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión.", "danger")
+        return redirect(url_for('portal_dashboard'))
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, cliente_id, estado FROM solicitudes WHERE id = %s", (solicitud_id,))
+            solicitud = cur.fetchone()
+            if not solicitud or solicitud['cliente_id'] != session['cliente_id']:
+                flash("No tienes permiso para cancelar esta cita.", "error")
+                return redirect(url_for('portal_dashboard'))
+            if solicitud['estado'] != 'Aprobada':
+                flash("Esta cita no se puede cancelar porque no está aprobada.", "warning")
+                return redirect(url_for('portal_dashboard'))
+            
+            cur.execute("UPDATE solicitudes SET estado = 'Cancelada' WHERE id = %s", (solicitud_id,))
+            registrar_accion_auditoria('CANCELACION_CITA_CLIENTE', f"Cliente canceló su cita N°{solicitud_id}.")
+            conn.commit()
+            flash("Tu cita ha sido cancelada exitosamente.", "success")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error al cancelar la cita: {e}", "error")
+    return redirect(url_for('portal_dashboard'))
 # ===== FIN DE LA SOLUCIÓN =====
 
 
