@@ -510,30 +510,32 @@ def get_active_sessions():
 
 @app.route('/hub_asesor')
 @admin_required
-@rol_requerido('superadmin', 'gerente', 'administradora')
 def hub_asesor():
     conn = get_db()
     citas_pendientes = []
     citas_completadas = []
+    clientes_en_mora = []
     if not conn:
         flash("Error de conexión con la base de datos.", "danger")
-        return render_template('hub_asesor.html', citas_pendientes=citas_pendientes, citas_completadas=citas_completadas)
+        return render_template('hub_asesor.html', citas_pendientes=citas_pendientes, citas_completadas=citas_completadas, clientes_en_mora=clientes_en_mora)
 
     asesor_id = g.admin['id']
-    today_str = get_venezuela_current_date().isoformat()
+    today = get_venezuela_current_date()
+    today_str = today.isoformat()
 
     try:
         with conn.cursor() as cur:
+            # Marcar inasistencias de días anteriores
             cur.execute("""
                 UPDATE solicitudes 
                 SET detalles = jsonb_set(detalles, '{estado_final}', '"Inasistencia"')
                 WHERE tipo_solicitud = 'Cita' AND estado = 'Aprobada' AND (detalles->>'asesor_id')::int = %s
-                AND (detalles->>'fecha_cita')::date <= %s
+                AND (detalles->>'fecha_cita')::date < %s
                 AND (detalles->>'hora_inicio' IS NULL)
-                AND ((detalles->>'fecha_cita')::date + (detalles->>'hora_cita')::time) < NOW() - INTERVAL '30 minutes'
             """, (asesor_id, today_str))
             conn.commit()
 
+            # Obtener citas pendientes para hoy
             cur.execute("""
                 SELECT s.id, s.detalles, c.nombre || ' ' || c.apellido as nombre_cliente
                 FROM solicitudes s JOIN clientes c ON s.cliente_id = c.id
@@ -545,6 +547,7 @@ def hub_asesor():
             """, (asesor_id, today_str))
             citas_pendientes = cur.fetchall()
 
+            # Obtener historial de citas completadas
             cur.execute("""
                 SELECT s.id, s.detalles, s.detalles->>'estado_final' as estado_final, c.nombre || ' ' || c.apellido as nombre_cliente
                 FROM solicitudes s JOIN clientes c ON s.cliente_id = c.id
@@ -556,15 +559,26 @@ def hub_asesor():
             """, (asesor_id,))
             citas_completadas = cur.fetchall()
 
+            # Obtener clientes en mora asignados al asesor
+            first_day_of_month = today.replace(day=1)
+            subquery_pagaron_mes = "SELECT DISTINCT cliente_id FROM pagos WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s"
+            query_morosos = f"""
+                SELECT c.id, c.nombre, c.apellido, c.cedula
+                FROM clientes c
+                WHERE c.gestor_id = %s AND TRIM(UPPER(c.proceso)) = 'AHORRADOR' AND TRIM(UPPER(c.estatus)) = 'ACTIVO'
+                AND c.id NOT IN ({subquery_pagaron_mes}) ORDER BY c.nombre, c.apellido;
+            """
+            cur.execute(query_morosos, (asesor_id, first_day_of_month))
+            clientes_en_mora = cur.fetchall()
+
     except psycopg2.Error as e:
         flash(f"Error al cargar el hub de asesor: {e}", "danger")
 
-    return render_template('hub_asesor.html', citas_pendientes=citas_pendientes, citas_completadas=citas_completadas)
+    return render_template('hub_asesor.html', citas_pendientes=citas_pendientes, citas_completadas=citas_completadas, clientes_en_mora=clientes_en_mora)
 
 
 @app.route('/citas/registrar_interaccion/<int:cita_id>', methods=['POST'])
 @admin_required
-@rol_requerido('superadmin', 'gerente', 'administradora')
 def registrar_interaccion_cita(cita_id):
     conn = get_db()
     accion = request.form.get('accion')
@@ -679,7 +693,7 @@ def gestion_citas():
                 solicitudes['citas'] = cur.fetchall()
 
                 cur.execute("""
-                    SELECT s.detalles, c.nombre || ' ' || c.apellido as nombre_cliente, a.usuario as nombre_asesor
+                    SELECT s.id, s.detalles, c.nombre || ' ' || c.apellido as nombre_cliente, a.usuario as nombre_asesor
                     FROM solicitudes s 
                     JOIN clientes c ON s.cliente_id = c.id
                     LEFT JOIN administradores a ON (s.detalles->>'asesor_id')::int = a.id
@@ -2547,12 +2561,51 @@ def portal_dashboard():
             
             puede_registrar_oferta = inscripcion_completa and primera_cuota_pagada
             
+            # INICIO DE LA CORRECCIÓN: Cargar historial de gestiones
+            historial_gestiones = []
+            cur.execute("SELECT * FROM solicitudes WHERE cliente_id = %s ORDER BY fecha_creacion DESC", (session['cliente_id'],))
+            solicitudes = cur.fetchall()
+            for s in solicitudes:
+                detalles = s['detalles'] if s['detalles'] else {}
+                if isinstance(detalles, str):
+                    try: detalles = json.loads(detalles)
+                    except json.JSONDecodeError: detalles = {}
+                
+                descripcion = f"Estado: {s['estado']}"
+                if s['tipo_solicitud'] == 'Cita':
+                    descripcion = f"Cita para el {detalles.get('fecha_cita')} a las {detalles.get('hora_cita')}. Estado: {s['estado']}"
+                elif s['tipo_solicitud'] == 'Congelamiento':
+                    descripcion = f"Congelar por {detalles.get('tiempo_congelamiento', 'N/A')}. Estado: {s['estado']}"
+                
+                historial_gestiones.append({
+                    'titulo': f"Solicitud de {s['tipo_solicitud']}",
+                    'fecha': s['fecha_creacion'],
+                    'descripcion': descripcion,
+                    'estado': s['estado'],
+                    'icono': 'bi-calendar-check' if s['tipo_solicitud'] == 'Cita' else 'bi-snow'
+                })
+
+            cur.execute("SELECT * FROM ofertas WHERE cliente_id = %s ORDER BY fecha_oferta DESC", (session['cliente_id'],))
+            ofertas = cur.fetchall()
+            for o in ofertas:
+                 historial_gestiones.append({
+                    'titulo': f"Oferta Registrada",
+                    'fecha': o['fecha_oferta'],
+                    'descripcion': f"Ofertaste {o['cuotas_ofertadas']} cuotas. Estado: {o['estado_oferta'].capitalize()}",
+                    'estado': 'Aprobada' if o['estado_oferta'] == 'activa' else 'Rechazada',
+                    'icono': 'bi-gem'
+                })
+            
+            historial_gestiones.sort(key=lambda x: x['fecha'], reverse=True)
+            # FIN DE LA CORRECCIÓN
+
             return render_template('portal_dashboard.html', 
                                    cliente=cliente_dict, 
                                    pago_en_proceso=pago_en_proceso,
                                    estado_principal=estado_principal,
                                    cita_confirmada=cita_confirmada,
-                                   puede_registrar_oferta=puede_registrar_oferta)
+                                   puede_registrar_oferta=puede_registrar_oferta,
+                                   historial_gestiones=historial_gestiones)
     except (psycopg2.Error, KeyError) as e:
         logging.error(f"Error en portal_dashboard: {e}")
         flash('Ocurrió un error inesperado al cargar tu portal. Inténtalo de nuevo.', 'error')

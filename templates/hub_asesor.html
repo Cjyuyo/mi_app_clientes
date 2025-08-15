@@ -9,17 +9,53 @@
     <!-- Encabezado de la página -->
     <div class="bg-gradient-to-r from-sky-600 to-sky-800 text-white p-6 rounded-xl shadow-lg">
         <h1 class="text-3xl font-bold">Mi HUB de Asesor</h1>
-        <p class="mt-1 opacity-90">Bienvenido, {{ g.admin.usuario }}. Aquí están tus citas asignadas.</p>
+        <p class="mt-1 opacity-90">Bienvenido, {{ g.admin.usuario }}. Aquí están tus tareas y citas asignadas.</p>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <!-- Columna de Citas Pendientes -->
-        <div class="lg:col-span-3">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Columna de Tareas Pendientes -->
+        <div>
+            <div class="bg-white rounded-xl shadow-sm h-full">
+                <div class="p-5 border-b border-slate-200 flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-slate-800">
+                        <i class="bi bi-list-task mr-2 text-orange-500"></i> Tareas de Gestión Pendientes
+                    </h2>
+                    <span class="py-1 px-2.5 bg-orange-100 text-orange-800 text-xs font-semibold rounded-full">{{ clientes_en_mora|length }}</span>
+                </div>
+                <div class="divide-y divide-slate-200">
+                    {% for cliente in clientes_en_mora %}
+                    <div class="p-4">
+                        <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                            <div>
+                                <h3 class="font-semibold text-slate-800">{{ cliente.nombre }} {{ cliente.apellido }}</h3>
+                                <p class="text-xs text-slate-500">C.I. {{ cliente.cedula }}</p>
+                                <p class="text-sm text-orange-600 font-medium mt-1">Gestionar cliente en mora</p>
+                            </div>
+                            <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="text-sm bg-slate-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-slate-700 flex-shrink-0">
+                                Ver Perfil
+                            </a>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center text-slate-500 p-8">
+                        <div class="flex flex-col items-center">
+                            <i class="bi bi-emoji-sunglasses text-4xl text-slate-400"></i>
+                            <p class="mt-3 font-medium">¡Excelente! No tienes gestiones de cobranza pendientes.</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna de Citas -->
+        <div>
             <div class="bg-white rounded-xl shadow-sm h-full">
                 <div class="p-5 border-b border-slate-200 flex justify-between items-center">
                     <h2 class="text-lg font-bold text-slate-800">
                         <i class="bi bi-calendar-check-fill mr-2 text-sky-600"></i> Mis Citas Programadas para Hoy
                     </h2>
+                     <span class="py-1 px-2.5 bg-sky-100 text-sky-800 text-xs font-semibold rounded-full">{{ citas_pendientes|length }}</span>
                 </div>
                 <div class="divide-y divide-slate-200">
                     {% for cita in citas_pendientes %}
@@ -30,7 +66,7 @@
                                 <p class="text-sm text-slate-600 mt-1"><strong>Hora:</strong> {{ cita.detalles.hora_cita }}</p>
                                 <p class="text-xs text-slate-500"><strong>Motivo:</strong> {{ cita.detalles.motivo }}</p>
                             </div>
-                            <button class="text-sm bg-sky-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-sky-700 flex-shrink-0" data-bs-toggle="modal" data-bs-target="#finalizarCitaModal-{{ cita.id }}">
+                            <button class="text-sm bg-sky-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-sky-700 flex-shrink-0" data-bs-toggle="modal" data-bs-target="#gestionarCitaModal-{{ cita.id }}">
                                 Gestionar Cita
                             </button>
                         </div>
@@ -46,59 +82,63 @@
                 </div>
             </div>
         </div>
-        
-        <!-- Columna de Historial -->
-        <div class="lg:col-span-2">
-            <div class="bg-white rounded-xl shadow-sm h-full">
-                <div class="p-5 border-b border-slate-200 flex justify-between items-center">
-                    <h2 class="text-lg font-bold text-slate-800">
-                        <i class="bi bi-check-circle-fill mr-2 text-green-600"></i> Historial de Citas Atendidas
-                    </h2>
+    </div>
+
+    <!-- Modales para Citas -->
+    {% for cita in citas_pendientes %}
+    <div class="modal fade" id="gestionarCitaModal-{{ cita.id }}" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-xl">
+                <div class="modal-header">
+                    <h5 class="modal-title font-bold text-slate-800">Gestionar Cita con {{ cita.nombre_cliente }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="divide-y divide-slate-200">
-                    {% for cita in citas_completadas %}
-                    <div class="p-4">
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <h3 class="font-semibold text-slate-800">{{ cita.nombre_cliente }}</h3>
-                                <p class="text-xs text-slate-500 mt-1">{{ cita.detalles.fecha_cita | format_date }} - {{ cita.detalles.hora_cita }}</p>
-                            </div>
-                            <span class="py-1 px-2.5 bg-green-100 text-green-800 text-xs font-medium rounded-md">Completada</span>
+                <div class="modal-body p-4">
+                    <p class="text-slate-600 mb-4">Registra el inicio y fin de la atención para esta cita.</p>
+                    
+                    <form action="{{ url_for('registrar_interaccion_cita', cita_id=cita.id) }}" method="POST" class="mb-4">
+                        <input type="hidden" name="accion" value="iniciar">
+                        <button type="submit" class="w-full text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700">
+                            <i class="bi bi-play-circle-fill mr-2"></i> Iniciar Atención
+                        </button>
+                    </form>
+
+                    <hr class="my-3">
+                    
+                    <form action="{{ url_for('registrar_interaccion_cita', cita_id=cita.id) }}" method="POST">
+                        <input type="hidden" name="accion" value="finalizar">
+                        <div>
+                            <label for="reporte-{{ cita.id }}" class="block text-sm font-medium text-slate-700">Reporte / Observaciones</label>
+                            <textarea id="reporte-{{ cita.id }}" name="reporte" rows="4" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></textarea>
                         </div>
-                    </div>
-                    {% else %}
-                    <div class="text-center text-slate-500 p-8">
-                        <div class="flex flex-col items-center">
-                            <i class="bi bi-clock-history text-4xl text-slate-400"></i>
-                            <p class="mt-3 font-medium">Aún no has completado citas.</p>
+                        <div class="mt-4 text-right">
+                             <button type="button" class="text-sm bg-white text-red-600 font-semibold py-2 px-4 rounded-lg border border-red-300 hover:bg-red-50" data-bs-toggle="modal" data-bs-target="#cancelarCitaModal-{{ cita.id }}">Cancelar Cita</button>
+                            <button type="submit" class="text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700">
+                                <i class="bi bi-check-circle-fill mr-2"></i> Finalizar y Guardar Reporte
+                            </button>
                         </div>
-                    </div>
-                    {% endfor %}
+                    </form>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Modales -->
-    {% for cita in citas_pendientes %}
-    <div class="modal fade" id="finalizarCitaModal-{{ cita.id }}" tabindex="-1">
+    
+    <!-- Modal de Confirmación para Cancelar Cita -->
+    <div class="modal fade" id="cancelarCitaModal-{{ cita.id }}" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content rounded-xl">
-                <form action="{{ url_for('finalizar_cita', solicitud_id=cita.id) }}" method="POST">
+                <form action="{{ url_for('cancelar_cita_admin', solicitud_id=cita.id) }}" method="POST">
                     <div class="modal-header">
-                        <h5 class="modal-title font-bold text-slate-800">Gestionar Cita con {{ cita.nombre_cliente }}</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <h5 class="modal-title font-bold text-red-600">Confirmar Cancelación</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-                    <div class="modal-body p-4">
-                        <p class="text-slate-600">Registra el resultado de la cita. Esta acción la marcará como completada.</p>
-                        <div>
-                            <label for="resultado_cita-{{ cita.id }}" class="block text-sm font-medium text-slate-700">Resultado / Observaciones</label>
-                            <textarea id="resultado_cita-{{ cita.id }}" name="resultado" rows="4" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></textarea>
-                        </div>
+                    <div class="modal-body">
+                        <p>¿Estás seguro de que deseas cancelar esta cita? Esta acción no se puede deshacer.</p>
+                        <input type="hidden" name="origin" value="hub_asesor">
                     </div>
                     <div class="modal-footer bg-slate-50">
-                        <button type="button" class="text-sm bg-white text-slate-700 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700">Finalizar Cita</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, mantener</button>
+                        <button type="submit" class="btn btn-danger">Sí, cancelar cita</button>
                     </div>
                 </form>
             </div>

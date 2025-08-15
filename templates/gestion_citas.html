@@ -66,12 +66,17 @@
                 <div class="divide-y divide-slate-200">
                     {% for cita in citas_aprobadas %}
                     <div class="p-4">
-                        <div class="flex w-full justify-between">
-                            <h3 class="font-semibold text-slate-800">{{ cita.nombre_cliente }}</h3>
-                            <span class="py-1 px-2.5 bg-green-100 text-green-800 text-xs font-medium rounded-md">Agendada</span>
+                        <div class="flex w-full justify-between items-start">
+                            <div>
+                                <h3 class="font-semibold text-slate-800">{{ cita.nombre_cliente }}</h3>
+                                <p class="text-sm text-slate-600 mt-1"><strong>Fecha:</strong> {{ cita.detalles.fecha_cita | format_date('%A, %d/%m/%Y') }} a las {{ cita.detalles.hora_cita }}</p>
+                                <p class="text-sm text-slate-500">Asignada a: <strong>{{ cita.nombre_asesor }}</strong></p>
+                            </div>
+                            <form action="{{ url_for('cancelar_cita_admin', solicitud_id=cita.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas cancelar esta cita?');">
+                                <input type="hidden" name="origin" value="gestion_citas">
+                                <button type="submit" class="text-xs bg-red-100 text-red-800 font-semibold py-1 px-2 rounded-md hover:bg-red-200">Cancelar</button>
+                            </form>
                         </div>
-                        <p class="text-sm text-slate-600 mt-1"><strong>Fecha:</strong> {{ cita.detalles.fecha_cita | format_date('%A, %d/%m/%Y') }} a las {{ cita.detalles.hora_cita }}</p>
-                        <p class="text-sm text-slate-500">Asignada a: <strong>{{ cita.nombre_asesor }}</strong></p>
                     </div>
                     {% else %}
                     <div class="text-center text-slate-500 p-8">
