@@ -71,8 +71,9 @@
                                 <p class="text-sm text-slate-600 mt-1"><strong>Hora:</strong> {{ cita.detalles.hora_cita }}</p>
                                 <p class="text-xs text-slate-500"><strong>Motivo:</strong> {{ cita.detalles.motivo }}</p>
                             </div>
-                            <!-- >>> CAMBIO ESPECIFICO: Citas del mismo día no disponibles si la hora pasó -->
+                            <!-- >>> CAMBIO ESPECIFICO: Inyección de get_venezuela_current_datetime en Jinja -->
                             {% set ahora = get_venezuela_current_datetime() %}
+                            <!-- <<< FIN CAMBIO -->
                             {% set hora_cita_dt = ahora.strptime(cita.detalles.fecha_cita + ' ' + cita.detalles.hora_cita, '%Y-%m-%d %I:%M %p') %}
                             {% if ahora.date() == hora_cita_dt.date() and ahora.time() > hora_cita_dt.time() %}
                                 <span class="text-sm text-slate-500 font-semibold py-2 px-3 rounded-lg bg-slate-100">Cita Expirada</span>
@@ -81,7 +82,6 @@
                                     Gestionar Cita
                                 </button>
                             {% endif %}
-                            <!-- <<< FIN CAMBIO -->
                         </div>
                     </div>
                     {% else %}
@@ -101,9 +101,7 @@
     {% for cita in citas_pendientes %}
     <div class="modal fade" id="gestionarCitaModal-{{ cita.id }}" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
-            <!-- >>> CAMBIO ESPECIFICO: Lógica de contador y estado para gestión de cita -->
             <div class="modal-content rounded-xl" x-data="gestionCita({{ cita.id }})" @hide.bs.modal="detenerContador()">
-            <!-- <<< FIN CAMBIO -->
                 <div class="modal-header">
                     <h5 class="modal-title font-bold text-slate-800">Gestionar Cita con {{ cita.nombre_cliente }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -111,7 +109,6 @@
                 <div class="modal-body p-4">
                     <p class="text-slate-600 mb-4">Registra el inicio y fin de la atención para esta cita.</p>
                     
-                    <!-- >>> CAMBIO ESPECIFICO: Botón para iniciar atención y visualización del contador -->
                     <div x-show="!atencionIniciada" class="mb-4">
                         <button type="button" @click="iniciarAtencion" class="w-full text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700">
                             <i class="bi bi-play-circle-fill mr-2"></i> Se ha registrado el inicio de la atención
@@ -122,11 +119,9 @@
                         <p class="text-sm text-slate-600">Tiempo de atención transcurrido</p>
                         <p class="text-2xl font-bold text-slate-800" x-text="timer"></p>
                     </div>
-                    <!-- <<< FIN CAMBIO -->
 
                     <hr class="my-3">
                     
-                    <!-- >>> CAMBIO ESPECIFICO: Formulario para finalizar atención -->
                     <form :action="'/registrar_interaccion/' + citaId" method="POST">
                         <input type="hidden" name="accion" value="finalizar">
                         <div x-show="atencionIniciada" x-cloak>
@@ -142,7 +137,6 @@
                             </button>
                         </div>
                     </form>
-                    <!-- <<< FIN CAMBIO -->
                 </div>
             </div>
         </div>
@@ -152,7 +146,6 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<!-- >>> CAMBIO ESPECIFICO: Script para gestionar el estado de la cita (contador, etc.) -->
 <script>
     function gestionCita(citaId) {
         return {
@@ -192,5 +185,4 @@
         }
     }
 </script>
-<!-- <<< FIN CAMBIO -->
 {% endblock %}

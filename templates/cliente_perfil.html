@@ -42,27 +42,29 @@
     </div>
 
     <!-- Columna Derecha: Pestañas de Información -->
-    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm" x-data="{ activeTab: 'gestiones' }">
+    <!-- >>> CAMBIO ESPECIFICO: Unificar historial de gestiones con el del cliente -->
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm" x-data="{ activeTab: 'historial' }">
+    <!-- <<< FIN CAMBIO -->
         <!-- Navegación de Pestañas -->
         <div class="px-5 border-b border-slate-200">
             <nav class="-mb-px flex space-x-6">
-                <button @click="activeTab = 'gestiones'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'gestiones', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'gestiones' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                    Gestión de Cobranza
+                <!-- >>> CAMBIO ESPECIFICO: Unificar historial de gestiones con el del cliente -->
+                <button @click="activeTab = 'historial'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'historial', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'historial' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    Historial Unificado
                 </button>
+                <!-- <<< FIN CAMBIO -->
                 <button @click="activeTab = 'pagos'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'pagos', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'pagos' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                     Historial de Pagos
-                </button>
-                <button @click="activeTab = 'eventos'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'eventos', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'eventos' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                    Historial de Eventos
                 </button>
             </nav>
         </div>
 
         <!-- Contenido de las Pestañas -->
         <div class="p-5">
-            <!-- Pestaña de Gestión de Cobranza -->
-            <div x-show="activeTab === 'gestiones'">
-                <h3 class="text-lg font-bold text-slate-800 mb-4">Registrar Nueva Gestión</h3>
+            <!-- Pestaña de Historial Unificado -->
+            <!-- >>> CAMBIO ESPECIFICO: Unificar historial de gestiones con el del cliente -->
+            <div x-show="activeTab === 'historial'">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">Registrar Nueva Gestión de Cobranza</h3>
                 <form action="{{ url_for('agregar_gestion', cliente_id=cliente.id) }}" method="POST">
                     <div class="space-y-4">
                         <div>
@@ -88,21 +90,29 @@
                     </div>
                 </form>
                 <hr class="my-6">
-                <h3 class="text-lg font-bold text-slate-800 mb-4">Historial de Gestiones</h3>
+                <h3 class="text-lg font-bold text-slate-800 mb-4">Historial Completo de Eventos</h3>
                 <div class="space-y-4">
-                    {% for gestion in gestiones %}
+                    {% for evento in historial_eventos %}
                         <div class="p-4 bg-slate-50 rounded-lg">
                             <div class="flex justify-between items-center">
-                                <span class="font-semibold text-slate-700">{{ gestion.tipo_gestion or 'Gestión General' }}</span>
-                                <span class="text-xs text-slate-500">{{ gestion.fecha_creacion | format_datetime }} por {{ gestion.gestor_nombre }}</span>
+                                 <div class="flex items-center gap-2">
+                                    <span class="font-semibold text-slate-700">{{ evento.tipo }}</span>
+                                    {% if evento.origen == 'solicitud' and 'Cita' in evento.tipo and evento.estado == 'Completada' and evento.detalles and evento.detalles.reporte %}
+                                    <a href="{{ url_for('ver_reporte_cita', solicitud_id=evento.id) }}" target="_blank" class="text-xs bg-sky-600 text-white font-semibold py-1 px-2 rounded-md hover:bg-sky-700">
+                                        <i class="bi bi-file-earmark-text"></i> Ver Reporte
+                                    </a>
+                                    {% endif %}
+                                </div>
+                                <span class="text-xs text-slate-500">{{ evento.fecha | format_datetime }} por {{ evento.usuario }}</span>
                             </div>
-                            <p class="text-sm text-slate-600 mt-2">{{ gestion.nota }}</p>
+                            <p class="text-sm text-slate-600 mt-2">{{ evento.descripcion }}</p>
                         </div>
                     {% else %}
-                        <p class="text-center text-slate-500 py-4">No hay gestiones registradas.</p>
+                        <p class="text-center text-slate-500 py-4">No hay eventos en el historial.</p>
                     {% endfor %}
                 </div>
             </div>
+            <!-- <<< FIN CAMBIO -->
 
             <!-- Pestaña de Historial de Pagos -->
             <div x-show="activeTab === 'pagos'" class="space-y-3">
@@ -128,31 +138,6 @@
                 {% else %}
                     <p class="text-center text-slate-500 py-4">No hay pagos registrados.</p>
                 {% endif %}
-            </div>
-
-            <!-- Pestaña de Historial de Eventos -->
-            <div x-show="activeTab === 'eventos'" class="space-y-4">
-                {% for evento in historial_eventos %}
-                    <div class="p-4 bg-slate-50 rounded-lg">
-                        <div class="flex justify-between items-center">
-                             <div class="flex items-center gap-2">
-                                <span class="font-semibold text-slate-700">{{ evento.tipo }}</span>
-                                <!-- >>> CAMBIO ESPECIFICO: Botón para ver reporte de cita en historial de admin -->
-                                {# Esta condición asume que app.py pasará los detalles completos de la solicitud de cita #}
-                                {% if evento.origen == 'solicitud' and 'Cita' in evento.tipo and evento.estado == 'Completada' and evento.detalles and evento.detalles.reporte %}
-                                <a href="{{ url_for('ver_reporte_cita', solicitud_id=evento.id) }}" target="_blank" class="text-xs bg-sky-600 text-white font-semibold py-1 px-2 rounded-md hover:bg-sky-700">
-                                    <i class="bi bi-file-earmark-text"></i> Ver Reporte
-                                </a>
-                                {% endif %}
-                                <!-- <<< FIN CAMBIO -->
-                            </div>
-                            <span class="text-xs text-slate-500">{{ evento.fecha | format_datetime }} por {{ evento.usuario }}</span>
-                        </div>
-                        <p class="text-sm text-slate-600 mt-2">{{ evento.descripcion }}</p>
-                    </div>
-                {% else %}
-                    <p class="text-center text-slate-500 py-4">No hay eventos en el historial.</p>
-                {% endfor %}
             </div>
         </div>
     </div>
