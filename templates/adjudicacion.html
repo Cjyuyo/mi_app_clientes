@@ -44,6 +44,14 @@
                         <table class="w-full text-sm text-left text-slate-500">
                             <thead class="text-xs text-slate-700 uppercase bg-slate-50">
                                 <tr>
+                                    <!-- >>> CAMBIO ESPECIFICO: Checkbox de seleccion para Ahorradores -->
+                                    <th scope="col" class="p-4">
+                                        <div class="flex items-center">
+                                            <input id="checkbox-all-ahorradores" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                                            <label for="checkbox-all-ahorradores" class="sr-only">checkbox</label>
+                                        </div>
+                                    </th>
+                                    <!-- <<< FIN CAMBIO -->
                                     <th scope="col" class="px-6 py-3">Cliente</th>
                                     <th scope="col" class="px-6 py-3">Cédula</th>
                                     <th scope="col" class="px-6 py-3 text-center">Plan Contratado</th>
@@ -53,13 +61,21 @@
                             <tbody>
                                 {% for p in clientes_elegibles_ahorro|sort(attribute='cuotas_pagadas_progresivas', reverse=True) %}
                                 <tr class="bg-white border-b hover:bg-slate-50">
+                                    <!-- >>> CAMBIO ESPECIFICO: Botón de selección individual para Ahorradores -->
+                                    <td class="w-4 p-4">
+                                        <div class="flex items-center">
+                                            <input id="checkbox-ahorrador-{{ p.id }}" name="seleccion_individual_ahorrador" value="{{ p.id }}" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                                            <label for="checkbox-ahorrador-{{ p.id }}" class="sr-only">checkbox</label>
+                                        </div>
+                                    </td>
+                                    <!-- <<< FIN CAMBIO -->
                                     <td class="px-6 py-4 font-medium text-slate-900">{{ p.nombre_apellido }}</td>
                                     <td class="px-6 py-4">{{ p.cedula }}</td>
                                     <td class="px-6 py-4 text-center font-semibold text-slate-600">${{ "%.2f"|format(p.plan_contratado|float) if p.plan_contratado else 'N/A' }}</td>
                                     <td class="px-6 py-4 text-center font-bold">{{ p.cuotas_pagadas_progresivas }}</td>
                                 </tr>
                                 {% else %}
-                                <tr><td colspan="4" class="text-center p-4 text-slate-500">No hay ahorradores elegibles.</td></tr>
+                                <tr><td colspan="5" class="text-center p-4 text-slate-500">No hay ahorradores elegibles.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
