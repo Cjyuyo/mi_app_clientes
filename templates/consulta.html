@@ -17,8 +17,564 @@
         .transition-enter-active, .transition-leave-active {
             transition: all 0.3s ease-out;
         }
+        /* Estilos para las barras de progreso *{% extends 'base_sidebar.html' %}
+
+{% block title %}
+    Consulta de Clientes
+{% endblock %}
+
+{% block head_extra %}
+    <!-- Librería para notificaciones y alertas visuales -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        /* Estilos para las transiciones suaves de Alpine.js */
+        [x-cloak] { display: none !important; }
+        .transition-enter-start, .transition-leave-end {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        .transition-enter-active, .transition-leave-active {
+            transition: all 0.3s ease-out;
+        }
         /* Estilos para las barras de progreso */
         .progress-bar {
+            -webkit-transition: width .6s ease;
+            -o-transition: width .6s ease;
+            transition: width .6s ease;
+        }
+        
+        /* --- NUEVO: Estilos para la animación del spinner --- */
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+          animation: spin 1s linear infinite;
+          display: inline-block; /* Necesario para que la transformación funcione */
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="space-y-8">
+    <!-- Encabezado y Barra de Búsqueda -->
+    <div class="bg-white p-6 rounded-xl shadow-sm">
+        <h1 class="text-3xl font-bold text-slate-800 mb-2">Consulta de Clientes</h1>
+        <p class="text-slate-500 mb-4">Busca y gestiona la información de tus clientes.</p>
+        <!-- CAMBIO: Se añade el evento onsubmit para deshabilitar el botón al enviar -->
+        <form method="POST" action="{{ url_for('consulta') }}" onsubmit="handleFormSubmit(this)">
+            <div class="flex rounded-lg shadow-sm">
+                <input type="search" name="busqueda" class="form-input w-full px-4 py-3 rounded-l-lg border-slate-300 focus:ring-blue-500 focus:border-blue-500" placeholder="Buscar por Nombre, Apellido o Cédula..." value="{{ busqueda or '' }}" autofocus>
+                <button type="submit" class="bg-blue-600 text-white px-5 py-3 rounded-r-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                    <i class="bi bi-search text-lg"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {% if mensaje_error %}
+        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md shadow-sm" role="alert">
+            <p>{{ mensaje_error }}</p>
+        </div>
+    {% endif %}
+
+    <!-- Resultados de Clientes -->
+    <div id="client-results" class="space-y-6">
+        {% for cliente in clientes %}
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200" x-data="{ activeTab: 'pagos-{{ cliente.id }}', showOfferForm: false }">
+            <!-- Encabezado de la Tarjeta de Cliente -->
+            <div class="p-5 border-b border-slate-200 flex justify-between items-start">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800">{{ cliente.nombre_apellido }}</h2>
+                    <p class="text-sm text-slate-500">Contrato: {{ cliente.contrato_nro or 'N/A' }}</p>
+                </div>
+                <span class="text-sm font-semibold py-1 px-3 rounded-full
+                    {% set estatus = cliente.estatus | upper if cliente.estatus else '' %}
+                    {% if estatus == 'ACTIVO' or estatus == 'AHORRADOR' or estatus == 'ADJUDICADO' %} bg-green-100 text-green-800
+                    {% elif estatus == 'INACTIVO' or estatus == 'RETIRO' %} bg-red-100 text-red-800
+                    {% elif estatus == 'RESERVA' or estatus == 'INSCRITO' %} bg-yellow-100 text-yellow-800
+                    {% else %} bg-slate-100 text-slate-800
+                    {% endif %}">
+                    {{ cliente.estatus }}
+                </span>
+            </div>
+            
+            <!-- Detalles del Cliente -->
+            <div class="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Grupo</span><span class="font-semibold text-slate-700">{{ cliente.grupo or 'N/A' }}</span></div>
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Plan</span><span class="font-semibold text-slate-700">{{ cliente.plan_contratado or 'N/A' }}</span></div>
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Cédula</span><span class="font-semibold text-slate-700">{{ cliente.cedula }}</span></div>
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Teléfono</span><span class="font-semibold text-slate-700">{{ cliente.telefono or 'N/A' }}</span></div>
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Asesor</span><span class="font-semibold text-slate-700">{{ cliente.asesor or 'N/A' }}</span></div>
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Cuotas Pagadas</span><span class="font-semibold text-slate-700">{{ cliente.cuotas_pagadas_progresivas | int }} de {{ cliente.cuotas_totales | int }}</span></div>
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Inscripción</span><span class="font-semibold text-green-600">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span></div>
+            </div>
+
+            <!-- Pestañas de Historial -->
+            <div class="px-5 border-b border-slate-200">
+                <nav class="-mb-px flex space-x-6">
+                    <button @click="activeTab = 'pagos-{{ cliente.id }}'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'pagos-{{ cliente.id }}', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'pagos-{{ cliente.id }}' }" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">Pagos ({{ cliente.conteo_pagos }})</button>
+                    <button @click="activeTab = 'ofertas-{{ cliente.id }}'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'ofertas-{{ cliente.id }}', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ofertas-{{ cliente.id }}' }" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">Ofertas ({{ cliente.conteo_ofertas }})</button>
+                    <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300">Gestiones ({{ cliente.conteo_gestiones }})</a>
+                </nav>
+            </div>
+
+            <!-- Contenido de Pestañas -->
+            <div class="p-5">
+                <!-- Contenido de Pagos -->
+                <!-- >>> CAMBIO ESPECIFICO: Pagos por diferencia de monto -->
+                <div x-show="activeTab === 'pagos-{{ cliente.id }}'" class="space-y-3">
+                    {% if cliente.pagos %}
+                        {% for pago in cliente.pagos %}
+                        <div class="flex items-start justify-between p-3 rounded-lg hover:bg-slate-50">
+                            <div>
+                                <p class="font-semibold text-slate-700">{{ pago.tipo_pago }}</p>
+                                <p class="text-xs text-slate-500">{{ pago.fecha_pago | format_date if pago.fecha_pago else pago.fecha_creacion | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</p>
+                                {% if pago.estado_reporte == 'Inconsistente' and pago.detalles_reporte and pago.detalles_reporte.motivo == 'Diferencia de Monto' %}
+                                <p class="text-xs text-red-600 mt-1">
+                                    <i class="bi bi-exclamation-circle-fill"></i>
+                                    Diferencia de monto generada.
+                                </p>
+                                {% endif %}
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <span class="font-bold text-slate-800">${{ "%.2f"|format(pago.monto) }}</span>
+                                <div class="flex items-center space-x-2 text-right">
+                                    {% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}
+                                        <span class="text-xs font-semibold py-1 px-2 rounded-full bg-blue-100 text-blue-800">Reportado</span>
+                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="text-xs bg-blue-500 text-white hover:bg-blue-600 py-1 px-2 rounded">Ver</a>
+                                    {% elif pago.estado_reporte == 'Inconsistente' %}
+                                        <span class="text-xs font-semibold py-1 px-2 rounded-full bg-red-100 text-red-800">Inconsistente</span>
+                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="text-xs bg-slate-500 text-white hover:bg-slate-600 py-1 px-2 rounded">Ver</a>
+                                    {% elif pago.estado_pago == 'Pendiente' %}
+                                        <span class="text-xs font-semibold py-1 px-2 rounded-full bg-yellow-100 text-yellow-800">Pendiente</span>
+                                        <form action="{{ url_for('conciliar_pago', pago_id=pago.id) }}" method="POST" onsubmit="event.preventDefault(); confirmConciliar(this);">
+                                            <button type="submit" class="text-xs bg-green-500 text-white hover:bg-green-600 py-1 px-2 rounded">Conciliar</button>
+                                        </form>
+                                    {% elif pago.estado_pago == 'Conciliado' or pago.tipo_pago == 'Inscripción Finalizada' %}
+                                        <span class="text-xs font-semibold py-1 px-2 rounded-full bg-green-100 text-green-800">Conciliado</span>
+                                        <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" class="text-xs bg-slate-500 text-white hover:bg-slate-600 py-1 px-2 rounded" target="_blank">Recibo</a>
+                                    {% elif pago.estado_pago == 'Anulado' %}
+                                        <span class="text-xs font-semibold py-1 px-2 rounded-full bg-red-100 text-red-800">Anulado</span>
+                                        <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" class="text-xs bg-slate-500 text-white hover:bg-slate-600 py-1 px-2 rounded" target="_blank">Detalles</a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-center text-slate-500 py-4">No hay pagos registrados.</p>
+                    {% endif %}
+                </div>
+                <!-- <<< FIN CAMBIO -->
+                <!-- Contenido de Ofertas -->
+                <div x-show="activeTab === 'ofertas-{{ cliente.id }}'" class="space-y-3">
+                    {% if cliente.ofertas %}{% for oferta in cliente.ofertas %}<div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50"><div><p class="font-semibold text-slate-700">Oferta de Adjudicación</p><p class="text-xs text-slate-500">{{ oferta.fecha_oferta | format_date }}</p></div><div class="flex items-center space-x-4"><span class="font-semibold text-slate-700">{{ oferta.cuotas_ofertadas }} Cuotas</span>{% if oferta.estado_oferta == 'activa' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-blue-100 text-blue-800">Activa</span>{% elif oferta.estado_oferta == 'ganadora' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-green-100 text-green-800">Ganadora</span>{% elif oferta.estado_oferta == 'perdida' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-slate-100 text-slate-800">Perdida</span>{% else %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-slate-100 text-slate-800">{{ oferta.estado_oferta }}</span>{% endif %}</div></div>{% endfor %}{% else %}<p class="text-center text-slate-500 py-4">No hay ofertas registradas.</p>{% endif %}
+                </div>
+            </div>
+
+            <!-- Acciones de la Tarjeta -->
+            <div class="bg-slate-50 p-4 border-t border-slate-200 flex flex-wrap items-center justify-end gap-2">
+                <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700"><i class="bi bi-cash-coin mr-1"></i> Registrar Pago</a>
+                <button type="button" @click="showOfferForm = !showOfferForm" class="text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700">
+                    <i class="bi bi-gem mr-1"></i> Registrar Oferta
+                </button>
+                <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="text-sm bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-slate-700" target="_blank"><i class="bi bi-file-earmark-pdf-fill mr-1"></i> Contrato</a>
+                <a href="#" onclick="confirmEdit('{{ url_for('edit_client', client_id=cliente.id) }}')" class="text-sm bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-yellow-600"><i class="bi bi-pencil-square mr-1"></i> Editar</a>
+                {% if g.admin and g.admin.rol == 'superadmin' %}
+                <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="event.preventDefault(); confirmDelete(this);">
+                    <button type="submit" class="text-sm bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700"><i class="bi bi-trash-fill mr-1"></i> Eliminar</button>
+                </form>
+                {% endif %}
+            </div>
+
+            <!-- Formulario de Oferta Plegable -->
+            <div x-show="showOfferForm" x-cloak 
+                 class="p-5 border-t border-slate-200 bg-slate-100"
+                 x-transition:enter="transition-enter-active"
+                 x-transition:enter-start="transition-enter-start"
+                 x-transition:leave="transition-leave-active"
+                 x-transition:leave-end="transition-leave-end">
+                <!-- CAMBIO: Se añade el evento onsubmit para deshabilitar el botón al enviar -->
+                <form action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" method="POST" onsubmit="handleFormSubmit(this)">
+                    <h3 class="font-bold text-slate-800 mb-2">Registrar Oferta para {{ cliente.nombre_apellido }}</h3>
+                    <p class="text-sm text-slate-600 mb-4">Seleccione la cantidad de cuotas que el cliente desea adelantar para el próximo acto de adjudicación.</p>
+                    <div>
+                        <label for="cuotas_ofertadas-{{ cliente.id }}" class="form-label font-medium text-slate-700">Número de Cuotas a Ofertar</label>
+                        <select class="form-select mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" id="cuotas_ofertadas-{{ cliente.id }}" name="cuotas_ofertadas" required>
+                            {% set cuotas_restantes = (cliente.cuotas_totales|int) - (cliente.cuotas_pagadas_progresivas|int) %}
+                            {% for i in range(1, cuotas_restantes + 1) %}
+                            <option value="{{ i }}">{{ i }} cuota(s)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="flex justify-end gap-2 mt-4">
+                        <button type="button" @click="showOfferForm = false" class="bg-white text-slate-700 py-2 px-4 border border-slate-300 rounded-md shadow-sm hover:bg-slate-50">Cancelar</button>
+                        <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded-md shadow-sm hover:bg-blue-700">Guardar Oferta</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+    /**
+     * --- NUEVA FUNCIÓN ---
+     * Deshabilita los botones de tipo 'submit' dentro de un formulario y muestra un texto de "Procesando".
+     * Para usarla en un formulario, añade: onsubmit="handleFormSubmit(this)"
+     * @param {HTMLFormElement} form - El formulario que se está enviando.
+     */
+    function handleFormSubmit(form) {
+        const submitButtons = form.querySelectorAll('button[type="submit"]');
+        submitButtons.forEach(button => {
+            button.disabled = true;
+            button.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
+        });
+    }
+
+    // Función para confirmar la eliminación de un cliente
+    function confirmDelete(form) {
+        Swal.fire({
+            title: '¿Está seguro?',
+            text: "¡Esta acción es irreversible! Se eliminará al cliente y todos sus registros asociados (pagos, ofertas, etc.).",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, eliminarlo',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // CAMBIO: Se llama a la función para deshabilitar el botón antes de enviar
+                handleFormSubmit(form);
+                form.submit();
+            }
+        });
+    }
+
+    // Función para confirmar la edición de un cliente
+    function confirmEdit(url) {
+        Swal.fire({
+            title: '¿Desea editar este cliente?',
+            text: "Será redirigido a la página de edición para modificar los datos del cliente.",
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, editar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = url;
+            }
+        });
+    }
+
+    // Función para confirmar la conciliación de un pago
+    function confirmConciliar(form) {
+        Swal.fire({
+            title: '¿Confirmar Conciliación?',
+            text: "El pago se marcará como 'Conciliado' y se actualizará el estado de cuenta del cliente.",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, conciliar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // CAMBIO: Se llama a la función para deshabilitar el botón antes de enviar
+                handleFormSubmit(form);
+                form.submit();
+            }
+        });
+    }
+</script>
+{% endblock %}
+
+        .progress-bar {% extends 'base_sidebar.html' %}
+
+{% block title %}
+    Consulta de Clientes
+{% endblock %}
+
+{% block head_extra %}
+    <!-- Librería para notificaciones y alertas visuales -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        /* Estilos para las transiciones suaves de Alpine.js */
+        [x-cloak] { display: none !important; }
+        .transition-enter-start, .transition-leave-end {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        .transition-enter-active, .transition-leave-active {
+            transition: all 0.3s ease-out;
+        }
+        /* Estilos para las barras de progreso */
+        .progress-bar {
+            -webkit-transition: width .6s ease;
+            -o-transition: width .6s ease;
+            transition: width .6s ease;
+        }
+        
+        /* --- NUEVO: Estilos para la animación del spinner --- */
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+          animation: spin 1s linear infinite;
+          display: inline-block; /* Necesario para que la transformación funcione */
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="space-y-8">
+    <!-- Encabezado y Barra de Búsqueda -->
+    <div class="bg-white p-6 rounded-xl shadow-sm">
+        <h1 class="text-3xl font-bold text-slate-800 mb-2">Consulta de Clientes</h1>
+        <p class="text-slate-500 mb-4">Busca y gestiona la información de tus clientes.</p>
+        <!-- CAMBIO: Se añade el evento onsubmit para deshabilitar el botón al enviar -->
+        <form method="POST" action="{{ url_for('consulta') }}" onsubmit="handleFormSubmit(this)">
+            <div class="flex rounded-lg shadow-sm">
+                <input type="search" name="busqueda" class="form-input w-full px-4 py-3 rounded-l-lg border-slate-300 focus:ring-blue-500 focus:border-blue-500" placeholder="Buscar por Nombre, Apellido o Cédula..." value="{{ busqueda or '' }}" autofocus>
+                <button type="submit" class="bg-blue-600 text-white px-5 py-3 rounded-r-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                    <i class="bi bi-search text-lg"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {% if mensaje_error %}
+        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md shadow-sm" role="alert">
+            <p>{{ mensaje_error }}</p>
+        </div>
+    {% endif %}
+
+    <!-- Resultados de Clientes -->
+    <div id="client-results" class="space-y-6">
+        {% for cliente in clientes %}
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200" x-data="{ activeTab: 'pagos-{{ cliente.id }}', showOfferForm: false }">
+            <!-- Encabezado de la Tarjeta de Cliente -->
+            <div class="p-5 border-b border-slate-200 flex justify-between items-start">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800">{{ cliente.nombre_apellido }}</h2>
+                    <p class="text-sm text-slate-500">Contrato: {{ cliente.contrato_nro or 'N/A' }}</p>
+                </div>
+                <span class="text-sm font-semibold py-1 px-3 rounded-full
+                    {% set estatus = cliente.estatus | upper if cliente.estatus else '' %}
+                    {% if estatus == 'ACTIVO' or estatus == 'AHORRADOR' or estatus == 'ADJUDICADO' %} bg-green-100 text-green-800
+                    {% elif estatus == 'INACTIVO' or estatus == 'RETIRO' %} bg-red-100 text-red-800
+                    {% elif estatus == 'RESERVA' or estatus == 'INSCRITO' %} bg-yellow-100 text-yellow-800
+                    {% else %} bg-slate-100 text-slate-800
+                    {% endif %}">
+                    {{ cliente.estatus }}
+                </span>
+            </div>
+            
+            <!-- Detalles del Cliente -->
+            <div class="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Grupo</span><span class="font-semibold text-slate-700">{{ cliente.grupo or 'N/A' }}</span></div>
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Plan</span><span class="font-semibold text-slate-700">{{ cliente.plan_contratado or 'N/A' }}</span></div>
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Cédula</span><span class="font-semibold text-slate-700">{{ cliente.cedula }}</span></div>
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Teléfono</span><span class="font-semibold text-slate-700">{{ cliente.telefono or 'N/A' }}</span></div>
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Asesor</span><span class="font-semibold text-slate-700">{{ cliente.asesor or 'N/A' }}</span></div>
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Cuotas Pagadas</span><span class="font-semibold text-slate-700">{{ cliente.cuotas_pagadas_progresivas | int }} de {{ cliente.cuotas_totales | int }}</span></div>
+                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Inscripción</span><span class="font-semibold text-green-600">${{ "%.2f"|format(cliente.inscripcion_pagada|float) }} / ${{ "%.2f"|format(cliente.inscripcion_monto|float) }}</span></div>
+            </div>
+
+            <!-- Pestañas de Historial -->
+            <div class="px-5 border-b border-slate-200">
+                <nav class="-mb-px flex space-x-6">
+                    <button @click="activeTab = 'pagos-{{ cliente.id }}'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'pagos-{{ cliente.id }}', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'pagos-{{ cliente.id }}' }" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">Pagos ({{ cliente.conteo_pagos }})</button>
+                    <button @click="activeTab = 'ofertas-{{ cliente.id }}'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'ofertas-{{ cliente.id }}', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ofertas-{{ cliente.id }}' }" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">Ofertas ({{ cliente.conteo_ofertas }})</button>
+                    <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300">Gestiones ({{ cliente.conteo_gestiones }})</a>
+                </nav>
+            </div>
+
+            <!-- Contenido de Pestañas -->
+            <div class="p-5">
+                <!-- Contenido de Pagos -->
+                <!-- >>> CAMBIO ESPECIFICO: Pagos por diferencia de monto -->
+                <div x-show="activeTab === 'pagos-{{ cliente.id }}'" class="space-y-3">
+                    {% if cliente.pagos %}
+                        {% for pago in cliente.pagos %}
+                        <div class="flex items-start justify-between p-3 rounded-lg hover:bg-slate-50">
+                            <div>
+                                <p class="font-semibold text-slate-700">{{ pago.tipo_pago }}</p>
+                                <p class="text-xs text-slate-500">{{ pago.fecha_pago | format_date if pago.fecha_pago else pago.fecha_creacion | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</p>
+                                {% if pago.estado_reporte == 'Inconsistente' and pago.detalles_reporte and pago.detalles_reporte.motivo == 'Diferencia de Monto' %}
+                                <p class="text-xs text-red-600 mt-1">
+                                    <i class="bi bi-exclamation-circle-fill"></i>
+                                    Diferencia de monto generada.
+                                </p>
+                                {% endif %}
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <span class="font-bold text-slate-800">${{ "%.2f"|format(pago.monto) }}</span>
+                                <div class="flex items-center space-x-2 text-right">
+                                    {% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}
+                                        <span class="text-xs font-semibold py-1 px-2 rounded-full bg-blue-100 text-blue-800">Reportado</span>
+                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="text-xs bg-blue-500 text-white hover:bg-blue-600 py-1 px-2 rounded">Ver</a>
+                                    {% elif pago.estado_reporte == 'Inconsistente' %}
+                                        <span class="text-xs font-semibold py-1 px-2 rounded-full bg-red-100 text-red-800">Inconsistente</span>
+                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="text-xs bg-slate-500 text-white hover:bg-slate-600 py-1 px-2 rounded">Ver</a>
+                                    {% elif pago.estado_pago == 'Pendiente' %}
+                                        <span class="text-xs font-semibold py-1 px-2 rounded-full bg-yellow-100 text-yellow-800">Pendiente</span>
+                                        <form action="{{ url_for('conciliar_pago', pago_id=pago.id) }}" method="POST" onsubmit="event.preventDefault(); confirmConciliar(this);">
+                                            <button type="submit" class="text-xs bg-green-500 text-white hover:bg-green-600 py-1 px-2 rounded">Conciliar</button>
+                                        </form>
+                                    {% elif pago.estado_pago == 'Conciliado' or pago.tipo_pago == 'Inscripción Finalizada' %}
+                                        <span class="text-xs font-semibold py-1 px-2 rounded-full bg-green-100 text-green-800">Conciliado</span>
+                                        <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" class="text-xs bg-slate-500 text-white hover:bg-slate-600 py-1 px-2 rounded" target="_blank">Recibo</a>
+                                    {% elif pago.estado_pago == 'Anulado' %}
+                                        <span class="text-xs font-semibold py-1 px-2 rounded-full bg-red-100 text-red-800">Anulado</span>
+                                        <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" class="text-xs bg-slate-500 text-white hover:bg-slate-600 py-1 px-2 rounded" target="_blank">Detalles</a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-center text-slate-500 py-4">No hay pagos registrados.</p>
+                    {% endif %}
+                </div>
+                <!-- <<< FIN CAMBIO -->
+                <!-- Contenido de Ofertas -->
+                <div x-show="activeTab === 'ofertas-{{ cliente.id }}'" class="space-y-3">
+                    {% if cliente.ofertas %}{% for oferta in cliente.ofertas %}<div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50"><div><p class="font-semibold text-slate-700">Oferta de Adjudicación</p><p class="text-xs text-slate-500">{{ oferta.fecha_oferta | format_date }}</p></div><div class="flex items-center space-x-4"><span class="font-semibold text-slate-700">{{ oferta.cuotas_ofertadas }} Cuotas</span>{% if oferta.estado_oferta == 'activa' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-blue-100 text-blue-800">Activa</span>{% elif oferta.estado_oferta == 'ganadora' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-green-100 text-green-800">Ganadora</span>{% elif oferta.estado_oferta == 'perdida' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-slate-100 text-slate-800">Perdida</span>{% else %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-slate-100 text-slate-800">{{ oferta.estado_oferta }}</span>{% endif %}</div></div>{% endfor %}{% else %}<p class="text-center text-slate-500 py-4">No hay ofertas registradas.</p>{% endif %}
+                </div>
+            </div>
+
+            <!-- Acciones de la Tarjeta -->
+            <div class="bg-slate-50 p-4 border-t border-slate-200 flex flex-wrap items-center justify-end gap-2">
+                <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700"><i class="bi bi-cash-coin mr-1"></i> Registrar Pago</a>
+                <button type="button" @click="showOfferForm = !showOfferForm" class="text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700">
+                    <i class="bi bi-gem mr-1"></i> Registrar Oferta
+                </button>
+                <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="text-sm bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-slate-700" target="_blank"><i class="bi bi-file-earmark-pdf-fill mr-1"></i> Contrato</a>
+                <a href="#" onclick="confirmEdit('{{ url_for('edit_client', client_id=cliente.id) }}')" class="text-sm bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-yellow-600"><i class="bi bi-pencil-square mr-1"></i> Editar</a>
+                {% if g.admin and g.admin.rol == 'superadmin' %}
+                <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="event.preventDefault(); confirmDelete(this);">
+                    <button type="submit" class="text-sm bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700"><i class="bi bi-trash-fill mr-1"></i> Eliminar</button>
+                </form>
+                {% endif %}
+            </div>
+
+            <!-- Formulario de Oferta Plegable -->
+            <div x-show="showOfferForm" x-cloak 
+                 class="p-5 border-t border-slate-200 bg-slate-100"
+                 x-transition:enter="transition-enter-active"
+                 x-transition:enter-start="transition-enter-start"
+                 x-transition:leave="transition-leave-active"
+                 x-transition:leave-end="transition-leave-end">
+                <!-- CAMBIO: Se añade el evento onsubmit para deshabilitar el botón al enviar -->
+                <form action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" method="POST" onsubmit="handleFormSubmit(this)">
+                    <h3 class="font-bold text-slate-800 mb-2">Registrar Oferta para {{ cliente.nombre_apellido }}</h3>
+                    <p class="text-sm text-slate-600 mb-4">Seleccione la cantidad de cuotas que el cliente desea adelantar para el próximo acto de adjudicación.</p>
+                    <div>
+                        <label for="cuotas_ofertadas-{{ cliente.id }}" class="form-label font-medium text-slate-700">Número de Cuotas a Ofertar</label>
+                        <select class="form-select mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" id="cuotas_ofertadas-{{ cliente.id }}" name="cuotas_ofertadas" required>
+                            {% set cuotas_restantes = (cliente.cuotas_totales|int) - (cliente.cuotas_pagadas_progresivas|int) %}
+                            {% for i in range(1, cuotas_restantes + 1) %}
+                            <option value="{{ i }}">{{ i }} cuota(s)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="flex justify-end gap-2 mt-4">
+                        <button type="button" @click="showOfferForm = false" class="bg-white text-slate-700 py-2 px-4 border border-slate-300 rounded-md shadow-sm hover:bg-slate-50">Cancelar</button>
+                        <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded-md shadow-sm hover:bg-blue-700">Guardar Oferta</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+    /**
+     * --- NUEVA FUNCIÓN ---
+     * Deshabilita los botones de tipo 'submit' dentro de un formulario y muestra un texto de "Procesando".
+     * Para usarla en un formulario, añade: onsubmit="handleFormSubmit(this)"
+     * @param {HTMLFormElement} form - El formulario que se está enviando.
+     */
+    function handleFormSubmit(form) {
+        const submitButtons = form.querySelectorAll('button[type="submit"]');
+        submitButtons.forEach(button => {
+            button.disabled = true;
+            button.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
+        });
+    }
+
+    // Función para confirmar la eliminación de un cliente
+    function confirmDelete(form) {
+        Swal.fire({
+            title: '¿Está seguro?',
+            text: "¡Esta acción es irreversible! Se eliminará al cliente y todos sus registros asociados (pagos, ofertas, etc.).",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, eliminarlo',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // CAMBIO: Se llama a la función para deshabilitar el botón antes de enviar
+                handleFormSubmit(form);
+                form.submit();
+            }
+        });
+    }
+
+    // Función para confirmar la edición de un cliente
+    function confirmEdit(url) {
+        Swal.fire({
+            title: '¿Desea editar este cliente?',
+            text: "Será redirigido a la página de edición para modificar los datos del cliente.",
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, editar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = url;
+            }
+        });
+    }
+
+    // Función para confirmar la conciliación de un pago
+    function confirmConciliar(form) {
+        Swal.fire({
+            title: '¿Confirmar Conciliación?',
+            text: "El pago se marcará como 'Conciliado' y se actualizará el estado de cuenta del cliente.",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, conciliar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // CAMBIO: Se llama a la función para deshabilitar el botón antes de enviar
+                handleFormSubmit(form);
+                form.submit();
+            }
+        });
+    }
+</script>
+{% endblock %}
+
             -webkit-transition: width .6s ease;
             -o-transition: width .6s ease;
             transition: width .6s ease;

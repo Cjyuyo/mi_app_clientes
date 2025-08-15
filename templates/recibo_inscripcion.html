@@ -60,6 +60,7 @@
                 </div>
             </div>
 
+            <!-- >>> CAMBIO ESPECIFICO: Pagos por diferencia de monto -->
             {% if pago.detalles_reporte and pago.detalles_reporte.pagos_individuales %}
             <div class="section">
                 <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider border-b pb-2 mb-4">Detalle de Pagos Consolidados</h3>
@@ -81,6 +82,7 @@
                 </div>
             </div>
             {% endif %}
+            <!-- <<< FIN CAMBIO -->
         </div>
         
         <!-- Pie de Página y QR -->

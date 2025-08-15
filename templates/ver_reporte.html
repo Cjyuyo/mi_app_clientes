@@ -43,7 +43,58 @@
         </div>
     </div>
 
-    <!-- Tarjeta de Acciones -->
+    <!-- >>> CAMBIO ESPECIFICO: Pagos por diferencia de monto -->
+    {% if pago.pago_padre_id or pagos_relacionados %}
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800">Historial de Transacción</h2>
+        </div>
+        <div class="p-5">
+            <p class="text-sm text-slate-600 mb-4">Este pago es parte de una transacción con diferencia de monto.</p>
+            <div class="space-y-3">
+                {% if pago.pago_padre_id and pago_padre %}
+                <!-- Vista para el pago de la diferencia (muestra el pago original) -->
+                <div class="bg-slate-50 p-3 rounded-lg flex justify-between items-center">
+                    <div>
+                        <p class="font-semibold">Pago Inicial (Reporte #{{ pago_padre.id }})</p>
+                        <p class="text-xs text-slate-500">{{ pago_padre.fecha_pago | format_date }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-bold text-slate-800">${{ "%.2f"|format(pago_padre.monto) }}</p>
+                        <span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-green-100 text-green-800">Recibido</span>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if pagos_relacionados %}
+                <!-- Vista para el pago original (muestra los pagos de diferencia asociados) -->
+                {% for pago_relacionado in pagos_relacionados %}
+                <div class="bg-slate-50 p-3 rounded-lg flex justify-between items-center">
+                    <div>
+                        <p class="font-semibold">{{ pago_relacionado.tipo_pago }} (Reporte #{{ pago_relacionado.id }})</p>
+                        <p class="text-xs text-slate-500">{{ pago_relacionado.fecha_creacion | format_date }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-bold text-slate-800">${{ "%.2f"|format(pago_relacionado.monto) }}</p>
+                        {% if pago_relacionado.estado_pago == 'Pendiente' %}
+                        <span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-yellow-100 text-yellow-800">Pendiente de Pago</span>
+                        {% elif pago_relacionado.estado_pago == 'Conciliado' %}
+                        <span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-green-100 text-green-800">Pagado</span>
+                        {% else %}
+                        <span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-slate-100 text-slate-800">{{ pago_relacionado.estado_pago }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    <!-- <<< FIN CAMBIO -->
+
+    <!-- Tarjeta de Acciones (Solo para Admin) -->
+    {% if not is_client_view %}
     <div class="bg-white rounded-xl shadow-sm" x-data="{ showRejection: false }">
         <div class="p-5 border-b border-slate-200">
             <h2 class="text-lg font-bold text-slate-800">Acciones de Validación</h2>
@@ -56,7 +107,7 @@
                     <div class="space-y-4">
                         <div>
                             <label for="motivo_rechazo" class="block text-sm font-medium text-slate-700"><strong>Motivo del Rechazo</strong></label>
-                            <select name="motivo_rechazo" id="motivo_rechazo" x-on:change="diferenciaGroup.style.display = $event.target.value === 'Diferencia de Monto' ? 'block' : 'none'" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm">
+                            <select name="motivo_rechazo" id="motivo_rechazo" x-on:change="document.getElementById('diferencia-monto-group').style.display = $event.target.value === 'Diferencia de Monto' ? 'block' : 'none'" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm">
                                 <option value="Referencia inválida">Referencia inválida o no encontrada</option>
                                 <option value="Diferencia de Monto">Diferencia de Monto</option>
                                 <option value="Datos incorrectos">Datos del reporte incorrectos (fecha, banco, etc.)</option>
@@ -95,5 +146,6 @@
             </form>
         </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %}

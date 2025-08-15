@@ -117,31 +117,37 @@
         {% endif %}
     {% endwith %}
 
-    <!-- >>> CAMBIO ESPECIFICO: Listado de reportes de pago rechazados -->
     {% if reportes_rechazados %}
     <div class="bg-red-100 border-l-4 border-red-500 text-red-800 p-5 rounded-xl shadow-md card-lift">
         <h3 class="font-bold text-lg flex items-center gap-2"><i class="bi bi-exclamation-triangle-fill"></i> ¡Acción Requerida!</h3>
         <p class="mt-2 mb-4 text-sm">Hemos encontrado inconsistencias en los siguientes reportes de pago. Por favor, revísalos para continuar:</p>
         <div class="space-y-3">
             {% for pago in reportes_rechazados %}
+            <!-- >>> CAMBIO ESPECIFICO: Pagos por diferencia de monto -->
             <div class="bg-white/60 p-3 rounded-lg flex flex-col sm:flex-row justify-between items-center gap-3">
                 <div>
-                    <p class="font-semibold">Reporte #{{ pago.id }} por ${{ "%.2f"|format(pago.monto) }}</p>
-                    <p class="text-xs"><strong>Motivo:</strong> {{ pago.detalles_reporte.motivo or 'Inconsistente' }}</p>
-                </div>
-                <div>
+                    <p class="font-semibold">Reporte #{{ pago.id }}</p>
                     {% if pago.accion_requerida == 'pagar_diferencia' %}
-                    <a href="{{ url_for('pagar_diferencia', pago_original_id=pago.id) }}" class="text-sm text-white font-semibold py-2 px-3 rounded-lg bg-red-600 hover:bg-red-700">Pagar Diferencia de ${{ "%.2f"|format(pago.detalles_reporte.diferencia|float) }}</a>
+                        <p class="text-xs text-slate-600"><strong>Monto Recibido:</strong> ${{ "%.2f"|format(pago.monto) }}</p>
+                        <p class="text-xs text-red-600 mt-1"><strong>Monto Pendiente:</strong> <span class="font-bold">${{ "%.2f"|format(pago.detalles_reporte.diferencia|float) }}</span></p>
                     {% else %}
-                    <a href="{{ url_for('portal_corregir_reporte', pago_id=pago.id) }}" class="text-sm text-white font-semibold py-2 px-3 rounded-lg bg-red-600 hover:bg-red-700">Corregir Reporte</a>
+                        <p class="text-xs text-slate-600"><strong>Monto Reportado:</strong> ${{ "%.2f"|format(pago.monto) }}</p>
+                    {% endif %}
+                    <p class="text-xs text-slate-600 mt-1"><strong>Motivo del Rechazo:</strong> <span class="font-medium">{{ pago.detalles_reporte.motivo or 'Inconsistente' }}</span></p>
+                </div>
+                <div class="mt-2 sm:mt-0">
+                    {% if pago.accion_requerida == 'pagar_diferencia' %}
+                        <a href="{{ url_for('pagar_diferencia', pago_original_id=pago.id) }}" class="text-sm text-white font-semibold py-2 px-3 rounded-lg bg-red-600 hover:bg-red-700">Pagar Diferencia</a>
+                    {% else %}
+                        <a href="{{ url_for('portal_corregir_reporte', pago_id=pago.id) }}" class="text-sm text-white font-semibold py-2 px-3 rounded-lg bg-orange-500 hover:bg-orange-600">Corregir Reporte</a>
                     {% endif %}
                 </div>
             </div>
+            <!-- <<< FIN CAMBIO -->
             {% endfor %}
         </div>
     </div>
     {% endif %}
-    <!-- <<< FIN CAMBIO -->
 
     <div class="flex flex-col gap-6">
         {% if estado_principal %}
@@ -266,7 +272,6 @@
                                     <p class="font-semibold text-sm text-slate-800">{{ gestion.titulo }}</p>
                                     <p class="text-xs text-slate-500">{{ gestion.fecha | format_datetime }}</p>
                                     <p class="text-sm text-slate-600 mt-1">{{ gestion.descripcion }}</p>
-                                    <!-- >>> CAMBIO ESPECIFICO: Botón para ver reporte de cita en historial del cliente -->
                                     {% if gestion.titulo == 'Solicitud de Cita' and gestion.estado == 'Completada' and gestion.detalles and gestion.detalles.reporte %}
                                     <div class="mt-2">
                                         <a href="{{ url_for('ver_reporte_cita', solicitud_id=gestion.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-sky-600 hover:text-sky-700">
@@ -274,7 +279,6 @@
                                         </a>
                                     </div>
                                     {% endif %}
-                                    <!-- <<< FIN CAMBIO -->
                                 </div>
                             </li>
                             {% endfor %}

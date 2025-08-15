@@ -60,7 +60,6 @@
                         </td>
                         <td class="px-6 py-4 font-semibold text-slate-800">${{ "%.2f"|format(reporte.monto) }}</td>
                         <td class="px-6 py-4 text-right">
-                            <!-- >>> CAMBIO ESPECIFICO: Acciones rápidas de Aprobar/Rechazar y modal de rechazo -->
                             <div class="flex items-center justify-end gap-2">
                                 <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="text-xs bg-slate-500 text-white font-semibold py-2 px-3 rounded-lg hover:bg-slate-600">Revisar</a>
                                 
@@ -73,7 +72,6 @@
                                     Rechazar
                                 </button>
                             </div>
-                            <!-- <<< FIN CAMBIO -->
                         </td>
                     </tr>
                     {% else %}
@@ -93,7 +91,7 @@
     </div>
 </div>
 
-<!-- >>> CAMBIO ESPECIFICO: Modales de rechazo para cada reporte -->
+<!-- >>> CAMBIO ESPECIFICO: Pagos por diferencia de monto -->
 {% for reporte in reportes %}
 <div class="modal fade" id="rechazarModal-{{ reporte.id }}" tabindex="-1" aria-labelledby="rechazarModalLabel-{{ reporte.id }}" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -120,6 +118,7 @@
                     <div x-show="motivo === 'Diferencia de Monto'" x-transition>
                         <label for="diferencia_monto-{{ reporte.id }}" class="form-label">Monto de la Diferencia (USD)</label>
                         <input type="number" step="0.01" name="diferencia_monto" id="diferencia_monto-{{ reporte.id }}" class="form-input w-full" placeholder="Ej: 5.50">
+                        <small class="text-slate-500">Este monto generará una nueva orden de pago para el cliente.</small>
                     </div>
                 </div>
                 <div class="modal-footer bg-slate-50">

@@ -67,15 +67,49 @@
                     <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Pago Realizado En</span><span class="block font-semibold text-slate-700">{{ pago.pago_en or 'N/A' }}</span></div>
                     <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Forma de Pago</span><span class="block font-semibold text-slate-700">{{ pago.forma_pago }}</span></div>
                     {% if pago.monto_bs and pago.monto_bs > 0 %}
-                    <!-- >>> CAMBIO ESPECIFICO: Mostrar tasa de cambio usada en recibos en Bs -->
                     <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Tasa Aplicada (Bs / {{ pago.moneda_referencia or 'USD' }})</span><span class="block font-semibold text-slate-700">{{ "{:,.2f}".format(pago.tasa_dia) }} Bs.</span></div>
-                    <!-- <<< FIN CAMBIO -->
                     <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Monto Pagado (Bs.)</span><span class="block font-semibold text-slate-700">{{ "{:,.2f}".format(pago.monto_bs) }} Bs.</span></div>
                     {% endif %}
                     <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Banco / Referencia</span><span class="block font-semibold text-slate-700">{% if pago.banco and pago.banco.strip() %}{{ pago.banco }}{% endif %}{% if pago.referencia and pago.referencia.strip() %} / {{ pago.referencia }}{% endif %}{% if not (pago.banco and pago.banco.strip()) and not (pago.referencia and pago.referencia.strip()) %}N/A{% endif %}</span></div>
                     <div class="sm:col-span-2 md:col-span-3 bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Por Concepto de</span><span class="block font-semibold text-slate-700">{{ pago.por_concepto_de }}</span></div>
                 </div>
             </div>
+
+            <!-- >>> CAMBIO ESPECIFICO: Pagos por diferencia de monto -->
+            {% if pagos_consolidados and pagos_consolidados|length > 1 %}
+            <div class="section">
+                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider border-b pb-2 mb-4">Transacciones Consolidadas</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-slate-500">
+                            <tr>
+                                <th class="py-2 pr-3">ID Recibo</th>
+                                <th class="py-2 px-3">Fecha</th>
+                                <th class="py-2 px-3">Concepto</th>
+                                <th class="py-2 pl-3 text-right">Monto (USD)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y">
+                            {% for p in pagos_consolidados %}
+                            <tr>
+                                <td class="py-2 pr-3 text-slate-600">#{{ p.id }}</td>
+                                <td class="py-2 px-3 text-slate-600">{{ p.fecha_pago | format_date }}</td>
+                                <td class="py-2 px-3 text-slate-600">{{ p.tipo_pago }}</td>
+                                <td class="py-2 pl-3 text-right font-semibold text-slate-800">${{ "%.2f"|format(p.monto) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-t-2">
+                                <td colspan="3" class="py-2 pr-3 text-right font-bold">Total Consolidado:</td>
+                                <td class="py-2 pl-3 text-right font-bold text-lg">${{ "%.2f"|format(pago.monto) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+            <!-- <<< FIN CAMBIO -->
         </div>
         
         <!-- Pie de Página y QR -->
