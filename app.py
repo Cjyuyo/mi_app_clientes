@@ -31,9 +31,11 @@ def get_venezuela_current_datetime():
     """Devuelve la fecha y hora actual en la zona horaria de Venezuela."""
     return datetime.now(VENEZUELA_TZ)
 
+# >>> CAMBIO ESPECIFICO: Corrección .date() con paréntesis
 def get_venezuela_current_date():
     """Devuelve solo la fecha actual en la zona horaria de Venezuela."""
     return get_venezuela_current_datetime().date()
+# <<< FIN CAMBIO
 
 # =================================================================================
 # ===== FUNCIONES DE UTILIDAD Y FILTROS JINJA =====
@@ -687,7 +689,7 @@ def ver_reporte_cita(solicitud_id):
 # <<< FIN CAMBIO
 
 # =================================================================================
-# --- MÓDULO DE GESTIÓN ADMINISTRATIVA Y SOLICITUDES ---
+# --- MÓDULO DE GESTIÓN ADMINISTRATIVA E SOLICITUDES ---
 # =================================================================================
 
 @app.route('/gestion_administrativa')
@@ -1200,11 +1202,13 @@ def dashboard_comercial():
                     GROUP BY nombre_beneficiario ORDER BY total_pendiente DESC;
                 """)
                 resumen_asesores = cur.fetchall()
+                # >>> CAMBIO ESPECIFICO: sum(..., 0) para listas vacías
                 if contratos:
-                    stats['ingresos_brutos_inscripciones'] = sum(c['monto_inscripcion'] for c in contratos)
-                    stats['total_sobrante_pendiente'] = sum(c['sobrante_empresa'] or Decimal('0.0') for c in contratos)
+                    stats['ingresos_brutos_inscripciones'] = sum((c['monto_inscripcion'] for c in contratos), 0)
+                    stats['total_sobrante_pendiente'] = sum((c['sobrante_empresa'] or Decimal('0.0') for c in contratos), 0)
                 if resumen_asesores:
-                    stats['total_comisiones_pendientes'] = sum(a['total_pendiente'] for a in resumen_asesores)
+                    stats['total_comisiones_pendientes'] = sum((a['total_pendiente'] for a in resumen_asesores), 0)
+                # <<< FIN CAMBIO
             balances_generales = calcular_balances_tesoreria()
         except psycopg2.Error as e:
             flash(f"Error al cargar el dashboard comercial: {e}", "danger")
@@ -1433,17 +1437,20 @@ def reporte_morosidad():
                 
                 first_day_of_month = today.replace(day=1)
                 
-                subquery_pagaron_mes = "SELECT DISTINCT cliente_id FROM pagos WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s"
-                
-                query_morosos = f"""
+                # >>> CAMBIO ESPECIFICO: Parametrización segura en reporte_morosidad
+                # >>> CAMBIO ESPECIFICO: Consulta multilínea legible
+                query_morosos = """
                     SELECT c.id, c.nombre, c.apellido, c.cedula, c.telefono, c.valor_cuota, c.gestor_id,
                            a.usuario as gestor_asignado,
                            (SELECT MAX(p.fecha_pago) FROM pagos p WHERE p.cliente_id = c.id AND p.estado_pago = 'Conciliado') as ultimo_pago_fecha
                     FROM clientes c LEFT JOIN administradores a ON c.gestor_id = a.id
                     WHERE TRIM(UPPER(c.proceso)) = 'AHORRADOR' AND TRIM(UPPER(c.estatus)) = 'ACTIVO'
-                    AND c.id NOT IN ({subquery_pagaron_mes}) ORDER BY c.nombre, c.apellido;
+                    AND c.id NOT IN (SELECT DISTINCT cliente_id FROM pagos WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s) 
+                    ORDER BY c.nombre, c.apellido;
                 """
                 cur.execute(query_morosos, (first_day_of_month,))
+                # <<< FIN CAMBIO
+                # <<< FIN CAMBIO
                 clientes_en_mora = cur.fetchall()
 
                 if clientes_en_mora:
@@ -1655,8 +1662,12 @@ def perfil_cliente(cliente_id):
                     
                     detalles = event.get('detalles', {})
                     if isinstance(detalles, str):
-                        try: detalles = json.loads(detalles)
-                        except json.JSONDecodeError: detalles = {}
+                        # >>> CAMBIO ESPECIFICO: Manejo defensivo JSONDecodeError
+                        try:
+                            detalles = json.loads(detalles)
+                        except json.JSONDecodeError:
+                            detalles = {}
+                        # <<< FIN CAMBIO
                     evento_fmt['detalles'] = detalles
 
                     if event['origen'] == 'solicitud':
@@ -2638,10 +2649,12 @@ def portal_dashboard():
             for pago in cliente_dict['pagos']:
                 if pago.get('estado_reporte') == 'Inconsistente':
                     if isinstance(pago.get('detalles_reporte'), str):
+                        # >>> CAMBIO ESPECIFICO: Manejo defensivo JSONDecodeError
                         try:
                             pago['detalles_reporte'] = json.loads(pago['detalles_reporte'])
                         except json.JSONDecodeError:
                             pago['detalles_reporte'] = {}
+                        # <<< FIN CAMBIO
                     
                     detalles = pago.get('detalles_reporte', {})
                     if detalles.get('motivo') == 'Diferencia de Monto' and Decimal(detalles.get('diferencia', 0)) > 0:
@@ -3185,7 +3198,13 @@ def _get_estado_cuenta_data(cliente_id):
             # 2. Procesar y formatear cada evento
             for item in historial_raw:
                 data = item['data']
-                if isinstance(data, str): data = json.loads(data)
+                # >>> CAMBIO ESPECIFICO: Manejo defensivo JSONDecodeError
+                if isinstance(data, str):
+                    try:
+                        data = json.loads(data)
+                    except json.JSONDecodeError:
+                        data = {}
+                # <<< FIN CAMBIO
                 
                 evento = {'fecha': item['fecha']}
                 
@@ -3410,11 +3429,11 @@ def portal_solicitar_congelamiento():
             f"Cliente solicitó congelar por {tiempo}. Motivo: {motivo[:50]}..."
         )
         flash("Solicitud de congelamiento enviada. Un asesor la revisará.", 'success')
-except psycopg2.Error as e:
-    conn.rollback()
-    flash(f"Error al enviar tu solicitud: {e}", 'error')
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error al enviar tu solicitud: {e}", 'error')
 
-return redirect(url_for('portal_dashboard'))
+    return redirect(url_for('portal_dashboard'))
 # FIN CAMBIO HOJA DE RUTA PUNTO 3
 
 
@@ -3489,74 +3508,82 @@ def portal_solicitar_retiro():
     return redirect(url_for('portal_dashboard'))
     # FIN CAMBIO HOJA DE RUTA PUNTO 3
 
-
-@app.route('/portal/ver_reporte/<int:pago_id>')
-@portal_login_required
-def portal_ver_reporte(pago_id):
-    # INICIO CAMBIO HOJA DE RUTA PUNTO 6
-    conn = get_db()
-    if not conn:
-        flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('portal_dashboard'))
-
-    with conn.cursor() as cur:
-        # Se añade la condición para asegurar que el pago pertenece al cliente en sesión
-        cur.execute(
-            "SELECT * FROM pagos WHERE id = %s AND cliente_id = %s",
-            (pago_id, session['cliente_id'])
-        )
-        pago = cur.fetchone()
-
-    if not pago:
-        flash('El reporte de pago solicitado no existe o no tienes permiso para verlo.', 'danger')
-        return redirect(url_for('portal_dashboard'))
-
-    pago_dict = dict(pago)
-    if pago_dict.get('detalles_reporte'):
-        if isinstance(pago_dict['detalles_reporte'], str):
-            try:
-                pago_dict['detalles_reporte'] = json.loads(pago_dict['detalles_reporte'])
-            except json.JSONDecodeError:
-                pago_dict['detalles_reporte'] = {}
-
-    # Se reutiliza la plantilla ver_reporte.html, indicando que es la vista del cliente
-    return render_template('ver_reporte.html', pago=pago_dict, is_client_view=True)
-    # FIN CAMBIO HOJA DE RUTA PUNTO 6
-
-
-# ===== RUTAS DE ADMINISTRACIÓN (ACTUALIZADAS) =====
+# >>> CAMBIO ESPECIFICO: Unificación/Desambiguación de rutas ver_reporte
 @app.route('/ver_reporte/<int:pago_id>')
-@admin_required
+@app.route('/portal/ver_reporte/<int:pago_id>')
 def ver_reporte(pago_id):
+    # Determinar contexto: vista de cliente o de administrador
+    is_client_view = 'cliente_id' in session and g.cliente is not None
+    is_admin_view = 'admin_id' in session and g.admin is not None
+
+    # Redireccionar si no hay sesión válida
+    if not is_client_view and not is_admin_view:
+        flash('Acceso no autorizado. Por favor, inicie sesión.', 'error')
+        return redirect(url_for('home'))
+
+    # Aplicar decoradores de login manualmente
+    if is_client_view and g.admin is not None:
+        flash('No puedes acceder al portal de clientes con una sesión de administrador activa.', 'warning')
+        return redirect(url_for('hub'))
+    if is_admin_view and g.cliente is not None:
+        flash('No puedes acceder al panel de administración con una sesión de cliente activa.', 'warning')
+        return redirect(url_for('portal_dashboard'))
+
     conn = get_db()
-    origin = request.args.get('origin', 'consulta')
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('consulta'))
+        return redirect(url_for('home'))
 
-    with conn.cursor() as cur:
-        query = """
-            SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula
-            FROM pagos p
-            JOIN clientes c ON p.cliente_id = c.id
-            WHERE p.id = %s;
-        """
-        cur.execute(query, (pago_id,))
-        pago = cur.fetchone()
+    pago = None
+    try:
+        with conn.cursor() as cur:
+            if is_client_view:
+                # Lógica para el cliente
+                cur.execute(
+                    "SELECT * FROM pagos WHERE id = %s AND cliente_id = %s",
+                    (pago_id, session['cliente_id'])
+                )
+                pago = cur.fetchone()
+                if not pago:
+                    flash('El reporte de pago solicitado no existe o no tienes permiso para verlo.', 'danger')
+                    return redirect(url_for('portal_dashboard'))
+            
+            else: # is_admin_view
+                # Lógica para el administrador
+                query = """
+                    SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula
+                    FROM pagos p
+                    JOIN clientes c ON p.cliente_id = c.id
+                    WHERE p.id = %s;
+                """
+                cur.execute(query, (pago_id,))
+                pago = cur.fetchone()
+                if not pago:
+                    flash('El reporte de pago no fue encontrado.', 'error')
+                    return redirect(url_for('consulta'))
 
-    if not pago:
-        flash('El reporte de pago no fue encontrado.', 'error')
-        return redirect(url_for('consulta'))
+        pago_dict = dict(pago)
+        if pago_dict.get('detalles_reporte'):
+            if isinstance(pago_dict['detalles_reporte'], str):
+                # >>> CAMBIO ESPECIFICO: Manejo defensivo JSONDecodeError
+                try:
+                    pago_dict['detalles_reporte'] = json.loads(pago_dict['detalles_reporte'])
+                except json.JSONDecodeError:
+                    pago_dict['detalles_reporte'] = {}
+                # <<< FIN CAMBIO
 
-    pago_dict = dict(pago)
-    if pago_dict.get('detalles_reporte'):
-        if isinstance(pago_dict['detalles_reporte'], str):
-            try:
-                pago_dict['detalles_reporte'] = json.loads(pago_dict['detalles_reporte'])
-            except json.JSONDecodeError:
-                pago_dict['detalles_reporte'] = {}
+        # Renderizar la plantilla con el contexto adecuado
+        if is_client_view:
+            return render_template('ver_reporte.html', pago=pago_dict, is_client_view=True)
+        else: # is_admin_view
+            origin = request.args.get('origin', 'consulta')
+            return render_template('ver_reporte.html', pago=pago_dict, is_client_view=False, origin=origin)
 
-    return render_template('ver_reporte.html', pago=pago_dict, is_client_view=False, origin=origin)
+    except psycopg2.Error as e:
+        logging.error(f"Error al obtener reporte de pago {pago_id}: {e}")
+        flash("Error al cargar el reporte.", "danger")
+        return redirect(url_for('home'))
+# <<< FIN CAMBIO
 
 
 if __name__ == '__main__':
