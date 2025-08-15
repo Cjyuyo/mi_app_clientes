@@ -4,12 +4,16 @@
     Sistema de Adjudicación
 {% endblock %}
 
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+{% endblock %}
+
 {% block body %}
-<div class="space-y-8">
+<div class="space-y-8" x-data="adjudicacion()">
     <!-- Encabezado de la página -->
     <div class="bg-white p-6 rounded-xl shadow-sm">
         <h1 class="text-3xl font-bold text-slate-800">Sistema de Adjudicación</h1>
-        <p class="text-slate-500 mt-1">Realiza la adjudicación mensual por ahorro, sorteo y oferta.</p>
+        <p class="text-slate-500 mt-1">Realiza la adjudicación mensual por ahorro y oferta.</p>
     </div>
 
     <!-- Mensajes Flash -->
@@ -23,112 +27,297 @@
         {% endif %}
     {% endwith %}
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Columna Principal -->
-        <div class="lg:col-span-2 space-y-6">
-            <!-- Participantes del Mes -->
-            <div class="bg-white rounded-xl shadow-sm" x-data="{ activeTab: 'ahorradores' }">
-                <div class="px-5 border-b border-slate-200">
-                    <nav class="-mb-px flex space-x-6">
-                        <button @click="activeTab = 'ahorradores'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'ahorradores', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ahorradores' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ahorradores ({{ clientes_elegibles_ahorro|length }})</button>
-                        <button @click="activeTab = 'ofertas'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'ofertas', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ofertas' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ofertas Activas ({{ ofertas_activas|length }})</button>
-                    </nav>
-                </div>
-                <div class="p-5">
-                    <!-- Pestaña Ahorradores -->
-                    <div x-show="activeTab === 'ahorradores'">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-sm text-left text-slate-500">
-                                <thead class="text-xs text-slate-700 uppercase bg-slate-50">
-                                    <tr>
-                                        <th scope="col" class="px-6 py-3">Cliente</th>
-                                        <th scope="col" class="px-6 py-3">Cédula</th>
-                                        <th scope="col" class="px-6 py-3">Cuotas Pagadas</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for p in clientes_elegibles_ahorro %}
-                                    <tr class="bg-white border-b hover:bg-slate-50">
-                                        <td class="px-6 py-4 font-medium text-slate-900">{{ p.nombre_apellido }}</td>
-                                        <td class="px-6 py-4">{{ p.cedula }}</td>
-                                        <td class="px-6 py-4">{{ p.cuotas_pagadas_progresivas }}</td>
-                                    </tr>
-                                    {% else %}
-                                    <tr><td colspan="3" class="text-center p-4 text-slate-500">No hay ahorradores participantes.</td></tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+    <!-- Vista Principal: Antes de la Pre-adjudicación -->
+    <div x-show="!preAdjudicacionIniciada">
+        <div class="bg-white rounded-xl shadow-sm" x-data="{ activeTab: 'ahorradores' }">
+            <div class="px-5 border-b border-slate-200">
+                <nav class="-mb-px flex space-x-6">
+                    <button @click="activeTab = 'ahorradores'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'ahorradores', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ahorradores' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ahorradores ({{ clientes_elegibles_ahorro|length }})</button>
+                    <button @click="activeTab = 'ofertas'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'ofertas', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ofertas' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ofertas Activas ({{ ofertas_activas|length }})</button>
+                </nav>
+            </div>
+            <div class="p-5">
+                <!-- Pestaña Ahorradores -->
+                <div x-show="activeTab === 'ahorradores'">
+                   <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-slate-500">
+                            <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3">Cliente</th>
+                                    <th scope="col" class="px-6 py-3">Cédula</th>
+                                    <th scope="col" class="px-6 py-3">Cuotas Pagadas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in clientes_elegibles_ahorro|sort(attribute='cuotas_pagadas_progresivas', reverse=True) %}
+                                <tr class="bg-white border-b hover:bg-slate-50">
+                                    <td class="px-6 py-4 font-medium text-slate-900">{{ p.nombre_apellido }}</td>
+                                    <td class="px-6 py-4">{{ p.cedula }}</td>
+                                    <td class="px-6 py-4">{{ p.cuotas_pagadas_progresivas }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="3" class="text-center p-4 text-slate-500">No hay ahorradores participantes.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
-                    <!-- Pestaña Ofertas -->
-                    <div x-show="activeTab === 'ofertas'">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-sm text-left text-slate-500">
-                                <thead class="text-xs text-slate-700 uppercase bg-slate-50">
-                                    <tr>
-                                        <th scope="col" class="px-6 py-3">Cliente</th>
-                                        <th scope="col" class="px-6 py-3">Cédula</th>
-                                        <th scope="col" class="px-6 py-3">Cuotas Ofertadas</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for p in ofertas_activas %}
-                                    <tr class="bg-white border-b hover:bg-slate-50">
-                                        <td class="px-6 py-4 font-medium text-slate-900">{{ p.nombre_apellido }}</td>
-                                        <td class="px-6 py-4">{{ p.cedula }}</td>
-                                        <td class="px-6 py-4 font-bold">{{ p.cuotas_ofertadas }}</td>
-                                    </tr>
-                                    {% else %}
-                                    <tr><td colspan="3" class="text-center p-4 text-slate-500">No hay ofertas activas.</td></tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+                    <!-- CAMBIO: Botón de Pre-adjudicación para Ahorradores -->
+                    <div class="mt-4 text-right">
+                        <button @click="iniciarPreAdjudicacion('ahorradores')" class="font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-2 px-4">
+                            Pre-adjudicar Ahorradores
+                        </button>
                     </div>
                 </div>
-            </div>
-
-            <!-- Historial de Adjudicaciones -->
-            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Historial de Adjudicaciones</h2></div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left text-slate-500">
-                        <thead class="text-xs text-slate-700 uppercase bg-slate-50">
-                            <tr>
-                                <th scope="col" class="px-6 py-3">Fecha</th>
-                                <th scope="col" class="px-6 py-3">Cliente</th>
-                                <th scope="col" class="px-6 py-3">Método</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for h in historial %}
-                            <tr class="bg-white border-b hover:bg-slate-50">
-                                <td class="px-6 py-4">{{ h.fecha_adjudicacion | format_date }}</td>
-                                <td class="px-6 py-4 font-medium text-slate-900">{{ h.nombre_cliente }}</td>
-                                <td class="px-6 py-4"><span class="py-1 px-2.5 bg-green-100 text-green-800 text-xs font-medium rounded-md">{{ h.metodo }}</span></td>
-                            </tr>
-                            {% else %}
-                            <tr><td colspan="3" class="text-center p-4 text-slate-500">No hay adjudicaciones en el historial.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <!-- Pestaña Ofertas -->
+                <div x-show="activeTab === 'ofertas'">
+                    <div class="overflow-x-auto">
+                        {% set ofertas_ordenadas = ofertas_activas|sort(attribute='puntaje_total', reverse=True) %}
+                        <table class="w-full text-sm text-left text-slate-500">
+                            <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-center">Pos.</th>
+                                    <th scope="col" class="px-6 py-3">Cliente</th>
+                                    <th scope="col" class="px-6 py-3 text-center">Plan</th>
+                                    <th scope="col" class="px-6 py-3 text-center">Pagadas</th>
+                                    <th scope="col" class="px-6 py-3 text-center">Ofertadas</th>
+                                    <th scope="col" class="px-6 py-3 text-center">% Oferta</th>
+                                    <th scope="col" class="px-6 py-3 text-center">% Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for oferta in ofertas_ordenadas %}
+                                <tr class="border-b hover:bg-slate-50 {% if loop.first %} bg-green-50 {% endif %}">
+                                    <td class="px-6 py-4 font-bold text-slate-900 text-center">
+                                        {% if loop.first %}<i class="bi bi-trophy-fill text-yellow-500"></i>{% endif %} {{ loop.index }}
+                                    </td>
+                                    <td class="px-6 py-4 font-medium text-slate-900">{{ oferta.nombre_apellido }}</td>
+                                    <td class="px-6 py-4 text-center">{{ oferta.cuotas_totales }}</td>
+                                    <td class="px-6 py-4 text-center">{{ oferta.cuotas_pagadas_progresivas }}</td>
+                                    <td class="px-6 py-4 text-center font-bold">{{ oferta.cuotas_ofertadas }}</td>
+                                    <td class="px-6 py-4 text-center">{{ "%.1f"|format(oferta.porcentaje_oferta) }}%</td>
+                                    <td class="px-6 py-4 text-center font-bold">{{ "%.1f"|format(oferta.puntaje_total) }}%</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="7" class="text-center p-4 text-slate-500">No hay ofertas activas.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- CAMBIO: Botón de Pre-adjudicación para Ofertas -->
+                    <div class="mt-4 text-right">
+                        <button @click="iniciarPreAdjudicacion('ofertas')" class="font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-2 px-4">
+                            Pre-adjudicar por Oferta
+                        </button>
+                    </div>
                 </div>
-            </div>
-        </div>
-
-        <!-- Columna de Acción -->
-        <div class="lg:col-span-1">
-            <div class="bg-white rounded-xl shadow-sm p-6 text-center">
-                <i class="bi bi-trophy-fill text-5xl text-green-500"></i>
-                <h3 class="text-xl font-bold text-slate-800 mt-4">Iniciar Proceso</h3>
-                <p class="text-slate-500 text-sm mt-2 mb-4">Esta acción seleccionará a los ganadores del mes de forma irreversible. Asegúrate de que todos los datos son correctos antes de proceder.</p>
-                <form action="{{ url_for('realizar_adjudicacion') }}" method="POST" onsubmit="return confirm('¿Está seguro de que desea iniciar el proceso de adjudicación? Esta acción es final e irreversible.');">
-                    <button type="submit" class="w-full text-lg font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg py-3">
-                        <i class="bi bi-play-circle-fill mr-2"></i> Iniciar Adjudicación
-                    </button>
-                </form>
             </div>
         </div>
     </div>
+
+    <!-- Vista de Pre-adjudicación Manual -->
+    <div x-show="preAdjudicacionIniciada" x-cloak>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- Columna de Participantes -->
+            <div class="bg-white rounded-xl shadow-sm p-4">
+                <h3 class="font-bold text-slate-800 text-center mb-2">Participantes</h3>
+                <!-- CAMBIO: Controles de selección -->
+                <div class="flex items-center justify-between p-2">
+                    <div class="flex items-center">
+                        <input type="checkbox" @change="toggleSelectAll($event)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <label class="ml-2 text-sm text-slate-600">Seleccionar Todos</label>
+                    </div>
+                    <div x-show="selectedParticipantes.length > 0" class="flex gap-1">
+                        <button @click="moveSelected('adjudicados')" title="Adjudicar Seleccionados" class="btn btn-xs btn-success"><i class="bi bi-check-lg"></i></button>
+                        <button @click="moveSelected('opcionales')" title="Mover a Opcionales" class="btn btn-xs btn-warning"><i class="bi bi-hourglass-split"></i></button>
+                        <button @click="moveSelected('descartados')" title="Mover a Descartados" class="btn btn-xs btn-danger"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
+                <div id="lista-participantes" class="min-h-[200px] bg-slate-100 rounded-lg p-2 space-y-2">
+                    <template x-for="cliente in participantes" :key="cliente.id">
+                        <div class="bg-white p-3 rounded-md shadow-sm cursor-grab border flex justify-between items-center">
+                            <div class="flex items-center">
+                                <input type="checkbox" :value="cliente.id" x-model="selectedParticipantes" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3">
+                                <div>
+                                    <p class="font-semibold text-sm" x-text="cliente.nombre_apellido"></p>
+                                    <template x-if="cliente.tipo === 'Oferta'">
+                                        <p class="text-xs text-slate-500">Oferta: <span x-text="cliente.cuotas_ofertadas"></span> (<span x-text="cliente.puntaje_total.toFixed(1)"></span>%)</p>
+                                    </template>
+                                    <template x-if="cliente.tipo === 'Ahorrador'">
+                                        <p class="text-xs text-blue-500 font-semibold">Ahorrador (Pagadas: <span x-text="cliente.cuotas_pagadas_progresivas"></span>)</p>
+                                    </template>
+                                </div>
+                            </div>
+                            <i class="bi bi-grip-vertical text-slate-400"></i>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Columna de Adjudicados -->
+            <div class="bg-white rounded-xl shadow-sm p-4">
+                <h3 class="font-bold text-green-600 text-center mb-2">Adjudicados</h3>
+                <div id="lista-adjudicados" class="min-h-[200px] bg-green-50 rounded-lg p-2 space-y-2">
+                     <template x-for="cliente in adjudicados" :key="cliente.id">
+                        <div class="bg-white p-3 rounded-md shadow-sm cursor-grab border-l-4 border-green-500 flex justify-between items-center">
+                            <div>
+                                <p class="font-semibold text-sm" x-text="cliente.nombre_apellido"></p>
+                                <template x-if="cliente.tipo === 'Oferta'">
+                                    <p class="text-xs text-slate-500">Oferta: <span x-text="cliente.cuotas_ofertadas"></span> (<span x-text="cliente.puntaje_total.toFixed(1)"></span>%)</p>
+                                </template>
+                                <template x-if="cliente.tipo === 'Ahorrador'">
+                                    <p class="text-xs text-blue-500 font-semibold">Ahorrador (Pagadas: <span x-text="cliente.cuotas_pagadas_progresivas"></span>)</p>
+                                </template>
+                            </div>
+                            <i class="bi bi-grip-vertical text-slate-400"></i>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Columna de Opcionales -->
+            <div class="bg-white rounded-xl shadow-sm p-4">
+                <h3 class="font-bold text-yellow-600 text-center mb-2">Opcionales (Stand by)</h3>
+                <div id="lista-opcionales" class="min-h-[200px] bg-yellow-50 rounded-lg p-2 space-y-2">
+                    <template x-for="cliente in opcionales" :key="cliente.id">
+                        <div class="bg-white p-3 rounded-md shadow-sm cursor-grab border-l-4 border-yellow-500 flex justify-between items-center">
+                           <div>
+                                <p class="font-semibold text-sm" x-text="cliente.nombre_apellido"></p>
+                                <template x-if="cliente.tipo === 'Oferta'">
+                                    <p class="text-xs text-slate-500">Oferta: <span x-text="cliente.cuotas_ofertadas"></span> (<span x-text="cliente.puntaje_total.toFixed(1)"></span>%)</p>
+                                </template>
+                                <template x-if="cliente.tipo === 'Ahorrador'">
+                                    <p class="text-xs text-blue-500 font-semibold">Ahorrador (Pagadas: <span x-text="cliente.cuotas_pagadas_progresivas"></span>)</p>
+                                </template>
+                            </div>
+                            <i class="bi bi-grip-vertical text-slate-400"></i>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            
+            <!-- Columna de Descartados -->
+             <div class="bg-white rounded-xl shadow-sm p-4">
+                <h3 class="font-bold text-red-600 text-center mb-2">Descartados</h3>
+                <div id="lista-descartados" class="min-h-[200px] bg-red-50 rounded-lg p-2 space-y-2">
+                    <template x-for="cliente in descartados" :key="cliente.id">
+                        <div class="bg-white p-3 rounded-md shadow-sm cursor-grab border-l-4 border-red-500 flex justify-between items-center">
+                            <div>
+                                <p class="font-semibold text-sm" x-text="cliente.nombre_apellido"></p>
+                                <template x-if="cliente.tipo === 'Oferta'">
+                                    <p class="text-xs text-slate-500">Oferta: <span x-text="cliente.cuotas_ofertadas"></span> (<span x-text="cliente.puntaje_total.toFixed(1)"></span>%)</p>
+                                </template>
+                                <template x-if="cliente.tipo === 'Ahorrador'">
+                                    <p class="text-xs text-blue-500 font-semibold">Ahorrador (Pagadas: <span x-text="cliente.cuotas_pagadas_progresivas"></span>)</p>
+                                </template>
+                            </div>
+                            <i class="bi bi-grip-vertical text-slate-400"></i>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+        <!-- Botones de Acción Final -->
+        <div class="mt-6 flex justify-end gap-4">
+            <button @click="cancelarPreAdjudicacion()" class="font-semibold text-slate-600 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg py-2 px-4">Cancelar</button>
+            <button @click="confirmarAdjudicacionFinal()" class="font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg py-2 px-6">
+                <i class="bi bi-check-circle-fill mr-2"></i> Confirmar Adjudicación Final
+            </button>
+        </div>
+    </div>
 </div>
+
+<script>
+function adjudicacion() {
+    return {
+        preAdjudicacionIniciada: false,
+        participantes: [],
+        adjudicados: [],
+        opcionales: [],
+        descartados: [],
+        selectedParticipantes: [],
+
+        iniciarPreAdjudicacion(tipo) {
+            this.cancelarPreAdjudicacion(); // Limpiar estado anterior
+            let listaInicial = [];
+            
+            if (tipo === 'ahorradores') {
+                const ahorradores = {{ clientes_elegibles_ahorro | tojson }};
+                listaInicial = ahorradores.map(c => ({ ...c, tipo: 'Ahorrador' }))
+                                          .sort((a, b) => (b.cuotas_pagadas_progresivas || 0) - (a.cuotas_pagadas_progresivas || 0));
+            } else if (tipo === 'ofertas') {
+                const ofertas = {{ ofertas_activas | tojson }};
+                listaInicial = ofertas.map(o => ({ ...o, tipo: 'Oferta' }))
+                                      .sort((a, b) => (b.puntaje_total || 0) - (a.puntaje_total || 0));
+            }
+
+            this.participantes = listaInicial;
+            this.preAdjudicacionIniciada = true;
+            
+            this.$nextTick(() => this.initSortable());
+        },
+
+        toggleSelectAll(event) {
+            if (event.target.checked) {
+                this.selectedParticipantes = this.participantes.map(p => p.id);
+            } else {
+                this.selectedParticipantes = [];
+            }
+        },
+
+        moveSelected(targetListKey) {
+            const selectedIds = new Set(this.selectedParticipantes);
+            const itemsToMove = this.participantes.filter(p => selectedIds.has(p.id));
+            
+            this[targetListKey].push(...itemsToMove);
+            this.participantes = this.participantes.filter(p => !selectedIds.has(p.id));
+            
+            this.selectedParticipantes = [];
+            // Desmarcar el checkbox "Seleccionar Todos"
+            document.querySelector('input[type="checkbox"]').checked = false;
+        },
+
+        cancelarPreAdjudicacion() {
+            this.preAdjudicacionIniciada = false;
+            this.participantes = [];
+            this.adjudicados = [];
+            this.opcionales = [];
+            this.descartados = [];
+            this.selectedParticipantes = [];
+        },
+
+        confirmarAdjudicacionFinal() {
+            const adjudicadosData = this.adjudicados.map(c => ({ id: c.id, tipo: c.tipo }));
+            const opcionalesData = this.opcionales.map(c => ({ id: c.id, tipo: c.tipo }));
+
+            if (adjudicadosData.length === 0) {
+                alert('Debe seleccionar al menos un cliente como "Adjudicado" para continuar.');
+                return;
+            }
+
+            console.log("Adjudicados:", adjudicadosData);
+            console.log("Opcionales:", opcionalesData);
+            
+            alert('¡Adjudicación finalizada con éxito! Se enviarán las notificaciones correspondientes.');
+            this.cancelarPreAdjudicacion();
+        },
+
+        initSortable() {
+            const vm = this;
+            const createSortable = (id) => {
+                new Sortable(document.getElementById(id), {
+                    group: 'shared',
+                    animation: 150,
+                    onEnd: function (evt) {
+                        const fromListKey = evt.from.id.replace('lista-', '');
+                        const toListKey = evt.to.id.replace('lista-', '');
+                        const item = vm[fromListKey].splice(evt.oldIndex, 1)[0];
+                        vm[toListKey].splice(evt.newIndex, 0, item);
+                    },
+                });
+            };
+            ['participantes', 'adjudicados', 'opcionales', 'descartados'].forEach(id => createSortable(`lista-${id}`));
+        }
+    }
+}
+</script>
 {% endblock %}
