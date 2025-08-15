@@ -43,6 +43,11 @@
                         <table class="w-full text-sm text-left text-slate-500">
                             <thead class="text-xs text-slate-700 uppercase bg-slate-50">
                                 <tr>
+                                    <th scope="col" class="p-4">
+                                        <div class="flex items-center">
+                                            <input type="checkbox" @change="toggleSelectAllAhorradores($event)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        </div>
+                                    </th>
                                     <th scope="col" class="px-6 py-3">Cliente</th>
                                     <th scope="col" class="px-6 py-3">Cédula</th>
                                     <th scope="col" class="px-6 py-3">Cuotas Pagadas</th>
@@ -51,20 +56,24 @@
                             <tbody>
                                 {% for p in clientes_elegibles_ahorro|sort(attribute='cuotas_pagadas_progresivas', reverse=True) %}
                                 <tr class="bg-white border-b hover:bg-slate-50">
+                                    <td class="p-4">
+                                        <div class="flex items-center">
+                                            <input type="checkbox" value="{{ p.id }}" x-model="selectedAhorradores" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        </div>
+                                    </td>
                                     <td class="px-6 py-4 font-medium text-slate-900">{{ p.nombre_apellido }}</td>
                                     <td class="px-6 py-4">{{ p.cedula }}</td>
                                     <td class="px-6 py-4">{{ p.cuotas_pagadas_progresivas }}</td>
                                 </tr>
                                 {% else %}
-                                <tr><td colspan="3" class="text-center p-4 text-slate-500">No hay ahorradores participantes.</td></tr>
+                                <tr><td colspan="4" class="text-center p-4 text-slate-500">No hay ahorradores participantes.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
-                    <!-- CAMBIO: Botón de Pre-adjudicación para Ahorradores -->
                     <div class="mt-4 text-right">
-                        <button @click="iniciarPreAdjudicacion('ahorradores')" class="font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-2 px-4">
-                            Pre-adjudicar Ahorradores
+                        <button @click="iniciarPreAdjudicacion('ahorradores')" :disabled="selectedAhorradores.length === 0" class="font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Pre-adjudicar Ahorradores Seleccionados
                         </button>
                     </div>
                 </div>
@@ -75,6 +84,11 @@
                         <table class="w-full text-sm text-left text-slate-500">
                             <thead class="text-xs text-slate-700 uppercase bg-slate-50">
                                 <tr>
+                                    <th scope="col" class="p-4">
+                                        <div class="flex items-center">
+                                            <input type="checkbox" @change="toggleSelectAllOfertas($event)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        </div>
+                                    </th>
                                     <th scope="col" class="px-6 py-3 text-center">Pos.</th>
                                     <th scope="col" class="px-6 py-3">Cliente</th>
                                     <th scope="col" class="px-6 py-3 text-center">Plan</th>
@@ -87,6 +101,11 @@
                             <tbody>
                                 {% for oferta in ofertas_ordenadas %}
                                 <tr class="border-b hover:bg-slate-50 {% if loop.first %} bg-green-50 {% endif %}">
+                                    <td class="p-4">
+                                        <div class="flex items-center">
+                                            <input type="checkbox" value="{{ oferta.id }}" x-model="selectedOfertas" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        </div>
+                                    </td>
                                     <td class="px-6 py-4 font-bold text-slate-900 text-center">
                                         {% if loop.first %}<i class="bi bi-trophy-fill text-yellow-500"></i>{% endif %} {{ loop.index }}
                                     </td>
@@ -98,15 +117,14 @@
                                     <td class="px-6 py-4 text-center font-bold">{{ "%.1f"|format(oferta.puntaje_total) }}%</td>
                                 </tr>
                                 {% else %}
-                                <tr><td colspan="7" class="text-center p-4 text-slate-500">No hay ofertas activas.</td></tr>
+                                <tr><td colspan="8" class="text-center p-4 text-slate-500">No hay ofertas activas.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
-                    <!-- CAMBIO: Botón de Pre-adjudicación para Ofertas -->
                     <div class="mt-4 text-right">
-                        <button @click="iniciarPreAdjudicacion('ofertas')" class="font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-2 px-4">
-                            Pre-adjudicar por Oferta
+                        <button @click="iniciarPreAdjudicacion('ofertas')" :disabled="selectedOfertas.length === 0" class="font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Pre-adjudicar Ofertas Seleccionadas
                         </button>
                     </div>
                 </div>
@@ -120,7 +138,6 @@
             <!-- Columna de Participantes -->
             <div class="bg-white rounded-xl shadow-sm p-4">
                 <h3 class="font-bold text-slate-800 text-center mb-2">Participantes</h3>
-                <!-- CAMBIO: Controles de selección -->
                 <div class="flex items-center justify-between p-2">
                     <div class="flex items-center">
                         <input type="checkbox" @change="toggleSelectAll($event)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
@@ -235,25 +252,50 @@ function adjudicacion() {
         opcionales: [],
         descartados: [],
         selectedParticipantes: [],
+        // CAMBIO: Nuevos arrays para selecciones por pestaña
+        selectedAhorradores: [],
+        selectedOfertas: [],
 
         iniciarPreAdjudicacion(tipo) {
-            this.cancelarPreAdjudicacion(); // Limpiar estado anterior
+            this.cancelarPreAdjudicacion();
             let listaInicial = [];
             
             if (tipo === 'ahorradores') {
-                const ahorradores = {{ clientes_elegibles_ahorro | tojson }};
-                listaInicial = ahorradores.map(c => ({ ...c, tipo: 'Ahorrador' }))
-                                          .sort((a, b) => (b.cuotas_pagadas_progresivas || 0) - (a.cuotas_pagadas_progresivas || 0));
+                const todosAhorradores = {{ clientes_elegibles_ahorro | tojson }};
+                const selectedIds = new Set(this.selectedAhorradores.map(id => parseInt(id)));
+                listaInicial = todosAhorradores.filter(c => selectedIds.has(c.id))
+                                              .map(c => ({ ...c, tipo: 'Ahorrador' }))
+                                              .sort((a, b) => (b.cuotas_pagadas_progresivas || 0) - (a.cuotas_pagadas_progresivas || 0));
             } else if (tipo === 'ofertas') {
-                const ofertas = {{ ofertas_activas | tojson }};
-                listaInicial = ofertas.map(o => ({ ...o, tipo: 'Oferta' }))
-                                      .sort((a, b) => (b.puntaje_total || 0) - (a.puntaje_total || 0));
+                const todasOfertas = {{ ofertas_activas | tojson }};
+                const selectedIds = new Set(this.selectedOfertas.map(id => parseInt(id)));
+                listaInicial = todasOfertas.filter(o => selectedIds.has(o.id))
+                                          .map(o => ({ ...o, tipo: 'Oferta' }))
+                                          .sort((a, b) => (b.puntaje_total || 0) - (a.puntaje_total || 0));
             }
 
             this.participantes = listaInicial;
             this.preAdjudicacionIniciada = true;
             
             this.$nextTick(() => this.initSortable());
+        },
+
+        toggleSelectAllAhorradores(event) {
+            const todosAhorradores = {{ clientes_elegibles_ahorro | tojson }};
+            if (event.target.checked) {
+                this.selectedAhorradores = todosAhorradores.map(p => p.id.toString());
+            } else {
+                this.selectedAhorradores = [];
+            }
+        },
+        
+        toggleSelectAllOfertas(event) {
+            const todasOfertas = {{ ofertas_activas | tojson }};
+            if (event.target.checked) {
+                this.selectedOfertas = todasOfertas.map(p => p.id.toString());
+            } else {
+                this.selectedOfertas = [];
+            }
         },
 
         toggleSelectAll(event) {
@@ -272,7 +314,6 @@ function adjudicacion() {
             this.participantes = this.participantes.filter(p => !selectedIds.has(p.id));
             
             this.selectedParticipantes = [];
-            // Desmarcar el checkbox "Seleccionar Todos"
             document.querySelector('input[type="checkbox"]').checked = false;
         },
 
@@ -283,6 +324,8 @@ function adjudicacion() {
             this.opcionales = [];
             this.descartados = [];
             this.selectedParticipantes = [];
+            this.selectedAhorradores = [];
+            this.selectedOfertas = [];
         },
 
         confirmarAdjudicacionFinal() {
