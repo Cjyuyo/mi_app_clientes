@@ -3066,6 +3066,23 @@ def procesar_reporte(pago_id):
             descripcion_audit = ''
 
             if accion == 'aprobar':
+                # ... (rest of the duplicate function code) ...
+    
+    return redirect(url_for('reportes_por_revisar'))
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT cliente_id, monto FROM pagos WHERE id = %s", (pago_id,))
+            pago = cur.fetchone()
+            if not pago:
+                flash("El pago no existe.", "error")
+                return redirect(url_for('reportes_por_revisar'))
+            cliente_id = pago['cliente_id']
+
+            nuevo_estado_reporte = ''
+            detalles_json = None
+            descripcion_audit = ''
+
+            if accion == 'aprobar':
                 nuevo_estado_reporte = 'Aprobado'
                 descripcion_audit = f"Aprobó el reporte de pago N° {pago_id}."
                 cur.execute(
