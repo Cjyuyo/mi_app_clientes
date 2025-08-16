@@ -954,7 +954,6 @@ def reportes_por_revisar():
         logging.error(f"Error al obtener reportes por revisar: {e}")
         flash("Error al cargar la lista de reportes pendientes de revisión.", "danger")
     
-    return render_template('reportes_por_revisar.html', reportes=reportes_a_revisar, anio_actual=get_ven_current_date().year)
 
 @app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
 @admin_required
