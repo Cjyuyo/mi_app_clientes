@@ -934,31 +934,6 @@ def cancelar_cita_admin(solicitud_id):
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def reportes_por_revisar():
-    conn = get_db()
-    reportes_a_revisar = []
-    if not conn:
-        flash("Error de conexión con la base de datos.", "danger")
-        return render_template('reportes_por_revisar.html', reportes=reportes_a_revisar, anio_actual=get_venezuela_current_date().year)
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT p.id, p.monto, p.monto_bs, p.tipo_pago, p.fecha_creacion,
-                       p.cliente_id, c.nombre, c.apellido, c.cedula
-                FROM pagos p
-                JOIN clientes c ON p.cliente_id = c.id
-                WHERE p.reportado_por_cliente = TRUE AND p.estado_reporte = 'Pendiente de Revision'
-                ORDER BY p.fecha_creacion ASC;
-            """)
-            reportes_a_revisar = cur.fetchall()
-    except psycopg2.Error as e:
-        logging.error(f"Error al obtener reportes por revisar: {e}")
-        flash("Error al cargar la lista de reportes pendientes de revisión.", "danger")
-    
-
-@app.route('/reportes_por_revisar')
-@admin_required
-@rol_requerido('superadmin', 'gerente', 'administradora')
-def reportes_por_revisar():
     """
     Muestra una lista de todos los pagos que han sido reportados por clientes
     y están pendientes de revisión por parte de un administrador.
