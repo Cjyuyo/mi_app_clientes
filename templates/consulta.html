@@ -121,6 +121,10 @@
                             <div class="flex items-center space-x-4">
                                 <span class="font-bold text-slate-800">${{ "%.2f"|format(pago.monto) }}</span>
                                 <div class="flex items-center space-x-2 text-right">
+
+                                    <!-- NUEVO BOTÓN PARA EL MODAL -->
+                                    <button type="button" onclick="showPaymentDetails({{ pago.id }})" class="text-xs bg-gray-500 text-white hover:bg-gray-600 py-1 px-2 rounded">Detalles</button>
+
                                     {% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}
                                         <span class="text-xs font-semibold py-1 px-2 rounded-full bg-blue-100 text-blue-800">Reportado</span>
                                         <a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="text-xs bg-blue-500 text-white hover:bg-blue-600 py-1 px-2 rounded">Ver</a>
@@ -199,6 +203,23 @@
         {% endfor %}
     </div>
 </div>
+
+<!-- Modal Genérico para Detalles del Pago -->
+<div id="paymentDetailsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style="display: none;">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center pb-3 border-b">
+            <h3 class="text-lg font-bold text-gray-900">Detalles del Pago</h3>
+            <button onclick="document.getElementById('paymentDetailsModal').style.display='none'" class="text-gray-400 hover:text-gray-600">
+                <span class="text-2xl">&times;</span>
+            </button>
+        </div>
+        <div id="modal-content" class="mt-4">
+            <!-- El contenido se cargará aquí -->
+            <p class="text-center text-gray-500">Cargando detalles...</p>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts_extra %}
@@ -273,6 +294,53 @@
                 form.submit();
             }
         });
+    }
+
+    /**
+     * --- NUEVA FUNCIÓN ---
+     * Busca los detalles de un pago usando la API y los muestra en un modal.
+     * @param {number} pagoId - El ID del pago a consultar.
+     */
+    async function showPaymentDetails(pagoId) {
+        const modal = document.getElementById('paymentDetailsModal');
+        const content = document.getElementById('modal-content');
+        
+        modal.style.display = 'block';
+        content.innerHTML = '<p class="text-center text-gray-500">Cargando detalles...</p>';
+
+        try {
+            const response = await fetch(`/api/pago_detalle/${pagoId}`);
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+            const data = await response.json();
+
+            let detailsHtml = '<ul class="space-y-2 text-sm">';
+            const formatValue = (value) => value || '<span class="text-gray-400">N/A</span>';
+            
+            detailsHtml += `
+                <li class="flex justify-between"><span class="text-gray-500">ID de Pago:</span><strong class="font-semibold">${data.id}</strong></li>
+                <li class="flex justify-between"><span class="text-gray-500">Monto:</span><strong class="font-semibold text-green-600">$${data.monto}</strong></li>
+                <li class="flex justify-between"><span class="text-gray-500">Tipo:</span><strong>${formatValue(data.tipo_pago)}</strong></li>
+                <li class="flex justify-between"><span class="text-gray-500">Forma de Pago:</span><strong>${formatValue(data.forma_pago)}</strong></li>
+                <li class="flex justify-between"><span class="text-gray-500">Referencia:</span><strong>${formatValue(data.referencia)}</strong></li>
+                <li class="flex justify-between"><span class="text-gray-500">Fecha:</span><strong>${formatValue(data.fecha_pago)}</strong></li>
+                <li class="flex justify-between"><span class="text-gray-500">Estado de Pago:</span><strong>${formatValue(data.estado_pago)}</strong></li>
+                <li class="flex justify-between"><span class="text-gray-500">Estado de Reporte:</span><strong>${formatValue(data.estado_reporte)}</strong></li>
+                <li class="flex justify-between"><span class="text-gray-500">Revisado Por:</span><strong>${formatValue(data.revisado_por_usuario)}</strong></li>
+            `;
+            
+            if (data.monto_bs && parseFloat(data.monto_bs.replace(',', '')) > 0) {
+                 detailsHtml += `<li class="flex justify-between pt-2 border-t mt-2"><span class="text-gray-500">Monto (Bs):</span><strong class="font-semibold">${data.monto_bs} Bs</strong></li>`;
+                 detailsHtml += `<li class="flex justify-between"><span class="text-gray-500">Tasa Aplicada:</span><strong>${data.tasa_dia} Bs/$</strong></li>`;
+            }
+
+            detailsHtml += '</ul>';
+            content.innerHTML = detailsHtml;
+
+        } catch (error) {
+            content.innerHTML = `<p class="text-center text-red-600">No se pudieron cargar los detalles. ${error.message}</p>`;
+        }
     }
 </script>
 {% endblock %}

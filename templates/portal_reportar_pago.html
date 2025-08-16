@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         formaPagoSelect.addEventListener('change', buildTransactionFields);
-        buildTransactionFields();
+        formaPagoSelect.dispatchEvent(new Event('change'));
     }
 
     function buildTransactionFields() {

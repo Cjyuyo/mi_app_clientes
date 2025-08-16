@@ -128,8 +128,13 @@
                     </div>
                     
                     <div x-show="motivo === 'Diferencia de Monto'" x-transition>
-                        <label for="diferencia_monto-{{ reporte.id }}" class="form-label">Monto de la Diferencia (USD)</label>
-                        <input type="number" step="0.01" name="diferencia_monto" id="diferencia_monto-{{ reporte.id }}" class="form-control" placeholder="Ej: 5.50">
+                        {% if reporte.monto_bs and reporte.monto_bs > 0 %}
+                            <label for="diferencia_monto-{{ reporte.id }}" class="form-label">Monto Recibido Real (Bs.)</label>
+                            <input type="number" step="0.01" name="diferencia_monto" id="diferencia_monto-{{ reporte.id }}" class="form-control" placeholder="Ej: 185.50">
+                        {% else %}
+                            <label for="diferencia_monto-{{ reporte.id }}" class="form-label">Monto Recibido Real (USD)</label>
+                            <input type="number" step="0.01" name="diferencia_monto" id="diferencia_monto-{{ reporte.id }}" class="form-control" placeholder="Ej: 5.50">
+                        {% endif %}
                     </div>
                 </div>
                 <div class="modal-footer bg-slate-50">
