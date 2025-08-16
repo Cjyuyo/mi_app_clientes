@@ -3700,14 +3700,14 @@ def get_pago_detalle(pago_id):
             if isinstance(pago_dict.get('detalles_reporte'), str):
                 try:
                     pago_dict['detalles_reporte'] = json.loads(pago_dict['detalles_reporte'])
-                except json.JSONDecodeError:
-                    pago_dict['detalles_reporte'] = {'error': 'JSON mal formado'}
+              except json.JSONDecodeError:
+                pago_dict['detalles_reporte'] = {'error': 'JSON mal formado'}
 
-            return jsonify(pago_dict)
+        return jsonify(pago_dict)
 
-    except psycopg2.Error as e:
-        logging.error(f"Error en API get_pago_detalle: {e}")
-        return jsonify({'error': 'Error interno del servidor al consultar el pago.'}), 500
+except psycopg2.Error as e:
+    logging.error(f"Error en API get_pago_detalle: {e}")
+    return jsonify({'error': 'Error interno del servidor al consultar el pago.'}), 500
 
     pago = None
     try:
