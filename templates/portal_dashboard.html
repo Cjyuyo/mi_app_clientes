@@ -123,13 +123,12 @@
         <p class="mt-2 mb-4 text-sm">Hemos encontrado inconsistencias en los siguientes reportes de pago. Por favor, revísalos para continuar:</p>
         <div class="space-y-3">
             {% for pago in reportes_rechazados %}
-            <!-- >>> CAMBIO ESPECIFICO: Pagos por diferencia de monto -->
             <div class="bg-white/60 p-3 rounded-lg flex flex-col sm:flex-row justify-between items-center gap-3">
                 <div>
                     <p class="font-semibold">Reporte #{{ pago.id }}</p>
                     {% if pago.accion_requerida == 'pagar_diferencia' %}
                         <p class="text-xs text-slate-600"><strong>Monto Recibido:</strong> ${{ "%.2f"|format(pago.monto) }}</p>
-                        <p class="text-xs text-red-600 mt-1"><strong>Monto Pendiente:</strong> <span class="font-bold">${{ "%.2f"|format(pago.detalles_reporte.diferencia|float) }}</span></p>
+                        <p class="text-xs text-red-600 mt-1"><strong>Monto Pendiente:</strong> <span class="font-bold">${{ "%.2f"|format(pago.detalles_reporte.monto_pendiente|float) }}</span></p>
                     {% else %}
                         <p class="text-xs text-slate-600"><strong>Monto Reportado:</strong> ${{ "%.2f"|format(pago.monto) }}</p>
                     {% endif %}
@@ -143,7 +142,6 @@
                     {% endif %}
                 </div>
             </div>
-            <!-- <<< FIN CAMBIO -->
             {% endfor %}
         </div>
     </div>
@@ -422,107 +420,4 @@
                 <input type="date" class="form-control" id="fecha_correo_retiro" name="fecha_correo_retiro" required>
             </div>
             <div class="mb-3">
-                <label for="email_origen_retiro" class="form-label">Correo desde el que se envió</label>
-                <input type="email" class="form-control" id="email_origen_retiro" name="email_origen_retiro" required placeholder="ejemplo@correo.com">
-            </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary" style="background-color: #f97316; border-color: #f97316;">Confirmar y Solicitar</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<!-- FIN CAMBIOS HOJA DE RUTA -->
-
-{% endblock %}
-
-{% block scripts_extra %}
-<script src="//unpkg.com/alpinejs" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-    /**
-     * --- NUEVA FUNCIÓN ---
-     * Deshabilita los botones de tipo 'submit' dentro de un formulario y muestra un texto de "Procesando".
-     * @param {HTMLFormElement} form - El formulario que se está enviando.
-     */
-    function handleFormSubmit(form) {
-        const submitButtons = form.querySelectorAll('button[type="submit"]');
-        submitButtons.forEach(button => {
-            button.disabled = true;
-            button.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
-        });
-    }
-
-    // INICIO CAMBIO HOJA DE RUTA PUNTO 2
-    document.addEventListener('DOMContentLoaded', function () {
-        const fechaInput = document.getElementById('fecha_cita');
-        const horaSelect = document.getElementById('hora_cita');
-
-        const horariosBase = {
-            "manana": ["09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM"],
-            "tarde": ["02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM"]
-        };
-
-        fechaInput.addEventListener('change', async function() {
-            const fechaSeleccionada = this.value;
-            if (!fechaSeleccionada) {
-                horaSelect.innerHTML = '<option value="">Seleccione una fecha primero</option>';
-                return;
-            }
-
-            horaSelect.innerHTML = '<option value="">Cargando horarios...</option>';
-            horaSelect.disabled = true;
-
-            try {
-                const response = await fetch(`/citas/disponibilidad?fecha=${fechaSeleccionada}`);
-                const data = await response.json();
-
-                horaSelect.innerHTML = '';
-                if (data.es_habil) {
-                    let todosLosHorarios = [...horariosBase.manana, ...horariosBase.tarde];
-                    let ahora = new Date();
-                    let fechaInputDate = new Date(fechaSeleccionada + 'T00:00:00');
-
-                    // >>> CAMBIO ESPECIFICO: Filtrar horas pasadas para citas del mismo día
-                    if (fechaInputDate.toDateString() === ahora.toDateString()) {
-                        todosLosHorarios = todosLosHorarios.filter(hora => {
-                            const [time, modifier] = hora.split(' ');
-                            let [hours, minutes] = time.split(':');
-                            if (hours === '12') hours = '00';
-                            if (modifier === 'PM') hours = parseInt(hours, 10) + 12;
-                            const horaCita = new Date();
-                            horaCita.setHours(hours, minutes, 0, 0);
-                            return horaCita > ahora;
-                        });
-                    }
-                    // <<< FIN CAMBIO
-
-                    const horariosDisponibles = todosLosHorarios.filter(hora => !data.ocupados.includes(hora));
-                    
-                    if (horariosDisponibles.length > 0) {
-                        horariosDisponibles.forEach(hora => {
-                            const option = document.createElement('option');
-                            option.value = hora;
-                            option.textContent = hora;
-                            horaSelect.appendChild(option);
-                        });
-                    } else {
-                        horaSelect.innerHTML = '<option value="">No hay horarios disponibles</option>';
-                    }
-                } else {
-                    horaSelect.innerHTML = `<option value="">${data.mensaje || 'Día no hábil'}</option>`;
-                }
-            } catch (error) {
-                console.error('Error al cargar horarios:', error);
-                horaSelect.innerHTML = '<option value="">Error al cargar</option>';
-            } finally {
-                horaSelect.disabled = false;
-            }
-        });
-    });
-    // FIN CAMBIO HOJA DE RUTA PUNTO 2
-</script>
-{% endblock %}
+                <label for="email_origen_retiro" class

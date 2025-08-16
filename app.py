@@ -2732,25 +2732,21 @@ def portal_dashboard():
             cur.execute("SELECT * FROM ofertas WHERE cliente_id = %s ORDER BY fecha_oferta DESC", (session['cliente_id'],))
             cliente_dict['ofertas'] = [dict(o) for o in cur.fetchall()]
             
-            # >>> CAMBIO ESPECIFICO: Portal Cliente – rechazos
             reportes_rechazados = []
             for pago in cliente_dict['pagos']:
                 if pago.get('estado_reporte') == 'Inconsistente':
                     if isinstance(pago.get('detalles_reporte'), str):
-                        # >>> CAMBIO ESPECIFICO: Manejo defensivo JSONDecodeError
                         try:
                             pago['detalles_reporte'] = json.loads(pago['detalles_reporte'])
                         except json.JSONDecodeError:
                             pago['detalles_reporte'] = {}
-                        # <<< FIN CAMBIO
                     
                     detalles = pago.get('detalles_reporte', {})
-                    if detalles.get('motivo') == 'Diferencia de Monto' and Decimal(detalles.get('diferencia', 0)) > 0:
+                    if detalles.get('motivo') == 'Diferencia de Monto' and 'monto_pendiente' in detalles:
                         pago['accion_requerida'] = 'pagar_diferencia'
                     else:
                         pago['accion_requerida'] = 'corregir_reporte'
                     reportes_rechazados.append(pago)
-            # <<< FIN CAMBIO
 
             pago_en_proceso = any(p.get('estado_pago') == 'Pendiente' for p in cliente_dict['pagos'])
 
@@ -2768,7 +2764,6 @@ def portal_dashboard():
             inscripcion_completa = (cliente_dict.get('inscripcion_pagada') or 0) >= (cliente_dict.get('inscripcion_monto') or 0)
             primera_cuota_pagada = any(p.get('tipo_pago') == 'Cuota' and p.get('estado_pago') == 'Conciliado' for p in cliente_dict['pagos'] if p.get('fecha_pago'))
             
-            # **LÓGICA DE ETAPAS MEJORADA**
             if not inscripcion_completa:
                 estado_principal = {
                     'tipo': 'inscripcion', 'titulo': 'Completa tu Inscripción',
@@ -2800,7 +2795,6 @@ def portal_dashboard():
             
             puede_registrar_oferta = inscripcion_completa and primera_cuota_pagada
             
-            # INICIO DE LA CORRECCIÓN: Cargar historial de gestiones
             historial_gestiones = []
             cur.execute("SELECT * FROM solicitudes WHERE cliente_id = %s ORDER BY fecha_creacion DESC", (session['cliente_id'],))
             solicitudes = cur.fetchall()
@@ -2832,14 +2826,13 @@ def portal_dashboard():
                  historial_gestiones.append({
                     'id': o['id'],
                     'titulo': f"Oferta Registrada",
-                    'fecha': datetime.combine(o['fecha_oferta'], time.min), # Convertir date a datetime
+                    'fecha': datetime.combine(o['fecha_oferta'], time.min),
                     'descripcion': f"Ofertaste {o['cuotas_ofertadas']} cuotas. Estado: {o['estado_oferta'].capitalize()}",
                     'estado': 'Aprobada' if o['estado_oferta'] == 'activa' else 'Rechazada',
                     'detalles': {},
                     'icono': 'bi-gem'
                 })
             
-            # Corrección para TypeError: se estandarizan las fechas a UTC antes de ordenar.
             for gestion in historial_gestiones:
                 if gestion['fecha'].tzinfo is None:
                     gestion['fecha'] = pytz.utc.localize(gestion['fecha'])
@@ -2847,8 +2840,7 @@ def portal_dashboard():
                     gestion['fecha'] = gestion['fecha'].astimezone(pytz.utc)
             
             historial_gestiones.sort(key=lambda x: x['fecha'], reverse=True)
-            # FIN DE LA CORRECCIÓN
-
+            
             return render_template('portal_dashboard.html', 
                                    cliente=cliente_dict, 
                                    reportes_rechazados=reportes_rechazados,
