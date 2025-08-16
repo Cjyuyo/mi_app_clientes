@@ -1,32 +1,41 @@
-<div class="space-y-6">
-    <!-- Mensajes Flash (transitorios) -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-            <div class="p-4 rounded-lg text-sm
-                {% if category == 'error' or category == 'danger' %} 
-                  bg-red-100 text-red-800 
-                {% elif category == 'success' %} 
-                  bg-green-100 text-green-800
-                {% else %} 
-                  bg-blue-100 text-blue-800 
-                {% endif %}" role="alert">
-                {{ message | safe }}
-            </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
+{% set has_notifications = get_flashed_messages() or ordenes_pendientes or estado_principal or cita_confirmada %}
 
-    <!-- Alerta Crítica: Órdenes de Pago por Diferencia -->
-    {% if ordenes_pendientes %}
-    <div class="bg-red-100 border-l-4 border-red-500 text-red-800 p-5 rounded-xl shadow-md card-lift">
-        <h3 class="font-bold text-lg flex items-center gap-2"><i class="bi bi-exclamation-triangle-fill"></i> ¡Acción Requerida!</h3>
-        <p class="mt-2 mb-4 text-sm">Detectamos que uno de tus pagos fue verificado por un monto menor al reportado. Por favor, completa el pago de la diferencia para continuar.</p>
-        <div class="space-y-3">
+{% if has_notifications %}
+<div class="bg-white rounded-xl shadow-md card-lift">
+    <div class="p-5 border-b border-slate-200">
+        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i class="bi bi-bell-fill text-orange-500"></i>
+            Notificaciones
+        </h2>
+    </div>
+    <div class="p-5 space-y-4">
+        <!-- Mensajes Flash (transitorios) -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="p-4 rounded-lg text-sm
+                    {% if category == 'error' or category == 'danger' %} 
+                      bg-red-100 text-red-800 
+                    {% elif category == 'success' %} 
+                      bg-green-100 text-green-800
+                    {% else %} 
+                      bg-blue-100 text-blue-800 
+                    {% endif %}" role="alert">
+                    {{ message | safe }}
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Alerta Crítica: Órdenes de Pago por Diferencia -->
+        {% if ordenes_pendientes %}
+        <div class="bg-red-100 border-l-4 border-red-500 text-red-800 p-4 rounded-lg">
+            <h3 class="font-bold text-md flex items-center gap-2"><i class="bi bi-exclamation-triangle-fill"></i> ¡Acción Requerida!</h3>
+            <p class="mt-2 mb-3 text-sm">Detectamos que uno de tus pagos fue verificado por un monto menor al reportado. Por favor, completa el pago de la diferencia para continuar.</p>
             {% for orden in ordenes_pendientes %}
-            <div class="bg-white/60 p-3 rounded-lg flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="bg-white/60 p-3 rounded-lg flex flex-col sm:flex-row justify-between items-center gap-3 mt-2">
                 <div>
-                    <p class="font-semibold">Orden de Pago #{{ orden.id }}</p>
+                    <p class="font-semibold text-sm">Orden de Pago #{{ orden.id }}</p>
                     <p class="text-xs text-slate-600 mt-1"><strong>Monto Faltante (Bs):</strong> <span class="font-bold text-red-600">{{ "%.2f"|format(orden.amount) }}</span></p>
                 </div>
                 <div class="mt-2 sm:mt-0">
@@ -37,40 +46,41 @@
             </div>
             {% endfor %}
         </div>
-    </div>
-    {% endif %}
-
-    <!-- Notificación Principal (Estado del Cliente) -->
-    {% if estado_principal %}
-    <div class="bg-white p-5 rounded-xl shadow-md border-l-4 {{ estado_principal.clase_borde | replace('naranja-corporativo', 'border-orange-500') | replace('en-mora', 'border-red-500') | replace('vigente', 'border-green-500') | replace('azul-info', 'border-sky-500') }} card-lift">
-        <h3 class="text-lg font-bold text-slate-800">{{ estado_principal.titulo }}</h3>
-        <p class="text-slate-600 mt-2">{{ estado_principal.mensaje | safe }}</p>
-        {% if estado_principal.boton_texto %}
-        <a href="{{ estado_principal.boton_url }}" class="inline-block mt-4 text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if not estado_principal.boton_activo %}opacity-50 cursor-not-allowed{% endif %}"
-           {% if not estado_principal.boton_activo %}title="Ya tienes un pago en revisión."{% endif %}>
-            {{ estado_principal.boton_texto }}
-        </a>
         {% endif %}
-    </div>
-    {% endif %}
 
-    <!-- Notificación de Cita Confirmada -->
-    {% if cita_confirmada %}
-    <div class="bg-white p-5 rounded-xl shadow-md border-l-4 border-green-500 card-lift">
-        <div class="flex items-start gap-4">
-            <i class="bi bi-calendar-check-fill text-3xl text-green-500 mt-1"></i>
-            <div>
-                <h3 class="font-bold text-slate-800">Tu Cita Confirmada</h3>
-                <ul class="text-sm text-slate-500 mt-2 space-y-1">
-                    <li><strong>Fecha:</strong> {{ cita_confirmada.detalles.fecha_cita | format_date('%d/%m/%Y') }}</li>
-                    <li><strong>Hora:</strong> {{ cita_confirmada.detalles.hora_cita }}</li>
-                    <li><strong>Asesor:</strong> {{ cita_confirmada.nombre_asesor }}</li>
-                </ul>
-                <form action="{{ url_for('cancelar_cita_cliente', solicitud_id=cita_confirmada.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas cancelar esta cita?');" class="mt-3">
-                    <button type="submit" class="text-xs bg-red-100 text-red-800 font-semibold py-1 px-2 rounded-md hover:bg-red-200">Cancelar Cita</button>
-                </form>
+        <!-- Notificación Principal (Estado del Cliente) -->
+        {% if estado_principal %}
+        <div class="bg-white p-4 rounded-lg border">
+            <h3 class="text-md font-bold text-slate-800">{{ estado_principal.titulo }}</h3>
+            <p class="text-sm text-slate-600 mt-2">{{ estado_principal.mensaje | safe }}</p>
+            {% if estado_principal.boton_texto %}
+            <a href="{{ estado_principal.boton_url }}" class="inline-block mt-3 text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if not estado_principal.boton_activo %}opacity-50 cursor-not-allowed{% endif %}"
+               {% if not estado_principal.boton_activo %}title="Ya tienes un pago en revisión."{% endif %}>
+                {{ estado_principal.boton_texto }}
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Notificación de Cita Confirmada -->
+        {% if cita_confirmada %}
+        <div class="bg-white p-4 rounded-lg border">
+            <div class="flex items-start gap-4">
+                <i class="bi bi-calendar-check-fill text-2xl text-green-500 mt-1"></i>
+                <div>
+                    <h3 class="font-bold text-md text-slate-800">Tu Cita Confirmada</h3>
+                    <ul class="text-sm text-slate-500 mt-2 space-y-1">
+                        <li><strong>Fecha:</strong> {{ cita_confirmada.detalles.fecha_cita | format_date('%d/%m/%Y') }}</li>
+                        <li><strong>Hora:</strong> {{ cita_confirmada.detalles.hora_cita }}</li>
+                        <li><strong>Asesor:</strong> {{ cita_confirmada.nombre_asesor }}</li>
+                    </ul>
+                    <form action="{{ url_for('cancelar_cita_cliente', solicitud_id=cita_confirmada.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas cancelar esta cita?');" class="mt-3">
+                        <button type="submit" class="text-xs bg-red-100 text-red-800 font-semibold py-1 px-2 rounded-md hover:bg-red-200">Cancelar Cita</button>
+                    </form>
+                </div>
             </div>
         </div>
+        {% endif %}
     </div>
-    {% endif %}
 </div>
+{% endif %}
