@@ -955,6 +955,55 @@ def reportes_por_revisar():
         flash("Error al cargar la lista de reportes pendientes de revisión.", "danger")
     
 
+@app.route('/reportes_por_revisar')
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora')
+def reportes_por_revisar():
+    """
+    Muestra una lista de todos los pagos que han sido reportados por clientes
+    y están pendientes de revisión por parte de un administrador.
+    """
+    # Se importa 'current_app' para logging dentro de la función, como se solicita.
+    from flask import current_app
+
+    conn = get_db()
+    reportes_a_revisar = []
+    # Se obtiene el año una sola vez para pasarlo a la plantilla en todos los casos.
+    anio_actual = get_venezuela_current_date().year
+
+    # Caso 1: Falla la conexión a la base de datos.
+    if not conn:
+        flash("Error de conexión con la base de datos.", "danger")
+        # Se devuelve una respuesta válida renderizando la plantilla con una lista vacía.
+        return render_template('reportes_por_revisar.html', reportes=reportes_a_revisar, anio_actual=anio_actual)
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT p.id, p.monto, p.monto_bs, p.tipo_pago, p.fecha_creacion,
+                       p.cliente_id, c.nombre, c.apellido, c.cedula
+                FROM pagos p
+                JOIN clientes c ON p.cliente_id = c.id
+                WHERE p.reportado_por_cliente = TRUE AND p.estado_reporte = 'Pendiente de Revision'
+                ORDER BY p.fecha_creacion ASC;
+            """)
+            reportes_a_revisar = cur.fetchall()
+            # Si la consulta es exitosa (incluso si no devuelve filas),
+            # la función continuará hasta el return final.
+
+    except psycopg2.Error as e:
+        # Caso 2: Ocurre una excepción durante la consulta a la base de datos.
+        current_app.logger.exception("Error al obtener reportes por revisar")
+        flash("Error al cargar la lista de reportes pendientes de revisión.", "danger")
+        # Se devuelve una respuesta válida renderizando la plantilla con una lista vacía.
+        return render_template('reportes_por_revisar.html', reportes=[], anio_actual=anio_actual)
+
+    # Caso 3: Éxito. La consulta se ejecutó correctamente.
+    # 'reportes_a_revisar' contendrá los resultados o será una lista vacía si no hay reportes.
+    # En ambos sub-casos, se devuelve una respuesta válida.
+    return render_template('reportes_por_revisar.html', reportes=reportes_a_revisar, anio_actual=anio_actual)
+
+
 @app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
