@@ -3657,104 +3657,57 @@ def ver_reporte(pago_id):
         return redirect(url_for('home'))
 
         @app.route('/api/pago_detalle/<int:pago_id>')
-@admin_required
-def get_pago_detalle(pago_id):
-    """
-    Endpoint API para obtener los detalles de un pago en formato JSON.
-    Diseñado para ser consumido por modales en el frontend.
-    """
-    conn = get_db()
-    if not conn:
-        return jsonify({'error': 'Error de conexión a la base de datos.'}), 500
+    @admin_required
+    def get_pago_detalle(pago_id):
+        """
+        Endpoint API para obtener los detalles de un pago en formato JSON.
+        Diseñado para ser consumido por modales en el frontend.
+        """
+        conn = get_db()
+        if not conn:
+            return jsonify({'error': 'Error de conexión a la base de datos.'}), 500
 
-    try:
-        with conn.cursor() as cur:
-            query = """
-                SELECT 
-                    p.id, p.monto, p.monto_bs, p.tasa_dia, p.tipo_pago, p.forma_pago, p.referencia, p.banco,
-                    p.fecha_pago, p.estado_pago, p.estado_reporte, p.detalles_reporte,
-                    p.registrado_por_id, a.usuario as admin_usuario,
-                    p.conciliado_por_id, ca.usuario as conciliado_por_usuario,
-                    p.revisado_por_id, ra.usuario as revisado_por_usuario
-                FROM pagos p
-                LEFT JOIN administradores a ON p.registrado_por_id = a.id
-                LEFT JOIN administradores ca ON p.conciliado_por_id = ca.id
-                LEFT JOIN administradores ra ON p.revisado_por_id = ra.id
-                WHERE p.id = %s;
-            """
-            cur.execute(query, (pago_id,))
-            pago = cur.fetchone()
-
-            if not pago:
-                return jsonify({'error': 'Pago no encontrado.'}), 404
-            
-            # Convertir el resultado a un diccionario serializable
-            pago_dict = dict(pago)
-            for key, value in pago_dict.items():
-                if isinstance(value, Decimal):
-                    pago_dict[key] = f"{value:,.2f}"
-                elif isinstance(value, (datetime, date)):
-                    pago_dict[key] = format_datetime_filter(value)
-            
-            # Decodificar JSON si es una cadena
-            if isinstance(pago_dict.get('detalles_reporte'), str):
-                try:
-                    pago_dict['detalles_reporte'] = json.loads(pago_dict['detalles_reporte'])
-              except json.JSONDecodeError:
-                pago_dict['detalles_reporte'] = {'error': 'JSON mal formado'}
-
-        return jsonify(pago_dict)
-
-except psycopg2.Error as e:
-    logging.error(f"Error en API get_pago_detalle: {e}")
-    return jsonify({'error': 'Error interno del servidor al consultar el pago.'}), 500
-
-    pago = None
-    try:
-        with conn.cursor() as cur:
-            if is_client_view:
-                cur.execute(
-                    "SELECT * FROM pagos WHERE id = %s AND cliente_id = %s",
-                    (pago_id, session['cliente_id'])
-                )
-                pago = cur.fetchone()
-                if not pago:
-                    flash('El reporte de pago solicitado no existe o no tienes permiso para verlo.', 'danger')
-                    return redirect(url_for('portal_dashboard'))
-            
-            else: # is_admin_view
+        try:
+            with conn.cursor() as cur:
                 query = """
-                    SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula
+                    SELECT 
+                        p.id, p.monto, p.monto_bs, p.tasa_dia, p.tipo_pago, p.forma_pago, p.referencia, p.banco,
+                        p.fecha_pago, p.estado_pago, p.estado_reporte, p.detalles_reporte,
+                        p.registrado_por_id, a.usuario as admin_usuario,
+                        p.conciliado_por_id, ca.usuario as conciliado_por_usuario,
+                        p.revisado_por_id, ra.usuario as revisado_por_usuario
                     FROM pagos p
-                    JOIN clientes c ON p.cliente_id = c.id
+                    LEFT JOIN administradores a ON p.registrado_por_id = a.id
+                    LEFT JOIN administradores ca ON p.conciliado_por_id = ca.id
+                    LEFT JOIN administradores ra ON p.revisado_por_id = ra.id
                     WHERE p.id = %s;
                 """
                 cur.execute(query, (pago_id,))
                 pago = cur.fetchone()
+
                 if not pago:
-                    flash('El reporte de pago no fue encontrado.', 'error')
-                    return redirect(url_for('consulta'))
+                    return jsonify({'error': 'Pago no encontrado.'}), 404
+                
+                pago_dict = dict(pago)
+                for key, value in pago_dict.items():
+                    if isinstance(value, Decimal):
+                        pago_dict[key] = f"{value:,.2f}"
+                    elif isinstance(value, (datetime, date)):
+                        pago_dict[key] = format_datetime_filter(value)
+                
+                if isinstance(pago_dict.get('detalles_reporte'), str):
+                    try:
+                        pago_dict['detalles_reporte'] = json.loads(pago_dict['detalles_reporte'])
+                    except json.JSONDecodeError:
+                        pago_dict['detalles_reporte'] = {'error': 'JSON mal formado'}
 
-        pago_dict = dict(pago)
-        if pago_dict.get('detalles_reporte'):
-            if isinstance(pago_dict['detalles_reporte'], str):
-                try:
-                    pago_dict['detalles_reporte'] = json.loads(pago_dict['detalles_reporte'])
-                except json.JSONDecodeError:
-                    pago_dict['detalles_reporte'] = {}
+                return jsonify(pago_dict)
 
-        if is_client_view:
-            return render_template('ver_reporte.html', pago=pago_dict, is_client_view=True)
-        else: # is_admin_view
-            origin = request.args.get('origin', 'consulta')
-            return render_template('ver_reporte.html', pago=pago_dict, is_client_view=False, origin=origin)
+        except psycopg2.Error as e:
+            logging.error(f"Error en API get_pago_detalle: {e}")
+            return jsonify({'error': 'Error interno del servidor al consultar el pago.'}), 500
 
-    except psycopg2.Error as e:
-        logging.error(f"Error al obtener reporte de pago {pago_id}: {e}")
-        flash("Error al cargar el reporte.", "danger")
-        return redirect(url_for('home'))
-
-
+# ESTE BLOQUE DEBE ESTAR AL NIVEL PRINCIPAL (SIN INDENTACIÓN)
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
