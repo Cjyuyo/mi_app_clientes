@@ -120,7 +120,8 @@
                             <button @click="openMenu = (openMenu === 'clientes' ? '' : 'clientes')" class="w-full flex items-center justify-between px-2 py-2.5 text-slate-100 rounded-md hover:bg-white/5">
                                 <span class="flex items-center">
                                     <i class="bi bi-people-fill text-lg w-8 text-center text-slate-400 flex-shrink-0"></i>
-                                    <span class="ml-2 whitespace-nowrap">Clientes</span>
+                                    <!-- CAMBIO: Se eliminó whitespace-nowrap -->
+                                    <span class="ml-2">Clientes</span>
                                 </span>
                                 <i class="bi bi-chevron-down transition-transform text-xs ml-2 flex-shrink-0" :class="openMenu === 'clientes' && 'rotate-180'"></i>
                             </button>
@@ -134,7 +135,8 @@
                             <button @click="openMenu = (openMenu === 'finanzas' ? '' : 'finanzas')" class="w-full flex items-center justify-between px-2 py-2.5 text-slate-100 rounded-md hover:bg-white/5">
                                 <span class="flex items-center">
                                     <i class="bi bi-bank text-lg w-8 text-center text-slate-400 flex-shrink-0"></i>
-                                    <span class="ml-2 whitespace-nowrap">Administración y Finanzas</span>
+                                    <!-- CAMBIO: Se eliminó whitespace-nowrap -->
+                                    <span class="ml-2">Administración y Finanzas</span>
                                 </span>
                                 <i class="bi bi-chevron-down transition-transform text-xs ml-2 flex-shrink-0" :class="openMenu === 'finanzas' && 'rotate-180'"></i>
                             </button>
@@ -152,7 +154,8 @@
                             <button @click="openMenu = (openMenu === 'comercial' ? '' : 'comercial')" class="w-full flex items-center justify-between px-2 py-2.5 text-slate-100 rounded-md hover:bg-white/5">
                                 <span class="flex items-center">
                                     <i class="bi bi-briefcase-fill text-lg w-8 text-center text-slate-400 flex-shrink-0"></i>
-                                    <span class="ml-2 whitespace-nowrap">Comercial</span>
+                                    <!-- CAMBIO: Se eliminó whitespace-nowrap -->
+                                    <span class="ml-2">Comercial</span>
                                 </span>
                                 <i class="bi bi-chevron-down transition-transform text-xs ml-2 flex-shrink-0" :class="openMenu === 'comercial' && 'rotate-180'"></i>
                             </button>
@@ -164,7 +167,8 @@
                             <button @click="openMenu = (openMenu === 'reportes' ? '' : 'reportes')" class="w-full flex items-center justify-between px-2 py-2.5 text-slate-100 rounded-md hover:bg-white/5">
                                 <span class="flex items-center">
                                     <i class="bi bi-file-earmark-text-fill text-lg w-8 text-center text-slate-400 flex-shrink-0"></i>
-                                    <span class="ml-2 whitespace-nowrap">Reportes y Auditoría</span>
+                                    <!-- CAMBIO: Se eliminó whitespace-nowrap -->
+                                    <span class="ml-2">Reportes y Auditoría</span>
                                 </span>
                                 <i class="bi bi-chevron-down transition-transform text-xs ml-2 flex-shrink-0" :class="openMenu === 'reportes' && 'rotate-180'"></i>
                             </button>

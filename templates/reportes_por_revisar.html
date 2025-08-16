@@ -61,30 +61,31 @@
                             <span class="py-1 px-2.5 bg-indigo-100 text-indigo-800 text-xs font-medium rounded-md">{{ reporte.tipo_pago }}</span>
                         </td>
                         <td class="px-6 py-4 font-semibold text-slate-800">${{ "%.2f"|format(reporte.monto) }}</td>
+                        
+                        <!-- >>> INICIO DEL CAMBIO: Se reemplaza el dropdown por botones de acción directa -->
                         <td class="px-6 py-4 text-right">
-                            <!-- >>> CAMBIO ESPECIFICO: Botón de gestión con menú desplegable -->
-                            <div class="dropdown">
-                                <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" id="dropdownMenuButton-{{ reporte.id }}" data-bs-toggle="dropdown" aria-expanded="false">
-                                    Gestionar
+                            <div class="flex justify-end items-center space-x-2">
+                                <!-- Botón para Revisar Detalles -->
+                                <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="btn btn-outline-secondary btn-sm" title="Revisar Detalles">
+                                    Revisar
+                                </a>
+                                
+                                <!-- Botón para Aprobar (dentro de un formulario) -->
+                                <form action="{{ url_for('procesar_reporte', pago_id=reporte.id) }}" method="POST" class="m-0">
+                                    <input type="hidden" name="accion" value="aprobar">
+                                    <button type="submit" class="btn btn-success btn-sm" title="Aprobar Reporte">
+                                        Aprobar
+                                    </button>
+                                </form>
+                        
+                                <!-- Botón para Rechazar (abre un modal) -->
+                                <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rechazarModal-{{ reporte.id }}" title="Rechazar Reporte">
+                                    Rechazar
                                 </button>
-                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton-{{ reporte.id }}">
-                                    <li><a class="dropdown-item" href="{{ url_for('ver_reporte', pago_id=reporte.id) }}">Revisar Detalles</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li>
-                                        <form action="{{ url_for('procesar_reporte', pago_id=reporte.id) }}" method="POST" class="d-inline">
-                                            <input type="hidden" name="accion" value="aprobar">
-                                            <button type="submit" class="dropdown-item text-success">Aprobar</button>
-                                        </form>
-                                    </li>
-                                    <li>
-                                        <button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#rechazarModal-{{ reporte.id }}">
-                                            Rechazar
-                                        </button>
-                                    </li>
-                                </ul>
                             </div>
-                            <!-- <<< FIN CAMBIO -->
                         </td>
+                        <!-- <<< FIN DEL CAMBIO -->
+
                     </tr>
                     {% else %}
                     <tr>
@@ -128,7 +129,7 @@
                     
                     <div x-show="motivo === 'Diferencia de Monto'" x-transition>
                         <label for="diferencia_monto-{{ reporte.id }}" class="form-label">Monto de la Diferencia (USD)</label>
-                        <input type="number" step="0.01" name="diferencia_monto" id="diferencia_monto-{{ reporte.id }}" class="form-input w-full" placeholder="Ej: 5.50">
+                        <input type="number" step="0.01" name="diferencia_monto" id="diferencia_monto-{{ reporte.id }}" class="form-control" placeholder="Ej: 5.50">
                     </div>
                 </div>
                 <div class="modal-footer bg-slate-50">
