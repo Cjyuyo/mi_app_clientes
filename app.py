@@ -997,37 +997,38 @@ def procesar_reporte(pago_id):
                     monto_recibido_str = request.form.get('diferencia_monto', '0').replace(',', '.')
                     monto_recibido = Decimal(monto_recibido_str) if monto_recibido_str else Decimal('0')
                     
-                    # Se verifica si el pago original fue en Bolívares
                     was_in_bs = pago.get('monto_bs') and pago['monto_bs'] > 0
+                    
+                    # --- Validación Unificada (CORREGIDO) ---
+                    # Se determina el monto reportado según la moneda y se valida una sola vez.
+                    monto_reportado = pago['monto_bs'] if was_in_bs else pago['monto']
+                    moneda_texto = "(Bs)" if was_in_bs else "(USD)"
+                    
+                    if monto_recibido <= 0 or monto_recibido >= monto_reportado:
+                        flash(f"El monto recibido {moneda_texto} debe ser mayor a cero y menor que el monto reportado.", "error")
+                        return redirect(url_for('reportes_por_revisar'))
+                    # --- Fin de la Validación Unificada ---
 
                     if was_in_bs:
                         # --- Lógica para pagos en Bolívares (Bs) ---
-                        monto_reportado_bs = pago['monto_bs']
                         tasa = pago.get('tasa_dia') or Decimal('1.0')
-
-                        if monto_recibido <= 0 or monto_recibido >= monto_reportado_bs:
-                            flash("El monto recibido (Bs) debe ser mayor a cero y menor que el monto reportado.", "error")
-                            return redirect(url_for('reportes_por_revisar'))
-
-                        monto_pendiente_bs = monto_reportado_bs - monto_recibido
+                        monto_pendiente_bs = monto_reportado - monto_recibido
                         monto_recibido_usd = monto_recibido / tasa if tasa > 0 else Decimal('0.0')
                         monto_pendiente_usd = monto_pendiente_bs / tasa if tasa > 0 else Decimal('0.0')
 
                         detalles_rechazo = {
                             'motivo': motivo, 'moneda': 'BS',
-                            'monto_original_reportado': str(monto_reportado_bs),
+                            'monto_original_reportado': str(monto_reportado),
                             'monto_recibido_real': str(monto_recibido),
                             'monto_pendiente': str(monto_pendiente_bs)
                         }
                         detalles_json = json.dumps(detalles_rechazo)
 
-                        # Se actualiza el pago original con los montos reales recibidos
                         cur.execute(
                             "UPDATE pagos SET monto = %s, monto_bs = %s, estado_reporte = %s, revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s WHERE id = %s",
                             (monto_recibido_usd, monto_recibido, nuevo_estado_reporte, g.admin['id'], detalles_json, pago_id)
                         )
                         
-                        # Se crea el nuevo pago por la diferencia en la moneda correcta
                         concepto_orden = f"Diferencia pendiente del reporte #{pago_id}"
                         cur.execute("""
                             INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, por_concepto_de, fecha_pago, estado_pago, reportado_por_cliente, estado_reporte, fecha_creacion, registrado_por_id, pago_padre_id, cuotas_cubiertas)
@@ -1038,29 +1039,21 @@ def procesar_reporte(pago_id):
 
                     else:
                         # --- Lógica para pagos en Dólares (USD) ---
-                        monto_reportado_usd = pago['monto']
-                        
-                        if monto_recibido <= 0 or monto_recibido >= monto_reportado_usd:
-                            flash("El monto recibido (USD) debe ser mayor a cero y menor que el monto reportado.", "error")
-                            return redirect(url_for('reportes_por_revisar'))
-
-                        monto_pendiente_usd = monto_reportado_usd - monto_recibido
+                        monto_pendiente_usd = monto_reportado - monto_recibido
                         
                         detalles_rechazo = {
                             'motivo': motivo, 'moneda': 'USD',
-                            'monto_original_reportado': str(monto_reportado_usd),
+                            'monto_original_reportado': str(monto_reportado),
                             'monto_recibido_real': str(monto_recibido),
                             'monto_pendiente': str(monto_pendiente_usd)
                         }
                         detalles_json = json.dumps(detalles_rechazo)
 
-                        # Se actualiza el pago original
                         cur.execute(
                             "UPDATE pagos SET monto = %s, estado_reporte = %s, revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s WHERE id = %s",
                             (monto_recibido, nuevo_estado_reporte, g.admin['id'], detalles_json, pago_id)
                         )
                         
-                        # Se crea el nuevo pago por la diferencia
                         concepto_orden = f"Diferencia pendiente del reporte #{pago_id}"
                         cur.execute("""
                             INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, por_concepto_de, fecha_pago, estado_pago, reportado_por_cliente, estado_reporte, fecha_creacion, registrado_por_id, pago_padre_id, cuotas_cubiertas)
@@ -1097,10 +1090,11 @@ def procesar_reporte(pago_id):
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def pagos_por_conciliar():
     conn = get_db()
-    pagos_a_procesar = []
     if not conn:
         flash("Error de conexión con la base de datos.", "danger")
-        return render_template('pagos_por_conciliar.html', pagos=[], anio_actual=get_venezuela_current_date().year)
+        return render_template('pagos_por_conciliar.html', pagos_agrupados={}, anio_actual=get_venezuela_current_date().year)
+    
+    pagos_agrupados = {}
     try:
         with conn.cursor() as cur:
             cur.execute("""
@@ -1113,28 +1107,36 @@ def pagos_por_conciliar():
                 LEFT JOIN administradores a ON p.registrado_por_id = a.id
                 WHERE p.estado_pago = 'Pendiente' 
                 AND (p.reportado_por_cliente = FALSE OR p.estado_reporte = 'Aprobado')
-                ORDER BY p.fecha_creacion ASC;
+                ORDER BY p.cliente_id, p.fecha_creacion ASC;
             """)
             pagos_pendientes = cur.fetchall()
             
-            for pago_row in pagos_pendientes:
-                pago = dict(pago_row)
-                
-                pago['status_display'] = 'Listo para Conciliar'
-                pago['status_class'] = 'primary'
-                pago['action_type'] = 'Conciliar'
-                pago['disabled_reason'] = ''
+            # Agrupar pagos por cliente
+            for pago in pagos_pendientes:
+                cliente_id = pago['cliente_id']
+                if cliente_id not in pagos_agrupados:
+                    pagos_agrupados[cliente_id] = {
+                        'cliente_info': {
+                            'nombre': pago['nombre'],
+                            'apellido': pago['apellido'],
+                            'cedula': pago['cedula']
+                        },
+                        'pagos': [],
+                        'puede_consolidar': False
+                    }
+                pagos_agrupados[cliente_id]['pagos'].append(pago)
 
-                if not pago.get('nombre'):
-                    pago['action_type'] = 'Ninguna'
-                    pago['disabled_reason'] = 'El cliente asociado fue eliminado.'
-                
-                pagos_a_procesar.append(pago)
+            # Identificar grupos que se pueden consolidar
+            for cliente_id, data in pagos_agrupados.items():
+                tipos_pago = [p['tipo_pago'] for p in data['pagos']]
+                if 'Cuota' in tipos_pago and 'Diferencia' in tipos_pago and len(data['pagos']) == 2:
+                    data['puede_consolidar'] = True
+
     except psycopg2.Error as e:
         logging.error(f"Error al obtener pagos por conciliar: {e}")
         flash("Error al cargar la lista de pagos pendientes.", "danger")
         
-    return render_template('pagos_por_conciliar.html', pagos=pagos_a_procesar, anio_actual=get_venezuela_current_date().year)
+    return render_template('pagos_por_conciliar.html', pagos_agrupados=pagos_agrupados, anio_actual=get_venezuela_current_date().year)
 
 
 # =================================================================================
@@ -3400,303 +3402,4 @@ def _get_estado_cuenta_data(cliente_id):
             try:
                 valor_plan_decimal = Decimal(valor_plan) if valor_plan else Decimal('0.0')
             except (InvalidOperation, TypeError):
-                valor_plan_decimal = Decimal('0.0')
-
-            saldo_pendiente = valor_plan_decimal - total_pagado
-            
-            resumen = {
-                'total_pagado': total_pagado,
-                'saldo_pendiente': saldo_pendiente if saldo_pendiente > 0 else 0,
-                'cuotas_pagadas': (cliente.get('cuotas_pagadas_progresivas', 0) or 0) + (cliente.get('cuotas_pagadas_regresivas', 0) or 0)
-            }
-
-            return {
-                'cliente': cliente,
-                'historial': historial_unificado,
-                'resumen': resumen
-            }
-    except (psycopg2.Error, json.JSONDecodeError, KeyError) as e:
-        logging.error(f"Error al generar estado de cuenta para cliente {cliente_id}: {e}")
-        flash(f'Ocurrió un error al generar el estado de cuenta: {e}', 'error')
-        return None
-
-@app.route('/portal/logout')
-def portal_logout():
-    session.clear()
-    flash('Has cerrado sesión exitosamente.', 'success')
-    return redirect(url_for('portal_login'))
-
-@app.route('/citas/disponibilidad')
-@portal_login_required
-def citas_disponibilidad():
-    fecha_str = request.args.get('fecha')
-    if not fecha_str: return jsonify({'error': 'Fecha no proporcionada'}), 400
-    try:
-        fecha_obj = datetime.strptime(fecha_str, '%Y-%m-%d').date()
-    except ValueError:
-        return jsonify({'error': 'Formato de fecha inválido'}), 400
-    
-    ahora_dt = get_venezuela_current_datetime()
-    ahora_fecha = ahora_dt.date()
-
-    if fecha_obj < ahora_fecha:
-        return jsonify({'ocupados': [], 'es_habil': False, 'mensaje': 'No se pueden agendar citas en fechas pasadas.'})
-
-    if fecha_obj.weekday() >= 5:
-        return jsonify({'ocupados': [], 'es_habil': False, 'mensaje': 'No se agendan citas los fines de semana.'})
-    
-    feriados = get_feriados_venezuela(fecha_obj.year)
-    if fecha_obj in feriados:
-        return jsonify({'ocupados': [], 'es_habil': False, 'mensaje': 'El día seleccionado es feriado.'})
-    
-    conn = get_db()
-    if not conn: return jsonify({'error': 'Error de conexión con la base de datos'}), 500
-    
-    citas_ocupadas = []
-    try:
-        with conn.cursor() as cur:
-            query = "SELECT detalles->>'hora_cita' as hora_ocupada FROM solicitudes WHERE tipo_solicitud = 'Cita' AND estado = 'Aprobada' AND (detalles->>'fecha_cita')::date = %s"
-            cur.execute(query, (fecha_obj,))
-            resultados = cur.fetchall()
-            citas_ocupadas = [row['hora_ocupada'] for row in resultados if row['hora_ocupada']]
-    except psycopg2.Error as e:
-        logging.error(f"Error al consultar disponibilidad de citas: {e}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
-        
-    return jsonify({'ocupados': list(set(citas_ocupadas)), 'es_habil': True})
-
-@app.route('/portal/guardar_oferta', methods=['POST'])
-@portal_login_required
-def portal_guardar_oferta():
-    conn = get_db()
-    cuotas_ofertadas = request.form.get('cuotas_ofertadas')
-    cliente_id = session['cliente_id']
-
-    if not conn:
-        flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('portal_dashboard'))
-    
-    try:
-        with conn.cursor() as cur:
-            if not cuotas_ofertadas or not cuotas_ofertadas.isdigit() or int(cuotas_ofertadas) <= 0:
-                flash("Debe ingresar un número válido de cuotas para la oferta.", 'error')
-                return redirect(url_for('portal_dashboard'))
-
-            cur.execute("INSERT INTO ofertas (cliente_id, cuotas_ofertadas, fecha_oferta, estado_oferta) VALUES (%s, %s, %s, 'activa')", 
-                        (cliente_id, int(cuotas_ofertadas), get_venezuela_current_date()))
-            
-            conn.commit()
-            registrar_accion_auditoria('REGISTRO_OFERTA_CLIENTE', f"Cliente ofertó {cuotas_ofertadas} cuota(s).")
-            flash(f"¡Tu oferta de {cuotas_ofertadas} cuotas ha sido registrada exitosamente!", 'success')
-    except psycopg2.Error as e:
-        conn.rollback()
-        flash(f"Ocurrió un error al registrar tu oferta: {e}", 'error')
-        
-    return redirect(url_for('portal_dashboard'))
-
-@app.route('/portal/solicitar_cita', methods=['POST'])
-@portal_login_required
-def portal_solicitar_cita():
-    conn = get_db()
-    cliente_id = session['cliente_id']
-    fecha_cita = request.form.get('fecha_cita')
-    hora_cita = request.form.get('hora_cita')
-    motivo_cita_select = request.form.get('motivo_cita')
-    motivo_otro_texto = request.form.get('motivo_otro_texto')
-
-    if not all([fecha_cita, hora_cita, motivo_cita_select]):
-        flash('Todos los campos son requeridos para solicitar la cita.', 'error')
-        return redirect(url_for('portal_dashboard'))
-
-    motivo_final = motivo_otro_texto if motivo_cita_select == 'Otro' else motivo_cita_select
-
-    if not conn:
-        flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('portal_dashboard'))
-    
-    try:
-        with conn.cursor() as cur:
-            detalles = json.dumps({'fecha_cita': fecha_cita, 'hora_cita': hora_cita, 'motivo': motivo_final})
-            cur.execute("INSERT INTO solicitudes (cliente_id, tipo_solicitud, detalles, fecha_creacion, estado) VALUES (%s, 'Cita', %s, %s, 'Pendiente')",
-                        (cliente_id, detalles, get_venezuela_current_datetime()))
-            conn.commit()
-            registrar_accion_auditoria('SOLICITUD_CITA', f"Cliente solicitó cita para el {fecha_cita} a las {hora_cita}.")
-            flash(f"Tu solicitud de cita para el {fecha_cita} a las {hora_cita} ha sido enviada. Un asesor te contactará para confirmar.", 'success')
-    except psycopg2.Error as e:
-        conn.rollback()
-        flash(f"Error al enviar tu solicitud: {e}", 'error')
-        
-    return redirect(url_for('portal_dashboard'))
-
-@app.route('/portal/solicitar_congelamiento', methods=['POST'])
-@portal_login_required
-def portal_solicitar_congelamiento():
-    conn = get_db()
-    cliente_id = session['cliente_id']
-    motivo = request.form.get('motivo')
-    tiempo = request.form.get('tiempo_congelamiento')
-
-    if not motivo or not tiempo:
-        flash("El motivo y el tiempo son requeridos para la solicitud.", "error")
-        return redirect(url_for('portal_dashboard'))
-
-    if not conn:
-        flash("Error de conexión.", 'error')
-        return redirect(url_for('portal_dashboard'))
-        
-    try:
-        with conn.cursor() as cur:
-            detalles = json.dumps({'motivo': motivo, 'tiempo_congelamiento': tiempo})
-            cur.execute("INSERT INTO solicitudes (cliente_id, tipo_solicitud, detalles, fecha_creacion, estado) VALUES (%s, 'Congelamiento', %s, %s, 'Pendiente')",
-                        (cliente_id, detalles, get_venezuela_current_datetime()))
-        conn.commit()
-        registrar_accion_auditoria(
-            'SOLICITUD_CONGELAMIENTO',
-            f"Cliente solicitó congelar por {tiempo}. Motivo: {motivo[:50]}..."
-        )
-        flash("Solicitud de congelamiento enviada. Un asesor la revisará.", 'success')
-    except psycopg2.Error as e:
-        conn.rollback()
-        flash(f"Error al enviar tu solicitud: {e}", 'error')
-
-    return redirect(url_for('portal_dashboard'))
-
-@app.route('/portal/solicitar_descongelamiento', methods=['POST'])
-@portal_login_required
-def portal_solicitar_descongelamiento():
-    conn, cliente_id = get_db(), session['cliente_id']
-    motivo = request.form.get('motivo_reactivacion')
-    if not motivo:
-        flash("Debes proporcionar un motivo para la reactivación.", "error")
-        return redirect(url_for('portal_dashboard'))
-    try:
-        with conn.cursor() as cur:
-            detalles = json.dumps({'motivo': motivo})
-            cur.execute(
-                "INSERT INTO solicitudes (cliente_id, tipo_solicitud, detalles, fecha_creacion, estado) VALUES (%s, 'Descongelamiento', %s, %s, 'Pendiente')",
-                (cliente_id, detalles, get_venezuela_current_datetime())
-            )
-            conn.commit()
-            registrar_accion_auditoria(
-                'SOLICITUD_DESCONGELAMIENTO',
-                f"Cliente solicitó reactivar. Motivo: {motivo[:50]}..."
-            )
-            flash("Solicitud de reactivación enviada. Un asesor la revisará.", 'success')
-    except psycopg2.Error as e:
-        conn.rollback()
-        flash(f"Error al enviar tu solicitud: {e}", 'error')
-    return redirect(url_for('portal_dashboard'))
-
-@app.route('/portal/solicitar_retiro', methods=['POST'])
-@portal_login_required
-def portal_solicitar_retiro():
-    conn = get_db()
-    cliente_id = session['cliente_id']
-    fecha_correo = request.form.get('fecha_correo_retiro')
-    email_origen = request.form.get('email_origen_retiro')
-
-    if not fecha_correo or not email_origen:
-        flash("Error: La fecha y el correo de origen son necesarios para procesar la solicitud de retiro.", 'danger')
-        return redirect(url_for('portal_dashboard'))
-
-    if not conn:
-        flash("Error de conexión con la base de datos.", 'error')
-        return redirect(url_for('portal_dashboard'))
-
-    try:
-        with conn.cursor() as cur:
-            detalles = json.dumps({
-                'mensaje': 'Cliente confirma envío de correo para formalizar retiro.',
-                'fecha_envio_correo': fecha_correo,
-                'email_origen': email_origen
-            })
-            cur.execute(
-                "INSERT INTO solicitudes (cliente_id, tipo_solicitud, detalles, fecha_creacion, estado) VALUES (%s, 'Retiro', %s, %s, 'Pendiente')",
-                (cliente_id, detalles, get_venezuela_current_datetime())
-            )
-            conn.commit()
-            registrar_accion_auditoria(
-                'SOLICITUD_RETIRO',
-                f"Cliente confirma envío de correo de retiro desde {email_origen}."
-            )
-            flash(
-                "Solicitud de retiro enviada. Un asesor se comunicará contigo para guiarte en los siguientes pasos.",
-                'warning'
-            )
-    except psycopg2.Error as e:
-        conn.rollback()
-        flash(f"Error al enviar tu solicitud: {e}", 'error')
-
-    return redirect(url_for('portal_dashboard'))
-
-@app.route('/ver_reporte/<int:pago_id>')
-@app.route('/portal/ver_reporte/<int:pago_id>')
-def ver_reporte(pago_id):
-    is_client_view = 'cliente_id' in session and g.cliente is not None
-    is_admin_view = 'admin_id' in session and g.admin is not None
-
-    if not is_client_view and not is_admin_view:
-        flash('Acceso no autorizado. Por favor, inicie sesión.', 'error')
-        return redirect(url_for('home'))
-
-    if is_client_view and g.admin is not None:
-        flash('No puedes acceder al portal de clientes con una sesión de administrador activa.', 'warning')
-        return redirect(url_for('hub'))
-    if is_admin_view and g.cliente is not None:
-        flash('No puedes acceder al panel de administración con una sesión de cliente activa.', 'warning')
-        return redirect(url_for('portal_dashboard'))
-
-    conn = get_db()
-    if not conn:
-        flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('home'))
-
-    pago = None
-    try:
-        with conn.cursor() as cur:
-            if is_client_view:
-                cur.execute(
-                    "SELECT * FROM pagos WHERE id = %s AND cliente_id = %s",
-                    (pago_id, session['cliente_id'])
-                )
-                pago = cur.fetchone()
-                if not pago:
-                    flash('El reporte de pago solicitado no existe o no tienes permiso para verlo.', 'danger')
-                    return redirect(url_for('portal_dashboard'))
-            
-            else: # is_admin_view
-                query = """
-                    SELECT p.*, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula
-                    FROM pagos p
-                    JOIN clientes c ON p.cliente_id = c.id
-                    WHERE p.id = %s;
-                """
-                cur.execute(query, (pago_id,))
-                pago = cur.fetchone()
-                if not pago:
-                    flash('El reporte de pago no fue encontrado.', 'error')
-                    return redirect(url_for('consulta'))
-
-        pago_dict = dict(pago)
-        if pago_dict.get('detalles_reporte'):
-            if isinstance(pago_dict['detalles_reporte'], str):
-                try:
-                    pago_dict['detalles_reporte'] = json.loads(pago_dict['detalles_reporte'])
-                except json.JSONDecodeError:
-                    pago_dict['detalles_reporte'] = {}
-
-        if is_client_view:
-            return render_template('ver_reporte.html', pago=pago_dict, is_client_view=True)
-        else: # is_admin_view
-            origin = request.args.get('origin', 'consulta')
-            return render_template('ver_reporte.html', pago=pago_dict, is_client_view=False, origin=origin)
-
-    except psycopg2.Error as e:
-        logging.error(f"Error al obtener reporte de pago {pago_id}: {e}")
-        flash("Error al cargar el reporte.", "danger")
-        return redirect(url_for('home'))
-
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+                valor_plan_decimal = Decimal
