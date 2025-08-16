@@ -938,11 +938,11 @@ def reportes_por_revisar():
     reportes_a_revisar = []
     if not conn:
         flash("Error de conexión con la base de datos.", "danger")
-        return render_template('reportes_por_revisar.html', reportes=[], anio_actual=get_venezuela_current_date().year)
+        return render_template('reportes_por_revisar.html', reportes=[], anio_actual=get_ven_current_date().year)
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT p.id, p.monto, p.tipo_pago, p.fecha_creacion,
+                SELECT p.id, p.monto, p.monto_bs, p.tipo_pago, p.fecha_creacion,
                        p.cliente_id, c.nombre, c.apellido, c.cedula
                 FROM pagos p
                 JOIN clientes c ON p.cliente_id = c.id
@@ -954,7 +954,7 @@ def reportes_por_revisar():
         logging.error(f"Error al obtener reportes por revisar: {e}")
         flash("Error al cargar la lista de reportes pendientes de revisión.", "danger")
     
-    return render_template('reportes_por_revisar.html', reportes=reportes_a_revisar, anio_actual=get_venezuela_current_date().year)
+    return render_template('reportes_por_revisar.html', reportes=reportes_a_revisar, anio_actual=get_ven_current_date().year)
 
 @app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
 @admin_required
@@ -1063,8 +1063,8 @@ def procesar_reporte(pago_id):
                         descripcion_audit = f"Rechazó reporte #{pago_id} por diferencia. Monto real: ${monto_recibido}. Se generó orden por diferencia de ${monto_pendiente_usd}."
 
                 else: # Otros motivos de rechazo
-                    detalles_rechazo = {'motivo': motivo}
-                    detalles_json = json.dumps(detalles_rechazo)
+                    # El detalle del motivo ahora solo queda en el registro de auditoría, no se muestra al cliente.
+                    detalles_json = None
                     descripcion_audit = f"Rechazó el reporte N° {pago_id}. Motivo: {motivo}."
                     cur.execute(
                         "UPDATE pagos SET estado_reporte = %s, revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s WHERE id = %s",
@@ -1106,7 +1106,11 @@ def pagos_por_conciliar():
                 LEFT JOIN clientes c ON p.cliente_id = c.id
                 LEFT JOIN administradores a ON p.registrado_por_id = a.id
                 WHERE p.estado_pago = 'Pendiente' 
-                AND (p.reportado_por_cliente = FALSE OR p.estado_reporte = 'Aprobado')
+                AND (
+                    p.reportado_por_cliente = FALSE 
+                    OR 
+                    (p.reportado_por_cliente = TRUE AND p.estado_reporte = 'Aprobado')
+                )
                 ORDER BY p.cliente_id, p.fecha_creacion ASC;
             """)
             pagos_pendientes = cur.fetchall()
@@ -3651,6 +3655,59 @@ def ver_reporte(pago_id):
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('home'))
+
+        @app.route('/api/pago_detalle/<int:pago_id>')
+@admin_required
+def get_pago_detalle(pago_id):
+    """
+    Endpoint API para obtener los detalles de un pago en formato JSON.
+    Diseñado para ser consumido por modales en el frontend.
+    """
+    conn = get_db()
+    if not conn:
+        return jsonify({'error': 'Error de conexión a la base de datos.'}), 500
+
+    try:
+        with conn.cursor() as cur:
+            query = """
+                SELECT 
+                    p.id, p.monto, p.monto_bs, p.tasa_dia, p.tipo_pago, p.forma_pago, p.referencia, p.banco,
+                    p.fecha_pago, p.estado_pago, p.estado_reporte, p.detalles_reporte,
+                    p.registrado_por_id, a.usuario as admin_usuario,
+                    p.conciliado_por_id, ca.usuario as conciliado_por_usuario,
+                    p.revisado_por_id, ra.usuario as revisado_por_usuario
+                FROM pagos p
+                LEFT JOIN administradores a ON p.registrado_por_id = a.id
+                LEFT JOIN administradores ca ON p.conciliado_por_id = ca.id
+                LEFT JOIN administradores ra ON p.revisado_por_id = ra.id
+                WHERE p.id = %s;
+            """
+            cur.execute(query, (pago_id,))
+            pago = cur.fetchone()
+
+            if not pago:
+                return jsonify({'error': 'Pago no encontrado.'}), 404
+            
+            # Convertir el resultado a un diccionario serializable
+            pago_dict = dict(pago)
+            for key, value in pago_dict.items():
+                if isinstance(value, Decimal):
+                    pago_dict[key] = f"{value:,.2f}"
+                elif isinstance(value, (datetime, date)):
+                    pago_dict[key] = format_datetime_filter(value)
+            
+            # Decodificar JSON si es una cadena
+            if isinstance(pago_dict.get('detalles_reporte'), str):
+                try:
+                    pago_dict['detalles_reporte'] = json.loads(pago_dict['detalles_reporte'])
+                except json.JSONDecodeError:
+                    pago_dict['detalles_reporte'] = {'error': 'JSON mal formado'}
+
+            return jsonify(pago_dict)
+
+    except psycopg2.Error as e:
+        logging.error(f"Error en API get_pago_detalle: {e}")
+        return jsonify({'error': 'Error interno del servidor al consultar el pago.'}), 500
 
     pago = None
     try:

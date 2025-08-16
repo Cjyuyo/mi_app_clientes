@@ -26,7 +26,18 @@
             <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Fecha del Reporte</span><span class="font-semibold text-slate-700">{{ pago.fecha_creacion | format_datetime }}</span></div>
             <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Fecha del Pago</span><span class="font-semibold text-slate-700">{{ pago.fecha_pago | format_date }}</span></div>
             <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Concepto</span><span class="font-semibold text-slate-700">{{ pago.por_concepto_de or pago.tipo_pago }}</span></div>
-            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Monto (USD)</span><span class="font-bold text-xl text-green-600">${{ "%.2f"|format(pago.monto) }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg">
+                <span class="text-xs text-slate-500 block">Monto Reportado</span>
+                {% if pago.monto_bs and pago.monto_bs > 0 %}
+                    <!-- Si el pago fue en Bolívares -->
+                    <span class="font-bold text-xl text-slate-800">{{ "%.2f"|format(pago.monto_bs) }} Bs.</span>
+                    <span class="text-xs text-slate-500 block">Equivalente: ${{ "%.2f"|format(pago.monto) }} @ {{ "%.2f"|format(pago.tasa_dia) }} Bs/$</span>
+                {% else %}
+                    <!-- Si el pago fue en Dólares o Binance -->
+                    <span class="font-bold text-xl text-green-600">${{ "%.2f"|format(pago.monto) }}</span>
+                    <span class="text-xs text-slate-500 block">Moneda: {{ pago.pago_en or 'USD' }}</span>
+                {% endif %}
+            </div>
             <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Forma de Pago</span><span class="font-semibold text-slate-700">{{ pago.forma_pago }}</span></div>
             <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Referencia</span><span class="font-semibold text-slate-700">{{ pago.referencia or 'N/A' }}</span></div>
             {% if pago.detalles_reporte %}
