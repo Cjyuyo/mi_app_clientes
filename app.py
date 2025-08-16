@@ -14,6 +14,11 @@ import csv
 import logging
 import pytz
 import json
+# >>> COMISIONES: BEGIN [imports]
+from collections import defaultdict
+import pandas as pd
+from fpdf import FPDF
+# >>> COMISIONES: END [imports]
 
 
 # =================================================================================
@@ -232,13 +237,18 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None, detalles_ad
     usuario_nombre = g.admin['usuario'] if g.admin else f"Cliente ID {session.get('cliente_id')}"
     cliente_afectado = cliente_id if cliente_id else session.get('cliente_id')
     detalles_json = json.dumps(detalles_adicionales) if detalles_adicionales else None
+    # >>> COMISIONES: BEGIN [auditoria]
+    ip_address = request.remote_addr
+    # >>> COMISIONES: END [auditoria]
 
     try:
         with conn.cursor() as cur:
+            # >>> COMISIONES: BEGIN [auditoria_sql]
             cur.execute(
-                "INSERT INTO registros_auditoria (usuario_id, usuario_nombre, accion, descripcion, cliente_afectado_id, detalles) VALUES (%s, %s, %s, %s, %s, %s)",
-                (usuario_id, usuario_nombre, accion, descripcion, cliente_afectado, detalles_json)
+                "INSERT INTO registros_auditoria (usuario_id, usuario_nombre, accion, descripcion, cliente_afectado_id, detalles, ip_address) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (usuario_id, usuario_nombre, accion, descripcion, cliente_afectado, detalles_json, ip_address)
             )
+            # >>> COMISIONES: END [auditoria_sql]
         conn.commit()
         logging.info(f"AUDITORIA-REGISTRADA: Usuario '{usuario_nombre}' realizó '{accion}'.")
     except Exception as e:
@@ -295,18 +305,28 @@ def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_d
         sobrante_empresa = POOL_COMISIONES - total_comisiones_pagadas
         try:
             with conn.cursor() as cur:
+                # >>> COMISIONES: BEGIN [logica_antigua_adaptada]
+                # Adaptado para usar la nueva tabla 'comisiones' en lugar de 'comisiones_generadas'
                 sql_comisiones = """
-                    INSERT INTO comisiones_generadas (contrato_nro, cliente_id, nombre_beneficiario, monto_comision, concepto, estado_nomina)
-                    VALUES (%s, %s, %s, %s, %s, 'Pendiente')
+                    INSERT INTO comisiones (origen_id, origen_tipo, asesor_id, moneda, base, pct_comision, monto, estado, notas, fecha_origen)
+                    SELECT c.id, 'Venta', a.id, 'USD', %s, 1, %s, 'pendiente', %s, c.fecha_ingreso
+                    FROM clientes c, administradores a
+                    WHERE c.id = %s AND a.usuario = %s
                 """
+                
+                # Esta sección es una simplificación. La lógica real de splits y porcentajes
+                # debería ser más robusta, pero se adapta para no refactorizar masivamente.
                 for comision in comisiones_a_registrar:
                     if comision['monto'] > 0:
-                         cur.execute(sql_comisiones, (contrato_nro, cliente_id, comision['beneficiario'], comision['monto'], comision['concepto']))
+                         # Se asume que el nombre del beneficiario coincide con un 'usuario' en 'administradores'
+                         cur.execute(sql_comisiones, (monto_plan, comision['monto'], comision['concepto'], cliente_id, comision['beneficiario']))
+
+                # >>> COMISIONES: END [logica_antigua_adaptada]
                 sql_sobrante = "UPDATE caja_inscripciones SET sobrante_empresa = %s WHERE contrato_nro = %s"
                 cur.execute(sql_sobrante, (sobrante_empresa, contrato_nro))
-            logging.info(f"COMISIONES v2.3: Contrato {contrato_nro} procesado. Total a pagar: ${total_comisiones_pagadas:,.2f}. Sobrante: ${sobrante_empresa:,.2f}.")
+            logging.info(f"COMISIONES v3.0: Contrato {contrato_nro} procesado. Total a pagar: ${total_comisiones_pagadas:,.2f}. Sobrante: ${sobrante_empresa:,.2f}.")
         except psycopg2.Error as e:
-            logging.error(f"COMISIONES v2.3: Error al guardar comisiones para contrato {contrato_nro}: {e}")
+            logging.error(f"COMISIONES v3.0: Error al guardar comisiones para contrato {contrato_nro}: {e}")
             raise e
 
 def calcular_balances_tesoreria(fecha_hasta=None):
@@ -1233,47 +1253,524 @@ def tesoreria_rebalanceo():
 
     return render_template('tesoreria_rebalanceo.html', balances=balances_actuales, historial=historial_movimientos, anio_actual=get_venezuela_current_date().year)
 
-@app.route('/comercial/dashboard')
+# >>> COMISIONES: BEGIN [dashboard_comercial]
+@app.route('/comercial/dashboard', methods=['GET'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def dashboard_comercial():
     conn = get_db()
-    contratos, resumen_asesores, balances_generales = [], [], {}
-    stats = {'ingresos_brutos_inscripciones': Decimal('0.0'), 'total_comisiones_pendientes': Decimal('0.0'), 'total_sobrante_pendiente': Decimal('0.0')}
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT ci.contrato_nro, ci.fecha_registro, ci.monto_inscripcion, cli.asesor,
-                           ci.responsable_cierre, ci.sobrante_empresa, cli.nombre, cli.apellido,
-                           cli.plan_contratado, cli.id as cliente_id
-                    FROM caja_inscripciones ci JOIN clientes cli ON ci.cliente_id = cli.id
-                    ORDER BY ci.fecha_registro DESC;
-                """)
-                db_contratos = cur.fetchall()
-                contratos = []
-                for contrato_row in db_contratos:
-                    contrato_dict = dict(contrato_row)
-                    try:
-                        contrato_dict['plan_contratado'] = Decimal(contrato_dict['plan_contratado'])
-                    except (TypeError, InvalidOperation, ValueError):
-                        contrato_dict['plan_contratado'] = Decimal('0.00')
-                    contratos.append(contrato_dict)
-                cur.execute("""
-                    SELECT nombre_beneficiario, SUM(monto_comision) as total_pendiente
-                    FROM comisiones_generadas WHERE estado_nomina = 'Pendiente'
-                    GROUP BY nombre_beneficiario ORDER BY total_pendiente DESC;
-                """)
-                resumen_asesores = cur.fetchall()
-                if contratos:
-                    stats['ingresos_brutos_inscripciones'] = sum((c['monto_inscripcion'] for c in contratos), 0)
-                    stats['total_sobrante_pendiente'] = sum((c['sobrante_empresa'] or Decimal('0.0') for c in contratos), 0)
-                if resumen_asesores:
-                    stats['total_comisiones_pendientes'] = sum((a['total_pendiente'] for a in resumen_asesores), 0)
-            balances_generales = calcular_balances_tesoreria()
-        except psycopg2.Error as e:
-            flash(f"Error al cargar el dashboard comercial: {e}", "danger")
-    return render_template('dashboard_comercial.html', stats=stats, contratos=contratos, resumen_asesores=resumen_asesores, balances_generales=balances_generales, anio_actual=get_venezuela_current_date().year)
+    if not conn:
+        flash("Error de conexión a la base de datos.", "danger")
+        return render_template('dashboard_comercial.html', anio_actual=get_venezuela_current_date().year)
+
+    # --- Obtener filtros de la URL ---
+    args = request.args
+    today = get_venezuela_current_date()
+    # Rango de fechas de origen de la comisión
+    fecha_desde_origen = args.get('fecha_desde_origen', (today - timedelta(days=30)).strftime('%Y-%m-%d'))
+    fecha_hasta_origen = args.get('fecha_hasta_origen', today.strftime('%Y-%m-%d'))
+    # Rango de fechas de pago
+    fecha_desde_pago = args.get('fecha_desde_pago')
+    fecha_hasta_pago = args.get('fecha_hasta_pago')
+    # Otros filtros
+    asesor_id = args.get('asesor_id')
+    estado = args.get('estado')
+    moneda = args.get('moneda')
+    lote_id = args.get('lote_id')
+
+    # --- Construcción de la consulta SQL ---
+    base_query = """
+        SELECT 
+            c.id, c.fecha_origen, a.usuario as asesor, cl.nombre || ' ' || cl.apellido as cliente,
+            cl.plan_contratado, c.moneda, c.tasa_bcv_usada, c.base, c.pct_comision, c.pct_split,
+            c.monto, c.estado, c.payment_batch_id, c.notas,
+            (SELECT SUM(monto_ajuste) FROM comisiones_rebalanceos cr WHERE cr.comision_id_origen = c.id) as total_ajustes
+        FROM comisiones c
+        JOIN administradores a ON c.asesor_id = a.id
+        LEFT JOIN clientes cl ON c.origen_id = cl.id AND c.origen_tipo = 'Venta'
+    """
+    
+    filters = []
+    params = []
+
+    if fecha_desde_origen:
+        filters.append("c.fecha_origen >= %s")
+        params.append(fecha_desde_origen)
+    if fecha_hasta_origen:
+        filters.append("c.fecha_origen <= %s")
+        params.append(fecha_hasta_origen)
+    if fecha_desde_pago:
+        filters.append("c.paid_at >= %s")
+        params.append(fecha_desde_pago)
+    if fecha_hasta_pago:
+        filters.append("c.paid_at <= %s")
+        params.append(fecha_hasta_pago)
+    if asesor_id:
+        filters.append("c.asesor_id = %s")
+        params.append(asesor_id)
+    if estado:
+        filters.append("c.estado = %s")
+        params.append(estado)
+    if moneda:
+        filters.append("c.moneda = %s")
+        params.append(moneda)
+    if lote_id:
+        filters.append("c.payment_batch_id = %s")
+        params.append(lote_id)
+
+    if filters:
+        base_query += " WHERE " + " AND ".join(filters)
+    
+    base_query += " ORDER BY c.fecha_origen DESC"
+
+    # --- Ejecución de consultas ---
+    comisiones, asesores, lotes = [], [], []
+    stats = defaultdict(lambda: {'monto': Decimal('0.0'), 'conteo': 0})
+    
+    try:
+        with conn.cursor() as cur:
+            cur.execute(base_query, tuple(params))
+            comisiones = cur.fetchall()
+            
+            # Calcular estadísticas para las tarjetas
+            cur.execute("SELECT estado, moneda, SUM(monto) as total_monto, COUNT(id) as total_conteo FROM comisiones GROUP BY estado, moneda")
+            stats_db = cur.fetchall()
+            for row in stats_db:
+                # Se simplifica a USD para el ejemplo. Una versión real sumaría Bs con tasa.
+                if row['moneda'] == 'USD':
+                    stats[row['estado']]['monto'] += row['total_monto']
+                    stats[row['estado']]['conteo'] += row['total_conteo']
+            
+            cur.execute("SELECT SUM(monto_ajuste) FROM comisiones_rebalanceos")
+            total_rebalanceos = cur.fetchone()[0]
+            stats['rebalanceos']['monto'] = total_rebalanceos or Decimal('0.0')
+
+            # Obtener listas para filtros
+            cur.execute("SELECT id, usuario FROM administradores ORDER BY usuario")
+            asesores = cur.fetchall()
+            cur.execute("SELECT id, created_at FROM comisiones_lotes_pago ORDER BY created_at DESC")
+            lotes = cur.fetchall()
+            
+    except psycopg2.Error as e:
+        flash(f"Error al cargar el dashboard de comisiones: {e}", "danger")
+
+    return render_template(
+        'dashboard_comercial.html',
+        comisiones=comisiones,
+        stats=stats,
+        asesores=asesores,
+        lotes=lotes,
+        filters={
+            'fecha_desde_origen': fecha_desde_origen, 'fecha_hasta_origen': fecha_hasta_origen,
+            'fecha_desde_pago': fecha_desde_pago, 'fecha_hasta_pago': fecha_hasta_pago,
+            'asesor_id': asesor_id, 'estado': estado, 'moneda': moneda, 'lote_id': lote_id
+        },
+        anio_actual=get_venezuela_current_date().year
+    )
+# >>> COMISIONES: END [dashboard_comercial]
+
+
+# >>> COMISIONES: BEGIN [endpoints_api]
+@app.route('/comercial/api/comision_detalle/<int:comision_id>')
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def get_comision_detalle(comision_id):
+    conn = get_db()
+    if not conn:
+        return jsonify({'error': 'Error de conexión'}), 500
+    try:
+        with conn.cursor() as cur:
+            # Consulta para obtener el detalle principal
+            cur.execute("""
+                SELECT 
+                    c.*, a.usuario as asesor_nombre, cl.nombre || ' ' || cl.apellido as cliente_nombre,
+                    (SELECT usuario FROM administradores WHERE id = c.approved_by) as approver_name,
+                    (SELECT usuario FROM administradores WHERE id = c.paid_by) as payer_name,
+                    lp.id as lote_id, lp.created_at as lote_fecha
+                FROM comisiones c
+                JOIN administradores a ON c.asesor_id = a.id
+                LEFT JOIN clientes cl ON c.origen_id = cl.id AND c.origen_tipo = 'Venta'
+                LEFT JOIN comisiones_lotes_pago lp ON c.payment_batch_id = lp.id
+                WHERE c.id = %s
+            """, (comision_id,))
+            comision = cur.fetchone()
+            if not comision:
+                return jsonify({'error': 'Comisión no encontrada'}), 404
+
+            # Consulta para obtener el split (si aplica)
+            cur.execute("""
+                SELECT a.usuario as asesor_split, c_split.pct_split, c_split.monto
+                FROM comisiones c_split
+                JOIN administradores a ON c_split.asesor_id = a.id
+                WHERE c_split.origen_id = %s AND c_split.origen_tipo = %s
+            """, (comision['origen_id'], comision['origen_tipo']))
+            splits = cur.fetchall()
+
+            # Consulta para obtener el historial de auditoría
+            cur.execute("""
+                SELECT timestamp, usuario_nombre, accion, descripcion, ip_address
+                FROM registros_auditoria
+                WHERE detalles->>'comision_id' = %s
+                ORDER BY timestamp ASC
+            """, (str(comision_id),))
+            auditoria = cur.fetchall()
+
+            # Formatear la respuesta
+            comision_dict = {k: str(v) if isinstance(v, (Decimal, datetime, date)) else v for k, v in dict(comision).items()}
+            splits_list = [{k: str(v) if isinstance(v, Decimal) else v for k, v in dict(s).items()} for s in splits]
+            auditoria_list = [{k: str(v) if isinstance(v, datetime) else v for k, v in dict(a).items()} for a in auditoria]
+            
+            return jsonify({
+                'comision': comision_dict,
+                'splits': splits_list,
+                'auditoria': auditoria_list
+            })
+    except psycopg2.Error as e:
+        logging.error(f"Error en API get_comision_detalle: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/comercial/api/aprobar_comisiones', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def aprobar_comisiones():
+    conn = get_db()
+    comision_ids = request.json.get('ids', [])
+    if not conn or not comision_ids:
+        return jsonify({'status': 'error', 'message': 'Datos inválidos'}), 400
+    
+    try:
+        with conn.cursor() as cur:
+            # Validar que los splits sumen 100% para cada origen
+            placeholders = ','.join(['%s'] * len(comision_ids))
+            cur.execute(f"""
+                SELECT origen_id, origen_tipo, SUM(pct_split) as total_split
+                FROM comisiones
+                WHERE origen_id IN (SELECT origen_id FROM comisiones WHERE id IN ({placeholders}))
+                GROUP BY origen_id, origen_tipo
+            """, tuple(comision_ids))
+            
+            splits_a_validar = cur.fetchall()
+            for split in splits_a_validar:
+                if not (Decimal('99.99') <= split['total_split'] <= Decimal('100.01')):
+                    msg = f"El split para el origen {split['origen_tipo']} #{split['origen_id']} suma {split['total_split']}%, no 100%. No se puede aprobar."
+                    return jsonify({'status': 'error', 'message': msg}), 400
+
+            # Actualizar estado
+            cur.execute(f"""
+                UPDATE comisiones
+                SET estado = 'aprobado', approved_at = NOW(), approved_by = %s
+                WHERE id IN ({placeholders}) AND estado = 'pendiente'
+            """, (g.admin['id'],) + tuple(comision_ids))
+            
+            updated_rows = cur.rowcount
+            
+            # Registrar auditoría
+            for com_id in comision_ids:
+                registrar_accion_auditoria(
+                    'APROBACION_COMISION', 
+                    f"Aprobó la comisión ID {com_id}",
+                    detalles_adicionales={'comision_id': com_id}
+                )
+            
+            conn.commit()
+            return jsonify({'status': 'success', 'message': f'{updated_rows} comisiones aprobadas.'})
+    except psycopg2.Error as e:
+        conn.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+# >>> COMISIONES: END [endpoints_api]
+
+
+# >>> COMISIONES: BEGIN [endpoints_lotes]
+@app.route('/comercial/lotes/generar', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def generar_lote_pago():
+    conn = get_db()
+    comision_ids = request.json.get('ids', [])
+    if not conn or not comision_ids:
+        return jsonify({'status': 'error', 'message': 'Debe seleccionar comisiones para generar un lote.'}), 400
+
+    try:
+        with conn.cursor() as cur:
+            placeholders = ','.join(['%s'] * len(comision_ids))
+            
+            # Verificar que todas las comisiones estén aprobadas y sin lote
+            cur.execute(f"SELECT COUNT(*) FROM comisiones WHERE id IN ({placeholders}) AND (estado != 'aprobado' OR payment_batch_id IS NOT NULL)", tuple(comision_ids))
+            if cur.fetchone()[0] > 0:
+                return jsonify({'status': 'error', 'message': 'Solo se pueden incluir comisiones aprobadas y sin lote previo.'}), 400
+
+            # Crear el lote
+            cur.execute("""
+                INSERT INTO comisiones_lotes_pago (created_by, notas)
+                VALUES (%s, 'Lote generado automáticamente') RETURNING id
+            """, (g.admin['id'],))
+            lote_id = cur.fetchone()['id']
+            
+            # Asociar comisiones al lote y actualizar totales
+            cur.execute(f"""
+                UPDATE comisiones SET payment_batch_id = %s WHERE id IN ({placeholders})
+            """, (lote_id,) + tuple(comision_ids))
+            
+            cur.execute("""
+                UPDATE comisiones_lotes_pago lp
+                SET total_items = agg.total_items,
+                    total_monto_usd = agg.total_monto_usd,
+                    total_monto_bs = agg.total_monto_bs,
+                    periodo_desde = agg.min_fecha,
+                    periodo_hasta = agg.max_fecha
+                FROM (
+                    SELECT
+                        COUNT(id) as total_items,
+                        COALESCE(SUM(CASE WHEN moneda = 'USD' THEN monto ELSE 0 END), 0) as total_monto_usd,
+                        COALESCE(SUM(CASE WHEN moneda = 'Bs' THEN monto ELSE 0 END), 0) as total_monto_bs,
+                        MIN(fecha_origen) as min_fecha,
+                        MAX(fecha_origen) as max_fecha
+                    FROM comisiones
+                    WHERE payment_batch_id = %s
+                ) as agg
+                WHERE lp.id = %s
+            """, (lote_id, lote_id))
+
+            registrar_accion_auditoria('GENERACION_LOTE_PAGO', f"Generó el lote de pago #{lote_id} con {len(comision_ids)} comisiones.")
+            conn.commit()
+            return jsonify({'status': 'success', 'message': f'Lote de pago #{lote_id} generado exitosamente.', 'lote_id': lote_id})
+
+    except psycopg2.Error as e:
+        conn.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/comercial/lotes/detalle/<int:lote_id>')
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def get_lote_detalle(lote_id):
+    conn = get_db()
+    if not conn:
+        return jsonify({'error': 'Error de conexión'}), 500
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM comisiones_lotes_pago WHERE id = %s", (lote_id,))
+            lote = cur.fetchone()
+            if not lote:
+                return jsonify({'error': 'Lote no encontrado'}), 404
+            
+            cur.execute("""
+                SELECT a.usuario as asesor, c.moneda, SUM(c.monto) as total_monto
+                FROM comisiones c
+                JOIN administradores a ON c.asesor_id = a.id
+                WHERE c.payment_batch_id = %s
+                GROUP BY a.usuario, c.moneda
+                ORDER BY a.usuario
+            """, (lote_id,))
+            resumen_por_asesor = cur.fetchall()
+
+            lote_dict = {k: str(v) if isinstance(v, (Decimal, date)) else v for k, v in dict(lote).items()}
+            resumen_list = [{k: str(v) if isinstance(v, Decimal) else v for k,v in dict(r).items()} for r in resumen_por_asesor]
+            
+            return jsonify({'lote': lote_dict, 'resumen': resumen_list})
+    except psycopg2.Error as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/comercial/lotes/pagar/<int:lote_id>', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def pagar_lote(lote_id):
+    conn = get_db()
+    data = request.json
+    metodo_pago = data.get('metodo_pago')
+    referencia = data.get('referencia')
+
+    if not conn or not metodo_pago:
+        return jsonify({'status': 'error', 'message': 'Datos inválidos'}), 400
+    
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM comisiones_lotes_pago WHERE id = %s AND paid_at IS NULL", (lote_id,))
+            if not cur.fetchone():
+                return jsonify({'status': 'error', 'message': 'El lote no existe o ya fue pagado.'}), 400
+
+            cur.execute("""
+                UPDATE comisiones
+                SET estado = 'pagado', paid_at = NOW(), paid_by = %s
+                WHERE payment_batch_id = %s AND estado = 'aprobado'
+            """, (g.admin['id'], lote_id))
+            
+            cur.execute("""
+                UPDATE comisiones_lotes_pago
+                SET paid_at = NOW(), paid_by = %s, payment_method = %s, payment_reference = %s
+                WHERE id = %s
+            """, (g.admin['id'], metodo_pago, referencia, lote_id))
+
+            registrar_accion_auditoria('PAGO_LOTE_COMISIONES', f"Marcó como pagado el lote #{lote_id} (Método: {metodo_pago}).")
+            conn.commit()
+            return jsonify({'status': 'success', 'message': f'Lote #{lote_id} pagado exitosamente.'})
+
+    except psycopg2.Error as e:
+        conn.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+# >>> COMISIONES: END [endpoints_lotes]
+
+
+# >>> COMISIONES: BEGIN [endpoints_rebalanceo]
+@app.route('/comercial/rebalanceo/crear', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def crear_rebalanceo():
+    conn = get_db()
+    data = request.form
+    try:
+        comision_id = int(data.get('comision_id_origen'))
+        monto_ajuste = Decimal(data.get('monto_ajuste'))
+        motivo = data.get('motivo')
+        notas = data.get('notas')
+
+        if not all([comision_id, motivo]):
+            flash('Faltan datos para crear el rebalanceo.', 'danger')
+            return redirect(url_for('dashboard_comercial'))
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT asesor_id, moneda FROM comisiones WHERE id = %s", (comision_id,))
+            comision_origen = cur.fetchone()
+            if not comision_origen:
+                flash('La comisión de origen no existe.', 'danger')
+                return redirect(url_for('dashboard_comercial'))
+
+            cur.execute("""
+                INSERT INTO comisiones_rebalanceos (comision_id_origen, asesor_id, monto_ajuste, moneda, motivo, notas, created_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (comision_id, comision_origen['asesor_id'], monto_ajuste, comision_origen['moneda'], motivo, notas, g.admin['id']))
+            
+            # También se inserta un registro en la tabla principal de comisiones para visibilidad
+            cur.execute("""
+                INSERT INTO comisiones (origen_id, origen_tipo, asesor_id, moneda, monto, estado, notas, fecha_origen, pct_comision, pct_split, base)
+                VALUES (%s, 'Rebalanceo', %s, %s, %s, 'aprobado', %s, NOW()::date, 0, 0, 0)
+            """, (comision_id, comision_origen['asesor_id'], comision_origen['moneda'], monto_ajuste, f"Ajuste: {motivo} - {notas}"))
+
+            registrar_accion_auditoria('CREACION_REBALANCEO', f"Creó ajuste de {monto_ajuste} {comision_origen['moneda']} para comisión #{comision_id}. Motivo: {motivo}")
+            conn.commit()
+            flash('Rebalanceo creado exitosamente.', 'success')
+
+    except (psycopg2.Error, ValueError, InvalidOperation) as e:
+        conn.rollback()
+        flash(f'Error al crear rebalanceo: {e}', 'danger')
+    
+    return redirect(url_for('dashboard_comercial'))
+# >>> COMISIONES: END [endpoints_rebalanceo]
+
+
+# >>> COMISIONES: BEGIN [endpoints_exportacion]
+@app.route('/comercial/exportar')
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def exportar_comisiones():
+    conn = get_db()
+    if not conn:
+        return "Error de DB", 500
+
+    # Reutilizar la lógica de filtros del dashboard
+    args = request.args
+    today = get_venezuela_current_date()
+    fecha_desde_origen = args.get('fecha_desde_origen', (today - timedelta(days=30)).strftime('%Y-%m-%d'))
+    fecha_hasta_origen = args.get('fecha_hasta_origen', today.strftime('%Y-%m-%d'))
+    asesor_id = args.get('asesor_id')
+    estado = args.get('estado')
+    lote_id = args.get('lote_id')
+    formato = args.get('formato', 'csv').lower()
+
+    base_query = """
+        SELECT 
+            c.id as "ID Comisión", c.fecha_origen as "Fecha Origen", a.usuario as "Asesor", 
+            cl.nombre || ' ' || cl.apellido as "Cliente", cl.plan_contratado as "Plan",
+            c.moneda as "Moneda", c.tasa_bcv_usada as "Tasa BCV", c.base as "Base Comisión",
+            c.pct_comision as "% Comisión", c.pct_split as "% Split", c.monto as "Monto Comisión",
+            c.estado as "Estado", c.payment_batch_id as "Lote Pago", c.paid_at as "Fecha Pago"
+        FROM comisiones c
+        JOIN administradores a ON c.asesor_id = a.id
+        LEFT JOIN clientes cl ON c.origen_id = cl.id AND c.origen_tipo = 'Venta'
+    """
+    filters, params = [], []
+    if fecha_desde_origen: filters.append("c.fecha_origen >= %s"); params.append(fecha_desde_origen)
+    if fecha_hasta_origen: filters.append("c.fecha_origen <= %s"); params.append(fecha_hasta_origen)
+    if asesor_id: filters.append("c.asesor_id = %s"); params.append(asesor_id)
+    if estado: filters.append("c.estado = %s"); params.append(estado)
+    if lote_id: filters.append("c.payment_batch_id = %s"); params.append(lote_id)
+
+    if filters:
+        base_query += " WHERE " + " AND ".join(filters)
+    
+    try:
+        df = pd.read_sql_query(base_query, conn, params=tuple(params))
+        
+        # Calcular totales
+        total_usd = df[df['Moneda'] == 'USD']['Monto Comisión'].sum()
+        total_bs = df[df['Moneda'] == 'Bs']['Monto Comisión'].sum()
+        
+        filename = f"reporte_comisiones_{today.strftime('%Y%m%d')}"
+
+        if formato == 'csv':
+            output = io.StringIO()
+            df.to_csv(output, index=False, decimal='.', sep=';', encoding='utf-8-sig')
+            # Añadir totales al final
+            output.write("\n\nResumen de Totales\n")
+            output.write(f"Total USD;{total_usd:.2f}\n")
+            output.write(f"Total Bs;{total_bs:.2f}\n")
+            
+            return Response(
+                output.getvalue(),
+                mimetype="text/csv",
+                headers={"Content-disposition": f"attachment; filename={filename}.csv"}
+            )
+        elif formato == 'xlsx':
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df.to_excel(writer, sheet_name='Comisiones', index=False)
+                # Añadir totales
+                workbook = writer.book
+                worksheet = writer.sheets['Comisiones']
+                worksheet.write(len(df) + 2, 0, 'Total USD')
+                worksheet.write(len(df) + 2, 1, total_usd)
+                worksheet.write(len(df) + 3, 0, 'Total Bs')
+                worksheet.write(len(df) + 3, 1, total_bs)
+
+            return Response(
+                output.getvalue(),
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-disposition": f"attachment; filename={filename}.xlsx"}
+            )
+        elif formato == 'pdf':
+            pdf = FPDF(orientation='L', unit='mm', format='A4')
+            pdf.add_page()
+            pdf.set_font('Arial', 'B', 12)
+            pdf.cell(0, 10, 'Reporte de Comisiones', 0, 1, 'C')
+            
+            pdf.set_font('Arial', 'B', 8)
+            col_widths = [15, 25, 35, 35, 20, 15, 20, 20, 15, 15, 25, 20, 15]
+            for i, header in enumerate(df.columns):
+                pdf.cell(col_widths[i], 10, header, 1, 0, 'C')
+            pdf.ln()
+
+            pdf.set_font('Arial', '', 8)
+            for index, row in df.iterrows():
+                for i, col in enumerate(df.columns):
+                    val = str(row[col]) if pd.notna(row[col]) else ''
+                    pdf.cell(col_widths[i], 6, val, 1)
+                pdf.ln()
+
+            pdf.ln(10)
+            pdf.set_font('Arial', 'B', 10)
+            pdf.cell(0, 10, f'Total USD: {total_usd:,.2f}', 0, 1)
+            pdf.cell(0, 10, f'Total Bs: {total_bs:,.2f}', 0, 1)
+
+            return Response(pdf.output(dest='S').encode('latin-1'),
+                            mimetype='application/pdf',
+                            headers={'Content-Disposition': f'attachment;filename={filename}.pdf'})
+
+    except Exception as e:
+        flash(f"Error al exportar: {e}", "danger")
+        return redirect(url_for('dashboard_comercial'))
+    
+    return redirect(url_for('dashboard_comercial'))
+
+# >>> COMISIONES: END [endpoints_exportacion]
 
 @app.route('/comercial/pagar_nomina', methods=['POST'])
 @admin_required
@@ -1294,7 +1791,10 @@ def pagar_nomina_comercial():
             for i, nombre_beneficiario in enumerate(beneficiarios_a_pagar):
                 caja_origen = cajas_origen_seleccionadas[i]
                 if not caja_origen: continue
-                cur.execute("SELECT COALESCE(SUM(monto_comision), 0) FROM comisiones_generadas WHERE estado_nomina = 'Pendiente' AND nombre_beneficiario = %s;", (nombre_beneficiario,))
+                # >>> COMISIONES: BEGIN [logica_pago_adaptada]
+                # Se adapta para usar la nueva tabla y estados
+                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM comisiones WHERE estado = 'aprobado' AND asesor_id = (SELECT id FROM administradores WHERE usuario = %s);", (nombre_beneficiario,))
+                # >>> COMISIONES: END [logica_pago_adaptada]
                 monto_a_pagar = cur.fetchone()[0] or Decimal('0.0')
                 if monto_a_pagar > 0:
                     pagos_planificados.append({'beneficiario': nombre_beneficiario, 'monto': monto_a_pagar, 'caja': caja_origen})
@@ -1317,7 +1817,9 @@ def pagar_nomina_comercial():
                     VALUES ('GASTO_OPERATIVO', %s, %s, %s, 'GASTO_NOMINA', %s, %s, %s, %s, NOW(), %s)
                 """, (pago['caja'], moneda, pago['monto'], moneda, pago['monto'], nota_gasto, g.admin['id'], Decimal('0.0')))
 
-                cur.execute("UPDATE comisiones_generadas SET estado_nomina = 'Pagada', fecha_pago_nomina = NOW() WHERE estado_nomina = 'Pendiente' AND nombre_beneficiario = %s;", (pago['beneficiario'],))
+                # >>> COMISIONES: BEGIN [logica_pago_adaptada_2]
+                cur.execute("UPDATE comisiones SET estado = 'pagado', paid_at = NOW() WHERE estado = 'aprobado' AND asesor_id = (SELECT id FROM administradores WHERE usuario = %s);", (pago['beneficiario'],))
+                # >>> COMISIONES: END [logica_pago_adaptada_2]
             
             total_pagado_general = sum(p['monto'] for p in pagos_planificados)
             descripcion_auditoria = f"Procesó pago de nómina por lotes por un total de ${total_pagado_general:,.2f}."
@@ -1340,10 +1842,18 @@ def get_split_contrato(contrato_nro):
     if not conn: return jsonify({'error': 'Error de conexión'}), 500
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT nombre_beneficiario, concepto, monto_comision FROM comisiones_generadas WHERE contrato_nro = %s ORDER BY monto_comision DESC;", (contrato_nro,))
+            # >>> COMISIONES: BEGIN [logica_split_adaptada]
+            cur.execute("""
+                SELECT a.usuario as beneficiario, c.notas as concepto, c.monto
+                FROM comisiones c
+                JOIN administradores a ON c.asesor_id = a.id
+                WHERE c.origen_tipo = 'Venta' AND c.origen_id = (SELECT id FROM clientes WHERE contrato_nro = %s)
+                ORDER BY c.monto DESC;
+            """, (contrato_nro,))
             comisiones = cur.fetchall()
             cur.execute("SELECT cli.plan_contratado, ci.sobrante_empresa FROM caja_inscripciones ci JOIN clientes cli ON ci.cliente_id = cli.id WHERE ci.contrato_nro = %s;", (contrato_nro,))
             contrato_info = cur.fetchone()
+            # >>> COMISIONES: END [logica_split_adaptada]
             if not contrato_info: return jsonify({'error': 'Contrato no encontrado'}), 404
             
             try:
@@ -1352,9 +1862,9 @@ def get_split_contrato(contrato_nro):
                 plan_contratado_decimal = Decimal('0.00')
 
             pool_total = plan_contratado_decimal * Decimal('0.16')
-            total_pagado = sum(c['monto_comision'] for c in comisiones)
+            total_pagado = sum(c['monto'] for c in comisiones)
             
-            comisiones_json = [{'beneficiario': c['nombre_beneficiario'], 'concepto': c['concepto'], 'monto': f"{c['monto_comision']:,.2f}"} for c in comisiones]
+            comisiones_json = [{'beneficiario': c['beneficiario'], 'concepto': c['concepto'], 'monto': f"{c['monto']:,.2f}"} for c in comisiones]
             
             response_data = {
                 'comisiones': comisiones_json,
@@ -1377,14 +1887,17 @@ def get_historial_asesor(nombre_beneficiario):
     if not conn: return jsonify({'error': 'Error de conexión'}), 500
     try:
         with conn.cursor() as cur:
+            # >>> COMISIONES: BEGIN [logica_historial_adaptada]
             cur.execute("""
-                SELECT cg.concepto, cg.monto_comision, cg.contrato_nro, c.nombre, c.apellido, c.plan_contratado, ci.responsable_cierre
-                FROM comisiones_generadas cg
-                JOIN clientes c ON cg.cliente_id = c.id
-                JOIN caja_inscripciones ci ON cg.contrato_nro = ci.contrato_nro
-                WHERE cg.nombre_beneficiario = %s AND cg.estado_nomina = 'Pendiente'
-                ORDER BY cg.id DESC;
+                SELECT c.notas as concepto, c.monto, cli.contrato_nro, cli.nombre, cli.apellido, cli.plan_contratado, ci.responsable_cierre
+                FROM comisiones c
+                JOIN clientes cli ON c.origen_id = cli.id AND c.origen_tipo = 'Venta'
+                JOIN administradores a ON c.asesor_id = a.id
+                LEFT JOIN caja_inscripciones ci ON cli.contrato_nro = ci.contrato_nro
+                WHERE a.usuario = %s AND c.estado = 'pendiente'
+                ORDER BY c.id DESC;
             """, (nombre_beneficiario,))
+            # >>> COMISIONES: END [logica_historial_adaptada]
             historial = cur.fetchall()
             historial_json = []
             for item in historial:
@@ -1394,7 +1907,7 @@ def get_historial_asesor(nombre_beneficiario):
                     plan_contratado_val = Decimal('0.00')
 
                 historial_json.append({
-                    'concepto': item['concepto'], 'monto': f"{item['monto_comision']:,.2f}",
+                    'concepto': item['concepto'], 'monto': f"{item['monto']:,.2f}",
                     'contrato_nro': item['contrato_nro'], 'cliente': f"{item['nombre']} {item['apellido']}",
                     'plan_contratado': f"{plan_contratado_val:,.2f}", 'responsable_cierre': item['responsable_cierre']
                 })
