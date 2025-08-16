@@ -3659,7 +3659,10 @@ def ver_reporte(pago_id):
         with conn.cursor() as cur:
             # Consulta para obtener el pago y los datos del cliente asociado
             query = """
-                SELECT p.*, c.nombre, c.apellido, c.cedula, c.id as cliente_id
+                SELECT p.*, 
+                       c.nombre || ' ' || c.apellido as nombre_apellido, 
+                       c.cedula, 
+                       c.id as cliente_id
                 FROM pagos p
                 JOIN clientes c ON p.cliente_id = c.id
                 WHERE p.id = %s
@@ -3676,9 +3679,9 @@ def ver_reporte(pago_id):
                 flash("No tienes permiso para ver este reporte.", "error")
                 return redirect(url_for('portal_dashboard'))
 
-            # Renderizar la plantilla para mostrar el reporte.
-            # Asegúrate de tener un archivo llamado 'portal_ver_reporte.html' en tu carpeta 'templates'.
-            return render_template('portal_ver_reporte.html', pago=pago, cliente=pago, is_admin_view=is_admin_view)
+            # Renderizar la plantilla, indicando si la vista es de administrador o no.
+            # El archivo 'ver_reporte.html' ahora manejará ambas vistas.
+            return render_template('ver_reporte.html', pago=pago, is_client_view=is_client_view, is_admin_view=is_admin_view)
 
     except psycopg2.Error as e:
         logging.error(f"Error al cargar el reporte de pago {pago_id}: {e}")
