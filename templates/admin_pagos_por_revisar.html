@@ -1,0 +1,97 @@
+{% extends 'base_sidebar.html' %}
+
+{% block title %}Bulks de Pago por Aprobar{% endblock %}
+
+{% block head_extra %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block body %}
+<div class="space-y-8">
+    <!-- Encabezado -->
+    <div class="bg-white p-6 rounded-xl shadow-sm">
+        <h1 class="text-3xl font-bold text-slate-800">Pagos por Aprobar</h1>
+        <p class="text-slate-500 mt-1">Estos son los lotes de pago (bulks) que han cumplido con el monto esperado y están listos para ser aprobados.</p>
+    </div>
+
+    <!-- Mensajes Flash -->
+    {% include '_flash_messages.html' %}
+
+    <!-- Tarjeta Principal -->
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800">
+                Bulks Listos para Aprobación
+            </h2>
+        </div>
+
+        <!-- Tabla de Bulks -->
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left text-slate-500">
+                <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3">ID Bulk</th>
+                        <th scope="col" class="px-6 py-3">Cliente</th>
+                        <th scope="col" class="px-6 py-3">Monto Esperado (Bs)</th>
+                        <th scope="col" class="px-6 py-3">Monto Verificado (Bs)</th>
+                        <th scope="col" class="px-6 py-3">Estado</th>
+                        <th scope="col" class="px-6 py-3 text-right">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bulk in bulks %}
+                    <tr class="bg-white border-b hover:bg-slate-50">
+                        <td class="px-6 py-4 font-mono text-slate-700">#{{ bulk.id }}</td>
+                        <td class="px-6 py-4 font-medium text-slate-900">{{ bulk.nombre }} {{ bulk.apellido }}</td>
+                        <td class="px-6 py-4">{{ "%.2f"|format(bulk.expected_amount) }}</td>
+                        <td class="px-6 py-4 font-semibold text-green-600">{{ "%.2f"|format(bulk.total_verified) }}</td>
+                        <td class="px-6 py-4">
+                            <span class="py-1 px-2.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-md">{{ bulk.status }}</span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <form action="{{ url_for('aprobar_bulk', bulk_id=bulk.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas aprobar este bulk y pasarlo a conciliación?');">
+                                <button type="submit" class="btn btn-success btn-sm">
+                                    <i class="bi bi-check-circle-fill"></i> Aprobar
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr class="bg-slate-50">
+                        <td colspan="6" class="p-4">
+                            <p class="text-xs font-semibold text-slate-600 mb-2 ml-2">Líneas de pago asociadas:</p>
+                            <ul class="space-y-1">
+                                {% for linea in bulk.lineas %}
+                                <li class="text-xs flex justify-between items-center bg-white p-2 rounded border">
+                                    <span>
+                                        <strong>Pago #{{ linea.id }}:</strong> {{ linea.por_concepto_de }}
+                                        {% if linea.is_diferencia %}<span class="badge bg-info-subtle text-info-emphasis rounded-pill">Diferencia</span>{% endif %}
+                                    </span>
+                                    <span>
+                                        Monto Verificado: <strong class="text-slate-800">{{ "%.2f"|format(linea.verified_amount) }} Bs</strong>
+                                    </span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-slate-500 p-8">
+                            <div class="flex flex-col items-center">
+                                <i class="bi bi-check2-circle text-4xl text-green-500"></i>
+                                <p class="mt-3 font-medium">¡Todo en orden!</p>
+                                <p class="text-xs">No hay lotes de pago pendientes de aprobación.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}
