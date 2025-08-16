@@ -2984,7 +2984,7 @@ def pagar_diferencia(pago_original_id):
         else:
             detalles = pago_original['detalles_reporte']
     
-    monto_diferencia = detalles.get('diferencia')
+    monto_diferencia = detalles.get('monto_pendiente')
 
     if not monto_diferencia:
         flash('No hay un monto de diferencia registrado para este pago.', 'error')
