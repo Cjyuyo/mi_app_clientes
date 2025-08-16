@@ -92,9 +92,11 @@
             </div>
 
             <!-- Navigation Links -->
-            <nav class="flex-1 flex flex-col justify-between p-4 pt-20 md:pt-4" x-data="{ openMenu: '' }">
+            <!-- >>> CAMBIO: Se reduce el padding de p-4 a p-2 para mover el contenido a la izquierda <<< -->
+            <nav class="flex-1 flex flex-col justify-between p-2 pt-20 md:pt-4" x-data="{ openMenu: '' }">
                 <!-- Grupo de links superior -->
-                <div class="px-2">
+                <!-- >>> CAMBIO: Se elimina px-2 para reducir el espacio horizontal <<< -->
+                <div>
                     <ul class="space-y-1">
                         <li class="px-2 mb-2">
                             <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Navegación</span>
@@ -102,13 +104,13 @@
                         <li>
                             <a href="{{ url_for('hub') }}" class="sidebar-link flex items-center px-2 py-2.5 text-slate-100 rounded-md">
                                 <i class="bi bi-house-door-fill text-lg w-8 text-center text-slate-400"></i>
-                                <span class="ml-2">Hub Principal</span>
+                                <span class="ml-2 text-sm">Hub Principal</span>
                             </a>
                         </li>
                         <li>
                             <a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center px-2 py-2.5 text-slate-100 rounded-md">
                                 <i class="bi bi-person-workspace text-lg w-8 text-center text-slate-400"></i>
-                                <span class="ml-2">HUB de Asesor</span>
+                                <span class="ml-2 text-sm">HUB de Asesor</span>
                             </a>
                         </li>
                         
@@ -118,10 +120,9 @@
                         </li>
                         <li>
                             <button @click="openMenu = (openMenu === 'clientes' ? '' : 'clientes')" class="w-full flex items-center justify-between px-2 py-2.5 text-slate-100 rounded-md hover:bg-white/5">
-                                <span class="flex items-center">
+                                <span class="flex items-center min-w-0">
                                     <i class="bi bi-people-fill text-lg w-8 text-center text-slate-400 flex-shrink-0"></i>
-                                    <!-- CAMBIO: Se eliminó whitespace-nowrap -->
-                                    <span class="ml-2">Clientes</span>
+                                    <span class="ml-2 whitespace-nowrap text-sm">Clientes</span>
                                 </span>
                                 <i class="bi bi-chevron-down transition-transform text-xs ml-2 flex-shrink-0" :class="openMenu === 'clientes' && 'rotate-180'"></i>
                             </button>
@@ -133,10 +134,9 @@
                         </li>
                         <li>
                             <button @click="openMenu = (openMenu === 'finanzas' ? '' : 'finanzas')" class="w-full flex items-center justify-between px-2 py-2.5 text-slate-100 rounded-md hover:bg-white/5">
-                                <span class="flex items-center">
+                                <span class="flex items-center min-w-0">
                                     <i class="bi bi-bank text-lg w-8 text-center text-slate-400 flex-shrink-0"></i>
-                                    <!-- CAMBIO: Se eliminó whitespace-nowrap -->
-                                    <span class="ml-2">Administración y Finanzas</span>
+                                    <span class="ml-2 whitespace-nowrap text-sm">Administración y Finanzas</span>
                                 </span>
                                 <i class="bi bi-chevron-down transition-transform text-xs ml-2 flex-shrink-0" :class="openMenu === 'finanzas' && 'rotate-180'"></i>
                             </button>
@@ -152,10 +152,9 @@
                         </li>
                         <li>
                             <button @click="openMenu = (openMenu === 'comercial' ? '' : 'comercial')" class="w-full flex items-center justify-between px-2 py-2.5 text-slate-100 rounded-md hover:bg-white/5">
-                                <span class="flex items-center">
+                                <span class="flex items-center min-w-0">
                                     <i class="bi bi-briefcase-fill text-lg w-8 text-center text-slate-400 flex-shrink-0"></i>
-                                    <!-- CAMBIO: Se eliminó whitespace-nowrap -->
-                                    <span class="ml-2">Comercial</span>
+                                    <span class="ml-2 whitespace-nowrap text-sm">Comercial</span>
                                 </span>
                                 <i class="bi bi-chevron-down transition-transform text-xs ml-2 flex-shrink-0" :class="openMenu === 'comercial' && 'rotate-180'"></i>
                             </button>
@@ -165,10 +164,9 @@
                         </li>
                         <li>
                             <button @click="openMenu = (openMenu === 'reportes' ? '' : 'reportes')" class="w-full flex items-center justify-between px-2 py-2.5 text-slate-100 rounded-md hover:bg-white/5">
-                                <span class="flex items-center">
+                                <span class="flex items-center min-w-0">
                                     <i class="bi bi-file-earmark-text-fill text-lg w-8 text-center text-slate-400 flex-shrink-0"></i>
-                                    <!-- CAMBIO: Se eliminó whitespace-nowrap -->
-                                    <span class="ml-2">Reportes y Auditoría</span>
+                                    <span class="ml-2 whitespace-nowrap text-sm">Reportes y Auditoría</span>
                                 </span>
                                 <i class="bi bi-chevron-down transition-transform text-xs ml-2 flex-shrink-0" :class="openMenu === 'reportes' && 'rotate-180'"></i>
                             </button>
@@ -183,7 +181,8 @@
                 </div>
 
                 <!-- Grupo de links inferior -->
-                <div class="px-2">
+                <!-- >>> CAMBIO: Se elimina px-2 para reducir el espacio horizontal <<< -->
+                <div>
                     <ul class="space-y-1 pt-4 border-t border-white/10">
                         <li class="px-2 mb-2">
                             <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Externo</span>
@@ -191,7 +190,7 @@
                         <li>
                             <a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center px-2 py-2.5 text-slate-100 rounded-md">
                                 <i class="bi bi-box-arrow-up-right text-lg w-8 text-center text-slate-400"></i>
-                                <span class="ml-2">Portal Cliente</span>
+                                <span class="ml-2 text-sm">Portal Cliente</span>
                             </a>
                         </li>
                         <!-- Botón de logout para móvil -->
@@ -207,7 +206,7 @@
         </aside>
         
         <!-- Main Content -->
-        <div class="flex-1 flex flex-col min-w-0">
+        <div class="flex-1 flex flex-col min-w-0 md:w-[calc(100%-16rem)]">
             <header class="hidden md:flex bg-white/80 backdrop-blur-lg border-b border-slate-200/60 h-20 items-center justify-between px-6 flex-shrink-0 sticky top-0 z-20">
                 <div>
                      <h1 class="text-lg font-semibold text-slate-800">
