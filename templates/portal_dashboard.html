@@ -105,9 +105,7 @@
 {% block body %}
 <div class="space-y-6">
     
-    <!-- ================================================================= -->
-    <!-- ===== CABECERA PRINCIPAL DEL DASHBOARD (RESTAURADA) ===== -->
-    <!-- ================================================================= -->
+    <!-- CABECERA PRINCIPAL DEL DASHBOARD -->
     <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
         <div>
             <h1 class="text-3xl font-bold text-slate-800">¡Hola de nuevo, {{ cliente.nombre }}!</h1>
@@ -119,14 +117,13 @@
             </a>
         </div>
     </div>
-    <!-- ================================================================= -->
 
-    <!-- ================================================================= -->
-    <!-- ===== SECCIÓN DE NOTIFICACIONES (INCLUIDA) ===== -->
-    <!-- ================================================================= -->
-    {% include '_portal_notifications.html' %}
-    <!-- ================================================================= -->
+    <!-- SECCIÓN DE NOTIFICACIONES (INCLUIDA) -->
+    <div class="pt-2">
+        {% include '_portal_notifications.html' %}
+    </div>
     
+    <!-- CONTENIDO PRINCIPAL -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white rounded-xl shadow-md card-lift">
             <div class="p-5 border-b border-slate-200">
