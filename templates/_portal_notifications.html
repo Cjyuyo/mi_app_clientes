@@ -1,6 +1,5 @@
-{% set has_notifications = get_flashed_messages() or ordenes_pendientes or estado_principal or cita_confirmada %}
+{% set has_notifications = get_flashed_messages() or ordenes_pendientes or estado_principal or cita_confirmada or ciclo_cobranza_activo %}
 
-{% if has_notifications %}
 <div class="bg-white rounded-xl shadow-md card-lift">
     <div class="p-5 border-b border-slate-200">
         <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -9,6 +8,7 @@
         </h2>
     </div>
     <div class="p-5 space-y-4">
+        
         <!-- Mensajes Flash (transitorios) -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -61,6 +61,20 @@
             {% endif %}
         </div>
         {% endif %}
+        
+        <!-- Notificación de Ciclo de Cobranza -->
+        {% if ciclo_cobranza_activo %}
+        <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-800 p-4 rounded-lg">
+            <h3 class="font-bold text-md flex items-center gap-2"><i class="bi bi-info-circle-fill"></i> Ciclo de Cobranza Activo</h3>
+            <p class="mt-2 mb-3 text-sm">
+                Nuestro ciclo de cobranza ha comenzado. Te recordamos que puedes realizar tus pagos hasta la fecha de vencimiento para mantenerte al día.
+            </p>
+             <a href="{{ url_for('portal_reportar_pago') }}" class="text-sm text-white font-semibold py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-700">
+                Reportar un Pago
+            </a>
+        </div>
+        {% endif %}
+
 
         <!-- Notificación de Cita Confirmada -->
         {% if cita_confirmada %}
@@ -81,6 +95,17 @@
             </div>
         </div>
         {% endif %}
+
+        <!-- Estado: Todo al día -->
+        {% if not has_notifications %}
+        <div class="text-center text-slate-500 py-6">
+            <div class="inline-block bg-green-100 p-4 rounded-full">
+                <i class="bi bi-check-circle-fill text-4xl text-green-500"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-slate-800 mt-4">¡Todo está al día!</h3>
+            <p class="mt-1 text-sm">No tienes notificaciones pendientes. ¡Sigue así!</p>
+        </div>
+        {% endif %}
+
     </div>
 </div>
-{% endif %}
