@@ -969,7 +969,8 @@ def procesar_reporte(pago_id):
 
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT cliente_id, monto FROM pagos WHERE id = %s", (pago_id,))
+            # Se obtienen más detalles del pago para identificar la moneda
+            cur.execute("SELECT cliente_id, monto, monto_bs, tasa_dia FROM pagos WHERE id = %s", (pago_id,))
             pago = cur.fetchone()
             if not pago:
                 flash("El pago no existe.", "error")
@@ -995,38 +996,78 @@ def procesar_reporte(pago_id):
                 if motivo == 'Diferencia de Monto':
                     monto_recibido_str = request.form.get('diferencia_monto', '0').replace(',', '.')
                     monto_recibido = Decimal(monto_recibido_str) if monto_recibido_str else Decimal('0')
-                    monto_reportado = pago['monto']
                     
-                    if monto_recibido <= 0 or monto_recibido >= monto_reportado:
-                        flash("El monto recibido debe ser mayor a cero y menor que el monto reportado.", "error")
-                        return redirect(url_for('reportes_por_revisar'))
+                    # Se verifica si el pago original fue en Bolívares
+                    was_in_bs = pago.get('monto_bs') and pago['monto_bs'] > 0
 
-                    monto_pendiente = monto_reportado - monto_recibido
-                    
-                    detalles_rechazo = {
-                        'motivo': motivo,
-                        'mensaje_estandar': "El monto reportado no coincide con el movimiento bancario, debe pagar diferencia.",
-                        'monto_original_reportado': str(monto_reportado),
-                        'monto_recibido_real': str(monto_recibido),
-                        'monto_pendiente': str(monto_pendiente)
-                    }
-                    detalles_json = json.dumps(detalles_rechazo)
+                    if was_in_bs:
+                        # --- Lógica para pagos en Bolívares (Bs) ---
+                        monto_reportado_bs = pago['monto_bs']
+                        tasa = pago.get('tasa_dia') or Decimal('1.0')
 
-                    # Actualizar el pago original con el monto real recibido
-                    cur.execute(
-                        "UPDATE pagos SET monto = %s, estado_reporte = %s, revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s WHERE id = %s",
-                        (monto_recibido, nuevo_estado_reporte, g.admin['id'], detalles_json, pago_id)
-                    )
-                    
-                    # Crear la nueva orden de pago por la diferencia (CORREGIDO)
-                    # Ahora nace como 'Pendiente de Cliente' para que no aparezca en conciliación.
-                    concepto_orden = f"Diferencia pendiente del reporte #{pago_id}"
-                    cur.execute("""
-                        INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, por_concepto_de, fecha_pago, estado_pago, reportado_por_cliente, estado_reporte, fecha_creacion, registrado_por_id, pago_padre_id, cuotas_cubiertas)
-                        VALUES (%s, %s, 'Diferencia', 'Diferencia', %s, %s, 'Pendiente', FALSE, 'Pendiente de Cliente', %s, %s, %s, 0)
-                    """, (cliente_id, monto_pendiente, concepto_orden, get_venezuela_current_date(), get_venezuela_current_datetime(), g.admin['id'], pago_id))
-                    
-                    descripcion_audit = f"Rechazó reporte #{pago_id} por diferencia. Monto real: ${monto_recibido}. Se generó orden por diferencia de ${monto_pendiente}."
+                        if monto_recibido <= 0 or monto_recibido >= monto_reportado_bs:
+                            flash("El monto recibido (Bs) debe ser mayor a cero y menor que el monto reportado.", "error")
+                            return redirect(url_for('reportes_por_revisar'))
+
+                        monto_pendiente_bs = monto_reportado_bs - monto_recibido
+                        monto_recibido_usd = monto_recibido / tasa if tasa > 0 else Decimal('0.0')
+                        monto_pendiente_usd = monto_pendiente_bs / tasa if tasa > 0 else Decimal('0.0')
+
+                        detalles_rechazo = {
+                            'motivo': motivo, 'moneda': 'BS',
+                            'monto_original_reportado': str(monto_reportado_bs),
+                            'monto_recibido_real': str(monto_recibido),
+                            'monto_pendiente': str(monto_pendiente_bs)
+                        }
+                        detalles_json = json.dumps(detalles_rechazo)
+
+                        # Se actualiza el pago original con los montos reales recibidos
+                        cur.execute(
+                            "UPDATE pagos SET monto = %s, monto_bs = %s, estado_reporte = %s, revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s WHERE id = %s",
+                            (monto_recibido_usd, monto_recibido, nuevo_estado_reporte, g.admin['id'], detalles_json, pago_id)
+                        )
+                        
+                        # Se crea el nuevo pago por la diferencia en la moneda correcta
+                        concepto_orden = f"Diferencia pendiente del reporte #{pago_id}"
+                        cur.execute("""
+                            INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, por_concepto_de, fecha_pago, estado_pago, reportado_por_cliente, estado_reporte, fecha_creacion, registrado_por_id, pago_padre_id, cuotas_cubiertas)
+                            VALUES (%s, %s, %s, 'Diferencia', 'Diferencia', %s, %s, 'Pendiente', FALSE, 'Pendiente de Cliente', %s, %s, %s, 0)
+                        """, (cliente_id, monto_pendiente_usd, monto_pendiente_bs, concepto_orden, get_venezuela_current_date(), get_venezuela_current_datetime(), g.admin['id'], pago_id))
+                        
+                        descripcion_audit = f"Rechazó reporte #{pago_id}. Monto real: {monto_recibido:,.2f} Bs. Se generó orden por diferencia de {monto_pendiente_bs:,.2f} Bs."
+
+                    else:
+                        # --- Lógica para pagos en Dólares (USD) ---
+                        monto_reportado_usd = pago['monto']
+                        
+                        if monto_recibido <= 0 or monto_recibido >= monto_reportado_usd:
+                            flash("El monto recibido (USD) debe ser mayor a cero y menor que el monto reportado.", "error")
+                            return redirect(url_for('reportes_por_revisar'))
+
+                        monto_pendiente_usd = monto_reportado_usd - monto_recibido
+                        
+                        detalles_rechazo = {
+                            'motivo': motivo, 'moneda': 'USD',
+                            'monto_original_reportado': str(monto_reportado_usd),
+                            'monto_recibido_real': str(monto_recibido),
+                            'monto_pendiente': str(monto_pendiente_usd)
+                        }
+                        detalles_json = json.dumps(detalles_rechazo)
+
+                        # Se actualiza el pago original
+                        cur.execute(
+                            "UPDATE pagos SET monto = %s, estado_reporte = %s, revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s WHERE id = %s",
+                            (monto_recibido, nuevo_estado_reporte, g.admin['id'], detalles_json, pago_id)
+                        )
+                        
+                        # Se crea el nuevo pago por la diferencia
+                        concepto_orden = f"Diferencia pendiente del reporte #{pago_id}"
+                        cur.execute("""
+                            INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, por_concepto_de, fecha_pago, estado_pago, reportado_por_cliente, estado_reporte, fecha_creacion, registrado_por_id, pago_padre_id, cuotas_cubiertas)
+                            VALUES (%s, %s, 'Diferencia', 'Diferencia', %s, %s, 'Pendiente', FALSE, 'Pendiente de Cliente', %s, %s, %s, 0)
+                        """, (cliente_id, monto_pendiente_usd, concepto_orden, get_venezuela_current_date(), get_venezuela_current_datetime(), g.admin['id'], pago_id))
+                        
+                        descripcion_audit = f"Rechazó reporte #{pago_id} por diferencia. Monto real: ${monto_recibido}. Se generó orden por diferencia de ${monto_pendiente_usd}."
 
                 else: # Otros motivos de rechazo
                     detalles_rechazo = {'motivo': motivo}
