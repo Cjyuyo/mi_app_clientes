@@ -103,7 +103,6 @@
             <!-- Contenido de Pestañas -->
             <div class="p-5">
                 <!-- Contenido de Pagos -->
-                <!-- >>> CAMBIO ESPECIFICO: Pagos por diferencia de monto -->
                 <div x-show="activeTab === 'pagos-{{ cliente.id }}'" class="space-y-3">
                     {% if cliente.pagos %}
                         {% for pago in cliente.pagos %}
@@ -122,7 +121,6 @@
                                 <span class="font-bold text-slate-800">${{ "%.2f"|format(pago.monto) }}</span>
                                 <div class="flex items-center space-x-2 text-right">
 
-                                    <!-- NUEVO BOTÓN PARA EL MODAL -->
                                     <button type="button" onclick="showPaymentDetails({{ pago.id }})" class="text-xs bg-gray-500 text-white hover:bg-gray-600 py-1 px-2 rounded">Detalles</button>
 
                                     {% if pago.reportado_por_cliente and pago.estado_reporte == 'Pendiente de Revision' %}
@@ -132,7 +130,11 @@
                                         <span class="text-xs font-semibold py-1 px-2 rounded-full bg-red-100 text-red-800">Inconsistente</span>
                                         <a href="{{ url_for('ver_reporte', pago_id=pago.id, origin='consulta') }}" class="text-xs bg-slate-500 text-white hover:bg-slate-600 py-1 px-2 rounded">Ver</a>
                                     {% elif pago.estado_pago == 'Pendiente' %}
-                                        <span class="text-xs font-semibold py-1 px-2 rounded-full bg-yellow-100 text-yellow-800">Pendiente</span>
+                                        {% if pago.reportado_por_cliente and pago.estado_reporte == 'Aprobado' %}
+                                            <span class="text-xs font-semibold py-1 px-2 rounded-full bg-teal-100 text-teal-800">Aprobado</span>
+                                        {% else %}
+                                            <span class="text-xs font-semibold py-1 px-2 rounded-full bg-yellow-100 text-yellow-800">Pendiente</span>
+                                        {% endif %}
                                         <form action="{{ url_for('conciliar_pago', pago_id=pago.id) }}" method="POST" onsubmit="event.preventDefault(); confirmConciliar(this);">
                                             <button type="submit" class="text-xs bg-green-500 text-white hover:bg-green-600 py-1 px-2 rounded">Conciliar</button>
                                         </form>
@@ -151,7 +153,6 @@
                         <p class="text-center text-slate-500 py-4">No hay pagos registrados.</p>
                     {% endif %}
                 </div>
-                <!-- <<< FIN CAMBIO -->
                 <!-- Contenido de Ofertas -->
                 <div x-show="activeTab === 'ofertas-{{ cliente.id }}'" class="space-y-3">
                     {% if cliente.ofertas %}{% for oferta in cliente.ofertas %}<div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50"><div><p class="font-semibold text-slate-700">Oferta de Adjudicación</p><p class="text-xs text-slate-500">{{ oferta.fecha_oferta | format_date }}</p></div><div class="flex items-center space-x-4"><span class="font-semibold text-slate-700">{{ oferta.cuotas_ofertadas }} Cuotas</span>{% if oferta.estado_oferta == 'activa' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-blue-100 text-blue-800">Activa</span>{% elif oferta.estado_oferta == 'ganadora' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-green-100 text-green-800">Ganadora</span>{% elif oferta.estado_oferta == 'perdida' %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-slate-100 text-slate-800">Perdida</span>{% else %}<span class="text-xs font-semibold py-1 px-2 rounded-full bg-slate-100 text-slate-800">{{ oferta.estado_oferta }}</span>{% endif %}</div></div>{% endfor %}{% else %}<p class="text-center text-slate-500 py-4">No hay ofertas registradas.</p>{% endif %}
@@ -180,7 +181,6 @@
                  x-transition:enter-start="transition-enter-start"
                  x-transition:leave="transition-leave-active"
                  x-transition:leave-end="transition-leave-end">
-                <!-- CAMBIO: Se añade el evento onsubmit para deshabilitar el botón al enviar -->
                 <form action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" method="POST" onsubmit="handleFormSubmit(this)">
                     <h3 class="font-bold text-slate-800 mb-2">Registrar Oferta para {{ cliente.nombre_apellido }}</h3>
                     <p class="text-sm text-slate-600 mb-4">Seleccione la cantidad de cuotas que el cliente desea adelantar para el próximo acto de adjudicación.</p>
@@ -224,12 +224,6 @@
 
 {% block scripts_extra %}
 <script>
-    /**
-     * --- NUEVA FUNCIÓN ---
-     * Deshabilita los botones de tipo 'submit' dentro de un formulario y muestra un texto de "Procesando".
-     * Para usarla en un formulario, añade: onsubmit="handleFormSubmit(this)"
-     * @param {HTMLFormElement} form - El formulario que se está enviando.
-     */
     function handleFormSubmit(form) {
         const submitButtons = form.querySelectorAll('button[type="submit"]');
         submitButtons.forEach(button => {
@@ -238,7 +232,6 @@
         });
     }
 
-    // Función para confirmar la eliminación de un cliente
     function confirmDelete(form) {
         Swal.fire({
             title: '¿Está seguro?',
@@ -251,14 +244,12 @@
             cancelButtonText: 'Cancelar'
         }).then((result) => {
             if (result.isConfirmed) {
-                // CAMBIO: Se llama a la función para deshabilitar el botón antes de enviar
                 handleFormSubmit(form);
                 form.submit();
             }
         });
     }
 
-    // Función para confirmar la edición de un cliente
     function confirmEdit(url) {
         Swal.fire({
             title: '¿Desea editar este cliente?',
@@ -276,7 +267,6 @@
         });
     }
 
-    // Función para confirmar la conciliación de un pago
     function confirmConciliar(form) {
         Swal.fire({
             title: '¿Confirmar Conciliación?',
@@ -289,18 +279,12 @@
             cancelButtonText: 'Cancelar'
         }).then((result) => {
             if (result.isConfirmed) {
-                // CAMBIO: Se llama a la función para deshabilitar el botón antes de enviar
                 handleFormSubmit(form);
                 form.submit();
             }
         });
     }
 
-    /**
-     * --- NUEVA FUNCIÓN ---
-     * Busca los detalles de un pago usando la API y los muestra en un modal.
-     * @param {number} pagoId - El ID del pago a consultar.
-     */
     async function showPaymentDetails(pagoId) {
         const modal = document.getElementById('paymentDetailsModal');
         const content = document.getElementById('modal-content');

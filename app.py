@@ -1115,9 +1115,9 @@ def pagos_por_conciliar():
     conn = get_db()
     if not conn:
         flash("Error de conexión con la base de datos.", "danger")
-        return render_template('pagos_por_conciliar.html', pagos_agrupados={}, anio_actual=get_venezuela_current_date().year)
+        return render_template('pagos_por_conciliar.html', pagos=[], anio_actual=get_venezuela_current_date().year)
     
-    pagos_agrupados = {}
+    pagos_pendientes = []
     try:
         with conn.cursor() as cur:
             cur.execute("""
@@ -1134,36 +1134,24 @@ def pagos_por_conciliar():
                     OR 
                     (p.reportado_por_cliente = TRUE AND p.estado_reporte = 'Aprobado')
                 )
-                ORDER BY p.cliente_id, p.fecha_creacion ASC;
+                ORDER BY p.fecha_creacion ASC;
             """)
-            pagos_pendientes = cur.fetchall()
             
-            # Agrupar pagos por cliente
+            # Se convierte a una lista de diccionarios para poder modificarlos
+            pagos_pendientes = [dict(row) for row in cur.fetchall()]
+            
+            # Se enriquece cada pago con la información de estado que espera la plantilla
             for pago in pagos_pendientes:
-                cliente_id = pago['cliente_id']
-                if cliente_id not in pagos_agrupados:
-                    pagos_agrupados[cliente_id] = {
-                        'cliente_info': {
-                            'nombre': pago['nombre'],
-                            'apellido': pago['apellido'],
-                            'cedula': pago['cedula']
-                        },
-                        'pagos': [],
-                        'puede_consolidar': False
-                    }
-                pagos_agrupados[cliente_id]['pagos'].append(pago)
-
-            # Identificar grupos que se pueden consolidar
-            for cliente_id, data in pagos_agrupados.items():
-                tipos_pago = [p['tipo_pago'] for p in data['pagos']]
-                if 'Cuota' in tipos_pago and 'Diferencia' in tipos_pago and len(data['pagos']) == 2:
-                    data['puede_consolidar'] = True
+                pago['status_display'] = 'Por Conciliar'
+                pago['status_class'] = 'bg-warning'
+                pago['action_type'] = 'Conciliar'
 
     except psycopg2.Error as e:
-        logging.error(f"Error al obtener pagos por conciliar: {e}")
+        from flask import current_app
+        current_app.logger.error(f"Error al obtener pagos por conciliar: {e}")
         flash("Error al cargar la lista de pagos pendientes.", "danger")
         
-    return render_template('pagos_por_conciliar.html', pagos_agrupados=pagos_agrupados, anio_actual=get_venezuela_current_date().year)
+    return render_template('pagos_por_conciliar.html', pagos=pagos_pendientes, anio_actual=get_venezuela_current_date().year)
 
 
 # =================================================================================
