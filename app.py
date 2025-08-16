@@ -1019,11 +1019,12 @@ def procesar_reporte(pago_id):
                     )
                     
                     # Crear la nueva orden de pago por la diferencia (CORREGIDO)
+                    # Ahora nace como 'Pendiente de Cliente' para que no aparezca en conciliación.
                     concepto_orden = f"Diferencia pendiente del reporte #{pago_id}"
                     cur.execute("""
                         INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, por_concepto_de, fecha_pago, estado_pago, reportado_por_cliente, estado_reporte, fecha_creacion, registrado_por_id, pago_padre_id, cuotas_cubiertas)
-                        VALUES (%s, %s, 'Diferencia', 'Diferencia', %s, %s, 'Pendiente', FALSE, 'Generado por Sistema', %s, %s, %s, 0)
-                    """, (cliente_id, monto_pendiente, concepto_orden, get_venezuela_current_date(), get_venezuela_current_datetime(), g.admin['id'], pago_id)) # <-- CORRECCIÓN
+                        VALUES (%s, %s, 'Diferencia', 'Diferencia', %s, %s, 'Pendiente', FALSE, 'Pendiente de Cliente', %s, %s, %s, 0)
+                    """, (cliente_id, monto_pendiente, concepto_orden, get_venezuela_current_date(), get_venezuela_current_datetime(), g.admin['id'], pago_id))
                     
                     descripcion_audit = f"Rechazó reporte #{pago_id} por diferencia. Monto real: ${monto_recibido}. Se generó orden por diferencia de ${monto_pendiente}."
 
