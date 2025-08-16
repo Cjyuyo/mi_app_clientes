@@ -2051,7 +2051,6 @@ def conciliar_pago(pago_id):
     
     try:
         with conn.cursor() as cur:
-            # Bloquear las filas para evitar race conditions
             cur.execute("SELECT * FROM pagos WHERE id = %s FOR UPDATE", (pago_id,))
             pago_actual = cur.fetchone()
             if not pago_actual or pago_actual['estado_pago'] != 'Pendiente':
@@ -2069,54 +2068,48 @@ def conciliar_pago(pago_id):
                 inscripcion_total_requerida = Decimal(cliente.get('inscripcion_monto') or 0)
                 nueva_inscripcion_pagada = inscripcion_pagada_actual + pago_actual['monto']
 
-                # --- INICIO DE LA NUEVA LÓGICA DE CONSOLIDACIÓN DE INSCRIPCIÓN ---
                 if nueva_inscripcion_pagada >= inscripcion_total_requerida:
-                    # 1. Obtener todos los abonos de inscripción anteriores más el actual
                     cur.execute("SELECT * FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente['id'],))
                     abonos_anteriores = cur.fetchall()
                     
-                    pagos_a_consolidar = abonos_anteriores + [pago_actual]
-                    ids_a_anular = [p['id'] for p in pagos_a_consolidar]
-                    
-                    # 2. Preparar detalles para el nuevo recibo final
-                    monto_total_consolidado = sum(p['monto'] for p in pagos_a_consolidar)
-                    pagos_individuales = [
-                        {"id": p['id'], "monto": str(p['monto']), "fecha": p['fecha_pago'].isoformat()}
-                        for p in pagos_a_consolidar
-                    ]
-                    detalles_consolidados = {
-                        "pagos_individuales": pagos_individuales
-                    }
-                    
-                    # 3. Crear el único recibo final de "Inscripción Finalizada"
-                    cur.execute("""
-                        INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, estado_pago, por_concepto_de, detalles_reporte, conciliado_por_id, fecha_pago, cuotas_cubiertas) 
-                        VALUES (%s, %s, 'Inscripción Finalizada', 'Consolidado', 'Conciliado', 'Pago total de inscripción consolidado', %s, %s, %s, 0) RETURNING id
-                    """, (cliente['id'], monto_total_consolidado, json.dumps(detalles_consolidados), admin_id, pago_actual['fecha_pago']))
-                    pago_final_id = cur.fetchone()[0]
+                    # Si no hay abonos anteriores y el pago actual cubre todo, es un pago único.
+                    if not abonos_anteriores and pago_actual['monto'] >= inscripcion_total_requerida:
+                        cur.execute(
+                            "UPDATE pagos SET estado_pago = 'Conciliado', tipo_pago = 'Inscripción Finalizada', conciliado_por_id = %s WHERE id = %s",
+                            (admin_id, pago_id)
+                        )
+                        cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (pago_actual['monto'], cliente['id']))
+                        descripcion_audit = f"Concilió pago único de inscripción. Recibo N°{pago_id} por ${pago_actual['monto']} para {cliente['nombre_apellido']}."
+                        registrar_accion_auditoria('CONCILIACION_INSCRIPCION_UNICA', descripcion_audit, cliente['id'])
+                        url_recibo = url_for('ver_recibo_inscripcion', pago_id=pago_id)
+                        flash_msg = f"¡Inscripción completada en un solo pago! <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo Final</a>."
+                    else: # Lógica de consolidación para múltiples pagos
+                        pagos_a_consolidar = abonos_anteriores + [pago_actual]
+                        ids_a_anular = [p['id'] for p in pagos_a_consolidar]
+                        
+                        monto_total_consolidado = sum(p['monto'] for p in pagos_a_consolidar)
+                        monto_total_bs_consolidado = sum(p['monto_bs'] or Decimal('0.0') for p in pagos_a_consolidar)
+                        
+                        pagos_individuales = [{"id": p['id'], "monto": str(p['monto']), "fecha": p['fecha_pago'].isoformat()} for p in pagos_a_consolidar]
+                        detalles_consolidados = {"pagos_individuales": pagos_individuales}
+                        
+                        cur.execute("""
+                            INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, estado_pago, por_concepto_de, detalles_reporte, conciliado_por_id, fecha_pago, cuotas_cubiertas) 
+                            VALUES (%s, %s, %s, 'Inscripción Finalizada', 'Consolidado', 'Conciliado', 'Pago total de inscripción consolidado', %s, %s, %s, 0) RETURNING id
+                        """, (cliente['id'], monto_total_consolidado, monto_total_bs_consolidado, json.dumps(detalles_consolidados), admin_id, pago_actual['fecha_pago']))
+                        pago_final_id = cur.fetchone()[0]
 
-                    # 4. Anular todos los recibos de abono (anteriores y el actual)
-                    detalle_anulacion = json.dumps({
-                        "motivo": "Consolidado en recibo final",
-                        "recibo_final_id": pago_final_id
-                    })
-                    cur.execute(
-                        "UPDATE pagos SET estado_pago = 'Anulado', detalles_reporte = %s WHERE id = ANY(%s)",
-                        (detalle_anulacion, ids_a_anular)
-                    )
-                    
-                    # 5. Actualizar el estado del cliente
-                    cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (monto_total_consolidado, cliente['id']))
-                    
-                    # 6. Registrar auditoría
-                    descripcion_audit = f"Consolidó pagos de inscripción. Recibo final N°{pago_final_id} por ${monto_total_consolidado} para {cliente['nombre_apellido']}."
-                    registrar_accion_auditoria('CONSOLIDACION_INSCRIPCION', descripcion_audit, cliente['id'])
-                    
-                    url_recibo = url_for('ver_recibo_inscripcion', pago_id=pago_final_id)
-                    flash_msg = f"¡Inscripción completada y consolidada! <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo Final</a>."
-                
-                # --- FIN DE LA NUEVA LÓGICA DE CONSOLIDACIÓN ---
-                else: # Si es solo un abono que no completa el total
+                        detalle_anulacion = json.dumps({"motivo": "Consolidado en recibo final", "recibo_final_id": pago_final_id})
+                        cur.execute("UPDATE pagos SET estado_pago = 'Anulado', detalles_reporte = %s WHERE id = ANY(%s)", (detalle_anulacion, ids_a_anular))
+                        
+                        cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (monto_total_consolidado, cliente['id']))
+                        
+                        descripcion_audit = f"Consolidó pagos de inscripción. Recibo final N°{pago_final_id} por ${monto_total_consolidado} para {cliente['nombre_apellido']}."
+                        registrar_accion_auditoria('CONSOLIDACION_INSCRIPCION', descripcion_audit, cliente['id'])
+                        
+                        url_recibo = url_for('ver_recibo_inscripcion', pago_id=pago_final_id)
+                        flash_msg = f"¡Inscripción completada y consolidada! <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo Final</a>."
+                else:
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
                     cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
                     url_recibo = url_for('generar_recibo_pago', pago_id=pago_id)
@@ -2145,7 +2138,8 @@ def conciliar_pago(pago_id):
 
     except (psycopg2.Error, ValueError, TypeError) as e:
         if conn: conn.rollback()
-        logging.error(f"Error al conciliar el pago {pago_id}: {e}")
+        from flask import current_app
+        current_app.logger.error(f"Error al conciliar el pago {pago_id}: {e}")
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
         if cedula_cliente_para_redirect:
             return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
