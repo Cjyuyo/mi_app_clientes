@@ -33,7 +33,7 @@
                 <div>
                     <h1 class="text-2xl font-bold">MOTO PLAN MOTORS C.A</h1>
                     <p class="text-sm opacity-90">R.I.F.: J-50408559-1</p>
-                    <p class="text-xs opacity-80 mt-2">Conciliado: {{ pago.fecha_pago | format_datetime('%d/%m/%Y %I:%M %p') if pago.fecha_pago else 'N/A' }}</p>
+                    <p class="text-xs opacity-80 mt-2">Fecha de Emisión: {{ pago.fecha_pago | format_datetime('%d/%m/%Y %I:%M %p') if pago.fecha_pago else pago.fecha_creacion | format_datetime('%d/%m/%Y %I:%M %p') }}</p>
                 </div>
                 <div class="text-left sm:text-right">
                     <h2 class="text-lg font-semibold">Recibo de Inscripción</h2>
@@ -62,6 +62,22 @@
                     <div class="sm:col-span-2 bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Por Concepto De</span><strong class="text-slate-700">Reserva operativa por incorporación al plan (monto no reembolsable)</strong></div>
                 </div>
             </div>
+
+            {% if not pago.detalles_reporte or not pago.detalles_reporte.pagos_individuales %}
+            <div class="section">
+                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider border-b pb-2 mb-4">Detalles del Método de Pago</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                    <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Forma de Pago</span><span class="block font-semibold text-slate-700">{{ pago.forma_pago }}</span></div>
+                    {% if pago.forma_pago != 'Efectivo USD' %}
+                    <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Banco</span><span class="block font-semibold text-slate-700">{{ pago.banco or 'N/A' }}</span></div>
+                    <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Referencia</span><span class="block font-semibold text-slate-700">{{ pago.referencia or 'N/A' }}</span></div>
+                    {% if pago.forma_pago == 'Binance' and pago.detalles_reporte and pago.detalles_reporte.usuario_binance %}
+                    <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">ID Transacción (Binance)</span><span class="block font-semibold text-slate-700">{{ pago.detalles_reporte.usuario_binance }}</span></div>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
 
             {% if pago.detalles_reporte and pago.detalles_reporte.pagos_individuales %}
             <div class="section">
