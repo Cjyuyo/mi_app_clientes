@@ -3422,7 +3422,7 @@ def _get_estado_cuenta_data(cliente_id):
         return None
 
 @app.route('/portal/logout')
-def portal_logout():
+def portal_logout():    
     session.clear()
     flash('Has cerrado sesión exitosamente.', 'success')
     return redirect(url_for('portal_login'))
