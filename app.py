@@ -938,7 +938,7 @@ def reportes_por_revisar():
     reportes_a_revisar = []
     if not conn:
         flash("Error de conexión con la base de datos.", "danger")
-        return render_template('reportes_por_revisar.html', reportes=[], anio_actual=get_venezuela_current_date().year)
+        return render_template('reportes_por_revisar.html', reportes=reportes_a_revisar, anio_actual=get_venezuela_current_date().year)
     try:
         with conn.cursor() as cur:
             cur.execute("""
