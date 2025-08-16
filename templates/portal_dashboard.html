@@ -106,7 +106,23 @@
 <div class="space-y-6">
     
     <!-- ================================================================= -->
-    <!-- ===== SECCIÓN DE NOTIFICACIONES (AHORA EN UN ARCHIVO SEPARADO) ===== -->
+    <!-- ===== CABECERA PRINCIPAL DEL DASHBOARD (RESTAURADA) ===== -->
+    <!-- ================================================================= -->
+    <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-slate-800">¡Hola de nuevo, {{ cliente.nombre }}!</h1>
+            <p class="text-slate-500 mt-1">Bienvenido a tu portal de cliente.</p>
+        </div>
+        <div>
+            <a href="{{ url_for('portal_reportar_pago') }}" class="inline-block text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600">
+                <i class="bi bi-send-plus-fill mr-1"></i> Reportar un Pago
+            </a>
+        </div>
+    </div>
+    <!-- ================================================================= -->
+
+    <!-- ================================================================= -->
+    <!-- ===== SECCIÓN DE NOTIFICACIONES (INCLUIDA) ===== -->
     <!-- ================================================================= -->
     {% include '_portal_notifications.html' %}
     <!-- ================================================================= -->
