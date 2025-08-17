@@ -3142,23 +3142,24 @@ def portal_dashboard():
             puede_registrar_oferta = True
             historial_gestiones = []
 
-            # --- NUEVA LÓGICA PARA INSCRIPCIÓN ---
-if cliente_dict.get('proceso') == 'RESERVA':
-    inscripcion_pagada = cliente_dict.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
-    inscripcion_total = cliente_dict.get('inscripcion_monto', Decimal('0.0')) or Decimal('0.0')
-    
-    if inscripcion_pagada < inscripcion_total:
-        monto_restante = inscripcion_total - inscripcion_pagada
-        estado_principal = {
-            'titulo': 'Completa tu Inscripción',
-            'mensaje': f"¡Bienvenido a Moto Plan! Para activar tu plan, por favor completa el pago de tu inscripción. Monto restante: ${monto_restante:,.2f}",
-            'boton_texto': 'Pagar Inscripción',
-            'boton_url': url_for('portal_pagar_inscripcion'),
-            'boton_activo': True
+            # --- LÓGICA PARA INSCRIPCIÓN (CORREGIDA) ---
+            if cliente_dict.get('proceso') == 'RESERVA':
+                inscripcion_pagada = cliente_dict.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
+                inscripcion_total = cliente_dict.get('inscripcion_monto', Decimal('0.0')) or Decimal('0.0')
+                
+                if inscripcion_pagada < inscripcion_total:
+                    monto_restante = inscripcion_total - inscripcion_pagada
+                    estado_principal = {
+                        'titulo': 'Completa tu Inscripción',
+                        'mensaje': f"¡Bienvenido a Moto Plan! Para activar tu plan, por favor completa el pago de tu inscripción. Monto restante: ${monto_restante:,.2f}",
+                        'boton_texto': 'Pagar Inscripción',
+                        'boton_url': url_for('portal_pagar_inscripcion'),
+                        'boton_activo': True
                     }
- cur.execute("SELECT * FROM pagos WHERE cliente_id = %s AND estado_pago = 'Pendiente' ORDER BY fecha_creacion DESC", (cliente_id,))
-        ordenes_pendientes = cur.fetchall()
-        
+                    # --- CORRECCIÓN APLICADA AQUÍ ---
+                    cur.execute("SELECT * FROM pagos WHERE cliente_id = %s AND estado_pago = 'Pendiente' ORDER BY fecha_creacion DESC", (session['cliente_id'],))
+                    ordenes_pendientes = cur.fetchall()
+
             return render_template('portal_dashboard.html', 
                                    cliente=cliente_dict, 
                                    ordenes_pendientes=ordenes_pendientes,
