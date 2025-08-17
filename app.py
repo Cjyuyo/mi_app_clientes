@@ -1112,6 +1112,8 @@ def pagos_por_conciliar():
         return render_template('pagos_por_conciliar.html', bulks=bulks_a_conciliar, anio_actual=get_venezuela_current_date().year)
     try:
         with conn.cursor() as cur:
+            # --- CORRECCIÓN APLICADA AQUÍ ---
+            # La consulta ahora busca en la tabla de "bulks" los que están listos.
             cur.execute("""
                 SELECT b.*, c.nombre, c.apellido
                 FROM payment_bulks b JOIN clientes c ON b.cliente_id = c.id
@@ -1122,6 +1124,8 @@ def pagos_por_conciliar():
     except psycopg2.Error as e:
         logging.error(f"Error al obtener bulks por conciliar: {e}")
         flash("Error al cargar la lista de lotes por conciliar.", "danger")
+    
+    # Se envía la variable 'bulks' que la plantilla espera.
     return render_template('pagos_por_conciliar.html', bulks=bulks_a_conciliar, anio_actual=get_venezuela_current_date().year)
 
 
