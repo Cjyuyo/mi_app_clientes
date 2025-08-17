@@ -1129,6 +1129,9 @@ def pagos_por_conciliar():
     pagos_pendientes = []
     try:
         with conn.cursor() as cur:
+            # --- CORRECCIÓN APLICADA AQUÍ ---
+            # La consulta ahora incluye pagos registrados por administradores (estado_pago = 'Pendiente')
+            # Y también los reportados por clientes que ya fueron aprobados (estado_reporte = 'Aprobado').
             cur.execute("""
                 SELECT p.id, p.monto, p.tipo_pago, p.fecha_creacion AS fecha_reporte,
                        p.reportado_por_cliente, p.estado_reporte, p.cliente_id,
