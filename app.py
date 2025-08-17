@@ -1008,99 +1008,83 @@ def procesar_reporte(pago_id):
 
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT cliente_id, monto, monto_bs, tasa_dia FROM pagos WHERE id = %s", (pago_id,))
+            cur.execute("SELECT cliente_id, monto, monto_bs, tasa_dia, tipo_pago FROM pagos WHERE id = %s", (pago_id,))
             pago = cur.fetchone()
             if not pago:
                 flash("El pago no existe.", "error")
                 return redirect(url_for('reportes_por_revisar'))
             cliente_id = pago['cliente_id']
 
-            nuevo_estado_reporte = ''
-            detalles_json = None
-            descripcion_audit = ''
-
             if accion == 'aprobar':
-                nuevo_estado_reporte = 'Aprobado'
                 descripcion_audit = f"Aprobó el reporte de pago N° {pago_id}."
+                
+                # Crear un Bulk para este pago individual y marcarlo como listo para conciliar
+                cur.execute("""
+                    INSERT INTO payment_bulks (cliente_id, currency, expected_amount, total_reported, total_verified, status, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, 'READY_TO_RECONCILE', NOW(), NOW()) RETURNING id
+                """, (cliente_id, 'VES' if pago['monto_bs'] else 'USD', pago['monto_bs'] or pago['monto'], pago['monto_bs'] or pago['monto'], pago['monto_bs'] or pago['monto']))
+                bulk_id = cur.fetchone()[0]
+
+                # Actualizar el pago para asignarlo al nuevo Bulk y marcarlo como aprobado
                 cur.execute(
-                    "UPDATE pagos SET estado_reporte = %s, revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
-                    (nuevo_estado_reporte, g.admin['id'], pago_id)
+                    "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW(), bulk_id = %s WHERE id = %s",
+                    (g.admin['id'], bulk_id, pago_id)
                 )
 
             elif accion == 'rechazar':
-                nuevo_estado_reporte = 'Inconsistente'
                 motivo = request.form.get('motivo_rechazo')
                 
                 if motivo == 'Diferencia de Monto':
                     monto_recibido_str = request.form.get('diferencia_monto', '0').replace(',', '.')
                     monto_recibido = Decimal(monto_recibido_str) if monto_recibido_str else Decimal('0')
                     
-                    was_in_bs = pago.get('monto_bs') and pago['monto_bs'] > 0
-                    
-                    monto_reportado = pago['monto_bs'] if was_in_bs else pago['monto']
-                    moneda_texto = "(Bs)" if was_in_bs else "(USD)"
+                    monto_reportado = pago['monto_bs'] or pago['monto']
                     
                     if monto_recibido <= 0 or monto_recibido >= monto_reportado:
-                        flash(f"El monto recibido {moneda_texto} debe ser mayor a cero y menor que el monto reportado.", "error")
+                        flash("El monto recibido debe ser mayor a cero y menor que el monto reportado.", "error")
                         return redirect(url_for('reportes_por_revisar'))
 
-                    if was_in_bs:
-                        tasa = pago.get('tasa_dia') or Decimal('1.0')
-                        monto_pendiente_bs = monto_reportado - monto_recibido
-                        monto_recibido_usd = monto_recibido / tasa if tasa > 0 else Decimal('0.0')
-                        monto_pendiente_usd = monto_pendiente_bs / tasa if tasa > 0 else Decimal('0.0')
+                    # 1. Crear el Bulk que agrupará ambos pagos
+                    cur.execute("""
+                        INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status)
+                        VALUES (%s, %s, %s, 'UNDER_REVIEW') RETURNING id
+                    """, (cliente_id, 'VES' if pago['monto_bs'] else 'USD', monto_reportado))
+                    bulk_id = cur.fetchone()[0]
 
-                        detalles_rechazo = {
-                            'motivo': motivo, 'moneda': 'BS',
-                            'monto_original_reportado': str(monto_reportado),
-                            'monto_recibido_real': str(monto_recibido),
-                            'monto_pendiente': str(monto_pendiente_bs)
-                        }
-                        detalles_json = json.dumps(detalles_rechazo)
+                    # 2. Actualizar el pago original (parcial)
+                    tasa = pago.get('tasa_dia') or Decimal('1.0')
+                    monto_recibido_usd = monto_recibido / tasa if tasa > 0 and pago['monto_bs'] else monto_recibido
+                    
+                    detalles_rechazo = {
+                        'motivo': motivo,
+                        'monto_original_reportado': str(monto_reportado),
+                        'monto_recibido_real': str(monto_recibido)
+                    }
+                    
+                    cur.execute(
+                        "UPDATE pagos SET monto = %s, monto_bs = %s, estado_reporte = 'Inconsistente', revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s, bulk_id = %s WHERE id = %s",
+                        (monto_recibido_usd, monto_recibido if pago['monto_bs'] else None, g.admin['id'], json.dumps(detalles_rechazo), bulk_id, pago_id)
+                    )
 
-                        cur.execute(
-                            "UPDATE pagos SET monto = %s, monto_bs = %s, estado_reporte = %s, revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s WHERE id = %s",
-                            (monto_recibido_usd, monto_recibido, nuevo_estado_reporte, g.admin['id'], detalles_json, pago_id)
-                        )
-                        
-                        concepto_orden = f"Diferencia pendiente del reporte #{pago_id}"
-                        cur.execute("""
-                            INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, por_concepto_de, fecha_pago, estado_pago, reportado_por_cliente, estado_reporte, fecha_creacion, registrado_por_id, pago_padre_id, cuotas_cubiertas)
-                            VALUES (%s, %s, %s, 'Diferencia', 'Diferencia', %s, %s, 'Pendiente', FALSE, 'Pendiente de Cliente', %s, %s, %s, 0)
-                        """, (cliente_id, monto_pendiente_usd, monto_pendiente_bs, concepto_orden, get_venezuela_current_date(), get_venezuela_current_datetime(), g.admin['id'], pago_id))
-                        
-                        descripcion_audit = f"Rechazó reporte #{pago_id}. Monto real: {monto_recibido:,.2f} Bs. Se generó orden por diferencia de {monto_pendiente_bs:,.2f} Bs."
+                    # 3. Crear la nueva orden de pago por la diferencia
+                    monto_pendiente = monto_reportado - monto_recibido
+                    monto_pendiente_usd = monto_pendiente / tasa if tasa > 0 and pago['monto_bs'] else monto_pendiente
+                    
+                    cur.execute("""
+                        INSERT INTO payment_orders (bulk_id, cliente_id, amount, currency, status)
+                        VALUES (%s, %s, %s, %s, 'ISSUED')
+                    """, (bulk_id, cliente_id, monto_pendiente, 'VES' if pago['monto_bs'] else 'USD'))
 
-                    else:
-                        monto_pendiente_usd = monto_reportado - monto_recibido
-                        
-                        detalles_rechazo = {
-                            'motivo': motivo, 'moneda': 'USD',
-                            'monto_original_reportado': str(monto_reportado),
-                            'monto_recibido_real': str(monto_recibido),
-                            'monto_pendiente': str(monto_pendiente_usd)
-                        }
-                        detalles_json = json.dumps(detalles_rechazo)
+                    # 4. Recalcular totales del Bulk
+                    recalcular_totales_bulk(bulk_id)
+                    
+                    descripcion_audit = f"Rechazó reporte #{pago_id} por diferencia. Se creó Bulk #{bulk_id} y orden por la diferencia."
 
-                        cur.execute(
-                            "UPDATE pagos SET monto = %s, estado_reporte = %s, revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s WHERE id = %s",
-                            (monto_recibido, nuevo_estado_reporte, g.admin['id'], detalles_json, pago_id)
-                        )
-                        
-                        concepto_orden = f"Diferencia pendiente del reporte #{pago_id}"
-                        cur.execute("""
-                            INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, por_concepto_de, fecha_pago, estado_pago, reportado_por_cliente, estado_reporte, fecha_creacion, registrado_por_id, pago_padre_id, cuotas_cubiertas)
-                            VALUES (%s, %s, 'Diferencia', 'Diferencia', %s, %s, 'Pendiente', FALSE, 'Pendiente de Cliente', %s, %s, %s, 0)
-                        """, (cliente_id, monto_pendiente_usd, concepto_orden, get_venezuela_current_date(), get_venezuela_current_datetime(), g.admin['id'], pago_id))
-                        
-                        descripcion_audit = f"Rechazó reporte #{pago_id} por diferencia. Monto real: ${monto_recibido}. Se generó orden por diferencia de ${monto_pendiente_usd}."
-
-                else:
-                    detalles_json = None
+                else: # Otro motivo de rechazo
                     descripcion_audit = f"Rechazó el reporte N° {pago_id}. Motivo: {motivo}."
                     cur.execute(
-                        "UPDATE pagos SET estado_reporte = %s, revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s WHERE id = %s",
-                        (nuevo_estado_reporte, g.admin['id'], detalles_json, pago_id)
+                        "UPDATE pagos SET estado_reporte = 'Inconsistente', revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s WHERE id = %s",
+                        (g.admin['id'], json.dumps({'motivo': motivo}), pago_id)
                     )
             else:
                 flash('Acción no válida.', 'error')
@@ -1122,46 +1106,24 @@ def procesar_reporte(pago_id):
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def pagos_por_conciliar():
     conn = get_db()
+    bulks_a_conciliar = []
     if not conn:
         flash("Error de conexión con la base de datos.", "danger")
-        return render_template('pagos_por_conciliar.html', pagos=[], anio_actual=get_venezuela_current_date().year)
-    
-    pagos_pendientes = []
+        return render_template('pagos_por_conciliar.html', bulks=bulks_a_conciliar, anio_actual=get_venezuela_current_date().year)
     try:
         with conn.cursor() as cur:
-            # --- CORRECCIÓN APLICADA AQUÍ ---
-            # La consulta ahora incluye pagos registrados por administradores (estado_pago = 'Pendiente')
-            # Y también los reportados por clientes que ya fueron aprobados (estado_reporte = 'Aprobado').
             cur.execute("""
-                SELECT p.id, p.monto, p.tipo_pago, p.fecha_creacion AS fecha_reporte,
-                       p.reportado_por_cliente, p.estado_reporte, p.cliente_id,
-                       c.nombre, c.apellido, c.cedula,
-                       COALESCE(a.usuario, 'Cliente') as registrado_por
-                FROM pagos p
-                LEFT JOIN clientes c ON p.cliente_id = c.id
-                LEFT JOIN administradores a ON p.registrado_por_id = a.id
-                WHERE p.estado_pago = 'Pendiente' 
-                AND (
-                    p.reportado_por_cliente = FALSE 
-                    OR 
-                    (p.reportado_por_cliente = TRUE AND p.estado_reporte = 'Aprobado')
-                )
-                ORDER BY p.fecha_creacion ASC;
+                SELECT b.*, c.nombre, c.apellido
+                FROM payment_bulks b JOIN clientes c ON b.cliente_id = c.id
+                WHERE b.status = 'READY_TO_RECONCILE' 
+                ORDER BY b.updated_at ASC;
             """)
-            
-            pagos_pendientes = [dict(row) for row in cur.fetchall()]
-            
-            for pago in pagos_pendientes:
-                pago['status_display'] = 'Por Conciliar'
-                pago['status_class'] = 'bg-warning'
-                pago['action_type'] = 'Conciliar'
-
+            bulks_a_conciliar = cur.fetchall()
     except psycopg2.Error as e:
-        from flask import current_app
-        current_app.logger.error(f"Error al obtener pagos por conciliar: {e}")
-        flash("Error al cargar la lista de pagos pendientes.", "danger")
-        
-    return render_template('pagos_por_conciliar.html', pagos=pagos_pendientes, anio_actual=get_venezuela_current_date().year)
+        logging.error(f"Error al obtener bulks por conciliar: {e}")
+        flash("Error al cargar la lista de lotes por conciliar.", "danger")
+    return render_template('pagos_por_conciliar.html', bulks=bulks_a_conciliar, anio_actual=get_venezuela_current_date().year)
+
 
 
 # =================================================================================
