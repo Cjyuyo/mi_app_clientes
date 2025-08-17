@@ -2571,11 +2571,10 @@ def conciliar_pago(pago_id):
                         (detalle_anulacion, ids_a_anular)
                     )
                     
-                    # --- CAMBIO INSERTADO ---
-                    # Al completar la inscripción, se activa el plan del cliente.
-                    cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO', estatus = 'ACTIVO' WHERE id = %s", (monto_total_consolidado, cliente['id']))
+                    # Al completar la inscripción, se prepara al cliente para pagar su primera cuota.
+                    # El estatus NO cambia a ACTIVO aquí.
+                    cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (monto_total_consolidado, cliente['id']))
                     
-                    # >>> INICIO DE LA CORRECCIÓN <<<
                     # Esta llamada activa el cálculo de comisiones y splits para la venta.
                     try:
                         # Re-leemos los datos del cliente para asegurar que tenemos la info comercial
@@ -2592,13 +2591,13 @@ def conciliar_pago(pago_id):
                     except Exception as e:
                         logging.error(f"FALLO AL CALCULAR COMISIONES para contrato {cliente['contrato_nro']}: {e}")
                         flash(f"Advertencia: El pago fue conciliado, pero hubo un error al generar las comisiones: {e}", "warning")
-                    # >>> FIN DE LA CORRECCIÓN <<<
 
                     descripcion_audit = f"Consolidó pagos de inscripción. Recibo final N°{pago_final_id} por ${monto_total_consolidado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONSOLIDACION_INSCRIPCION', descripcion_audit, cliente['id'])
                     
                     url_recibo = url_for('ver_recibo_inscripcion', pago_id=pago_final_id)
-                    flash_msg = f"¡Inscripción completada y consolidada! El plan del cliente ha sido activado. <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo Final</a>."
+                    # Mensaje ajustado para el administrador.
+                    flash_msg = f"¡Inscripción consolidada! El cliente ha sido notificado para pagar su primera cuota y activar el plan. <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo Final</a>."
                 
                 else:
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
@@ -2607,8 +2606,10 @@ def conciliar_pago(pago_id):
                     flash_msg = f"Abono de inscripción N° {pago_id} conciliado. <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo</a>."
 
             elif pago_actual['tipo_pago'] == 'Cuota':
+                # El plan se activa (estatus = 'ACTIVO') solo al pagar la primera cuota.
                 if cliente['proceso'] == 'INSCRITO':
                     cur.execute("UPDATE clientes SET proceso = 'Ahorrador', estatus = 'ACTIVO' WHERE id = %s", (cliente['id'],))
+                
                 valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
                 if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
                 cpp, cpr, br = cliente.get('cuotas_pagadas_progresivas', 0), cliente.get('cuotas_pagadas_regresivas', 0), Decimal(cliente.get('balance_regresivo', 0))
