@@ -2571,13 +2571,15 @@ def conciliar_pago(pago_id):
                         (detalle_anulacion, ids_a_anular)
                     )
                     
-                    cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (monto_total_consolidado, cliente['id']))
+                    # --- CAMBIO INSERTADO ---
+                    # Al completar la inscripción, se activa el plan del cliente.
+                    cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO', estatus = 'ACTIVO' WHERE id = %s", (monto_total_consolidado, cliente['id']))
                     
                     descripcion_audit = f"Consolidó pagos de inscripción. Recibo final N°{pago_final_id} por ${monto_total_consolidado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONSOLIDACION_INSCRIPCION', descripcion_audit, cliente['id'])
                     
                     url_recibo = url_for('ver_recibo_inscripcion', pago_id=pago_final_id)
-                    flash_msg = f"¡Inscripción completada y consolidada! <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo Final</a>."
+                    flash_msg = f"¡Inscripción completada y consolidada! El plan del cliente ha sido activado. <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo Final</a>."
                 
                 else:
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
