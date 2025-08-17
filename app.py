@@ -1018,17 +1018,12 @@ def procesar_reporte(pago_id):
             if accion == 'aprobar':
                 descripcion_audit = f"Aprobó el reporte de pago N° {pago_id}."
                 
-                # Crear un Bulk para este pago individual y marcarlo como listo para conciliar
-                cur.execute("""
-                    INSERT INTO payment_bulks (cliente_id, currency, expected_amount, total_reported, total_verified, status, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, 'READY_TO_RECONCILE', NOW(), NOW()) RETURNING id
-                """, (cliente_id, 'VES' if pago['monto_bs'] else 'USD', pago['monto_bs'] or pago['monto'], pago['monto_bs'] or pago['monto'], pago['monto_bs'] or pago['monto']))
-                bulk_id = cur.fetchone()[0]
-
-                # Actualizar el pago para asignarlo al nuevo Bulk y marcarlo como aprobado
+                # --- CAMBIO INSERTADO ---
+                # Ya no se crea un Bulk para un pago normal aprobado.
+                # Simplemente se actualiza el estado del reporte, dejando el pago listo para conciliar.
                 cur.execute(
-                    "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW(), bulk_id = %s WHERE id = %s",
-                    (g.admin['id'], bulk_id, pago_id)
+                    "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
+                    (g.admin['id'], pago_id)
                 )
 
             elif accion == 'rechazar':
@@ -1044,7 +1039,7 @@ def procesar_reporte(pago_id):
                         flash("El monto recibido debe ser mayor a cero y menor que el monto reportado.", "error")
                         return redirect(url_for('reportes_por_revisar'))
 
-                    # 1. Crear el Bulk que agrupará ambos pagos
+                    # 1. Crear el Bulk que agrupará ambos pagos (ESTA LÓGICA SE MANTIENE IGUAL)
                     cur.execute("""
                         INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status)
                         VALUES (%s, %s, %s, 'UNDER_REVIEW') RETURNING id
@@ -1106,27 +1101,30 @@ def procesar_reporte(pago_id):
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def pagos_por_conciliar():
     conn = get_db()
-    bulks_a_conciliar = []
+    # --- CAMBIO INSERTADO ---
+    # La variable ahora contendrá pagos individuales, no bulks.
+    pagos_a_conciliar = []
     if not conn:
         flash("Error de conexión con la base de datos.", "danger")
-        return render_template('pagos_por_conciliar.html', bulks=bulks_a_conciliar, anio_actual=get_venezuela_current_date().year)
+        return render_template('pagos_por_conciliar.html', pagos=pagos_a_conciliar, anio_actual=get_venezuela_current_date().year)
     try:
         with conn.cursor() as cur:
-            # --- CORRECCIÓN APLICADA AQUÍ ---
-            # La consulta ahora busca en la tabla de "bulks" los que están listos.
+            # --- CAMBIO INSERTADO ---
+            # La consulta ahora busca en la tabla de "pagos" los que están aprobados y pendientes.
             cur.execute("""
-                SELECT b.*, c.nombre, c.apellido
-                FROM payment_bulks b JOIN clientes c ON b.cliente_id = c.id
-                WHERE b.status = 'READY_TO_RECONCILE' 
-                ORDER BY b.updated_at ASC;
+                SELECT p.*, c.nombre, c.apellido, c.cedula
+                FROM pagos p JOIN clientes c ON p.cliente_id = c.id
+                WHERE p.estado_reporte = 'Aprobado' AND p.estado_pago = 'Pendiente'
+                ORDER BY p.fecha_creacion ASC;
             """)
-            bulks_a_conciliar = cur.fetchall()
+            pagos_a_conciliar = cur.fetchall()
     except psycopg2.Error as e:
-        logging.error(f"Error al obtener bulks por conciliar: {e}")
-        flash("Error al cargar la lista de lotes por conciliar.", "danger")
+        logging.error(f"Error al obtener pagos por conciliar: {e}")
+        flash("Error al cargar la lista de pagos por conciliar.", "danger")
     
-    # Se envía la variable 'bulks' que la plantilla espera.
-    return render_template('pagos_por_conciliar.html', bulks=bulks_a_conciliar, anio_actual=get_venezuela_current_date().year)
+    # --- CAMBIO INSERTADO ---
+    # Se envía la variable 'pagos' a la plantilla, que ahora contiene la lista de pagos individuales.
+    return render_template('pagos_por_conciliar.html', pagos=pagos_a_conciliar, anio_actual=get_venezuela_current_date().year)
 
 
 
