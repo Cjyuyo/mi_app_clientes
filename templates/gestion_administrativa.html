@@ -5,99 +5,86 @@
 {% endblock %}
 
 {% block body %}
-<div class="space-y-8">
-    <!-- Encabezado de la página -->
+<div class="space-y-6">
+    <!-- Encabezado -->
     <div class="bg-white p-6 rounded-xl shadow-sm">
         <h1 class="text-3xl font-bold text-slate-800">Gestión Administrativa</h1>
         <p class="text-slate-500 mt-1">Herramientas para la toma de decisiones y optimización de procesos.</p>
     </div>
 
-    <!-- Cuadrícula de Herramientas -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Tarjeta: Centro de Conciliación -->
-        <a href="{{ url_for('pagos_por_conciliar') }}" class="relative group bg-white p-6 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-            {% if counts.pagos_pendientes > 0 %}
-            <span class="absolute top-4 right-4 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs font-medium text-white">{{ counts.pagos_pendientes }}</span>
+    <!-- Grid de Tarjetas de Acceso Rápido -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- Tarjeta: Reportes por Revisar -->
+        <a href="{{ url_for('reportes_por_revisar') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 flex items-start space-x-4 relative">
+            {% if counts.reportes_pendientes > 0 %}
+            <span class="absolute top-3 right-3 h-6 w-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                {{ counts.reportes_pendientes }}
+            </span>
             {% endif %}
-            <div class="flex items-start gap-4">
-                <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg bg-blue-100 text-blue-600">
-                    <i class="bi bi-patch-check-fill text-2xl"></i>
-                </div>
-                <div>
-                    <h2 class="font-bold text-slate-800 group-hover:text-blue-600">Centro de Conciliación</h2>
-                    <p class="text-sm text-slate-500 mt-1">Revisa y aprueba los pagos reportados por los clientes.</p>
-                </div>
+            <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                <i class="bi bi-file-earmark-check-fill text-2xl"></i>
+            </div>
+            <div>
+                <h2 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Reportes por Revisar</h2>
+                <p class="text-sm text-slate-500 mt-1">Aprueba o rechaza los pagos que han sido reportados por los clientes.</p>
+            </div>
+        </a>
+
+        <!-- Tarjeta: Centro de Conciliación -->
+        <a href="{{ url_for('pagos_por_conciliar') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 flex items-start space-x-4 relative">
+            {% if counts.pagos_pendientes > 0 %}
+            <span class="absolute top-3 right-3 h-6 w-6 rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center">
+                {{ counts.pagos_pendientes }}
+            </span>
+            {% endif %}
+            <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-green-100 text-green-600">
+                <i class="bi bi-bank2 text-2xl"></i>
+            </div>
+            <div>
+                <h2 class="font-bold text-slate-800 group-hover:text-green-600 transition-colors">Centro de Conciliación</h2>
+                <p class="text-sm text-slate-500 mt-1">Confirma los pagos aprobados y actualiza los saldos de los clientes.</p>
             </div>
         </a>
 
         <!-- Tarjeta: Gestión de Solicitudes -->
-        <a href="{{ url_for('solicitudes_hub') }}" class="relative group bg-white p-6 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+        <a href="{{ url_for('solicitudes_hub') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 flex items-start space-x-4 relative">
             {% set total_solicitudes = counts.citas + counts.congelamientos + counts.retiros %}
             {% if total_solicitudes > 0 %}
-            <span class="absolute top-4 right-4 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs font-medium text-white">{{ total_solicitudes }}</span>
+            <span class="absolute top-3 right-3 h-6 w-6 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">
+                {{ total_solicitudes }}
+            </span>
             {% endif %}
-            <div class="flex items-start gap-4">
-                <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg bg-purple-100 text-purple-600">
-                    <i class="bi bi-journal-check text-2xl"></i>
-                </div>
-                <div>
-                    <h2 class="font-bold text-slate-800 group-hover:text-purple-600">Gestión de Solicitudes</h2>
-                    <p class="text-sm text-slate-500 mt-1">Administra citas, congelamientos, retiros y más.</p>
-                </div>
+            <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+                <i class="bi bi-journal-check text-2xl"></i>
+            </div>
+            <div>
+                <h2 class="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">Gestión de Solicitudes</h2>
+                <p class="text-sm text-slate-500 mt-1">Administra citas, congelamientos, retiros y más.</p>
             </div>
         </a>
 
-        <!-- Tarjeta: Flujo de Caja -->
-        <a href="{{ url_for('reporte_flujo_caja') }}" class="group bg-white p-6 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-            <div class="flex items-start gap-4">
-                <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg bg-green-100 text-green-600">
-                    <i class="bi bi-cash-stack text-2xl"></i>
-                </div>
-                <div>
-                    <h2 class="font-bold text-slate-800 group-hover:text-green-600">Flujo de Caja</h2>
-                    <p class="text-sm text-slate-500 mt-1">Analiza ingresos, egresos y balances para una visión financiera clara.</p>
-                </div>
+        <!-- Otras tarjetas existentes -->
+        <a href="{{ url_for('reporte_flujo_caja') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 flex items-start space-x-4">
+            <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-teal-100 text-teal-600">
+                <i class="bi bi-graph-up-arrow text-2xl"></i>
             </div>
-        </a>
-
-        <!-- Tarjeta: Sistema de Adjudicación -->
-        <a href="{{ url_for('adjudicacion') }}" class="group bg-white p-6 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-            <div class="flex items-start gap-4">
-                <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg bg-orange-100 text-orange-600">
-                    <i class="bi bi-trophy-fill text-2xl"></i>
-                </div>
-                <div>
-                    <h2 class="font-bold text-slate-800 group-hover:text-orange-600">Sistema de Adjudicación</h2>
-                    <p class="text-sm text-slate-500 mt-1">Gestiona el proceso de selección y asignación de adjudicados.</p>
-                </div>
-            </div>
-        </a>
-
-        <!-- Tarjeta: Reporte de Morosidad -->
-        <a href="{{ url_for('reporte_morosidad') }}" class="group bg-white p-6 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-            <div class="flex items-start gap-4">
-                <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg bg-red-100 text-red-600">
-                    <i class="bi bi-file-earmark-excel-fill text-2xl"></i>
-                </div>
-                <div>
-                    <h2 class="font-bold text-slate-800 group-hover:text-red-600">Reporte de Morosidad</h2>
-                    <p class="text-sm text-slate-500 mt-1">Consulta y exporta el listado de clientes con pagos vencidos.</p>
-                </div>
+            <div>
+                <h2 class="font-bold text-slate-800 group-hover:text-teal-600 transition-colors">Flujo de Caja</h2>
+                <p class="text-sm text-slate-500 mt-1">Analiza ingresos, egresos y balances para una visión financiera clara.</p>
             </div>
         </a>
         
-        <!-- Tarjeta: Métricas del Negocio -->
-        <a href="{{ url_for('reporte_metricas') }}" class="group bg-white p-6 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-            <div class="flex items-start gap-4">
-                <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg bg-yellow-100 text-yellow-600">
-                    <i class="bi bi-graph-up-arrow text-2xl"></i>
-                </div>
-                <div>
-                    <h2 class="font-bold text-slate-800 group-hover:text-yellow-600">Métricas del Negocio</h2>
-                    <p class="text-sm text-slate-500 mt-1">Visualiza los indicadores clave (KPIs) de la empresa.</p>
-                </div>
+        <a href="{{ url_for('adjudicacion') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 flex items-start space-x-4">
+            <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                <i class="bi bi-trophy-fill text-2xl"></i>
+            </div>
+            <div>
+                <h2 class="font-bold text-slate-800 group-hover:text-amber-600 transition-colors">Sistema de Adjudicación</h2>
+                <p class="text-sm text-slate-500 mt-1">Gestiona el proceso de selección y asignación de adjudicados.</p>
             </div>
         </a>
+
     </div>
 </div>
 {% endblock %}
