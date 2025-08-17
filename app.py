@@ -2575,6 +2575,25 @@ def conciliar_pago(pago_id):
                     # Al completar la inscripción, se activa el plan del cliente.
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO', estatus = 'ACTIVO' WHERE id = %s", (monto_total_consolidado, cliente['id']))
                     
+                    # >>> INICIO DE LA CORRECCIÓN <<<
+                    # Esta llamada activa el cálculo de comisiones y splits para la venta.
+                    try:
+                        # Re-leemos los datos del cliente para asegurar que tenemos la info comercial
+                        cur.execute("SELECT asesor, responsable, plan_contratado, contrato_nro FROM clientes WHERE id = %s", (cliente['id'],))
+                        info_cliente_comercial = cur.fetchone()
+                        if info_cliente_comercial and info_cliente_comercial['plan_contratado']:
+                            calcular_y_guardar_comisiones(
+                                contrato_nro=info_cliente_comercial['contrato_nro'],
+                                cliente_id=cliente['id'],
+                                monto_plan=Decimal(info_cliente_comercial['plan_contratado']),
+                                asesor_dueno=info_cliente_comercial['asesor'],
+                                responsable_cierre=info_cliente_comercial['responsable']
+                            )
+                    except Exception as e:
+                        logging.error(f"FALLO AL CALCULAR COMISIONES para contrato {cliente['contrato_nro']}: {e}")
+                        flash(f"Advertencia: El pago fue conciliado, pero hubo un error al generar las comisiones: {e}", "warning")
+                    # >>> FIN DE LA CORRECCIÓN <<<
+
                     descripcion_audit = f"Consolidó pagos de inscripción. Recibo final N°{pago_final_id} por ${monto_total_consolidado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONSOLIDACION_INSCRIPCION', descripcion_audit, cliente['id'])
                     
@@ -3150,6 +3169,20 @@ def portal_dashboard():
                         'boton_url': url_for('portal_pagar_inscripcion'),
                         'boton_activo': not pago_inscripcion_pendiente
                     }
+            
+            # >>> INICIO DE LA CORRECCIÓN <<<
+            elif cliente_dict.get('proceso') == 'INSCRITO':
+                cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_pago = 'Pendiente'", (session['cliente_id'],))
+                pago_cuota_pendiente = cur.fetchone()
+
+                estado_principal = {
+                    'titulo': '¡Felicitaciones! Tu plan está activo',
+                    'mensaje': f"Tu inscripción ha sido completada. Para comenzar a sumar cuotas a tu plan, por favor realiza el pago de tu primera cuota por un monto de ${cliente_dict.get('valor_cuota', 0):,.2f}.",
+                    'boton_texto': 'Pagar Primera Cuota',
+                    'boton_url': url_for('portal_reportar_pago'),
+                    'boton_activo': not pago_cuota_pendiente
+                }
+            # >>> FIN DE LA CORRECCIÓN <<<
             
             # Busca órdenes de pago por diferencia pendientes
             cur.execute("SELECT * FROM payment_orders WHERE cliente_id = %s AND status = 'ISSUED'", (session['cliente_id'],))

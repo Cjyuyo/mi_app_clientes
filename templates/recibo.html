@@ -63,10 +63,19 @@
             <div class="section">
                 <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider border-b pb-2 mb-4">Detalles del Pago</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                    <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Monto Pagado (USD)</span><span class="block font-bold text-lg text-green-600">${{ "%.2f"|format(pago.monto) }}</span></div>
+                    <div class="bg-slate-50 p-3 rounded-lg">
+                        <span class="block text-xs text-slate-500">Monto Pagado (USD)</span>
+                        <span class="block font-bold text-lg text-green-600">${{ "%.2f"|format(pago.monto) }}</span>
+                        <!-- >>> INICIO DE LA CORRECCIÓN <<< -->
+                        {% if pago.monto_bs and pago.monto_bs > 0 %}
+                        <span class="block text-xs text-slate-500 mt-1">
+                            Equivale a <strong>{{ "{:,.2f}".format(pago.monto_bs) }} Bs</strong>
+                        </span>
+                        {% endif %}
+                        <!-- >>> FIN DE LA CORRECCIÓN <<< -->
+                    </div>
                     
                     {% if pago.monto_bs and pago.monto_bs > 0 %}
-                    <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Monto Pagado (Bs)</span><span class="block font-semibold text-slate-700">{{ "{:,.2f}".format(pago.monto_bs) }} Bs</span></div>
                     <div class="bg-slate-50 p-3 rounded-lg"><span class="block text-xs text-slate-500">Tasa Aplicada</span><span class="block font-semibold text-slate-700">{{ "{:,.2f}".format(pago.tasa_dia) }} Bs/{{ pago.moneda_referencia or 'USD' }}</span></div>
                     {% endif %}
                     
