@@ -1,107 +1,93 @@
-{% extends 'base_sidebar.html' %}
+{% extends "base_sidebar.html" %}
 
-{% block title %}
-    Hub Principal
-{% endblock %}
+{% block title %}Panel de Control{% endblock %}
 
 {% block body %}
 <div class="space-y-6">
-    <!-- Encabezado -->
+    <!-- Encabezado de Bienvenida -->
     <div class="bg-white p-6 rounded-xl shadow-sm">
-        <h1 class="text-3xl font-bold text-slate-800">Bienvenido, {{ g.admin.usuario }}</h1>
-        <p class="text-slate-500 mt-1">Aquí tienes un resumen del estado actual del sistema.</p>
+        <h1 class="text-3xl font-bold text-slate-800">Panel de Control</h1>
+        <p class="text-slate-500 mt-1">Bienvenido de nuevo, <strong>{{ g.admin.usuario }}</strong>. Aquí tienes un resumen de la actividad.</p>
     </div>
 
-    <!-- KPIs (Indicadores Clave) -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-        
-        <!-- Clientes en Cartera -->
-        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center space-x-4">
-            <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                <i class="bi bi-people-fill text-2xl"></i>
-            </div>
+    <!-- KPIs Principales (Compactados) -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-xl shadow-sm flex items-center gap-3">
+            <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-blue-100 text-blue-600"><i class="bi bi-people-fill text-xl"></i></div>
             <div>
-                <div class="text-sm font-medium text-slate-500">Clientes en Cartera</div>
-                <div class="text-2xl font-bold text-slate-800">{{ stats.clientes_cartera }}</div>
+                <div class="text-xs text-slate-500 font-medium">Clientes</div>
+                <div class="text-xl font-bold text-slate-800">{{ stats.clientes_cartera | default('0') }}</div>
             </div>
         </div>
-
-        <!-- Recaudado en el Mes -->
-        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center space-x-4">
-            <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-full bg-green-100 text-green-600">
-                <i class="bi bi-cash-stack text-2xl"></i>
-            </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm flex items-center gap-3">
+            <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-green-100 text-green-600"><i class="bi bi-cash-stack text-xl"></i></div>
             <div>
-                <div class="text-sm font-medium text-slate-500">Recaudado (Mes)</div>
-                <div class="text-2xl font-bold text-slate-800">${{ "{:,.2f}".format(stats.recaudado_mes) }}</div>
+                <div class="text-xs text-slate-500 font-medium">Recaudado Mes</div>
+                <div class="text-xl font-bold text-slate-800">${{ "%.2f"|format(stats.recaudado_mes) if stats.recaudado_mes is not none else '0.00' }}</div>
             </div>
         </div>
-
-        <!-- Tasa BCV -->
-        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center space-x-4">
-            <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-full bg-sky-100 text-sky-600">
-                <i class="bi bi-currency-dollar text-2xl"></i>
-            </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm flex items-center gap-3">
+            <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600"><i class="bi bi-clipboard2-check-fill text-xl"></i></div>
             <div>
-                <div class="text-sm font-medium text-slate-500">Tasa BCV</div>
-                <div class="text-2xl font-bold text-slate-800">{{ stats.tasa_bcv }}</div>
+                <div class="text-xs text-slate-500 font-medium">Solicitudes</div>
+                <div class="text-xl font-bold text-slate-800">{{ stats.solicitudes_pendientes | default('0') }}</div>
             </div>
         </div>
-        
-        <!-- Tasa de Ocupación (Citas) -->
-        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center space-x-4">
-            <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
-                <i class="bi bi-calendar-check-fill text-2xl"></i>
-            </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm flex items-center gap-3">
+            <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-purple-100 text-purple-600"><i class="bi bi-graph-up-arrow text-xl"></i></div>
             <div>
-                <div class="text-sm font-medium text-slate-500">Ocupación Citas (Hoy)</div>
-                <div class="text-2xl font-bold text-slate-800">{{ "%.1f"|format(tasa_ocupacion) }}%</div>
+                <div class="text-xs text-slate-500 font-medium">Tasa BCV</div>
+                <div class="text-xl font-bold text-slate-800">{{ stats.tasa_bcv | default('N/A') }}</div>
             </div>
         </div>
-
     </div>
 
-    <!-- Alertas y Acciones Pendientes -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <!-- Reportes por Revisar -->
-        <a href="{{ url_for('reportes_por_revisar') }}" class="block bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg hover:bg-blue-100 transition-colors">
-            <div class="flex items-center space-x-3">
-                <i class="bi bi-file-earmark-check-fill text-blue-600 text-2xl"></i>
-                <div>
-                    <div class="font-bold text-blue-800">Reportes por Revisar</div>
-                    <p class="text-sm text-blue-700">{{ stats.reportes_pendientes }} pagos de clientes esperando aprobación.</p>
+    <!-- Centro de Operaciones y Actividad (Compactados) -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Columna de Operaciones -->
+        <div class="lg:col-span-2">
+            <div class="bg-white p-4 rounded-xl shadow-sm h-full">
+                <h2 class="text-base font-bold text-slate-800 mb-3">Centro de Operaciones</h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <a href="{{ url_for('reportes_por_revisar') }}" class="relative group bg-slate-50 p-3 rounded-lg hover:bg-slate-100 transition-colors text-center">
+                        {% if stats.reportes_pendientes > 0 %}<span class="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">{{ stats.reportes_pendientes }}</span>{% endif %}
+                        <i class="bi bi-journal-check text-2xl text-red-500 mb-1"></i>
+                        <span class="text-xs font-semibold text-slate-700 block">Revisar Reportes</span>
+                    </a>
+                    <a href="{{ url_for('pagos_por_conciliar') }}" class="relative group bg-slate-50 p-3 rounded-lg hover:bg-slate-100 transition-colors text-center">
+                        {% if stats.pagos_por_conciliar > 0 %}<span class="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-yellow-400 text-xs font-bold text-yellow-900">{{ stats.pagos_por_conciliar }}</span>{% endif %}
+                        <i class="bi bi-patch-check-fill text-2xl text-green-500 mb-1"></i>
+                        <span class="text-xs font-semibold text-slate-700 block">Conciliar Pagos</span>
+                    </a>
+                    <a href="{{ url_for('solicitudes_hub') }}" class="relative group bg-slate-50 p-3 rounded-lg hover:bg-slate-100 transition-colors text-center">
+                        {% if stats.solicitudes_pendientes > 0 %}<span class="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-purple-500 text-xs font-bold text-white">{{ stats.solicitudes_pendientes }}</span>{% endif %}
+                        <i class="bi bi-inbox-fill text-2xl text-purple-500 mb-1"></i>
+                        <span class="text-xs font-semibold text-slate-700 block">Gestionar Solicitudes</span>
+                    </a>
+                    <a href="{{ url_for('registrar') }}" class="group bg-slate-50 p-3 rounded-lg hover:bg-slate-100 transition-colors text-center">
+                        <i class="bi bi-person-plus-fill text-2xl text-blue-500 mb-1"></i>
+                        <span class="text-xs font-semibold text-slate-700 block">Registrar Cliente</span>
+                    </a>
+                    <a href="{{ url_for('consulta') }}" class="group bg-slate-50 p-3 rounded-lg hover:bg-slate-100 transition-colors text-center">
+                        <i class="bi bi-search text-2xl text-slate-500 mb-1"></i>
+                        <span class="text-xs font-semibold text-slate-700 block">Consultar Cliente</span>
+                    </a>
+                    <a href="{{ url_for('reporte_morosidad') }}" class="group bg-slate-50 p-3 rounded-lg hover:bg-slate-100 transition-colors text-center">
+                        <i class="bi bi-file-earmark-excel-fill text-2xl text-teal-500 mb-1"></i>
+                        <span class="text-xs font-semibold text-slate-700 block">Ver Morosidad</span>
+                    </a>
                 </div>
             </div>
-        </a>
+        </div>
 
-        <!-- Pagos por Conciliar -->
-        <a href="{{ url_for('pagos_por_conciliar') }}" class="block bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg hover:bg-green-100 transition-colors">
-            <div class="flex items-center space-x-3">
-                <i class="bi bi-bank2 text-green-600 text-2xl"></i>
-                <div>
-                    <div class="font-bold text-green-800">Pagos por Conciliar</div>
-                    <p class="text-sm text-green-700">{{ stats.pagos_por_conciliar }} pagos listos para ser confirmados.</p>
+        <!-- Columna de Actividad -->
+        <div class="lg:col-span-1">
+            <div class="bg-white p-4 rounded-xl shadow-sm h-full">
+                <h2 class="text-base font-bold text-slate-800 mb-3">Equipo en Tiempo Real</h2>
+                <div id="active-sessions-list" class="space-y-3">
+                    <div class="text-center text-slate-500 py-4">Cargando...</div>
                 </div>
             </div>
-        </a>
-        
-        <!-- Solicitudes Pendientes -->
-        <a href="{{ url_for('solicitudes_hub') }}" class="block bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded-r-lg hover:bg-indigo-100 transition-colors">
-            <div class="flex items-center space-x-3">
-                <i class="bi bi-journal-check text-indigo-600 text-2xl"></i>
-                <div>
-                    <div class="font-bold text-indigo-800">Solicitudes Pendientes</div>
-                    <p class="text-sm text-indigo-700">{{ stats.solicitudes_pendientes }} solicitudes (citas, etc.) por gestionar.</p>
-                </div>
-            </div>
-        </a>
-    </div>
-
-    <!-- Sesiones Activas -->
-    <div class="bg-white p-6 rounded-xl shadow-sm">
-        <h2 class="text-lg font-bold text-slate-800 mb-4">Usuarios Activos</h2>
-        <div id="active-sessions-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            <!-- Los usuarios se cargarán aquí dinámicamente -->
         </div>
     </div>
 </div>
@@ -109,41 +95,39 @@
 
 {% block scripts_extra %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const container = document.getElementById('active-sessions-container');
-
-        async function fetchActiveSessions() {
+    document.addEventListener('DOMContentLoaded', function () {
+        const sessionsList = document.getElementById('active-sessions-list');
+        const fetchActiveSessions = async () => {
             try {
-                const response = await fetch('{{ url_for('get_active_sessions') }}');
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
+                const response = await fetch("{{ url_for('get_active_sessions') }}");
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const users = await response.json();
-                
-                container.innerHTML = ''; // Limpiar contenedor
-
-                users.forEach(user => {
-                    const userCard = `
-                        <div class="text-center p-3 rounded-lg ${user.is_online ? 'bg-green-50' : 'bg-slate-50'}">
-                            <div class="relative inline-block">
-                                <i class="bi bi-person-circle text-4xl ${user.is_online ? 'text-green-500' : 'text-slate-400'}"></i>
-                                <span class="absolute bottom-0 right-0 block h-3 w-3 rounded-full ${user.is_online ? 'bg-green-500' : 'bg-slate-400'} ring-2 ring-white"></span>
+                sessionsList.innerHTML = '';
+                if (!users || users.length === 0) {
+                    sessionsList.innerHTML = '<div class="text-center text-slate-500 py-4 text-sm">No hay usuarios activos.</div>';
+                } else {
+                    users.forEach(user => {
+                        const userElement = document.createElement('div');
+                        userElement.className = 'flex items-center justify-between';
+                        const statusIcon = user.is_online 
+                            ? '<span class="w-2.5 h-2.5 bg-green-500 rounded-full" title="En línea"></span>'
+                            : '<span class="w-2.5 h-2.5 bg-slate-300 rounded-full" title="Desconectado"></span>';
+                        userElement.innerHTML = `
+                            <div class="flex items-center gap-3">
+                                ${statusIcon}
+                                <span class="font-semibold text-sm text-slate-700">${user.username}</span>
                             </div>
-                            <p class="text-sm font-semibold text-slate-700 mt-2 truncate">${user.username}</p>
-                            <p class="text-xs text-slate-500">${user.last_seen}</p>
-                        </div>
-                    `;
-                    container.innerHTML += userCard;
-                });
-
+                            <small class="text-xs text-slate-400">${user.last_seen}</small>`;
+                        sessionsList.appendChild(userElement);
+                    });
+                }
             } catch (error) {
-                container.innerHTML = '<p class="col-span-full text-center text-red-500">No se pudieron cargar las sesiones.</p>';
                 console.error('Error fetching active sessions:', error);
+                sessionsList.innerHTML = '<div class="text-center text-red-500 py-4 text-sm">Error al cargar sesiones.</div>';
             }
-        }
-
+        };
         fetchActiveSessions();
-        setInterval(fetchActiveSessions, 30000); // Actualizar cada 30 segundos
+        setInterval(fetchActiveSessions, 10000); 
     });
 </script>
 {% endblock %}

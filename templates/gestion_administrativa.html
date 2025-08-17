@@ -64,7 +64,7 @@
             </div>
         </a>
 
-        <!-- Otras tarjetas existentes -->
+        <!-- Tarjeta: Flujo de Caja -->
         <a href="{{ url_for('reporte_flujo_caja') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 flex items-start space-x-4">
             <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-teal-100 text-teal-600">
                 <i class="bi bi-graph-up-arrow text-2xl"></i>
@@ -75,6 +75,7 @@
             </div>
         </a>
         
+        <!-- Tarjeta: Sistema de Adjudicación -->
         <a href="{{ url_for('adjudicacion') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 flex items-start space-x-4">
             <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-amber-100 text-amber-600">
                 <i class="bi bi-trophy-fill text-2xl"></i>
@@ -82,6 +83,28 @@
             <div>
                 <h2 class="font-bold text-slate-800 group-hover:text-amber-600 transition-colors">Sistema de Adjudicación</h2>
                 <p class="text-sm text-slate-500 mt-1">Gestiona el proceso de selección y asignación de adjudicados.</p>
+            </div>
+        </a>
+
+        <!-- Tarjeta: Reporte de Morosidad -->
+        <a href="{{ url_for('reporte_morosidad') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 flex items-start space-x-4">
+            <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-red-100 text-red-600">
+                <i class="bi bi-person-x-fill text-2xl"></i>
+            </div>
+            <div>
+                <h2 class="font-bold text-slate-800 group-hover:text-red-600 transition-colors">Reporte de Morosidad</h2>
+                <p class="text-sm text-slate-500 mt-1">Consulta y exporta el listado de clientes con pagos vencidos.</p>
+            </div>
+        </a>
+
+        <!-- Tarjeta: Métricas del Negocio -->
+        <a href="{{ url_for('reporte_metricas') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 flex items-start space-x-4">
+            <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-purple-100 text-purple-600">
+                <i class="bi bi-bar-chart-line-fill text-2xl"></i>
+            </div>
+            <div>
+                <h2 class="font-bold text-slate-800 group-hover:text-purple-600 transition-colors">Métricas del Negocio</h2>
+                <p class="text-sm text-slate-500 mt-1">Visualiza los indicadores clave (KPIs) de la empresa.</p>
             </div>
         </a>
 
