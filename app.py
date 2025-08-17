@@ -2541,43 +2541,47 @@ def conciliar_pago(pago_id):
                 nueva_inscripcion_pagada = inscripcion_pagada_actual + pago_actual['monto']
 
                 if nueva_inscripcion_pagada >= inscripcion_total_requerida:
+                    # --- INICIO DE LA CORRECCIÓN ---
                     cur.execute("SELECT * FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente['id'],))
                     abonos_anteriores = cur.fetchall()
                     
-                    pagos_a_consolidar = abonos_anteriores + [pago_actual]
-                    ids_a_anular = [p['id'] for p in pagos_a_consolidar]
-                    
-                    monto_total_consolidado = sum(p['monto'] for p in pagos_a_consolidar)
-                    pagos_individuales = [
-                        {"id": p['id'], "monto": str(p['monto']), "fecha": p['fecha_pago'].isoformat()}
-                        for p in pagos_a_consolidar
-                    ]
-                    detalles_consolidados = {
-                        "pagos_individuales": pagos_individuales
-                    }
-                    
-                    cur.execute("""
-                        INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, estado_pago, por_concepto_de, detalles_reporte, conciliado_por_id, fecha_pago, cuotas_cubiertas) 
-                        VALUES (%s, %s, 'Inscripción Finalizada', 'Consolidado', 'Conciliado', 'Pago total de inscripción consolidado', %s, %s, %s, 0) RETURNING id
-                    """, (cliente['id'], monto_total_consolidado, json.dumps(detalles_consolidados), admin_id, pago_actual['fecha_pago']))
-                    pago_final_id = cur.fetchone()[0]
+                    monto_total_consolidado = nueva_inscripcion_pagada
+                    pago_final_id = None
 
-                    detalle_anulacion = json.dumps({
-                        "motivo": "Consolidado en recibo final",
-                        "recibo_final_id": pago_final_id
-                    })
-                    cur.execute(
-                        "UPDATE pagos SET estado_pago = 'Anulado', detalles_reporte = %s WHERE id = ANY(%s)",
-                        (detalle_anulacion, ids_a_anular)
-                    )
+                    if not abonos_anteriores:
+                        # Caso 1: Es un pago único que cubre el 100%.
+                        # Se convierte este mismo pago en el recibo final.
+                        cur.execute(
+                            "UPDATE pagos SET tipo_pago = 'Inscripción Finalizada', por_concepto_de = 'Pago total de inscripción', estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s RETURNING id",
+                            (admin_id, pago_id)
+                        )
+                        pago_final_id = cur.fetchone()[0]
+                    else:
+                        # Caso 2: Es el último abono. Se consolidan todos los pagos.
+                        pagos_a_consolidar = abonos_anteriores + [pago_actual]
+                        ids_a_anular = [p['id'] for p in pagos_a_consolidar]
+                        
+                        pagos_individuales = [
+                            {"id": p['id'], "monto": str(p['monto']), "fecha": p['fecha_pago'].isoformat()}
+                            for p in pagos_a_consolidar
+                        ]
+                        detalles_consolidados = {"pagos_individuales": pagos_individuales}
+                        
+                        cur.execute("""
+                            INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, estado_pago, por_concepto_de, detalles_reporte, conciliado_por_id, fecha_pago, cuotas_cubiertas) 
+                            VALUES (%s, %s, 'Inscripción Finalizada', 'Consolidado', 'Conciliado', 'Pago total de inscripción consolidado', %s, %s, %s, 0) RETURNING id
+                        """, (cliente['id'], monto_total_consolidado, json.dumps(detalles_consolidados), admin_id, pago_actual['fecha_pago']))
+                        pago_final_id = cur.fetchone()[0]
+
+                        detalle_anulacion = json.dumps({"motivo": "Consolidado en recibo final", "recibo_final_id": pago_final_id})
+                        cur.execute("UPDATE pagos SET estado_pago = 'Anulado', detalles_reporte = %s WHERE id = ANY(%s)", (detalle_anulacion, ids_a_anular))
                     
-                    # Al completar la inscripción, se prepara al cliente para pagar su primera cuota.
-                    # El estatus NO cambia a ACTIVO aquí.
+                    # --- FIN DE LA CORRECCIÓN ---
+
+                    # Lógica común para ambos casos de inscripción completada
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (monto_total_consolidado, cliente['id']))
                     
-                    # Esta llamada activa el cálculo de comisiones y splits para la venta.
                     try:
-                        # Re-leemos los datos del cliente para asegurar que tenemos la info comercial
                         cur.execute("SELECT asesor, responsable, plan_contratado, contrato_nro FROM clientes WHERE id = %s", (cliente['id'],))
                         info_cliente_comercial = cur.fetchone()
                         if info_cliente_comercial and info_cliente_comercial['plan_contratado']:
@@ -2596,17 +2600,16 @@ def conciliar_pago(pago_id):
                     registrar_accion_auditoria('CONSOLIDACION_INSCRIPCION', descripcion_audit, cliente['id'])
                     
                     url_recibo = url_for('ver_recibo_inscripcion', pago_id=pago_final_id)
-                    # Mensaje ajustado para el administrador.
                     flash_msg = f"¡Inscripción consolidada! El cliente ha sido notificado para pagar su primera cuota y activar el plan. <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo Final</a>."
                 
                 else:
+                    # Es un abono parcial que no completa el 100%.
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
                     cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
                     url_recibo = url_for('generar_recibo_pago', pago_id=pago_id)
                     flash_msg = f"Abono de inscripción N° {pago_id} conciliado. <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo</a>."
 
             elif pago_actual['tipo_pago'] == 'Cuota':
-                # El plan se activa (estatus = 'ACTIVO') solo al pagar la primera cuota.
                 if cliente['proceso'] == 'INSCRITO':
                     cur.execute("UPDATE clientes SET proceso = 'Ahorrador', estatus = 'ACTIVO' WHERE id = %s", (cliente['id'],))
                 
