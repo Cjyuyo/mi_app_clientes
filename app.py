@@ -2898,32 +2898,74 @@ def delete_client(client_id):
 @admin_required
 def guardar_oferta(client_id):
     conn = get_db()
-    cuotas_ofertadas, cedula_cliente = request.form.get('cuotas_ofertadas'), ''
+    cuotas_ofertadas = request.form.get('cuotas_ofertadas')
+    cedula_cliente = ''
+
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta'))
+    
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT cedula, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
+            cur.execute("SELECT cedula, (nombre || ' ' || apellido) as nombre_apellido, ciclo_cobranza, cuotas_pagadas_progresivas FROM clientes WHERE id = %s", (client_id,))
             cliente_info = cur.fetchone()
             if cliente_info:
-                cedula_cliente, nombre_cliente = cliente_info['cedula'], cliente_info['nombre_apellido']
-            hoy, inicio_mes = get_venezuela_current_date(), get_venezuela_current_date().replace(day=1)
-            cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND puntualidad = 'Impuntual' AND fecha_pago >= %s", (client_id, inicio_mes))
-            if cur.fetchone():
-                flash("No se puede registrar la oferta: El cliente tiene un pago impuntual registrado en el mes actual.", 'error')
+                cedula_cliente = cliente_info['cedula']
+                nombre_cliente = cliente_info['nombre_apellido']
+                ciclo_cliente = cliente_info['ciclo_cobranza']
+                cuotas_pagadas = cliente_info['cuotas_pagadas_progresivas'] or 0
+            else:
+                flash("Cliente no encontrado.", "error")
+                return redirect(url_for('consulta'))
+
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se aplican las mismas reglas que en el portal del cliente.
+            if cuotas_pagadas < 1:
+                flash("No se puede registrar la oferta: El cliente aún no ha pagado su primera cuota.", 'error')
                 return redirect(url_for('consulta', busqueda=cedula_cliente))
+
+            if cuotas_pagadas > 1:
+                today = get_venezuela_current_date()
+                
+                fecha_vencimiento_ciclo = None
+                if ciclo_cliente == '15 al 02':
+                    fecha_vencimiento_ciclo = today.replace(day=2)
+                elif ciclo_cliente == '20 al 10':
+                    fecha_vencimiento_ciclo = today.replace(day=10)
+
+                if fecha_vencimiento_ciclo:
+                    cur.execute("""
+                        SELECT 1 FROM pagos 
+                        WHERE cliente_id = %s 
+                        AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'
+                        AND fecha_pago > %s
+                        AND EXTRACT(MONTH FROM fecha_pago) = %s
+                        AND EXTRACT(YEAR FROM fecha_pago) = %s
+                        LIMIT 1
+                    """, (client_id, fecha_vencimiento_ciclo, today.month, today.year))
+                    pago_impuntual_mes_actual = cur.fetchone() is not None
+                    
+                    if pago_impuntual_mes_actual:
+                        flash("No se puede registrar la oferta: El cliente tiene un pago impuntual registrado en el mes actual.", 'error')
+                        return redirect(url_for('consulta', busqueda=cedula_cliente))
+            # --- FIN DE LA CORRECCIÓN ---
+
             if not cuotas_ofertadas or not cuotas_ofertadas.isdigit() or int(cuotas_ofertadas) <= 0:
                 flash("Debe ingresar un número válido de cuotas para la oferta.", 'error')
                 return redirect(url_for('consulta', busqueda=cedula_cliente))
-            cur.execute("INSERT INTO ofertas (cliente_id, cuotas_ofertadas, fecha_oferta, estado_oferta) VALUES (%s, %s, %s, 'activa')", (client_id, int(cuotas_ofertadas), hoy))
+
+            cur.execute("INSERT INTO ofertas (cliente_id, cuotas_ofertadas, fecha_oferta, estado_oferta) VALUES (%s, %s, %s, 'activa')", (client_id, int(cuotas_ofertadas), get_venezuela_current_date()))
+            
             descripcion_audit = f"Registró una oferta de {cuotas_ofertadas} cuotas para el cliente {nombre_cliente}."
             registrar_accion_auditoria('REGISTRO_OFERTA', descripcion_audit, client_id)
+            
             conn.commit()
             flash(f"¡Oferta de {cuotas_ofertadas} cuotas registrada exitosamente!", 'success')
+
     except (psycopg2.Error, ConnectionError) as e:
         conn.rollback()
         flash(f"Ocurrió un error al registrar la oferta: {e}", 'error')
+    
     return redirect(url_for('consulta', busqueda=cedula_cliente))
 
 @app.route('/adjudicacion', methods=['GET'])
@@ -3140,21 +3182,52 @@ def portal_dashboard():
             
             cliente_dict = dict(cliente)
             
-            # --- CAMBIO INSERTADO ---
-            # Se añade la consulta para cargar el historial de pagos del cliente.
             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s AND estado_pago != 'Anulado' ORDER BY fecha_pago DESC, id DESC LIMIT 5;", (session['cliente_id'],))
             cliente_dict['pagos'] = cur.fetchall()
-            # --- FIN DEL CAMBIO ---
 
             # Lógica de Notificaciones
             ordenes_pendientes = []
             reportes_rechazados = [] 
             estado_principal = {} 
             cita_confirmada = None 
-            puede_registrar_oferta = True
+            
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Reglas para habilitar la opción de ofertar.
+            CUOTAS_MINIMAS_PARA_OFERTAR = 1
+            cuotas_pagadas = cliente_dict.get('cuotas_pagadas_progresivas', 0) or 0
+            puede_registrar_oferta = False
+
+            if cuotas_pagadas >= CUOTAS_MINIMAS_PARA_OFERTAR:
+                if cuotas_pagadas == 1:
+                    puede_registrar_oferta = True
+                else:
+                    today = get_venezuela_current_date()
+                    ciclo_cliente = cliente_dict.get('ciclo_cobranza')
+                    
+                    fecha_vencimiento_ciclo = None
+                    if ciclo_cliente == '15 al 02':
+                        fecha_vencimiento_ciclo = today.replace(day=2)
+                    elif ciclo_cliente == '20 al 10':
+                        fecha_vencimiento_ciclo = today.replace(day=10)
+
+                    pago_impuntual_mes_actual = False
+                    if fecha_vencimiento_ciclo:
+                        cur.execute("""
+                            SELECT 1 FROM pagos 
+                            WHERE cliente_id = %s 
+                            AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'
+                            AND fecha_pago > %s
+                            AND EXTRACT(MONTH FROM fecha_pago) = %s
+                            AND EXTRACT(YEAR FROM fecha_pago) = %s
+                            LIMIT 1
+                        """, (session['cliente_id'], fecha_vencimiento_ciclo, today.month, today.year))
+                        pago_impuntual_mes_actual = cur.fetchone() is not None
+                    
+                    puede_registrar_oferta = not pago_impuntual_mes_actual
+            # --- FIN DE LA CORRECCIÓN ---
+
             historial_gestiones = []
 
-            # --- LÓGICA PARA INSCRIPCIÓN (CORREGIDA) ---
             if cliente_dict.get('proceso') == 'RESERVA':
                 inscripcion_pagada = cliente_dict.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
                 inscripcion_total = cliente_dict.get('inscripcion_monto', Decimal('0.0')) or Decimal('0.0')
@@ -3162,7 +3235,6 @@ def portal_dashboard():
                 if inscripcion_pagada < inscripcion_total:
                     monto_restante = inscripcion_total - inscripcion_pagada
                     
-                    # Verifica si ya hay un pago de inscripción pendiente
                     cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Pendiente'", (session['cliente_id'],))
                     pago_inscripcion_pendiente = cur.fetchone()
 
@@ -3174,7 +3246,6 @@ def portal_dashboard():
                         'boton_activo': not pago_inscripcion_pendiente
                     }
             
-            # >>> INICIO DE LA CORRECCIÓN <<<
             elif cliente_dict.get('proceso') == 'INSCRITO':
                 cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_pago = 'Pendiente'", (session['cliente_id'],))
                 pago_cuota_pendiente = cur.fetchone()
@@ -3186,9 +3257,7 @@ def portal_dashboard():
                     'boton_url': url_for('portal_reportar_pago'),
                     'boton_activo': not pago_cuota_pendiente
                 }
-            # >>> FIN DE LA CORRECCIÓN <<<
             
-            # Busca órdenes de pago por diferencia pendientes
             cur.execute("SELECT * FROM payment_orders WHERE cliente_id = %s AND status = 'ISSUED'", (session['cliente_id'],))
             ordenes_pendientes = cur.fetchall()
 
