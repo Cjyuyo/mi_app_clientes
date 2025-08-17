@@ -1101,30 +1101,44 @@ def procesar_reporte(pago_id):
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def pagos_por_conciliar():
     conn = get_db()
-    # --- CAMBIO INSERTADO ---
-    # La variable ahora contendrá pagos individuales, no bulks.
     pagos_a_conciliar = []
+    bulks_a_conciliar = []
+    
     if not conn:
         flash("Error de conexión con la base de datos.", "danger")
-        return render_template('pagos_por_conciliar.html', pagos=pagos_a_conciliar, anio_actual=get_venezuela_current_date().year)
+        return render_template('pagos_por_conciliar.html', pagos=pagos_a_conciliar, bulks=bulks_a_conciliar, anio_actual=get_venezuela_current_date().year)
+    
     try:
         with conn.cursor() as cur:
-            # --- CAMBIO INSERTADO ---
-            # La consulta ahora busca en la tabla de "pagos" los que están aprobados y pendientes.
+            # --- CAMBIO: OBTENER PAGOS INDIVIDUALES ---
+            # Busca pagos normales que fueron aprobados y están listos.
             cur.execute("""
                 SELECT p.*, c.nombre, c.apellido, c.cedula
                 FROM pagos p JOIN clientes c ON p.cliente_id = c.id
-                WHERE p.estado_reporte = 'Aprobado' AND p.estado_pago = 'Pendiente'
+                WHERE p.estado_reporte = 'Aprobado' AND p.estado_pago = 'Pendiente' AND p.bulk_id IS NULL
                 ORDER BY p.fecha_creacion ASC;
             """)
             pagos_a_conciliar = cur.fetchall()
+
+            # --- CAMBIO: OBTENER BULKS ---
+            # Busca bulks que contienen diferencias y están listos.
+            cur.execute("""
+                SELECT b.*, c.nombre, c.apellido
+                FROM payment_bulks b JOIN clientes c ON b.cliente_id = c.id
+                WHERE b.status = 'READY_TO_RECONCILE' 
+                ORDER BY b.updated_at ASC;
+            """)
+            bulks_a_conciliar = cur.fetchall()
+
     except psycopg2.Error as e:
-        logging.error(f"Error al obtener pagos por conciliar: {e}")
-        flash("Error al cargar la lista de pagos por conciliar.", "danger")
+        logging.error(f"Error al obtener datos para conciliar: {e}")
+        flash("Error al cargar la lista de pagos y lotes por conciliar.", "danger")
     
-    # --- CAMBIO INSERTADO ---
-    # Se envía la variable 'pagos' a la plantilla, que ahora contiene la lista de pagos individuales.
-    return render_template('pagos_por_conciliar.html', pagos=pagos_a_conciliar, anio_actual=get_venezuela_current_date().year)
+    # Se envían ambas listas a la plantilla.
+    return render_template('pagos_por_conciliar.html', 
+                           pagos=pagos_a_conciliar, 
+                           bulks=bulks_a_conciliar, 
+                           anio_actual=get_venezuela_current_date().year)
 
 
 
@@ -3101,6 +3115,12 @@ def portal_dashboard():
             
             cliente_dict = dict(cliente)
             
+            # --- CAMBIO INSERTADO ---
+            # Se añade la consulta para cargar el historial de pagos del cliente.
+            cur.execute("SELECT * FROM pagos WHERE cliente_id = %s AND estado_pago != 'Anulado' ORDER BY fecha_pago DESC, id DESC LIMIT 5;", (session['cliente_id'],))
+            cliente_dict['pagos'] = cur.fetchall()
+            # --- FIN DEL CAMBIO ---
+
             # Lógica de Notificaciones
             ordenes_pendientes = []
             reportes_rechazados = [] 
@@ -3116,16 +3136,23 @@ def portal_dashboard():
                 
                 if inscripcion_pagada < inscripcion_total:
                     monto_restante = inscripcion_total - inscripcion_pagada
+                    
+                    # Verifica si ya hay un pago de inscripción pendiente
+                    cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Pendiente'", (session['cliente_id'],))
+                    pago_inscripcion_pendiente = cur.fetchone()
+
                     estado_principal = {
                         'titulo': 'Completa tu Inscripción',
                         'mensaje': f"¡Bienvenido a Moto Plan! Para activar tu plan, por favor completa el pago de tu inscripción. Monto restante: ${monto_restante:,.2f}",
                         'boton_texto': 'Pagar Inscripción',
                         'boton_url': url_for('portal_pagar_inscripcion'),
-                        'boton_activo': True
+                        'boton_activo': not pago_inscripcion_pendiente
                     }
-                    # --- CORRECCIÓN APLICADA AQUÍ ---
-                    cur.execute("SELECT * FROM pagos WHERE cliente_id = %s AND estado_pago = 'Pendiente' ORDER BY fecha_creacion DESC", (session['cliente_id'],))
-                    ordenes_pendientes = cur.fetchall()
+            
+            # Busca órdenes de pago por diferencia pendientes
+            cur.execute("SELECT * FROM payment_orders WHERE cliente_id = %s AND status = 'ISSUED'", (session['cliente_id'],))
+            ordenes_pendientes = cur.fetchall()
+
 
             return render_template('portal_dashboard.html', 
                                    cliente=cliente_dict, 
