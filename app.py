@@ -3177,7 +3177,7 @@ def portal_dashboard():
                 pago_cuota_pendiente = cur.fetchone()
 
                 estado_principal = {
-                    'titulo': '¡Felicitaciones! Tu plan está activo',
+                    'titulo': '¡Felicitaciones! Es hora de activar tu plan',
                     'mensaje': f"Tu inscripción ha sido completada. Para comenzar a sumar cuotas a tu plan, por favor realiza el pago de tu primera cuota por un monto de ${cliente_dict.get('valor_cuota', 0):,.2f}.",
                     'boton_texto': 'Pagar Primera Cuota',
                     'boton_url': url_for('portal_reportar_pago'),
