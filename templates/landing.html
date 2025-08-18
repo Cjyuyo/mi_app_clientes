@@ -62,7 +62,6 @@
     <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 py-3">
         <div class="container mx-auto px-4 flex justify-between items-center">
             <a href="#">
-                <!-- ===== CAMBIO: Logo aumentado un 50% ===== -->
                 <img id="navbar-logo" src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan Motors" class="h-20 md:h-32 transition-all duration-300">
             </a>
             <div class="flex items-center space-x-4">
@@ -78,7 +77,8 @@
     </nav>
 
     <!-- ===== HERO CAROUSEL ===== -->
-    <header id="heroCarousel" class="relative h-screen">
+    <!-- ===== CAMBIO: Altura reducida en móvil para evitar recorte ===== -->
+    <header id="heroCarousel" class="relative h-[70vh] md:h-screen">
         <!-- Slides -->
         <div class="carousel-container h-full">
             <div class="carousel-item absolute inset-0 opacity-100 transition-opacity duration-1000">
@@ -348,14 +348,12 @@
                 if (window.scrollY > 50) {
                     nav.classList.add('bg-black/80', 'backdrop-blur-sm', 'py-1');
                     nav.classList.remove('py-3');
-                    // ===== CAMBIO: Tamaño del logo al hacer scroll =====
                     logo.classList.add('h-16'); 
                     logo.classList.remove('h-20', 'md:h-32');
                 } else {
                     nav.classList.remove('bg-black/80', 'backdrop-blur-sm', 'py-1');
                     nav.classList.add('py-3');
                     logo.classList.remove('h-16');
-                    // ===== CAMBIO: Tamaño inicial del logo =====
                     logo.classList.add('h-20', 'md:h-32');
                 }
             });
