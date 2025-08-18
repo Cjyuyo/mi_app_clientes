@@ -8,8 +8,8 @@
     <!-- ===== ETIQUETAS PARA MINIATURA (OPEN GRAPH) ===== -->
     <meta property="og:title" content="Moto Plan Motors - Acelera Tu Sueño">
     <meta property="og:description" content="Con planes flexibles y transparentes, hacemos que estrenar moto sea una realidad. ¡Elige tu plan y acelera tu sueño!">
-    <meta property="og:image" content="https://images.pexels.com/photos/5195659/pexels-photo-5195659.jpeg?auto=compress&cs=tinysrgb&w=1200&h=630&dpr=2">
-    <meta property="og:url" content="URL_DE_TU_PAGINA_WEB_AQUI">
+    <meta property="og:image" content="https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/imagenes-landing/pexels-photo-5195659.jpeg">
+    <meta property="og:url" content="https://motoplanmotors.com">
     <meta property="og:type" content="website">
     
     <!-- Bootstrap 5 CSS y Icons -->
@@ -67,7 +67,7 @@
         .navbar.scrolled .navbar-brand img {
             width: 140px; /* Reducción al hacer scroll */
         }
-        .btn-primary {
+        .btn-primary, .btn-secondary {
             background-color: var(--primary-color);
             border-color: var(--primary-color);
             font-family: 'Oswald', sans-serif;
@@ -76,11 +76,22 @@
             border-radius: 5px;
             transition: all 0.3s ease;
         }
-        .btn-primary:hover {
+        .btn-primary:hover, .btn-secondary:hover {
             background-color: #e65c00;
             border-color: #e65c00;
             transform: translateY(-2px);
         }
+        .btn-secondary {
+            background-color: transparent;
+            border-color: var(--light-color);
+            color: var(--light-color);
+        }
+        .btn-secondary:hover {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            color: var(--light-color);
+        }
+
 
         /* Hero Carousel */
         .hero-carousel {
@@ -397,7 +408,8 @@
     <nav class="navbar navbar-dark fixed-top">
         <div class="container d-flex justify-content-between">
             <a class="navbar-brand" href="#">
-                <img src="{{ url_for('static', filename='BLANCOlargo.svg') }}" alt="Logo Moto Plan Motors">
+                <!-- ===== CAMBIO: LOGO DESDE S3 ===== -->
+                <img src="https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/Logos/BLANCOlargo.svg" alt="Logo Moto Plan Motors">
             </a>
             
             <ul class="navbar-nav flex-row align-items-center">
@@ -408,7 +420,7 @@
                     <a class="nav-link px-3" href="#testimonios">Clientes</a>
                 </li>
                 <li class="nav-item ps-3">
-                    <a class="btn btn-primary" href="/portal/login">
+                    <a class="btn btn-primary" href="https://app.motoplanmotors.com/portal/login">
                         Zona Clientes
                     </a>
                 </li>
@@ -427,9 +439,8 @@
             <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="6" aria-label="Slide 7"></button>
         </div>
         <div class="carousel-inner hero-carousel">
-            <!-- ===== SLIDE INICIAL CAMBIADO ===== -->
-            <!-- Slide 5: Amigos / Comunidad -->
-            <div class="carousel-item active slide-tribu" style="background-image: url('https://images.pexels.com/photos/5195659/pexels-photo-5195659.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+            <!-- ===== CAMBIO: IMÁGENES DESDE S3 ===== -->
+            <div class="carousel-item active slide-tribu" style="background-image: url('https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/imagenes-landing/pexels-photo-5195659.jpeg')">
                 <div class="carousel-caption">
                     <div>
                         <h1>LA TRIBU <br><span class="highlight">TE ESPERA</span></h1>
@@ -437,8 +448,7 @@
                     </div>
                 </div>
             </div>
-            <!-- Slide 1: La Idea -->
-            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/3758105/pexels-photo-3758105.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+            <div class="carousel-item" style="background-image: url('https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/imagenes-landing/pexels-photo-3758105.jpeg')">
                 <div class="carousel-caption">
                     <div>
                         <h1 data-aos="fade-up" data-aos-delay="200">EL SUEÑO <br><span class="highlight">COMIENZA</span></h1>
@@ -446,8 +456,7 @@
                     </div>
                 </div>
             </div>
-            <!-- Slide 2: Inversión -->
-            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/5902919/pexels-photo-5902919.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+            <div class="carousel-item" style="background-image: url('https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/imagenes-landing/pexels-photo-5902919.jpeg')">
                 <div class="carousel-caption">
                     <div>
                         <h1>REVALORIZA <br><span class="highlight">TU DINERO</span></h1>
@@ -455,8 +464,7 @@
                     </div>
                 </div>
             </div>
-            <!-- Slide 3: Libertad -->
-            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/1430931/pexels-photo-1430931.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+            <div class="carousel-item" style="background-image: url('https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/imagenes-landing/pexels-photo-1430931.jpeg')">
                 <div class="carousel-caption">
                     <div>
                         <h1>CONQUISTA <br><span class="highlight">EL CAMINO</span></h1>
@@ -464,8 +472,7 @@
                     </div>
                 </div>
             </div>
-            <!-- Slide 4: Pasión por la Moto -->
-            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/33469784/pexels-photo-33469784.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+            <div class="carousel-item" style="background-image: url('https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/imagenes-landing/pexels-photo-33469784.jpeg')">
                 <div class="carousel-caption">
                     <div>
                         <h1>TU ESPACIO, <br><span class="highlight">TU PASIÓN</span></h1>
@@ -473,8 +480,7 @@
                     </div>
                 </div>
             </div>
-            <!-- Slide 6: Pareja -->
-            <div class="carousel-item slide-pareja" style="background-image: url('https://images.pexels.com/photos/9606978/pexels-photo-9606978.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+            <div class="carousel-item slide-pareja" style="background-image: url('https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/imagenes-landing/pexels-photo-9606978.jpeg')">
                 <div class="carousel-caption">
                     <div>
                         <h1>AVENTURA <br><span class="highlight">PARA DOS</span></h1>
@@ -482,8 +488,7 @@
                     </div>
                 </div>
             </div>
-             <!-- Slide 7: Familia -->
-             <div class="carousel-item slide-familia" style="background-image: url('https://images.pexels.com/photos/1682497/pexels-photo-1682497.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+             <div class="carousel-item slide-familia" style="background-image: url('https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/imagenes-landing/pexels-photo-1682497.jpeg')">
                 <div class="carousel-caption">
                     <div>
                         <h1>UN FUTURO <br><span class="highlight">JUNTOS</span></h1>
@@ -527,17 +532,16 @@
                 <div class="tab-content" id="infoTabContent">
                     <div class="tab-pane fade show active" id="planes-tab-pane" role="tabpanel" aria-labelledby="planes-tab" tabindex="0">
                         
-                        <!-- ===== SECCIÓN DE TARJETAS CON DISEÑO PERSONALIZADO ===== -->
                         <div class="text-center pt-4">
                             <h2 class="section-title" style="font-size: 2.5rem; margin-bottom: 1rem;">DOS RUTAS, <span>UNA META</span></h2>
                             <p class="text-secondary mb-5">Elige el plan que te ponga en el camino más rápido hacia tu nueva moto.</p>
                         </div>
                 
                         <div class="row g-4">
-                            <!-- Tarjeta 1: Plan de Ahorro Programado -->
                             <div class="col-lg-6">
                                 <div class="immersive-card" data-aos="fade-up">
-                                    <img src="https://images.pexels.com/photos/819805/pexels-photo-819805.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" 
+                                    <!-- ===== CAMBIO: IMAGEN DESDE S3 ===== -->
+                                    <img src="https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/imagenes-landing/pexels-photo-819805.jpeg" 
                                          alt="Motocicleta clásica estilo cafe racer" class="immersive-card-bg">
                                     <div class="immersive-card-gradient"></div>
                                     <div class="immersive-card-content">
@@ -553,10 +557,10 @@
                                 </div>
                             </div>
                 
-                            <!-- Tarjeta 2: Adjudicación por Oferta -->
                             <div class="col-lg-6">
                                 <div class="immersive-card" data-aos="fade-up" data-aos-delay="150">
-                                    <img src="https://images.pexels.com/photos/2393821/pexels-photo-2393821.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" 
+                                    <!-- ===== CAMBIO: IMAGEN DESDE S3 ===== -->
+                                    <img src="https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/imagenes-landing/pexels-photo-2393821.jpeg" 
                                          alt="Motocicleta verde estilo vintage" class="immersive-card-bg">
                                     <div class="immersive-card-gradient"></div>
                                     <div class="immersive-card-content">
@@ -571,6 +575,13 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                        
+                        <div class="text-center mt-5">
+                            <!-- ===== CAMBIO: ENLACE AL CATÁLOGO EN S3 ===== -->
+                            <a href="https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/Catalogos/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
+                                <i class="bi bi-download me-2"></i> Descargar Catálogo
+                            </a>
                         </div>
 
                     </div>
@@ -598,7 +609,6 @@
         </section>
     </main>
     
-    <!-- ===== FOOTER CORREGIDO ===== -->
     <footer class="footer">
         <div class="container">
             <div class="row">
@@ -606,13 +616,14 @@
                     <h5>Moto Plan Motors</h5>
                     <p>Aceleramos los sueños de quienes buscan libertad sobre dos ruedas. Con planes flexibles y transparentes, hacemos que estrenar moto sea una realidad.</p>
                 </div>
-                <div class="col-lg-2 col-md-4 col-6 mb-4 mb-lg-0"><h5>Navegación</h5><ul class="list-unstyled"><li><a href="#planes-y-pasos">Planes</a></li><li><a href="#testimonios">Clientes</a></li><li><a href="/portal/login">Zona Clientes</a></li><li><a href="/admin/login">Zona Administrativa</a></li></ul></div>
+                <div class="col-lg-2 col-md-4 col-6 mb-4 mb-lg-0"><h5>Navegación</h5><ul class="list-unstyled"><li><a href="#planes-y-pasos">Planes</a></li><li><a href="#testimonios">Clientes</a></li><li><a href="https://app.motoplanmotors.com/portal/login">Zona Clientes</a></li><li><a href="https://app.motoplanmotors.com/admin/login">Zona Administrativa</a></li></ul></div>
                 <div class="col-lg-3 col-md-4 col-6 mb-4 mb-lg-0"><h5>Legal</h5><ul class="list-unstyled"><li><a href="#">Términos y Condiciones</a></li><li><a href="#">Política de Privacidad</a></li><li><a href="#">Preguntas Frecuentes</a></li></ul></div>
                 <div class="col-lg-3 col-md-4"><h5>Contacto</h5><p>Dirección de la Empresa, Ciudad, País</p><p>info@motoplanmotors.com</p><div class="social-icons"><a href="#"><i class="bi bi-facebook"></i></a><a href="#"><i class="bi bi-instagram"></i></a><a href="https://wa.me/1234567890"><i class="bi bi-whatsapp"></i></a></div></div>
             </div>
             <hr class="my-4">
             <div class="text-center">
-                <img src="{{ url_for('static', filename='BLANCOlargo.svg') }}" alt="Logo Moto Plan Motors" class="footer-logo-small mb-3">
+                <!-- ===== CAMBIO: LOGO DESDE S3 ===== -->
+                <img src="https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/Logos/BLANCOlargo.svg" alt="Logo Moto Plan Motors" class="footer-logo-small mb-3">
                 <p class="small" style="color: #aaa;">&copy; 2025 Moto Plan Motors. Todos los derechos reservados.</p>
             </div>
         </div>
