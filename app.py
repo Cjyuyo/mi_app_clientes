@@ -433,11 +433,14 @@ def simular_verificacion_bancaria(monto_reportado_bs):
 
 @app.route('/')
 def home():
+    # Si un administrador ya inició sesión, lo llevamos a su hub.
     if g.admin:
         return redirect(url_for('hub'))
+    # Si un cliente ya inició sesión, lo llevamos a su portal.
     elif g.cliente:
         return redirect(url_for('portal_dashboard'))
-    return redirect(url_for('admin_login'))
+    # Si nadie ha iniciado sesión, mostramos la nueva landing page.
+    return render_template('landing.html', anio_actual=get_venezuela_current_date().year)
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
