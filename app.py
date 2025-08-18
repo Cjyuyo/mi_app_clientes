@@ -227,7 +227,7 @@ def portal_login_required(f):
 # ===== FUNCIONES AUXILIARES (AUDITORÍA, COMISIONES, TESORERÍA) =====
 # =================================================================================
 
-def subir_archivo_a_s3(base64_data, nombre_en_s3):
+ef subir_archivo_a_s3(base64_data, nombre_en_s3):
     """Sube un archivo a S3 desde una cadena de datos Base64."""
     
     s3_client = boto3.client('s3')
@@ -2429,7 +2429,6 @@ def finalizar_registro():
 
     form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
     
-    # --- INICIO DE LA CORRECCIÓN PARA S3 ---
     foto_cliente_base64 = form_data.get('foto_cliente')
     foto_cedula_base64 = form_data.get('foto_cedula')
     
@@ -2437,7 +2436,6 @@ def finalizar_registro():
     ruta_s3_cedula = None
     cedula_cliente_limpia = form_data.get('cedula', '').replace(' ', '').replace('.', '')
 
-    # Subir foto del cliente si existe
     if foto_cliente_base64 and foto_cliente_base64.startswith('data:image'):
         nombre_archivo_s3 = f"documentos/{cedula_cliente_limpia}/foto_cliente.jpg"
         if subir_archivo_a_s3(foto_cliente_base64, nombre_archivo_s3):
@@ -2446,7 +2444,6 @@ def finalizar_registro():
             flash("Error crítico al subir la foto del cliente a S3. El registro ha sido cancelado.", "danger")
             return redirect(url_for('registrar'))
 
-    # Subir foto de la cédula si existe
     if foto_cedula_base64 and foto_cedula_base64.startswith('data:image'):
         nombre_archivo_s3 = f"documentos/{cedula_cliente_limpia}/foto_cedula.jpg"
         if subir_archivo_a_s3(foto_cedula_base64, nombre_archivo_s3):
@@ -2454,9 +2451,9 @@ def finalizar_registro():
         else:
             flash("Error crítico al subir la foto de la cédula a S3. El registro ha sido cancelado.", "danger")
             return redirect(url_for('registrar'))
-    # --- FIN DE LA CORRECCIÓN PARA S3 ---
 
     try:
+        # ... (resto de la lógica de la función sin cambios)
         firma_cliente, firma_empresa = form_data.get('firma_cliente'), form_data.get('firma_empresa')
         if not firma_cliente or not firma_empresa:
             flash('Ambas firmas son obligatorias para registrar al cliente.', 'error')
@@ -2476,8 +2473,8 @@ def finalizar_registro():
                 'cuotas_pagadas_progresivas': 0, 'cuotas_pagadas_regresivas': 0, 
                 'firma_digital': firma_cliente, 'firma_empresa': firma_empresa, 
                 'fecha_firma': datetime.now(VENEZUELA_TZ), 'proceso': 'RESERVA',
-                'ruta_foto_cliente_s3': ruta_s3_cliente, # Guardamos la ruta de S3
-                'ruta_foto_cedula_s3': ruta_s3_cedula      # Guardamos la ruta de S3
+                'ruta_foto_cliente_s3': ruta_s3_cliente,
+                'ruta_foto_cedula_s3': ruta_s3_cedula
             }
             
             optional_fields = [
@@ -2505,7 +2502,7 @@ def finalizar_registro():
             registrar_accion_auditoria('REGISTRO_CLIENTE_FIRMADO', descripcion_audit, new_client_id)
             
             conn.commit()
-            flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado exitosamente como RESERVA! Ahora puede registrar su primer pago desde la consulta.", 'success')
+            flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado exitosamente como RESERVA!", 'success')
             return redirect(url_for('consulta', busqueda=form_data.get('cedula')))
 
     except psycopg2.IntegrityError:
@@ -2992,8 +2989,13 @@ def edit_client(client_id):
 @admin_required
 @rol_requerido('superadmin')
 def delete_client(client_id):
+    """
+    Elimina un cliente y todos sus registros asociados de la base de datos.
+    """
     conn = get_db()
-    if not conn: return redirect(url_for('consulta'))
+    if not conn: 
+        flash('Error de conexión a la base de datos.', 'error')
+        return redirect(url_for('consulta'))
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT nombre, apellido, cedula FROM clientes WHERE id = %s", (client_id,))
@@ -3001,29 +3003,57 @@ def delete_client(client_id):
             if not cliente_a_borrar:
                 flash('El cliente que intenta eliminar no existe.', 'warning')
                 return redirect(url_for('consulta'))
-            tablas_relacionadas = ["pagos", "comisiones_generadas", "caja_inscripciones", "ofertas", "gestiones_cobranza"]
-            for tabla in tablas_relacionadas:
-                cur.execute(f"DELETE FROM {tabla} WHERE cliente_id = %s", (client_id,))
+            
+            # Lista definitiva y ordenada de tablas para eliminar dependencias.
+            tablas_a_limpiar = [
+                # Primero, tablas que dependen de 'comisiones'
+                ("comisiones_rebalanceos", "comision_id_origen IN (SELECT id FROM comisiones WHERE origen_id = %s AND origen_tipo = 'Venta')"),
+                # Tablas que dependen directamente de 'clientes'
+                ("adjudicaciones", "(ganador_sorteo_id = %s OR ganador_oferta_id = %s)"),
+                ("caja_inscripciones", "cliente_id = %s"),
+                ("comisiones", "origen_id = %s AND origen_tipo = 'Venta'"),
+                ("comisiones_legacy", "cliente_id = %s"),
+                ("gestiones_cobranza", "cliente_id = %s"),
+                ("ofertas", "cliente_id = %s"),
+                ("pagos", "cliente_id = %s"),
+                ("payment_bulks", "cliente_id = %s"),
+                ("payment_orders", "cliente_id = %s"),
+                ("receipts", "cliente_id = %s"),
+                ("solicitudes", "cliente_id = %s"),
+                ("registros_auditoria", "cliente_afectado_id = %s")
+            ]
+            
+            logging.info(f"Iniciando proceso de eliminación para cliente ID: {client_id}")
+            for tabla, condicion in tablas_a_limpiar:
+                # El número de parámetros en la condición determina cómo se pasan los argumentos
+                params = (client_id, client_id) if '%s' in condicion and condicion.count('%s') > 1 else (client_id,)
+                sql = f"DELETE FROM {tabla} WHERE {condicion}"
+                cur.execute(sql, params)
+                logging.info(f"Se eliminaron {cur.rowcount} registros de {tabla}.")
+
+            # Registrar la acción en la auditoría ANTES de eliminar al cliente
             descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']}) y todos sus datos asociados."
             registrar_accion_auditoria('ELIMINACION_CLIENTE', descripcion_audit, client_id)
+            
+            # Finalmente, eliminar el registro del cliente
+            logging.info(f"Intentando eliminar el registro principal del cliente ID: {client_id}...")
             cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
+            logging.info("Registro principal del cliente eliminado.")
+            
             conn.commit()
             flash('¡Cliente y todos sus registros asociados han sido eliminados exitosamente!', 'success')
-    except (psycopg2.Error, ConnectionError) as e:
+
+    except psycopg2.Error as e:
         conn.rollback()
-        flash(f'Ocurrió un error al eliminar: {e}', 'error')
+        print(f"ERROR DE BASE DE DATOS AL ELIMINAR CLIENTE ID {client_id}: {e}")
+        flash(f"ERROR DE INTEGRIDAD: La base de datos bloqueó la eliminación. Detalles: {e}", 'danger')
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"ERROR INESPERADO AL ELIMINAR CLIENTE ID {client_id}: {e}")
+        flash(f'Ocurrió un error inesperado al eliminar: {e}', 'error')
+
     return redirect(url_for('consulta'))
-
-@app.route('/guardar_oferta/<int:client_id>', methods=['POST'])
-@admin_required
-def guardar_oferta(client_id):
-    conn = get_db()
-    cuotas_ofertadas = request.form.get('cuotas_ofertadas')
-    cedula_cliente = ''
-
-    if not conn:
-        flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('consulta'))
     
     try:
         with conn.cursor() as cur:
