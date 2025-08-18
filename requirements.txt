@@ -6,3 +6,4 @@ pandas
 tqdm
 fpdf
 XlsxWriter
+boto3

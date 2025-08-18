@@ -14,12 +14,16 @@ import csv
 import logging
 import pytz
 import json
+
+# Imports para AWS S3
+import boto3
+from botocore.exceptions import NoCredentialsError
+
 # >>> COMISIONES: BEGIN [imports]
 from collections import defaultdict
 import pandas as pd
 from fpdf import FPDF
 # >>> COMISIONES: END [imports]
-
 
 # =================================================================================
 # ===== CONFIGURACIÓN INICIAL Y DE ENTORNO =====
@@ -223,14 +227,26 @@ def portal_login_required(f):
 # ===== FUNCIONES AUXILIARES (AUDITORÍA, COMISIONES, TESORERÍA) =====
 # =================================================================================
 
+def subir_archivo_a_s3(archivo, nombre_en_s3):
+    """Sube un archivo a S3. 'archivo' es el objeto de archivo (ej: request.FILES['mi_pdf'])."""
+    
+    s3_client = boto3.client('s3')
+    bucket_name = os.environ.get('AWS_STORAGE_BUCKET_NAME')
+    
+    try:
+        s3_client.upload_fileobj(archivo, bucket_name, nombre_en_s3)
+        print(f"Subida exitosa: {nombre_en_s3}")
+        return True
+    except NoCredentialsError:
+        print("Credenciales de AWS no encontradas.")
+        return False
+    except Exception as e:
+        print(f"Error al subir archivo: {e}")
+        return False
+
 def registrar_accion_auditoria(accion, descripcion, cliente_id=None, detalles_adicionales=None):
     if not g.admin and 'cliente_id' not in session:
         logging.warning(f"AUDITORIA-OMITIDA: Intento de registrar '{accion}' sin un usuario autenticado.")
-        return
-
-    conn = get_db()
-    if not conn:
-        logging.error("AUDITORIA-FALLO-CONEXION: No se pudo obtener conexión a la base de datos.")
         return
 
     usuario_id = g.admin['id'] if g.admin else None
