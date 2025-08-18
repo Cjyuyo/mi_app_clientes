@@ -3332,6 +3332,22 @@ def portal_reportar_pago():
     cliente_dict = dict(cliente)
     mes_actual = get_nombre_mes(get_venezuela_current_date().month)
 
+    # --- INICIO DE LA MODIFICACIÓN ---
+    monto_a_pagar_usd = Decimal('0.00')
+    concepto_pago = ''
+    
+    # Determinar si el pago es de inscripción o de cuota
+    inscripcion_pagada = cliente_dict.get('inscripcion_pagada') or Decimal('0.0')
+    inscripcion_total = cliente_dict.get('inscripcion_monto') or Decimal('0.0')
+
+    if inscripcion_pagada < inscripcion_total:
+        monto_a_pagar_usd = inscripcion_total - inscripcion_pagada
+        concepto_pago = f"Abono a Inscripción (restan ${monto_a_pagar_usd:,.2f})"
+    else:
+        monto_a_pagar_usd = cliente_dict.get('valor_cuota') or Decimal('0.0')
+        concepto_pago = f"Cuota del mes de {mes_actual}"
+    # --- FIN DE LA MODIFICACIÓN ---
+
     if request.method == 'POST':
         pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
         
@@ -3394,7 +3410,13 @@ def portal_reportar_pago():
         except (psycopg2.Error, ValueError, InvalidOperation) as e:
             conn.rollback(); logging.error(f"Error en portal_reportar_pago: {e}"); flash(f'Ocurrió un error: {e}', 'error')
 
-    return render_template('portal_reportar_pago.html', cliente=cliente, tasas_hoy=tasa_hoy, mes_actual=mes_actual)
+    # --- MODIFICACIÓN EN RENDER_TEMPLATE ---
+    return render_template('portal_reportar_pago.html', 
+                           cliente=cliente, 
+                           tasas_hoy=tasa_hoy, 
+                           mes_actual=mes_actual,
+                           monto_a_pagar_usd=monto_a_pagar_usd,
+                           concepto_pago=concepto_pago)
 
 @app.route('/portal/diferencia/reportar/<int:bulk_id>/<int:order_id>', methods=['GET'])
 @portal_login_required
