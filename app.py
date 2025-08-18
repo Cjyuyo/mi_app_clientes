@@ -245,6 +245,16 @@ def subir_archivo_a_s3(archivo, nombre_en_s3):
         return False
 
 def registrar_accion_auditoria(accion, descripcion, cliente_id=None, detalles_adicionales=None):
+    """
+    Registra una acción en la tabla de auditoría, verificando la conexión
+    y la autenticación del usuario.
+    """
+    conn = get_db() 
+    
+    if not conn:
+        logging.error(f"AUDITORIA-FALLO-CONEXION: No se pudo obtener la conexión a la BD para registrar '{accion}'.")
+        return
+
     if not g.admin and 'cliente_id' not in session:
         logging.warning(f"AUDITORIA-OMITIDA: Intento de registrar '{accion}' sin un usuario autenticado.")
         return
@@ -253,18 +263,14 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None, detalles_ad
     usuario_nombre = g.admin['usuario'] if g.admin else f"Cliente ID {session.get('cliente_id')}"
     cliente_afectado = cliente_id if cliente_id else session.get('cliente_id')
     detalles_json = json.dumps(detalles_adicionales) if detalles_adicionales else None
-    # >>> COMISIONES: BEGIN [auditoria]
     ip_address = request.remote_addr
-    # >>> COMISIONES: END [auditoria]
 
     try:
         with conn.cursor() as cur:
-            # >>> COMISIONES: BEGIN [auditoria_sql]
             cur.execute(
                 "INSERT INTO registros_auditoria (usuario_id, usuario_nombre, accion, descripcion, cliente_afectado_id, detalles, ip_address) VALUES (%s, %s, %s, %s, %s, %s, %s)",
                 (usuario_id, usuario_nombre, accion, descripcion, cliente_afectado, detalles_json, ip_address)
             )
-            # >>> COMISIONES: END [auditoria_sql]
         conn.commit()
         logging.info(f"AUDITORIA-REGISTRADA: Usuario '{usuario_nombre}' realizó '{accion}'.")
     except Exception as e:
@@ -273,6 +279,7 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None, detalles_ad
 
 
 def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_dueno, responsable_cierre):
+    """Calcula y guarda las comisiones basadas en el escenario de venta."""
     conn = get_db()
     if not conn or monto_plan <= 0:
         logging.error(f"COMISIONES: No se pudo conectar a la BD o el monto del plan es cero para contrato {contrato_nro}.")
@@ -321,23 +328,16 @@ def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_d
         sobrante_empresa = POOL_COMISIONES - total_comisiones_pagadas
         try:
             with conn.cursor() as cur:
-                # >>> COMISIONES: BEGIN [logica_antigua_adaptada]
-                # Adaptado para usar la nueva tabla 'comisiones' en lugar de 'comisiones_generadas'
                 sql_comisiones = """
                     INSERT INTO comisiones (origen_id, origen_tipo, asesor_id, moneda, base, pct_comision, monto, estado, notas, fecha_origen)
                     SELECT c.id, 'Venta', a.id, 'USD', %s, 1, %s, 'pendiente', %s, c.fecha_ingreso
                     FROM clientes c, administradores a
                     WHERE c.id = %s AND a.usuario = %s
                 """
-                
-                # Esta sección es una simplificación. La lógica real de splits y porcentajes
-                # debería ser más robusta, pero se adapta para no refactorizar masivamente.
                 for comision in comisiones_a_registrar:
                     if comision['monto'] > 0:
-                         # Se asume que el nombre del beneficiario coincide con un 'usuario' en 'administradores'
                          cur.execute(sql_comisiones, (monto_plan, comision['monto'], comision['concepto'], cliente_id, comision['beneficiario']))
 
-                # >>> COMISIONES: END [logica_antigua_adaptada]
                 sql_sobrante = "UPDATE caja_inscripciones SET sobrante_empresa = %s WHERE contrato_nro = %s"
                 cur.execute(sql_sobrante, (sobrante_empresa, contrato_nro))
             logging.info(f"COMISIONES v3.0: Contrato {contrato_nro} procesado. Total a pagar: ${total_comisiones_pagadas:,.2f}. Sobrante: ${sobrante_empresa:,.2f}.")
@@ -346,6 +346,7 @@ def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_d
             raise e
 
 def calcular_balances_tesoreria(fecha_hasta=None):
+    """Calcula los balances de las cajas de tesorería hasta una fecha específica."""
     conn = get_db()
     cajas_generales = ['EFECTIVO_USD', 'BINANCE_USDT', 'CAJA_BS_USD', 'CAJA_BS_EUR']
     balances = {caja: Decimal('0.0') for caja in cajas_generales}
@@ -372,7 +373,7 @@ def calcular_balances_tesoreria(fecha_hasta=None):
     return balances
 
 def get_feriados_venezuela(year):
-    """Devuelve una lista de fechas (date objects) para feriados en Venezuela."""
+    """Devuelve una lista de objetos date para los feriados en Venezuela para un año dado."""
     feriados = [
         date(year, 1, 1), date(year, 5, 1), date(year, 6, 24), date(year, 7, 5),
         date(year, 7, 24), date(year, 10, 12), date(year, 12, 24), date(year, 12, 25),
@@ -386,6 +387,7 @@ def get_feriados_venezuela(year):
     return feriados
 
 def get_fecha_vencimiento_ajustada(fecha_pago):
+    """Ajusta la fecha de vencimiento al próximo día hábil si cae en fin de semana o feriado."""
     if fecha_pago.day < 15:
         mes_vencimiento, ano_vencimiento = fecha_pago.month, fecha_pago.year
     else:
