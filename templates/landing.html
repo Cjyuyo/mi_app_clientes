@@ -12,9 +12,8 @@
     <meta property="og:url" content="https://motoplanmotors.com">
     <meta property="og:type" content="website">
     
-    <!-- Bootstrap 5 CSS y Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- AOS (Animate On Scroll) Library -->
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
@@ -24,708 +23,406 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto:wght@400;700&family=Anton&family=Inter:wght@400;700&display=swap" rel="stylesheet">
 
-    <!-- Iconos de Font Awesome -->
+    <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <style>
         :root {
             --primary-color: #FF6600; /* Naranja Vibrante */
-            --dark-color: #1a1a1a;
-            --light-color: #ffffff;
-            --gray-color: #f4f4f4;
         }
 
         body {
             font-family: 'Roboto', sans-serif;
-            background-color: var(--light-color);
-            color: #333;
         }
 
         h1, h2, h3, h4, h5, h6 {
             font-family: 'Oswald', sans-serif;
-            font-weight: 700;
             text-transform: uppercase;
         }
-
-        /* Barra de navegación con efecto de scroll */
-        .navbar {
-            transition: background-color 0.4s ease, padding 0.4s ease;
-            padding: 0.5rem 0;
-            background-color: transparent; /* Inicia transparente */
-        }
-        .navbar.scrolled {
-            background-color: rgba(26, 26, 26, 0.9); /* Se oscurece al hacer scroll */
-            backdrop-filter: blur(10px);
-            padding: 0.1rem 0; /* Barra más delgada al hacer scroll */
-        }
-        /* Logo ajustado */
-        .navbar-brand img {
-            width: 180px; 
-            height: auto;
-            transition: width 0.4s ease;
-        }
-        .navbar.scrolled .navbar-brand img {
-            width: 140px; /* Reducción al hacer scroll */
-        }
-        .btn-primary, .btn-secondary {
-            background-color: var(--primary-color);
-            border-color: var(--primary-color);
-            font-family: 'Oswald', sans-serif;
-            text-transform: uppercase;
-            padding: 12px 30px;
-            border-radius: 5px;
-            transition: all 0.3s ease;
-        }
-        .btn-primary:hover, .btn-secondary:hover {
-            background-color: #e65c00;
-            border-color: #e65c00;
-            transform: translateY(-2px);
-        }
-        .btn-secondary {
-            background-color: transparent;
-            border: 2px solid var(--light-color);
-            color: var(--light-color);
-        }
-        .btn-secondary:hover {
-            background-color: var(--primary-color);
-            border-color: var(--primary-color);
-            color: var(--light-color);
-        }
-
-
-        /* Hero Carousel */
-        .hero-carousel {
-            height: 100vh;
-        }
-        .carousel-item {
-            height: 100vh;
-            background-size: cover;
-            background-position: center;
-        }
-        .carousel-item::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.5); /* Oscurecimiento general para contraste */
-        }
-        .carousel-caption {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center; /* Centrado horizontal */
-            text-align: center; /* Centrado de texto */
-            padding: 1rem;
-        }
-        .carousel-caption h1 {
+        
+        .font-anton {
             font-family: 'Anton', sans-serif;
-            font-size: clamp(3.5rem, 8vw, 7rem);
-            line-height: 1;
-            text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
-            letter-spacing: 1px;
-            font-weight: 400;
-            color: var(--light-color);
-        }
-        .carousel-caption .highlight {
-            color: var(--primary-color);
-        }
-        .carousel-caption .lead {
-            font-size: 1.2rem;
-            max-width: 600px;
-            margin: 25px auto 35px; /* Aumentado margen inferior */
-            font-weight: 400;
-            text-shadow: 1px 1px 4px rgba(0,0,0,0.7);
-            color: var(--light-color);
         }
         
-        /* Secciones */
-        .section {
-            padding: 100px 0;
-        }
-        .section-title {
-            font-size: 3.5rem;
-            margin-bottom: 60px;
-            text-align: center;
-        }
-        .section-title span {
-            color: var(--primary-color);
-        }
-
-        /* Why Us Section */
-        .why-us-section {
-            background-color: var(--gray-color);
-        }
-        .why-us-card {
-            background-color: #ffffff;
-            border-radius: 15px;
-            padding: 40px 30px;
-            text-align: center;
-            border: 1px solid #eee;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-            transition: all 0.3s ease-in-out;
-            width: 100%;
-        }
-        .why-us-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            border-color: var(--primary-color);
-        }
-        .why-us-card .icon-wrapper {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 30px;
-            background-color: var(--primary-color);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--light-color);
-            font-size: 2.5rem;
-            transition: all 0.3s ease;
-        }
-        .why-us-card:hover .icon-wrapper {
-            background-color: var(--dark-color);
-            transform: rotate(25deg);
-        }
-        .why-us-card h3 {
-            font-size: 1.5rem;
-            margin-bottom: 15px;
-        }
-
-        /* Estilos de Pestañas */
-        .nav-tabs {
-            border-bottom: 2px solid #dee2e6;
-        }
-        .nav-tabs .nav-link {
+        .font-oswald {
             font-family: 'Oswald', sans-serif;
-            text-transform: uppercase;
-            color: #666;
-            border: none;
-            border-bottom: 3px solid transparent;
-            font-size: 1.2rem;
-            padding: 1rem;
         }
-        .nav-tabs .nav-link.active, .nav-tabs .nav-item.show .nav-link {
+
+        .highlight {
             color: var(--primary-color);
-            border-bottom-color: var(--primary-color);
-            background-color: transparent;
-        }
-        .tab-content {
-            padding-top: 40px;
-        }
-        
-        /* ===== NUEVO DISEÑO DE TARJETAS (SIN TAILWIND) ===== */
-        .immersive-card {
-            position: relative;
-            border-radius: 1rem;
-            overflow: hidden;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            height: 500px;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            padding: 2rem;
-            color: white;
-            transition: all 0.5s ease-in-out;
-        }
-        .immersive-card:hover {
-            transform: scale(1.05);
-        }
-        .immersive-card-bg {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.5s ease-in-out;
-        }
-        .immersive-card:hover .immersive-card-bg {
-            transform: scale(1.10);
-        }
-        .immersive-card-gradient {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.4) 50%, transparent);
-        }
-        .immersive-card-content {
-            position: relative;
-            z-index: 10;
-            transition: transform 0.5s ease-in-out;
-        }
-        .immersive-card:hover .immersive-card-content {
-            transform: translateY(-0.5rem);
-        }
-        .immersive-card-content h3 {
-            font-size: 1.875rem;
-            font-weight: bold;
-            margin-bottom: 0.75rem;
-        }
-        .immersive-card-content p {
-            margin-bottom: 1.5rem;
-            opacity: 0.9;
-            font-family: 'Inter', sans-serif; /* Usar Inter para el párrafo */
-            text-transform: none; /* Quitar mayúsculas */
-        }
-        .immersive-card-content a {
-            font-weight: bold;
-            font-size: 1.125rem;
-            color: var(--primary-color);
-            text-decoration: none;
-            transition: color 0.3s;
-        }
-        .immersive-card:hover a {
-            color: white;
-        }
-        .immersive-card-content a .fas {
-            margin-left: 0.25rem;
-            transition: transform 0.3s;
-        }
-        .immersive-card:hover a .fas {
-            transform: translateX(0.25rem);
-        }
-        
-        .step-card {
-            background: var(--light-color);
-            border-radius: 15px;
-            padding: 30px;
-            text-align: center;
-            transition: transform 0.3s, background-color 0.3s, color 0.3s;
-            border: 1px solid #eee;
-            height: 100%;
-        }
-        .step-card:hover {
-            transform: translateY(-10px);
-            background-color: var(--dark-color);
-            color: var(--light-color);
-        }
-        .step-card:hover .step-number, .step-card:hover h4 {
-             color: var(--primary-color);
-        }
-        .step-card .step-number {
-            font-size: 3rem;
-            color: var(--primary-color);
-            line-height: 1;
-            transition: color 0.3s;
-        }
-        .step-card h4 {
-            font-size: 1.3rem;
-            margin: 15px 0;
-            transition: color 0.3s;
-        }
-
-        /* Testimonios */
-        .testimonial-card {
-            background: var(--gray-color);
-            padding: 30px;
-            border-radius: 15px;
-            height: 100%;
-        }
-        .testimonial-card p {
-            font-style: italic;
-            font-size: 1.1rem;
-        }
-        .testimonial-card .author {
-            font-weight: 700;
-            color: var(--primary-color);
-        }
-
-        /* Footer */
-        .footer {
-            background-color: var(--dark-color);
-            color: #aaa;
-            padding: 60px 0;
-        }
-        .footer h5 {
-            color: var(--light-color);
-            margin-bottom: 20px;
-            line-height: 1;
-        }
-        .footer-logo-small {
-            width: 150px;
-            height: auto;
-            opacity: 0.8;
-        }
-        .footer a {
-            color: #aaa;
-            text-decoration: none;
-            transition: color 0.3s;
-        }
-        .footer a:hover {
-            color: var(--primary-color);
-        }
-        .footer .social-icons a {
-            font-size: 1.5rem;
-            margin-right: 15px;
-        }
-
-        /* Media Queries */
-        @media (max-width: 991px) {
-            .navbar-brand img {
-                width: 160px;
-            }
-            .navbar.scrolled .navbar-brand img {
-                width: 140px; 
-            }
-        }
-        @media (max-width: 768px) {
-            .section {
-                padding: 60px 0; 
-            }
-            .section-title {
-                font-size: 2.2rem; 
-                margin-bottom: 40px;
-            }
-            /* ===== CORRECCIÓN PARA CARRUSEL EN MÓVIL ===== */
-            .hero-carousel, .carousel-item {
-                height: 85vh; /* Altura reducida para mejor visualización */
-            }
-            .carousel-item.slide-tribu { background-position: center 30%; }
-            .carousel-item.slide-pareja { background-position: 25% center; }
-            .carousel-item.slide-familia { background-position: center 25%; }
-
-            .carousel-caption h1 {
-                font-size: clamp(2.2rem, 10vw, 3.5rem); /* Título más compacto */
-            }
-            .carousel-caption .lead {
-                font-size: 0.9rem; /* Subtítulo más compacto */
-                margin-bottom: 25px;
-            }
-            /* Botón más compacto en móvil */
-            .carousel-caption .btn {
-                padding: 10px 20px;
-                font-size: 0.9rem;
-            }
-            .navbar {
-                padding: 0.5rem 0;
-            }
-            .nav-tabs .nav-link {
-                font-size: 1rem; 
-                padding: 0.8rem;
-            }
-
-            /* ===== CAMBIO: ESTILOS PARA VISTA "MINI-ESCRITORIO" ===== */
-            .why-us-card {
-                padding: 20px 10px;
-                min-height: 250px;
-            }
-            .why-us-card .icon-wrapper {
-                width: 50px;
-                height: 50px;
-                font-size: 1.8rem;
-                margin-bottom: 15px;
-            }
-            .why-us-card h3 {
-                font-size: 1rem;
-                margin-bottom: 10px;
-            }
-            .why-us-card p {
-                font-size: 0.8rem;
-                line-height: 1.4;
-            }
-
-            .immersive-card {
-                height: 350px;
-                padding: 1.5rem;
-            }
-            .immersive-card-content h3 {
-                font-size: 1.2rem;
-            }
-            .immersive-card-content p {
-                font-size: 0.8rem;
-                margin-bottom: 1rem;
-            }
-             .immersive-card-content a {
-                font-size: 0.9rem;
-            }
-
-            .step-card {
-                padding: 20px 10px;
-                min-height: 250px;
-            }
-            .step-card .step-number {
-                font-size: 2rem;
-            }
-            .step-card h4 {
-                font-size: 1rem;
-                margin: 10px 0;
-            }
-            .step-card p {
-                font-size: 0.8rem;
-                line-height: 1.4;
-            }
-
-            .testimonial-card {
-                padding: 20px;
-                min-height: 200px;
-            }
-            .testimonial-card p {
-                font-size: 0.9rem;
-            }
         }
     </style>
 </head>
-<body>
+<body class="bg-white text-gray-800">
 
-    <!-- ===== BARRA DE NAVEGACIÓN CORREGIDA ===== -->
-    <nav class="navbar navbar-dark fixed-top">
-        <div class="container d-flex justify-content-between">
-            <a class="navbar-brand" href="#">
-                <!-- ===== CAMBIO: LOGO DESDE S3 ===== -->
-                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan Motors">
+    <!-- ===== BARRA DE NAVEGACIÓN ===== -->
+    <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 py-3">
+        <div class="container mx-auto px-4 flex justify-between items-center">
+            <a href="#">
+                <!-- ===== CAMBIO: Logo aumentado un 50% ===== -->
+                <img id="navbar-logo" src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan Motors" class="h-20 md:h-32 transition-all duration-300">
             </a>
-            
-            <ul class="navbar-nav flex-row align-items-center">
-                <li class="nav-item d-none d-md-block">
-                    <a class="nav-link px-3" href="#planes-y-pasos">Planes</a>
-                </li>
-                <li class="nav-item d-none d-md-block">
-                    <a class="nav-link px-3" href="#testimonios">Clientes</a>
-                </li>
-                <li class="nav-item ps-3">
-                    <a class="btn btn-primary" href="https://app.motoplanmotors.com/portal/login">
-                        Zona Clientes
-                    </a>
-                </li>
-            </ul>
+            <div class="flex items-center space-x-4">
+                <div class="hidden md:flex space-x-6 text-white font-oswald">
+                    <a href="#planes-y-pasos" class="hover:text-orange-500 transition">Planes</a>
+                    <a href="#testimonios" class="hover:text-orange-500 transition">Clientes</a>
+                </div>
+                <a href="https://app.motoplanmotors.com/portal/login" class="bg-orange-500 text-white font-oswald uppercase px-6 py-2 rounded-md hover:bg-orange-600 transition text-sm md:text-base">
+                    Zona Clientes
+                </a>
+            </div>
         </div>
     </nav>
 
-    <header id="heroCarousel" class="carousel slide carousel-fade" data-bs-ride="carousel" data-bs-interval="4000">
-        <div class="carousel-indicators">
-            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
-            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="1" aria-label="Slide 2"></button>
-            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="2" aria-label="Slide 3"></button>
-            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="3" aria-label="Slide 4"></button>
-            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="4" aria-label="Slide 5"></button>
-            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="5" aria-label="Slide 6"></button>
-            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="6" aria-label="Slide 7"></button>
-        </div>
-        <div class="carousel-inner hero-carousel">
-            <!-- ===== CAMBIO: IMÁGENES DESDE S3 ===== -->
-            <div class="carousel-item active slide-tribu" style="background-image: url('https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-5195659.jpeg')">
-                <div class="carousel-caption">
-                    <div>
-                        <h1>LA TRIBU <br><span class="highlight">TE ESPERA</span></h1>
-                        <p class="lead">Comparte la ruta y la pasión con quienes entienden tu estilo de vida.</p>
-                        <!-- ===== CAMBIO: BOTÓN DE CATÁLOGO AÑADIDO AQUÍ ===== -->
-                        <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
+    <!-- ===== HERO CAROUSEL ===== -->
+    <header id="heroCarousel" class="relative h-screen">
+        <!-- Slides -->
+        <div class="carousel-container h-full">
+            <div class="carousel-item absolute inset-0 opacity-100 transition-opacity duration-1000">
+                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-5195659.jpeg" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-center text-white p-4">
+                    <div data-aos="fade-up">
+                        <h1 class="font-anton text-5xl md:text-8xl leading-none">LA TRIBU <br><span class="highlight">TE ESPERA</span></h1>
+                        <p class="text-lg md:text-xl mt-4 max-w-md mx-auto">Comparte la ruta y la pasión con quienes entienden tu estilo de vida.</p>
+                        <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="mt-8 inline-block border-2 border-white px-8 py-3 font-oswald uppercase rounded-md hover:bg-orange-500 hover:border-orange-500 transition">
                             Ver Catálogo
                         </a>
                     </div>
                 </div>
             </div>
-            <div class="carousel-item" style="background-image: url('https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-3758105.jpeg')">
-                <div class="carousel-caption">
+            <div class="carousel-item absolute inset-0 opacity-0 transition-opacity duration-1000">
+                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-3758105.jpeg" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-center text-white p-4">
                     <div>
-                        <h1 data-aos="fade-up" data-aos-delay="200">EL SUEÑO <br><span class="highlight">COMIENZA</span></h1>
-                        <p class="lead" data-aos="fade-up" data-aos-delay="400">Todo gran viaje empieza con una idea. Nosotros la hacemos realidad.</p>
-                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
+                        <h1 class="font-anton text-5xl md:text-8xl leading-none">EL SUEÑO <br><span class="highlight">COMIENZA</span></h1>
+                        <p class="text-lg md:text-xl mt-4 max-w-md mx-auto">Todo gran viaje empieza con una idea. Nosotros la hacemos realidad.</p>
+                        <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="mt-8 inline-block border-2 border-white px-8 py-3 font-oswald uppercase rounded-md hover:bg-orange-500 hover:border-orange-500 transition">
                             Ver Catálogo
                         </a>
                     </div>
                 </div>
             </div>
-            <div class="carousel-item" style="background-image: url('https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-5902919.jpeg')">
-                <div class="carousel-caption">
+            <div class="carousel-item absolute inset-0 opacity-0 transition-opacity duration-1000">
+                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-5902919.jpeg" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-center text-white p-4">
                     <div>
-                        <h1>REVALORIZA <br><span class="highlight">TU DINERO</span></h1>
-                        <p class="lead">Una moto es más que un gasto, es un activo que te da libertad y se paga solo.</p>
-                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
+                        <h1 class="font-anton text-5xl md:text-8xl leading-none">REVALORIZA <br><span class="highlight">TU DINERO</span></h1>
+                        <p class="text-lg md:text-xl mt-4 max-w-md mx-auto">Una moto es más que un gasto, es un activo que te da libertad y se paga solo.</p>
+                        <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="mt-8 inline-block border-2 border-white px-8 py-3 font-oswald uppercase rounded-md hover:bg-orange-500 hover:border-orange-500 transition">
                             Ver Catálogo
                         </a>
                     </div>
                 </div>
             </div>
-            <div class="carousel-item" style="background-image: url('https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-1430931.jpeg')">
-                <div class="carousel-caption">
+            <div class="carousel-item absolute inset-0 opacity-0 transition-opacity duration-1000">
+                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-1430931.jpeg" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-center text-white p-4">
                     <div>
-                        <h1>CONQUISTA <br><span class="highlight">EL CAMINO</span></h1>
-                        <p class="lead">Siente el viento, aduéñate del horizonte y vive sin límites.</p>
-                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
+                        <h1 class="font-anton text-5xl md:text-8xl leading-none">CONQUISTA <br><span class="highlight">EL CAMINO</span></h1>
+                        <p class="text-lg md:text-xl mt-4 max-w-md mx-auto">Siente el viento, aduéñate del horizonte y vive sin límites.</p>
+                        <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="mt-8 inline-block border-2 border-white px-8 py-3 font-oswald uppercase rounded-md hover:bg-orange-500 hover:border-orange-500 transition">
                             Ver Catálogo
                         </a>
                     </div>
                 </div>
             </div>
-            <div class="carousel-item" style="background-image: url('https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-33469784.jpeg')">
-                <div class="carousel-caption">
+            <div class="carousel-item absolute inset-0 opacity-0 transition-opacity duration-1000">
+                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-33469784.jpeg" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-center text-white p-4">
                     <div>
-                        <h1>TU ESPACIO, <br><span class="highlight">TU PASIÓN</span></h1>
-                        <p class="lead">Ese momento a solas con tu máquina, donde todo lo demás desaparece.</p>
-                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
+                        <h1 class="font-anton text-5xl md:text-8xl leading-none">TU ESPACIO, <br><span class="highlight">TU PASIÓN</span></h1>
+                        <p class="text-lg md:text-xl mt-4 max-w-md mx-auto">Ese momento a solas con tu máquina, donde todo lo demás desaparece.</p>
+                        <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="mt-8 inline-block border-2 border-white px-8 py-3 font-oswald uppercase rounded-md hover:bg-orange-500 hover:border-orange-500 transition">
                             Ver Catálogo
                         </a>
                     </div>
                 </div>
             </div>
-            <div class="carousel-item slide-pareja" style="background-image: url('https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-9606978.jpeg')">
-                <div class="carousel-caption">
+            <div class="carousel-item absolute inset-0 opacity-0 transition-opacity duration-1000">
+                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-9606978.jpeg" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-center text-white p-4">
                     <div>
-                        <h1>AVENTURA <br><span class="highlight">PARA DOS</span></h1>
-                        <p class="lead">Crea recuerdos imborrables en cada kilómetro recorrido juntos.</p>
-                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
+                        <h1 class="font-anton text-5xl md:text-8xl leading-none">AVENTURA <br><span class="highlight">PARA DOS</span></h1>
+                        <p class="text-lg md:text-xl mt-4 max-w-md mx-auto">Crea recuerdos imborrables en cada kilómetro recorrido juntos.</p>
+                        <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="mt-8 inline-block border-2 border-white px-8 py-3 font-oswald uppercase rounded-md hover:bg-orange-500 hover:border-orange-500 transition">
                             Ver Catálogo
                         </a>
                     </div>
                 </div>
             </div>
-             <div class="carousel-item slide-familia" style="background-image: url('https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-1682497.jpeg')">
-                <div class="carousel-caption">
+             <div class="carousel-item absolute inset-0 opacity-0 transition-opacity duration-1000">
+                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-1682497.jpeg" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-center text-white p-4">
                     <div>
-                        <h1>UN FUTURO <br><span class="highlight">JUNTOS</span></h1>
-                        <p class="lead">Una inversión en tu libertad es una inversión en el bienestar de tu familia.</p>
-                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
+                        <h1 class="font-anton text-5xl md:text-8xl leading-none">UN FUTURO <br><span class="highlight">JUNTOS</span></h1>
+                        <p class="text-lg md:text-xl mt-4 max-w-md mx-auto">Una inversión en tu libertad es una inversión en el bienestar de tu familia.</p>
+                        <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="mt-8 inline-block border-2 border-white px-8 py-3 font-oswald uppercase rounded-md hover:bg-orange-500 hover:border-orange-500 transition">
                             Ver Catálogo
                         </a>
                     </div>
                 </div>
             </div>
         </div>
-        <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
-            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-            <span class="visually-hidden">Previous</span>
+        
+        <button id="carousel-prev" class="absolute top-1/2 left-4 -translate-y-1/2 bg-white/20 text-white p-2 rounded-full hover:bg-white/40 transition z-10 md:p-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
         </button>
-        <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
-            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-            <span class="visually-hidden">Next</span>
+        <button id="carousel-next" class="absolute top-1/2 right-4 -translate-y-1/2 bg-white/20 text-white p-2 rounded-full hover:bg-white/40 transition z-10 md:p-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
         </button>
+
+        <!-- Indicators -->
+        <div class="carousel-indicators absolute bottom-5 left-1/2 -translate-x-1/2 flex space-x-2"></div>
     </header>
 
     <main>
-        <section class="section why-us-section">
-            <div class="container">
-                <h2 class="section-title text-center" data-aos="fade-up">¿POR QUÉ <span>ELEGIRNOS?</span></h2>
-                <!-- ===== CAMBIO: CLASES DE COLUMNA PARA VISTA "MINI" ===== -->
-                <div class="row g-3">
-                    <div class="col-4 d-flex align-items-stretch" data-aos="fade-up"><div class="why-us-card"><div class="icon-wrapper"><i class="bi bi-shield-check"></i></div><h3>TRANSPARENCIA TOTAL</h3><p>Sin letra pequeña. Un contrato claro y un portal en línea donde sigues cada paso de tu inversión.</p></div></div>
-                    <div class="col-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="150"><div class="why-us-card"><div class="icon-wrapper"><i class="bi bi-arrows-move"></i></div><h3>FLEXIBILIDAD REAL</h3><p>Elige el camino que se ajuste a ti. Ahorra a tu ritmo o acelera la adjudicación con una oferta. Tú tienes el control.</p></div></div>
-                    <div class="col-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="300"><div class="why-us-card"><div class="icon-wrapper"><i class="bi bi-person-hearts"></i></div><h3>ACOMPAÑAMIENTO</h3><p>No solo vendemos planes, construimos relaciones. Nuestro equipo está para asesorarte en cada etapa de tu sueño.</p></div></div>
-                </div>
-            </div>
-        </section>
-
-        <section id="planes-y-pasos" class="section">
-            <div class="container">
-                <ul class="nav nav-tabs nav-fill" id="infoTab" role="tablist" data-aos="fade-up">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="planes-tab" data-bs-toggle="tab" data-bs-target="#planes-tab-pane" type="button" role="tab" aria-controls="planes-tab-pane" aria-selected="true">Nuestros Planes</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="pasos-tab" data-bs-toggle="tab" data-bs-target="#pasos-tab-pane" type="button" role="tab" aria-controls="pasos-tab-pane" aria-selected="false">Cómo Funciona</button>
-                    </li>
-                </ul>
-                <div class="tab-content" id="infoTabContent">
-                    <div class="tab-pane fade show active" id="planes-tab-pane" role="tabpanel" aria-labelledby="planes-tab" tabindex="0">
-                        
-                        <div class="text-center pt-4">
-                            <h2 class="section-title" style="font-size: 2.5rem; margin-bottom: 1rem;">DOS RUTAS, <span>UNA META</span></h2>
-                            <p class="text-secondary mb-5">Elige el plan que te ponga en el camino más rápido hacia tu nueva moto.</p>
+        <!-- ===== SECCIÓN POR QUÉ ELEGIRNOS ===== -->
+        <section class="py-16 md:py-24 bg-gray-100">
+            <div class="container mx-auto px-4">
+                <h2 class="text-3xl md:text-5xl text-center font-bold mb-12" data-aos="fade-up">¿POR QUÉ <span class="highlight">ELEGIRNOS?</span></h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="bg-white p-8 rounded-xl shadow-lg text-center group transform hover:-translate-y-2 transition-transform duration-300" data-aos="fade-up">
+                        <div class="bg-orange-500 text-white w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 transition-transform duration-300 group-hover:bg-gray-800 group-hover:rotate-12">
+                            <i class="bi bi-shield-check text-4xl"></i>
                         </div>
-                
-                        <!-- ===== CAMBIO: CLASES DE COLUMNA PARA VISTA "MINI" ===== -->
-                        <div class="row g-3">
-                            <div class="col-6">
-                                <div class="immersive-card" data-aos="fade-up">
-                                    <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-819805.jpeg" 
-                                         alt="Motocicleta clásica estilo cafe racer" class="immersive-card-bg">
-                                    <div class="immersive-card-gradient"></div>
-                                    <div class="immersive-card-content">
-                                        <i class="fas fa-calendar-check fs-1 mb-3" style="color: var(--primary-color);"></i>
-                                        <h3>Plan de Ahorro Programado</h3>
-                                        <p>
-                                            El camino seguro hacia tu meta. A través de cuotas fijas mensuales, aseguras la adjudicación de tu moto al completar el plazo.
-                                        </p>
-                                        <a href="#">
-                                            Conocer más <i class="fas fa-arrow-right"></i>
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                
-                            <div class="col-6">
-                                <div class="immersive-card" data-aos="fade-up" data-aos-delay="150">
-                                    <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-2393821.jpeg" 
-                                         alt="Motocicleta verde estilo vintage" class="immersive-card-bg">
-                                    <div class="immersive-card-gradient"></div>
-                                    <div class="immersive-card-content">
-                                        <i class="fas fa-rocket fs-1 mb-3" style="color: var(--primary-color);"></i>
-                                        <h3>Adjudicación por Oferta</h3>
-                                        <p>
-                                            Para los que viven en el carril rápido. Adelanta cuotas, haz la mejor oferta y llévate tu moto antes que nadie.
-                                        </p>
-                                        <a href="#">
-                                            Ver cómo funciona <i class="fas fa-arrow-right"></i>
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
+                        <h3 class="text-xl font-bold mb-3">TRANSPARENCIA TOTAL</h3>
+                        <p class="text-gray-600">Sin letra pequeña. Un contrato claro y un portal en línea donde sigues cada paso de tu inversión.</p>
                     </div>
-                    <div class="tab-pane fade" id="pasos-tab-pane" role="tabpanel" aria-labelledby="pasos-tab" tabindex="0">
-                        <h2 class="section-title text-center" data-aos="fade-up">EN <span>3 PASOS</span> ESTÁS RODANDO</h2>
-                        <!-- ===== CAMBIO: CLASES DE COLUMNA PARA VISTA "MINI" ===== -->
-                        <div class="row g-3">
-                            <div class="col-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="100"><div class="card step-card"><div class="card-body"><div class="step-number">01</div><h4>ELIGE TU MOTO</h4><p>Explora nuestro catálogo, enamórate de un modelo y define el plan que mejor se adapte a tu presupuesto.</p></div></div></div>
-                            <div class="col-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="200"><div class="card step-card"><div class="card-body"><div class="step-number">02</div><h4>ACUMULA CUOTAS</h4><p>Realiza tus pagos mensuales desde la comodidad de tu casa a través de nuestra Zona de Clientes.</p></div></div></div>
-                            <div class="col-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="300"><div class="card step-card"><div class="card-body"><div class="step-number">03</div><h4>RECIBE LAS LLAVES</h4><p>Una vez adjudicado, coordinamos la entrega y te preparamos para que salgas a conquistar la independencia.</p></div></div></div>
+                    <div class="bg-white p-8 rounded-xl shadow-lg text-center group transform hover:-translate-y-2 transition-transform duration-300" data-aos="fade-up" data-aos-delay="150">
+                        <div class="bg-orange-500 text-white w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 transition-transform duration-300 group-hover:bg-gray-800 group-hover:rotate-12">
+                            <i class="bi bi-arrows-move text-4xl"></i>
                         </div>
+                        <h3 class="text-xl font-bold mb-3">FLEXIBILIDAD REAL</h3>
+                        <p class="text-gray-600">Elige el camino que se ajuste a ti. Ahorra a tu ritmo o acelera la adjudicación con una oferta. Tú tienes el control.</p>
+                    </div>
+                    <div class="bg-white p-8 rounded-xl shadow-lg text-center group transform hover:-translate-y-2 transition-transform duration-300" data-aos="fade-up" data-aos-delay="300">
+                        <div class="bg-orange-500 text-white w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 transition-transform duration-300 group-hover:bg-gray-800 group-hover:rotate-12">
+                            <i class="bi bi-person-hearts text-4xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold mb-3">ACOMPAÑAMIENTO</h3>
+                        <p class="text-gray-600">No solo vendemos planes, construimos relaciones. Nuestro equipo está para asesorarte en cada etapa de tu sueño.</p>
                     </div>
                 </div>
             </div>
         </section>
 
-        <section id="testimonios" class="section">
-            <div class="container">
-                <h2 class="section-title" data-aos="fade-up">CLIENTES QUE YA <span>RUEDAN CON NOSOTROS</span></h2>
-                <!-- ===== CAMBIO: CLASES DE COLUMNA PARA VISTA "MINI" ===== -->
-                <div class="row g-3">
-                    <div class="col-4 d-flex align-items-stretch" data-aos="fade-up"><div class="testimonial-card"><p>"Pensé que comprar una moto era imposible. Con Moto Plan, no solo fue posible, sino increíblemente fácil. ¡Ya estoy rodando en mi nueva moto!"</p><div class="author mt-3">- Carlos Rodríguez</div></div></div>
-                    <div class="col-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="150"><div class="testimonial-card"><p>"La transparencia del proceso es total. Desde el portal de clientes podía ver cada pago y mi progreso. 100% recomendados."</p><div class="author mt-3">- Sofía Gómez</div></div></div>
-                    <div class="col-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="300"><div class="testimonial-card"><p>"Gané la adjudicación por oferta en mi sexto mes. ¡No podía creerlo! El equipo me guió en todo. Son los mejores."</p><div class="author mt-3">- Javier Mendoza</div></div></div>
+        <!-- ===== SECCIÓN PLANES Y PASOS ===== -->
+        <section id="planes-y-pasos" class="py-16 md:py-24">
+            <div class="container mx-auto px-4">
+                <div x-data="{ tab: 'planes' }">
+                    <div class="flex justify-center border-b-2 mb-12" data-aos="fade-up">
+                        <button @click="tab = 'planes'" :class="{ 'border-orange-500 text-orange-500': tab === 'planes', 'border-transparent text-gray-500': tab !== 'planes' }" class="font-oswald uppercase text-lg md:text-xl px-6 py-3 border-b-4 transition">Nuestros Planes</button>
+                        <button @click="tab = 'pasos'" :class="{ 'border-orange-500 text-orange-500': tab === 'pasos', 'border-transparent text-gray-500': tab !== 'pasos' }" class="font-oswald uppercase text-lg md:text-xl px-6 py-3 border-b-4 transition">Cómo Funciona</button>
+                    </div>
+
+                    <div x-show="tab === 'planes'">
+                        <div class="text-center" data-aos="fade-up">
+                            <h2 class="text-3xl md:text-4xl font-bold">DOS RUTAS, <span class="highlight">UNA META</span></h2>
+                            <p class="text-gray-600 mt-4 mb-12 max-w-2xl mx-auto">Elige el plan que te ponga en el camino más rápido hacia tu nueva moto.</p>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div class="relative rounded-2xl overflow-hidden h-96 group" data-aos="fade-up">
+                                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-819805.jpeg" alt="Motocicleta clásica" class="absolute w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                                <div class="absolute bottom-0 left-0 p-8 text-white">
+                                    <h3 class="text-2xl font-bold mb-2">Plan de Ahorro Programado</h3>
+                                    <p class="opacity-90">El camino seguro hacia tu meta. A través de cuotas fijas mensuales, aseguras la adjudicación de tu moto.</p>
+                                </div>
+                            </div>
+                            <div class="relative rounded-2xl overflow-hidden h-96 group" data-aos="fade-up" data-aos-delay="150">
+                                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-2393821.jpeg" alt="Motocicleta vintage" class="absolute w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                                <div class="absolute bottom-0 left-0 p-8 text-white">
+                                    <h3 class="text-2xl font-bold mb-2">Adjudicación por Oferta</h3>
+                                    <p class="opacity-90">Para los que viven en el carril rápido. Adelanta cuotas, haz la mejor oferta y llévate tu moto antes que nadie.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div x-show="tab === 'pasos'" style="display: none;">
+                         <div class="text-center" data-aos="fade-up">
+                            <h2 class="text-3xl md:text-4xl font-bold">EN <span class="highlight">3 PASOS</span> ESTÁS RODANDO</h2>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12">
+                            <div class="text-center" data-aos="fade-up" data-aos-delay="100">
+                                <div class="text-6xl font-oswald font-bold text-orange-500">01</div>
+                                <h4 class="text-xl font-bold my-4">ELIGE TU MOTO</h4>
+                                <p class="text-gray-600">Explora nuestro catálogo, enamórate de un modelo y define el plan que mejor se adapte a tu presupuesto.</p>
+                            </div>
+                            <div class="text-center" data-aos="fade-up" data-aos-delay="200">
+                                <div class="text-6xl font-oswald font-bold text-orange-500">02</div>
+                                <h4 class="text-xl font-bold my-4">ACUMULA CUOTAS</h4>
+                                <p class="text-gray-600">Realiza tus pagos mensuales desde la comodidad de tu casa a través de nuestra Zona de Clientes.</p>
+                            </div>
+                            <div class="text-center" data-aos="fade-up" data-aos-delay="300">
+                                <div class="text-6xl font-oswald font-bold text-orange-500">03</div>
+                                <h4 class="text-xl font-bold my-4">RECIBE LAS LLAVES</h4>
+                                <p class="text-gray-600">Una vez adjudicado, coordinamos la entrega y te preparamos para que salgas a conquistar la independencia.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== SECCIÓN TESTIMONIOS ===== -->
+        <section id="testimonios" class="py-16 md:py-24 bg-gray-100">
+            <div class="container mx-auto px-4">
+                <h2 class="text-3xl md:text-5xl text-center font-bold mb-12" data-aos="fade-up">CLIENTES QUE YA <span class="highlight">RUEDAN CON NOSOTROS</span></h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="bg-white p-8 rounded-xl shadow-lg" data-aos="fade-up">
+                        <p class="text-gray-600 italic">"Pensé que comprar una moto era imposible. Con Moto Plan, no solo fue posible, sino increíblemente fácil. ¡Ya estoy rodando en mi nueva moto!"</p>
+                        <div class="mt-4 font-bold text-orange-500">- Carlos Rodríguez</div>
+                    </div>
+                    <div class="bg-white p-8 rounded-xl shadow-lg" data-aos="fade-up" data-aos-delay="150">
+                        <p class="text-gray-600 italic">"La transparencia del proceso es total. Desde el portal de clientes podía ver cada pago y mi progreso. 100% recomendados."</p>
+                        <div class="mt-4 font-bold text-orange-500">- Sofía Gómez</div>
+                    </div>
+                    <div class="bg-white p-8 rounded-xl shadow-lg" data-aos="fade-up" data-aos-delay="300">
+                        <p class="text-gray-600 italic">"Gané la adjudicación por oferta en mi sexto mes. ¡No podía creerlo! El equipo me guió en todo. Son los mejores."</p>
+                        <div class="mt-4 font-bold text-orange-500">- Javier Mendoza</div>
+                    </div>
                 </div>
             </div>
         </section>
     </main>
-    
-    <footer class="footer">
-        <div class="container">
-            <div class="row">
-                <div class="col-lg-4 mb-4 mb-lg-0">
-                    <h5>Moto Plan Motors</h5>
-                    <p>Aceleramos los sueños de quienes buscan libertad sobre dos ruedas. Con planes flexibles y transparentes, hacemos que estrenar moto sea una realidad.</p>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="bg-gray-900 text-gray-400 py-16">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <h5 class="text-white text-lg font-bold mb-4">Moto Plan Motors</h5>
+                    <p class="text-sm">Aceleramos los sueños de quienes buscan libertad sobre dos ruedas.</p>
                 </div>
-                <div class="col-lg-2 col-md-4 col-6 mb-4 mb-lg-0"><h5>Navegación</h5><ul class="list-unstyled"><li><a href="#planes-y-pasos">Planes</a></li><li><a href="#testimonios">Clientes</a></li><li><a href="https://app.motoplanmotors.com/portal/login">Zona Clientes</a></li><li><a href="https://app.motoplanmotors.com/admin/login">Zona Administrativa</a></li></ul></div>
-                <div class="col-lg-3 col-md-4 col-6 mb-4 mb-lg-0"><h5>Legal</h5><ul class="list-unstyled"><li><a href="#">Términos y Condiciones</a></li><li><a href="#">Política de Privacidad</a></li><li><a href="#">Preguntas Frecuentes</a></li></ul></div>
-                <div class="col-lg-3 col-md-4"><h5>Contacto</h5><p>Dirección de la Empresa, Ciudad, País</p><p>info@motoplanmotors.com</p><div class="social-icons"><a href="#"><i class="bi bi-facebook"></i></a><a href="#"><i class="bi bi-instagram"></i></a><a href="https://wa.me/1234567890"><i class="bi bi-whatsapp"></i></a></div></div>
+                <div>
+                    <h5 class="text-white text-lg font-bold mb-4">Navegación</h5>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#planes-y-pasos" class="hover:text-orange-500">Planes</a></li>
+                        <li><a href="#testimonios" class="hover:text-orange-500">Clientes</a></li>
+                        <li><a href="https://app.motoplanmotors.com/portal/login" class="hover:text-orange-500">Zona Clientes</a></li>
+                    </ul>
+                </div>
+                 <div>
+                    <h5 class="text-white text-lg font-bold mb-4">Legal</h5>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#" class="hover:text-orange-500">Términos y Condiciones</a></li>
+                        <li><a href="#" class="hover:text-orange-500">Política de Privacidad</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h5 class="text-white text-lg font-bold mb-4">Contacto</h5>
+                    <p class="text-sm">info@motoplanmotors.com</p>
+                    <div class="flex space-x-4 mt-4 text-2xl">
+                        <a href="#" class="hover:text-orange-500"><i class="bi bi-facebook"></i></a>
+                        <a href="#" class="hover:text-orange-500"><i class="bi bi-instagram"></i></a>
+                        <a href="https://wa.me/1234567890" class="hover:text-orange-500"><i class="bi bi-whatsapp"></i></a>
+                    </div>
+                </div>
             </div>
-            <hr class="my-4">
-            <div class="text-center">
-                <!-- ===== CAMBIO: LOGO DESDE S3 ===== -->
-                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan Motors" class="footer-logo-small mb-3">
-                <p class="small" style="color: #aaa;">&copy; 2025 Moto Plan Motors. Todos los derechos reservados.</p>
+            <div class="text-center mt-12 border-t border-gray-800 pt-8">
+                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo" class="h-10 mx-auto mb-4">
+                <p class="text-xs">&copy; 2025 Moto Plan Motors. Todos los derechos reservados.</p>
             </div>
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script>
-        AOS.init({
-            duration: 800,
-            once: true,
-            offset: 50,
-        });
+        document.addEventListener('DOMContentLoaded', function () {
+            AOS.init({
+                duration: 800,
+                once: true,
+                offset: 50,
+            });
 
-        const nav = document.querySelector('.navbar');
-        window.addEventListener('scroll', () => {
-            if (window.scrollY > 50) {
-                nav.classList.add('scrolled');
-            } else {
-                nav.classList.remove('scrolled');
+            // Navbar scroll effect
+            const nav = document.getElementById('navbar');
+            const logo = document.getElementById('navbar-logo');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 50) {
+                    nav.classList.add('bg-black/80', 'backdrop-blur-sm', 'py-1');
+                    nav.classList.remove('py-3');
+                    // ===== CAMBIO: Tamaño del logo al hacer scroll =====
+                    logo.classList.add('h-16'); 
+                    logo.classList.remove('h-20', 'md:h-32');
+                } else {
+                    nav.classList.remove('bg-black/80', 'backdrop-blur-sm', 'py-1');
+                    nav.classList.add('py-3');
+                    logo.classList.remove('h-16');
+                    // ===== CAMBIO: Tamaño inicial del logo =====
+                    logo.classList.add('h-20', 'md:h-32');
+                }
+            });
+
+            // Carousel logic
+            const slides = document.querySelectorAll('.carousel-item');
+            const indicatorsContainer = document.querySelector('.carousel-indicators');
+            const prevButton = document.getElementById('carousel-prev');
+            const nextButton = document.getElementById('carousel-next');
+            let currentSlide = 0;
+            let autoPlayInterval;
+            
+            if (slides.length > 0) {
+                slides.forEach((_, i) => {
+                    const indicator = document.createElement('button');
+                    indicator.classList.add('w-3', 'h-3', 'rounded-full', 'transition-colors');
+                    indicator.dataset.slideTo = i;
+                    indicatorsContainer.appendChild(indicator);
+                });
+
+                const indicators = document.querySelectorAll('.carousel-indicators button');
+
+                function showSlide(index) {
+                    slides.forEach((slide, i) => {
+                        slide.style.opacity = i === index ? '1' : '0';
+                    });
+                    indicators.forEach((indicator, i) => {
+                        indicator.classList.toggle('bg-white', i === index);
+                        indicator.classList.toggle('bg-white/50', i !== index);
+                    });
+                    currentSlide = index;
+                }
+
+                function nextSlide() {
+                    const next = (currentSlide + 1) % slides.length;
+                    showSlide(next);
+                }
+
+                function prevSlide() {
+                    const prev = (currentSlide - 1 + slides.length) % slides.length;
+                    showSlide(prev);
+                }
+
+                function resetAutoPlay() {
+                    clearInterval(autoPlayInterval);
+                    autoPlayInterval = setInterval(nextSlide, 3000);
+                }
+
+                indicators.forEach(indicator => {
+                    indicator.addEventListener('click', (e) => {
+                        showSlide(parseInt(e.target.dataset.slideTo));
+                        resetAutoPlay();
+                    });
+                });
+
+                prevButton.addEventListener('click', () => {
+                    prevSlide();
+                    resetAutoPlay();
+                });
+
+                nextButton.addEventListener('click', () => {
+                    nextSlide();
+                    resetAutoPlay();
+                });
+
+                showSlide(0);
+                resetAutoPlay();
             }
         });
     </script>
