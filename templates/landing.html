@@ -39,25 +39,25 @@
 
         .navbar {
             transition: background-color 0.4s ease, padding 0.4s ease;
-            padding: 1.5rem 0; /* Aumentado para dar espacio al logo */
+            padding: 1.5rem 0; 
         }
         .navbar.scrolled {
             background-color: rgba(26, 26, 26, 0.9) !important;
             backdrop-filter: blur(10px);
-            padding: 1rem 0;
+            padding: 0.5rem 0;
         }
         .navbar-brand {
-            font-family: 'Oswald', sans-serif;
-            font-size: 1.8rem;
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
         }
-        /* Estilo para el logo - TAMAÑO AUMENTADO SIGNIFICATIVAMENTE */
+        /* Estilo para el logo - TAMAÑO 330px */
         .navbar-brand img {
-            height: 70px; /* Aumentado a 70px */
-            width: auto;
-            transition: height 0.4s ease;
+            width: 330px; /* Ancho definido por el usuario */
+            height: auto; /* Altura automática para mantener proporción */
+            transition: width 0.4s ease;
         }
         .navbar.scrolled .navbar-brand img {
-            height: 55px; /* Logo se achica un poco al hacer scroll */
+            width: 220px; /* Logo se achica un poco al hacer scroll */
         }
         .btn-primary {
             background-color: var(--primary-color);
@@ -284,12 +284,11 @@
         .footer h5 {
             color: var(--light-color);
             margin-bottom: 20px;
-            /* Se elimina el estilo de texto para h5 y se deja solo para el logo */
             line-height: 1;
         }
         .footer .footer-logo {
-            height: 50px; /* Tamaño del logo en el footer */
-            width: auto;
+            width: 250px; /* Ancho del logo en el footer */
+            height: auto;
         }
         .footer a {
             color: #aaa;
@@ -307,10 +306,10 @@
         /* Media Queries para Responsividad Móvil */
         @media (max-width: 768px) {
             .section {
-                padding: 60px 0; /* Menos padding en móvil */
+                padding: 60px 0; 
             }
             .section-title {
-                font-size: 2.2rem; /* Títulos más pequeños */
+                font-size: 2.2rem; 
                 margin-bottom: 40px;
             }
             .carousel-caption {
@@ -318,19 +317,22 @@
                 padding-right: 5%;
             }
             .carousel-caption h1 {
-                font-size: clamp(2.5rem, 12vw, 4rem); /* Títulos del carrusel más pequeños */
+                font-size: clamp(2.5rem, 12vw, 4rem); 
             }
             .carousel-caption .lead {
                 font-size: 1rem;
             }
             .navbar-brand img {
-                height: 50px; /* Logo más pequeño en móvil */
+                width: 200px; /* Tamaño del logo en móvil */
+            }
+            .navbar.scrolled .navbar-brand img {
+                width: 180px; 
             }
             .navbar {
                 padding: 1rem 0;
             }
             .nav-tabs .nav-link {
-                font-size: 1rem; /* Texto de pestañas más pequeño */
+                font-size: 1rem; 
                 padding: 0.8rem;
             }
         }
@@ -362,7 +364,6 @@
 
     <header id="heroCarousel" class="carousel slide carousel-fade" data-bs-ride="carousel" data-bs-interval="4000">
         <div class="carousel-inner hero-carousel">
-            <!-- Slides del carrusel (sin cambios) -->
             <div class="carousel-item active" style="background-image: url('https://images.pexels.com/photos/3758105/pexels-photo-3758105.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')"><div class="carousel-caption"><h1 data-aos="fade-right" data-aos-delay="200">EL SUEÑO <br><span class="highlight">COMIENZA</span></h1><p class="lead" data-aos="fade-right" data-aos-delay="400">Todo gran viaje empieza con una idea. Nosotros la hacemos realidad.</p></div></div>
             <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/5902919/pexels-photo-5902919.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')"><div class="carousel-caption"><h1>REVALORIZA <br><span class="highlight">TU DINERO</span></h1><p class="lead">Una moto es más que un gasto, es un activo que te da libertad y se paga solo.</p></div></div>
             <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/1430931/pexels-photo-1430931.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')"><div class="carousel-caption"><h1>CONQUISTA <br><span class="highlight">EL CAMINO</span></h1><p class="lead">Siente el viento, aduéñate del horizonte y vive sin límites.</p></div></div>
@@ -385,7 +386,6 @@
             </div>
         </section>
 
-        <!-- ========= INICIO DE LA NUEVA SECCIÓN CON PESTAÑAS ========= -->
         <section id="planes-y-pasos" class="section">
             <div class="container">
                 <ul class="nav nav-tabs nav-fill" id="infoTab" role="tablist" data-aos="fade-up">
@@ -397,7 +397,6 @@
                     </li>
                 </ul>
                 <div class="tab-content" id="infoTabContent">
-                    <!-- Contenido de la Pestaña "Planes" -->
                     <div class="tab-pane fade show active" id="planes-tab-pane" role="tabpanel" aria-labelledby="planes-tab" tabindex="0">
                         <h2 class="section-title" data-aos="fade-up">DOS RUTAS, <span>UNA META</span></h2>
                         <div class="row g-4">
@@ -405,7 +404,6 @@
                             <div class="col-lg-6" data-aos="fade-up" data-aos-delay="150"><div class="modelo-card" style="background-image: url('https://images.pexels.com/photos/2393821/pexels-photo-2393821.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2');"><div class="modelo-card-content"><h3>Adjudicación por Oferta</h3><p>Para los que viven en el carril rápido. Adelanta cuotas, haz la mejor oferta y llévate tu moto antes que nadie.</p></div></div></div>
                         </div>
                     </div>
-                    <!-- Contenido de la Pestaña "Cómo Funciona" -->
                     <div class="tab-pane fade" id="pasos-tab-pane" role="tabpanel" aria-labelledby="pasos-tab" tabindex="0">
                         <h2 class="section-title text-center" data-aos="fade-up">EN <span>3 PASOS</span> ESTÁS RODANDO</h2>
                         <div class="row g-4">
@@ -417,7 +415,6 @@
                 </div>
             </div>
         </section>
-        <!-- ========= FIN DE LA NUEVA SECCIÓN CON PESTAÑAS ========= -->
 
         <section id="testimonios" class="section">
             <div class="container">
@@ -435,7 +432,6 @@
         <div class="container">
             <div class="row">
                 <div class="col-lg-4 mb-4 mb-lg-0">
-                    <!-- ========= LOGO CORREGIDO EN EL FOOTER ========= -->
                     <h5><img src="{{ url_for('static', filename='BLANCOlargo.svg') }}" alt="Logo Moto Plan Motors" class="footer-logo"></h5>
                     <p>Aceleramos los sueños de quienes buscan libertad sobre dos ruedas. Con planes flexibles y transparentes, hacemos que estrenar moto sea una realidad.</p>
                 </div>
