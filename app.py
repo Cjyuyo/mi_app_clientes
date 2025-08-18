@@ -400,6 +400,48 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
         if vencimiento.year != ano_vencimiento: feriados = get_feriados_venezuela(vencimiento.year)
     return vencimiento
 
+def delete_client(client_id):
+    """
+    Elimina un cliente y todos sus registros asociados de la base de datos.
+    """
+    conn = get_db()
+    if not conn: return redirect(url_for('consulta'))
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT nombre, apellido, cedula FROM clientes WHERE id = %s", (client_id,))
+            cliente_a_borrar = cur.fetchone()
+            if not cliente_a_borrar:
+                flash('El cliente que intenta eliminar no existe.', 'warning')
+                return redirect(url_for('consulta'))
+            
+            # Lista actualizada y más completa de tablas relacionadas
+            tablas_relacionadas = [
+                "pagos", "comisiones", "caja_inscripciones", "ofertas", 
+                "gestiones_cobranza", "solicitudes", "payment_bulks", 
+                "payment_orders", "receipts"
+            ]
+            
+            for tabla in tablas_relacionadas:
+                # Se añade un bloque try-except para cada tabla por si alguna no existe
+                try:
+                    cur.execute(f"DELETE FROM {tabla} WHERE cliente_id = %s", (client_id,))
+                except psycopg2.Error as e:
+                    # Si la tabla no existe, se registra un warning pero el proceso continúa
+                    logging.warning(f"No se pudo eliminar de la tabla '{tabla}' (puede que no exista): {e}")
+                    conn.rollback() # Es importante hacer rollback de la transacción fallida
+            
+            descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']}) y todos sus datos asociados."
+            registrar_accion_auditoria('ELIMINACION_CLIENTE', descripcion_audit, client_id)
+            
+            cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
+            
+            conn.commit()
+            flash('¡Cliente y todos sus registros asociados han sido eliminados exitosamente!', 'success')
+    except (psycopg2.Error, ConnectionError) as e:
+        conn.rollback()
+        flash(f'Ocurrió un error al eliminar: {e}', 'error')
+    return redirect(url_for('consulta'))
+
 # =================================================================================
 # ===== FUNCIONES HELPER PARA LÓGICA DE PAGOS POR DIFERENCIA =====
 # =================================================================================
