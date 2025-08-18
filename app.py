@@ -2308,39 +2308,89 @@ def finalizar_registro():
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('registrar'))
+
     form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
+    
+    # --- INICIO DE LA INTEGRACIÓN CON S3 ---
+    foto_cliente_archivo = request.files.get('foto_cliente')
+    foto_cedula_archivo = request.files.get('foto_cedula')
+    
+    ruta_s3_cliente = None
+    ruta_s3_cedula = None
+    cedula_cliente_limpia = form_data.get('cedula', '').replace(' ', '')
+
+    # Subir foto del cliente si existe
+    if foto_cliente_archivo and foto_cliente_archivo.filename != '':
+        nombre_archivo_s3 = f"documentos/{cedula_cliente_limpia}/foto_cliente.jpg"
+        if subir_archivo_a_s3(foto_cliente_archivo, nombre_archivo_s3):
+            ruta_s3_cliente = nombre_archivo_s3
+        else:
+            flash("Error crítico al subir la foto del cliente a S3. El registro ha sido cancelado.", "danger")
+            return redirect(url_for('registrar'))
+
+    # Subir foto de la cédula si existe
+    if foto_cedula_archivo and foto_cedula_archivo.filename != '':
+        nombre_archivo_s3 = f"documentos/{cedula_cliente_limpia}/foto_cedula.jpg"
+        if subir_archivo_a_s3(foto_cedula_archivo, nombre_archivo_s3):
+            ruta_s3_cedula = nombre_archivo_s3
+        else:
+            flash("Error crítico al subir la foto de la cédula a S3. El registro ha sido cancelado.", "danger")
+            return redirect(url_for('registrar'))
+    # --- FIN DE LA INTEGRACIÓN CON S3 ---
+
     try:
         firma_cliente, firma_empresa = form_data.get('firma_cliente'), form_data.get('firma_empresa')
         if not firma_cliente or not firma_empresa:
             flash('Ambas firmas son obligatorias para registrar al cliente.', 'error')
             return redirect(url_for('registrar'))
+            
         form_data['inscripcion_monto'] = Decimal(form_data.get('inscripcion_monto', '0.00').replace(',', '.'))
         form_data['valor_cuota'] = Decimal(form_data.get('valor_cuota', '0.00').replace(',', '.'))
         form_data['cuotas_totales'] = int(form_data.get('cuotas_totales')) if form_data.get('cuotas_totales') else None
         responsable_cierre = form_data.get('responsable', '') 
+
         with conn.cursor() as cur:
             nombre_completo = form_data.get('nombre_apellido').split(' ', 1)
             nombre, apellido = nombre_completo[0], nombre_completo[1] if len(nombre_completo) > 1 else ''
-            insert_dict = {'nombre': nombre, 'apellido': apellido, 'cedula': form_data.get('cedula').replace(' ', ''),
-                           'cuotas_pagadas_progresivas': 0, 'cuotas_pagadas_regresivas': 0, 'firma_digital': firma_cliente,
-                           'firma_empresa': firma_empresa, 'fecha_firma': datetime.now(VENEZUELA_TZ), 'proceso': 'RESERVA'}
-            optional_fields = ['contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso', 'grupo', 'plan_contratado', 
-                               'cuotas_totales', 'moneda_pago', 'valor_cuota', 'inscripcion_monto', 'ciclo_cobranza', 'foto_cliente', 
-                               'foto_cedula', 'direccion', 'email', 'beneficiario_nombre', 'beneficiario_cedula', 'beneficiario_telefono']
+            
+            insert_dict = {
+                'nombre': nombre, 'apellido': apellido, 'cedula': cedula_cliente_limpia,
+                'cuotas_pagadas_progresivas': 0, 'cuotas_pagadas_regresivas': 0, 
+                'firma_digital': firma_cliente, 'firma_empresa': firma_empresa, 
+                'fecha_firma': datetime.now(VENEZUELA_TZ), 'proceso': 'RESERVA',
+                'ruta_foto_cliente_s3': ruta_s3_cliente, # Guardamos la ruta de S3
+                'ruta_foto_cedula_s3': ruta_s3_cedula      # Guardamos la ruta de S3
+            }
+            
+            # Ya no incluimos 'foto_cliente' y 'foto_cedula' aquí porque no se guardan en la DB
+            optional_fields = [
+                'contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso', 'grupo', 
+                'plan_contratado', 'cuotas_totales', 'moneda_pago', 'valor_cuota', 
+                'inscripcion_monto', 'ciclo_cobranza', 'direccion', 'email', 
+                'beneficiario_nombre', 'beneficiario_cedula', 'beneficiario_telefono'
+            ]
+
             for field in optional_fields:
                 if form_data.get(field): insert_dict[field] = form_data[field]
-            columns, values = list(insert_dict.keys()), [insert_dict[col] for col in list(insert_dict.keys())]
+                
+            columns = insert_dict.keys()
+            values = insert_dict.values()
             query = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))}) RETURNING id"
-            cur.execute(query, values)
+            
+            cur.execute(query, list(values))
             new_client_id = cur.fetchone()[0]
+
             if form_data['inscripcion_monto'] > 0:
                 cur.execute("INSERT INTO caja_inscripciones (contrato_nro, cliente_id, monto_inscripcion, responsable_cierre) VALUES (%s, %s, %s, %s)",
                             (form_data.get('contrato_nro'), new_client_id, form_data['inscripcion_monto'], responsable_cierre))
-            descripcion_audit = f"Registró y firmó contrato para nuevo cliente: {form_data.get('nombre_apellido')} (C.I. {form_data.get('cedula')})."
+            
+            descripcion_audit = f"Registró y firmó contrato para nuevo cliente: {form_data.get('nombre_apellido')} (C.I. {cedula_cliente_limpia})."
             registrar_accion_auditoria('REGISTRO_CLIENTE_FIRMADO', descripcion_audit, new_client_id)
+            
             conn.commit()
             flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado exitosamente como RESERVA! Ahora puede registrar su primer pago desde la consulta.", 'success')
             return redirect(url_for('consulta', busqueda=form_data.get('cedula')))
+
     except psycopg2.IntegrityError:
         conn.rollback()
         flash(f"Registro fallido: La cédula '{form_data.get('cedula')}' ya existe.", 'error')
@@ -2349,74 +2399,8 @@ def finalizar_registro():
         conn.rollback()
         logging.error(f"Error en finalizar_registro: {e}")
         flash(f"Registro fallido: Ocurrió un error inesperado: {e}", 'error')
+    
     return redirect(url_for('registrar'))
-
-@app.route('/generar_contrato/<int:client_id>')
-def generar_contrato(client_id):
-    is_admin = 'admin_id' in session
-    is_correct_client = 'cliente_id' in session and session['cliente_id'] == client_id
-    if not is_admin and not is_correct_client:
-        flash('Acceso no autorizado.', 'error')
-        if 'cliente_id' in session:
-            return redirect(url_for('portal_dashboard'))
-        else:
-            return redirect(url_for('home'))
-    conn = get_db()
-    if not conn:
-        flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('home'))
-    with conn.cursor() as cur:
-        cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
-        cliente = cur.fetchone()
-    if not cliente:
-        flash('Cliente no encontrado.', 'error')
-        return redirect(url_for('home'))
-    return render_template('contrato.html', cliente=cliente, modo_pre_registro=False, anio_actual=get_venezuela_current_date().year)
-
-@app.route('/guardar_firma_cliente/<int:client_id>', methods=['POST'])
-@admin_required
-def guardar_firma_cliente(client_id):
-    firma_cliente = request.form.get('firma_cliente')
-    if not firma_cliente:
-        flash('No se recibió la firma del cliente.', 'error')
-        return redirect(url_for('generar_contrato', client_id=client_id))
-    conn = get_db()
-    if not conn:
-        flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('generar_contrato', client_id=client_id))
-    try:
-        with conn.cursor() as cur:
-            fecha_firma_utc = datetime.now(pytz.utc)
-            fecha_firma_vet = fecha_firma_utc.astimezone(pytz.timezone('America/Caracas'))
-            cur.execute("UPDATE clientes SET firma_digital = %s, fecha_firma = %s WHERE id = %s", (firma_cliente, fecha_firma_vet, client_id))
-            conn.commit()
-            flash('¡Firma del cliente guardada exitosamente!', 'success')
-    except (psycopg2.Error, ConnectionError) as e:
-        conn.rollback()
-        flash(f'Error al guardar la firma del cliente: {e}', 'error')
-    return redirect(url_for('generar_contrato', client_id=client_id))
-
-@app.route('/guardar_firma_empresa/<int:client_id>', methods=['POST'])
-@admin_required
-def guardar_firma_empresa(client_id):
-    firma_empresa = request.form.get('firma_empresa')
-    if not firma_empresa:
-        flash('No se recibió la firma de la empresa.', 'error')
-        return redirect(url_for('generar_contrato', client_id=client_id))
-    conn = get_db()
-    if not conn:
-        flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('generar_contrato', client_id=client_id))
-    try:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE clientes SET firma_empresa = %s WHERE id = %s", (firma_empresa, client_id))
-            cur.execute("UPDATE clientes SET fecha_firma = %s WHERE id = %s AND fecha_firma IS NULL", (datetime.now(VENEZUELA_TZ), client_id))
-            conn.commit()
-            flash('¡Firma de la empresa guardada exitosamente!', 'success')
-    except (psycopg2.Error, ConnectionError) as e:
-        conn.rollback()
-        flash(f'Error al guardar la firma de la empresa: {e}', 'error')
-    return redirect(url_for('generar_contrato', client_id=client_id))
 
 @app.route('/consulta', methods=['GET', 'POST'])
 @admin_required
