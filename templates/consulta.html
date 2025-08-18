@@ -181,7 +181,8 @@
                  x-transition:enter-start="transition-enter-start"
                  x-transition:leave="transition-leave-active"
                  x-transition:leave-end="transition-leave-end">
-                <form action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" method="POST" onsubmit="handleFormSubmit(this)">
+                <!-- CORRECCIÓN: Se cambió 'guardar_oferta' por 'portal_guardar_oferta' para que coincida con la ruta en app.py -->
+                <form action="{{ url_for('portal_guardar_oferta', client_id=cliente.id) }}" method="POST" onsubmit="handleFormSubmit(this)">
                     <h3 class="font-bold text-slate-800 mb-2">Registrar Oferta para {{ cliente.nombre_apellido }}</h3>
                     <p class="text-sm text-slate-600 mb-4">Seleccione la cantidad de cuotas que el cliente desea adelantar para el próximo acto de adjudicación.</p>
                     <div>
