@@ -12,10 +12,16 @@
     <!-- AOS (Animate On Scroll) Library -->
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
 
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto:wght@400;700&family=Anton&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto:wght@400;700&family=Anton&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- Iconos de Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <style>
         :root {
@@ -36,15 +42,26 @@
             font-weight: 700;
             text-transform: uppercase;
         }
+        
+        /* Estilos personalizados para el nuevo diseño de tarjetas (CORREGIDO) */
+        .font-oswald {
+            font-family: 'Oswald', sans-serif;
+        }
+        .text-custom-primary { color: #FF6600; }
+        .bg-custom-primary { background-color: #FF6600; }
+        .border-custom-primary { border-color: #FF6600; }
+        .ring-custom-primary { --tw-ring-color: #FF6600; }
 
-        /* Barra de navegación con fondo semi-transparente */
+
+        /* Barra de navegación con efecto de scroll */
         .navbar {
             transition: background-color 0.4s ease, padding 0.4s ease;
             padding: 0.5rem 0;
-            background-color: rgba(26, 26, 26, 0.9);
-            backdrop-filter: blur(10px);
+            background-color: transparent; /* Inicia transparente */
         }
         .navbar.scrolled {
+            background-color: rgba(26, 26, 26, 0.9); /* Se oscurece al hacer scroll */
+            backdrop-filter: blur(10px);
             padding: 0.25rem 0;
         }
         /* Logo ajustado */
@@ -71,7 +88,7 @@
             transform: translateY(-2px);
         }
 
-        /* Hero Carousel - Estilos de texto mejorados */
+        /* Hero Carousel */
         .hero-carousel {
             height: 100vh;
         }
@@ -84,20 +101,19 @@
             content: '';
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.2) 100%);
+            background: rgba(0,0,0,0.5); /* Oscurecimiento general para contraste */
         }
-        /* Alineación de texto del carrusel corregida */
         .carousel-caption {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 100%;
-            padding: 0;
-            text-align: left !important;
-        }
-        .carousel-caption .container {
-            max-width: 60%;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center; /* Centrado horizontal */
+            text-align: center; /* Centrado de texto */
+            padding: 1rem;
         }
         .carousel-caption h1 {
             font-family: 'Anton', sans-serif;
@@ -113,8 +129,8 @@
         }
         .carousel-caption .lead {
             font-size: 1.2rem;
-            max-width: 550px;
-            margin: 25px 0 0 0;
+            max-width: 600px;
+            margin: 25px auto 0;
             font-weight: 400;
             text-shadow: 1px 1px 4px rgba(0,0,0,0.7);
             color: var(--light-color);
@@ -195,46 +211,7 @@
         .tab-content {
             padding-top: 40px;
         }
-        /* Alineación de texto en tarjetas de planes corregida */
-        .modelo-card {
-            background-size: cover;
-            background-position: center;
-            border-radius: 20px;
-            padding: 40px;
-            color: var(--light-color);
-            min-height: 450px;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end; /* Alinea el contenido al final */
-            position: relative;
-            overflow: hidden;
-            transition: transform 0.4s ease;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
-        }
-        .modelo-card:hover {
-            transform: scale(1.03);
-        }
-        .modelo-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(to top, rgba(0,0,0,0.9) 20%, rgba(0,0,0,0) 60%);
-            border-radius: 20px;
-        }
-        .modelo-card-content {
-            position: relative;
-            z-index: 1;
-        }
-        .modelo-card h3 {
-            font-size: 2rem;
-            border-bottom: 3px solid var(--primary-color);
-            padding-bottom: 10px;
-            display: inline-block;
-        }
-        .modelo-card p {
-            font-size: 1rem;
-            max-width: 90%;
-        }
+        
         .step-card {
             background: var(--light-color);
             border-radius: 15px;
@@ -316,9 +293,6 @@
             .navbar.scrolled .navbar-brand img {
                 width: 140px; 
             }
-            .carousel-caption .container {
-                max-width: 80%;
-            }
         }
         @media (max-width: 768px) {
             .section {
@@ -327,9 +301,6 @@
             .section-title {
                 font-size: 2.2rem; 
                 margin-bottom: 40px;
-            }
-            .carousel-caption .container {
-                max-width: none;
             }
             .carousel-caption h1 {
                 font-size: clamp(2.5rem, 12vw, 4rem); 
@@ -347,7 +318,7 @@
         }
     </style>
 </head>
-<body>
+<body class="antialiased">
 
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
         <div class="container">
@@ -385,16 +356,16 @@
             <!-- Slide 1: La Idea -->
             <div class="carousel-item active" style="background-image: url('https://images.pexels.com/photos/3758105/pexels-photo-3758105.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                 <div class="carousel-caption">
-                    <div class="container">
-                        <h1 data-aos="fade-right" data-aos-delay="200">EL SUEÑO <br><span class="highlight">COMIENZA</span></h1>
-                        <p class="lead" data-aos="fade-right" data-aos-delay="400">Todo gran viaje empieza con una idea. Nosotros la hacemos realidad.</p>
+                    <div>
+                        <h1 data-aos="fade-up" data-aos-delay="200">EL SUEÑO <br><span class="highlight">COMIENZA</span></h1>
+                        <p class="lead" data-aos="fade-up" data-aos-delay="400">Todo gran viaje empieza con una idea. Nosotros la hacemos realidad.</p>
                     </div>
                 </div>
             </div>
             <!-- Slide 2: Inversión -->
             <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/5902919/pexels-photo-5902919.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                 <div class="carousel-caption">
-                    <div class="container">
+                    <div>
                         <h1>REVALORIZA <br><span class="highlight">TU DINERO</span></h1>
                         <p class="lead">Una moto es más que un gasto, es un activo que te da libertad y se paga solo.</p>
                     </div>
@@ -403,7 +374,7 @@
             <!-- Slide 3: Libertad -->
             <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/1430931/pexels-photo-1430931.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                 <div class="carousel-caption">
-                    <div class="container">
+                    <div>
                         <h1>CONQUISTA <br><span class="highlight">EL CAMINO</span></h1>
                         <p class="lead">Siente el viento, aduéñate del horizonte y vive sin límites.</p>
                     </div>
@@ -412,7 +383,7 @@
             <!-- Slide 4: Pasión por la Moto -->
             <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/33469784/pexels-photo-33469784.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                 <div class="carousel-caption">
-                    <div class="container">
+                    <div>
                         <h1>TU ESPACIO, <br><span class="highlight">TU PASIÓN</span></h1>
                         <p class="lead">Ese momento a solas con tu máquina, donde todo lo demás desaparece.</p>
                     </div>
@@ -421,7 +392,7 @@
             <!-- Slide 5: Amigos / Comunidad -->
             <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/5195659/pexels-photo-5195659.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                 <div class="carousel-caption">
-                    <div class="container">
+                    <div>
                         <h1>LA TRIBU <br><span class="highlight">TE ESPERA</span></h1>
                         <p class="lead">Comparte la ruta y la pasión con quienes entienden tu estilo de vida.</p>
                     </div>
@@ -430,7 +401,7 @@
             <!-- Slide 6: Pareja -->
             <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/9606978/pexels-photo-9606978.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                 <div class="carousel-caption">
-                    <div class="container">
+                    <div>
                         <h1>AVENTURA <br><span class="highlight">PARA DOS</span></h1>
                         <p class="lead">Crea recuerdos imborrables en cada kilómetro recorrido juntos.</p>
                     </div>
@@ -439,7 +410,7 @@
              <!-- Slide 7: Familia -->
              <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/1682497/pexels-photo-1682497.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                 <div class="carousel-caption">
-                    <div class="container">
+                    <div>
                         <h1>UN FUTURO <br><span class="highlight">JUNTOS</span></h1>
                         <p class="lead">Una inversión en tu libertad es una inversión en el bienestar de tu familia.</p>
                     </div>
@@ -480,11 +451,56 @@
                 </ul>
                 <div class="tab-content" id="infoTabContent">
                     <div class="tab-pane fade show active" id="planes-tab-pane" role="tabpanel" aria-labelledby="planes-tab" tabindex="0">
-                        <h2 class="section-title" data-aos="fade-up">DOS RUTAS, <span>UNA META</span></h2>
-                        <div class="row g-4 d-flex align-items-stretch">
-                            <div class="col-lg-6 d-flex" data-aos="fade-up"><div class="modelo-card w-100" style="background-image: url('https://images.pexels.com/photos/819805/pexels-photo-819805.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2');"><div class="modelo-card-content"><h3>Plan de Ahorro Programado</h3><p>El camino seguro hacia tu meta. A través de cuotas fijas mensuales, aseguras la adjudicación de tu moto al completar el plazo.</p></div></div></div>
-                            <div class="col-lg-6 d-flex" data-aos="fade-up" data-aos-delay="150"><div class="modelo-card w-100" style="background-image: url('https://images.pexels.com/photos/2393821/pexels-photo-2393821.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2');"><div class="modelo-card-content"><h3>Adjudicación por Oferta</h3><p>Para los que viven en el carril rápido. Adelanta cuotas, haz la mejor oferta y llévate tu moto antes que nadie.</p></div></div></div>
+                        
+                        <!-- ===== SECCIÓN DE TARJETAS REEMPLAZADA ===== -->
+                        <div class="text-center mb-16">
+                            <h2 class="text-4xl md:text-5xl font-bold font-oswald text-gray-800">
+                                DOS RUTAS, <span class="text-custom-primary">UNA META</span>
+                            </h2>
+                            <p class="text-gray-600 mt-3 text-lg max-w-2xl mx-auto">Elige el plan que te ponga en el camino más rápido hacia tu nueva moto.</p>
                         </div>
+                
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 max-w-6xl mx-auto">
+                
+                            <!-- Tarjeta 1: Plan de Ahorro Programado -->
+                            <div class="relative rounded-xl overflow-hidden shadow-lg group h-[500px] flex flex-col justify-end p-8 text-white transition-all duration-500 ease-in-out transform hover:scale-105">
+                                <img src="https://images.pexels.com/photos/819805/pexels-photo-819805.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" 
+                                     alt="Motocicleta clásica estilo cafe racer"
+                                     class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+                                
+                                <div class="relative z-10 transform transition-transform duration-500 group-hover:-translate-y-2">
+                                    <i class="fas fa-calendar-check text-4xl text-custom-primary mb-4"></i>
+                                    <h3 class="text-3xl font-bold mb-3 font-oswald">Plan de Ahorro Programado</h3>
+                                    <p class="mb-6 opacity-90">
+                                        El camino seguro hacia tu meta. A través de cuotas fijas mensuales, aseguras la adjudicación de tu moto al completar el plazo.
+                                    </p>
+                                    <a href="#" class="font-bold text-custom-primary text-lg group-hover:text-white transition-colors">
+                                        Conocer más <i class="fas fa-arrow-right ml-1 transform transition-transform duration-300 group-hover:translate-x-1"></i>
+                                    </a>
+                                </div>
+                            </div>
+                
+                            <!-- Tarjeta 2: Adjudicación por Oferta -->
+                            <div class="relative rounded-xl overflow-hidden shadow-lg group h-[500px] flex flex-col justify-end p-8 text-white transition-all duration-500 ease-in-out transform hover:scale-105">
+                                <img src="https://images.pexels.com/photos/2393821/pexels-photo-2393821.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" 
+                                     alt="Motocicleta verde estilo vintage"
+                                     class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+                
+                                <div class="relative z-10 transform transition-transform duration-500 group-hover:-translate-y-2">
+                                    <i class="fas fa-rocket text-4xl text-custom-primary mb-4"></i>
+                                    <h3 class="text-3xl font-bold mb-3 font-oswald">Adjudicación por Oferta</h3>
+                                    <p class="mb-6 opacity-90">
+                                        Para los que viven en el carril rápido. Adelanta cuotas, haz la mejor oferta y llévate tu moto antes que nadie.
+                                    </p>
+                                    <a href="#" class="font-bold text-custom-primary text-lg group-hover:text-white transition-colors">
+                                        Ver cómo funciona <i class="fas fa-arrow-right ml-1 transform transition-transform duration-300 group-hover:translate-x-1"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                     <div class="tab-pane fade" id="pasos-tab-pane" role="tabpanel" aria-labelledby="pasos-tab" tabindex="0">
                         <h2 class="section-title text-center" data-aos="fade-up">EN <span>3 PASOS</span> ESTÁS RODANDO</h2>
