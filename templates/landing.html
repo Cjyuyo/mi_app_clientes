@@ -387,10 +387,16 @@
             .carousel-item.slide-familia { background-position: center 25%; }
 
             .carousel-caption h1 {
-                font-size: clamp(2.5rem, 12vw, 4rem); 
+                font-size: clamp(2.2rem, 10vw, 3.5rem); /* Título más compacto */
             }
             .carousel-caption .lead {
-                font-size: 1rem;
+                font-size: 0.9rem; /* Subtítulo más compacto */
+                margin-bottom: 25px;
+            }
+            /* Botón más compacto en móvil */
+            .carousel-caption .btn {
+                padding: 10px 20px;
+                font-size: 0.9rem;
             }
             .navbar {
                 padding: 0.5rem 0;
@@ -398,6 +404,65 @@
             .nav-tabs .nav-link {
                 font-size: 1rem; 
                 padding: 0.8rem;
+            }
+
+            /* ===== CAMBIO: ESTILOS PARA VISTA "MINI-ESCRITORIO" ===== */
+            .why-us-card {
+                padding: 20px 10px;
+                min-height: 250px;
+            }
+            .why-us-card .icon-wrapper {
+                width: 50px;
+                height: 50px;
+                font-size: 1.8rem;
+                margin-bottom: 15px;
+            }
+            .why-us-card h3 {
+                font-size: 1rem;
+                margin-bottom: 10px;
+            }
+            .why-us-card p {
+                font-size: 0.8rem;
+                line-height: 1.4;
+            }
+
+            .immersive-card {
+                height: 350px;
+                padding: 1.5rem;
+            }
+            .immersive-card-content h3 {
+                font-size: 1.2rem;
+            }
+            .immersive-card-content p {
+                font-size: 0.8rem;
+                margin-bottom: 1rem;
+            }
+             .immersive-card-content a {
+                font-size: 0.9rem;
+            }
+
+            .step-card {
+                padding: 20px 10px;
+                min-height: 250px;
+            }
+            .step-card .step-number {
+                font-size: 2rem;
+            }
+            .step-card h4 {
+                font-size: 1rem;
+                margin: 10px 0;
+            }
+            .step-card p {
+                font-size: 0.8rem;
+                line-height: 1.4;
+            }
+
+            .testimonial-card {
+                padding: 20px;
+                min-height: 200px;
+            }
+            .testimonial-card p {
+                font-size: 0.9rem;
             }
         }
     </style>
@@ -409,7 +474,7 @@
         <div class="container d-flex justify-content-between">
             <a class="navbar-brand" href="#">
                 <!-- ===== CAMBIO: LOGO DESDE S3 ===== -->
-                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logos/BLANCOlargo.svg" alt="Logo Moto Plan Motors">
+                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan Motors">
             </a>
             
             <ul class="navbar-nav flex-row align-items-center">
@@ -446,7 +511,7 @@
                         <h1>LA TRIBU <br><span class="highlight">TE ESPERA</span></h1>
                         <p class="lead">Comparte la ruta y la pasión con quienes entienden tu estilo de vida.</p>
                         <!-- ===== CAMBIO: BOTÓN DE CATÁLOGO AÑADIDO AQUÍ ===== -->
-                        <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogos/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
+                        <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
                             Ver Catálogo
                         </a>
                     </div>
@@ -457,7 +522,7 @@
                     <div>
                         <h1 data-aos="fade-up" data-aos-delay="200">EL SUEÑO <br><span class="highlight">COMIENZA</span></h1>
                         <p class="lead" data-aos="fade-up" data-aos-delay="400">Todo gran viaje empieza con una idea. Nosotros la hacemos realidad.</p>
-                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogos/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
+                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
                             Ver Catálogo
                         </a>
                     </div>
@@ -468,7 +533,7 @@
                     <div>
                         <h1>REVALORIZA <br><span class="highlight">TU DINERO</span></h1>
                         <p class="lead">Una moto es más que un gasto, es un activo que te da libertad y se paga solo.</p>
-                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogos/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
+                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
                             Ver Catálogo
                         </a>
                     </div>
@@ -479,7 +544,7 @@
                     <div>
                         <h1>CONQUISTA <br><span class="highlight">EL CAMINO</span></h1>
                         <p class="lead">Siente el viento, aduéñate del horizonte y vive sin límites.</p>
-                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogos/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
+                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
                             Ver Catálogo
                         </a>
                     </div>
@@ -490,7 +555,7 @@
                     <div>
                         <h1>TU ESPACIO, <br><span class="highlight">TU PASIÓN</span></h1>
                         <p class="lead">Ese momento a solas con tu máquina, donde todo lo demás desaparece.</p>
-                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogos/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
+                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
                             Ver Catálogo
                         </a>
                     </div>
@@ -501,7 +566,7 @@
                     <div>
                         <h1>AVENTURA <br><span class="highlight">PARA DOS</span></h1>
                         <p class="lead">Crea recuerdos imborrables en cada kilómetro recorrido juntos.</p>
-                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogos/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
+                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
                             Ver Catálogo
                         </a>
                     </div>
@@ -512,7 +577,7 @@
                     <div>
                         <h1>UN FUTURO <br><span class="highlight">JUNTOS</span></h1>
                         <p class="lead">Una inversión en tu libertad es una inversión en el bienestar de tu familia.</p>
-                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogos/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
+                         <a href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Catalogo/catalogo.pdf" target="_blank" class="btn btn-secondary btn-lg">
                             Ver Catálogo
                         </a>
                     </div>
@@ -533,10 +598,11 @@
         <section class="section why-us-section">
             <div class="container">
                 <h2 class="section-title text-center" data-aos="fade-up">¿POR QUÉ <span>ELEGIRNOS?</span></h2>
-                <div class="row g-4">
-                    <div class="col-lg-4 d-flex align-items-stretch" data-aos="fade-up"><div class="why-us-card"><div class="icon-wrapper"><i class="bi bi-shield-check"></i></div><h3>TRANSPARENCIA TOTAL</h3><p>Sin letra pequeña. Un contrato claro y un portal en línea donde sigues cada paso de tu inversión.</p></div></div>
-                    <div class="col-lg-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="150"><div class="why-us-card"><div class="icon-wrapper"><i class="bi bi-arrows-move"></i></div><h3>FLEXIBILIDAD REAL</h3><p>Elige el camino que se ajuste a ti. Ahorra a tu ritmo o acelera la adjudicación con una oferta. Tú tienes el control.</p></div></div>
-                    <div class="col-lg-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="300"><div class="why-us-card"><div class="icon-wrapper"><i class="bi bi-person-hearts"></i></div><h3>ACOMPAÑAMIENTO</h3><p>No solo vendemos planes, construimos relaciones. Nuestro equipo está para asesorarte en cada etapa de tu sueño.</p></div></div>
+                <!-- ===== CAMBIO: CLASES DE COLUMNA PARA VISTA "MINI" ===== -->
+                <div class="row g-3">
+                    <div class="col-4 d-flex align-items-stretch" data-aos="fade-up"><div class="why-us-card"><div class="icon-wrapper"><i class="bi bi-shield-check"></i></div><h3>TRANSPARENCIA TOTAL</h3><p>Sin letra pequeña. Un contrato claro y un portal en línea donde sigues cada paso de tu inversión.</p></div></div>
+                    <div class="col-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="150"><div class="why-us-card"><div class="icon-wrapper"><i class="bi bi-arrows-move"></i></div><h3>FLEXIBILIDAD REAL</h3><p>Elige el camino que se ajuste a ti. Ahorra a tu ritmo o acelera la adjudicación con una oferta. Tú tienes el control.</p></div></div>
+                    <div class="col-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="300"><div class="why-us-card"><div class="icon-wrapper"><i class="bi bi-person-hearts"></i></div><h3>ACOMPAÑAMIENTO</h3><p>No solo vendemos planes, construimos relaciones. Nuestro equipo está para asesorarte en cada etapa de tu sueño.</p></div></div>
                 </div>
             </div>
         </section>
@@ -559,10 +625,10 @@
                             <p class="text-secondary mb-5">Elige el plan que te ponga en el camino más rápido hacia tu nueva moto.</p>
                         </div>
                 
-                        <div class="row g-4">
-                            <div class="col-lg-6">
+                        <!-- ===== CAMBIO: CLASES DE COLUMNA PARA VISTA "MINI" ===== -->
+                        <div class="row g-3">
+                            <div class="col-6">
                                 <div class="immersive-card" data-aos="fade-up">
-                                    <!-- ===== CAMBIO: IMAGEN DESDE S3 ===== -->
                                     <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-819805.jpeg" 
                                          alt="Motocicleta clásica estilo cafe racer" class="immersive-card-bg">
                                     <div class="immersive-card-gradient"></div>
@@ -579,9 +645,8 @@
                                 </div>
                             </div>
                 
-                            <div class="col-lg-6">
+                            <div class="col-6">
                                 <div class="immersive-card" data-aos="fade-up" data-aos-delay="150">
-                                    <!-- ===== CAMBIO: IMAGEN DESDE S3 ===== -->
                                     <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/imagenes-landing/pexels-photo-2393821.jpeg" 
                                          alt="Motocicleta verde estilo vintage" class="immersive-card-bg">
                                     <div class="immersive-card-gradient"></div>
@@ -599,15 +664,14 @@
                             </div>
                         </div>
                         
-                        <!-- ===== CAMBIO: SECCIÓN DE CATÁLOGO ELIMINADA DE AQUÍ ===== -->
-
                     </div>
                     <div class="tab-pane fade" id="pasos-tab-pane" role="tabpanel" aria-labelledby="pasos-tab" tabindex="0">
                         <h2 class="section-title text-center" data-aos="fade-up">EN <span>3 PASOS</span> ESTÁS RODANDO</h2>
-                        <div class="row g-4">
-                            <div class="col-lg-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="100"><div class="card step-card"><div class="card-body"><div class="step-number">01</div><h4>ELIGE TU MOTO</h4><p>Explora nuestro catálogo, enamórate de un modelo y define el plan que mejor se adapte a tu presupuesto.</p></div></div></div>
-                            <div class="col-lg-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="200"><div class="card step-card"><div class="card-body"><div class="step-number">02</div><h4>ACUMULA CUOTAS</h4><p>Realiza tus pagos mensuales desde la comodidad de tu casa a través de nuestra Zona de Clientes.</p></div></div></div>
-                            <div class="col-lg-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="300"><div class="card step-card"><div class="card-body"><div class="step-number">03</div><h4>RECIBE LAS LLAVES</h4><p>Una vez adjudicado, coordinamos la entrega y te preparamos para que salgas a conquistar la independencia.</p></div></div></div>
+                        <!-- ===== CAMBIO: CLASES DE COLUMNA PARA VISTA "MINI" ===== -->
+                        <div class="row g-3">
+                            <div class="col-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="100"><div class="card step-card"><div class="card-body"><div class="step-number">01</div><h4>ELIGE TU MOTO</h4><p>Explora nuestro catálogo, enamórate de un modelo y define el plan que mejor se adapte a tu presupuesto.</p></div></div></div>
+                            <div class="col-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="200"><div class="card step-card"><div class="card-body"><div class="step-number">02</div><h4>ACUMULA CUOTAS</h4><p>Realiza tus pagos mensuales desde la comodidad de tu casa a través de nuestra Zona de Clientes.</p></div></div></div>
+                            <div class="col-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="300"><div class="card step-card"><div class="card-body"><div class="step-number">03</div><h4>RECIBE LAS LLAVES</h4><p>Una vez adjudicado, coordinamos la entrega y te preparamos para que salgas a conquistar la independencia.</p></div></div></div>
                         </div>
                     </div>
                 </div>
@@ -617,10 +681,11 @@
         <section id="testimonios" class="section">
             <div class="container">
                 <h2 class="section-title" data-aos="fade-up">CLIENTES QUE YA <span>RUEDAN CON NOSOTROS</span></h2>
-                <div class="row g-4">
-                    <div class="col-lg-4 d-flex align-items-stretch" data-aos="fade-up"><div class="testimonial-card"><p>"Pensé que comprar una moto era imposible. Con Moto Plan, no solo fue posible, sino increíblemente fácil. ¡Ya estoy rodando en mi nueva moto!"</p><div class="author mt-3">- Carlos Rodríguez</div></div></div>
-                    <div class="col-lg-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="150"><div class="testimonial-card"><p>"La transparencia del proceso es total. Desde el portal de clientes podía ver cada pago y mi progreso. 100% recomendados."</p><div class="author mt-3">- Sofía Gómez</div></div></div>
-                    <div class="col-lg-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="300"><div class="testimonial-card"><p>"Gané la adjudicación por oferta en mi sexto mes. ¡No podía creerlo! El equipo me guió en todo. Son los mejores."</p><div class="author mt-3">- Javier Mendoza</div></div></div>
+                <!-- ===== CAMBIO: CLASES DE COLUMNA PARA VISTA "MINI" ===== -->
+                <div class="row g-3">
+                    <div class="col-4 d-flex align-items-stretch" data-aos="fade-up"><div class="testimonial-card"><p>"Pensé que comprar una moto era imposible. Con Moto Plan, no solo fue posible, sino increíblemente fácil. ¡Ya estoy rodando en mi nueva moto!"</p><div class="author mt-3">- Carlos Rodríguez</div></div></div>
+                    <div class="col-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="150"><div class="testimonial-card"><p>"La transparencia del proceso es total. Desde el portal de clientes podía ver cada pago y mi progreso. 100% recomendados."</p><div class="author mt-3">- Sofía Gómez</div></div></div>
+                    <div class="col-4 d-flex align-items-stretch" data-aos="fade-up" data-aos-delay="300"><div class="testimonial-card"><p>"Gané la adjudicación por oferta en mi sexto mes. ¡No podía creerlo! El equipo me guió en todo. Son los mejores."</p><div class="author mt-3">- Javier Mendoza</div></div></div>
                 </div>
             </div>
         </section>
@@ -640,7 +705,7 @@
             <hr class="my-4">
             <div class="text-center">
                 <!-- ===== CAMBIO: LOGO DESDE S3 ===== -->
-                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logos/BLANCOlargo.svg" alt="Logo Moto Plan Motors" class="footer-logo-small mb-3">
+                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan Motors" class="footer-logo-small mb-3">
                 <p class="small" style="color: #aaa;">&copy; 2025 Moto Plan Motors. Todos los derechos reservados.</p>
             </div>
         </div>

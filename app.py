@@ -3638,6 +3638,37 @@ def portal_documentos():
         flash('Ocurrió un error al cargar tus documentos.', 'error')
         return redirect(url_for('portal_dashboard'))
 
+@app.route('/generar_contrato/<int:client_id>')
+def generar_contrato(client_id):
+    # Verifica si es un admin o el cliente correcto
+    is_admin = 'admin_id' in session
+    is_correct_client = 'cliente_id' in session and session['cliente_id'] == client_id
+    
+    if not is_admin and not is_correct_client:
+        flash('Acceso no autorizado.', 'error')
+        return redirect(url_for('home'))
+
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('home'))
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
+            cliente = cur.fetchone()
+        
+        if not cliente:
+            flash('Cliente no encontrado.', 'error')
+            return redirect(url_for('home'))
+
+        # Renderiza la plantilla del contrato
+        # Asumo que tienes una función como get_venezuela_current_date() definida en otra parte de tu código.
+        return render_template('contrato.html', cliente=cliente, modo_pre_registro=False, anio_actual=get_venezuela_current_date().year)
+    except psycopg2.Error as e:
+        flash(f"Error al generar el contrato: {e}", "error")
+        return redirect(url_for('home'))
+
 @app.route('/portal/citas/cancelar/<int:solicitud_id>', methods=['POST'])
 @portal_login_required
 def cancelar_cita_cliente(solicitud_id):
