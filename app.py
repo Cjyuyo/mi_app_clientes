@@ -3118,6 +3118,7 @@ def delete_client(client_id):
     
     return redirect(url_for('consulta', busqueda=cedula_cliente))
 
+
 @app.route('/adjudicacion', methods=['GET'])
 @admin_required
 def adjudicacion():
