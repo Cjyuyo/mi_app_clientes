@@ -15,7 +15,7 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto:wght@400;700&family=Anton&display=swap" rel="stylesheet">
 
     <style>
         :root {
@@ -69,7 +69,7 @@
             transform: translateY(-2px);
         }
 
-        /* Hero Carousel */
+        /* Hero Carousel - Estilos de texto mejorados */
         .hero-carousel {
             height: 100vh;
         }
@@ -82,23 +82,33 @@
             content: '';
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.6);
+            background: linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.2) 100%);
         }
         .carousel-caption {
             top: 50%;
             transform: translateY(-50%);
             bottom: auto;
-            text-align: center;
+            text-align: left; /* Alineación a la izquierda */
+            padding-left: 10%; /* Espaciado para que no pegue al borde */
+            padding-right: 10%;
         }
         .carousel-caption h1 {
-            font-size: clamp(3rem, 8vw, 6rem);
-            line-height: 1.1;
-            text-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+            font-family: 'Anton', sans-serif; /* Nueva fuente para títulos */
+            font-size: clamp(3.5rem, 8vw, 7rem);
+            line-height: 1;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
+            letter-spacing: 1px;
+            font-weight: 400; /* Anton es bold por defecto */
+        }
+        .carousel-caption .highlight {
+            color: var(--primary-color); /* Color de acento */
         }
         .carousel-caption .lead {
-            font-size: 1.5rem;
-            max-width: 700px;
-            margin: 20px auto 40px;
+            font-size: 1.2rem;
+            max-width: 550px; /* Ancho máximo para el subtítulo */
+            margin: 25px 0 0 0;
+            font-weight: 400;
+            text-shadow: 1px 1px 4px rgba(0,0,0,0.7);
         }
         
         /* Secciones */
@@ -278,7 +288,7 @@
         <div class="container">
             <!-- ========= LOGO ACTUALIZADO AQUÍ ========= -->
             <a class="navbar-brand" href="#">
-                <img src="{{ url_for('static', filename='BLANCOlargo.svg') }}" alt="Logo Moto Plan Motors">
+                <img src="https://images.pexels.com/photos/33497110/pexels-photo-33497110.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940" alt="Logo Moto Plan Motors">
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -298,7 +308,7 @@
         </div>
     </nav>
 
-    <!-- ========= INICIO DEL CARRUSEL CON IMÁGENES SELECCIONADAS POR TI ========= -->
+    <!-- ========= INICIO DEL CARRUSEL CON TEXTOS MEJORADOS ========= -->
     <header id="heroCarousel" class="carousel slide carousel-fade" data-bs-ride="carousel" data-bs-interval="4000">
         <div class="carousel-indicators">
             <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
@@ -313,49 +323,49 @@
             <!-- Slide 1: La Idea -->
             <div class="carousel-item active" style="background-image: url('https://images.pexels.com/photos/3758105/pexels-photo-3758105.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                 <div class="carousel-caption">
-                    <h1 data-aos="zoom-in-up">EL SUEÑO COMIENZA</h1>
-                    <p class="lead" data-aos="fade-up" data-aos-delay="200">Todo gran viaje empieza con una idea. Nosotros la hacemos realidad.</p>
+                    <h1 data-aos="fade-right" data-aos-delay="200">EL SUEÑO <br><span class="highlight">COMIENZA</span></h1>
+                    <p class="lead" data-aos="fade-right" data-aos-delay="400">Todo gran viaje empieza con una idea. Nosotros la hacemos realidad.</p>
                 </div>
             </div>
             <!-- Slide 2: Inversión -->
             <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/5902919/pexels-photo-5902919.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                 <div class="carousel-caption">
-                    <h1>REVALORIZA TU DINERO</h1>
+                    <h1>REVALORIZA <br><span class="highlight">TU DINERO</span></h1>
                     <p class="lead">Una moto es más que un gasto, es un activo que te da libertad y se paga solo.</p>
                 </div>
             </div>
             <!-- Slide 3: Libertad -->
             <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/1430931/pexels-photo-1430931.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                 <div class="carousel-caption">
-                    <h1>CONQUISTA EL CAMINO</h1>
+                    <h1>CONQUISTA <br><span class="highlight">EL CAMINO</span></h1>
                     <p class="lead">Siente el viento, aduéñate del horizonte y vive sin límites.</p>
                 </div>
             </div>
             <!-- Slide 4: Pasión por la Moto -->
             <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/33469784/pexels-photo-33469784.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                 <div class="carousel-caption">
-                    <h1>TU ESPACIO, TU PASIÓN</h1>
+                    <h1>TU ESPACIO, <br><span class="highlight">TU PASIÓN</span></h1>
                     <p class="lead">Ese momento a solas con tu máquina, donde todo lo demás desaparece.</p>
                 </div>
             </div>
             <!-- Slide 5: Amigos / Comunidad -->
             <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/5195659/pexels-photo-5195659.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                  <div class="carousel-caption">
-                    <h1>LA TRIBU TE ESPERA</h1>
+                    <h1>LA TRIBU <br><span class="highlight">TE ESPERA</span></h1>
                     <p class="lead">Comparte la ruta y la pasión con quienes entienden tu estilo de vida.</p>
                 </div>
             </div>
             <!-- Slide 6: Pareja -->
             <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/9606978/pexels-photo-9606978.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                  <div class="carousel-caption">
-                    <h1>AVENTURA PARA DOS</h1>
+                    <h1>AVENTURA <br><span class="highlight">PARA DOS</span></h1>
                     <p class="lead">Crea recuerdos imborrables en cada kilómetro recorrido juntos.</p>
                 </div>
             </div>
              <!-- Slide 7: Familia -->
              <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/1682497/pexels-photo-1682497.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                  <div class="carousel-caption">
-                    <h1>UN FUTURO JUNTOS</h1>
+                    <h1>UN FUTURO <br><span class="highlight">JUNTOS</span></h1>
                     <p class="lead">Una inversión en tu libertad es una inversión en el bienestar de tu familia.</p>
                 </div>
             </div>
@@ -369,7 +379,7 @@
             <span class="visually-hidden">Next</span>
         </button>
     </header>
-    <!-- ========= FIN DEL CARRUSEL CON IMÁGENES SELECCIONADAS POR TI ========= -->
+    <!-- ========= FIN DEL CARRUSEL CON TEXTOS MEJORADOS ========= -->
 
     <main>
         <!-- ========= INICIO DE LA SECCIÓN REDISEÑADA ========= -->
@@ -487,7 +497,7 @@
         <div class="container">
             <div class="row">
                 <div class="col-lg-4 mb-4 mb-lg-0">
-                    <h5><img src="{{ url_for('static', filename='BLANCOlargo.svg') }}" alt="Logo Moto Plan Motors" style="height: 30px;"></h5>
+                    <h5><img src="https://images.pexels.com/photos/33497110/pexels-photo-33497110.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940" alt="Logo Moto Plan Motors" style="height: 30px;"></h5>
                     <p>Aceleramos los sueños de quienes buscan libertad sobre dos ruedas. Con planes flexibles y transparentes, hacemos que estrenar moto sea una realidad.</p>
                 </div>
                 <div class="col-lg-2 col-md-4 col-6 mb-4 mb-lg-0">
@@ -527,7 +537,7 @@
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
     <script>
         AOS.init({
-            duration: 1000,
+            duration: 800,
             once: true,
             offset: 50,
         });
