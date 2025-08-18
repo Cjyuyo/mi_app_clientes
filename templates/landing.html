@@ -39,25 +39,21 @@
 
         .navbar {
             transition: background-color 0.4s ease, padding 0.4s ease;
-            padding: 1.5rem 0; 
+            padding: 1rem 0; 
         }
         .navbar.scrolled {
             background-color: rgba(26, 26, 26, 0.9) !important;
             backdrop-filter: blur(10px);
             padding: 0.5rem 0;
         }
-        .navbar-brand {
-            padding-top: 0.5rem;
-            padding-bottom: 0.5rem;
-        }
-        /* Estilo para el logo - TAMAÑO 330px */
+        /* Estilo para el logo - TAMAÑO GRANDE Y CONTROLADO */
         .navbar-brand img {
-            width: 330px; /* Ancho definido por el usuario */
-            height: auto; /* Altura automática para mantener proporción */
+            width: 280px; /* Ancho base grande */
+            height: auto;
             transition: width 0.4s ease;
         }
         .navbar.scrolled .navbar-brand img {
-            width: 220px; /* Logo se achica un poco al hacer scroll */
+            width: 200px; /* Reducción al hacer scroll */
         }
         .btn-primary {
             background-color: var(--primary-color);
@@ -304,6 +300,14 @@
         }
 
         /* Media Queries para Responsividad Móvil */
+        @media (max-width: 991px) {
+            .navbar-brand img {
+                width: 200px; /* Tamaño del logo en móvil */
+            }
+            .navbar.scrolled .navbar-brand img {
+                width: 180px; 
+            }
+        }
         @media (max-width: 768px) {
             .section {
                 padding: 60px 0; 
@@ -322,12 +326,6 @@
             .carousel-caption .lead {
                 font-size: 1rem;
             }
-            .navbar-brand img {
-                width: 200px; /* Tamaño del logo en móvil */
-            }
-            .navbar.scrolled .navbar-brand img {
-                width: 180px; 
-            }
             .navbar {
                 padding: 1rem 0;
             }
@@ -340,24 +338,31 @@
 </head>
 <body>
 
+    <!-- ========= BARRA DE NAVEGACIÓN REESTRUCTURADA ========= -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-transparent fixed-top">
         <div class="container">
-            <a class="navbar-brand" href="#">
-                <img src="{{ url_for('static', filename='BLANCOlargo.svg') }}" alt="Logo Moto Plan Motors">
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto align-items-center">
-                    <li class="nav-item"><a class="nav-link" href="#planes-y-pasos">Planes</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#testimonios">Clientes</a></li>
-                    <li class="nav-item ms-lg-3 mt-2 mt-lg-0">
-                        <a class="btn btn-primary" href="/portal/login">
-                            Zona Clientes
-                        </a>
-                    </li>
-                </ul>
+            <div class="row w-100 align-items-center">
+                <div class="col-auto">
+                    <a class="navbar-brand" href="#">
+                        <img src="{{ url_for('static', filename='BLANCOlargo.svg') }}" alt="Logo Moto Plan Motors">
+                    </a>
+                </div>
+                <div class="col text-end">
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+                        <ul class="navbar-nav align-items-center">
+                            <li class="nav-item"><a class="nav-link" href="#planes-y-pasos">Planes</a></li>
+                            <li class="nav-item"><a class="nav-link" href="#testimonios">Clientes</a></li>
+                            <li class="nav-item ms-lg-3 mt-2 mt-lg-0">
+                                <a class="btn btn-primary" href="/portal/login">
+                                    Zona Clientes
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
     </nav>
