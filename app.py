@@ -14,16 +14,16 @@ import csv
 import logging
 import pytz
 import json
+import base64
 
 # Imports para AWS S3
 import boto3
 from botocore.exceptions import NoCredentialsError
 
-# >>> COMISIONES: BEGIN [imports]
+# Imports para Comisiones y Reportes
 from collections import defaultdict
 import pandas as pd
 from fpdf import FPDF
-# >>> COMISIONES: END [imports]
 
 # =================================================================================
 # ===== CONFIGURACIÓN INICIAL Y DE ENTORNO =====
@@ -162,11 +162,9 @@ def close_db(exception):
 def setup_session_and_user():
     session.permanent = True
     app.permanent_session_lifetime = timedelta(minutes=60)
-    
     g.admin = None
     g.cliente = None
     g.anio_actual = get_venezuela_current_date().year
-    g.get_venezuela_current_datetime = get_venezuela_current_datetime
     admin_id = session.get('admin_id')
     cliente_id = session.get('cliente_id')
     db = get_db()
@@ -175,9 +173,6 @@ def setup_session_and_user():
             if admin_id:
                 cur.execute("SELECT id, usuario, rol FROM administradores WHERE id = %s", (admin_id,))
                 g.admin = cur.fetchone()
-                if g.admin:
-                    cur.execute("UPDATE administradores SET ultimo_visto = NOW() WHERE id = %s", (g.admin['id'],))
-                    db.commit()
             elif cliente_id:
                 cur.execute("SELECT id, nombre, apellido, estatus FROM clientes WHERE id = %s", (cliente_id,))
                 g.cliente = cur.fetchone()
@@ -185,9 +180,6 @@ def setup_session_and_user():
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if g.cliente is not None:
-            flash('No puedes acceder al panel de administración con una sesión de cliente activa.', 'warning')
-            return redirect(url_for('portal_dashboard'))
         if g.admin is None:
             flash('Acceso denegado. Debes iniciar sesión como administrador.', 'warning')
             return redirect(url_for('admin_login'))
@@ -198,13 +190,7 @@ def rol_requerido(*roles):
     def wrapper(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            if g.cliente is not None:
-                flash('No puedes acceder al panel de administración con una sesión de cliente activa.', 'warning')
-                return redirect(url_for('portal_dashboard'))
-            if g.admin is None:
-                flash('Acceso denegado. Debes iniciar sesión como administrador.', 'warning')
-                return redirect(url_for('admin_login'))
-            if g.admin['rol'] not in roles:
+            if g.admin is None or g.admin['rol'] not in roles:
                 flash('No tienes los permisos necesarios para acceder a esta página.', 'danger')
                 return redirect(url_for('hub'))
             return f(*args, **kwargs)
@@ -229,94 +215,41 @@ def portal_login_required(f):
 
 def subir_archivo_a_s3(base64_data, nombre_en_s3):
     """Sube un archivo a S3 desde una cadena de datos Base64."""
-    
     s3_client = boto3.client('s3')
     bucket_name = os.environ.get('AWS_STORAGE_BUCKET_NAME')
-    
     if not bucket_name:
-        logging.error("FATAL: La variable de entorno AWS_STORAGE_BUCKET_NAME no está configurada.")
+        logging.error("FATAL: AWS_STORAGE_BUCKET_NAME no está configurada.")
         return False
-        
     try:
-        # Decodifica la cadena Base64 que viene del formulario (ej: "data:image/jpeg;base64,/9j/4AA...")
         header, encoded = base64_data.split(",", 1)
         image_data = base64.b64decode(encoded)
-        
-        # Crea un objeto de archivo en memoria para subirlo
         in_mem_file = io.BytesIO(image_data)
-        
-        # Sube el objeto a S3, haciéndolo público para que se pueda ver en el contrato
         s3_client.upload_fileobj(
-            in_mem_file, 
-            bucket_name, 
-            nombre_en_s3,
-            ExtraArgs={
-                'ContentType': 'image/jpeg',
-                'ACL': 'public-read'  # Permiso para que la imagen sea visible públicamente
-            }
+            in_mem_file, bucket_name, nombre_en_s3,
+            ExtraArgs={'ContentType': 'image/jpeg', 'ACL': 'public-read'}
         )
-        
         logging.info(f"Subida exitosa a S3: {nombre_en_s3}")
         return True
-    except NoCredentialsError:
-        logging.error("Credenciales de AWS no encontradas.")
-        return False
     except Exception as e:
         logging.error(f"Error al subir archivo a S3: {e}")
         return False
 
-import logging
-import json
-import psycopg2 # Se asume que se usa psycopg2 para la conexión a PostgreSQL
-from decimal import Decimal
-from datetime import datetime, date, timedelta
-from flask import g, session, request, flash, redirect, url_for
-
-# Asumimos que tienes funciones como estas definidas en otra parte de tu aplicación.
-# -----------------------------------------------------------------------------
-# def get_db():
-#     """Abre una nueva conexión a la base de datos si no existe una para el contexto actual."""
-#     if 'db' not in g:
-#         g.db = conectar_a_la_base_de_datos() # Tu lógica de conexión
-#     return g.db
-#
-# def get_venezuela_current_date():
-#      """Obtiene la fecha actual en la zona horaria de Venezuela."""
-#      # Tu lógica para obtener la fecha
-#      return date.today()
-# -----------------------------------------------------------------------------
-
-
 def registrar_accion_auditoria(accion, descripcion, cliente_id=None, detalles_adicionales=None):
-    """
-    Registra una acción en la tabla de auditoría, verificando la conexión
-    y la autenticación del usuario.
-    """
-    conn = get_db() 
-    
-    if not conn:
-        logging.error(f"AUDITORIA-FALLO-CONEXION: No se pudo obtener la conexión a la BD para registrar '{accion}'.")
-        return
-
-    if not g.admin and 'cliente_id' not in session:
-        logging.warning(f"AUDITORIA-OMITIDA: Intento de registrar '{accion}' sin un usuario autenticado.")
-        return
-
+    """Registra una acción en la tabla de auditoría."""
+    conn = get_db()
+    if not conn: return
     usuario_id = g.admin['id'] if g.admin else None
     usuario_nombre = g.admin['usuario'] if g.admin else f"Cliente ID {session.get('cliente_id')}"
-    cliente_afectado = cliente_id if cliente_id else session.get('cliente_id')
     detalles_json = json.dumps(detalles_adicionales) if detalles_adicionales else None
-    ip_address = request.remote_addr
-
     try:
         with conn.cursor() as cur:
             cur.execute(
                 "INSERT INTO registros_auditoria (usuario_id, usuario_nombre, accion, descripcion, cliente_afectado_id, detalles, ip_address) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                (usuario_id, usuario_nombre, accion, descripcion, cliente_afectado, detalles_json, ip_address)
+                (usuario_id, usuario_nombre, accion, descripcion, cliente_id, detalles_json, request.remote_addr)
             )
         conn.commit()
-        logging.info(f"AUDITORIA-REGISTRADA: Usuario '{usuario_nombre}' realizó '{accion}'.")
     except Exception as e:
+        conn.rollback()
         logging.error(f"AUDITORIA-FALLO-INSERCION: {e}")
         conn.rollback()
 
