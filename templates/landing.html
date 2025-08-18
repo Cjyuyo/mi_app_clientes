@@ -12,9 +12,6 @@
     <!-- AOS (Animate On Scroll) Library -->
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -42,16 +39,6 @@
             font-weight: 700;
             text-transform: uppercase;
         }
-        
-        /* Estilos personalizados para el nuevo diseño de tarjetas (CORREGIDO) */
-        .font-oswald {
-            font-family: 'Oswald', sans-serif;
-        }
-        .text-custom-primary { color: #FF6600; }
-        .bg-custom-primary { background-color: #FF6600; }
-        .border-custom-primary { border-color: #FF6600; }
-        .ring-custom-primary { --tw-ring-color: #FF6600; }
-
 
         /* Barra de navegación con efecto de scroll */
         .navbar {
@@ -62,7 +49,7 @@
         .navbar.scrolled {
             background-color: rgba(26, 26, 26, 0.9); /* Se oscurece al hacer scroll */
             backdrop-filter: blur(10px);
-            padding: 0.25rem 0;
+            padding: 0.1rem 0; /* Barra más delgada al hacer scroll */
         }
         /* Logo ajustado */
         .navbar-brand img {
@@ -71,7 +58,7 @@
             transition: width 0.4s ease;
         }
         .navbar.scrolled .navbar-brand img {
-            width: 150px; /* Reducción al hacer scroll */
+            width: 140px; /* Reducción al hacer scroll */
         }
         .btn-primary {
             background-color: var(--primary-color);
@@ -212,6 +199,76 @@
             padding-top: 40px;
         }
         
+        /* ===== NUEVO DISEÑO DE TARJETAS (SIN TAILWIND) ===== */
+        .immersive-card {
+            position: relative;
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            height: 500px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 2rem;
+            color: white;
+            transition: all 0.5s ease-in-out;
+        }
+        .immersive-card:hover {
+            transform: scale(1.05);
+        }
+        .immersive-card-bg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease-in-out;
+        }
+        .immersive-card:hover .immersive-card-bg {
+            transform: scale(1.10);
+        }
+        .immersive-card-gradient {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.4) 50%, transparent);
+        }
+        .immersive-card-content {
+            position: relative;
+            z-index: 10;
+            transition: transform 0.5s ease-in-out;
+        }
+        .immersive-card:hover .immersive-card-content {
+            transform: translateY(-0.5rem);
+        }
+        .immersive-card-content h3 {
+            font-size: 1.875rem;
+            font-weight: bold;
+            margin-bottom: 0.75rem;
+        }
+        .immersive-card-content p {
+            margin-bottom: 1.5rem;
+            opacity: 0.9;
+            font-family: 'Inter', sans-serif; /* Usar Inter para el párrafo */
+            text-transform: none; /* Quitar mayúsculas */
+        }
+        .immersive-card-content a {
+            font-weight: bold;
+            font-size: 1.125rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        .immersive-card:hover a {
+            color: white;
+        }
+        .immersive-card-content a .fas {
+            margin-left: 0.25rem;
+            transition: transform 0.3s;
+        }
+        .immersive-card:hover a .fas {
+            transform: translateX(0.25rem);
+        }
+        
         .step-card {
             background: var(--light-color);
             border-radius: 15px;
@@ -318,27 +375,28 @@
         }
     </style>
 </head>
-<body class="antialiased">
+<body>
 
-    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
-        <div class="container">
+    <!-- ===== BARRA DE NAVEGACIÓN CORREGIDA ===== -->
+    <nav class="navbar navbar-dark fixed-top">
+        <div class="container d-flex justify-content-between">
             <a class="navbar-brand" href="#">
                 <img src="{{ url_for('static', filename='BLANCOlargo.svg') }}" alt="Logo Moto Plan Motors">
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-                <ul class="navbar-nav align-items-center">
-                    <li class="nav-item"><a class="nav-link" href="#planes-y-pasos">Planes</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#testimonios">Clientes</a></li>
-                    <li class="nav-item ms-lg-3 mt-2 mt-lg-0">
-                        <a class="btn btn-primary" href="/portal/login">
-                            Zona Clientes
-                        </a>
-                    </li>
-                </ul>
-            </div>
+            
+            <ul class="navbar-nav flex-row align-items-center">
+                <li class="nav-item d-none d-md-block">
+                    <a class="nav-link px-3" href="#planes-y-pasos">Planes</a>
+                </li>
+                <li class="nav-item d-none d-md-block">
+                    <a class="nav-link px-3" href="#testimonios">Clientes</a>
+                </li>
+                <li class="nav-item ps-3">
+                    <a class="btn btn-primary" href="/portal/login">
+                        Zona Clientes
+                    </a>
+                </li>
+            </ul>
         </div>
     </nav>
 
@@ -353,8 +411,18 @@
             <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="6" aria-label="Slide 7"></button>
         </div>
         <div class="carousel-inner hero-carousel">
+            <!-- ===== SLIDE INICIAL CAMBIADO ===== -->
+            <!-- Slide 5: Amigos / Comunidad -->
+            <div class="carousel-item active" style="background-image: url('https://images.pexels.com/photos/5195659/pexels-photo-5195659.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+                <div class="carousel-caption">
+                    <div>
+                        <h1>LA TRIBU <br><span class="highlight">TE ESPERA</span></h1>
+                        <p class="lead">Comparte la ruta y la pasión con quienes entienden tu estilo de vida.</p>
+                    </div>
+                </div>
+            </div>
             <!-- Slide 1: La Idea -->
-            <div class="carousel-item active" style="background-image: url('https://images.pexels.com/photos/3758105/pexels-photo-3758105.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/3758105/pexels-photo-3758105.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                 <div class="carousel-caption">
                     <div>
                         <h1 data-aos="fade-up" data-aos-delay="200">EL SUEÑO <br><span class="highlight">COMIENZA</span></h1>
@@ -386,15 +454,6 @@
                     <div>
                         <h1>TU ESPACIO, <br><span class="highlight">TU PASIÓN</span></h1>
                         <p class="lead">Ese momento a solas con tu máquina, donde todo lo demás desaparece.</p>
-                    </div>
-                </div>
-            </div>
-            <!-- Slide 5: Amigos / Comunidad -->
-            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/5195659/pexels-photo-5195659.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
-                <div class="carousel-caption">
-                    <div>
-                        <h1>LA TRIBU <br><span class="highlight">TE ESPERA</span></h1>
-                        <p class="lead">Comparte la ruta y la pasión con quienes entienden tu estilo de vida.</p>
                     </div>
                 </div>
             </div>
@@ -452,51 +511,48 @@
                 <div class="tab-content" id="infoTabContent">
                     <div class="tab-pane fade show active" id="planes-tab-pane" role="tabpanel" aria-labelledby="planes-tab" tabindex="0">
                         
-                        <!-- ===== SECCIÓN DE TARJETAS REEMPLAZADA ===== -->
-                        <div class="text-center mb-16">
-                            <h2 class="text-4xl md:text-5xl font-bold font-oswald text-gray-800">
-                                DOS RUTAS, <span class="text-custom-primary">UNA META</span>
-                            </h2>
-                            <p class="text-gray-600 mt-3 text-lg max-w-2xl mx-auto">Elige el plan que te ponga en el camino más rápido hacia tu nueva moto.</p>
+                        <!-- ===== SECCIÓN DE TARJETAS CON DISEÑO PERSONALIZADO ===== -->
+                        <div class="text-center pt-4">
+                            <h2 class="section-title" style="font-size: 2.5rem; margin-bottom: 1rem;">DOS RUTAS, <span>UNA META</span></h2>
+                            <p class="text-secondary mb-5">Elige el plan que te ponga en el camino más rápido hacia tu nueva moto.</p>
                         </div>
                 
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 max-w-6xl mx-auto">
-                
+                        <div class="row g-4">
                             <!-- Tarjeta 1: Plan de Ahorro Programado -->
-                            <div class="relative rounded-xl overflow-hidden shadow-lg group h-[500px] flex flex-col justify-end p-8 text-white transition-all duration-500 ease-in-out transform hover:scale-105">
-                                <img src="https://images.pexels.com/photos/819805/pexels-photo-819805.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" 
-                                     alt="Motocicleta clásica estilo cafe racer"
-                                     class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
-                                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
-                                
-                                <div class="relative z-10 transform transition-transform duration-500 group-hover:-translate-y-2">
-                                    <i class="fas fa-calendar-check text-4xl text-custom-primary mb-4"></i>
-                                    <h3 class="text-3xl font-bold mb-3 font-oswald">Plan de Ahorro Programado</h3>
-                                    <p class="mb-6 opacity-90">
-                                        El camino seguro hacia tu meta. A través de cuotas fijas mensuales, aseguras la adjudicación de tu moto al completar el plazo.
-                                    </p>
-                                    <a href="#" class="font-bold text-custom-primary text-lg group-hover:text-white transition-colors">
-                                        Conocer más <i class="fas fa-arrow-right ml-1 transform transition-transform duration-300 group-hover:translate-x-1"></i>
-                                    </a>
+                            <div class="col-lg-6">
+                                <div class="immersive-card" data-aos="fade-up">
+                                    <img src="https://images.pexels.com/photos/819805/pexels-photo-819805.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" 
+                                         alt="Motocicleta clásica estilo cafe racer" class="immersive-card-bg">
+                                    <div class="immersive-card-gradient"></div>
+                                    <div class="immersive-card-content">
+                                        <i class="fas fa-calendar-check fs-1 mb-3" style="color: var(--primary-color);"></i>
+                                        <h3>Plan de Ahorro Programado</h3>
+                                        <p>
+                                            El camino seguro hacia tu meta. A través de cuotas fijas mensuales, aseguras la adjudicación de tu moto al completar el plazo.
+                                        </p>
+                                        <a href="#">
+                                            Conocer más <i class="fas fa-arrow-right"></i>
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                 
                             <!-- Tarjeta 2: Adjudicación por Oferta -->
-                            <div class="relative rounded-xl overflow-hidden shadow-lg group h-[500px] flex flex-col justify-end p-8 text-white transition-all duration-500 ease-in-out transform hover:scale-105">
-                                <img src="https://images.pexels.com/photos/2393821/pexels-photo-2393821.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" 
-                                     alt="Motocicleta verde estilo vintage"
-                                     class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
-                                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
-                
-                                <div class="relative z-10 transform transition-transform duration-500 group-hover:-translate-y-2">
-                                    <i class="fas fa-rocket text-4xl text-custom-primary mb-4"></i>
-                                    <h3 class="text-3xl font-bold mb-3 font-oswald">Adjudicación por Oferta</h3>
-                                    <p class="mb-6 opacity-90">
-                                        Para los que viven en el carril rápido. Adelanta cuotas, haz la mejor oferta y llévate tu moto antes que nadie.
-                                    </p>
-                                    <a href="#" class="font-bold text-custom-primary text-lg group-hover:text-white transition-colors">
-                                        Ver cómo funciona <i class="fas fa-arrow-right ml-1 transform transition-transform duration-300 group-hover:translate-x-1"></i>
-                                    </a>
+                            <div class="col-lg-6">
+                                <div class="immersive-card" data-aos="fade-up" data-aos-delay="150">
+                                    <img src="https://images.pexels.com/photos/2393821/pexels-photo-2393821.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" 
+                                         alt="Motocicleta verde estilo vintage" class="immersive-card-bg">
+                                    <div class="immersive-card-gradient"></div>
+                                    <div class="immersive-card-content">
+                                        <i class="fas fa-rocket fs-1 mb-3" style="color: var(--primary-color);"></i>
+                                        <h3>Adjudicación por Oferta</h3>
+                                        <p>
+                                            Para los que viven en el carril rápido. Adelanta cuotas, haz la mejor oferta y llévate tu moto antes que nadie.
+                                        </p>
+                                        <a href="#">
+                                            Ver cómo funciona <i class="fas fa-arrow-right"></i>
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </div>
