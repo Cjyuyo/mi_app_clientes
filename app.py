@@ -447,26 +447,21 @@ def delete_client(client_id):
                 "solicitudes", "solicitudes_legacy", "transacciones_financieras"
             ]
             
-            logging.info(f"Iniciando proceso de eliminación para cliente ID: {client_id}")
+            # Bucle para eliminar registros de tablas relacionadas
             for tabla in tablas_relacionadas:
-                logging.info(f"Intentando eliminar registros de la tabla: {tabla} para cliente_id {client_id}")
                 if tabla == 'adjudicaciones':
                     cur.execute(f"DELETE FROM {tabla} WHERE ganador_sorteo_id = %s OR ganador_oferta_id = %s", (client_id, client_id))
                 elif tabla == 'registros_auditoria':
                      cur.execute(f"DELETE FROM {tabla} WHERE cliente_afectado_id = %s", (client_id,))
                 else:
-                    # Se asume que la columna es 'cliente_id' para las demás tablas
                     cur.execute(f"DELETE FROM {tabla} WHERE cliente_id = %s", (client_id,))
-                logging.info(f"Se eliminaron {cur.rowcount} registros de {tabla}.")
 
             # Registrar la acción en la auditoría ANTES de eliminar al cliente
             descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']}) y todos sus datos asociados."
             registrar_accion_auditoria('ELIMINACION_CLIENTE', descripcion_audit, client_id)
             
             # Finalmente, eliminar el registro del cliente
-            logging.info(f"Intentando eliminar el registro principal del cliente ID: {client_id}...")
             cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
-            logging.info("Registro principal del cliente eliminado.")
             
             conn.commit()
             flash('¡Cliente y todos sus registros asociados han sido eliminados exitosamente!', 'success')
@@ -474,16 +469,17 @@ def delete_client(client_id):
     except psycopg2.Error as e:
         conn.rollback()
         # --- CAMBIO IMPORTANTE: Mostrar el error exacto de la BD ---
-        logging.error(f"FALLO CRÍTICO AL ELIMINAR CLIENTE ID {client_id}: {e}")
+        # Imprime el error en la consola del servidor para depuración
+        print(f"ERROR DE BASE DE DATOS AL ELIMINAR CLIENTE ID {client_id}: {e}")
+        # Muestra un mensaje claro al usuario en la interfaz
         flash(f"ERROR DE INTEGRIDAD: La base de datos bloqueó la eliminación. Detalles: {e}", 'danger')
         
     except Exception as e:
         conn.rollback()
-        logging.error(f"ERROR INESPERADO AL ELIMINAR CLIENTE ID {client_id}: {e}")
+        print(f"ERROR INESPERADO AL ELIMINAR CLIENTE ID {client_id}: {e}")
         flash(f'Ocurrió un error inesperado al eliminar: {e}', 'error')
 
     return redirect(url_for('consulta'))
-
 
 # =================================================================================
 # ===== FUNCIONES HELPER PARA LÓGICA DE PAGOS POR DIFERENCIA =====
