@@ -227,7 +227,7 @@ def portal_login_required(f):
 # ===== FUNCIONES AUXILIARES (AUDITORÍA, COMISIONES, TESORERÍA) =====
 # =================================================================================
 
-ef subir_archivo_a_s3(base64_data, nombre_en_s3):
+def subir_archivo_a_s3(base64_data, nombre_en_s3):
     """Sube un archivo a S3 desde una cadena de datos Base64."""
     
     s3_client = boto3.client('s3')
