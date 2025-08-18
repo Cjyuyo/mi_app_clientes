@@ -3194,8 +3194,42 @@ def portal_dashboard():
             estado_principal = {} 
             cita_confirmada = None 
             
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Reglas para habilitar la opción de ofertar.
+            # --- INICIO DE LA CORRECCIÓN DE LÓGICA DE COBRANZA ---
+            today = get_venezuela_current_date()
+            ciclo_cobranza_activo = False
+            ciclo_cliente = cliente_dict.get('ciclo_cobranza')
+            cuotas_pagadas_total = (cliente_dict.get('cuotas_pagadas_progresivas', 0) or 0) + (cliente_dict.get('cuotas_pagadas_regresivas', 0) or 0)
+
+            es_periodo_de_cobranza = False
+            if ciclo_cliente == '15 al 02':
+                # Activo desde el día 15 hasta fin de mes, O los días 1 y 2 del mes siguiente.
+                if today.day >= 15 or today.day <= 2:
+                    es_periodo_de_cobranza = True
+            elif ciclo_cliente == '20 al 10':
+                # Activo desde el día 20 hasta fin de mes, O del día 1 al 10 del mes siguiente.
+                if today.day >= 20 or today.day <= 10:
+                    es_periodo_de_cobranza = True
+
+            if es_periodo_de_cobranza:
+                if cuotas_pagadas_total > 1:
+                    ciclo_cobranza_activo = True
+                elif cuotas_pagadas_total == 1:
+                    cur.execute("""
+                        SELECT fecha_pago FROM pagos 
+                        WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' 
+                        ORDER BY fecha_pago ASC LIMIT 1
+                    """, (session['cliente_id'],))
+                    primer_pago = cur.fetchone()
+                    
+                    if primer_pago:
+                        fecha_primer_pago = primer_pago['fecha_pago']
+                        # Si el ciclo cruza al siguiente mes (ej. 15 al 02) y el pago fue el mes pasado,
+                        # pero el ciclo actual corresponde a ese pago, no se debe activar.
+                        # La forma más simple es: no activar el ciclo en el mismo mes calendario del primer pago.
+                        if today.year > fecha_primer_pago.year or (today.year == fecha_primer_pago.year and today.month > fecha_primer_pago.month):
+                            ciclo_cobranza_activo = True
+            # --- FIN DE LA CORRECCIÓN ---
+
             CUOTAS_MINIMAS_PARA_OFERTAR = 1
             cuotas_pagadas = cliente_dict.get('cuotas_pagadas_progresivas', 0) or 0
             puede_registrar_oferta = False
@@ -3204,9 +3238,6 @@ def portal_dashboard():
                 if cuotas_pagadas == 1:
                     puede_registrar_oferta = True
                 else:
-                    today = get_venezuela_current_date()
-                    ciclo_cliente = cliente_dict.get('ciclo_cobranza')
-                    
                     fecha_vencimiento_ciclo = None
                     if ciclo_cliente == '15 al 02':
                         fecha_vencimiento_ciclo = today.replace(day=2)
@@ -3227,9 +3258,8 @@ def portal_dashboard():
                         pago_impuntual_mes_actual = cur.fetchone() is not None
                     
                     puede_registrar_oferta = not pago_impuntual_mes_actual
-            # --- FIN DE LA CORRECCIÓN ---
 
-            historial_gestiones = []
+            historial_gestiones = [] # Aquí puedes añadir la lógica para cargar las gestiones si es necesario
 
             if cliente_dict.get('proceso') == 'RESERVA':
                 inscripcion_pagada = cliente_dict.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
@@ -3264,7 +3294,6 @@ def portal_dashboard():
             cur.execute("SELECT * FROM payment_orders WHERE cliente_id = %s AND status = 'ISSUED'", (session['cliente_id'],))
             ordenes_pendientes = cur.fetchall()
 
-
             return render_template('portal_dashboard.html', 
                                    cliente=cliente_dict, 
                                    ordenes_pendientes=ordenes_pendientes,
@@ -3272,12 +3301,15 @@ def portal_dashboard():
                                    estado_principal=estado_principal,
                                    cita_confirmada=cita_confirmada,
                                    puede_registrar_oferta=puede_registrar_oferta,
-                                   historial_gestiones=historial_gestiones
+                                   historial_gestiones=historial_gestiones,
+                                   ciclo_cobranza_activo=ciclo_cobranza_activo
                                    )
+            
     except (psycopg2.Error, KeyError) as e:
         logging.error(f"Error en portal_dashboard: {e}")
         flash('Ocurrió un error inesperado al cargar tu portal.', 'error')
         return redirect(url_for('portal_login'))
+
 
 @app.route('/portal/reportar_pago', methods=['GET', 'POST'])
 @portal_login_required
