@@ -405,7 +405,9 @@ def delete_client(client_id):
     Elimina un cliente y todos sus registros asociados de la base de datos.
     """
     conn = get_db()
-    if not conn: return redirect(url_for('consulta'))
+    if not conn: 
+        flash('Error de conexión a la base de datos.', 'error')
+        return redirect(url_for('consulta'))
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT nombre, apellido, cedula FROM clientes WHERE id = %s", (client_id,))
@@ -414,32 +416,64 @@ def delete_client(client_id):
                 flash('El cliente que intenta eliminar no existe.', 'warning')
                 return redirect(url_for('consulta'))
             
-            # Lista actualizada y más completa de tablas relacionadas
+            # --- INICIO DEL CAMBIO ---
+            # Lista completa de tablas que pueden tener una relación con 'clientes'
             tablas_relacionadas = [
-                "pagos", "comisiones", "caja_inscripciones", "ofertas", 
-                "gestiones_cobranza", "solicitudes", "payment_bulks", 
-                "payment_orders", "receipts"
+                "adjudicaciones",
+                "caja_inscripciones",
+                "comisiones",
+                "comisiones_legacy",
+                "contratos_historicos",
+                "gestiones_cobranza",
+                "gestiones_cobranza_legacy",
+                "historial_contratos",
+                "ofertas",
+                "ofertas_legacy",
+                "pagos",
+                "payment_bulks",
+                "payment_orders",
+                "receipts",
+                "registros_auditoria",
+                "solicitudes",
+                "solicitudes_legacy",
+                "transacciones_financieras"
             ]
             
+            # Bucle para eliminar registros de tablas relacionadas
             for tabla in tablas_relacionadas:
-                # Se añade un bloque try-except para cada tabla por si alguna no existe
-                try:
+                # Se usa una columna genérica para la relación, ya que puede variar.
+                # Para adjudicaciones, se manejan dos posibles columnas.
+                if tabla == 'adjudicaciones':
+                    cur.execute(f"DELETE FROM {tabla} WHERE ganador_sorteo_id = %s OR ganador_oferta_id = %s", (client_id, client_id))
+                elif tabla == 'registros_auditoria':
+                     cur.execute(f"DELETE FROM {tabla} WHERE cliente_afectado_id = %s", (client_id,))
+                else:
                     cur.execute(f"DELETE FROM {tabla} WHERE cliente_id = %s", (client_id,))
-                except psycopg2.Error as e:
-                    # Si la tabla no existe, se registra un warning pero el proceso continúa
-                    logging.warning(f"No se pudo eliminar de la tabla '{tabla}' (puede que no exista): {e}")
-                    conn.rollback() # Es importante hacer rollback de la transacción fallida
-            
+            # --- FIN DEL CAMBIO ---
+
+            # Registrar la acción en la auditoría ANTES de eliminar al cliente
             descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']}) y todos sus datos asociados."
             registrar_accion_auditoria('ELIMINACION_CLIENTE', descripcion_audit, client_id)
             
+            # Finalmente, eliminar el registro del cliente
             cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
             
             conn.commit()
             flash('¡Cliente y todos sus registros asociados han sido eliminados exitosamente!', 'success')
-    except (psycopg2.Error, ConnectionError) as e:
+
+    except psycopg2.Error as e:
+        # Si ocurre un error, revertir todos los cambios
         conn.rollback()
-        flash(f'Ocurrió un error al eliminar: {e}', 'error')
+        # Mostrar un mensaje de error detallado para facilitar la depuración
+        logging.error(f"FALLO AL ELIMINAR CLIENTE ID {client_id}: {e}")
+        flash(f"No se pudo eliminar al cliente. Error de base de datos: {e}", 'danger')
+        
+    except Exception as e:
+        # Capturar cualquier otro error inesperado
+        conn.rollback()
+        logging.error(f"ERROR INESPERADO AL ELIMINAR CLIENTE ID {client_id}: {e}")
+        flash(f'Ocurrió un error inesperado al eliminar: {e}', 'error')
+
     return redirect(url_for('consulta'))
 
 # =================================================================================
