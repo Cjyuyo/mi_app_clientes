@@ -371,6 +371,10 @@
             .hero-carousel, .carousel-item {
                 height: 85vh; /* Altura reducida para mejor visualización */
             }
+            .carousel-item.slide-tribu { background-position: center 30%; }
+            .carousel-item.slide-pareja { background-position: 25% center; }
+            .carousel-item.slide-familia { background-position: center 25%; }
+
             .carousel-caption h1 {
                 font-size: clamp(2.5rem, 12vw, 4rem); 
             }
@@ -425,7 +429,7 @@
         <div class="carousel-inner hero-carousel">
             <!-- ===== SLIDE INICIAL CAMBIADO ===== -->
             <!-- Slide 5: Amigos / Comunidad -->
-            <div class="carousel-item active" style="background-image: url('https://images.pexels.com/photos/5195659/pexels-photo-5195659.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+            <div class="carousel-item active slide-tribu" style="background-image: url('https://images.pexels.com/photos/5195659/pexels-photo-5195659.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                 <div class="carousel-caption">
                     <div>
                         <h1>LA TRIBU <br><span class="highlight">TE ESPERA</span></h1>
@@ -470,7 +474,7 @@
                 </div>
             </div>
             <!-- Slide 6: Pareja -->
-            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/9606978/pexels-photo-9606978.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+            <div class="carousel-item slide-pareja" style="background-image: url('https://images.pexels.com/photos/9606978/pexels-photo-9606978.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                 <div class="carousel-caption">
                     <div>
                         <h1>AVENTURA <br><span class="highlight">PARA DOS</span></h1>
@@ -479,7 +483,7 @@
                 </div>
             </div>
              <!-- Slide 7: Familia -->
-             <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/1682497/pexels-photo-1682497.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+             <div class="carousel-item slide-familia" style="background-image: url('https://images.pexels.com/photos/1682497/pexels-photo-1682497.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
                 <div class="carousel-caption">
                     <div>
                         <h1>UN FUTURO <br><span class="highlight">JUNTOS</span></h1>
