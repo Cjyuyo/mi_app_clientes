@@ -227,21 +227,42 @@ def portal_login_required(f):
 # ===== FUNCIONES AUXILIARES (AUDITORÍA, COMISIONES, TESORERÍA) =====
 # =================================================================================
 
-def subir_archivo_a_s3(archivo, nombre_en_s3):
-    """Sube un archivo a S3. 'archivo' es el objeto de archivo (ej: request.FILES['mi_pdf'])."""
+def subir_archivo_a_s3(base64_data, nombre_en_s3):
+    """Sube un archivo a S3 desde una cadena de datos Base64."""
     
     s3_client = boto3.client('s3')
     bucket_name = os.environ.get('AWS_STORAGE_BUCKET_NAME')
     
+    if not bucket_name:
+        logging.error("FATAL: La variable de entorno AWS_STORAGE_BUCKET_NAME no está configurada.")
+        return False
+        
     try:
-        s3_client.upload_fileobj(archivo, bucket_name, nombre_en_s3)
-        print(f"Subida exitosa: {nombre_en_s3}")
+        # Decodifica la cadena Base64 que viene del formulario (ej: "data:image/jpeg;base64,/9j/4AA...")
+        header, encoded = base64_data.split(",", 1)
+        image_data = base64.b64decode(encoded)
+        
+        # Crea un objeto de archivo en memoria para subirlo
+        in_mem_file = io.BytesIO(image_data)
+        
+        # Sube el objeto a S3, haciéndolo público para que se pueda ver en el contrato
+        s3_client.upload_fileobj(
+            in_mem_file, 
+            bucket_name, 
+            nombre_en_s3,
+            ExtraArgs={
+                'ContentType': 'image/jpeg',
+                'ACL': 'public-read'  # Permiso para que la imagen sea visible públicamente
+            }
+        )
+        
+        logging.info(f"Subida exitosa a S3: {nombre_en_s3}")
         return True
     except NoCredentialsError:
-        print("Credenciales de AWS no encontradas.")
+        logging.error("Credenciales de AWS no encontradas.")
         return False
     except Exception as e:
-        print(f"Error al subir archivo: {e}")
+        logging.error(f"Error al subir archivo a S3: {e}")
         return False
 
 import logging
@@ -438,40 +459,53 @@ def delete_client(client_id):
                 flash('El cliente que intenta eliminar no existe.', 'warning')
                 return redirect(url_for('consulta'))
             
-            # Lista completa de tablas que pueden tener una relación con 'clientes'
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Lista definitiva y ordenada de tablas para eliminar dependencias.
+            # Se eliminan primero las tablas que tienen claves foráneas apuntando a otras.
             tablas_relacionadas = [
+                "comisiones_rebalanceos", # Apunta a 'comisiones'
+                "comisiones_lotes_pago",   # Relacionada con 'comisiones'
                 "adjudicaciones", "caja_inscripciones", "comisiones", "comisiones_legacy",
                 "contratos_historicos", "gestiones_cobranza", "gestiones_cobranza_legacy",
                 "historial_contratos", "ofertas", "ofertas_legacy", "pagos",
                 "payment_bulks", "payment_orders", "receipts", "registros_auditoria",
                 "solicitudes", "solicitudes_legacy", "transacciones_financieras"
             ]
+            # --- FIN DE LA CORRECCIÓN ---
             
-            # Bucle para eliminar registros de tablas relacionadas
+            logging.info(f"Iniciando proceso de eliminación para cliente ID: {client_id}")
             for tabla in tablas_relacionadas:
+                logging.info(f"Intentando eliminar registros de la tabla: {tabla} para cliente_id {client_id}")
                 if tabla == 'adjudicaciones':
                     cur.execute(f"DELETE FROM {tabla} WHERE ganador_sorteo_id = %s OR ganador_oferta_id = %s", (client_id, client_id))
                 elif tabla == 'registros_auditoria':
                      cur.execute(f"DELETE FROM {tabla} WHERE cliente_afectado_id = %s", (client_id,))
+                elif tabla == 'comisiones_rebalanceos':
+                    # Esta tabla no tiene cliente_id, se limpia por comision_id_origen
+                    cur.execute("DELETE FROM comisiones_rebalanceos WHERE comision_id_origen IN (SELECT id FROM comisiones WHERE origen_id = %s AND origen_tipo = 'Venta')", (client_id,))
+                elif tabla == 'comisiones_lotes_pago':
+                    # Esta tabla no tiene cliente_id, se limpia a través de las comisiones
+                    cur.execute("UPDATE comisiones SET payment_batch_id = NULL WHERE origen_id = %s AND origen_tipo = 'Venta'", (client_id,))
                 else:
+                    # Se asume que la columna es 'cliente_id' para las demás tablas
                     cur.execute(f"DELETE FROM {tabla} WHERE cliente_id = %s", (client_id,))
+                logging.info(f"Se eliminaron {cur.rowcount} registros de {tabla}.")
 
             # Registrar la acción en la auditoría ANTES de eliminar al cliente
             descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']}) y todos sus datos asociados."
             registrar_accion_auditoria('ELIMINACION_CLIENTE', descripcion_audit, client_id)
             
             # Finalmente, eliminar el registro del cliente
+            logging.info(f"Intentando eliminar el registro principal del cliente ID: {client_id}...")
             cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
+            logging.info("Registro principal del cliente eliminado.")
             
             conn.commit()
             flash('¡Cliente y todos sus registros asociados han sido eliminados exitosamente!', 'success')
 
     except psycopg2.Error as e:
         conn.rollback()
-        # --- CAMBIO IMPORTANTE: Mostrar el error exacto de la BD ---
-        # Imprime el error en la consola del servidor para depuración
         print(f"ERROR DE BASE DE DATOS AL ELIMINAR CLIENTE ID {client_id}: {e}")
-        # Muestra un mensaje claro al usuario en la interfaz
         flash(f"ERROR DE INTEGRIDAD: La base de datos bloqueó la eliminación. Detalles: {e}", 'danger')
         
     except Exception as e:
@@ -480,6 +514,7 @@ def delete_client(client_id):
         flash(f'Ocurrió un error inesperado al eliminar: {e}', 'error')
 
     return redirect(url_for('consulta'))
+
 
 # =================================================================================
 # ===== FUNCIONES HELPER PARA LÓGICA DE PAGOS POR DIFERENCIA =====
@@ -2394,32 +2429,32 @@ def finalizar_registro():
 
     form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
     
-    # --- INICIO DE LA INTEGRACIÓN CON S3 ---
-    foto_cliente_archivo = request.files.get('foto_cliente')
-    foto_cedula_archivo = request.files.get('foto_cedula')
+    # --- INICIO DE LA CORRECCIÓN PARA S3 ---
+    foto_cliente_base64 = form_data.get('foto_cliente')
+    foto_cedula_base64 = form_data.get('foto_cedula')
     
     ruta_s3_cliente = None
     ruta_s3_cedula = None
-    cedula_cliente_limpia = form_data.get('cedula', '').replace(' ', '')
+    cedula_cliente_limpia = form_data.get('cedula', '').replace(' ', '').replace('.', '')
 
     # Subir foto del cliente si existe
-    if foto_cliente_archivo and foto_cliente_archivo.filename != '':
+    if foto_cliente_base64 and foto_cliente_base64.startswith('data:image'):
         nombre_archivo_s3 = f"documentos/{cedula_cliente_limpia}/foto_cliente.jpg"
-        if subir_archivo_a_s3(foto_cliente_archivo, nombre_archivo_s3):
+        if subir_archivo_a_s3(foto_cliente_base64, nombre_archivo_s3):
             ruta_s3_cliente = nombre_archivo_s3
         else:
             flash("Error crítico al subir la foto del cliente a S3. El registro ha sido cancelado.", "danger")
             return redirect(url_for('registrar'))
 
     # Subir foto de la cédula si existe
-    if foto_cedula_archivo and foto_cedula_archivo.filename != '':
+    if foto_cedula_base64 and foto_cedula_base64.startswith('data:image'):
         nombre_archivo_s3 = f"documentos/{cedula_cliente_limpia}/foto_cedula.jpg"
-        if subir_archivo_a_s3(foto_cedula_archivo, nombre_archivo_s3):
+        if subir_archivo_a_s3(foto_cedula_base64, nombre_archivo_s3):
             ruta_s3_cedula = nombre_archivo_s3
         else:
             flash("Error crítico al subir la foto de la cédula a S3. El registro ha sido cancelado.", "danger")
             return redirect(url_for('registrar'))
-    # --- FIN DE LA INTEGRACIÓN CON S3 ---
+    # --- FIN DE LA CORRECCIÓN PARA S3 ---
 
     try:
         firma_cliente, firma_empresa = form_data.get('firma_cliente'), form_data.get('firma_empresa')
@@ -2445,7 +2480,6 @@ def finalizar_registro():
                 'ruta_foto_cedula_s3': ruta_s3_cedula      # Guardamos la ruta de S3
             }
             
-            # Ya no incluimos 'foto_cliente' y 'foto_cedula' aquí porque no se guardan en la DB
             optional_fields = [
                 'contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso', 'grupo', 
                 'plan_contratado', 'cuotas_totales', 'moneda_pago', 'valor_cuota', 
