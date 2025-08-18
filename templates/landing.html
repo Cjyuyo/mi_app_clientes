@@ -49,9 +49,9 @@
             font-family: 'Oswald', sans-serif;
             font-size: 1.8rem;
         }
-        /* Estilo para el logo */
+        /* Estilo para el logo - TAMAÑO AUMENTADO */
         .navbar-brand img {
-            height: 40px;
+            height: 55px; /* Aumentado de 40px a 55px */
             width: auto;
         }
         .btn-primary {
@@ -268,6 +268,10 @@
             color: var(--light-color);
             margin-bottom: 20px;
         }
+        .footer .footer-logo {
+            height: 45px; /* Tamaño del logo en el footer */
+            width: auto;
+        }
         .footer a {
             color: #aaa;
             text-decoration: none;
@@ -286,9 +290,9 @@
 
     <nav class="navbar navbar-expand-lg navbar-dark bg-transparent fixed-top">
         <div class="container">
-            <!-- ========= LOGO ACTUALIZADO AQUÍ ========= -->
+            <!-- ========= LOGO CON RUTA LOCAL ========= -->
             <a class="navbar-brand" href="#">
-                <img src="https://images.pexels.com/photos/33497110/pexels-photo-33497110.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940" alt="Logo Moto Plan Motors">
+                <img src="{{ url_for('static', filename='BLANCOlargo.svg') }}" alt="Logo Moto Plan Motors">
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -497,7 +501,8 @@
         <div class="container">
             <div class="row">
                 <div class="col-lg-4 mb-4 mb-lg-0">
-                    <h5><img src="https://images.pexels.com/photos/33497110/pexels-photo-33497110.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940" alt="Logo Moto Plan Motors" style="height: 30px;"></h5>
+                    <!-- ========= LOGO CON RUTA LOCAL ========= -->
+                    <h5><img src="{{ url_for('static', filename='BLANCOlargo.svg') }}" alt="Logo Moto Plan Motors" class="footer-logo"></h5>
                     <p>Aceleramos los sueños de quienes buscan libertad sobre dos ruedas. Con planes flexibles y transparentes, hacemos que estrenar moto sea una realidad.</p>
                 </div>
                 <div class="col-lg-2 col-md-4 col-6 mb-4 mb-lg-0">
