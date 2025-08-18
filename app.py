@@ -244,6 +244,28 @@ def subir_archivo_a_s3(archivo, nombre_en_s3):
         print(f"Error al subir archivo: {e}")
         return False
 
+import logging
+import json
+import psycopg2 # Se asume que se usa psycopg2 para la conexión a PostgreSQL
+from decimal import Decimal
+from datetime import datetime, date, timedelta
+from flask import g, session, request, flash, redirect, url_for
+
+# Asumimos que tienes funciones como estas definidas en otra parte de tu aplicación.
+# -----------------------------------------------------------------------------
+# def get_db():
+#     """Abre una nueva conexión a la base de datos si no existe una para el contexto actual."""
+#     if 'db' not in g:
+#         g.db = conectar_a_la_base_de_datos() # Tu lógica de conexión
+#     return g.db
+#
+# def get_venezuela_current_date():
+#      """Obtiene la fecha actual en la zona horaria de Venezuela."""
+#      # Tu lógica para obtener la fecha
+#      return date.today()
+# -----------------------------------------------------------------------------
+
+
 def registrar_accion_auditoria(accion, descripcion, cliente_id=None, detalles_adicionales=None):
     """
     Registra una acción en la tabla de auditoría, verificando la conexión
@@ -416,65 +438,52 @@ def delete_client(client_id):
                 flash('El cliente que intenta eliminar no existe.', 'warning')
                 return redirect(url_for('consulta'))
             
-            # --- INICIO DEL CAMBIO ---
             # Lista completa de tablas que pueden tener una relación con 'clientes'
             tablas_relacionadas = [
-                "adjudicaciones",
-                "caja_inscripciones",
-                "comisiones",
-                "comisiones_legacy",
-                "contratos_historicos",
-                "gestiones_cobranza",
-                "gestiones_cobranza_legacy",
-                "historial_contratos",
-                "ofertas",
-                "ofertas_legacy",
-                "pagos",
-                "payment_bulks",
-                "payment_orders",
-                "receipts",
-                "registros_auditoria",
-                "solicitudes",
-                "solicitudes_legacy",
-                "transacciones_financieras"
+                "adjudicaciones", "caja_inscripciones", "comisiones", "comisiones_legacy",
+                "contratos_historicos", "gestiones_cobranza", "gestiones_cobranza_legacy",
+                "historial_contratos", "ofertas", "ofertas_legacy", "pagos",
+                "payment_bulks", "payment_orders", "receipts", "registros_auditoria",
+                "solicitudes", "solicitudes_legacy", "transacciones_financieras"
             ]
             
-            # Bucle para eliminar registros de tablas relacionadas
+            logging.info(f"Iniciando proceso de eliminación para cliente ID: {client_id}")
             for tabla in tablas_relacionadas:
-                # Se usa una columna genérica para la relación, ya que puede variar.
-                # Para adjudicaciones, se manejan dos posibles columnas.
+                logging.info(f"Intentando eliminar registros de la tabla: {tabla} para cliente_id {client_id}")
                 if tabla == 'adjudicaciones':
                     cur.execute(f"DELETE FROM {tabla} WHERE ganador_sorteo_id = %s OR ganador_oferta_id = %s", (client_id, client_id))
                 elif tabla == 'registros_auditoria':
                      cur.execute(f"DELETE FROM {tabla} WHERE cliente_afectado_id = %s", (client_id,))
                 else:
+                    # Se asume que la columna es 'cliente_id' para las demás tablas
                     cur.execute(f"DELETE FROM {tabla} WHERE cliente_id = %s", (client_id,))
-            # --- FIN DEL CAMBIO ---
+                logging.info(f"Se eliminaron {cur.rowcount} registros de {tabla}.")
 
             # Registrar la acción en la auditoría ANTES de eliminar al cliente
             descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']}) y todos sus datos asociados."
             registrar_accion_auditoria('ELIMINACION_CLIENTE', descripcion_audit, client_id)
             
             # Finalmente, eliminar el registro del cliente
+            logging.info(f"Intentando eliminar el registro principal del cliente ID: {client_id}...")
             cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
+            logging.info("Registro principal del cliente eliminado.")
             
             conn.commit()
             flash('¡Cliente y todos sus registros asociados han sido eliminados exitosamente!', 'success')
 
     except psycopg2.Error as e:
-        # Si ocurre un error, revertir todos los cambios
         conn.rollback()
-        # Mostrar un mensaje de error detallado para facilitar la depuración
-        logging.error(f"FALLO AL ELIMINAR CLIENTE ID {client_id}: {e}")
-        flash(f"No se pudo eliminar al cliente. Error de base de datos: {e}", 'danger')
+        # --- CAMBIO IMPORTANTE: Mostrar el error exacto de la BD ---
+        logging.error(f"FALLO CRÍTICO AL ELIMINAR CLIENTE ID {client_id}: {e}")
+        flash(f"ERROR DE INTEGRIDAD: La base de datos bloqueó la eliminación. Detalles: {e}", 'danger')
         
     except Exception as e:
-        # Capturar cualquier otro error inesperado
         conn.rollback()
         logging.error(f"ERROR INESPERADO AL ELIMINAR CLIENTE ID {client_id}: {e}")
         flash(f'Ocurrió un error inesperado al eliminar: {e}', 'error')
 
     return redirect(url_for('consulta'))
+
 
 # =================================================================================
 # ===== FUNCIONES HELPER PARA LÓGICA DE PAGOS POR DIFERENCIA =====
