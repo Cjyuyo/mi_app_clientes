@@ -86,15 +86,12 @@
             top: 0; left: 0; right: 0; bottom: 0;
             background: linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.2) 100%);
         }
-        .carousel-caption {
-            top: 50%;
-            transform: translateY(-50%);
-            bottom: auto;
-            text-align: left; /* Alineación a la izquierda */
-            padding-left: 10%; /* Espaciado para que no pegue al borde */
-            padding-right: 10%;
+        /* Contenedor de texto personalizado para alineación perfecta */
+        .carousel-text-wrapper {
+            color: var(--light-color);
+            max-width: 60%;
         }
-        .carousel-caption h1 {
+        .carousel-text-wrapper h1 {
             font-family: 'Anton', sans-serif; /* Nueva fuente para títulos */
             font-size: clamp(3.5rem, 8vw, 7rem);
             line-height: 1;
@@ -102,10 +99,10 @@
             letter-spacing: 1px;
             font-weight: 400; /* Anton es bold por defecto */
         }
-        .carousel-caption .highlight {
+        .carousel-text-wrapper .highlight {
             color: var(--primary-color); /* Color de acento */
         }
-        .carousel-caption .lead {
+        .carousel-text-wrapper .lead {
             font-size: 1.2rem;
             max-width: 550px; /* Ancho máximo para el subtítulo */
             margin: 25px 0 0 0;
@@ -195,9 +192,8 @@
             padding: 40px;
             color: var(--light-color);
             min-height: 450px;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
+            display: flex; /* Habilitar Flexbox */
+            flex-direction: column; /* Alinear hijos verticalmente */
             position: relative;
             overflow: hidden;
             transition: transform 0.4s ease;
@@ -216,6 +212,7 @@
         .modelo-card-content {
             position: relative;
             z-index: 1;
+            margin-top: auto; /* EMPUJA EL CONTENIDO HACIA ABAJO */
         }
         .modelo-card h3 {
             font-size: 2rem;
@@ -308,6 +305,9 @@
             .navbar.scrolled .navbar-brand img {
                 width: 140px; 
             }
+            .carousel-text-wrapper {
+                max-width: 80%;
+            }
         }
         @media (max-width: 768px) {
             .section {
@@ -316,10 +316,6 @@
             .section-title {
                 font-size: 2.2rem; 
                 margin-bottom: 40px;
-            }
-            .carousel-caption {
-                padding-left: 5%;
-                padding-right: 5%;
             }
             .carousel-caption h1 {
                 font-size: clamp(2.5rem, 12vw, 4rem); 
@@ -334,12 +330,14 @@
                 font-size: 1rem; 
                 padding: 0.8rem;
             }
+            .carousel-text-wrapper {
+                max-width: 100%;
+            }
         }
     </style>
 </head>
 <body>
 
-    <!-- ========= BARRA DE NAVEGACIÓN REESTRUCTURADA ========= -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-transparent fixed-top">
         <div class="container">
             <a class="navbar-brand" href="#">
@@ -363,15 +361,88 @@
     </nav>
 
     <header id="heroCarousel" class="carousel slide carousel-fade" data-bs-ride="carousel" data-bs-interval="4000">
-        <div class="carousel-inner hero-carousel">
-            <div class="carousel-item active" style="background-image: url('https://images.pexels.com/photos/3758105/pexels-photo-3758105.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')"><div class="carousel-caption"><h1 data-aos="fade-right" data-aos-delay="200">EL SUEÑO <br><span class="highlight">COMIENZA</span></h1><p class="lead" data-aos="fade-right" data-aos-delay="400">Todo gran viaje empieza con una idea. Nosotros la hacemos realidad.</p></div></div>
-            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/5902919/pexels-photo-5902919.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')"><div class="carousel-caption"><h1>REVALORIZA <br><span class="highlight">TU DINERO</span></h1><p class="lead">Una moto es más que un gasto, es un activo que te da libertad y se paga solo.</p></div></div>
-            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/1430931/pexels-photo-1430931.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')"><div class="carousel-caption"><h1>CONQUISTA <br><span class="highlight">EL CAMINO</span></h1><p class="lead">Siente el viento, aduéñate del horizonte y vive sin límites.</p></div></div>
-            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/33469784/pexels-photo-33469784.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')"><div class="carousel-caption"><h1>TU ESPACIO, <br><span class="highlight">TU PASIÓN</span></h1><p class="lead">Ese momento a solas con tu máquina, donde todo lo demás desaparece.</p></div></div>
-            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/5195659/pexels-photo-5195659.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')"><div class="carousel-caption"><h1>LA TRIBU <br><span class="highlight">TE ESPERA</span></h1><p class="lead">Comparte la ruta y la pasión con quienes entienden tu estilo de vida.</p></div></div>
-            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/9606978/pexels-photo-9606978.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')"><div class="carousel-caption"><h1>AVENTURA <br><span class="highlight">PARA DOS</span></h1><p class="lead">Crea recuerdos imborrables en cada kilómetro recorrido juntos.</p></div></div>
-            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/1682497/pexels-photo-1682497.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')"><div class="carousel-caption"><h1>UN FUTURO <br><span class="highlight">JUNTOS</span></h1><p class="lead">Una inversión en tu libertad es una inversión en el bienestar de tu familia.</p></div></div>
+        <div class="carousel-indicators">
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="1" aria-label="Slide 2"></button>
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="2" aria-label="Slide 3"></button>
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="3" aria-label="Slide 4"></button>
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="4" aria-label="Slide 5"></button>
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="5" aria-label="Slide 6"></button>
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="6" aria-label="Slide 7"></button>
         </div>
+        <div class="carousel-inner hero-carousel">
+            <!-- Slide 1: La Idea -->
+            <div class="carousel-item active" style="background-image: url('https://images.pexels.com/photos/3758105/pexels-photo-3758105.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+                <div class="container d-flex h-100 align-items-center">
+                    <div class="carousel-text-wrapper">
+                        <h1 data-aos="fade-right" data-aos-delay="200">EL SUEÑO <br><span class="highlight">COMIENZA</span></h1>
+                        <p class="lead" data-aos="fade-right" data-aos-delay="400">Todo gran viaje empieza con una idea. Nosotros la hacemos realidad.</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Slide 2: Inversión -->
+            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/5902919/pexels-photo-5902919.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+                <div class="container d-flex h-100 align-items-center">
+                    <div class="carousel-text-wrapper">
+                        <h1>REVALORIZA <br><span class="highlight">TU DINERO</span></h1>
+                        <p class="lead">Una moto es más que un gasto, es un activo que te da libertad y se paga solo.</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Slide 3: Libertad -->
+            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/1430931/pexels-photo-1430931.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+                <div class="container d-flex h-100 align-items-center">
+                    <div class="carousel-text-wrapper">
+                        <h1>CONQUISTA <br><span class="highlight">EL CAMINO</span></h1>
+                        <p class="lead">Siente el viento, aduéñate del horizonte y vive sin límites.</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Slide 4: Pasión por la Moto -->
+            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/33469784/pexels-photo-33469784.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+                <div class="container d-flex h-100 align-items-center">
+                    <div class="carousel-text-wrapper">
+                        <h1>TU ESPACIO, <br><span class="highlight">TU PASIÓN</span></h1>
+                        <p class="lead">Ese momento a solas con tu máquina, donde todo lo demás desaparece.</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Slide 5: Amigos / Comunidad -->
+            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/5195659/pexels-photo-5195659.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+                <div class="container d-flex h-100 align-items-center">
+                    <div class="carousel-text-wrapper">
+                        <h1>LA TRIBU <br><span class="highlight">TE ESPERA</span></h1>
+                        <p class="lead">Comparte la ruta y la pasión con quienes entienden tu estilo de vida.</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Slide 6: Pareja -->
+            <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/9606978/pexels-photo-9606978.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+                <div class="container d-flex h-100 align-items-center">
+                    <div class="carousel-text-wrapper">
+                        <h1>AVENTURA <br><span class="highlight">PARA DOS</span></h1>
+                        <p class="lead">Crea recuerdos imborrables en cada kilómetro recorrido juntos.</p>
+                    </div>
+                </div>
+            </div>
+             <!-- Slide 7: Familia -->
+             <div class="carousel-item" style="background-image: url('https://images.pexels.com/photos/1682497/pexels-photo-1682497.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')">
+                <div class="container d-flex h-100 align-items-center">
+                    <div class="carousel-text-wrapper">
+                        <h1>UN FUTURO <br><span class="highlight">JUNTOS</span></h1>
+                        <p class="lead">Una inversión en tu libertad es una inversión en el bienestar de tu familia.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Previous</span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Next</span>
+        </button>
     </header>
 
     <main>
