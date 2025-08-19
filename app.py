@@ -3497,66 +3497,66 @@ def portal_reportar_pago():
                            monto_a_pagar_bs=monto_a_pagar_bs,
                            concepto_pago=concepto_pago)
 
-        # --- FIN DE LA CORRECCIÓN ---
-        try:
-            with conn.cursor() as cur:
-                # Evitar reportes duplicados si ya hay uno en revisión
-                cur.execute("SELECT id FROM pagos WHERE cliente_id = %s AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
-                if cur.fetchone():
-                    flash('Ya tienes un pago reportado que está pendiente de revisión. Por favor, espera a que sea procesado.', 'warning')
+            # --- FIN DE LA CORRECCIÓN ---
+            try:
+                with conn.cursor() as cur:
+                    # Evitar reportes duplicados si ya hay uno en revisión
+                    cur.execute("SELECT id FROM pagos WHERE cliente_id = %s AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
+                    if cur.fetchone():
+                        flash('Ya tienes un pago reportado que está pendiente de revisión. Por favor, espera a que sea procesado.', 'warning')
+                        return redirect(url_for('portal_dashboard'))
+
+                    monto_equivalente_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
+                    monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
+                    
+                    # Determinar si es un pago de diferencia o uno normal
+                    bulk_id = pago_form.get('bulk_id')
+                    order_id = pago_form.get('order_id')
+                    
+                    if bulk_id and order_id: # Es un pago de diferencia
+                        tipo_pago = 'Cuota' # O el tipo que corresponda al bulk
+                        concepto = f"Pago de diferencia para Bulk #{bulk_id}"
+                        is_diferencia = True
+                    else: # Es un pago normal
+                        tipo_pago = 'Inscripción' if inscripcion_pagada < inscripcion_total else 'Cuota'
+                        concepto = concepto_pago
+                        is_diferencia = False
+
+                    pago_query = """
+                        INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
+                                        estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
+                                        bulk_id, is_diferencia, cuotas_cubiertas)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, %s, 0) RETURNING id;
+                    """
+                    
+                    cur.execute(pago_query, (
+                        cliente['id'], monto_equivalente_usd, monto_reportado_bs, tipo_pago, 
+                        pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
+                        pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv,
+                        get_venezuela_current_datetime(), concepto, bulk_id, is_diferencia
+                    ))
+                    
+                    if is_diferencia:
+                        # Si era un pago de diferencia, actualizamos la orden y el bulk
+                        cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
+                        recalcular_totales_bulk(bulk_id)
+
+                    flash('✅ ¡Pago reportado! Será verificado por un administrador.', 'success')
+                    conn.commit()
                     return redirect(url_for('portal_dashboard'))
+                    
+            except (psycopg2.Error, ValueError, InvalidOperation) as e:
+                conn.rollback()
+                logging.error(f"Error en portal_reportar_pago (POST): {e}")
+                flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
 
-                monto_equivalente_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
-                monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                
-                # Determinar si es un pago de diferencia o uno normal
-                bulk_id = pago_form.get('bulk_id')
-                order_id = pago_form.get('order_id')
-                
-                if bulk_id and order_id: # Es un pago de diferencia
-                    tipo_pago = 'Cuota' # O el tipo que corresponda al bulk
-                    concepto = f"Pago de diferencia para Bulk #{bulk_id}"
-                    is_diferencia = True
-                else: # Es un pago normal
-                    tipo_pago = 'Inscripción' if inscripcion_pagada < inscripcion_total else 'Cuota'
-                    concepto = concepto_pago
-                    is_diferencia = False
-
-                pago_query = """
-                    INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
-                                    bulk_id, is_diferencia, cuotas_cubiertas)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, %s, 0) RETURNING id;
-                """
-                
-                cur.execute(pago_query, (
-                    cliente['id'], monto_equivalente_usd, monto_reportado_bs, tipo_pago, 
-                    pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
-                    pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv,
-                    get_venezuela_current_datetime(), concepto, bulk_id, is_diferencia
-                ))
-                
-                if is_diferencia:
-                    # Si era un pago de diferencia, actualizamos la orden y el bulk
-                    cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
-                    recalcular_totales_bulk(bulk_id)
-
-                flash('✅ ¡Pago reportado! Será verificado por un administrador.', 'success')
-                conn.commit()
-                return redirect(url_for('portal_dashboard'))
-                
-        except (psycopg2.Error, ValueError, InvalidOperation) as e:
-            conn.rollback()
-            logging.error(f"Error en portal_reportar_pago (POST): {e}")
-            flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
-
-    return render_template('portal_reportar_pago.html', 
-                           cliente=cliente, 
-                           tasa_hoy=tasa_hoy, 
-                           mes_actual=mes_actual,
-                           monto_a_pagar_usd=monto_a_pagar_usd,
-                           monto_a_pagar_bs=monto_a_pagar_bs,
-                           concepto_pago=concepto_pago)
+        return render_template('portal_reportar_pago.html', 
+                            cliente=cliente, 
+                            tasa_hoy=tasa_hoy, 
+                            mes_actual=mes_actual,
+                            monto_a_pagar_usd=monto_a_pagar_usd,
+                            monto_a_pagar_bs=monto_a_pagar_bs,
+                            concepto_pago=concepto_pago)
 
 @app.route('/portal/diferencia/reportar/<int:bulk_id>/<int:order_id>', methods=['GET', 'POST'])
 @portal_login_required
