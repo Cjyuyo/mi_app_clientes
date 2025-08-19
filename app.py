@@ -2514,30 +2514,6 @@ def registrar_cliente():
         flash('Nombre, Cédula y N° de Contrato son obligatorios.', 'error')
         return redirect(url_for('registrar'))
     try:
-        form_data['inscripcion_monto'] = Decimal(form_data.get('inscripcion_monto', '0').replace(',', '.'))
-        form_data['valor_cuota'] = Decimal(form_data.get('valor_cuota', '0').replace(',', '.'))
-        form_data['cuotas_totales'] = int(form_data.get('cuotas_totales', 0))
-    except (InvalidOperation, ValueError):
-        flash('Los valores para inscripción, cuota o número de cuotas no son números válidos.', 'error')
-        return redirect(url_for('registrar'))
-    if form_data.get('fecha_ingreso'):
-        try:
-            form_data['fecha_ingreso'] = datetime.strptime(form_data['fecha_ingreso'], '%Y-%m-%d').date()
-        except ValueError:
-            flash('El formato de la fecha de ingreso no es válido.', 'error')
-            return redirect(url_for('registrar'))
-    flash('Datos del cliente validados. Por favor, proceda con las firmas para finalizar el registro.', 'info')
-    return render_template('contrato.html', cliente=form_data, modo_pre_registro=True, anio_actual=get_venezuela_current_date().year)
-
-@app.route('/registrar_cliente', methods=['POST'])
-@admin_required
-@rol_requerido('superadmin', 'gerente', 'asesor')
-def registrar_cliente():
-    form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
-    if not all(form_data.get(key) for key in ['nombre_apellido', 'cedula', 'contrato_nro']):
-        flash('Nombre, Cédula y N° de Contrato son obligatorios.', 'error')
-        return redirect(url_for('registrar'))
-    try:
         # --- INICIO DE LA CORRECCIÓN ---
         # Se recalculan los valores en el backend para garantizar consistencia.
         plan_contratado = Decimal(form_data.get('plan_contratado', '0').replace(',', '.'))
