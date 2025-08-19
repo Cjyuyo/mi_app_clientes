@@ -3002,36 +3002,36 @@ def delete_client(client_id):
 
     return redirect(url_for('consulta'))
 
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Se aplican las mismas reglas que en el portal del cliente.
-            if cuotas_pagadas < 1:
-                flash("No se puede registrar la oferta: El cliente aún no ha pagado su primera cuota.", 'error')
-                return redirect(url_for('consulta', busqueda=cedula_cliente))
+           # --- INICIO DE LA CORRECCIÓN ---
+# Se aplican las mismas reglas que en el portal del cliente.
+if cuotas_pagadas < 1:
+    flash("No se puede registrar la oferta: El cliente aún no ha pagado su primera cuota.", 'error')
+    return redirect(url_for('consulta', busqueda=cedula_cliente))
 
-            if cuotas_pagadas > 1:
-                today = get_venezuela_current_date()
-                
-                fecha_vencimiento_ciclo = None
-                if ciclo_cliente == '15 al 02':
-                    fecha_vencimiento_ciclo = today.replace(day=2)
-                elif ciclo_cliente == '20 al 10':
-                    fecha_vencimiento_ciclo = today.replace(day=10)
+if cuotas_pagadas > 1:
+    today = get_venezuela_current_date()
+    
+    fecha_vencimiento_ciclo = None
+    if ciclo_cliente == '15 al 02':
+        fecha_vencimiento_ciclo = today.replace(day=2)
+    elif ciclo_cliente == '20 al 10':
+        fecha_vencimiento_ciclo = today.replace(day=10)
 
-                if fecha_vencimiento_ciclo:
-                    cur.execute("""
-                        SELECT 1 FROM pagos 
-                        WHERE cliente_id = %s 
-                        AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'
-                        AND fecha_pago > %s
-                        AND EXTRACT(MONTH FROM fecha_pago) = %s
-                        AND EXTRACT(YEAR FROM fecha_pago) = %s
-                        LIMIT 1
-                    """, (client_id, fecha_vencimiento_ciclo, today.month, today.year))
-                    pago_impuntual_mes_actual = cur.fetchone() is not None
-                    
-                    if pago_impuntual_mes_actual:
-                        flash("No se puede registrar la oferta: El cliente tiene un pago impuntual registrado en el mes actual.", 'error')
-                        return redirect(url_for('consulta', busqueda=cedula_cliente))
+    if fecha_vencimiento_ciclo:
+        cur.execute("""
+            SELECT 1 FROM pagos 
+            WHERE cliente_id = %s 
+            AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'
+            AND fecha_pago > %s
+            AND EXTRACT(MONTH FROM fecha_pago) = %s
+            AND EXTRACT(YEAR FROM fecha_pago) = %s
+            LIMIT 1
+        """, (client_id, fecha_vencimiento_ciclo, today.month, today.year))
+        pago_impuntual_mes_actual = cur.fetchone() is not None
+        
+        if pago_impuntual_mes_actual:
+            flash("No se puede registrar la oferta: El cliente tiene un pago impuntual registrado en el mes actual.", 'error')
+            return redirect(url_for('consulta', busqueda=cedula_cliente))
             # --- FIN DE LA CORRECCIÓN ---
 
             if not cuotas_ofertadas or not cuotas_ofertadas.isdigit() or int(cuotas_ofertadas) <= 0:
