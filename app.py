@@ -496,31 +496,34 @@ def guardar_oferta(client_id):
 # =================================================================================
 
 def recalcular_totales_bulk(bulk_id):
-    """Recalcula los totales reportados y verificados de un bulk basado en sus líneas de pago."""
+    """Recalcula los totales de un bulk basado en sus líneas de pago APROBADAS."""
     conn = get_db()
     if not conn:
         logging.error(f"BULK_RECALC: Falla de conexión para bulk_id {bulk_id}")
         return
     try:
         with conn.cursor() as cur:
-            # Suma los montos de todos los pagos asociados al bulk que no estén anulados
-            cur.execute("""
-                SELECT
-                    COALESCE(SUM(monto_bs), 0) as total_reported,
-                    COALESCE(SUM(verified_amount), 0) as total_verified
-                FROM pagos
-                WHERE bulk_id = %s AND estado_pago != 'Anulado'
-            """, (bulk_id,))
-            totales = cur.fetchone()
+            # Obtiene la moneda del bulk para saber qué columna sumar
+            cur.execute("SELECT currency FROM payment_bulks WHERE id = %s", (bulk_id,))
+            bulk = cur.fetchone()
+            if not bulk: return
 
-            # Actualiza la tabla payment_bulks con los nuevos totales
+            sum_column = 'monto_bs' if bulk['currency'] == 'VES' else 'monto'
+
+            # Suma los montos de todos los pagos APROBADOS asociados al bulk
+            cur.execute(f"""
+                SELECT COALESCE(SUM({sum_column}), 0) as total_verified
+                FROM pagos
+                WHERE bulk_id = %s AND estado_reporte = 'Aprobado' AND estado_pago != 'Anulado'
+            """, (bulk_id,))
+            total_verificado = cur.fetchone()['total_verified'] or Decimal('0.0')
+
+            # Actualiza la tabla payment_bulks
             cur.execute("""
-                UPDATE payment_bulks
-                SET total_reported = %s, total_verified = %s, updated_at = NOW()
-                WHERE id = %s
-            """, (totales['total_reported'], totales['total_verified'], bulk_id))
-        conn.commit()
-        logging.info(f"BULK_RECALC: Totales actualizados para bulk_id {bulk_id}")
+                UPDATE payment_bulks SET total_verified = %s, updated_at = NOW() WHERE id = %s
+            """, (total_verificado, bulk_id))
+            conn.commit()
+            logging.info(f"BULK_RECALC: Total verificado actualizado a {total_verificado} para bulk_id {bulk_id}")
     except psycopg2.Error as e:
         conn.rollback()
         logging.error(f"BULK_RECALC: Error recalculando totales para bulk_id {bulk_id}: {e}")
@@ -1093,47 +1096,58 @@ def cancelar_cita_admin(solicitud_id):
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def reportes_por_revisar():
-    from flask import current_app
-
     conn = get_db()
-    reportes_a_revisar = []
-    anio_actual = get_venezuela_current_date().year
+    reportes_categorizados = {
+        'pendientes': [],
+        'diferencias': [],
+        'otros_rechazados': []
+    }
 
     if not conn:
         flash("Error de conexión con la base de datos.", "danger")
-        return render_template('reportes_por_revisar.html', reportes=reportes_a_revisar, anio_actual=anio_actual)
+        return render_template('reportes_por_revisar.html', reportes=reportes_categorizados)
 
     try:
         with conn.cursor() as cur:
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Ahora se incluyen los reportes 'Inconsistente' (rechazados) para que no desaparezcan de la lista.
             cur.execute("""
                 SELECT p.id, p.monto, p.monto_bs, p.tipo_pago, p.fecha_creacion, p.estado_reporte,
-                       p.cliente_id, c.nombre, c.apellido, c.cedula
+                       p.cliente_id, c.nombre, c.apellido, c.cedula, p.detalles_reporte
                 FROM pagos p
                 JOIN clientes c ON p.cliente_id = c.id
                 WHERE p.reportado_por_cliente = TRUE AND p.estado_reporte IN ('Pendiente de Revision', 'Inconsistente')
                 ORDER BY p.fecha_creacion ASC;
             """)
-            # --- FIN DE LA CORRECCIÓN ---
-            reportes_a_revisar = cur.fetchall()
+            todos_los_reportes = cur.fetchall()
 
-    except psycopg2.Error as e:
-        current_app.logger.exception("Error al obtener reportes por revisar")
-        flash("Error al cargar la lista de reportes pendientes de revisión.", "danger")
-        return render_template('reportes_por_revisar.html', reportes=[], anio_actual=anio_actual)
+            for reporte in todos_los_reportes:
+                if reporte['estado_reporte'] == 'Pendiente de Revision':
+                    reportes_categorizados['pendientes'].append(reporte)
+                elif reporte['estado_reporte'] == 'Inconsistente':
+                    detalles = reporte['detalles_reporte']
+                    if isinstance(detalles, str):
+                        try:
+                            detalles = json.loads(detalles)
+                        except json.JSONDecodeError:
+                            detalles = {}
+                    
+                    if detalles and detalles.get('motivo') == 'Diferencia de Monto':
+                        reportes_categorizados['diferencias'].append(reporte)
+                    else:
+                        reportes_categorizados['otros_rechazados'].append(reporte)
 
-    return render_template('reportes_por_revisar.html', reportes=reportes_a_revisar, anio_actual=anio_actual)
+    except (psycopg2.Error, json.JSONDecodeError) as e:
+        logging.error(f"Error al obtener y categorizar reportes: {e}")
+        flash("Error al cargar la lista de reportes.", "danger")
 
+    return render_template('reportes_por_revisar.html', reportes=reportes_categorizados)
 
 @app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def procesar_reporte(pago_id):
     """
-    Procesa la validación de un reporte de pago por parte de un administrador.
-    Maneja la lógica para aprobar o rechazar, creando un 'bulk' y una orden
-    de pago por diferencia si es necesario.
+    Procesa la validación de un reporte de pago. Si hay una diferencia,
+    preserva el reporte original y crea un nuevo pago por el monto verificado.
     """
     conn = get_db()
     accion = request.form.get('accion')
@@ -1144,7 +1158,8 @@ def procesar_reporte(pago_id):
 
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT cliente_id, monto, monto_bs, tasa_dia, tipo_pago FROM pagos WHERE id = %s", (pago_id,))
+            # Obtenemos todos los datos del pago original
+            cur.execute("SELECT * FROM pagos WHERE id = %s", (pago_id,))
             pago = cur.fetchone()
             if not pago:
                 flash("El pago no existe.", "error")
@@ -1164,51 +1179,58 @@ def procesar_reporte(pago_id):
                 if motivo == 'Diferencia de Monto':
                     monto_recibido_str = request.form.get('diferencia_monto', '0').replace(',', '.')
                     monto_recibido = Decimal(monto_recibido_str) if monto_recibido_str else Decimal('0')
-                    
                     monto_reportado = pago['monto_bs'] or pago['monto']
-                    
+
                     if monto_recibido <= 0 or monto_recibido >= monto_reportado:
                         flash("El monto recibido debe ser mayor a cero y menor que el monto reportado.", "error")
                         return redirect(url_for('reportes_por_revisar'))
 
-                    # 1. Crear el Bulk que agrupará ambos pagos
+                    # 1. Crear el Bulk para agrupar las transacciones
                     cur.execute("""
                         INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status)
                         VALUES (%s, %s, %s, 'UNDER_REVIEW') RETURNING id
                     """, (cliente_id, 'VES' if pago['monto_bs'] else 'USD', monto_reportado))
                     bulk_id = cur.fetchone()[0]
 
-                    # 2. Actualizar el pago original como la parte validada
+                    # 2. Crear un NUEVO pago por el monto VERIFICADO.
                     tasa = pago.get('tasa_dia') or Decimal('1.0')
                     monto_recibido_usd = (monto_recibido / tasa).quantize(Decimal('0.01')) if tasa > 0 and pago['monto_bs'] else monto_recibido
                     
+                    cur.execute("""
+                        INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
+                                        estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, bulk_id, estado_pago, revisado_por_id, fecha_revision)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Aprobado', NOW(), FALSE, %s, %s, 'Pendiente', %s, NOW())
+                    """, (
+                        cliente_id, monto_recibido_usd, monto_recibido if pago['monto_bs'] else None, pago['tipo_pago'],
+                        pago['forma_pago'], pago['fecha_pago'], f"Parte validada de #{pago_id}", pago['banco'], tasa,
+                        f"Parte validada de '{pago['por_concepto_de']}'", bulk_id, g.admin['id']
+                    ))
+
+                    # 3. Actualizar el pago ORIGINAL para marcarlo como inconsistente, SIN cambiar su monto.
                     detalles_rechazo = {
                         'motivo': motivo,
                         'monto_original_reportado': str(monto_reportado),
                         'monto_recibido_real': str(monto_recibido)
                     }
-                    
                     cur.execute(
                         """UPDATE pagos 
-                           SET monto = %s, monto_bs = %s, estado_reporte = 'Inconsistente', 
-                               revisado_por_id = %s, fecha_revision = NOW(), 
+                           SET estado_reporte = 'Inconsistente', revisado_por_id = %s, fecha_revision = NOW(), 
                                detalles_reporte = %s, bulk_id = %s 
                            WHERE id = %s""",
-                        (monto_recibido_usd, monto_recibido if pago['monto_bs'] else None, g.admin['id'], json.dumps(detalles_rechazo), bulk_id, pago_id)
+                        (g.admin['id'], json.dumps(detalles_rechazo), bulk_id, pago_id)
                     )
 
-                    # 3. Crear la nueva orden de pago por la diferencia
+                    # 4. Crear la orden de pago por la diferencia.
                     monto_pendiente = monto_reportado - monto_recibido
-                    
                     cur.execute("""
                         INSERT INTO payment_orders (bulk_id, cliente_id, amount, currency, status)
                         VALUES (%s, %s, %s, %s, 'ISSUED')
                     """, (bulk_id, cliente_id, monto_pendiente, 'VES' if pago['monto_bs'] else 'USD'))
 
-                    # 4. Recalcular totales del Bulk
+                    # 5. Recalcular totales del bulk con el nuevo pago verificado.
                     recalcular_totales_bulk(bulk_id)
                     
-                    descripcion_audit = f"Rechazó reporte #{pago_id} por diferencia. Monto validado: {monto_recibido_str} Bs. Se creó Bulk #{bulk_id} y orden por la diferencia."
+                    descripcion_audit = f"Procesó reporte #{pago_id} con diferencia. Monto validado: {monto_recibido_str} Bs. Se creó Bulk #{bulk_id}."
 
                 else: # Otro motivo de rechazo
                     descripcion_audit = f"Rechazó el reporte N° {pago_id}. Motivo: {motivo}."
@@ -1229,7 +1251,6 @@ def procesar_reporte(pago_id):
         flash(f"Error al procesar el reporte: {e}", "error")
     
     return redirect(url_for('reportes_por_revisar'))
-
 
 @app.route('/pagos_por_conciliar')
 @admin_required
@@ -2508,6 +2529,48 @@ def registrar_cliente():
     flash('Datos del cliente validados. Por favor, proceda con las firmas para finalizar el registro.', 'info')
     return render_template('contrato.html', cliente=form_data, modo_pre_registro=True, anio_actual=get_venezuela_current_date().year)
 
+@app.route('/registrar_cliente', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'asesor')
+def registrar_cliente():
+    form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
+    if not all(form_data.get(key) for key in ['nombre_apellido', 'cedula', 'contrato_nro']):
+        flash('Nombre, Cédula y N° de Contrato son obligatorios.', 'error')
+        return redirect(url_for('registrar'))
+    try:
+        # --- INICIO DE LA CORRECCIÓN ---
+        # Se recalculan los valores en el backend para garantizar consistencia.
+        plan_contratado = Decimal(form_data.get('plan_contratado', '0').replace(',', '.'))
+        cuotas_totales = int(form_data.get('cuotas_totales', 0))
+        moneda_pago = form_data.get('moneda_pago')
+
+        # Se calcula el monto de inscripción
+        form_data['inscripcion_monto'] = (plan_contratado * Decimal('0.16')).quantize(Decimal('0.01'))
+
+        # Se calcula el valor de la cuota según la moneda seleccionada
+        if moneda_pago == 'USD':
+            base = Decimal('0.0496')
+        else: # BsBCV
+            base = Decimal('0.0557')
+        
+        factor_cuota = base * (Decimal('24') / Decimal(cuotas_totales))
+        valor_cuota_calculado = (plan_contratado * factor_cuota).quantize(Decimal('0.01'))
+        form_data['valor_cuota'] = valor_cuota_calculado
+        # --- FIN DE LA CORRECCIÓN ---
+
+        if form_data.get('fecha_ingreso'):
+            form_data['fecha_ingreso'] = datetime.strptime(form_data['fecha_ingreso'], '%Y-%m-%d').date()
+        else:
+            form_data['fecha_ingreso'] = get_venezuela_current_date()
+
+    except (InvalidOperation, ValueError):
+        flash('Los valores para el plan o número de cuotas no son válidos.', 'error')
+        return redirect(url_for('registrar'))
+    
+    flash('Datos del cliente validados. Por favor, proceda con las firmas para finalizar el registro.', 'info')
+    return render_template('contrato.html', cliente=form_data, modo_pre_registro=True, anio_actual=get_venezuela_current_date().year)
+
+
 @app.route('/finalizar_registro', methods=['POST'])
 @admin_required
 def finalizar_registro():
@@ -2547,9 +2610,24 @@ def finalizar_registro():
             flash('Ambas firmas son obligatorias para registrar al cliente.', 'error')
             return redirect(url_for('registrar'))
             
-        form_data['inscripcion_monto'] = Decimal(form_data.get('inscripcion_monto', '0.00').replace(',', '.'))
-        form_data['valor_cuota'] = Decimal(form_data.get('valor_cuota', '0.00').replace(',', '.'))
-        form_data['cuotas_totales'] = int(form_data.get('cuotas_totales')) if form_data.get('cuotas_totales') else None
+        # --- INICIO DE LA CORRECCIÓN ---
+        # Se recalculan los valores en el backend para garantizar consistencia antes de guardar.
+        plan_contratado = Decimal(form_data.get('plan_contratado', '0').replace(',', '.'))
+        cuotas_totales = int(form_data.get('cuotas_totales', 0))
+        moneda_pago = form_data.get('moneda_pago')
+
+        form_data['inscripcion_monto'] = (plan_contratado * Decimal('0.16')).quantize(Decimal('0.01'))
+
+        if moneda_pago == 'USD':
+            base = Decimal('0.0496')
+        else: # BsBCV
+            base = Decimal('0.0557')
+        
+        factor_cuota = base * (Decimal('24') / Decimal(cuotas_totales))
+        valor_cuota_calculado = (plan_contratado * factor_cuota).quantize(Decimal('0.01'))
+        form_data['valor_cuota'] = valor_cuota_calculado
+        # --- FIN DE LA CORRECCIÓN ---
+        
         responsable_cierre = form_data.get('responsable', '') 
 
         with conn.cursor() as cur:
@@ -2582,7 +2660,7 @@ def finalizar_registro():
             cur.execute(query, list(values))
             new_client_id = cur.fetchone()[0]
 
-            if form_data['inscripcion_monto'] > 0:
+            if Decimal(form_data['inscripcion_monto']) > 0:
                 cur.execute("INSERT INTO caja_inscripciones (contrato_nro, cliente_id, monto_inscripcion, responsable_cierre) VALUES (%s, %s, %s, %s)",
                             (form_data.get('contrato_nro'), new_client_id, form_data['inscripcion_monto'], responsable_cierre))
             
@@ -2590,10 +2668,7 @@ def finalizar_registro():
             registrar_accion_auditoria('REGISTRO_CLIENTE_FIRMADO', descripcion_audit, new_client_id)
             
             conn.commit()
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Se eliminan las comillas simples del mensaje para evitar errores de formato.
             flash(f"¡Cliente {form_data.get('nombre_apellido')} registrado exitosamente como RESERVA!", 'success')
-            # --- FIN DE LA CORRECCIÓN ---
             return redirect(url_for('consulta', busqueda=form_data.get('cedula')))
 
     except psycopg2.IntegrityError:

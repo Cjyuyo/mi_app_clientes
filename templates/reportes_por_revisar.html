@@ -6,80 +6,125 @@
 
 {% block head_extra %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="//unpkg.com/alpinejs" defer></script>
 {% endblock %}
 
 {% block body %}
-<div class="space-y-6">
+<div class="space-y-6" x-data="{ activeTab: 'pendientes' }">
     <!-- Encabezado -->
     <div class="bg-white p-6 rounded-xl shadow-sm">
         <h1 class="text-3xl font-bold text-slate-800">Reportes de Pago por Revisar</h1>
         <p class="text-slate-500 mt-1">Verifica y procesa los pagos reportados por los clientes.</p>
     </div>
 
-    <!-- Lista de Reportes -->
+    <!-- Navegación de Pestañas -->
+    <div class="bg-white rounded-xl shadow-sm p-2">
+        <nav class="flex space-x-2">
+            <button @click="activeTab = 'pendientes'" 
+                    :class="{ 'bg-blue-600 text-white': activeTab === 'pendientes', 'text-slate-600 hover:bg-slate-100': activeTab !== 'pendientes' }"
+                    class="flex-1 text-sm font-semibold py-2 px-4 rounded-md transition-colors flex items-center justify-center gap-2">
+                Pendientes <span class="bg-blue-200 text-blue-800 text-xs font-bold px-2 py-0.5 rounded-full">{{ reportes.pendientes|length }}</span>
+            </button>
+            <button @click="activeTab = 'diferencias'"
+                    :class="{ 'bg-blue-600 text-white': activeTab === 'diferencias', 'text-slate-600 hover:bg-slate-100': activeTab !== 'diferencias' }"
+                    class="flex-1 text-sm font-semibold py-2 px-4 rounded-md transition-colors flex items-center justify-center gap-2">
+                Con Diferencia <span class="bg-yellow-200 text-yellow-800 text-xs font-bold px-2 py-0.5 rounded-full">{{ reportes.diferencias|length }}</span>
+            </button>
+            <button @click="activeTab = 'otros'"
+                    :class="{ 'bg-blue-600 text-white': activeTab === 'otros', 'text-slate-600 hover:bg-slate-100': activeTab !== 'otros' }"
+                    class="flex-1 text-sm font-semibold py-2 px-4 rounded-md transition-colors flex items-center justify-center gap-2">
+                Otros Rechazados <span class="bg-red-200 text-red-800 text-xs font-bold px-2 py-0.5 rounded-full">{{ reportes.otros_rechazados|length }}</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Contenido de las Pestañas -->
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-slate-200">
-            <h2 class="text-lg font-bold text-slate-800">Pendientes de Aprobación</h2>
-        </div>
-
-        {% if reportes %}
-        <div class="divide-y divide-slate-200">
-            {% for reporte in reportes %}
-            <div class="p-5 flex flex-col md:flex-row items-start md:items-center justify-between space-y-3 md:space-y-0">
-                <!-- Información del Reporte -->
-                <div class="flex-1">
-                    <p class="font-bold text-slate-800">{{ reporte.nombre }} {{ reporte.apellido }}</p>
-                    <div class="text-sm text-slate-500 mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                        <span><i class="bi bi-credit-card-fill"></i> C.I. {{ reporte.cedula }}</span>
-                        <span><i class="bi bi-calendar-event-fill"></i> {{ reporte.fecha_creacion | format_datetime }}</span>
-                        <span><i class="bi bi-tag-fill"></i> {{ reporte.tipo_pago }}</span>
+        <!-- Pestaña: Pendientes -->
+        <div x-show="activeTab === 'pendientes'">
+            {% if reportes.pendientes %}
+            <div class="divide-y divide-slate-200">
+                {% for reporte in reportes.pendientes %}
+                <div class="p-5 flex flex-col md:flex-row items-start md:items-center justify-between space-y-3 md:space-y-0">
+                    <div class="flex-1">
+                        <p class="font-bold text-slate-800">{{ reporte.nombre }} {{ reporte.apellido }}</p>
+                        <div class="text-sm text-slate-500 mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                            <span><i class="bi bi-credit-card-fill"></i> C.I. {{ reporte.cedula }}</span>
+                            <span><i class="bi bi-calendar-event-fill"></i> {{ reporte.fecha_creacion | format_datetime }}</span>
+                            <span><i class="bi bi-tag-fill"></i> {{ reporte.tipo_pago }}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4 w-full md:w-auto">
+                        <div class="text-right flex-grow">
+                            <p class="text-lg font-bold text-green-600">${{ "%.2f"|format(reporte.monto) }}</p>
+                            {% if reporte.monto_bs %}<p class="text-xs text-slate-500">{{ "%.2f"|format(reporte.monto_bs) }} Bs</p>{% endif %}
+                        </div>
+                        <div class="flex space-x-2">
+                            <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-3 rounded-lg transition-colors" title="Ver Detalles"><i class="bi bi-eye-fill"></i></a>
+                            <button onclick="openRejectModal({{ reporte.id }})" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-3 rounded-lg transition-colors" title="Rechazar"><i class="bi bi-x-circle-fill"></i></button>
+                            <form action="{{ url_for('procesar_reporte', pago_id=reporte.id) }}" method="POST" onsubmit="return confirm('¿Seguro que desea APROBAR este reporte?');">
+                                <input type="hidden" name="accion" value="aprobar">
+                                <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 rounded-lg transition-colors" title="Aprobar"><i class="bi bi-check-circle-fill"></i></button>
+                            </form>
+                        </div>
                     </div>
                 </div>
-                
-                <!-- Monto y Acciones -->
-                <div class="flex items-center space-x-4 w-full md:w-auto">
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center p-10"><p class="text-slate-500">No hay reportes pendientes de revisión.</p></div>
+            {% endif %}
+        </div>
+
+        <!-- Pestaña: Con Diferencia -->
+        <div x-show="activeTab === 'diferencias'" style="display: none;">
+            {% if reportes.diferencias %}
+            <div class="divide-y divide-slate-200">
+                {% for reporte in reportes.diferencias %}
+                <div class="p-5 flex flex-col md:flex-row items-start md:items-center justify-between space-y-3 md:space-y-0">
+                    <div class="flex-1">
+                        <p class="font-bold text-slate-800">{{ reporte.nombre }} {{ reporte.apellido }}</p>
+                        <div class="text-sm text-slate-500 mt-1">C.I. {{ reporte.cedula }}</div>
+                    </div>
+                    <div class="text-sm space-y-1 text-right">
+                        <p class="text-slate-500">Reportado: <span class="font-semibold text-red-600">{{ "%.2f"|format(reporte.detalles_reporte.monto_original_reportado|float) }} Bs</span></p>
+                        <p class="text-slate-500">Verificado: <span class="font-semibold text-green-600">{{ "%.2f"|format(reporte.detalles_reporte.monto_recibido_real|float) }} Bs</span></p>
+                        <p class="font-bold text-blue-600 text-xs mt-1">ESPERANDO PAGO DE DIFERENCIA</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center p-10"><p class="text-slate-500">No hay reportes con diferencia de monto.</p></div>
+            {% endif %}
+        </div>
+
+        <!-- Pestaña: Otros Rechazados -->
+        <div x-show="activeTab === 'otros'" style="display: none;">
+            {% if reportes.otros_rechazados %}
+            <div class="divide-y divide-slate-200">
+                {% for reporte in reportes.otros_rechazados %}
+                <div class="p-5 flex flex-col md:flex-row items-start md:items-center justify-between space-y-3 md:space-y-0">
+                    <div class="flex-1">
+                        <p class="font-bold text-slate-800">{{ reporte.nombre }} {{ reporte.apellido }}</p>
+                        <div class="text-sm text-slate-500 mt-1">C.I. {{ reporte.cedula }}</div>
+                        <p class="text-xs text-red-600 mt-1">Motivo: {{ reporte.detalles_reporte.motivo or 'No especificado' }}</p>
+                    </div>
                     <div class="text-right">
-                        <p class="text-lg font-bold text-green-600">${{ "%.2f"|format(reporte.monto) }}</p>
-                        {% if reporte.monto_bs %}
-                        <p class="text-xs text-slate-500">{{ "%.2f"|format(reporte.monto_bs) }} Bs</p>
-                        {% endif %}
-                    </div>
-                    <div class="flex space-x-2">
-                        <!-- INICIO DE LA CORRECCIÓN: Botón para ver detalles -->
-                        <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-3 rounded-lg transition-colors" title="Ver Detalles del Reporte">
-                            <i class="bi bi-eye-fill"></i>
-                        </a>
-                        <!-- FIN DE LA CORRECCIÓN -->
-
-                        <!-- Botón de Rechazar -->
-                        <button onclick="openRejectModal({{ reporte.id }})" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-3 rounded-lg transition-colors" title="Rechazar Reporte">
-                            <i class="bi bi-x-circle-fill"></i>
-                        </button>
-                        <!-- Formulario para Aprobar -->
-                        <form action="{{ url_for('procesar_reporte', pago_id=reporte.id) }}" method="POST" onsubmit="return confirm('¿Está seguro de que desea APROBAR este reporte de pago?');">
-                            <input type="hidden" name="accion" value="aprobar">
-                            <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 rounded-lg transition-colors" title="Aprobar Reporte">
-                                <i class="bi bi-check-circle-fill"></i>
-                            </button>
-                        </form>
+                        <p class="text-lg font-bold text-slate-700">${{ "%.2f"|format(reporte.monto) }}</p>
+                        {% if reporte.monto_bs %}<p class="text-xs text-slate-500">{{ "%.2f"|format(reporte.monto_bs) }} Bs</p>{% endif %}
                     </div>
                 </div>
+                {% endfor %}
             </div>
-            {% endfor %}
+            {% else %}
+            <div class="text-center p-10"><p class="text-slate-500">No hay otros reportes rechazados.</p></div>
+            {% endif %}
         </div>
-        {% else %}
-        <div class="text-center p-10">
-            <div class="inline-block bg-green-100 text-green-600 p-4 rounded-full">
-                <i class="bi bi-check2-circle text-4xl"></i>
-            </div>
-            <h3 class="mt-4 text-lg font-bold text-slate-800">¡Todo en orden!</h3>
-            <p class="text-slate-500 mt-1">No hay reportes de pago pendientes de revisión en este momento.</p>
-        </div>
-        {% endif %}
     </div>
 </div>
 
-<!-- Modal para Rechazar Reporte -->
+<!-- Modal para Rechazar Reporte (sin cambios) -->
 <div id="rejectModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
     <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
         <form id="rejectForm" method="POST">
@@ -102,12 +147,8 @@
                 </div>
             </div>
             <div class="mt-6 flex justify-end space-x-2">
-                <button type="button" onclick="closeRejectModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg">
-                    Cancelar
-                </button>
-                <button type="submit" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg">
-                    Confirmar Rechazo
-                </button>
+                <button type="button" onclick="closeRejectModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancelar</button>
+                <button type="submit" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg">Confirmar Rechazo</button>
             </div>
         </form>
     </div>
