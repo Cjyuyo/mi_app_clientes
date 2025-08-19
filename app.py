@@ -2804,7 +2804,7 @@ def conciliar_pago(pago_id):
             return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
     return redirect(url_for('pagos_por_conciliar'))
             
-            admin_id = g.admin['id']
+        admin_id = g.admin['id']
 
             flash_msg = ""
             if pago_actual['tipo_pago'] == 'Inscripción':
