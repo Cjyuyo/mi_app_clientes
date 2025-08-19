@@ -61,7 +61,10 @@
                     <span class="text-xs text-slate-500 block">Monto Reportado</span>
                     {% if pago.monto_bs and pago.monto_bs > 0 %}
                         <span class="font-bold text-xl text-slate-800">{{ "%.2f"|format(pago.monto_bs) }} Bs.</span>
+                        {# --- CORRECCIÓN ---: Se añade una comprobación para evitar el error si la tasa es None #}
+                        {% if pago.tasa_dia and pago.tasa_dia > 0 %}
                         <span class="text-xs text-slate-500 block">Equivalente: ${{ "%.2f"|format(pago.monto) }} @ {{ "%.2f"|format(pago.tasa_dia) }} Bs/$</span>
+                        {% endif %}
                     {% else %}
                         <span class="font-bold text-xl text-green-600">${{ "%.2f"|format(pago.monto) }}</span>
                         <span class="text-xs text-slate-500 block">Moneda: {{ pago.pago_en or 'USD' }}</span>
