@@ -1126,6 +1126,11 @@ def reportes_por_revisar():
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def procesar_reporte(pago_id):
+    """
+    Procesa la validación de un reporte de pago por parte de un administrador.
+    Maneja la lógica para aprobar o rechazar, creando un 'bulk' y una orden
+    de pago por diferencia si es necesario.
+    """
     conn = get_db()
     accion = request.form.get('accion')
     
@@ -1144,10 +1149,6 @@ def procesar_reporte(pago_id):
 
             if accion == 'aprobar':
                 descripcion_audit = f"Aprobó el reporte de pago N° {pago_id}."
-                
-                # --- CAMBIO INSERTADO ---
-                # Ya no se crea un Bulk para un pago normal aprobado.
-                # Simplemente se actualiza el estado del reporte, dejando el pago listo para conciliar.
                 cur.execute(
                     "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
                     (g.admin['id'], pago_id)
@@ -1166,16 +1167,16 @@ def procesar_reporte(pago_id):
                         flash("El monto recibido debe ser mayor a cero y menor que el monto reportado.", "error")
                         return redirect(url_for('reportes_por_revisar'))
 
-                    # 1. Crear el Bulk que agrupará ambos pagos (ESTA LÓGICA SE MANTIENE IGUAL)
+                    # 1. Crear el Bulk que agrupará ambos pagos
                     cur.execute("""
                         INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status)
                         VALUES (%s, %s, %s, 'UNDER_REVIEW') RETURNING id
                     """, (cliente_id, 'VES' if pago['monto_bs'] else 'USD', monto_reportado))
                     bulk_id = cur.fetchone()[0]
 
-                    # 2. Actualizar el pago original (parcial)
+                    # 2. Actualizar el pago original como la parte validada
                     tasa = pago.get('tasa_dia') or Decimal('1.0')
-                    monto_recibido_usd = monto_recibido / tasa if tasa > 0 and pago['monto_bs'] else monto_recibido
+                    monto_recibido_usd = (monto_recibido / tasa).quantize(Decimal('0.01')) if tasa > 0 and pago['monto_bs'] else monto_recibido
                     
                     detalles_rechazo = {
                         'motivo': motivo,
@@ -1184,13 +1185,16 @@ def procesar_reporte(pago_id):
                     }
                     
                     cur.execute(
-                        "UPDATE pagos SET monto = %s, monto_bs = %s, estado_reporte = 'Inconsistente', revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s, bulk_id = %s WHERE id = %s",
+                        """UPDATE pagos 
+                           SET monto = %s, monto_bs = %s, estado_reporte = 'Inconsistente', 
+                               revisado_por_id = %s, fecha_revision = NOW(), 
+                               detalles_reporte = %s, bulk_id = %s 
+                           WHERE id = %s""",
                         (monto_recibido_usd, monto_recibido if pago['monto_bs'] else None, g.admin['id'], json.dumps(detalles_rechazo), bulk_id, pago_id)
                     )
 
                     # 3. Crear la nueva orden de pago por la diferencia
                     monto_pendiente = monto_reportado - monto_recibido
-                    monto_pendiente_usd = monto_pendiente / tasa if tasa > 0 and pago['monto_bs'] else monto_pendiente
                     
                     cur.execute("""
                         INSERT INTO payment_orders (bulk_id, cliente_id, amount, currency, status)
@@ -1200,7 +1204,7 @@ def procesar_reporte(pago_id):
                     # 4. Recalcular totales del Bulk
                     recalcular_totales_bulk(bulk_id)
                     
-                    descripcion_audit = f"Rechazó reporte #{pago_id} por diferencia. Se creó Bulk #{bulk_id} y orden por la diferencia."
+                    descripcion_audit = f"Rechazó reporte #{pago_id} por diferencia. Monto validado: {monto_recibido_str} Bs. Se creó Bulk #{bulk_id} y orden por la diferencia."
 
                 else: # Otro motivo de rechazo
                     descripcion_audit = f"Rechazó el reporte N° {pago_id}. Motivo: {motivo}."
@@ -1212,7 +1216,7 @@ def procesar_reporte(pago_id):
                 flash('Acción no válida.', 'error')
                 return redirect(url_for('reportes_por_revisar'))
 
-            registrar_accion_auditoria('REVISION_REPORTE_PAGO', descripcion_audit, cliente_id)
+            registrar_accion_auditoria('REVISION_REPORTE_PAGO', descripcion_audit, cliente_id, {'pago_id': pago_id})
             conn.commit()
             flash(f"El reporte de pago ha sido procesado exitosamente.", 'success')
 
@@ -2687,8 +2691,10 @@ def registrar_pago(client_id):
 @admin_required
 def conciliar_pago(pago_id):
     """
-    Concilia un pago pendiente. Esta función maneja la lógica para pagos de inscripción
-    (incluyendo la consolidación de abonos en un pago final) y pagos de cuotas.
+    Concilia un pago pendiente o un 'bulk' de pagos completo.
+    - Si es un pago simple, lo aplica directamente.
+    - Si es parte de un 'bulk', consolida todos los pagos del lote,
+      actualiza el estado del cliente con el monto total y genera un único recibo.
     """
     conn = get_db()
     cedula_cliente_para_redirect = None
@@ -2697,130 +2703,101 @@ def conciliar_pago(pago_id):
         return redirect(url_for('pagos_por_conciliar'))
     
     try:
-        # Inicia una transacción para asegurar la integridad de los datos
         with conn.cursor() as cur:
-            # Bloquea la fila del pago para evitar condiciones de carrera
             cur.execute("SELECT * FROM pagos WHERE id = %s FOR UPDATE", (pago_id,))
-            pago_actual = cur.fetchone()
+            pago_inicial = cur.fetchone()
 
-            if pago_actual:
-                # Bloquea la fila del cliente para actualizar sus datos de forma segura
-                cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s FOR UPDATE", (pago_actual['cliente_id'],))
-                cliente = cur.fetchone()
-                cedula_cliente_para_redirect = cliente['cedula'] if cliente else None
-            else:
-                cliente = None
-
-            # Validación: El pago debe existir y estar en estado 'Pendiente'
-            if not pago_actual or pago_actual['estado_pago'] != 'Pendiente':
-                flash("El pago no se puede conciliar porque no existe o no está pendiente.", 'error')
-                if cedula_cliente_para_redirect:
-                    return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
+            if not pago_inicial:
+                flash("El pago a conciliar no existe.", 'error')
                 return redirect(url_for('pagos_por_conciliar'))
-            
-            # Obtiene el ID del administrador que realiza la acción
+
+            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s FOR UPDATE", (pago_inicial['cliente_id'],))
+            cliente = cur.fetchone()
+            cedula_cliente_para_redirect = cliente['cedula']
+
             admin_id = g.admin['id']
             flash_msg = ""
+            bulk_id = pago_inicial.get('bulk_id')
 
-            # Lógica para pagos de 'Inscripción'
-            if pago_actual['tipo_pago'] == 'Inscripción':
-                inscripcion_pagada_actual = Decimal(cliente.get('inscripcion_pagada') or 0)
-                inscripcion_total_requerida = Decimal(cliente.get('inscripcion_monto') or 0)
-                nueva_inscripcion_pagada = inscripcion_pagada_actual + pago_actual['monto']
+            # --- LÓGICA PARA CONCILIAR UN LOTE COMPLETO (BULK) ---
+            if bulk_id:
+                cur.execute("SELECT * FROM payment_bulks WHERE id = %s AND status = 'READY_TO_RECONCILE'", (bulk_id,))
+                bulk = cur.fetchone()
+                if not bulk:
+                    flash("Este lote de pago no está listo para ser conciliado.", "warning")
+                    return redirect(url_for('pagos_por_conciliar'))
 
-                # Si con este pago se completa o supera el monto de la inscripción
-                if nueva_inscripcion_pagada >= inscripcion_total_requerida:
-                    # Busca abonos anteriores para consolidarlos
-                    cur.execute("SELECT * FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente['id'],))
-                    abonos_anteriores = cur.fetchall()
-                    
-                    monto_total_consolidado = nueva_inscripcion_pagada
-                    pago_final_id = None
-
-                    if not abonos_anteriores:
-                        # Si este es el primer y único pago que completa la inscripción
-                        cur.execute(
-                            "UPDATE pagos SET tipo_pago = 'Inscripción Finalizada', por_concepto_de = 'Pago total de inscripción', estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s RETURNING id",
-                            (admin_id, pago_id)
-                        )
-                        pago_final_id = cur.fetchone()[0]
-                    else:
-                        # Si había abonos previos, se consolidan todos en un nuevo recibo
-                        pagos_a_consolidar = abonos_anteriores + [pago_actual]
-                        ids_a_anular = [p['id'] for p in pagos_a_consolidar]
-                        
-                        pagos_individuales = [{"id": p['id'], "monto": str(p['monto']), "fecha": p['fecha_pago'].isoformat()} for p in pagos_a_consolidar]
-                        detalles_consolidados = {"pagos_individuales": pagos_individuales}
-                        
-                        cur.execute("""
-                            INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, estado_pago, por_concepto_de, detalles_reporte, conciliado_por_id, fecha_pago, cuotas_cubiertas) 
-                            VALUES (%s, %s, 'Inscripción Finalizada', 'Consolidado', 'Conciliado', 'Pago total de inscripción consolidado', %s, %s, %s, 0) RETURNING id
-                        """, (cliente['id'], monto_total_consolidado, json.dumps(detalles_consolidados), admin_id, pago_actual['fecha_pago']))
-                        pago_final_id = cur.fetchone()[0]
-
-                        # Anula los recibos individuales
-                        detalle_anulacion = json.dumps({"motivo": "Consolidado en recibo final", "recibo_final_id": pago_final_id})
-                        cur.execute("UPDATE pagos SET estado_pago = 'Anulado', detalles_reporte = %s WHERE id = ANY(%s)", (detalle_anulacion, ids_a_anular))
-                    
-                    # Actualiza el estado del cliente a 'INSCRITO'
-                    cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (monto_total_consolidado, cliente['id']))
-                    
-                    # Intenta calcular y guardar las comisiones correspondientes
-                    try:
-                        cur.execute("SELECT asesor, responsable, plan_contratado, contrato_nro FROM clientes WHERE id = %s", (cliente['id'],))
-                        info_cliente_comercial = cur.fetchone()
-                        if info_cliente_comercial and info_cliente_comercial['plan_contratado']:
-                            calcular_y_guardar_comisiones(
-                                contrato_nro=info_cliente_comercial['contrato_nro'],
-                                cliente_id=cliente['id'],
-                                monto_plan=Decimal(info_cliente_comercial['plan_contratado']),
-                                asesor_dueno=info_cliente_comercial['asesor'],
-                                responsable_cierre=info_cliente_comercial['responsable']
-                            )
-                    except Exception as e:
-                        logging.error(f"FALLO AL CALCULAR COMISIONES para contrato {cliente['contrato_nro']}: {e}")
-                        flash(f"Advertencia: El pago fue conciliado, pero hubo un error al generar las comisiones: {e}", "warning")
-
-                    descripcion_audit = f"Consolidó pagos de inscripción. Recibo final N°{pago_final_id} por ${monto_total_consolidado} para {cliente['nombre_apellido']}."
-                    registrar_accion_auditoria('CONSOLIDACION_INSCRIPCION', descripcion_audit, cliente['id'])
-                    flash_msg = "¡Inscripción consolidada! El cliente ahora puede pagar su primera cuota para activar el plan."
+                monto_total_a_aplicar = bulk['total_verified']
                 
-                else:
-                    # Si el pago es solo un abono a la inscripción
-                    cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
-                    cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
-                    flash_msg = f"Abono de inscripción N° {pago_id} conciliado exitosamente."
-
-            # Lógica para pagos de 'Cuota'
-            elif pago_actual['tipo_pago'] == 'Cuota':
-                if cliente['proceso'] == 'INSCRITO':
-                    cur.execute("UPDATE clientes SET proceso = 'Ahorrador', estatus = 'ACTIVO' WHERE id = %s", (cliente['id'],))
-                
+                # Lógica de cuotas usando el monto total del bulk
                 valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
-                if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
-                
+                if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido para conciliar el lote.')
+
                 cpp, cpr, br = cliente.get('cuotas_pagadas_progresivas', 0), cliente.get('cuotas_pagadas_regresivas', 0), Decimal(cliente.get('balance_regresivo', 0))
-                mtd, pph, rph = pago_actual['monto'] + br, 0, 0
+                mtd, pph, rph = monto_total_a_aplicar + br, 0, 0
                 if mtd >= valor_cuota: pph, mtd = 1, mtd - valor_cuota
                 bp = mtd
                 while bp >= valor_cuota: rph, bp = rph + 1, bp - valor_cuota
-                nbf, ncpp, ncpr, cch = bp, cpp + pph, cpr + rph, pph + rph
+                nbf, ncpp, ncpr = bp, cpp + pph, cpr + rph
                 
                 cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s;", (ncpp, ncpr, nbf, cliente['id']))
-                cur.execute("UPDATE pagos SET cuotas_cubiertas = %s, progresivas_cubiertas = %s, regresivas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s WHERE id = %s;", (cch, pph, rph, ncpp, ncpr, nbf, pago_id))
-                cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
-                flash_msg = f"¡Pago de cuota N° {pago_id} conciliado exitosamente!"
 
-            # Confirma todos los cambios en la base de datos
+                # Actualizar estados
+                cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE bulk_id = %s", (admin_id, bulk_id))
+                cur.execute("UPDATE payment_bulks SET status = 'RECONCILED' WHERE id = %s", (bulk_id,))
+                
+                if cliente['proceso'] == 'INSCRITO':
+                    cur.execute("UPDATE clientes SET proceso = 'Ahorrador', estatus = 'ACTIVO' WHERE id = %s", (cliente['id'],))
+
+                descripcion_audit = f"Concilió el lote de pago (Bulk) #{bulk_id} por un total de ${monto_total_a_aplicar}."
+                registrar_accion_auditoria('CONCILIACION_BULK', descripcion_audit, cliente['id'])
+                flash_msg = f"Lote de pago #{bulk_id} conciliado exitosamente. El estado del cliente ha sido actualizado."
+
+            # --- LÓGICA PARA CONCILIAR UN PAGO SIMPLE (SIN BULK) ---
+            else:
+                if pago_inicial['estado_pago'] != 'Pendiente' or pago_inicial['estado_reporte'] != 'Aprobado':
+                    flash("Este pago no puede ser conciliado.", "warning")
+                    return redirect(url_for('pagos_por_conciliar'))
+
+                if pago_inicial['tipo_pago'] == 'Inscripción':
+                    inscripcion_pagada_actual = Decimal(cliente.get('inscripcion_pagada') or 0)
+                    inscripcion_total_requerida = Decimal(cliente.get('inscripcion_monto') or 0)
+                    nueva_inscripcion_pagada = inscripcion_pagada_actual + pago_inicial['monto']
+
+                    if nueva_inscripcion_pagada >= inscripcion_total_requerida:
+                        cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
+                        cur.execute("UPDATE pagos SET tipo_pago = 'Inscripción Finalizada', estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
+                        flash_msg = "¡Inscripción completada! El cliente ahora es 'Inscrito'."
+                    else:
+                        cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
+                        cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
+                        flash_msg = f"Abono de inscripción N° {pago_id} conciliado."
+                
+                elif pago_inicial['tipo_pago'] == 'Cuota':
+                    if cliente['proceso'] == 'INSCRITO':
+                        cur.execute("UPDATE clientes SET proceso = 'Ahorrador', estatus = 'ACTIVO' WHERE id = %s", (cliente['id'],))
+                    
+                    valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
+                    if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
+                    
+                    cpp, cpr, br = cliente.get('cuotas_pagadas_progresivas', 0), cliente.get('cuotas_pagadas_regresivas', 0), Decimal(cliente.get('balance_regresivo', 0))
+                    mtd, pph, rph = pago_inicial['monto'] + br, 0, 0
+                    if mtd >= valor_cuota: pph, mtd = 1, mtd - valor_cuota
+                    bp = mtd
+                    while bp >= valor_cuota: rph, bp = rph + 1, bp - valor_cuota
+                    nbf, ncpp, ncpr, cch = bp, cpp + pph, cpr + rph, pph + rph
+                    
+                    cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s;", (ncpp, ncpr, nbf, cliente['id']))
+                    cur.execute("UPDATE pagos SET cuotas_cubiertas = %s, progresivas_cubiertas = %s, regresivas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s, estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s;", (cch, pph, rph, ncpp, ncpr, nbf, admin_id, pago_id))
+                    flash_msg = f"Pago de cuota N° {pago_id} conciliado exitosamente."
+
             conn.commit()
             flash(flash_msg, 'success')
             return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
 
     except (psycopg2.Error, ValueError, TypeError) as e:
-        # Si ocurre cualquier error, revierte todos los cambios
         if conn: conn.rollback()
-        from flask import current_app
-        current_app.logger.error(f"Error al conciliar el pago {pago_id}: {e}")
+        logging.error(f"Error al conciliar el pago {pago_id}: {e}")
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
         if cedula_cliente_para_redirect:
             return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
@@ -3388,6 +3365,11 @@ def portal_dashboard():
 @app.route('/portal/reportar_pago', methods=['GET', 'POST'])
 @portal_login_required
 def portal_reportar_pago():
+    """
+    Muestra el formulario para reportar un pago y procesa el envío.
+    Esta ruta ahora maneja tanto pagos normales (inscripción/cuota) como
+    el pago de una diferencia asociada a un 'bulk'.
+    """
     conn = get_db()
     if not conn:
         flash('No se pudo conectar con la base de datos.', 'error')
@@ -3406,9 +3388,9 @@ def portal_reportar_pago():
     cliente_dict = dict(cliente)
     mes_actual = get_nombre_mes(get_venezuela_current_date().month)
 
+    # Determinar el concepto y monto del pago si es un pago normal
     monto_a_pagar_usd = Decimal('0.00')
     concepto_pago = ''
-    
     inscripcion_pagada = cliente_dict.get('inscripcion_pagada') or Decimal('0.0')
     inscripcion_total = cliente_dict.get('inscripcion_monto') or Decimal('0.0')
 
@@ -3426,40 +3408,55 @@ def portal_reportar_pago():
         pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
         try:
             with conn.cursor() as cur:
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se verifica si ya existe un reporte pendiente antes de crear uno nuevo.
+                # Evitar reportes duplicados si ya hay uno en revisión
                 cur.execute("SELECT id FROM pagos WHERE cliente_id = %s AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
                 if cur.fetchone():
                     flash('Ya tienes un pago reportado que está pendiente de revisión. Por favor, espera a que sea procesado.', 'warning')
                     return redirect(url_for('portal_dashboard'))
-                # --- FIN DE LA CORRECCIÓN ---
 
                 monto_equivalente_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
                 monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                tipo_pago_inicial = 'Inscripción' if inscripcion_pagada < inscripcion_total else 'Cuota'
+                
+                # Determinar si es un pago de diferencia o uno normal
+                bulk_id = pago_form.get('bulk_id')
+                order_id = pago_form.get('order_id')
+                
+                if bulk_id and order_id: # Es un pago de diferencia
+                    tipo_pago = 'Cuota' # O el tipo que corresponda al bulk
+                    concepto = f"Pago de diferencia para Bulk #{bulk_id}"
+                    is_diferencia = True
+                else: # Es un pago normal
+                    tipo_pago = 'Inscripción' if inscripcion_pagada < inscripcion_total else 'Cuota'
+                    concepto = concepto_pago
+                    is_diferencia = False
 
-                pago_inicial_query = """
+                pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
                                     estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
-                                    cuotas_cubiertas)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s) RETURNING id;"""
+                                    bulk_id, is_diferencia, cuotas_cubiertas)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, %s, 0) RETURNING id;
+                """
                 
-                cur.execute(pago_inicial_query, (
-                    cliente['id'], monto_equivalente_usd, monto_reportado_bs, tipo_pago_inicial, 
+                cur.execute(pago_query, (
+                    cliente['id'], monto_equivalente_usd, monto_reportado_bs, tipo_pago, 
                     pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
                     pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv,
-                    get_venezuela_current_datetime(), concepto_pago,
-                    0
+                    get_venezuela_current_datetime(), concepto, bulk_id, is_diferencia
                 ))
-                pago_id = cur.fetchone()[0]
+                
+                if is_diferencia:
+                    # Si era un pago de diferencia, actualizamos la orden y el bulk
+                    cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
+                    recalcular_totales_bulk(bulk_id)
 
                 flash('✅ ¡Pago reportado! Será verificado por un administrador.', 'success')
                 conn.commit()
                 return redirect(url_for('portal_dashboard'))
+                
         except (psycopg2.Error, ValueError, InvalidOperation) as e:
             conn.rollback()
-            logging.error(f"Error en portal_reportar_pago: {e}")
-            flash(f'Ocurrió un error: {e}', 'error')
+            logging.error(f"Error en portal_reportar_pago (POST): {e}")
+            flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
 
     return render_template('portal_reportar_pago.html', 
                            cliente=cliente, 
@@ -3470,41 +3467,82 @@ def portal_reportar_pago():
                            concepto_pago=concepto_pago)
 
 
-@app.route('/portal/diferencia/reportar/<int:bulk_id>/<int:order_id>', methods=['GET'])
+@app.route('/portal/diferencia/reportar/<int:bulk_id>/<int:order_id>', methods=['GET', 'POST'])
 @portal_login_required
 def portal_diferencia_reportar(bulk_id, order_id):
+    """
+    Gestiona el reporte de un pago para una orden de diferencia específica.
+    Precarga el formulario con el monto exacto de la diferencia pendiente.
+    """
     conn = get_db()
     if not conn: 
         flash("Error de conexión.", "error")
         return redirect(url_for('portal_dashboard'))
+    
     try:
         with conn.cursor() as cur:
+            # Valida que la orden de pago exista, pertenezca al cliente y esté pendiente
             cur.execute("SELECT * FROM payment_orders WHERE id = %s AND bulk_id = %s AND cliente_id = %s AND status = 'ISSUED'", (order_id, bulk_id, session['cliente_id']))
             order = cur.fetchone()
             if not order: 
                 flash("Orden de pago no encontrada o ya procesada.", "error")
                 return redirect(url_for('portal_dashboard'))
             
+            # Obtiene los datos del cliente y la tasa del día
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (session['cliente_id'],))
             cliente = cur.fetchone()
             today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
             cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
             tasa_hoy = cur.fetchone()
 
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Calcular el monto en USD y pasar la tasa a la plantilla.
+            # Calcula los montos a mostrar en el formulario
             tasa_bcv = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
             monto_a_pagar_bs = order['amount']
             monto_equivalente_usd = Decimal('0.0')
             if tasa_bcv > 0:
                 monto_equivalente_usd = (monto_a_pagar_bs / tasa_bcv).quantize(Decimal('0.01'))
-            # --- FIN DE LA CORRECCIÓN ---
 
     except psycopg2.Error as e:
         flash(f"Error al cargar la página de reporte: {e}", "error")
         return redirect(url_for('portal_dashboard'))
 
-    # Se pasan los nuevos valores a la plantilla para que se muestren en el formulario.
+    if request.method == 'POST':
+        pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
+        try:
+            with conn.cursor() as cur:
+                monto_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
+                monto_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
+                
+                # Insertar el nuevo pago, asociándolo al bulk existente
+                pago_query = """
+                    INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
+                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
+                                    bulk_id, is_diferencia, cuotas_cubiertas)
+                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, TRUE, 0) RETURNING id;
+                """
+                cur.execute(pago_query, (
+                    cliente['id'], monto_usd, monto_bs, pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
+                    pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv,
+                    get_venezuela_current_datetime(), f"Pago de diferencia para Bulk #{bulk_id}", bulk_id
+                ))
+                
+                # Actualizar el estado de la orden de pago a 'PAID'
+                cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
+                
+                # Recalcular los totales del bulk
+                recalcular_totales_bulk(bulk_id)
+
+                flash('✅ ¡Pago de diferencia reportado! Será verificado por un administrador.', 'success')
+                conn.commit()
+                return redirect(url_for('portal_dashboard'))
+
+        except (psycopg2.Error, ValueError, InvalidOperation) as e:
+            conn.rollback()
+            logging.error(f"Error en portal_diferencia_reportar (POST): {e}")
+            flash(f'Ocurrió un error al reportar el pago de la diferencia: {e}', 'error')
+            return redirect(url_for('portal_dashboard'))
+
+    # Renderiza la plantilla de reporte, pero con los datos de la diferencia precargados
     return render_template('portal_reportar_pago.html', 
                            cliente=cliente, 
                            tasa_hoy=tasa_hoy, 
@@ -4342,6 +4380,11 @@ def portal_solicitar_retiro():
 @app.route('/ver_reporte/<int:pago_id>')
 @app.route('/portal/ver_reporte/<int:pago_id>')
 def ver_reporte(pago_id):
+    """
+    Muestra una vista detallada y la bitácora de un reporte de pago.
+    Es "consciente de los lotes (bulks)": si un pago es parte de un lote,
+    muestra el historial completo de todos los pagos y acciones asociados a ese lote.
+    """
     is_client_view = 'cliente_id' in session and g.cliente is not None
     is_admin_view = 'admin_id' in session and g.admin is not None
 
@@ -4356,6 +4399,7 @@ def ver_reporte(pago_id):
 
     try:
         with conn.cursor() as cur:
+            # Obtener el pago principal para la validación de permisos y detalles básicos
             query = """
                 SELECT p.*, 
                        c.nombre || ' ' || c.apellido as nombre_apellido, 
@@ -4377,14 +4421,16 @@ def ver_reporte(pago_id):
                 return redirect(url_for('portal_dashboard'))
 
             eventos_unificados = []
-            
             pagos_relacionados = []
+            
+            # Si el pago es parte de un bulk, obtenemos todos los pagos de ese bulk
             if pago['bulk_id']:
                 cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
                 pagos_relacionados = cur.fetchall()
             else:
                 pagos_relacionados.append(pago)
 
+            # Formatear los pagos como eventos para la bitácora
             for p in pagos_relacionados:
                 eventos_unificados.append({
                     'fecha': p['fecha_creacion'],
@@ -4395,17 +4441,18 @@ def ver_reporte(pago_id):
                     'data': dict(p)
                 })
 
+            # Obtener los eventos de auditoría relacionados con CUALQUIERA de los pagos del lote
             ids_pagos = [p['id'] for p in pagos_relacionados]
             if ids_pagos:
                 placeholders = ','.join(['%s'] * len(ids_pagos))
                 
+                # Se añade el type cast (::integer) para comparar correctamente el texto del JSON con los IDs numéricos.
                 audit_query = f"""
                     SELECT * FROM registros_auditoria 
                     WHERE (detalles->>'pago_id')::integer IN ({placeholders}) 
                     OR {' OR '.join([f"descripcion LIKE '%%reporte #{pid}%%' OR descripcion LIKE '%%reporte N° {pid}%%' " for pid in ids_pagos])}
                     ORDER BY timestamp ASC
                 """
-
                 cur.execute(audit_query, tuple(ids_pagos))
                 auditoria = cur.fetchall()
 
@@ -4418,6 +4465,7 @@ def ver_reporte(pago_id):
                         'autor': a['usuario_nombre']
                     })
 
+            # Ordenar todos los eventos cronológicamente
             eventos_unificados.sort(key=lambda x: x['fecha'])
 
             return render_template(
@@ -4434,152 +4482,7 @@ def ver_reporte(pago_id):
         # Redirige al hub si es admin, o a la home si no lo es
         if is_admin_view:
             return redirect(url_for('hub'))
-        return redirect(url_for('home'))
-
-    try:
-        with conn.cursor() as cur:
-            query = """
-                SELECT p.*, 
-                       c.nombre || ' ' || c.apellido as nombre_apellido, 
-                       c.cedula, 
-                       c.id as cliente_id
-                FROM pagos p
-                JOIN clientes c ON p.cliente_id = c.id
-                WHERE p.id = %s
-            """
-            cur.execute(query, (pago_id,))
-            pago = cur.fetchone()
-
-            if not pago:
-                flash("Reporte de pago no encontrado.", "error")
-                return redirect(url_for('home'))
-
-            if is_client_view and pago['cliente_id'] != session['cliente_id']:
-                flash("No tienes permiso para ver este reporte.", "error")
-                return redirect(url_for('portal_dashboard'))
-
-            eventos_unificados = []
-            
-            pagos_relacionados = []
-            if pago['bulk_id']:
-                cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
-                pagos_relacionados = cur.fetchall()
-            else:
-                pagos_relacionados.append(pago)
-
-            for p in pagos_relacionados:
-                eventos_unificados.append({
-                    'fecha': p['fecha_creacion'],
-                    'tipo_evento': 'pago',
-                    'titulo': f"Reporte de Pago #{p['id']}",
-                    'descripcion': f"Cliente reportó un pago de ${p['monto']:.2f} ({p['monto_bs']:.2f} Bs) por concepto de \"{p['por_concepto_de']}\".",
-                    'estado': p['estado_reporte'],
-                    'data': dict(p)
-                })
-
-            ids_pagos = [p['id'] for p in pagos_relacionados]
-            if ids_pagos:
-                placeholders = ','.join(['%s'] * len(ids_pagos))
-                
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se añade el type cast (::integer) para comparar correctamente el texto del JSON con los IDs numéricos.
-                audit_query = f"""
-                    SELECT * FROM registros_auditoria 
-                    WHERE (detalles->>'pago_id')::integer IN ({placeholders}) 
-                    OR {' OR '.join([f"descripcion LIKE '%%reporte #{pid}%%' OR descripcion LIKE '%%reporte N° {pid}%%' " for pid in ids_pagos])}
-                    ORDER BY timestamp ASC
-                """
-                # --- FIN DE LA CORRECCIÓN ---
-
-                cur.execute(audit_query, tuple(ids_pagos))
-                auditoria = cur.fetchall()
-
-                for a in auditoria:
-                    eventos_unificados.append({
-                        'fecha': a['timestamp'],
-                        'tipo_evento': 'auditoria',
-                        'titulo': 'Acción Administrativa',
-                        'descripcion': a['descripcion'],
-                        'autor': a['usuario_nombre']
-                    })
-
-            eventos_unificados.sort(key=lambda x: x['fecha'])
-
-            return render_template(
-                'ver_reporte.html', 
-                pago=pago, 
-                is_client_view=is_client_view, 
-                is_admin_view=is_admin_view,
-                bitacora=eventos_unificados
-            )
-
-    except (psycopg2.Error, json.JSONDecodeError) as e:
-        logging.error(f"Error al cargar el reporte de pago {pago_id}: {e}")
-        flash(f"Ocurrió un error al cargar el reporte: {e}", "error")
-        # Redirige al hub si es admin, o a la home si no lo es
-        if is_admin_view:
-    
-            eventos_unificados = []
-            
-            pagos_relacionados = []
-            if pago['bulk_id']:
-                cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
-                pagos_relacionados = cur.fetchall()
-            else:
-                pagos_relacionados.append(pago)
-
-            for p in pagos_relacionados:
-                eventos_unificados.append({
-                    'fecha': p['fecha_creacion'],
-                    'tipo_evento': 'pago',
-                    'titulo': f"Reporte de Pago #{p['id']}",
-                    'descripcion': f"Cliente reportó un pago de ${p['monto']:.2f} ({p['monto_bs']:.2f} Bs) por concepto de \"{p['por_concepto_de']}\".",
-                    'estado': p['estado_reporte'],
-                    'data': dict(p)
-                })
-
-            # 3. Obtener los eventos de auditoría relacionados
-            ids_pagos = [p['id'] for p in pagos_relacionados]
-            if ids_pagos:
-                placeholders = ','.join(['%s'] * len(ids_pagos))
-                # Busca por pago_id en detalles JSON o por descripción que contenga el ID del reporte
-                audit_query = f"""
-                    SELECT * FROM registros_auditoria 
-                    WHERE detalles->>'pago_id' IN ({placeholders}) 
-                    OR {' OR '.join([f"descripcion LIKE '%%reporte #{pid}%%' OR descripcion LIKE '%%reporte N° {pid}%%' " for pid in ids_pagos])}
-                    ORDER BY timestamp ASC
-                """
-                cur.execute(audit_query, tuple(ids_pagos))
-                auditoria = cur.fetchall()
-
-                # 4. Formatear la auditoría como eventos para la bitácora
-                for a in auditoria:
-                    eventos_unificados.append({
-                        'fecha': a['timestamp'],
-                        'tipo_evento': 'auditoria',
-                        'titulo': 'Acción Administrativa',
-                        'descripcion': a['descripcion'],
-                        'autor': a['usuario_nombre']
-                    })
-
-            # 5. Ordenar todos los eventos por fecha
-            eventos_unificados.sort(key=lambda x: x['fecha'])
-            # --- FIN DE LA CORRECCIÓN ---
-
-            return render_template(
-                'ver_reporte.html', 
-                pago=pago, 
-                is_client_view=is_client_view, 
-                is_admin_view=is_admin_view,
-                bitacora=eventos_unificados # Pasar la bitácora unificada
-            )
-
-    except (psycopg2.Error, json.JSONDecodeError) as e:
-        logging.error(f"Error al cargar el reporte de pago {pago_id}: {e}")
-        flash(f"Ocurrió un error al cargar el reporte.", "error")
-        return redirect(url_for('home'))
-
-
+        return redirect(url_for('portal_dashboard'))
 
 @app.route('/api/pago_detalle/<int:pago_id>')
 @admin_required
