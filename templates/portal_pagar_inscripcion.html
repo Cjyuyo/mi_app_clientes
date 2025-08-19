@@ -14,6 +14,9 @@
 
     <form action="{{ url_for('portal_pagar_inscripcion') }}" method="POST" class="p-6 space-y-8" x-data="paymentForm()">
         
+        <!-- CAMPO OCULTO PARA FORMA DE PAGO -->
+        <input type="hidden" name="forma_pago" x-model="formaPago">
+
         <div class="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg text-center">
             <p class="font-semibold">Monto Pendiente de Inscripción:</p>
             <p class="text-2xl font-bold">${{ "%.2f"|format(monto_restante|float) }}</p>
@@ -36,7 +39,6 @@
                     <input type="text" name="por_concepto_de" value="Pago de Inscripción" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" readonly>
                 </div>
                 
-                <!-- CAMBIO: Lógica condicional para la moneda de pago -->
                 {% if cliente.moneda_pago == 'USD' %}
                 <div>
                     <label class="block text-sm font-medium text-slate-700">Moneda de Pago</label>
@@ -47,7 +49,7 @@
                 {% else %}
                 <div>
                     <label for="pago_en" class="block text-sm font-medium text-slate-700">Moneda de Pago</label>
-                    <select id="pago_en" name="pago_en" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" x-model="pagoEn" @change="updateFormVisibility">
+                    <select id="pago_en" name="pago_en" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" x-model="pagoEn">
                         <option value="Dolar/BCV">Bolívares (Tasa BCV)</option>
                         <option value="USDT">USDT (Binance)</option>
                     </select>
@@ -80,8 +82,8 @@
             <h2 class="text-lg font-semibold text-slate-700 border-b pb-2 mb-4">Información de la Transacción</h2>
              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <div x-show="pagoEn === 'Dolar/BCV'">
-                    <label for="forma_pago" class="block text-sm font-medium text-slate-700">Forma de Pago</label>
-                    <select id="forma_pago" name="forma_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" :required="pagoEn === 'Dolar/BCV'" x-ref="forma_pago_select">
+                    <label for="forma_pago_select" class="block text-sm font-medium text-slate-700">Forma de Pago</label>
+                    <select id="forma_pago_select" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" x-model="formaPagoVisible" :required="pagoEn === 'Dolar/BCV'">
                         <option value="Transferencia Bancaria">Transferencia Bancaria</option>
                         <option value="Pago Movil">Pago Móvil</option>
                     </select>
@@ -96,7 +98,7 @@
                 </div>
                 <div x-show="pagoEn === 'Dolar/BCV'">
                     <label for="banco" class="block text-sm font-medium text-slate-700">Banco</label>
-                    <select id="banco" name="banco" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" :required="pagoEn === 'Dolar/BCV'">
+                    <select id="banco" name="banco" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" :required="pagoEn === 'Dolar/BCV'">
                         <option value="">Seleccione un banco...</option>
                         <option value="0102 - Banco de Venezuela S.A.C.A. Banco Universal">0102 - Banco de Venezuela</option>
                         <option value="0134 - Banesco, Banco Universal S.A.C.A.">0134 - Banesco</option>
@@ -125,41 +127,35 @@
 <script>
 document.addEventListener('alpine:init', () => {
     Alpine.data('paymentForm', () => ({
-        // --- PROPIEDADES DEL ESTADO ---
-        // CAMBIO: Se establece el valor inicial basado en la moneda del contrato del cliente.
         pagoEn: '{{ "USDT" if cliente.moneda_pago == "USD" else "Dolar/BCV" }}',
+        formaPago: '{{ "Binance" if cliente.moneda_pago == "USD" else "Transferencia Bancaria" }}',
+        formaPagoVisible: 'Transferencia Bancaria',
         montoUsd: parseFloat('{{ monto_restante | default(0) }}'),
         montoBs: parseFloat('{{ (monto_restante * (tasas_hoy.tasa if tasas_hoy else 0)) | round(2) }}'),
         tasa: parseFloat('{{ (tasas_hoy.tasa if tasas_hoy else 0) | string }}'),
         
-        // --- MÉTODO DE INICIALIZACIÓN ---
         init() {
+            this.$watch('pagoEn', (newValue) => {
+                if (newValue === 'USDT') {
+                    this.formaPago = 'Binance';
+                    this.montoBs = 0;
+                } else {
+                    this.formaPago = this.formaPagoVisible;
+                    this.updateBsFromUsd();
+                }
+            });
+            this.$watch('formaPagoVisible', (newValue) => {
+                if (this.pagoEn === 'Dolar/BCV') {
+                    this.formaPago = newValue;
+                }
+            });
+
             this.$nextTick(() => {
                 this.$refs.monto_usd_input.value = this.montoUsd.toFixed(2);
-                // Solo inicializa el monto en Bs si la moneda de pago es Bolívares.
-                if (this.pagoEn === 'Dolar/BCV') {
+                if (this.pagoEn === 'Dolar/BCV' && this.$refs.monto_bs_input) {
                     this.$refs.monto_bs_input.value = this.montoBs.toFixed(2);
                 }
-                // Llama a la visibilidad para asegurar que los campos correctos se muestren/oculten al cargar.
-                this.updateFormVisibility();
             });
-        },
-
-        // --- MÉTODOS DE LA APLICACIÓN ---
-        updateFormVisibility() {
-            const formaPagoSelect = document.querySelector('[x-ref="forma_pago_select"]');
-            if (this.pagoEn === 'USDT') {
-                this.montoBs = 0;
-                // Si el select de forma de pago existe, se le asigna 'Binance'.
-                if (formaPagoSelect) {
-                    formaPagoSelect.value = 'Binance';
-                }
-            } else {
-                if (formaPagoSelect) {
-                    formaPagoSelect.value = 'Transferencia Bancaria';
-                }
-                this.updateBsFromUsd();
-            }
         },
 
         updateBsFromUsd() {
