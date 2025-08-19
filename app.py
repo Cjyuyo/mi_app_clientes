@@ -2704,6 +2704,106 @@ def conciliar_pago(pago_id):
                     return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
                 return redirect(url_for('pagos_por_conciliar'))
             
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se corrigió la sangría de esta línea.
+            admin_id = g.admin['id']
+            # --- FIN DE LA CORRECCIÓN ---
+
+            flash_msg = ""
+            if pago_actual['tipo_pago'] == 'Inscripción':
+                inscripcion_pagada_actual = Decimal(cliente.get('inscripcion_pagada') or 0)
+                inscripcion_total_requerida = Decimal(cliente.get('inscripcion_monto') or 0)
+                nueva_inscripcion_pagada = inscripcion_pagada_actual + pago_actual['monto']
+
+                if nueva_inscripcion_pagada >= inscripcion_total_requerida:
+                    cur.execute("SELECT * FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente['id'],))
+                    abonos_anteriores = cur.fetchall()
+                    
+                    monto_total_consolidado = nueva_inscripcion_pagada
+                    pago_final_id = None
+
+                    if not abonos_anteriores:
+                        cur.execute(
+                            "UPDATE pagos SET tipo_pago = 'Inscripción Finalizada', por_concepto_de = 'Pago total de inscripción', estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s RETURNING id",
+                            (admin_id, pago_id)
+                        )
+                        pago_final_id = cur.fetchone()[0]
+                    else:
+                        pagos_a_consolidar = abonos_anteriores + [pago_actual]
+                        ids_a_anular = [p['id'] for p in pagos_a_consolidar]
+                        
+                        pagos_individuales = [
+                            {"id": p['id'], "monto": str(p['monto']), "fecha": p['fecha_pago'].isoformat()}
+                            for p in pagos_a_consolidar
+                        ]
+                        detalles_consolidados = {"pagos_individuales": pagos_individuales}
+                        
+                        cur.execute("""
+                            INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, estado_pago, por_concepto_de, detalles_reporte, conciliado_por_id, fecha_pago, cuotas_cubiertas) 
+                            VALUES (%s, %s, 'Inscripción Finalizada', 'Consolidado', 'Conciliado', 'Pago total de inscripción consolidado', %s, %s, %s, 0) RETURNING id
+                        """, (cliente['id'], monto_total_consolidado, json.dumps(detalles_consolidados), admin_id, pago_actual['fecha_pago']))
+                        pago_final_id = cur.fetchone()[0]
+
+                        detalle_anulacion = json.dumps({"motivo": "Consolidado en recibo final", "recibo_final_id": pago_final_id})
+                        cur.execute("UPDATE pagos SET estado_pago = 'Anulado', detalles_reporte = %s WHERE id = ANY(%s)", (detalle_anulacion, ids_a_anular))
+                    
+                    cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (monto_total_consolidado, cliente['id']))
+                    
+                    try:
+                        cur.execute("SELECT asesor, responsable, plan_contratado, contrato_nro FROM clientes WHERE id = %s", (cliente['id'],))
+                        info_cliente_comercial = cur.fetchone()
+                        if info_cliente_comercial and info_cliente_comercial['plan_contratado']:
+                            calcular_y_guardar_comisiones(
+                                contrato_nro=info_cliente_comercial['contrato_nro'],
+                                cliente_id=cliente['id'],
+                                monto_plan=Decimal(info_cliente_comercial['plan_contratado']),
+                                asesor_dueno=info_cliente_comercial['asesor'],
+                                responsable_cierre=info_cliente_comercial['responsable']
+                            )
+                    except Exception as e:
+                        logging.error(f"FALLO AL CALCULAR COMISIONES para contrato {cliente['contrato_nro']}: {e}")
+                        flash(f"Advertencia: El pago fue conciliado, pero hubo un error al generar las comisiones: {e}", "warning")
+
+                    descripcion_audit = f"Consolidó pagos de inscripción. Recibo final N°{pago_final_id} por ${monto_total_consolidado} para {cliente['nombre_apellido']}."
+                    registrar_accion_auditoria('CONSOLIDACION_INSCRIPCION', descripcion_audit, cliente['id'])
+                    
+                    flash_msg = "¡Inscripción consolidada! El cliente ahora puede pagar su primera cuota para activar el plan."
+                
+                else:
+                    cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
+                    cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
+                    flash_msg = f"Abono de inscripción N° {pago_id} conciliado exitosamente."
+
+            elif pago_actual['tipo_pago'] == 'Cuota':
+                if cliente['proceso'] == 'INSCRITO':
+                    cur.execute("UPDATE clientes SET proceso = 'Ahorrador', estatus = 'ACTIVO' WHERE id = %s", (cliente['id'],))
+                
+                valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
+                if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
+                cpp, cpr, br = cliente.get('cuotas_pagadas_progresivas', 0), cliente.get('cuotas_pagadas_regresivas', 0), Decimal(cliente.get('balance_regresivo', 0))
+                mtd, pph, rph = pago_actual['monto'] + br, 0, 0
+                if mtd >= valor_cuota: pph, mtd = 1, mtd - valor_cuota
+                bp = mtd
+                while bp >= valor_cuota: rph, bp = rph + 1, bp - valor_cuota
+                nbf, ncpp, ncpr, cch = bp, cpp + pph, cpr + rph, pph + rph
+                cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s;", (ncpp, ncpr, nbf, cliente['id']))
+                cur.execute("UPDATE pagos SET cuotas_cubiertas = %s, progresivas_cubiertas = %s, regresivas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s WHERE id = %s;", (cch, pph, rph, ncpp, ncpr, nbf, pago_id))
+                cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
+                flash_msg = f"¡Pago de cuota N° {pago_id} conciliado exitosamente!"
+
+            conn.commit()
+            flash(flash_msg, 'success')
+            return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
+
+    except (psycopg2.Error, ValueError, TypeError) as e:
+        if conn: conn.rollback()
+        from flask import current_app
+        current_app.logger.error(f"Error al conciliar el pago {pago_id}: {e}")
+        flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
+        if cedula_cliente_para_redirect:
+            return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
+    return redirect(url_for('pagos_por_conciliar'))
+            
             admin_id = g.admin['id']
 
             flash_msg = ""
@@ -2814,7 +2914,7 @@ def conciliar_pago(pago_id):
             return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
     return redirect(url_for('pagos_por_conciliar'))
             
-            admin_id = g.admin['id']
+        admin_id = g.admin['id']
 
             flash_msg = ""
             if pago_actual['tipo_pago'] == 'Inscripción':
@@ -4795,6 +4895,135 @@ def get_pago_detalle(pago_id):
     except psycopg2.Error as e:
         logging.error(f"Error en API get_pago_detalle: {e}")
         return jsonify({'error': 'Error interno del servidor al consultar el pago.'}), 500
+
+        # --- INICIO DEL NUEVO MÓDULO DE GESTIÓN DE USUARIOS ---
+
+@app.route('/admin/gestion_usuarios')
+@admin_required
+@rol_requerido('superadmin', 'gerente') 
+def gestion_usuarios():
+    """Muestra la página de gestión de usuarios administradores."""
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", "danger")
+        return redirect(url_for('hub'))
+    
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nombre_completo, usuario, rol, estatus FROM administradores ORDER BY nombre_completo")
+            usuarios = cur.fetchall()
+    except psycopg2.Error as e:
+        flash(f"Error al cargar la lista de usuarios: {e}", "danger")
+        usuarios = []
+        
+    return render_template('gestion_usuarios.html', usuarios=usuarios)
+
+@app.route('/admin/agregar_usuario', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def agregar_usuario():
+    """Agrega un nuevo usuario administrador al sistema."""
+    nombre_completo = request.form.get('nombre_completo')
+    usuario = request.form.get('usuario')
+    password = request.form.get('password')
+    rol = request.form.get('rol')
+
+    if not all([nombre_completo, usuario, password, rol]):
+        flash("Todos los campos son obligatorios.", "danger")
+        return redirect(url_for('gestion_usuarios'))
+
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", "danger")
+        return redirect(url_for('gestion_usuarios'))
+
+    try:
+        with conn.cursor() as cur:
+            hashed_password = generate_password_hash(password)
+            cur.execute(
+                "INSERT INTO administradores (nombre_completo, usuario, password_hash, rol, estatus) VALUES (%s, %s, %s, %s, 'Activo')",
+                (nombre_completo, usuario, hashed_password, rol)
+            )
+            conn.commit()
+            registrar_accion_auditoria('CREACION_USUARIO_ADMIN', f"Creó al usuario '{usuario}' ({nombre_completo}) con el rol '{rol}'.")
+            flash(f"Usuario '{usuario}' creado exitosamente.", "success")
+    except psycopg2.IntegrityError:
+        conn.rollback()
+        flash(f"El nombre de usuario '{usuario}' ya existe. Por favor, elija otro.", "danger")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error al crear el usuario: {e}", "danger")
+
+    return redirect(url_for('gestion_usuarios'))
+
+@app.route('/admin/cambiar_estado_usuario/<int:user_id>', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def cambiar_estado_usuario(user_id):
+    """Activa o desactiva la cuenta de un usuario."""
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión.", "danger")
+        return redirect(url_for('gestion_usuarios'))
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT usuario, estatus FROM administradores WHERE id = %s", (user_id,))
+            user = cur.fetchone()
+            if not user:
+                flash("Usuario no encontrado.", "danger")
+                return redirect(url_for('gestion_usuarios'))
+
+            nuevo_estatus = 'Inactivo' if user['estatus'] == 'Activo' else 'Activo'
+            cur.execute("UPDATE administradores SET estatus = %s WHERE id = %s", (nuevo_estatus, user_id))
+            conn.commit()
+            registrar_accion_auditoria('CAMBIO_ESTADO_USUARIO', f"Cambió el estado del usuario '{user['usuario']}' a '{nuevo_estatus}'.")
+            flash(f"El estado del usuario '{user['usuario']}' ha sido actualizado a '{nuevo_estatus}'.", "success")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error al cambiar el estado del usuario: {e}", "danger")
+        
+    return redirect(url_for('gestion_usuarios'))
+
+@app.route('/admin/resetear_password/<int:user_id>', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def resetear_password(user_id):
+    """Genera una nueva contraseña temporal para un usuario."""
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión.", "danger")
+        return redirect(url_for('gestion_usuarios'))
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT usuario FROM administradores WHERE id = %s", (user_id,))
+            user = cur.fetchone()
+            if not user:
+                flash("Usuario no encontrado.", "danger")
+                return redirect(url_for('gestion_usuarios'))
+
+            # Genera una contraseña temporal segura
+            caracteres = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+            nueva_password = "".join(random.choice(caracteres) for i in range(10))
+            
+            hashed_password = generate_password_hash(nueva_password)
+            cur.execute("UPDATE administradores SET password_hash = %s WHERE id = %s", (hashed_password, user_id))
+            conn.commit()
+            
+            registrar_accion_auditoria('RESETEO_PASSWORD', f"Reseteó la contraseña para el usuario '{user['usuario']}'.")
+            
+            # Muestra la nueva contraseña en un mensaje flash para que el admin la copie
+            flash(f"¡Contraseña reseteada! La nueva contraseña temporal para '{user['usuario']}' es: {nueva_password}", "success")
+
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error al resetear la contraseña: {e}", "danger")
+        
+    return redirect(url_for('gestion_usuarios'))
+
+# --- FIN DEL NUEVO MÓDULO ---
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
