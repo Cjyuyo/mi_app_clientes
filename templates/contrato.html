@@ -94,7 +94,7 @@
             {% if cliente.moneda_pago == 'BsBCV' %}
                 <h1 class="text-xl font-bold text-slate-800">CONTRATO DE ADHESIÓN AL SISTEMA DE PLAN DE AHORRO PROGRAMADO: PAGO EN BOLÍVARES (Bs.), CON OPCIÓN DE DIVISAS SEGÚN LIBRE CONVERTIBILIDAD</h1>
             {% else %}
-                <h1 class="text-xl font-bold text-slate-800">CONTRATO DE ADHESIÓN AL SISTEMA DE PLAN DE AHORRO PROGRAMADO: PAGO EN DIVISAS (USD.), SIN OPCIÓN DE CONVERTIBILIDAD</h1>
+                <h1 class="text-xl font-bold text-slate-800">CONTRATO DE ADHESIÓN AL SISTEMA DE PLAN DE AHORRO PROGRAMADO: PAGO EN DIVISAS (USD.), SIN OPCIÓN DE CONVERTIBILILIDAD</h1>
             {% endif %}
         </header>
 
@@ -135,39 +135,118 @@
         </section>
 
         <article class="prose prose-sm max-w-none text-justify">
-            <!-- ... (Cláusulas del contrato sin cambios) ... -->
+            {% if cliente.moneda_pago == 'BsBCV' %}
+                <!-- CONTRATO VERSIÓN BOLÍVARES -->
+                <p>Entre las partes, por un lado, <strong>MOTO PLAN MOTORS, C.A.</strong>, sociedad mercantil constituida bajo las leyes de la República Bolivariana de Venezuela, inscrita en el Registro Mercantil Primero del Estado Portuguesa bajo el número de tomo 66-A RM410, número 18 del año 2023, con RIF J-50408959-1 e inscrita en el RUPDAE, en lo sucesivo denominada “LA EMPRESA”, y por otro lado, el solicitante identificado en la solicitud de inscripción anexa, en lo sucesivo denominado “EL CLIENTE”, convienen en celebrar el presente Contrato de Adhesión, el cual se regirá por las siguientes cláusulas:</p>
+                
+                <h3>CAPÍTULO I: DISPOSICIONES GENERALES Y NATURALEZA DEL CONTRATO</h3>
+                <p><strong>Cláusula 1.</strong> LA EMPRESA es una persona jurídica legalmente constituida. EL CLIENTE se adhiere voluntariamente a este contrato. <br><em>Fundamento Legal: Código de Comercio y Código Civil.</em></p>
+                <p><strong>Cláusula 2.</strong> El contrato tiene por objeto la incorporación a un plan de ahorro programado, con fines de autofinanciamiento. LA EMPRESA no vende bienes directamente. <br><em>Fundamento Legal: Art. 112 Constitución y Art. 1161 Código Civil.</em></p>
+                <p><strong>Cláusula 3.</strong> EL CLIENTE declara haber recibido asesoría clara, personalizada y oportuna. <br><em>Fundamento Legal: Ley sobre Mensajes de Datos y Firmas Electrónicas, Arts. 12 y 13.</em></p>
+                <p><strong>Cláusula 4.</strong> Definiciones contractuales básicas (grupo, cuota, adjudicación, beneficiario, etc.).</p>
+                <p><strong>Cláusula 4 BIS.</strong> La asesoría fue grabada con consentimiento expreso de EL CLIENTE y podrá usarse como prueba válida en caso de controversia. <br><em>Fundamento Legal: Ley sobre Mensajes de Datos y Firmas Electrónicas, Arts. 12 y 13.</em></p>
+
+                <h3>CAPÍTULO II: DE LOS GRUPOS, PLAZOS Y EL BIEN A ADQUIRIR</h3>
+                <p><strong>Cláusula 5.</strong> Cuota de inscripción única equivalente al 16% del monto contratado.</p>
+                <p><strong>Cláusula 6.</strong> Los grupos se conforman por 54 personas y se activan al alcanzar al menos el 85% de integración.</p>
+                <p><strong>Cláusula 7.</strong> Duración máxima del plan: 24 meses. <br><em>Fundamento Legal: Autonomía de la voluntad contractual.</em></p>
+                <p><strong>Cláusula 8.</strong> El monto adjudicado se ajusta al precio del bien. LA EMPRESA no garantiza disponibilidad de modelos.</p>
+
+                <h3>CAPÍTULO III: DE LA CUOTA MENSUAL Y LOS PAGOS</h3>
+                <p><strong>Cláusula 9.</strong> La cuota mensual incluye: <br>
+                9.1. Aporte neto al fondo. <br>
+                9.2. Costos operativos y utilidad (hasta 30%). <br>
+                9.3. Penalidad por atraso. <br>
+                9.4. Impuestos (como el IVA del 16%). <br>
+                <em>Fundamento Legal: Código de Comercio Art. 127, Ley del IVA, Constitución Art. 316.</em></p>
+                <p><strong>Cláusula 10.</strong> Se exige el pago completo y puntual de 24 cuotas mensuales, sin interrupciones ni fraccionamientos. <br><em>Fundamento Legal: Art. 115 Código de Comercio.</em></p>
+                <p><strong>Cláusula 11.</strong> Los pagos deben realizarse preferentemente en Bolívares (Bs.), al valor equivalente según la tasa oficial del BCV. También se aceptan pagos en divisas convertibles, bajo el principio de libre convertibilidad. <br>
+                <em>Fundamento Legal: Ley del BCV (Art. 3 y 121), Convenio Cambiario N.º 1, Código de Comercio (Art. 115 y 128), TSJ Sala Civil N.º 703/2016.</em></p>
+
+                <h3>CAPÍTULO IV: DEL PROCESO DE ENTREGA (ADJUDICACIÓN)</h3>
+                <p><strong>Cláusula 12.</strong> El evento de adjudicación se realiza una vez al mes entre clientes solventes. <br><em>Fundamento Legal: Art. 1136 Código Civil.</em></p>
+                <p><strong>Cláusula 13.</strong> Formas de adjudicación: <br>
+                13.1. Por oferta (el cliente ofrece adelanto de cuotas y se toma en cuenta la mejor oferta del grupo). <br>
+                <strong>CLÁUSULA 13.2. Mecanismo de Asignación por Antigüedad:</strong> A partir de la cuota número doce (12), EL CLIENTE podrá participar en el evento de asignación por antigüedad. Este mecanismo otorga el derecho a la adjudicación al CLIENTE que tenga el mayor número de cuotas efectivamente pagadas, tomadas de mayor a menor entre todos los integrantes que cumplan con el requisito mínimo de doce (12) cuotas canceladas y estén solventes. En caso de empate entre dos o más clientes con igual cantidad de cuotas pagadas, se otorgará la adjudicación al cliente con mayor antigüedad en la fecha de incorporación al grupo. <br><em>Fundamento legal: Este mecanismo se ampara en los principios de equidad, mérito por cumplimiento, y autonomía de la voluntad contractual conforme al Código Civil.</em> <br>
+                13.3. Por finiquito (el cliente paga todo y recibe el monto en 60 días).</p>
+                <p><strong>Cláusula 14.</strong> Para recibir el monto adjudicado, EL CLIENTE debe presentar garantías: fiador, hipoteca, o reserva de dominio.</p>
+                <p><strong>Cláusula 15.</strong> LA EMPRESA dispone de hasta 60 días hábiles para entregar el monto adjudicado tras validar las garantías.</p>
+
+                <h3>CAPÍTULO V: INCUMPLIMIENTOS DE PAGO</h3>
+                <p><strong>Cláusula 16.</strong> El atraso en el pago inhabilita al cliente para participar en adjudicaciones y genera penalidad. <br><em>Fundamento Legal: Código Civil Art. 1160.</em></p>
+                <p><strong>Cláusula 17.</strong> Si un cliente no adjudicado deja de pagar tres (3) cuotas consecutivas, LA EMPRESA podrá anular el contrato sin previo aviso.</p>
+                <p><strong>Cláusula 18.</strong> Si el cliente ya fue adjudicado y deja de pagar, LA EMPRESA podrá ejecutar el contrato judicialmente, recuperar el bien entregado y exigir el pago completo de lo adeudado. Se aplicará, además, un cargo por mora diaria equivalente al 0,2% del monto vencido por cada día de retraso, más los gastos legales correspondientes.</p>
+
+                <h3>CAPÍTULO VI: DERECHOS DEL CLIENTE NO ADJUDICADO</h3>
+                <p><strong>Cláusula 19.</strong> Mientras no haya sido adjudicado, EL CLIENTE podrá: <br>
+                19.1. Retracto: dentro de los primeros 7 días desde la firma. Después de ese plazo, el contrato es obligatorio. <br>
+                19.2. Cambio de grupo: a uno de mayor o menor monto. <br>
+                19.3. Traspaso: a un tercero solvente, con aprobación de LA EMPRESA. <br>
+                19.4. Rescisión voluntaria: en cualquier momento. Se reintegrarán solo los aportes netos, descontando inscripción, gastos y tributos. El reintegro será cuota a cuota, a medida que el grupo cumpla su ciclo, para no afectar el fondo común y se indicará el cronograma de devolución dentro de 15 días hábiles posteriores a la notificación formal por parte del cliente. <br>
+                19.5. Designación de beneficiario: para heredar el contrato en caso de fallecimiento. <br>
+                <em>Fundamento Legal: Art. 1161 Código Civil y autonomía contractual.</em></p>
+
+                <h3>CAPÍTULO VII: DOMICILIO, JURISDICCIÓN Y MEDIOS ELECTRÓNICOS</h3>
+                <p><strong>Cláusula 20.</strong> Las partes se someten a la jurisdicción de los tribunales venezolanos y acuerdan como domicilio el indicado en la solicitud.</p>
+                <p><strong>Cláusula X. Firma y Documentos Electrónicos.</strong> Este contrato podrá ser firmado electrónicamente. Los recibos, notificaciones y comunicaciones podrán emitirse en formato digital, siendo plenamente válidos y exigibles. <br><em>Fundamento Legal: Ley sobre Mensajes de Datos y Firmas Electrónicas, Artículos 6, 7, 9, 12 y 13.</em></p>
+
+            {% else %}
+                <!-- CONTRATO VERSIÓN DIVISAS -->
+                <p>Entre las partes, por un lado, <strong>MOTO PLAN MOTORS, C.A.</strong>, sociedad mercantil constituida bajo las leyes de la República Bolivariana de Venezuela, inscrita en el Registro Mercantil Primero del Estado Portuguesa bajo el número de tomo 66-A RM410, número 18 del año 2023, con RIF J-50408959-1 e inscrita en el RUPDAE, en lo sucesivo denominada “LA EMPRESA”, y por otro lado, el solicitante identificado en la solicitud de inscripción anexa, en lo sucesivo denominado “EL CLIENTE”, convienen en celebrar el presente Contrato de Adhesión, el cual se regirá por las siguientes cláusulas:</p>
+                
+                <h3>CAPÍTULO I: DISPOSICIONES GENERALES Y NATURALEZA DEL CONTRATO</h3>
+                <p><strong>Cláusula 1.</strong> LA EMPRESA es una persona jurídica legalmente constituida. EL CLIENTE se adhiere voluntariamente a este contrato. <br><em>Fundamento Legal: Código de Comercio y Código Civil.</em></p>
+                <p><strong>Cláusula 2.</strong> El contrato tiene por objeto la incorporación a un plan de ahorro programado, con fines de autofinanciamiento. LA EMPRESA no vende bienes directamente. <br><em>Fundamento Legal: Art. 112 Constitución y Art. 1161 Código Civil.</em></p>
+                <p><strong>Cláusula 3.</strong> EL CLIENTE declara haber recibido asesoría clara, personalizada y oportuna. <br><em>Fundamento Legal: Ley sobre Mensajes de Datos y Firmas Electrónicas, Arts. 12 y 13.</em></p>
+                <p><strong>Cláusula 4.</strong> Definiciones contractuales básicas (grupo, cuota, adjudicación, beneficiario, etc.).</p>
+                <p><strong>Cláusula 4 BIS.</strong> La asesoría fue grabada con consentimiento expreso de EL CLIENTE y podrá usarse como prueba válida en caso de controversia. <br><em>Fundamento Legal: Ley sobre Mensajes de Datos y Firmas Electrónicas, Arts. 12 y 13.</em></p>
+
+                <h3>CAPÍTULO II: DE LOS GRUPOS, PLAZOS Y EL BIEN A ADQUIRIR</h3>
+                <p><strong>Cláusula 5.</strong> Cuota de inscripción única equivalente al 16% del monto contratado.</p>
+                <p><strong>Cláusula 6.</strong> Los grupos se conforman por 54 personas y se activan al alcanzar al menos el 85% de integración.</p>
+                <p><strong>Cláusula 7.</strong> Duración máxima del plan: 24 meses. <br><em>Fundamento Legal: Autonomía de la voluntad contractual.</em></p>
+                <p><strong>Cláusula 8.</strong> El monto adjudicado se ajusta al precio del bien. LA EMPRESA no garantiza disponibilidad de modelos.</p>
+
+                <h3>CAPÍTULO III: DE LA CUOTA MENSUAL Y LOS PAGOS</h3>
+                <p><strong>Cláusula 9.</strong> La cuota mensual incluye: <br>
+                9.1. Aporte neto al fondo. <br>
+                9.2. Costos operativos y utilidad (hasta 30%). <br>
+                9.3. Penalidad por atraso. <br>
+                9.4. Impuestos (como el IVA del 16%). <br>
+                <em>Fundamento Legal: Código de Comercio Art. 127, Ley del IVA, Constitución Art. 316.</em></p>
+                <p><strong>Cláusula 10.</strong> Se exige el pago completo y puntual de 24 cuotas mensuales, sin interrupciones ni fraccionamientos. <br><em>Fundamento Legal: Art. 115 Código de Comercio.</em></p>
+                <p><strong>Cláusula 11. Forma de Pago: Obligación en Moneda Extranjera (USD).</strong> Los pagos derivados del presente contrato, incluyendo cuota de inscripción, cuotas mensuales, penalidades, impuestos y cualquier otro compromiso económico, deberán ser realizados única y exclusivamente en dólares estadounidenses (USD), sin posibilidad de sustitución en bolívares u otra moneda. Las partes acuerdan expresamente que la moneda de pago exigida es el dólar americano, no siendo válida su convertibilidad ni su pago en bolívares bajo ningún supuesto. Esta condición constituye una convención especial clara, escrita y previa entre las partes, conforme a lo establecido en el artículo 128 de la Ley del Banco Central de Venezuela, el cual permite pactar contractualmente el cumplimiento de obligaciones dinerarias en moneda extranjera, siempre que dicha moneda sea expresamente acordada como medio de pago y no solo como unidad de cuenta. <br>
+                <em>Fundamento Legal: Artículo 128 de la Ley del Banco Central de Venezuela: “El pago de las obligaciones en moneda extranjera, válidamente pactadas, podrá hacerse en bolívares a la tasa oficial salvo convención en contrario.” Jurisprudencia reciente de la Sala de Casación Civil y Social del TSJ ha validado este tipo de acuerdos expresos como mecanismos legítimos de pago entre privados.</em></p>
+
+                <h3>CAPÍTULO IV: DEL PROCESO DE ENTREGA (ADJUDICACIÓN)</h3>
+                <p><strong>Cláusula 12.</strong> El evento de adjudicación se realiza una vez al mes entre clientes solventes. <br><em>Fundamento Legal: Art. 1136 Código Civil.</em></p>
+                <p><strong>Cláusula 13.</strong> Formas de adjudicación: <br>
+                13.1. Por oferta (el cliente ofrece adelanto de cuotas y se toma en cuenta la mejor oferta del grupo). <br>
+                <strong>CLÁUSULA 13.2. Mecanismo de Asignación por Antigüedad:</strong> A partir de la cuota número doce (12), EL CLIENTE podrá participar en el evento de asignación por antigüedad. Este mecanismo otorga el derecho a la adjudicación al CLIENTE que tenga el mayor número de cuotas efectivamente pagadas, tomadas de mayor a menor entre todos los integrantes que cumplan con el requisito mínimo de doce (12) cuotas canceladas y estén solventes. En caso de empate entre dos o más clientes con igual cantidad de cuotas pagadas, se otorgará la adjudicación al cliente con mayor antigüedad en la fecha de incorporación al grupo. <br><em>Fundamento legal: Este mecanismo se ampara en los principios de equidad, mérito por cumplimiento, y autonomía de la voluntad contractual conforme al Código Civil.</em> <br>
+                13.3. Por finiquito (el cliente paga todo y recibe el monto en 60 días).</p>
+                <p><strong>Cláusula 14.</strong> Para recibir el monto adjudicado, EL CLIENTE debe presentar garantías: fiador, hipoteca, o reserva de dominio.</p>
+                <p><strong>Cláusula 15.</strong> LA EMPRESA dispone de hasta 60 días hábiles para entregar el monto adjudicado tras validar las garantías.</p>
+
+                <h3>CAPÍTULO V: INCUMPLIMIENTOS DE PAGO</h3>
+                <p><strong>Cláusula 16.</strong> El atraso en el pago inhabilita al cliente para participar en adjudicaciones y genera penalidad. <br><em>Fundamento Legal: Código Civil Art. 1160.</em></p>
+                <p><strong>Cláusula 17.</strong> Si un cliente no adjudicado deja de pagar tres (3) cuotas consecutivas, LA EMPRESA podrá anular el contrato sin previo aviso.</p>
+                <p><strong>Cláusula 18.</strong> Si el cliente ya fue adjudicado y deja de pagar, LA EMPRESA podrá ejecutar el contrato judicialmente, recuperar el bien entregado y exigir el pago completo de lo adeudado. Se aplicará, además, un cargo por mora diaria equivalente al 0,2% del monto vencido por cada día de retraso, más los gastos legales correspondientes.</p>
+
+                <h3>CAPÍTULO VI: DERECHOS DEL CLIENTE NO ADJUDICADO</h3>
+                <p><strong>Cláusula 19.</strong> Mientras no haya sido adjudicado, EL CLIENTE podrá: <br>
+                19.1. Retracto: dentro de los primeros 7 días desde la firma. Después de ese plazo, el contrato es obligatorio. <br>
+                19.2. Cambio de grupo: a uno de mayor o menor monto. <br>
+                19.3. Traspaso: a un tercero solvente, con aprobación de LA EMPRESA. <br>
+                19.4. Rescisión voluntaria: en cualquier momento. Se reintegrarán solo los aportes netos, descontando inscripción, gastos y tributos. El reintegro será cuota a cuota, a medida que el grupo cumpla su ciclo, para no afectar el fondo común y se indicará el cronograma de devolución dentro de 15 días hábiles posteriores a la notificación formal por parte del cliente. <br>
+                19.5. Designación de beneficiario: para heredar el contrato en caso de fallecimiento. <br>
+                <em>Fundamento Legal: Art. 1161 Código Civil y autonomía contractual.</em></p>
+
+                <h3>CAPÍTULO VII: DOMICILIO, JURISDICCIÓN Y MEDIOS ELECTRÓNICOS</h3>
+                <p><strong>Cláusula 20.</strong> Las partes se someten a la jurisdicción de los tribunales venezolanos y acuerdan como domicilio el indicado en la solicitud.</p>
+                <p><strong>Cláusula X. Firma y Documentos Electrónicos.</strong> Este contrato podrá ser firmado electrónicamente. Los recibos, notificaciones y comunicaciones podrán emitirse en formato digital, siendo plenamente válidos y exigibles. <br><em>Fundamento Legal: Ley sobre Mensajes de Datos y Firmas Electrónicas, Artículos 6, 7, 9, 12 y 13.</em></p>
+            {% endif %}
         </article>
         
-        {% if modo_pre_registro %}
-        <section class="mt-10 pt-8 border-t no-print">
-            <h2 class="text-xl font-bold text-center text-slate-800 mb-6">Documentación Fotográfica</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div class="text-center">
-                    <h3 class="font-semibold text-slate-700 mb-2">Foto del Cliente</h3>
-                    <div class="w-full max-w-xs mx-auto bg-slate-200 rounded-lg aspect-square flex items-center justify-center">
-                        <img id="preview_foto_cliente" src="" alt="Vista previa cliente" class="hidden w-full h-full object-cover rounded-lg">
-                        <label for="input_foto_cliente" class="cursor-pointer text-slate-500">
-                            <i class="bi bi-camera-fill text-4xl"></i>
-                            <p class="text-sm mt-2">Cargar Foto</p>
-                        </label>
-                    </div>
-                    <input type="file" id="input_foto_cliente" accept="image/*" class="hidden">
-                </div>
-                <div class="text-center">
-                    <h3 class="font-semibold text-slate-700 mb-2">Foto del Documento de Identidad</h3>
-                    <div class="w-full max-w-xs mx-auto bg-slate-200 rounded-lg aspect-square flex items-center justify-center">
-                        <img id="preview_foto_cedula" src="" alt="Vista previa cédula" class="hidden w-full h-full object-cover rounded-lg">
-                        <label for="input_foto_cedula" class="cursor-pointer text-slate-500">
-                            <i class="bi bi-person-vcard-fill text-4xl"></i>
-                            <p class="text-sm mt-2">Cargar Documento</p>
-                        </label>
-                    </div>
-                    <input type="file" id="input_foto_cedula" accept="image/*" class="hidden">
-                </div>
-            </div>
-        </section>
-        {% endif %}
-
         <footer class="mt-10 pt-8 border-t">
             <p class="text-center font-semibold mb-6">FIRMA DEL CLIENTE: Declara haber leído, comprendido y aceptado todas las cláusulas del presente contrato.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -249,62 +328,6 @@
                 }
             });
         });
-
-        // --- INICIO DE LA CORRECCIÓN: LÓGICA PARA REDIMENSIONAR IMÁGENES ---
-        const setupImagePreview = (inputId, previewId, hiddenInputId) => {
-            const fileInput = document.getElementById(inputId);
-            const preview = document.getElementById(previewId);
-            const hiddenInput = document.getElementById(hiddenInputId);
-            const label = fileInput.previousElementSibling.querySelector('label');
-
-            fileInput.addEventListener('change', function(event) {
-                const file = event.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const img = new Image();
-                        img.onload = function() {
-                            const MAX_WIDTH = 800;
-                            const MAX_HEIGHT = 800;
-                            let width = img.width;
-                            let height = img.height;
-
-                            if (width > height) {
-                                if (width > MAX_WIDTH) {
-                                    height *= MAX_WIDTH / width;
-                                    width = MAX_WIDTH;
-                                }
-                            } else {
-                                if (height > MAX_HEIGHT) {
-                                    width *= MAX_HEIGHT / height;
-                                    height = MAX_HEIGHT;
-                                }
-                            }
-
-                            const canvas = document.createElement('canvas');
-                            canvas.width = width;
-                            canvas.height = height;
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(img, 0, 0, width, height);
-                            
-                            // Usar JPEG con compresión para un tamaño de archivo mucho menor
-                            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-
-                            preview.src = dataUrl;
-                            preview.classList.remove('hidden');
-                            if(label) label.classList.add('hidden');
-                            if(hiddenInput) hiddenInput.value = dataUrl;
-                        }
-                        img.src = e.target.result;
-                    }
-                    reader.readAsDataURL(file);
-                }
-            });
-        };
-
-        setupImagePreview('input_foto_cliente', 'preview_foto_cliente', 'foto_cliente_input');
-        setupImagePreview('input_foto_cedula', 'preview_foto_cedula', 'foto_cedula_input');
-        // --- FIN DE LA CORRECCIÓN ---
     });
     </script>
 </body>
