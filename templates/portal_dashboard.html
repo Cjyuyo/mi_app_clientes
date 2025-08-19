@@ -229,15 +229,18 @@
                     <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="h-2.5 rounded-full progress-bar" style="width: {{ progreso_cuota_actual }}%"></div></div>
                 </div>
             </div>
-             {# El botón de pago ahora está integrado aquí abajo #}
-            {% set puede_pagar = ciclo_cobranza_activo or (estado_principal and estado_principal.boton_activo) %}
-            {% if puede_pagar %}
+             
+            <!-- ========= INICIO DE LA CORRECCIÓN ========= -->
+            <!-- Este botón ahora solo aparece si el ciclo de cobranza está activo,
+                 evitando la duplicidad con el botón de "Pagar Inscripción". -->
+            {% if ciclo_cobranza_activo %}
             <div class="p-5 border-t border-slate-200 bg-slate-50/50 rounded-b-xl">
                  <a href="{{ url_for('portal_reportar_pago') }}" class="w-full text-center inline-block text-sm text-white font-semibold py-3 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600">
                     <i class="bi bi-send-plus-fill mr-1"></i> Reportar un Pago
                 </a>
             </div>
             {% endif %}
+            <!-- ========= FIN DE LA CORRECCIÓN ========= -->
         </div>
 
         <div class="bg-white rounded-xl shadow-md card-lift" x-data="{ activeTab: 'pagos' }">
