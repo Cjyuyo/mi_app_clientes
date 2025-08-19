@@ -38,7 +38,7 @@
                 <select name="asesor_id" id="asesor_id" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                     <option value="">Todos</option>
                     {% for asesor in asesores %}
-                    <option value="{{ asesor.id }}" {% if filters.asesor_id == asesor.id|string %}selected{% endif %}>{{ asesor.usuario }}</option>
+                    <option value="{{ asesor.id }}" {% if filters.asesor_id == asesor.id|string %}selected{% endif %}>{{ asesor.nombre_completo }}</option> <!-- CAMBIO AQUÍ -->
                     {% endfor %}
                 </select>
             </div>
