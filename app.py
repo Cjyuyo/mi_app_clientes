@@ -4401,17 +4401,9 @@ def ver_reporte(pago_id):
         flash(f"Ocurrió un error al cargar el reporte: {e}", "error")
         # Redirige al hub si es admin, o a la home si no lo es
         if is_admin_view:
-            return redirect(url_for('hub'))
-        return redirect(url_for('home'))
-
-            if is_client_view and pago['cliente_id'] != session['cliente_id']:
-                flash("No tienes permiso para ver este reporte.", "error")
-                return redirect(url_for('portal_dashboard'))
-
-            # --- INICIO DE LA CORRECCIÓN: Crear bitácora unificada ---
+    
             eventos_unificados = []
             
-            # 1. Obtener todos los pagos relacionados (si hay un bulk)
             pagos_relacionados = []
             if pago['bulk_id']:
                 cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
@@ -4419,7 +4411,6 @@ def ver_reporte(pago_id):
             else:
                 pagos_relacionados.append(pago)
 
-            # 2. Formatear los pagos como eventos para la bitácora
             for p in pagos_relacionados:
                 eventos_unificados.append({
                     'fecha': p['fecha_creacion'],
