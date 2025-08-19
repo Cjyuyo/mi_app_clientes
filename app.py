@@ -3406,6 +3406,21 @@ def portal_reportar_pago():
 
     if request.method == 'POST':
         pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
+        
+        # --- INICIO DE LA CORRECCIÓN ---
+        # Se añade una validación para asegurar que la forma de pago no sea nula.
+        if not pago_form.get('forma_pago'):
+            flash('Debe seleccionar una forma de pago para continuar.', 'error')
+            # Es importante recargar los datos para renderizar la plantilla de nuevo
+            return render_template('portal_reportar_pago.html', 
+                                   cliente=cliente, 
+                                   tasa_hoy=tasa_hoy, 
+                                   mes_actual=mes_actual,
+                                   monto_a_pagar_usd=monto_a_pagar_usd,
+                                   monto_a_pagar_bs=monto_a_pagar_bs,
+                                   concepto_pago=concepto_pago)
+        # --- FIN DE LA CORRECCIÓN ---
+
         try:
             with conn.cursor() as cur:
                 # Evitar reportes duplicados si ya hay uno en revisión
@@ -3466,7 +3481,6 @@ def portal_reportar_pago():
                            monto_a_pagar_bs=monto_a_pagar_bs,
                            concepto_pago=concepto_pago)
 
-
 @app.route('/portal/diferencia/reportar/<int:bulk_id>/<int:order_id>', methods=['GET', 'POST'])
 @portal_login_required
 def portal_diferencia_reportar(bulk_id, order_id):
@@ -3508,6 +3522,23 @@ def portal_diferencia_reportar(bulk_id, order_id):
 
     if request.method == 'POST':
         pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
+        
+        # --- INICIO DE LA CORRECCIÓN ---
+        # Se añade una validación para asegurar que la forma de pago no sea nula.
+        if not pago_form.get('forma_pago'):
+            flash('Debe seleccionar una forma de pago para continuar.', 'error')
+            return render_template('portal_reportar_pago.html', 
+                                   cliente=cliente, 
+                                   tasa_hoy=tasa_hoy, 
+                                   is_diferencia=True, 
+                                   bulk_id=bulk_id, 
+                                   order_id=order_id, 
+                                   monto_precargado_bs=monto_a_pagar_bs, 
+                                   monto_equivalente_usd=monto_equivalente_usd,
+                                   tasa_bcv=tasa_bcv,
+                                   concepto_pago=f"Pago de diferencia (Orden #{order_id})")
+        # --- FIN DE LA CORRECCIÓN ---
+
         try:
             with conn.cursor() as cur:
                 monto_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
