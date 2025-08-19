@@ -3492,7 +3492,6 @@ def portal_reportar_pago():
                            monto_a_pagar_usd=monto_a_pagar_usd,
                            monto_a_pagar_bs=monto_a_pagar_bs,
                            concepto_pago=concepto_pago)
-
         try:
             with conn.cursor() as cur:
                 cur.execute("SELECT id FROM pagos WHERE cliente_id = %s AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
