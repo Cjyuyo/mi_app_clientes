@@ -4,6 +4,13 @@
     Perfil de {{ cliente.nombre_apellido }}
 {% endblock %}
 
+{% block head %}
+    {{ super() }}
+    <!-- Se añade Alpine.js para manejar fácilmente el estado de las pestañas -->
+    <script src="//unpkg.com/alpinejs" defer></script>
+{% endblock %}
+
+
 {% block body %}
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -42,27 +49,72 @@
     </div>
 
     <!-- Columna Derecha: Pestañas de Información -->
-    <!-- >>> CAMBIO ESPECIFICO: Unificar historial de gestiones con el del cliente -->
-    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm" x-data="{ activeTab: 'historial' }">
-    <!-- <<< FIN CAMBIO -->
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm" x-data="{ activeTab: 'pagos' }">
         <!-- Navegación de Pestañas -->
         <div class="px-5 border-b border-slate-200">
             <nav class="-mb-px flex space-x-6">
-                <!-- >>> CAMBIO ESPECIFICO: Unificar historial de gestiones con el del cliente -->
-                <button @click="activeTab = 'historial'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'historial', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'historial' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                    Historial Unificado
-                </button>
-                <!-- <<< FIN CAMBIO -->
                 <button @click="activeTab = 'pagos'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'pagos', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'pagos' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                     Historial de Pagos
+                </button>
+                <button @click="activeTab = 'historial'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'historial', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'historial' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    Gestiones y Eventos
                 </button>
             </nav>
         </div>
 
         <!-- Contenido de las Pestañas -->
         <div class="p-5">
-            <!-- Pestaña de Historial Unificado -->
-            <!-- >>> CAMBIO ESPECIFICO: Unificar historial de gestiones con el del cliente -->
+            <!-- Pestaña de Historial de Pagos -->
+            <div x-show="activeTab === 'pagos'" class="space-y-4">
+                {% for pago in pagos %}
+                    <!-- Condición para mostrar un pago normal o un resumen de inconsistencia -->
+                    {% if pago.tipo_vista == 'normal' %}
+                        <div class="bg-white p-4 rounded-lg shadow-sm flex items-center justify-between flex-wrap">
+                            <div class="flex-grow">
+                                <p class="font-bold text-gray-800">{{ pago.tipo_pago }}</p>
+                                <p class="text-sm text-gray-500">{{ pago.fecha_pago | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</p>
+                            </div>
+                            <div class="text-right mx-4">
+                                <p class="text-lg font-semibold text-gray-900">${{ "%.2f"|format(pago.monto) }}</p>
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full 
+                                    {% if pago.estado_pago == 'Conciliado' %} bg-green-100 text-green-800
+                                    {% elif pago.estado_pago == 'Pendiente' %} bg-yellow-100 text-yellow-800
+                                    {% else %} bg-red-100 text-red-800 {% endif %}">
+                                    {{ pago.estado_pago }}
+                                </span>
+                            </div>
+                            <div class="flex items-center space-x-2 mt-2 md:mt-0">
+                                <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-300">Detalles</a>
+                                {% if pago.estado_pago == 'Conciliado' %}
+                                    <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">Recibo</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% elif pago.tipo_vista == 'inconsistencia' %}
+                        <div class="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-r-lg shadow-sm flex items-center justify-between flex-wrap">
+                            <div class="flex-grow">
+                                <p class="font-bold text-orange-800">{{ pago.concepto }}</p>
+                                <p class="text-sm text-orange-600">{{ pago.fecha_creacion | format_datetime }} | Total a Pagar: ${{ "%.2f"|format(pago.monto_total) }}</p>
+                            </div>
+                            <div class="text-right mx-4">
+                                <p class="text-lg font-semibold text-gray-900">Pagado: ${{ "%.2f"|format(pago.monto_pagado) }}</p>
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">
+                                    {{ pago.estado | replace('_', ' ') | title }}
+                                </span>
+                            </div>
+                            <div class="flex items-center space-x-2 mt-2 md:mt-0">
+                                <button onclick="verProcesoInconsistencia({{ pago.bulk_id }})" class="bg-orange-500 text-white px-3 py-1 rounded text-sm hover:bg-orange-600">
+                                    Ver Proceso
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <p class="text-gray-500 text-center py-4">No hay pagos registrados para este cliente.</p>
+                {% endfor %}
+            </div>
+
+            <!-- Pestaña de Gestiones y Eventos -->
             <div x-show="activeTab === 'historial'">
                 <h3 class="text-lg font-bold text-slate-800 mb-4">Registrar Nueva Gestión de Cobranza</h3>
                 <form action="{{ url_for('agregar_gestion', cliente_id=cliente.id) }}" method="POST">
@@ -112,34 +164,90 @@
                     {% endfor %}
                 </div>
             </div>
-            <!-- <<< FIN CAMBIO -->
-
-            <!-- Pestaña de Historial de Pagos -->
-            <div x-show="activeTab === 'pagos'" class="space-y-3">
-                {% if cliente.pagos %}
-                    {% for pago in cliente.pagos %}
-                    <div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50">
-                        <div>
-                            <p class="font-semibold text-slate-700">{{ pago.tipo_pago }}</p>
-                            <p class="text-xs text-slate-500">{{ pago.fecha_pago | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</p>
-                        </div>
-                        <div class="flex items-center space-x-4">
-                            <span class="font-bold text-slate-800">${{ "%.2f"|format(pago.monto) }}</span>
-                            {% if pago.estado_pago == 'Conciliado' %}
-                                <span class="text-xs font-semibold py-1 px-2 rounded-full bg-green-100 text-green-800">Conciliado</span>
-                            {% elif pago.estado_pago == 'Anulado' %}
-                                <span class="text-xs font-semibold py-1 px-2 rounded-full bg-red-100 text-red-800">Anulado</span>
-                            {% else %}
-                                <span class="text-xs font-semibold py-1 px-2 rounded-full bg-yellow-100 text-yellow-800">Pendiente</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <p class="text-center text-slate-500 py-4">No hay pagos registrados.</p>
-                {% endif %}
-            </div>
         </div>
     </div>
 </div>
+
+<!-- Estructura del Modal (añade esto al final de tu archivo, antes de </body>) -->
+<div id="inconsistencia-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full transform transition-all">
+        <div class="flex justify-between items-center border-b pb-3 mb-4">
+            <h3 class="text-xl font-semibold text-gray-800" id="modal-title">Detalle del Proceso</h3>
+            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-800 text-3xl leading-none">&times;</button>
+        </div>
+        <div id="modal-body" class="max-h-[60vh] overflow-y-auto">
+            <!-- El contenido se cargará aquí con JavaScript -->
+            <p>Cargando...</p>
+        </div>
+        <div class="border-t pt-4 mt-4 text-right">
+            <button onclick="closeModal()" class="bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const modal = document.getElementById('inconsistencia-modal');
+    const modalBody = document.getElementById('modal-body');
+    const modalTitle = document.getElementById('modal-title');
+
+    function closeModal() {
+        modal.classList.add('hidden');
+    }
+
+    async function verProcesoInconsistencia(bulkId) {
+        modalBody.innerHTML = '<p class="text-center p-8">Cargando...</p>';
+        modal.classList.remove('hidden');
+        modalTitle.innerText = `Detalle del Proceso de Inconsistencia #${bulkId}`;
+
+        try {
+            const response = await fetch(`/api/bulk_detalle/${bulkId}`);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'No se pudo cargar la información.');
+            }
+            const data = await response.json();
+
+            let content = `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 text-center md:text-left">
+                    <div><p class="text-sm text-gray-500">Estado</p><p class="font-semibold">${data.bulk.status.replace('_', ' ').title()}</p></div>
+                    <div><p class="text-sm text-gray-500">Monto Total Esperado</p><p class="font-semibold">${parseFloat(data.bulk.expected_amount).toFixed(2)} ${data.bulk.currency}</p></div>
+                    <div><p class="text-sm text-gray-500">Monto Total Verificado</p><p class="font-semibold text-green-600">${parseFloat(data.bulk.total_verified).toFixed(2)} ${data.bulk.currency}</p></div>
+                </div>
+                <h4 class="font-semibold mb-2 border-t pt-4">Pagos Realizados:</h4>
+                <div class="space-y-3">
+            `;
+
+            data.pagos.forEach(pago => {
+                content += `
+                    <div class="border p-3 rounded-md bg-gray-50 text-sm">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p><strong>Pago ID: ${pago.id}</strong> | ${new Date(pago.fecha_pago).toLocaleDateString()}</p>
+                                <p><strong>Ref:</strong> ${pago.referencia || 'N/A'}</p>
+                            </div>
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full ${pago.estado_reporte === 'Inconsistente' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}">${pago.estado_reporte}</span>
+                        </div>
+                        <div class="mt-2 pt-2 border-t">
+                            <p><strong>Monto Reportado:</strong> ${parseFloat(pago.monto_bs).toFixed(2)} Bs (Equivalente a $${parseFloat(pago.monto).toFixed(2)} @ ${parseFloat(pago.tasa_dia).toFixed(2)})</p>
+                        </div>
+                    </div>
+                `;
+            });
+
+            content += '</div>';
+            modalBody.innerHTML = content;
+
+        } catch (error) {
+            modalBody.innerHTML = `<p class="text-center p-8 text-red-500">${error.message}</p>`;
+        }
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === "Escape" && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+</script>
 {% endblock %}

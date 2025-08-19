@@ -564,7 +564,16 @@ def admin_login():
                 session['admin_id'] = admin['id']
                 cur.execute("UPDATE administradores SET ultimo_login = NOW(), estatus_online = TRUE, ultimo_visto = NOW() WHERE id = %s", (admin['id'],))
                 conn.commit()
-                flash(f"¡Bienvenido de nuevo, {admin['usuario']}!", 'success')
+                
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se guarda un mensaje especial en la sesión en lugar de usar flash.
+                # Esto solo ocurrirá una vez al día.
+                today_str = get_venezuela_current_date().isoformat()
+                if session.get('last_welcome_date') != today_str:
+                    session['show_welcome_modal'] = f"¡Bienvenido de nuevo, {admin['usuario']}!"
+                    session['last_welcome_date'] = today_str
+                # --- FIN DE LA CORRECCIÓN ---
+
                 return redirect(url_for('hub'))
             else:
                 flash('Usuario o contraseña incorrectos.', 'danger')
@@ -603,6 +612,7 @@ def hub():
     if conn:
         try:
             with conn.cursor() as cur:
+                # ... (toda tu lógica para calcular estadísticas sigue aquí sin cambios) ...
                 if g.admin['rol'] in ['superadmin', 'gerente', 'administradora']:
                      cur.execute("SELECT COUNT(*) FROM clientes WHERE estatus = 'ACTIVO'")
                 else:
@@ -647,7 +657,13 @@ def hub():
             logging.error(f"Error al calcular estadísticas para el HUB: {e}")
             flash("No se pudieron cargar todas las estadísticas del panel.", "warning")
 
-    return render_template('hub.html', stats=stats, tasa_ocupacion=tasa_ocupacion)
+    # --- INICIO DE LA CORRECCIÓN ---
+    # Se recupera el mensaje de la sesión y se pasa a la plantilla.
+    # Se usa .pop() para que el mensaje se muestre solo una vez.
+    welcome_message = session.pop('show_welcome_modal', None)
+    # --- FIN DE LA CORRECCIÓN ---
+
+    return render_template('hub.html', stats=stats, tasa_ocupacion=tasa_ocupacion, welcome_message=welcome_message)
 
 
 @app.route('/api/get_active_sessions')
@@ -2278,7 +2294,9 @@ def reporte_flujo_caja():
 @admin_required
 def perfil_cliente(cliente_id):
     conn = get_db()
-    cliente, pagos, gestiones, historial_eventos = None, [], [], []
+    cliente, gestiones, historial_eventos = None, [], []
+    pagos_procesados = []  # Esta es la nueva lista que se enviará a la plantilla
+
     if conn:
         try:
             with conn.cursor() as cur:
@@ -2288,15 +2306,47 @@ def perfil_cliente(cliente_id):
                     flash("Cliente no encontrado.", "error")
                     return redirect(url_for('consulta'))
                 
-                cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_creacion DESC, id DESC", (cliente_id,))
-                pagos = cur.fetchall()
+                # Se obtiene toda la información de los pagos y sus "bulks" (procesos de inconsistencia) asociados
+                cur.execute("""
+                    SELECT p.*, b.status as bulk_status, b.expected_amount as bulk_expected, b.total_verified as bulk_verified 
+                    FROM pagos p 
+                    LEFT JOIN payment_bulks b ON p.bulk_id = b.id 
+                    WHERE p.cliente_id = %s ORDER BY p.fecha_creacion DESC, p.id DESC
+                """, (cliente_id,))
+                todos_los_pagos = cur.fetchall()
                 
+                # --- INICIO DE LA NUEVA LÓGICA PARA AGRUPAR PAGOS ---
+                processed_bulk_ids = set()
+                for pago in todos_los_pagos:
+                    if pago['bulk_id']:
+                        # Si el pago es parte de un proceso de inconsistencia
+                        if pago['bulk_id'] not in processed_bulk_ids:
+                            # Si es la primera vez que vemos este proceso, creamos un resumen
+                            summary_item = {
+                                'tipo_vista': 'inconsistencia',
+                                'bulk_id': pago['bulk_id'],
+                                'fecha_creacion': pago['fecha_creacion'],
+                                'monto_total': pago['bulk_expected'],
+                                'monto_pagado': pago['bulk_verified'],
+                                'estado': pago['bulk_status'],
+                                'concepto': f"Proceso de Inconsistencia #{pago['bulk_id']}"
+                            }
+                            pagos_procesados.append(summary_item)
+                            processed_bulk_ids.add(pago['bulk_id'])
+                    else:
+                        # Si es un pago normal, se añade directamente
+                        pago_dict = dict(pago)
+                        pago_dict['tipo_vista'] = 'normal'
+                        pagos_procesados.append(pago_dict)
+                # --- FIN DE LA NUEVA LÓGICA ---
+
                 cur.execute("""
                     SELECT g.nota, g.tipo_gestion, g.fecha_creacion, a.usuario as gestor_nombre FROM gestiones_cobranza g
                     JOIN administradores a ON g.gestor_id = a.id WHERE g.cliente_id = %s ORDER BY g.fecha_creacion DESC;
                 """, (cliente_id,))
                 gestiones = cur.fetchall()
 
+                # El resto de la lógica para el historial de eventos no cambia...
                 cur.execute("""
                     SELECT 
                         'solicitud' as origen, id, 'Solicitud de ' || tipo_solicitud AS tipo, 
@@ -2316,7 +2366,6 @@ def perfil_cliente(cliente_id):
                 raw_events = cur.fetchall()
                 for event in raw_events:
                     evento_fmt = {'id': event['id'], 'fecha': event['fecha'], 'origen': event['origen'], 'tipo': event['tipo'], 'estado': event['estado'], 'usuario': event.get('usuario', 'Sistema'), 'detalles': event.get('detalles')}
-                    
                     detalles = event.get('detalles', {})
                     if isinstance(detalles, str):
                         try:
@@ -2324,7 +2373,6 @@ def perfil_cliente(cliente_id):
                         except json.JSONDecodeError:
                             detalles = {}
                     evento_fmt['detalles'] = detalles
-
                     if event['origen'] == 'solicitud':
                         descripcion = f"Estado: {event['estado']}"
                         if 'motivo' in detalles:
@@ -2333,14 +2381,45 @@ def perfil_cliente(cliente_id):
                         descripcion = detalles.get('nota', 'Sin detalles.')
                     else:
                         descripcion = "Evento del sistema."
-                    
                     evento_fmt['descripcion'] = descripcion
                     historial_eventos.append(evento_fmt)
+
         except (psycopg2.Error, json.JSONDecodeError) as e:
             flash(f"Error al cargar el perfil del cliente: {e}", "error")
             return redirect(url_for('consulta'))
-    return render_template('cliente_perfil.html', cliente=cliente, pagos=pagos, gestiones=gestiones, historial_eventos=historial_eventos, anio_actual=get_venezuela_current_date().year)
+            
+    return render_template('cliente_perfil.html', cliente=cliente, pagos=pagos_procesados, gestiones=gestiones, historial_eventos=historial_eventos, anio_actual=get_venezuela_current_date().year)
 
+@app.route('/api/bulk_detalle/<int:bulk_id>')
+@admin_required
+def get_bulk_detalle(bulk_id):
+    conn = get_db()
+    if not conn:
+        return jsonify({'error': 'Error de conexión'}), 500
+    try:
+        with conn.cursor() as cur:
+            # Obtiene los detalles del proceso de inconsistencia
+            cur.execute("SELECT * FROM payment_bulks WHERE id = %s", (bulk_id,))
+            bulk = cur.fetchone()
+            if not bulk:
+                return jsonify({'error': 'Proceso no encontrado'}), 404
+
+            # Obtiene los pagos asociados
+            cur.execute("SELECT id, fecha_pago, monto, monto_bs, tasa_dia, referencia, estado_reporte FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (bulk_id,))
+            pagos = cur.fetchall()
+
+            # Formatea la respuesta como JSON
+            bulk_dict = {k: str(v) if isinstance(v, (Decimal, datetime, date)) else v for k, v in dict(bulk).items()}
+            pagos_list = [{k: str(v) if isinstance(v, (Decimal, datetime, date)) else v for k, v in dict(p).items()} for p in pagos]
+            
+            return jsonify({
+                'bulk': bulk_dict,
+                'pagos': pagos_list
+            })
+    except psycopg2.Error as e:
+        logging.error(f"Error en API get_bulk_detalle: {e}")
+        return jsonify({'error': str(e)}), 500
+        
 @app.route('/agregar_gestion/<int:cliente_id>', methods=['POST'])
 @admin_required
 def agregar_gestion(cliente_id):
@@ -3171,7 +3250,12 @@ def portal_dashboard():
             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s AND estado_pago != 'Anulado' ORDER BY fecha_pago DESC, id DESC LIMIT 5;", (session['cliente_id'],))
             cliente_dict['pagos'] = cur.fetchall()
 
-            # Lógica de Notificaciones
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se verifica si existe CUALQUIER pago pendiente de revisión para deshabilitar todos los botones de pago.
+            cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
+            hay_pago_pendiente_general = cur.fetchone() is not None
+            # --- FIN DE LA CORRECCIÓN ---
+
             ordenes_pendientes = []
             reportes_rechazados = [] 
             estado_principal = {} 
@@ -3237,39 +3321,28 @@ def portal_dashboard():
 
             historial_gestiones = []
 
-            # --- INICIO DE LA CORRECCIÓN ---
             if cliente_dict.get('proceso') == 'RESERVA':
                 inscripcion_pagada = cliente_dict.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
                 inscripcion_total = cliente_dict.get('inscripcion_monto', Decimal('0.0')) or Decimal('0.0')
                 
                 if inscripcion_pagada < inscripcion_total:
                     monto_restante = inscripcion_total - inscripcion_pagada
-                    
-                    # Se añade esta consulta para verificar si ya hay un pago de inscripción en revisión
-                    cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
-                    pago_inscripcion_pendiente = cur.fetchone() is not None
-
                     estado_principal = {
                         'titulo': 'Completa tu Inscripción',
                         'mensaje': f"¡Bienvenido a Moto Plan! Para activar tu plan, por favor completa el pago de tu inscripción. Monto restante: ${monto_restante:,.2f}",
                         'boton_texto': 'Pagar Inscripción',
                         'boton_url': url_for('portal_pagar_inscripcion'),
-                        'boton_activo': not pago_inscripcion_pendiente # El botón se deshabilita si hay un pago pendiente
+                        'boton_activo': not hay_pago_pendiente_general
                     }
             
             elif cliente_dict.get('proceso') == 'INSCRITO':
-                # Se añade esta consulta para verificar si ya hay un pago de cuota en revisión
-                cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
-                pago_cuota_pendiente = cur.fetchone() is not None
-
                 estado_principal = {
                     'titulo': '¡Felicitaciones! Es hora de activar tu plan',
                     'mensaje': f"Tu inscripción ha sido completada. Para comenzar a sumar cuotas a tu plan, por favor realiza el pago de tu primera cuota por un monto de ${cliente_dict.get('valor_cuota', 0):,.2f}.",
                     'boton_texto': 'Pagar Primera Cuota',
                     'boton_url': url_for('portal_reportar_pago'),
-                    'boton_activo': not pago_cuota_pendiente # El botón se deshabilita si hay un pago pendiente
+                    'boton_activo': not hay_pago_pendiente_general
                 }
-            # --- FIN DE LA CORRECCIÓN ---
             
             cur.execute("SELECT * FROM payment_orders WHERE cliente_id = %s AND status = 'ISSUED'", (session['cliente_id'],))
             ordenes_pendientes = cur.fetchall()
@@ -3282,7 +3355,8 @@ def portal_dashboard():
                                    cita_confirmada=cita_confirmada,
                                    puede_registrar_oferta=puede_registrar_oferta,
                                    historial_gestiones=historial_gestiones,
-                                   ciclo_cobranza_activo=ciclo_cobranza_activo
+                                   ciclo_cobranza_activo=ciclo_cobranza_activo,
+                                   hay_pago_pendiente_general=hay_pago_pendiente_general
                                    )
             
     except (psycopg2.Error, KeyError) as e:
@@ -3299,7 +3373,6 @@ def portal_reportar_pago():
         flash('No se pudo conectar con la base de datos.', 'error')
         return redirect(url_for('portal_dashboard'))
 
-    # --- Lógica para obtener datos del cliente y la tasa (sin cambios) ---
     with conn.cursor() as cur:
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
         cliente = cur.fetchone()
@@ -3313,7 +3386,6 @@ def portal_reportar_pago():
     cliente_dict = dict(cliente)
     mes_actual = get_nombre_mes(get_venezuela_current_date().month)
 
-    # --- Lógica para determinar el monto a pagar (sin cambios) ---
     monto_a_pagar_usd = Decimal('0.00')
     concepto_pago = ''
     
@@ -3330,38 +3402,36 @@ def portal_reportar_pago():
     tasa_bcv = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
     monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv).quantize(Decimal('0.01'))
 
-    # --- INICIO DE LA CORRECCIÓN EN LA LÓGICA POST ---
     if request.method == 'POST':
         pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
         try:
             with conn.cursor() as cur:
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se verifica si ya existe un reporte pendiente antes de crear uno nuevo.
+                cur.execute("SELECT id FROM pagos WHERE cliente_id = %s AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
+                if cur.fetchone():
+                    flash('Ya tienes un pago reportado que está pendiente de revisión. Por favor, espera a que sea procesado.', 'warning')
+                    return redirect(url_for('portal_dashboard'))
+                # --- FIN DE LA CORRECCIÓN ---
+
                 monto_equivalente_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
                 monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
                 tipo_pago_inicial = 'Inscripción' if inscripcion_pagada < inscripcion_total else 'Cuota'
 
-                # --- CORRECCIÓN ---
-                # Se ajusta la consulta para incluir únicamente 'cuotas_cubiertas' con un valor por defecto de 0.
-                # La lógica de 'bulk_id' e 'is_diferencia' se maneja del lado del administrador
-                # en la función 'procesar_reporte', no aquí.
                 pago_inicial_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
                                     estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
                                     cuotas_cubiertas)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s) RETURNING id;"""
                 
-                # Ejecutamos la consulta con los valores correctos.
                 cur.execute(pago_inicial_query, (
                     cliente['id'], monto_equivalente_usd, monto_reportado_bs, tipo_pago_inicial, 
                     pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
                     pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv,
                     get_venezuela_current_datetime(), concepto_pago,
-                    0 # Valor por defecto para cuotas_cubiertas para evitar el error not-null.
+                    0
                 ))
                 pago_id = cur.fetchone()[0]
-
-                # La lógica para manejar los pagos de diferencia (bulks) se encuentra en la ruta
-                # '/procesar_reporte/<int:pago_id>' que es utilizada por los administradores.
-                # Este endpoint solo se encarga de registrar el reporte inicial del cliente.
 
                 flash('✅ ¡Pago reportado! Será verificado por un administrador.', 'success')
                 conn.commit()
@@ -3370,7 +3440,6 @@ def portal_reportar_pago():
             conn.rollback()
             logging.error(f"Error en portal_reportar_pago: {e}")
             flash(f'Ocurrió un error: {e}', 'error')
-    # --- FIN DE LA CORRECCIÓN ---
 
     return render_template('portal_reportar_pago.html', 
                            cliente=cliente, 
