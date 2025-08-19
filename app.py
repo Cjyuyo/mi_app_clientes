@@ -3498,7 +3498,6 @@ def portal_reportar_pago():
                            concepto_pago=concepto_pago)
 
         # --- FIN DE LA CORRECCIÓN ---
-
         try:
             with conn.cursor() as cur:
                 # Evitar reportes duplicados si ya hay uno en revisión
