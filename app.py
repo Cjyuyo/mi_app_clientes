@@ -1085,14 +1085,17 @@ def reportes_por_revisar():
 
     try:
         with conn.cursor() as cur:
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Ahora se incluyen los reportes 'Inconsistente' (rechazados) para que no desaparezcan de la lista.
             cur.execute("""
-                SELECT p.id, p.monto, p.monto_bs, p.tipo_pago, p.fecha_creacion,
+                SELECT p.id, p.monto, p.monto_bs, p.tipo_pago, p.fecha_creacion, p.estado_reporte,
                        p.cliente_id, c.nombre, c.apellido, c.cedula
                 FROM pagos p
                 JOIN clientes c ON p.cliente_id = c.id
-                WHERE p.reportado_por_cliente = TRUE AND p.estado_reporte = 'Pendiente de Revision'
+                WHERE p.reportado_por_cliente = TRUE AND p.estado_reporte IN ('Pendiente de Revision', 'Inconsistente')
                 ORDER BY p.fecha_creacion ASC;
             """)
+            # --- FIN DE LA CORRECCIÓN ---
             reportes_a_revisar = cur.fetchall()
 
     except psycopg2.Error as e:
@@ -3382,22 +3385,47 @@ def portal_reportar_pago():
 @portal_login_required
 def portal_diferencia_reportar(bulk_id, order_id):
     conn = get_db()
-    if not conn: flash("Error de conexión.", "error"); return redirect(url_for('portal_dashboard'))
+    if not conn: 
+        flash("Error de conexión.", "error")
+        return redirect(url_for('portal_dashboard'))
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM payment_orders WHERE id = %s AND bulk_id = %s AND cliente_id = %s AND status = 'ISSUED'", (order_id, bulk_id, session['cliente_id']))
             order = cur.fetchone()
-            if not order: flash("Orden de pago no encontrada o ya procesada.", "error"); return redirect(url_for('portal_dashboard'))
+            if not order: 
+                flash("Orden de pago no encontrada o ya procesada.", "error")
+                return redirect(url_for('portal_dashboard'))
             
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (session['cliente_id'],))
             cliente = cur.fetchone()
             today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
             cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
             tasa_hoy = cur.fetchone()
-    except psycopg2.Error as e:
-        flash(f"Error al cargar la página de reporte: {e}", "error"); return redirect(url_for('portal_dashboard'))
 
-    return render_template('portal_reportar_pago.html', cliente=cliente, tasas_hoy=tasa_hoy, is_diferencia=True, bulk_id=bulk_id, order_id=order_id, monto_precargado_bs=order['amount'], concepto_pago=f"Pago de diferencia (Orden #{order_id})")
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Calcular el monto en USD y pasar la tasa a la plantilla.
+            tasa_bcv = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
+            monto_a_pagar_bs = order['amount']
+            monto_equivalente_usd = Decimal('0.0')
+            if tasa_bcv > 0:
+                monto_equivalente_usd = (monto_a_pagar_bs / tasa_bcv).quantize(Decimal('0.01'))
+            # --- FIN DE LA CORRECCIÓN ---
+
+    except psycopg2.Error as e:
+        flash(f"Error al cargar la página de reporte: {e}", "error")
+        return redirect(url_for('portal_dashboard'))
+
+    # Se pasan los nuevos valores a la plantilla para que se muestren en el formulario.
+    return render_template('portal_reportar_pago.html', 
+                           cliente=cliente, 
+                           tasa_hoy=tasa_hoy, 
+                           is_diferencia=True, 
+                           bulk_id=bulk_id, 
+                           order_id=order_id, 
+                           monto_precargado_bs=monto_a_pagar_bs, 
+                           monto_equivalente_usd=monto_equivalente_usd,
+                           tasa_bcv=tasa_bcv,
+                           concepto_pago=f"Pago de diferencia (Orden #{order_id})")
 
 @app.route('/admin/pagos/por-revisar')
 @admin_required
