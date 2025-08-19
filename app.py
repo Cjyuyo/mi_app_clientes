@@ -2819,6 +2819,7 @@ def conciliar_pago(pago_id):
         if cedula_cliente_para_redirect:
             return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
         return redirect(url_for('pagos_por_conciliar'))
+
             
             # =================================================================
             # ===== CORRECCIÓN APLICADA AQUÍ =====
