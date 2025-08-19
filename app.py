@@ -4697,13 +4697,16 @@ def cambiar_estado_usuario(user_id):
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def editar_usuario(user_id):
+    # Obtiene los datos del formulario de edición
     nombre_completo = request.form.get('nombre_completo_edit')
     usuario = request.form.get('usuario_edit')
 
+    # Validación básica para asegurarse de que los campos no estén vacíos
     if not nombre_completo or not usuario:
         flash("El nombre completo y el usuario no pueden estar vacíos.", "danger")
         return redirect(url_for('gestion_usuarios'))
 
+    # Obtiene la conexión a la base de datos
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", "danger")
@@ -4711,27 +4714,37 @@ def editar_usuario(user_id):
 
     try:
         with conn.cursor() as cur:
-            # Un gerente no puede editar a un superadmin
+            # Medida de seguridad: Un gerente no puede editar a un superadmin
             cur.execute("SELECT rol FROM administradores WHERE id = %s", (user_id,))
             user_to_edit = cur.fetchone()
             if user_to_edit and user_to_edit['rol'] == 'superadmin' and g.admin['rol'] != 'superadmin':
                 flash("No tienes permisos para editar a un Superadmin.", "danger")
                 return redirect(url_for('gestion_usuarios'))
 
+            # Ejecuta la actualización en la base de datos
             cur.execute(
                 "UPDATE administradores SET nombre_completo = %s, usuario = %s WHERE id = %s",
                 (nombre_completo, usuario, user_id)
             )
+            
+            # Confirma los cambios
             conn.commit()
+            
+            # Registra la acción en la auditoría para mantener un historial de cambios
             registrar_accion_auditoria('EDICION_USUARIO_ADMIN', f"Editó al usuario ID {user_id}. Nuevo nombre: '{nombre_completo}', nuevo usuario: '{usuario}'.")
+            
             flash(f"Usuario '{usuario}' actualizado exitosamente.", "success")
+            
     except psycopg2.IntegrityError:
+        # Maneja el caso en que el nuevo 'usuario' ya exista en la base de datos
         conn.rollback()
         flash(f"El nombre de usuario '{usuario}' ya existe. Por favor, elija otro.", "danger")
     except psycopg2.Error as e:
+        # Maneja cualquier otro error de la base de datos
         conn.rollback()
         flash(f"Error al actualizar el usuario: {e}", "danger")
 
+    # Redirige de vuelta a la página de gestión de usuarios
     return redirect(url_for('gestion_usuarios'))
 
 @app.route('/admin/resetear_password/<int:user_id>', methods=['POST'])
