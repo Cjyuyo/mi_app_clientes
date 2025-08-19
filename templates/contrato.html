@@ -138,7 +138,6 @@
             <!-- ... (Cláusulas del contrato sin cambios) ... -->
         </article>
         
-        <!-- ========= INICIO DE LA CORRECCIÓN ========= -->
         {% if modo_pre_registro %}
         <section class="mt-10 pt-8 border-t no-print">
             <h2 class="text-xl font-bold text-center text-slate-800 mb-6">Documentación Fotográfica</h2>
@@ -168,7 +167,6 @@
             </div>
         </section>
         {% endif %}
-        <!-- ========= FIN DE LA CORRECCIÓN ========= -->
 
         <footer class="mt-10 pt-8 border-t">
             <p class="text-center font-semibold mb-6">FIRMA DEL CLIENTE: Declara haber leído, comprendido y aceptado todas las cláusulas del presente contrato.</p>
@@ -191,7 +189,6 @@
                 </div>
             </div>
             
-            <!-- ========= INICIO DE LA CORRECCIÓN 2 ========= -->
             {% if not modo_pre_registro %}
             <div class="flex justify-center gap-6 mt-8 pt-6 border-t">
                 {% set bucket_url = 'https://s3.amazonaws.com/sistema-integral-moto-plan-motors/' %}
@@ -210,7 +207,6 @@
                 <div class="text-center"><img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('generar_contrato', client_id=cliente.id, _external=True) }}&size=96x96&q=M" alt="QR"><p class="text-xs text-slate-500 mt-1">Verificación Digital</p></div>
             </div>
             {% endif %}
-            <!-- ========= FIN DE LA CORRECCIÓN 2 ========= -->
         </footer>
     </main>
     
@@ -254,7 +250,7 @@
             });
         });
 
-        // --- INICIO DE LA CORRECCIÓN 3: LÓGICA PARA CARGAR FOTOS ---
+        // --- INICIO DE LA CORRECCIÓN: LÓGICA PARA REDIMENSIONAR IMÁGENES ---
         const setupImagePreview = (inputId, previewId, hiddenInputId) => {
             const fileInput = document.getElementById(inputId);
             const preview = document.getElementById(previewId);
@@ -266,10 +262,40 @@
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = function(e) {
-                        preview.src = e.target.result;
-                        preview.classList.remove('hidden');
-                        if(label) label.classList.add('hidden');
-                        if(hiddenInput) hiddenInput.value = e.target.result;
+                        const img = new Image();
+                        img.onload = function() {
+                            const MAX_WIDTH = 800;
+                            const MAX_HEIGHT = 800;
+                            let width = img.width;
+                            let height = img.height;
+
+                            if (width > height) {
+                                if (width > MAX_WIDTH) {
+                                    height *= MAX_WIDTH / width;
+                                    width = MAX_WIDTH;
+                                }
+                            } else {
+                                if (height > MAX_HEIGHT) {
+                                    width *= MAX_HEIGHT / height;
+                                    height = MAX_HEIGHT;
+                                }
+                            }
+
+                            const canvas = document.createElement('canvas');
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+                            
+                            // Usar JPEG con compresión para un tamaño de archivo mucho menor
+                            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+                            preview.src = dataUrl;
+                            preview.classList.remove('hidden');
+                            if(label) label.classList.add('hidden');
+                            if(hiddenInput) hiddenInput.value = dataUrl;
+                        }
+                        img.src = e.target.result;
                     }
                     reader.readAsDataURL(file);
                 }
@@ -278,7 +304,7 @@
 
         setupImagePreview('input_foto_cliente', 'preview_foto_cliente', 'foto_cliente_input');
         setupImagePreview('input_foto_cedula', 'preview_foto_cedula', 'foto_cedula_input');
-        // --- FIN DE LA CORRECCIÓN 3 ---
+        // --- FIN DE LA CORRECCIÓN ---
     });
     </script>
 </body>
