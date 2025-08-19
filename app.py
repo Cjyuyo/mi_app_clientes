@@ -1453,9 +1453,12 @@ def dashboard_comercial():
             total_rebalanceos = cur.fetchone()[0]
             stats['rebalanceos']['monto'] = total_rebalanceos or Decimal('0.0')
 
-            # Obtener listas para filtros
-            cur.execute("SELECT id, usuario FROM administradores ORDER BY usuario")
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se filtra para que solo aparezcan los roles comerciales y directivos en el dropdown.
+            cur.execute("SELECT id, usuario FROM administradores WHERE rol IN ('superadmin', 'gerente', 'asesor') ORDER BY usuario")
+            # --- FIN DE LA CORRECCIÓN ---
             asesores = cur.fetchall()
+            
             cur.execute("SELECT id, created_at FROM comisiones_lotes_pago ORDER BY created_at DESC")
             lotes = cur.fetchall()
             
@@ -1474,7 +1477,7 @@ def dashboard_comercial():
             'asesor_id': asesor_id, 'estado': estado, 'moneda': moneda, 'lote_id': lote_id
         },
         anio_actual=get_venezuela_current_date().year
-    )
+        )
 # >>> COMISIONES: END [dashboard_comercial]
 
 
@@ -2388,7 +2391,7 @@ def perfil_cliente(cliente_id):
             flash(f"Error al cargar el perfil del cliente: {e}", "error")
             return redirect(url_for('consulta'))
             
-    return render_template('cliente_perfil.html', cliente=cliente, pagos=pagos_procesados, gestiones=gestiones, historial_eventos=historial_eventos, anio_actual=get_venezuela_current_date().year)
+    return render_template('cliente_perfil.html', cliente=cliente, pagos=pagos_procesados, gestiones=gestiones, historial_eventos=historial_eventos, anio_actual=get_venezuela_current_date().year, admin_rol=g.admin['rol'])
 
 @app.route('/api/bulk_detalle/<int:bulk_id>')
 @admin_required
@@ -2422,6 +2425,7 @@ def get_bulk_detalle(bulk_id):
 
 @app.route('/agregar_gestion/<int:cliente_id>', methods=['POST'])
 @admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora') # Asesores no pueden agregar gestiones
 def agregar_gestion(cliente_id):
     nota = request.form.get('nota')
     tipo_gestion = request.form.get('tipo_gestion')
@@ -2446,11 +2450,13 @@ def agregar_gestion(cliente_id):
 
 @app.route('/registrar')
 @admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora', 'asesor')
 def registrar():
     return render_template('registrar.html')
 
 @app.route('/registrar_cliente', methods=['POST'])
 @admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora', 'asesor')
 def registrar_cliente():
     form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
     if not all(form_data.get(key) for key in ['nombre_apellido', 'cedula', 'contrato_nro']):
@@ -2609,7 +2615,7 @@ def consulta():
                         mensaje_error = "🚫 No se encontraron clientes que coincidan con su búsqueda."
             except psycopg2.Error as e:
                 mensaje_error = f"Error al consultar la base de datos: {e}"
-    return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda_raw)
+    return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda_raw, admin_rol=g.admin['rol'])
 
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 @admin_required
@@ -4626,14 +4632,10 @@ def gestion_usuarios():
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def agregar_usuario():
-    """Agrega un nuevo usuario administrador al sistema."""
-    nombre_completo = request.form.get('nombre_completo')
-    usuario = request.form.get('usuario')
-    password = request.form.get('password')
     rol = request.form.get('rol')
-
-    if not all([nombre_completo, usuario, password, rol]):
-        flash("Todos los campos son obligatorios.", "danger")
+    # Solo un superadmin puede crear otro superadmin
+    if rol == 'superadmin' and g.admin['rol'] != 'superadmin':
+        flash("Solo un Superadmin puede asignar el rol de Superadmin.", "danger")
         return redirect(url_for('gestion_usuarios'))
 
     conn = get_db()
@@ -4664,18 +4666,21 @@ def agregar_usuario():
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def cambiar_estado_usuario(user_id):
-    """Activa o desactiva la cuenta de un usuario."""
     conn = get_db()
     if not conn:
         flash("Error de conexión.", "danger")
         return redirect(url_for('gestion_usuarios'))
-
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT usuario, estatus FROM administradores WHERE id = %s", (user_id,))
+            cur.execute("SELECT rol, usuario, estatus FROM administradores WHERE id = %s", (user_id,))
             user = cur.fetchone()
             if not user:
                 flash("Usuario no encontrado.", "danger")
+                return redirect(url_for('gestion_usuarios'))
+            
+            # Un gerente no puede cambiar el estado de un superadmin
+            if user['rol'] == 'superadmin' and g.admin['rol'] != 'superadmin':
+                flash("No tienes permisos para cambiar el estado de un Superadmin.", "danger")
                 return redirect(url_for('gestion_usuarios'))
 
             nuevo_estatus = 'Inactivo' if user['estatus'] == 'Activo' else 'Activo'
@@ -4686,44 +4691,80 @@ def cambiar_estado_usuario(user_id):
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"Error al cambiar el estado del usuario: {e}", "danger")
-        
+    return redirect(url_for('gestion_usuarios'))
+
+@app.route('/admin/editar_usuario/<int:user_id>', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def editar_usuario(user_id):
+    nombre_completo = request.form.get('nombre_completo_edit')
+    usuario = request.form.get('usuario_edit')
+
+    if not nombre_completo or not usuario:
+        flash("El nombre completo y el usuario no pueden estar vacíos.", "danger")
+        return redirect(url_for('gestion_usuarios'))
+
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", "danger")
+        return redirect(url_for('gestion_usuarios'))
+
+    try:
+        with conn.cursor() as cur:
+            # Un gerente no puede editar a un superadmin
+            cur.execute("SELECT rol FROM administradores WHERE id = %s", (user_id,))
+            user_to_edit = cur.fetchone()
+            if user_to_edit and user_to_edit['rol'] == 'superadmin' and g.admin['rol'] != 'superadmin':
+                flash("No tienes permisos para editar a un Superadmin.", "danger")
+                return redirect(url_for('gestion_usuarios'))
+
+            cur.execute(
+                "UPDATE administradores SET nombre_completo = %s, usuario = %s WHERE id = %s",
+                (nombre_completo, usuario, user_id)
+            )
+            conn.commit()
+            registrar_accion_auditoria('EDICION_USUARIO_ADMIN', f"Editó al usuario ID {user_id}. Nuevo nombre: '{nombre_completo}', nuevo usuario: '{usuario}'.")
+            flash(f"Usuario '{usuario}' actualizado exitosamente.", "success")
+    except psycopg2.IntegrityError:
+        conn.rollback()
+        flash(f"El nombre de usuario '{usuario}' ya existe. Por favor, elija otro.", "danger")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error al actualizar el usuario: {e}", "danger")
+
     return redirect(url_for('gestion_usuarios'))
 
 @app.route('/admin/resetear_password/<int:user_id>', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def resetear_password(user_id):
-    """Genera una nueva contraseña temporal para un usuario."""
     conn = get_db()
     if not conn:
         flash("Error de conexión.", "danger")
         return redirect(url_for('gestion_usuarios'))
-
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT usuario FROM administradores WHERE id = %s", (user_id,))
+            cur.execute("SELECT rol, usuario FROM administradores WHERE id = %s", (user_id,))
             user = cur.fetchone()
             if not user:
                 flash("Usuario no encontrado.", "danger")
                 return redirect(url_for('gestion_usuarios'))
+            
+            # Un gerente no puede resetear la contraseña de un superadmin
+            if user['rol'] == 'superadmin' and g.admin['rol'] != 'superadmin':
+                flash("No tienes permisos para resetear la contraseña de un Superadmin.", "danger")
+                return redirect(url_for('gestion_usuarios'))
 
-            # Genera una contraseña temporal segura
             caracteres = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
             nueva_password = "".join(random.choice(caracteres) for i in range(10))
-            
             hashed_password = generate_password_hash(nueva_password)
             cur.execute("UPDATE administradores SET password_hash = %s WHERE id = %s", (hashed_password, user_id))
             conn.commit()
-            
             registrar_accion_auditoria('RESETEO_PASSWORD', f"Reseteó la contraseña para el usuario '{user['usuario']}'.")
-            
-            # Muestra la nueva contraseña en un mensaje flash para que el admin la copie
             flash(f"¡Contraseña reseteada! La nueva contraseña temporal para '{user['usuario']}' es: {nueva_password}", "success")
-
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"Error al resetear la contraseña: {e}", "danger")
-        
     return redirect(url_for('gestion_usuarios'))
 
 # --- FIN DEL NUEVO MÓDULO ---

@@ -161,13 +161,19 @@
 
             <!-- Acciones de la Tarjeta -->
             <div class="bg-slate-50 p-4 border-t border-slate-200 flex flex-wrap items-center justify-end gap-2">
+                
+                <!-- BOTONES SOLO PARA ROLES ADMINISTRATIVOS -->
+                {% if admin_rol in ['superadmin', 'gerente', 'administradora'] %}
                 <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700"><i class="bi bi-cash-coin mr-1"></i> Registrar Pago</a>
                 <button type="button" @click="showOfferForm = !showOfferForm" class="text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700">
                     <i class="bi bi-gem mr-1"></i> Registrar Oferta
                 </button>
                 <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" class="text-sm bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-slate-700" target="_blank"><i class="bi bi-file-earmark-pdf-fill mr-1"></i> Contrato</a>
                 <a href="#" onclick="confirmEdit('{{ url_for('edit_client', client_id=cliente.id) }}')" class="text-sm bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-yellow-600"><i class="bi bi-pencil-square mr-1"></i> Editar</a>
-                {% if g.admin and g.admin.rol == 'superadmin' %}
+                {% endif %}
+                
+                <!-- BOTÓN SOLO PARA SUPERADMIN -->
+                {% if admin_rol == 'superadmin' %}
                 <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="event.preventDefault(); confirmDelete(this);">
                     <button type="submit" class="text-sm bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700"><i class="bi bi-trash-fill mr-1"></i> Eliminar</button>
                 </form>

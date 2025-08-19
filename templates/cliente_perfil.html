@@ -116,6 +116,7 @@
 
             <!-- Pestaña de Gestiones y Eventos -->
             <div x-show="activeTab === 'historial'">
+                {% if admin_rol in ['superadmin', 'gerente', 'administradora'] %}
                 <h3 class="text-lg font-bold text-slate-800 mb-4">Registrar Nueva Gestión de Cobranza</h3>
                 <form action="{{ url_for('agregar_gestion', cliente_id=cliente.id) }}" method="POST">
                     <div class="space-y-4">
@@ -142,6 +143,7 @@
                     </div>
                 </form>
                 <hr class="my-6">
+                {% endif %}
                 <h3 class="text-lg font-bold text-slate-800 mb-4">Historial Completo de Eventos</h3>
                 <div class="space-y-4">
                     {% for evento in historial_eventos %}
