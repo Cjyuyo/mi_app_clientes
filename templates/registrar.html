@@ -5,36 +5,20 @@
 {% endblock %}
 
 {% block head_extra %}
-<!-- CORRECCIÓN: Se añade el CSS de Bootstrap para que los componentes visuales como el modal funcionen en móviles -->
+<!-- CSS de Bootstrap para componentes visuales -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<!-- CORRECCIÓN: Se añade la etiqueta viewport para asegurar el diseño responsivo -->
+<!-- Etiqueta viewport para diseño responsivo -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-    /* Estilos para los inputs de radio personalizados (si es necesario) */
-    .form-radio {
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        appearance: none;
-        border-radius: 50%;
-        width: 16px;
-        height: 16px;
-        border: 2px solid #d1d5db;
-        transition: 0.2s all linear;
-        margin-right: 0.5rem;
-    }
-    .form-radio:checked {
-        border: 6px solid #2563eb; /* blue-600 */
-    }
-    
-    /* --- NUEVO: Estilos para la animación del spinner --- */
+    /* Estilos para la animación del spinner */
     @keyframes spin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
     .animate-spin {
       animation: spin 1s linear infinite;
-      display: inline-block; /* Necesario para que la transformación funcione */
+      display: inline-block;
     }
 </style>
 <!-- Librería para notificaciones y alertas visuales -->
@@ -57,7 +41,7 @@
     </div>
 
     <form id="registroForm" action="{{ url_for('registrar_cliente') }}" method="POST" class="space-y-6">
-        <!-- Campos Ocultos (sin cambios) -->
+        <!-- Campos Ocultos -->
         <input type="hidden" name="foto_cliente" id="foto_cliente" required>
         <input type="hidden" name="foto_cedula" id="foto_cedula" required>
         <input type="hidden" name="asesor" id="asesor-hidden-input" required>
@@ -131,11 +115,35 @@
         <div class="bg-white p-6 rounded-xl shadow-md">
             <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-briefcase"></i>Información Administrativa (Uso Interno)</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div><label for="escenario_cierre" class="block text-sm font-medium text-slate-700">1. Escenario de Cierre</label><select id="escenario_cierre" name="escenario_cierre_selector" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="" selected>-- Seleccione --</option><option value="Asesor">Cierre por Asesor</option><option value="Gerencia">Cierre por Gerencia</option><option value="Presidencia">Cierre por Presidencia</option></select></div>
-                <div id="asesor-container"><label for="asesor-placeholder" class="block text-sm font-medium text-slate-700">2. Asesor</label><input type="text" id="asesor-placeholder" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100" placeholder="Seleccione escenario" disabled></div>
-                <div id="responsable-container"><label for="responsable-placeholder" class="block text-sm font-medium text-slate-700">3. Responsable</label><input type="text" id="responsable-placeholder" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100" placeholder="Seleccione escenario" disabled></div>
-                <div><label for="ciclo_cobranza" class="block text-sm font-medium text-slate-700">Ciclo de Cobranza</label><select id="ciclo_cobranza" name="ciclo_cobranza" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="15 al 02">Del 15 al 02</option><option value="20 al 10">Del 20 al 10</option></select></div>
-                <div class="md:col-span-2"><label for="grupo" class="block text-sm font-medium text-slate-700">Grupo</label><input type="text" id="grupo" name="grupo" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></div>
+                <div>
+                    <label for="asesor_select" class="block text-sm font-medium text-slate-700">Asesor Dueño</label>
+                    <select id="asesor_select" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                        <option value="" selected disabled>-- Seleccione un asesor --</option>
+                        {% for asesor in asesores %}
+                            <option value="{{ asesor.nombre_completo }}">{{ asesor.nombre_completo }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="responsable_select" class="block text-sm font-medium text-slate-700">Responsable del Cierre</label>
+                    <select id="responsable_select" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                        <option value="" selected disabled>-- Seleccione un responsable --</option>
+                        {% for responsable in responsables %}
+                            <option value="{{ responsable.nombre_completo }}">{{ responsable.nombre_completo }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="ciclo_cobranza" class="block text-sm font-medium text-slate-700">Ciclo de Cobranza</label>
+                    <select id="ciclo_cobranza" name="ciclo_cobranza" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                        <option value="15 al 02">Del 15 al 02</option>
+                        <option value="20 al 10">Del 20 al 10</option>
+                    </select>
+                </div>
+                <div class="md:col-span-3">
+                    <label for="grupo" class="block text-sm font-medium text-slate-700">Grupo</label>
+                    <input type="text" id="grupo" name="grupo" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
             </div>
         </div>
         
@@ -184,19 +192,13 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<!-- CORRECCIÓN: Se añade el script de Bootstrap JS para que funcionen los modales -->
+<!-- Script de Bootstrap JS para que funcionen los modales -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    /**
-     * --- NUEVA FUNCIÓN ---
-     * Deshabilita los botones de tipo 'submit' dentro de un formulario y muestra un texto de "Procesando".
-     * @param {HTMLFormElement} form - El formulario que se está enviando.
-     */
     function handleFormSubmit(form) {
         const submitButtons = form.querySelectorAll('button[type="submit"]');
         submitButtons.forEach(button => {
             button.disabled = true;
-            // Usamos la clase de Bootstrap Icons que ya está en el proyecto
             button.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
         });
     }
@@ -252,63 +254,21 @@
         plazoSelect.addEventListener('change', calcularYActualizarCuota);
         monedaSelect.addEventListener('change', calcularYActualizarCuota);
 
-        // --- Lógica para el escenario de cierre ---
-        const escenarioSelect = document.getElementById('escenario_cierre');
-        const asesorContainer = document.getElementById('asesor-container');
-        const responsableContainer = document.getElementById('responsable-container');
+        // --- Lógica para Asesor y Responsable ---
+        const asesorSelect = document.getElementById('asesor_select');
+        const responsableSelect = document.getElementById('responsable_select');
         const asesorHiddenInput = document.getElementById('asesor-hidden-input');
         const responsableHiddenInput = document.getElementById('responsable-hidden-input');
-        
-        const baseInputClasses = 'mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500';
-        const disabledInputClasses = 'mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100';
 
-        escenarioSelect.addEventListener('change', function() {
-            const escenario = this.value;
-            asesorContainer.innerHTML = '';
-            responsableContainer.innerHTML = '';
-            asesorHiddenInput.value = '';
-            responsableHiddenInput.value = '';
-
-            const updateAsesorHidden = (value) => {
-                asesorHiddenInput.value = value;
-                asesorHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
-            };
-            const updateResponsableHidden = (value) => {
-                responsableHiddenInput.value = value;
-                responsableHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
-            };
-
-            if (!escenario) {
-                asesorContainer.innerHTML = `<label for="asesor-placeholder" class="block text-sm font-medium text-slate-700">2. Asesor</label><input type="text" id="asesor-placeholder" class="${disabledInputClasses}" placeholder="Seleccione escenario" disabled>`;
-                responsableContainer.innerHTML = `<label for="responsable-placeholder" class="block text-sm font-medium text-slate-700">3. Responsable</label><input type="text" id="responsable-placeholder" class="${disabledInputClasses}" placeholder="Seleccione escenario" disabled>`;
-                updateAsesorHidden('');
-                updateResponsableHidden('');
-                return;
-            }
-
-            responsableContainer.innerHTML = `<label for="responsable-text" class="block text-sm font-medium text-slate-700">3. Responsable</label><input type="text" id="responsable-text" class="${baseInputClasses}" required>`;
-            const responsableText = document.getElementById('responsable-text');
-            responsableText.addEventListener('input', () => updateResponsableHidden(responsableText.value));
-
-            if (escenario === 'Asesor') {
-                asesorContainer.innerHTML = `<label for="asesor-text" class="block text-sm font-medium text-slate-700">2. Asesor</label><input type="text" id="asesor-text" class="${baseInputClasses}" required>`;
-                const asesorText = document.getElementById('asesor-text');
-                asesorText.addEventListener('input', () => updateAsesorHidden(asesorText.value));
-                asesorText.focus();
-            } else if (escenario === 'Gerencia') {
-                asesorContainer.innerHTML = `<label for="asesor-select" class="block text-sm font-medium text-slate-700">2. Asesor</label><select id="asesor-select" class="${baseInputClasses}" required><option value="Yusbelis Espinoza" selected>Yusbelis Espinoza</option></select>`;
-                updateAsesorHidden('Yusbelis Espinoza');
-                responsableText.focus();
-            } else if (escenario === 'Presidencia') {
-                let asesorOptions = '<option value="" selected disabled>Seleccione presidente...</option>';
-                ['Carlos Ramirez', 'Karielsy Rios'].forEach(p => { asesorOptions += `<option value="${p}">${p}</option>`; });
-                asesorContainer.innerHTML = `<label for="asesor-select" class="block text-sm font-medium text-slate-700">2. Asesor</label><select id="asesor-select" class="${baseInputClasses}" required>${asesorOptions}</select>`;
-                const asesorSelect = document.getElementById('asesor-select');
-                asesorSelect.addEventListener('change', () => updateAsesorHidden(asesorSelect.value));
-            }
-            updateAsesorHidden(asesorHiddenInput.value);
-            updateResponsableHidden(responsableHiddenInput.value);
+        asesorSelect.addEventListener('change', () => {
+            asesorHiddenInput.value = asesorSelect.value;
+            asesorHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
         });
+        responsableSelect.addEventListener('change', () => {
+            responsableHiddenInput.value = responsableSelect.value;
+            responsableHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+
 
         // --- Lógica de la cámara ---
         const cameraModal = document.getElementById('cameraModal');
@@ -414,9 +374,7 @@
                     cancelButtonText: 'Cancelar'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        // CAMBIO: Se llama a la función reutilizable para deshabilitar el botón
                         handleFormSubmit(form);
-                        // Se envía el formulario
                         form.submit();
                     }
                 });
