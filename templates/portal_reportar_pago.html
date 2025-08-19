@@ -15,7 +15,10 @@
         <p class="text-sm text-slate-300">Cliente: {{ cliente.nombre_apellido }}</p>
     </div>
 
-    <form action="{{ url_for('portal_reportar_pago') }}" method="POST" class="p-6 space-y-8" x-data="paymentForm()">
+    <!-- INICIO DE LA CORRECCIÓN: Se añade onsubmit="handleFormSubmit(this)" -->
+    <form action="{{ url_for('portal_reportar_pago') }}" method="POST" class="p-6 space-y-8" x-data="paymentForm()" onsubmit="handleFormSubmit(this)">
+    <!-- FIN DE LA CORRECCIÓN -->
+
         <!-- Campos Ocultos -->
         {% if modo_correccion and pago_a_corregir %}
             <input type="hidden" name="pago_id_a_corregir" value="{{ pago_a_corregir.id }}">
@@ -43,7 +46,6 @@
                     <input type="text" id="por_concepto_de" name="por_concepto_de" value="{{ concepto_pago }}" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" readonly>
                 </div>
                 
-                <!-- CAMBIO: Selector de Moneda -->
                 <div>
                     <label for="pago_en" class="block text-sm font-medium text-slate-700">Moneda de Pago</label>
                     <select id="pago_en" name="pago_en" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" x-model="pagoEn" @change="updateFormVisibility">
@@ -110,9 +112,11 @@
         <!-- Acciones -->
         <div class="flex justify-end gap-3 pt-4 border-t">
             <a href="{{ url_for('portal_dashboard') }}" class="text-sm bg-white text-slate-700 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50">Cancelar</a>
-            <button type="submit" class="text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700">
+            <!-- INICIO DE LA CORRECCIÓN: Se añade un ID al botón -->
+            <button type="submit" id="submit-button" class="text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700">
                 <i class="bi bi-send-fill mr-1"></i>Reportar Pago
             </button>
+            <!-- FIN DE LA CORRECCIÓN -->
         </div>
     </form>
 </div>
@@ -123,48 +127,56 @@
 
 {% block scripts_extra %}
 <script src="//unpkg.com/alpinejs" defer></script>
+<!-- INICIO DE LA CORRECCIÓN: Se añade la función handleFormSubmit -->
 <script>
-document.addEventListener('alpine:init', () => {
-    Alpine.data('paymentForm', () => ({
-        pagoEn: 'Dolar/BCV',
-        montoUsd: parseFloat('{{ monto_a_pagar_usd | default(0) }}'),
-        montoBs: parseFloat('{{ monto_a_pagar_bs | default(0) }}'),
-        tasa: parseFloat('{{ (tasa_hoy.tasa if tasa_hoy else 0) | string }}'),
-
-        init() {
-            // Sincroniza los inputs con los valores iniciales de Alpine
-            this.$nextTick(() => {
-                document.getElementById('monto_usd').value = this.montoUsd.toFixed(2);
-                document.getElementById('monto_bs').value = this.montoBs.toFixed(2);
-            });
-        },
-        
-        updateFormVisibility() {
-            if (this.pagoEn === 'USDT') {
-                // Si cambia a USDT, limpiamos el monto en Bs
-                this.montoBs = 0;
-                // La forma de pago se infiere como Binance, no es necesario seleccionarla
-                document.getElementById('forma_pago').value = 'Binance';
-            } else {
-                // Si vuelve a Dolar/BCV, recalculamos
-                document.getElementById('forma_pago').value = 'Transferencia Bancaria';
-                this.updateBsFromUsd();
-            }
-        },
-
-        updateBsFromUsd() {
-            if (this.pagoEn === 'Dolar/BCV' && this.tasa > 0) {
-                this.montoBs = parseFloat((this.montoUsd * this.tasa).toFixed(2));
-            }
-        },
-        updateUsdFromBs() {
-            if (this.pagoEn === 'Dolar/BCV' && this.tasa > 0) {
-                this.montoUsd = parseFloat((this.montoBs / this.tasa).toFixed(2));
-            }
+    function handleFormSubmit(form) {
+        const submitButton = form.querySelector('#submit-button');
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg> Procesando...`;
         }
-    }));
-});
-// Script para poner la fecha de hoy por defecto
-document.getElementById('fecha_pago').valueAsDate = new Date();
+    }
+
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('paymentForm', () => ({
+            pagoEn: 'Dolar/BCV',
+            montoUsd: parseFloat('{{ monto_a_pagar_usd | default(0) }}'),
+            montoBs: parseFloat('{{ monto_a_pagar_bs | default(0) }}'),
+            tasa: parseFloat('{{ (tasa_hoy.tasa if tasa_hoy else 0) | string }}'),
+
+            init() {
+                this.$nextTick(() => {
+                    document.getElementById('monto_usd').value = this.montoUsd.toFixed(2);
+                    document.getElementById('monto_bs').value = this.montoBs.toFixed(2);
+                });
+            },
+            
+            updateFormVisibility() {
+                if (this.pagoEn === 'USDT') {
+                    this.montoBs = 0;
+                    document.getElementById('forma_pago').value = 'Binance';
+                } else {
+                    document.getElementById('forma_pago').value = 'Transferencia Bancaria';
+                    this.updateBsFromUsd();
+                }
+            },
+
+            updateBsFromUsd() {
+                if (this.pagoEn === 'Dolar/BCV' && this.tasa > 0) {
+                    this.montoBs = parseFloat((this.montoUsd * this.tasa).toFixed(2));
+                }
+            },
+            updateUsdFromBs() {
+                if (this.pagoEn === 'Dolar/BCV' && this.tasa > 0) {
+                    this.montoUsd = parseFloat((this.montoBs / this.tasa).toFixed(2));
+                }
+            }
+        }));
+    });
+    document.getElementById('fecha_pago').valueAsDate = new Date();
 </script>
+<!-- FIN DE LA CORRECCIÓN -->
 {% endblock %}

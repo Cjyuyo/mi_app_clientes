@@ -3174,7 +3174,6 @@ def portal_dashboard():
             estado_principal = {} 
             cita_confirmada = None 
             
-            # --- INICIO DE LA CORRECCIÓN DE LÓGICA DE COBRANZA ---
             today = get_venezuela_current_date()
             ciclo_cobranza_activo = False
             ciclo_cliente = cliente_dict.get('ciclo_cobranza')
@@ -3182,11 +3181,9 @@ def portal_dashboard():
 
             es_periodo_de_cobranza = False
             if ciclo_cliente == '15 al 02':
-                # Activo desde el día 15 hasta fin de mes, O los días 1 y 2 del mes siguiente.
                 if today.day >= 15 or today.day <= 2:
                     es_periodo_de_cobranza = True
             elif ciclo_cliente == '20 al 10':
-                # Activo desde el día 20 hasta fin de mes, O del día 1 al 10 del mes siguiente.
                 if today.day >= 20 or today.day <= 10:
                     es_periodo_de_cobranza = True
 
@@ -3203,12 +3200,8 @@ def portal_dashboard():
                     
                     if primer_pago:
                         fecha_primer_pago = primer_pago['fecha_pago']
-                        # Si el ciclo cruza al siguiente mes (ej. 15 al 02) y el pago fue el mes pasado,
-                        # pero el ciclo actual corresponde a ese pago, no se debe activar.
-                        # La forma más simple es: no activar el ciclo en el mismo mes calendario del primer pago.
                         if today.year > fecha_primer_pago.year or (today.year == fecha_primer_pago.year and today.month > fecha_primer_pago.month):
                             ciclo_cobranza_activo = True
-            # --- FIN DE LA CORRECCIÓN ---
 
             CUOTAS_MINIMAS_PARA_OFERTAR = 1
             cuotas_pagadas = cliente_dict.get('cuotas_pagadas_progresivas', 0) or 0
@@ -3239,8 +3232,9 @@ def portal_dashboard():
                     
                     puede_registrar_oferta = not pago_impuntual_mes_actual
 
-            historial_gestiones = [] # Aquí puedes añadir la lógica para cargar las gestiones si es necesario
+            historial_gestiones = []
 
+            # --- INICIO DE LA CORRECCIÓN ---
             if cliente_dict.get('proceso') == 'RESERVA':
                 inscripcion_pagada = cliente_dict.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
                 inscripcion_total = cliente_dict.get('inscripcion_monto', Decimal('0.0')) or Decimal('0.0')
@@ -3248,28 +3242,31 @@ def portal_dashboard():
                 if inscripcion_pagada < inscripcion_total:
                     monto_restante = inscripcion_total - inscripcion_pagada
                     
-                    cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Pendiente'", (session['cliente_id'],))
-                    pago_inscripcion_pendiente = cur.fetchone()
+                    # Se añade esta consulta para verificar si ya hay un pago de inscripción en revisión
+                    cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
+                    pago_inscripcion_pendiente = cur.fetchone() is not None
 
                     estado_principal = {
                         'titulo': 'Completa tu Inscripción',
                         'mensaje': f"¡Bienvenido a Moto Plan! Para activar tu plan, por favor completa el pago de tu inscripción. Monto restante: ${monto_restante:,.2f}",
                         'boton_texto': 'Pagar Inscripción',
                         'boton_url': url_for('portal_pagar_inscripcion'),
-                        'boton_activo': not pago_inscripcion_pendiente
+                        'boton_activo': not pago_inscripcion_pendiente # El botón se deshabilita si hay un pago pendiente
                     }
             
             elif cliente_dict.get('proceso') == 'INSCRITO':
-                cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_pago = 'Pendiente'", (session['cliente_id'],))
-                pago_cuota_pendiente = cur.fetchone()
+                # Se añade esta consulta para verificar si ya hay un pago de cuota en revisión
+                cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
+                pago_cuota_pendiente = cur.fetchone() is not None
 
                 estado_principal = {
                     'titulo': '¡Felicitaciones! Es hora de activar tu plan',
                     'mensaje': f"Tu inscripción ha sido completada. Para comenzar a sumar cuotas a tu plan, por favor realiza el pago de tu primera cuota por un monto de ${cliente_dict.get('valor_cuota', 0):,.2f}.",
                     'boton_texto': 'Pagar Primera Cuota',
                     'boton_url': url_for('portal_reportar_pago'),
-                    'boton_activo': not pago_cuota_pendiente
+                    'boton_activo': not pago_cuota_pendiente # El botón se deshabilita si hay un pago pendiente
                 }
+            # --- FIN DE LA CORRECCIÓN ---
             
             cur.execute("SELECT * FROM payment_orders WHERE cliente_id = %s AND status = 'ISSUED'", (session['cliente_id'],))
             ordenes_pendientes = cur.fetchall()
@@ -4262,12 +4259,69 @@ def ver_reporte(pago_id):
                 flash("No tienes permiso para ver este reporte.", "error")
                 return redirect(url_for('portal_dashboard'))
 
-            return render_template('ver_reporte.html', pago=pago, is_client_view=is_client_view, is_admin_view=is_admin_view)
+            # --- INICIO DE LA CORRECCIÓN: Crear bitácora unificada ---
+            eventos_unificados = []
+            
+            # 1. Obtener todos los pagos relacionados (si hay un bulk)
+            pagos_relacionados = []
+            if pago['bulk_id']:
+                cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
+                pagos_relacionados = cur.fetchall()
+            else:
+                pagos_relacionados.append(pago)
 
-    except psycopg2.Error as e:
+            # 2. Formatear los pagos como eventos para la bitácora
+            for p in pagos_relacionados:
+                eventos_unificados.append({
+                    'fecha': p['fecha_creacion'],
+                    'tipo_evento': 'pago',
+                    'titulo': f"Reporte de Pago #{p['id']}",
+                    'descripcion': f"Cliente reportó un pago de ${p['monto']:.2f} ({p['monto_bs']:.2f} Bs) por concepto de \"{p['por_concepto_de']}\".",
+                    'estado': p['estado_reporte'],
+                    'data': dict(p)
+                })
+
+            # 3. Obtener los eventos de auditoría relacionados
+            ids_pagos = [p['id'] for p in pagos_relacionados]
+            if ids_pagos:
+                placeholders = ','.join(['%s'] * len(ids_pagos))
+                # Busca por pago_id en detalles JSON o por descripción que contenga el ID del reporte
+                audit_query = f"""
+                    SELECT * FROM registros_auditoria 
+                    WHERE detalles->>'pago_id' IN ({placeholders}) 
+                    OR {' OR '.join([f"descripcion LIKE '%%reporte #{pid}%%' OR descripcion LIKE '%%reporte N° {pid}%%' " for pid in ids_pagos])}
+                    ORDER BY timestamp ASC
+                """
+                cur.execute(audit_query, tuple(ids_pagos))
+                auditoria = cur.fetchall()
+
+                # 4. Formatear la auditoría como eventos para la bitácora
+                for a in auditoria:
+                    eventos_unificados.append({
+                        'fecha': a['timestamp'],
+                        'tipo_evento': 'auditoria',
+                        'titulo': 'Acción Administrativa',
+                        'descripcion': a['descripcion'],
+                        'autor': a['usuario_nombre']
+                    })
+
+            # 5. Ordenar todos los eventos por fecha
+            eventos_unificados.sort(key=lambda x: x['fecha'])
+            # --- FIN DE LA CORRECCIÓN ---
+
+            return render_template(
+                'ver_reporte.html', 
+                pago=pago, 
+                is_client_view=is_client_view, 
+                is_admin_view=is_admin_view,
+                bitacora=eventos_unificados # Pasar la bitácora unificada
+            )
+
+    except (psycopg2.Error, json.JSONDecodeError) as e:
         logging.error(f"Error al cargar el reporte de pago {pago_id}: {e}")
-        flash("Ocurrió un error al cargar el reporte.", "error")
+        flash(f"Ocurrió un error al cargar el reporte.", "error")
         return redirect(url_for('home'))
+
 
 
 @app.route('/api/pago_detalle/<int:pago_id>')

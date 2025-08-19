@@ -10,103 +10,120 @@
             <h1 class="text-3xl font-bold text-slate-800">Revisar Reporte de Pago</h1>
             <p class="text-slate-500 mt-1">Reporte N° {{ pago.id }}</p>
         </div>
+        {% if is_admin_view %}
         <a href="{{ url_for('reportes_por_revisar') }}" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-slate-700 bg-slate-100 hover:bg-slate-200">
             <i class="bi bi-arrow-left mr-2"></i> Volver a la lista
         </a>
+        {% endif %}
     </div>
 
-    <!-- Tarjeta de Detalles del Reporte -->
+    <!-- Tarjeta de Detalles del Reporte Principal -->
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="p-5 border-b border-slate-200">
-            <h2 class="text-lg font-bold text-slate-800">Detalles del Reporte</h2>
+            <h2 class="text-lg font-bold text-slate-800">Detalles del Reporte Inicial</h2>
         </div>
         <div class="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Cliente</span><span class="font-semibold text-slate-700">{{ pago.nombre_apellido }}</span></div>
-            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Cédula</span><span class="font-semibold text-slate-700">{{ pago.cedula }}</span></div>
-            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Fecha del Reporte</span><span class="font-semibold text-slate-700">{{ pago.fecha_creacion | format_datetime }}</span></div>
-            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Fecha del Pago</span><span class="font-semibold text-slate-700">{{ pago.fecha_pago | format_date }}</span></div>
-            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Concepto</span><span class="font-semibold text-slate-700">{{ pago.por_concepto_de or pago.tipo_pago }}</span></div>
-            <div class="bg-slate-50 p-3 rounded-lg">
-                <span class="text-xs text-slate-500 block">Monto Reportado</span>
-                {% if pago.monto_bs and pago.monto_bs > 0 %}
-                    <!-- Si el pago fue en Bolívares -->
-                    <span class="font-bold text-xl text-slate-800">{{ "%.2f"|format(pago.monto_bs) }} Bs.</span>
-                    <span class="text-xs text-slate-500 block">Equivalente: ${{ "%.2f"|format(pago.monto) }} @ {{ "%.2f"|format(pago.tasa_dia) }} Bs/$</span>
-                {% else %}
-                    <!-- Si el pago fue en Dólares o Binance -->
-                    <span class="font-bold text-xl text-green-600">${{ "%.2f"|format(pago.monto) }}</span>
-                    <span class="text-xs text-slate-500 block">Moneda: {{ pago.pago_en or 'USD' }}</span>
+            <!-- Columna 1 -->
+            <div class="space-y-5">
+                <div class="bg-slate-50 p-3 rounded-lg">
+                    <span class="text-xs text-slate-500 block">Cliente</span>
+                    <span class="font-semibold text-slate-700">{{ pago.nombre_apellido }}</span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg">
+                    <span class="text-xs text-slate-500 block">Cédula</span>
+                    <span class="font-semibold text-slate-700">{{ pago.cedula }}</span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg">
+                    <span class="text-xs text-slate-500 block">Concepto</span>
+                    <span class="font-semibold text-slate-700">{{ pago.por_concepto_de or pago.tipo_pago }}</span>
+                </div>
+            </div>
+
+            <!-- Columna 2 -->
+            <div class="space-y-5">
+                <div class="bg-slate-50 p-3 rounded-lg">
+                    <span class="text-xs text-slate-500 block">Fecha del Reporte</span>
+                    <span class="font-semibold text-slate-700">{{ pago.fecha_creacion | format_datetime }}</span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg">
+                    <span class="text-xs text-slate-500 block">Fecha del Pago</span>
+                    <span class="font-semibold text-slate-700">{{ pago.fecha_pago | format_date }}</span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg">
+                    <span class="text-xs text-slate-500 block">Forma de Pago</span>
+                    <span class="font-semibold text-slate-700">{{ pago.forma_pago }}</span>
+                </div>
+            </div>
+
+            <!-- Columna 3 - Detalles Financieros y Específicos -->
+            <div class="space-y-5">
+                 <div class="bg-slate-50 p-3 rounded-lg">
+                    <span class="text-xs text-slate-500 block">Monto Reportado</span>
+                    {% if pago.monto_bs and pago.monto_bs > 0 %}
+                        <span class="font-bold text-xl text-slate-800">{{ "%.2f"|format(pago.monto_bs) }} Bs.</span>
+                        <span class="text-xs text-slate-500 block">Equivalente: ${{ "%.2f"|format(pago.monto) }} @ {{ "%.2f"|format(pago.tasa_dia) }} Bs/$</span>
+                    {% else %}
+                        <span class="font-bold text-xl text-green-600">${{ "%.2f"|format(pago.monto) }}</span>
+                        <span class="text-xs text-slate-500 block">Moneda: {{ pago.pago_en or 'USD' }}</span>
+                    {% endif %}
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg">
+                    <span class="text-xs text-slate-500 block">Referencia</span>
+                    <span class="font-semibold text-slate-700">{{ pago.referencia or 'N/A' }}</span>
+                </div>
+                 {% if pago.banco %}
+                <div class="bg-slate-50 p-3 rounded-lg">
+                    <span class="text-xs text-slate-500 block">Banco</span>
+                    <span class="font-semibold text-slate-700">{{ pago.banco }}</span>
+                </div>
                 {% endif %}
             </div>
-            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Forma de Pago</span><span class="font-semibold text-slate-700">{{ pago.forma_pago }}</span></div>
-            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Referencia</span><span class="font-semibold text-slate-700">{{ pago.referencia or 'N/A' }}</span></div>
-            {% if pago.detalles_reporte %}
-                {% if pago.detalles_reporte.telefono_emisor %}
-                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Teléfono Emisor</span><span class="font-semibold text-slate-700">{{ pago.detalles_reporte.telefono_emisor }}</span></div>
-                {% endif %}
-                {% if pago.detalles_reporte.cedula_emisor %}
-                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Cédula Emisor</span><span class="font-semibold text-slate-700">{{ pago.detalles_reporte.cedula_emisor }}</span></div>
-                {% endif %}
-                {% if pago.detalles_reporte.usuario_binance %}
-                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Usuario/ID Binance</span><span class="font-semibold text-slate-700">{{ pago.detalles_reporte.usuario_binance }}</span></div>
-                {% endif %}
-            {% endif %}
         </div>
     </div>
 
-    <!-- >>> CAMBIO ESPECIFICO: Pagos por diferencia de monto -->
-    {% if pago.pago_padre_id or pagos_relacionados %}
+    <!-- Bitácora de la Transacción -->
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="p-5 border-b border-slate-200">
-            <h2 class="text-lg font-bold text-slate-800">Historial de Transacción</h2>
+            <h2 class="text-lg font-bold text-slate-800">Bitácora de la Transacción</h2>
         </div>
         <div class="p-5">
-            <p class="text-sm text-slate-600 mb-4">Este pago es parte de una transacción con diferencia de monto.</p>
-            <div class="space-y-3">
-                {% if pago.pago_padre_id and pago_padre %}
-                <!-- Vista para el pago de la diferencia (muestra el pago original) -->
-                <div class="bg-slate-50 p-3 rounded-lg flex justify-between items-center">
-                    <div>
-                        <p class="font-semibold">Pago Inicial (Reporte #{{ pago_padre.id }})</p>
-                        <p class="text-xs text-slate-500">{{ pago_padre.fecha_pago | format_date }}</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="font-bold text-slate-800">${{ "%.2f"|format(pago_padre.monto) }}</p>
-                        <span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-green-100 text-green-800">Recibido</span>
-                    </div>
-                </div>
-                {% endif %}
-
-                {% if pagos_relacionados %}
-                <!-- Vista para el pago original (muestra los pagos de diferencia asociados) -->
-                {% for pago_relacionado in pagos_relacionados %}
-                <div class="bg-slate-50 p-3 rounded-lg flex justify-between items-center">
-                    <div>
-                        <p class="font-semibold">{{ pago_relacionado.tipo_pago }} (Reporte #{{ pago_relacionado.id }})</p>
-                        <p class="text-xs text-slate-500">{{ pago_relacionado.fecha_creacion | format_date }}</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="font-bold text-slate-800">${{ "%.2f"|format(pago_relacionado.monto) }}</p>
-                        {% if pago_relacionado.estado_pago == 'Pendiente' %}
-                        <span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-yellow-100 text-yellow-800">Pendiente de Pago</span>
-                        {% elif pago_relacionado.estado_pago == 'Conciliado' %}
-                        <span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-green-100 text-green-800">Pagado</span>
-                        {% else %}
-                        <span class="text-xs font-semibold py-0.5 px-2 rounded-full bg-slate-100 text-slate-800">{{ pago_relacionado.estado_pago }}</span>
+            <ol class="relative border-l border-slate-200 space-y-8">
+                {% for evento in bitacora %}
+                    <li class="ml-6">
+                        {% if evento.tipo_evento == 'pago' %}
+                            <span class="absolute flex items-center justify-center w-6 h-6 bg-blue-100 rounded-full -left-3 ring-8 ring-white">
+                                <i class="bi bi-cash-coin text-blue-600"></i>
+                            </span>
+                            <div class="p-4 bg-slate-50 rounded-lg border">
+                                <h3 class="flex items-center mb-1 text-md font-semibold text-slate-900">
+                                    {{ evento.titulo }}
+                                    {% if evento.estado == 'Aprobado' %}<span class="bg-green-100 text-green-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded ml-3">Aprobado</span>
+                                    {% elif evento.estado == 'Inconsistente' %}<span class="bg-red-100 text-red-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded ml-3">Rechazado</span>
+                                    {% else %}<span class="bg-yellow-100 text-yellow-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded ml-3">{{ evento.estado }}</span>
+                                    {% endif %}
+                                </h3>
+                                <time class="block mb-2 text-sm font-normal leading-none text-slate-400">{{ evento.fecha | format_datetime }}</time>
+                                <p class="text-base font-normal text-slate-600">{{ evento.descripcion }}</p>
+                            </div>
+                        {% elif evento.tipo_evento == 'auditoria' %}
+                            <span class="absolute flex items-center justify-center w-6 h-6 bg-slate-100 rounded-full -left-3 ring-8 ring-white">
+                                <i class="bi bi-person-check-fill text-slate-600"></i>
+                            </span>
+                             <div class="p-4 bg-white rounded-lg">
+                                <h3 class="text-md font-semibold text-slate-900">{{ evento.titulo }}</h3>
+                                <time class="block mb-2 text-sm font-normal leading-none text-slate-400">{{ evento.fecha | format_datetime }} por {{ evento.autor }}</time>
+                                <p class="text-base font-normal text-slate-600">{{ evento.descripcion }}</p>
+                            </div>
                         {% endif %}
-                    </div>
-                </div>
+                    </li>
                 {% endfor %}
-                {% endif %}
-            </div>
+            </ol>
         </div>
     </div>
-    {% endif %}
-    <!-- <<< FIN CAMBIO -->
 
     <!-- Tarjeta de Acciones (Solo para Admin) -->
-    {% if not is_client_view %}
-    <div class="bg-white rounded-xl shadow-sm" x-data="{ showRejection: false }">
+    {% if is_admin_view %}
+    <div class="bg-white rounded-xl shadow-sm" x-data="{ showRejection: false, rejectionReason: '' }">
         <div class="p-5 border-b border-slate-200">
             <h2 class="text-lg font-bold text-slate-800">Acciones de Validación</h2>
         </div>
@@ -118,16 +135,17 @@
                     <div class="space-y-4">
                         <div>
                             <label for="motivo_rechazo" class="block text-sm font-medium text-slate-700"><strong>Motivo del Rechazo</strong></label>
-                            <select name="motivo_rechazo" id="motivo_rechazo" x-on:change="document.getElementById('diferencia-monto-group').style.display = $event.target.value === 'Diferencia de Monto' ? 'block' : 'none'" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm">
+                            <select name="motivo_rechazo" id="motivo_rechazo" x-model="rejectionReason" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm">
                                 <option value="Referencia inválida">Referencia inválida o no encontrada</option>
                                 <option value="Diferencia de Monto">Diferencia de Monto</option>
                                 <option value="Datos incorrectos">Datos del reporte incorrectos (fecha, banco, etc.)</option>
                                 <option value="Otro">Otro (especificar en auditoría)</option>
                             </select>
                         </div>
-                        <div id="diferencia-monto-group" style="display: none;">
-                            <label for="diferencia_monto" class="block text-sm font-medium text-slate-700">Monto Faltante (USD)</label>
-                            <input type="number" step="0.01" name="diferencia_monto" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" placeholder="Ej: 5.50">
+                        <div x-show="rejectionReason === 'Diferencia de Monto'" id="diferencia-monto-group">
+                            <label for="diferencia_monto" class="block text-sm font-medium text-slate-700">Monto Recibido Real (en Bs.)</label>
+                            <input type="number" step="0.01" name="diferencia_monto" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" placeholder="Ej: 12500.50">
+                            <p class="text-xs text-slate-500 mt-1">Ingresa el monto que realmente se recibió para calcular la diferencia.</p>
                         </div>
                     </div>
                 </div>
