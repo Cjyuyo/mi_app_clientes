@@ -15,11 +15,10 @@
         <p class="text-sm text-slate-300">Cliente: {{ cliente.nombre_apellido }}</p>
     </div>
 
-    <!-- INICIO DE LA CORRECCIÓN: Se añade onsubmit="handleFormSubmit(this)" -->
     <form action="{{ url_for('portal_reportar_pago') }}" method="POST" class="p-6 space-y-8" x-data="paymentForm()" onsubmit="handleFormSubmit(this)">
-    <!-- FIN DE LA CORRECCIÓN -->
 
         <!-- Campos Ocultos -->
+        <input type="hidden" name="forma_pago" x-model="formaPago">
         {% if modo_correccion and pago_a_corregir %}
             <input type="hidden" name="pago_id_a_corregir" value="{{ pago_a_corregir.id }}">
         {% endif %}
@@ -48,7 +47,7 @@
                 
                 <div>
                     <label for="pago_en" class="block text-sm font-medium text-slate-700">Moneda de Pago</label>
-                    <select id="pago_en" name="pago_en" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" x-model="pagoEn" @change="updateFormVisibility">
+                    <select id="pago_en" name="pago_en" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" x-model="pagoEn">
                         <option value="Dolar/BCV">Bolívares (Tasa BCV)</option>
                         <option value="USDT">USDT (Binance)</option>
                     </select>
@@ -80,8 +79,8 @@
             <h2 class="text-lg font-semibold text-slate-700 border-b pb-2 mb-4">Información de la Transacción</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <div x-show="pagoEn === 'Dolar/BCV'">
-                    <label for="forma_pago" class="block text-sm font-medium text-slate-700">Forma de Pago</label>
-                    <select id="forma_pago" name="forma_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" :required="pagoEn === 'Dolar/BCV'">
+                    <label for="forma_pago_select" class="block text-sm font-medium text-slate-700">Forma de Pago</label>
+                    <select id="forma_pago_select" x-model="formaPagoVisible" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" :required="pagoEn === 'Dolar/BCV'">
                         <option value="Transferencia Bancaria">Transferencia Bancaria</option>
                         <option value="Pago Movil">Pago Móvil</option>
                     </select>
@@ -112,23 +111,82 @@
         <!-- Acciones -->
         <div class="flex justify-end gap-3 pt-4 border-t">
             <a href="{{ url_for('portal_dashboard') }}" class="text-sm bg-white text-slate-700 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50">Cancelar</a>
-            <!-- INICIO DE LA CORRECCIÓN: Se añade un ID al botón -->
             <button type="submit" id="submit-button" class="text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700">
                 <i class="bi bi-send-fill mr-1"></i>Reportar Pago
             </button>
-            <!-- FIN DE LA CORRECCIÓN -->
         </div>
     </form>
 </div>
 
-<!-- Modal con Datos de Pago (sin cambios) -->
-<div class="modal fade" id="paymentInfoModal" tabindex="-1">...</div>
+<!-- Modal con la Información para Realizar Pagos -->
+<div class="modal fade" id="paymentInfoModal" tabindex="-1" aria-labelledby="paymentInfoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content rounded-xl">
+      <div class="modal-header bg-slate-800 text-white border-b-0">
+        <h5 class="modal-title font-bold" id="paymentInfoModalLabel"><i class="bi bi-wallet2 mr-2"></i>Datos para Realizar tu Pago</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-6 bg-slate-50">
+        <div class="space-y-6">
+          
+          <!-- Sección de Pagos en Bolívares -->
+          <div>
+            <h3 class="font-semibold text-slate-800 mb-3 text-lg border-b pb-2">Pagos en Bolívares (Bs.)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div class="bg-white p-4 rounded-lg border space-y-2">
+                <p class="font-bold text-slate-700">Banesco</p>
+                <p class="text-slate-500">Cuenta Corriente</p>
+                <div class="flex justify-between items-center">
+                  <span class="font-mono text-slate-800" id="banesco-acc">0134-0182-5118-2104-5984</span>
+                  <button type="button" onclick="copyToClipboard(event, document.getElementById('banesco-acc').innerText)" class="text-slate-500 hover:text-blue-600 p-1 rounded-md transition"><i class="bi bi-clipboard"></i></button>
+                </div>
+                <div class="flex justify-between items-center pt-1 border-t">
+                    <span class="text-slate-600">Carlos Ramirez</span>
+                    <span class="font-mono text-slate-800" id="banesco-ci">17559595</span>
+                    <button type="button" onclick="copyToClipboard(event, document.getElementById('banesco-ci').innerText)" class="text-slate-500 hover:text-blue-600 p-1 rounded-md transition"><i class="bi bi-clipboard"></i></button>
+                </div>
+              </div>
+              <div class="bg-white p-4 rounded-lg border space-y-2">
+                <p class="font-bold text-slate-700">Pago Móvil</p>
+                <div class="flex justify-between items-center">
+                    <span class="font-mono text-slate-800" id="pm-phone">0412-525-7385</span>
+                    <button type="button" onclick="copyToClipboard(event, document.getElementById('pm-phone').innerText)" class="text-slate-500 hover:text-blue-600 p-1 rounded-md transition"><i class="bi bi-clipboard"></i></button>
+                </div>
+                <div class="flex justify-between items-center pt-1 border-t">
+                    <span class="text-slate-500">(Banesco)</span>
+                    <span class="font-mono text-slate-800" id="pm-ci">17559595</span>
+                    <button type="button" onclick="copyToClipboard(event, document.getElementById('pm-ci').innerText)" class="text-slate-500 hover:text-blue-600 p-1 rounded-md transition"><i class="bi bi-clipboard"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sección de Pagos en USDT -->
+          <div>
+            <h3 class="font-semibold text-slate-800 mb-3 text-lg border-b pb-2">Pagos en Dolares (USDT)</h3>
+            <div class="bg-white p-4 rounded-lg border text-sm space-y-2">
+              <p class="font-bold text-slate-700">Binance Pay (USDT)</p>
+              <p class="text-slate-500">Correo electrónico para pagos:</p>
+              <div class="flex justify-between items-center">
+                <span class="font-mono text-slate-800 break-all" id="binance-email">cjramirez.86@gmail.com</span>
+                <button type="button" onclick="copyToClipboard(event, document.getElementById('binance-email').innerText)" class="text-slate-500 hover:text-blue-600 p-1 rounded-md transition"><i class="bi bi-clipboard"></i></button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts_extra %}
+<!-- CORRECCIÓN: Se añade el script de Bootstrap JS para que funcionen los modales -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="//unpkg.com/alpinejs" defer></script>
-<!-- INICIO DE LA CORRECCIÓN: Se añade la función handleFormSubmit -->
 <script>
+    // Función para deshabilitar el botón de envío y mostrar feedback
     function handleFormSubmit(form) {
         const submitButton = form.querySelector('#submit-button');
         if (submitButton) {
@@ -140,33 +198,64 @@
         }
     }
 
+    // Función para copiar al portapapeles
+    function copyToClipboard(event, text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            const button = event.currentTarget;
+            const originalIcon = button.innerHTML;
+            button.innerHTML = '<i class="bi bi-check-lg text-green-500"></i>';
+            setTimeout(() => {
+                button.innerHTML = originalIcon;
+            }, 1500);
+        } catch (err) {
+            console.error('No se pudo copiar el texto: ', err);
+        }
+        document.body.removeChild(textarea);
+    }
+
     document.addEventListener('alpine:init', () => {
         Alpine.data('paymentForm', () => ({
             pagoEn: 'Dolar/BCV',
+            formaPago: 'Transferencia Bancaria', // Valor que se enviará
+            formaPagoVisible: 'Transferencia Bancaria', // Controla el select visible
             montoUsd: parseFloat('{{ monto_a_pagar_usd | default(0) }}'),
             montoBs: parseFloat('{{ monto_a_pagar_bs | default(0) }}'),
             tasa: parseFloat('{{ (tasa_hoy.tasa if tasa_hoy else 0) | string }}'),
 
             init() {
+                // Sincroniza el valor real de formaPago con los cambios en la UI
+                this.$watch('pagoEn', (newValue) => {
+                    if (newValue === 'USDT') {
+                        this.formaPago = 'Binance';
+                    } else {
+                        this.formaPago = this.formaPagoVisible;
+                    }
+                });
+                this.$watch('formaPagoVisible', (newValue) => {
+                    if (this.pagoEn === 'Dolar/BCV') {
+                        this.formaPago = newValue;
+                    }
+                });
+
+                // Inicializa los valores de los campos
                 this.$nextTick(() => {
                     document.getElementById('monto_usd').value = this.montoUsd.toFixed(2);
                     document.getElementById('monto_bs').value = this.montoBs.toFixed(2);
                 });
             },
             
-            updateFormVisibility() {
-                if (this.pagoEn === 'USDT') {
-                    this.montoBs = 0;
-                    document.getElementById('forma_pago').value = 'Binance';
-                } else {
-                    document.getElementById('forma_pago').value = 'Transferencia Bancaria';
-                    this.updateBsFromUsd();
-                }
-            },
-
             updateBsFromUsd() {
                 if (this.pagoEn === 'Dolar/BCV' && this.tasa > 0) {
                     this.montoBs = parseFloat((this.montoUsd * this.tasa).toFixed(2));
+                } else {
+                    this.montoBs = 0; // Si es USDT, el monto en Bs es 0
                 }
             },
             updateUsdFromBs() {
@@ -178,5 +267,4 @@
     });
     document.getElementById('fecha_pago').valueAsDate = new Date();
 </script>
-<!-- FIN DE LA CORRECCIÓN -->
 {% endblock %}
