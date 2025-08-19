@@ -376,65 +376,47 @@ def get_fecha_vencimiento_ajustada(fecha_pago):
         if vencimiento.year != ano_vencimiento: feriados = get_feriados_venezuela(vencimiento.year)
     return vencimiento
 
+@app.route('/delete/<int:client_id>', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin')
 def delete_client(client_id):
     """
-    Elimina un cliente y todos sus registros asociados de la base de datos.
+    Elimina un cliente. La base de datos se encargará de eliminar
+    todos los registros asociados gracias a la regla ON DELETE CASCADE.
     """
     conn = get_db()
     if not conn: 
         flash('Error de conexión a la base de datos.', 'error')
         return redirect(url_for('consulta'))
+
     try:
         with conn.cursor() as cur:
+            # Obtener datos del cliente ANTES de borrarlo para la auditoría
             cur.execute("SELECT nombre, apellido, cedula FROM clientes WHERE id = %s", (client_id,))
             cliente_a_borrar = cur.fetchone()
+            
             if not cliente_a_borrar:
                 flash('El cliente que intenta eliminar no existe.', 'warning')
                 return redirect(url_for('consulta'))
-            
-            # Lista definitiva y ordenada de tablas para eliminar dependencias.
-            tablas_relacionadas = [
-                "comisiones_rebalanceos", # Apunta a 'comisiones'
-                "comisiones_lotes_pago",   # Relacionada con 'comisiones'
-                "adjudicaciones", "caja_inscripciones", "comisiones", "comisiones_legacy",
-                "contratos_historicos", "gestiones_cobranza", "gestiones_cobranza_legacy",
-                "historial_contratos", "ofertas", "ofertas_legacy", "pagos",
-                "payment_bulks", "payment_orders", "receipts", "registros_auditoria",
-                "solicitudes", "solicitudes_legacy", "transacciones_financieras"
-            ]
-            
-            logging.info(f"Iniciando proceso de eliminación para cliente ID: {client_id}")
-            for tabla in tablas_relacionadas:
-                logging.info(f"Intentando eliminar registros de la tabla: {tabla} para cliente_id {client_id}")
-                if tabla == 'adjudicaciones':
-                    cur.execute(f"DELETE FROM {tabla} WHERE ganador_sorteo_id = %s OR ganador_oferta_id = %s", (client_id, client_id))
-                elif tabla == 'registros_auditoria':
-                     cur.execute(f"DELETE FROM {tabla} WHERE cliente_afectado_id = %s", (client_id,))
-                elif tabla == 'comisiones_rebalanceos':
-                    cur.execute("DELETE FROM comisiones_rebalanceos WHERE comision_id_origen IN (SELECT id FROM comisiones WHERE origen_id = %s AND origen_tipo = 'Venta')", (client_id,))
-                elif tabla == 'comisiones_lotes_pago':
-                    cur.execute("UPDATE comisiones SET payment_batch_id = NULL WHERE origen_id = %s AND origen_tipo = 'Venta'", (client_id,))
-                else:
-                    cur.execute(f"DELETE FROM {tabla} WHERE cliente_id = %s", (client_id,))
-                logging.info(f"Se eliminaron {cur.rowcount} registros de {tabla}.")
 
+            # Registrar la acción en la auditoría
             descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']}) y todos sus datos asociados."
             registrar_accion_auditoria('ELIMINACION_CLIENTE', descripcion_audit, client_id)
             
+            # ¡Esta es la única línea de eliminación que necesitas!
             cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
-            logging.info("Registro principal del cliente eliminado.")
             
             conn.commit()
             flash('¡Cliente y todos sus registros asociados han sido eliminados exitosamente!', 'success')
 
     except psycopg2.Error as e:
         conn.rollback()
-        print(f"ERROR DE BASE DE DATOS AL ELIMINAR CLIENTE ID {client_id}: {e}")
-        flash(f"ERROR DE INTEGRIDAD: La base de datos bloqueó la eliminación. Detalles: {e}", 'danger')
+        logging.error(f"ERROR DE BASE DE DATOS AL ELIMINAR CLIENTE ID {client_id}: {e}")
+        flash(f"ERROR: La base de datos bloqueó la eliminación. Detalles: {e}", 'danger')
         
     except Exception as e:
         conn.rollback()
-        print(f"ERROR INESPERADO AL ELIMINAR CLIENTE ID {client_id}: {e}")
+        logging.error(f"ERROR INESPERADO AL ELIMINAR CLIENTE ID {client_id}: {e}")
         flash(f'Ocurrió un error inesperado al eliminar: {e}', 'error')
 
     return redirect(url_for('consulta'))
