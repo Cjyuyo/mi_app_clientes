@@ -392,9 +392,7 @@ def delete_client(client_id):
                 flash('El cliente que intenta eliminar no existe.', 'warning')
                 return redirect(url_for('consulta'))
             
-            # --- INICIO DE LA CORRECCIÓN ---
             # Lista definitiva y ordenada de tablas para eliminar dependencias.
-            # Se eliminan primero las tablas que tienen claves foráneas apuntando a otras.
             tablas_relacionadas = [
                 "comisiones_rebalanceos", # Apunta a 'comisiones'
                 "comisiones_lotes_pago",   # Relacionada con 'comisiones'
@@ -404,7 +402,6 @@ def delete_client(client_id):
                 "payment_bulks", "payment_orders", "receipts", "registros_auditoria",
                 "solicitudes", "solicitudes_legacy", "transacciones_financieras"
             ]
-            # --- FIN DE LA CORRECCIÓN ---
             
             logging.info(f"Iniciando proceso de eliminación para cliente ID: {client_id}")
             for tabla in tablas_relacionadas:
@@ -414,22 +411,16 @@ def delete_client(client_id):
                 elif tabla == 'registros_auditoria':
                      cur.execute(f"DELETE FROM {tabla} WHERE cliente_afectado_id = %s", (client_id,))
                 elif tabla == 'comisiones_rebalanceos':
-                    # Esta tabla no tiene cliente_id, se limpia por comision_id_origen
                     cur.execute("DELETE FROM comisiones_rebalanceos WHERE comision_id_origen IN (SELECT id FROM comisiones WHERE origen_id = %s AND origen_tipo = 'Venta')", (client_id,))
                 elif tabla == 'comisiones_lotes_pago':
-                    # Esta tabla no tiene cliente_id, se limpia a través de las comisiones
                     cur.execute("UPDATE comisiones SET payment_batch_id = NULL WHERE origen_id = %s AND origen_tipo = 'Venta'", (client_id,))
                 else:
-                    # Se asume que la columna es 'cliente_id' para las demás tablas
                     cur.execute(f"DELETE FROM {tabla} WHERE cliente_id = %s", (client_id,))
                 logging.info(f"Se eliminaron {cur.rowcount} registros de {tabla}.")
 
-            # Registrar la acción en la auditoría ANTES de eliminar al cliente
             descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']}) y todos sus datos asociados."
             registrar_accion_auditoria('ELIMINACION_CLIENTE', descripcion_audit, client_id)
             
-            # Finalmente, eliminar el registro del cliente
-            logging.info(f"Intentando eliminar el registro principal del cliente ID: {client_id}...")
             cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
             logging.info("Registro principal del cliente eliminado.")
             
@@ -447,6 +438,71 @@ def delete_client(client_id):
         flash(f'Ocurrió un error inesperado al eliminar: {e}', 'error')
 
     return redirect(url_for('consulta'))
+
+@app.route('/guardar_oferta/<int:client_id>', methods=['POST'])
+@admin_required
+def guardar_oferta(client_id):
+    conn = get_db()
+    cuotas_ofertadas = request.form.get('cuotas_ofertadas')
+    cedula_cliente = ''
+
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('consulta'))
+    
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT cedula, ciclo_cobranza, cuotas_pagadas_progresivas FROM clientes WHERE id = %s", (client_id,))
+            cliente_info = cur.fetchone()
+            if not cliente_info:
+                flash("Cliente no encontrado.", "error")
+                return redirect(url_for('consulta'))
+
+            cedula_cliente = cliente_info['cedula']
+            ciclo_cliente = cliente_info['ciclo_cobranza']
+            cuotas_pagadas = cliente_info['cuotas_pagadas_progresivas'] or 0
+
+            if cuotas_pagadas < 1:
+                flash("No se puede registrar la oferta: El cliente aún no ha pagado su primera cuota.", 'error')
+                return redirect(url_for('consulta', busqueda=cedula_cliente))
+
+            if cuotas_pagadas > 1:
+                today = get_venezuela_current_date()
+                fecha_vencimiento_ciclo = None
+                if ciclo_cliente == '15 al 02':
+                    fecha_vencimiento_ciclo = today.replace(day=2)
+                elif ciclo_cliente == '20 al 10':
+                    fecha_vencimiento_ciclo = today.replace(day=10)
+
+                if fecha_vencimiento_ciclo:
+                    cur.execute("""
+                        SELECT 1 FROM pagos 
+                        WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'
+                        AND fecha_pago > %s AND EXTRACT(MONTH FROM fecha_pago) = %s AND EXTRACT(YEAR FROM fecha_pago) = %s
+                        LIMIT 1
+                    """, (client_id, fecha_vencimiento_ciclo, today.month, today.year))
+                    pago_impuntual_mes_actual = cur.fetchone() is not None
+                    
+                    if pago_impuntual_mes_actual:
+                        flash("No se puede registrar la oferta: El cliente tiene un pago impuntual registrado en el mes actual.", 'error')
+                        return redirect(url_for('consulta', busqueda=cedula_cliente))
+
+            if not cuotas_ofertadas or not cuotas_ofertadas.isdigit() or int(cuotas_ofertadas) <= 0:
+                flash("Debe ingresar un número válido de cuotas para la oferta.", 'error')
+                return redirect(url_for('consulta', busqueda=cedula_cliente))
+            
+            cur.execute("INSERT INTO ofertas (cliente_id, cuotas_ofertadas, fecha_oferta, estado_oferta) VALUES (%s, %s, %s, 'activa')", (client_id, int(cuotas_ofertadas), get_venezuela_current_date()))
+            
+            registrar_accion_auditoria('REGISTRO_OFERTA_ADMIN', f"Registró una oferta de {cuotas_ofertadas} cuotas.", client_id)
+            
+            conn.commit()
+            flash(f"¡Oferta de {cuotas_ofertadas} cuotas registrada exitosamente!", 'success')
+
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Ocurrió un error al registrar la oferta: {e}", 'error')
+    
+    return redirect(url_for('consulta', busqueda=cedula_cliente))
 
 
 # =================================================================================
@@ -2923,83 +2979,46 @@ def edit_client(client_id):
 @rol_requerido('superadmin')
 def delete_client(client_id):
     """
-    Elimina un cliente y todos sus registros asociados de la base de datos.
+    Elimina un cliente. La base de datos se encargará de eliminar
+    todos los registros asociados gracias a la regla ON DELETE CASCADE.
     """
     conn = get_db()
     if not conn: 
         flash('Error de conexión a la base de datos.', 'error')
         return redirect(url_for('consulta'))
+
     try:
         with conn.cursor() as cur:
+            # Obtener datos del cliente ANTES de borrarlo para la auditoría
             cur.execute("SELECT nombre, apellido, cedula FROM clientes WHERE id = %s", (client_id,))
             cliente_a_borrar = cur.fetchone()
+            
             if not cliente_a_borrar:
                 flash('El cliente que intenta eliminar no existe.', 'warning')
                 return redirect(url_for('consulta'))
-            
-            # Lista definitiva y ordenada de tablas para eliminar dependencias.
-            tablas_a_limpiar = [
-                # Primero, tablas que dependen de 'comisiones'
-                ("comisiones_rebalanceos", "comision_id_origen IN (SELECT id FROM comisiones WHERE origen_id = %s AND origen_tipo = 'Venta')"),
-                # Tablas que dependen directamente de 'clientes'
-                ("adjudicaciones", "(ganador_sorteo_id = %s OR ganador_oferta_id = %s)"),
-                ("caja_inscripciones", "cliente_id = %s"),
-                ("comisiones", "origen_id = %s AND origen_tipo = 'Venta'"),
-                ("comisiones_legacy", "cliente_id = %s"),
-                ("gestiones_cobranza", "cliente_id = %s"),
-                ("ofertas", "cliente_id = %s"),
-                ("pagos", "cliente_id = %s"),
-                ("payment_bulks", "cliente_id = %s"),
-                ("payment_orders", "cliente_id = %s"),
-                ("receipts", "cliente_id = %s"),
-                ("solicitudes", "cliente_id = %s"),
-                ("registros_auditoria", "cliente_afectado_id = %s")
-            ]
-            
-            logging.info(f"Iniciando proceso de eliminación para cliente ID: {client_id}")
-            for tabla, condicion in tablas_a_limpiar:
-                # El número de parámetros en la condición determina cómo se pasan los argumentos
-                params = (client_id, client_id) if '%s' in condicion and condicion.count('%s') > 1 else (client_id,)
-                sql = f"DELETE FROM {tabla} WHERE {condicion}"
-                cur.execute(sql, params)
-                logging.info(f"Se eliminaron {cur.rowcount} registros de {tabla}.")
 
-            # Registrar la acción en la auditoría ANTES de eliminar al cliente
+            # Registrar la acción en la auditoría
             descripcion_audit = f"Eliminó al cliente {cliente_a_borrar['nombre']} {cliente_a_borrar['apellido']} (C.I. {cliente_a_borrar['cedula']}) y todos sus datos asociados."
+            # Pasamos el ID directamente porque el registro se borrará después
             registrar_accion_auditoria('ELIMINACION_CLIENTE', descripcion_audit, client_id)
             
-            # Finalmente, eliminar el registro del cliente
-            logging.info(f"Intentando eliminar el registro principal del cliente ID: {client_id}...")
+            # ¡Esta es la única línea de eliminación que necesitas!
             cur.execute("DELETE FROM clientes WHERE id = %s", (client_id,))
-            logging.info("Registro principal del cliente eliminado.")
             
             conn.commit()
             flash('¡Cliente y todos sus registros asociados han sido eliminados exitosamente!', 'success')
 
     except psycopg2.Error as e:
         conn.rollback()
-        print(f"ERROR DE BASE DE DATOS AL ELIMINAR CLIENTE ID {client_id}: {e}")
-        flash(f"ERROR DE INTEGRIDAD: La base de datos bloqueó la eliminación. Detalles: {e}", 'danger')
+        logging.error(f"ERROR DE BASE DE DATOS AL ELIMINAR CLIENTE ID {client_id}: {e}")
+        flash(f"ERROR: La base de datos bloqueó la eliminación. Detalles: {e}", 'danger')
         
     except Exception as e:
         conn.rollback()
-        print(f"ERROR INESPERADO AL ELIMINAR CLIENTE ID {client_id}: {e}")
+        logging.error(f"ERROR INESPERADO AL ELIMINAR CLIENTE ID {client_id}: {e}")
         flash(f'Ocurrió un error inesperado al eliminar: {e}', 'error')
 
     return redirect(url_for('consulta'))
-    
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT cedula, (nombre || ' ' || apellido) as nombre_apellido, ciclo_cobranza, cuotas_pagadas_progresivas FROM clientes WHERE id = %s", (client_id,))
-            cliente_info = cur.fetchone()
-            if cliente_info:
-                cedula_cliente = cliente_info['cedula']
-                nombre_cliente = cliente_info['nombre_apellido']
-                ciclo_cliente = cliente_info['ciclo_cobranza']
-                cuotas_pagadas = cliente_info['cuotas_pagadas_progresivas'] or 0
-            else:
-                flash("Cliente no encontrado.", "error")
-                return redirect(url_for('consulta'))
 
             # --- INICIO DE LA CORRECCIÓN ---
             # Se aplican las mismas reglas que en el portal del cliente.
