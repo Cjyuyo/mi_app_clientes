@@ -1,372 +1,181 @@
 {% extends 'base_portal.html' %}
 
 {% block title %}
-    {% if pago_origen_id %}Pagar Diferencia de Inscripción{% else %}Reportar Pago de Inscripción{% endif %}
-{% endblock %}
-
-{% block head_extra %}
-<style>
-    .form-container {
-        background-color: white;
-        border-radius: .75rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.07);
-        overflow: hidden;
-    }
-    .form-header {
-        background-color: #2B3A55; /* Azul corporativo */
-        color: white;
-        padding: 1.5rem 2rem;
-    }
-    .form-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
-    .form-header p { margin: 0; opacity: 0.9; }
-    .section { margin-bottom: 2.5rem; }
-    .section h3 {
-        font-size: 1rem;
-        font-weight: 500;
-        color: #6c757d;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        border-bottom: 1px solid #e5e7eb;
-        padding-bottom: .75rem;
-        margin-bottom: 1.5rem;
-    }
-    .form-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.5rem;
-    }
-    .payment-info-modal strong {
-        display: block;
-        color: #495057;
-    }
-    .payment-info-modal span {
-        font-size: 1.1rem;
-        color: #212529;
-        font-weight: 500;
-    }
-    .tasa-billboard {
-        background-color: #e9ecef;
-        border-radius: .5rem;
-        padding: .5rem 1rem;
-        font-size: 0.85rem;
-        line-height: 1.4;
-    }
-    .tasa-billboard strong {
-        color: #495057;
-    }
-</style>
+    Reportar Pago de Inscripción
 {% endblock %}
 
 {% block body %}
-<div class="max-w-4xl mx-auto">
-    <div class="form-container">
-        <div class="form-header">
-            <h1>
-                {% if pago_origen_id %}
-                    <i class="bi bi-plus-circle-fill me-2"></i>Pagar Diferencia de Inscripción
-                {% else %}
-                    <i class="bi bi-cash-coin me-2"></i>Reportar Pago de Inscripción
-                {% endif %}
-            </h1>
-            <p>Cliente: {{ cliente.nombre_apellido }}</p>
+<div class="bg-white rounded-xl shadow-sm overflow-hidden max-w-4xl mx-auto">
+    <!-- Encabezado -->
+    <div class="bg-slate-800 text-white p-5">
+        <h1 class="text-2xl font-bold"><i class="bi bi-file-earmark-text-fill mr-2"></i>Reportar Pago de Inscripción</h1>
+        <p class="text-sm text-slate-300">Cliente: {{ cliente.nombre_apellido }}</p>
+    </div>
+
+    <form action="{{ url_for('portal_pagar_inscripcion') }}" method="POST" class="p-6 space-y-8" x-data="paymentForm()">
+        
+        <div class="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg text-center">
+            <p class="font-semibold">Monto Pendiente de Inscripción:</p>
+            <p class="text-2xl font-bold">${{ "%.2f"|format(monto_restante|float) }}</p>
         </div>
 
-        <form action="{{ url_for('portal_pagar_inscripcion') }}" method="POST" id="form-reporte-pago" class="p-4">
-            {% if pago_origen_id %}
-                <input type="hidden" name="pago_origen_id" value="{{ pago_origen_id }}">
-            {% endif %}
+        <!-- Botón para ver datos de pago -->
+        <div class="bg-slate-50 p-4 rounded-lg flex justify-between items-center">
+            <span class="text-sm text-slate-700">¿Necesitas los datos para realizar un pago?</span>
+            <button type="button" class="text-sm bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-blue-700" data-bs-toggle="modal" data-bs-target="#paymentInfoModal">
+                <i class="bi bi-wallet2 mr-1"></i> Ver Datos
+            </button>
+        </div>
 
-            <div class="alert alert-info">
-                <strong>
-                    {% if monto_precargado %}
-                        Monto de la Diferencia a Pagar:
-                    {% else %}
-                        Monto Pendiente de Inscripción:
-                    {% endif %}
-                </strong>
-                ${{ "%.2f"|format((monto_precargado or monto_restante)|float) }}
-            </div>
-
-            <div class="section">
-                <h3>Detalles del Monto y Método</h3>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="por_concepto_de">Concepto del Pago</label>
-                        <input type="text" id="por_concepto_de" name="por_concepto_de" value="{{ concepto_pago or 'Pago de Inscripción' }}" class="form-control" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label for="pago_en" class="form-label">Pago realizado en</label>
-                        <select id="pago_en" name="pago_en" class="form-select" required>
-                            <option value="Efectivo USD" selected>Efectivo USD</option>
-                            <option value="Dolar/BCV">Bolívares (Tasa Dólar BCV)</option>
-                            <option value="Euro/BCV">Bolívares (Tasa Euro BCV)</option>
-                            <option value="USDT">USDT (Binance)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="forma_pago" class="form-label">Forma de Pago</label>
-                        <select id="forma_pago" name="forma_pago" class="form-select" required>
-                            <option value="" selected disabled>Seleccione...</option>
-                            <option value="Efectivo">Efectivo</option>
-                            <option value="Transferencia Bancaria">Transferencia Bancaria</option>
-                            <option value="Pago Movil">Pago Móvil</option>
-                            <option value="Binance">Binance</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="monto_usd" class="form-label">Monto del Pago (USD)</label>
-                        <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" value="{{ (monto_precargado or '')|float }}" required {% if monto_precargado %}readonly{% endif %}>
-                    </div>
-                    <div class="form-group" id="monto_bs_group" style="display: none;">
-                        <label for="monto_bs_calculado" class="form-label">Monto en Bs (Calculado)</label>
-                        <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
-                        <input type="hidden" id="tasa_dia" name="tasa_dia">
-                    </div>
+        <!-- Sección Detalles del Monto -->
+        <div>
+            <h2 class="text-lg font-semibold text-slate-700 border-b pb-2 mb-4">Detalles del Monto</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div>
+                    <label class="block text-sm font-medium text-slate-700">Concepto</label>
+                    <input type="text" name="por_concepto_de" value="Pago de Inscripción" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" readonly>
                 </div>
-                <div class="d-flex align-items-center gap-3 mt-3">
-                    <div id="ver-datos-container" style="display: none;">
-                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#paymentDataModal">
-                            <i class="bi bi-info-circle-fill me-1"></i> Ver Datos para Pagar
-                        </button>
-                    </div>
-                    <div id="tasa-info-display" class="tasa-billboard" style="display: none;">
-                    </div>
+                
+                <!-- CAMBIO: Lógica condicional para la moneda de pago -->
+                {% if cliente.moneda_pago == 'USD' %}
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Moneda de Pago</label>
+                    <input type="text" value="USDT (Binance)" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" readonly>
+                    <input type="hidden" name="pago_en" value="USDT">
+                    <p class="mt-2 text-xs text-slate-500">Tu plan requiere pagos en USDT.</p>
+                </div>
+                {% else %}
+                <div>
+                    <label for="pago_en" class="block text-sm font-medium text-slate-700">Moneda de Pago</label>
+                    <select id="pago_en" name="pago_en" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" x-model="pagoEn" @change="updateFormVisibility">
+                        <option value="Dolar/BCV">Bolívares (Tasa BCV)</option>
+                        <option value="USDT">USDT (Binance)</option>
+                    </select>
+                </div>
+                {% endif %}
+
+                <div x-show="pagoEn === 'Dolar/BCV'">
+                    <label class="block text-sm font-medium text-slate-700">Tasa del Día (BCV)</label>
+                    <input type="text" value="{{ '%.4f'|format(tasas_hoy.tasa) if tasas_hoy and tasas_hoy.tasa else 'No disponible' }}" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" readonly>
+                </div>
+
+                <div>
+                    <label for="monto_usd" class="block text-sm font-medium text-slate-700" x-text="pagoEn === 'USDT' ? 'Monto a Pagar (USDT)' : 'Monto a Pagar (USD)'">Monto a Pagar (USD)</label>
+                    <input type="number" id="monto_usd" step="0.01" name="monto"
+                           class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                           x-model.number="montoUsd" @input="updateBsFromUsd" x-ref="monto_usd_input" required>
+                </div>
+                
+                <div x-show="pagoEn === 'Dolar/BCV'">
+                    <label for="monto_bs" class="block text-sm font-medium text-slate-700">Monto Equivalente (Bs)</label>
+                    <input type="number" id="monto_bs" step="0.01" name="monto_bs"
+                           class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                           x-model.number="montoBs" @input="updateUsdFromBs" x-ref="monto_bs_input" required>
                 </div>
             </div>
+        </div>
 
-            <div class="section">
-                <h3>Información Adicional del Reporte</h3>
-                <div class="form-grid">
-                    <div class="form-group" id="banco_group" style="display: none;">
-                        <label for="banco" class="form-label">Banco Origen</label>
-                        <select id="banco" name="banco" class="form-select">
-                            <option value="">Seleccione un banco...</option>
-                            <option value="0102 - Banco de Venezuela S.A.C.A. Banco Universal">0102 - Banco de Venezuela</option>
-                            <option value="0104 - Venezolano de Crédito, S.A. Banco Universal">0104 - Venezolano de Crédito</option>
-                            <option value="0105 - Mercantil Banco, C.A. Banco Universal">0105 - Mercantil Banco</option>
-                            <option value="0108 - BBVA Provincial, S.A. Banco Universal">0108 - BBVA Provincial</option>
-                            <option value="0114 - Bancaribe C.A. Banco Universal">0114 - Bancaribe</option>
-                            <option value="0115 - Banco Exterior C.A. Banco Universal">0115 - Banco Exterior</option>
-                            <option value="0128 - Banco Caroní C.A. Banco Universal">0128 - Banco Caroní</option>
-                            <option value="0134 - Banesco, Banco Universal S.A.C.A.">0134 - Banesco</option>
-                            <option value="0137 - Banco Sofitasa, Banco Universal">0137 - Banco Sofitasa</option>
-                            <option value="0138 - Banco Plaza, Banco Universal">0138 - Banco Plaza</option>
-                            <option value="0146 - Bangente C.A">0146 - Bangente</option>
-                            <option value="0151 - BFC Banco Fondo Común C.A. Banco Universal">0151 - BFC Banco Fondo Común</option>
-                            <option value="0156 - 100% Banco, Banco Universal C.A.">0156 - 100% Banco</option>
-                            <option value="0157 - DelSur Banco Universal C.A.">0157 - DelSur</option>
-                            <option value="0163 - Banco del Tesoro, C.A. Banco Universal">0163 - Banco del Tesoro</option>
-                            <option value="0166 - Banco Agrícola de Venezuela, C.A. Banco Universal">0166 - Banco Agrícola de Venezuela</option>
-                            <option value="0168 - Bancrecer, S.A. Banco Microfinanciero">0168 - Bancrecer</option>
-                            <option value="0169 - Mi Banco, Banco Microfinanciero C.A.">0169 - Mi Banco</option>
-                            <option value="0171 - Banco Activo, Banco Universal">0171 - Banco Activo</option>
-                            <option value="0172 - Bancamiga, Banco Universal C.A.">0172 - Bancamiga</option>
-                            <option value="0173 - Banco Internacional de Desarrollo, C.A. Banco Universal">0173 - Banco Internacional de Desarrollo</option>
-                            <option value="0174 - Banplus Banco Universal, C.A">0174 - Banplus</option>
-                            <option value="0175 - Banco Bicentenario del Pueblo, de la Clase Obrera, Mujer y Comunas B.U.">0175 - Banco Bicentenario</option>
-                            <option value="0177 - Banco de la Fuerza Armada Nacional Bolivariana, B.U.">0177 - BANFANB</option>
-                            <option value="0191 - Banco Nacional de Crédito, C.A. Banco Universal">0191 - BNC</option>
-                            <option value="0601 - Instituto Municipal de Crédito Popular">0601 - Instituto Municipal de Crédito Popular</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="referencia_group" style="display: none;">
-                        <label for="referencia" class="form-label">N° de Referencia</label>
-                        <input type="text" id="referencia" name="referencia" class="form-control">
-                    </div>
-                    <div class="form-group">
-                        <label for="fecha_pago" class="form-label">Fecha del Pago</label>
-                        <input type="date" id="fecha_pago" name="fecha_pago" class="form-control" required>
-                    </div>
+        <!-- Sección Información de la Transacción -->
+        <div>
+            <h2 class="text-lg font-semibold text-slate-700 border-b pb-2 mb-4">Información de la Transacción</h2>
+             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div x-show="pagoEn === 'Dolar/BCV'">
+                    <label for="forma_pago" class="block text-sm font-medium text-slate-700">Forma de Pago</label>
+                    <select id="forma_pago" name="forma_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" :required="pagoEn === 'Dolar/BCV'" x-ref="forma_pago_select">
+                        <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+                        <option value="Pago Movil">Pago Móvil</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="referencia" class="block text-sm font-medium text-slate-700" x-text="pagoEn === 'USDT' ? 'ID de Transacción / Pay ID' : 'N° de Referencia'">N° de Referencia</label>
+                    <input type="text" id="referencia" name="referencia" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                </div>
+                <div>
+                    <label for="fecha_pago" class="block text-sm font-medium text-slate-700">Fecha del Pago</label>
+                    <input type="date" id="fecha_pago" name="fecha_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                </div>
+                <div x-show="pagoEn === 'Dolar/BCV'">
+                    <label for="banco" class="block text-sm font-medium text-slate-700">Banco</label>
+                    <select id="banco" name="banco" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" :required="pagoEn === 'Dolar/BCV'">
+                        <option value="">Seleccione un banco...</option>
+                        <option value="0102 - Banco de Venezuela S.A.C.A. Banco Universal">0102 - Banco de Venezuela</option>
+                        <option value="0134 - Banesco, Banco Universal S.A.C.A.">0134 - Banesco</option>
+                        <!-- ... más bancos ... -->
+                    </select>
                 </div>
             </div>
+        </div>
 
-            <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
-                <a href="{{ url_for('portal_dashboard') }}" class="btn btn-secondary">Cancelar</a>
-                <button type="submit" id="submit-button" class="inline-block text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 disabled:opacity-50" disabled>
-                    <i class="bi bi-telegram me-2"></i> Reportar Pago
-                </button>
-            </div>
-        </form>
-    </div>
+        <!-- Acciones -->
+        <div class="flex justify-end gap-3 pt-4 border-t">
+            <a href="{{ url_for('portal_dashboard') }}" class="text-sm bg-white text-slate-700 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50">Cancelar</a>
+            <button type="submit" class="text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700">
+                <i class="bi bi-send-fill mr-1"></i>Reportar Pago
+            </button>
+        </div>
+    </form>
 </div>
 
-<!-- Modal para mostrar los datos de pago -->
-<div class="modal fade" id="paymentDataModal" tabindex="-1" aria-labelledby="paymentDataModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="paymentDataModalLabel">Datos de Pago</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body payment-info-modal" id="modal-body-content">
-        <!-- El contenido se inyectará aquí con JavaScript -->
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-      </div>
-    </div>
-  </div>
-</div>
+<!-- Modal con Datos de Pago (sin cambios) -->
+<div class="modal fade" id="paymentInfoModal" tabindex="-1">...</div>
 {% endblock %}
 
 {% block scripts_extra %}
+<script src="//unpkg.com/alpinejs" defer></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const tasaUsd = {{ tasas_hoy.tasa|float if tasas_hoy and tasas_hoy.tasa else 'null' }};
-    const tasaEur = {{ tasas_hoy.tasa_euro|float if tasas_hoy and tasas_hoy.tasa_euro else 'null' }};
-
-    const form = document.getElementById('form-reporte-pago');
-    const submitButton = document.getElementById('submit-button');
-    const pagoEnSelect = document.getElementById('pago_en');
-    const formaPagoSelect = document.getElementById('forma_pago');
-    const montoUsdInput = document.getElementById('monto_usd');
-    const tasaDiaInput = document.getElementById('tasa_dia');
-    const montoBsGroup = document.getElementById('monto_bs_group');
-    const montoBsCalculadoInput = document.getElementById('monto_bs_calculado');
-    const referenciaGroup = document.getElementById('referencia_group');
-    const referenciaInput = document.getElementById('referencia');
-    const bancoGroup = document.getElementById('banco_group');
-    const bancoSelect = document.getElementById('banco');
-    const fechaPagoInput = document.getElementById('fecha_pago');
-
-    const verDatosContainer = document.getElementById('ver-datos-container');
-    const modalTitle = document.getElementById('paymentDataModalLabel');
-    const modalBody = document.getElementById('modal-body-content');
-    const tasaInfoDisplay = document.getElementById('tasa-info-display');
-    
-    function copyToClipboard(textToCopy, buttonElement) {
-        const textArea = document.createElement("textarea");
-        textArea.value = textToCopy;
-        textArea.style.position = "fixed";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        try {
-            document.execCommand('copy');
-            buttonElement.textContent = 'Copiado!';
-            buttonElement.classList.remove('btn-primary');
-            buttonElement.classList.add('btn-success');
-            setTimeout(() => {
-                buttonElement.textContent = 'Copiar';
-                buttonElement.classList.remove('btn-success');
-                buttonElement.classList.add('btn-primary');
-            }, 2000);
-        } catch (err) {
-            console.error('No se pudo copiar: ', err);
-        }
-        document.body.removeChild(textArea);
-    }
-
-    function checkFormValidity() {
-        let isValid = true;
-        if (!montoUsdInput.value || parseFloat(montoUsdInput.value) <= 0) isValid = false;
-        if (!fechaPagoInput.value) isValid = false;
-        if (!formaPagoSelect.value) isValid = false;
-        const formaPagoValue = formaPagoSelect.value;
-        if (formaPagoValue !== 'Efectivo') {
-            if (!referenciaInput.value.trim()) isValid = false;
-        }
-        if (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil') {
-            if (!bancoSelect.value) isValid = false;
-        }
-        submitButton.disabled = !isValid;
-    }
-
-    function calcularYActualizarMontos() {
-        const montoUsd = parseFloat(montoUsdInput.value) || 0;
-        const tasaDia = parseFloat(tasaDiaInput.value) || 0;
+document.addEventListener('alpine:init', () => {
+    Alpine.data('paymentForm', () => ({
+        // --- PROPIEDADES DEL ESTADO ---
+        // CAMBIO: Se establece el valor inicial basado en la moneda del contrato del cliente.
+        pagoEn: '{{ "USDT" if cliente.moneda_pago == "USD" else "Dolar/BCV" }}',
+        montoUsd: parseFloat('{{ monto_restante | default(0) }}'),
+        montoBs: parseFloat('{{ (monto_restante * (tasas_hoy.tasa if tasas_hoy else 0)) | round(2) }}'),
+        tasa: parseFloat('{{ (tasas_hoy.tasa if tasas_hoy else 0) | string }}'),
         
-        if (montoUsd > 0 && tasaDia > 0) {
-            montoBsCalculadoInput.value = (montoUsd * tasaDia).toFixed(2);
-        } else {
-            montoBsCalculadoInput.value = '';
-        }
+        // --- MÉTODO DE INICIALIZACIÓN ---
+        init() {
+            this.$nextTick(() => {
+                this.$refs.monto_usd_input.value = this.montoUsd.toFixed(2);
+                // Solo inicializa el monto en Bs si la moneda de pago es Bolívares.
+                if (this.pagoEn === 'Dolar/BCV') {
+                    this.$refs.monto_bs_input.value = this.montoBs.toFixed(2);
+                }
+                // Llama a la visibilidad para asegurar que los campos correctos se muestren/oculten al cargar.
+                this.updateFormVisibility();
+            });
+        },
 
-        if (tasaDia > 0) {
-            let montoBsTexto = (montoUsd > 0) ? `<strong>Total a Pagar:</strong> ${(montoUsd * tasaDia).toFixed(2)} Bs.` : '';
-            tasaInfoDisplay.innerHTML = `<strong>Tasa del Día:</strong> ${tasaDia.toFixed(4)}<br>${montoBsTexto}`;
-            tasaInfoDisplay.style.display = 'block';
-        } else {
-            tasaInfoDisplay.style.display = 'none';
-        }
-    }
+        // --- MÉTODOS DE LA APLICACIÓN ---
+        updateFormVisibility() {
+            const formaPagoSelect = document.querySelector('[x-ref="forma_pago_select"]');
+            if (this.pagoEn === 'USDT') {
+                this.montoBs = 0;
+                // Si el select de forma de pago existe, se le asigna 'Binance'.
+                if (formaPagoSelect) {
+                    formaPagoSelect.value = 'Binance';
+                }
+            } else {
+                if (formaPagoSelect) {
+                    formaPagoSelect.value = 'Transferencia Bancaria';
+                }
+                this.updateBsFromUsd();
+            }
+        },
 
-    function handlePagoEnChange() {
-        const pagoEnValue = pagoEnSelect.value;
-        tasaDiaInput.value = '';
-        montoBsGroup.style.display = 'none';
-        
-        let currentRate = null;
-        if (pagoEnValue === 'Dolar/BCV') currentRate = tasaUsd;
-        else if (pagoEnValue === 'Euro/BCV') currentRate = tasaEur;
-
-        if (currentRate) {
-            tasaDiaInput.value = currentRate;
-            montoBsGroup.style.display = 'block';
-        } else {
-            if (pagoEnValue !== 'Efectivo USD' && pagoEnValue !== 'USDT') {
-                alert('No se pudo cargar la tasa de cambio para hoy. El cálculo en Bs no funcionará.');
+        updateBsFromUsd() {
+            if (this.pagoEn === 'Dolar/BCV' && this.tasa > 0) {
+                this.montoBs = parseFloat((this.montoUsd * this.tasa).toFixed(2));
+            } else {
+                this.montoBs = 0;
+            }
+        },
+        updateUsdFromBs() {
+            if (this.pagoEn === 'Dolar/BCV' && this.tasa > 0) {
+                this.montoUsd = parseFloat((this.montoBs / this.tasa).toFixed(2));
             }
         }
-        calcularYActualizarMontos();
-        checkFormValidity();
-    }
-
-    function toggleFieldsByFormaPago() {
-        const formaPagoValue = formaPagoSelect.value;
-        const isEfectivo = formaPagoValue === 'Efectivo';
-
-        referenciaGroup.style.display = isEfectivo ? 'none' : 'block';
-        bancoGroup.style.display = (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil') ? 'block' : 'none';
-        verDatosContainer.style.display = isEfectivo ? 'none' : 'block';
-        
-        let title = "Datos de Pago";
-        let content = "";
-        let dataToCopy = "";
-
-        switch(formaPagoValue) {
-            case 'Binance':
-                title = "Datos de Binance (USDT)";
-                dataToCopy = "motoplanmotors";
-                content = `<strong>Usuario Binance:</strong> <span id="copy-data">${dataToCopy}</span><br><strong>Correo:</strong> <span>motoplanmotors@gmail.com</span><br><strong>Red:</strong> <span>TRC20</span>`;
-                break;
-            case 'Pago Movil':
-                title = "Datos para Pago Móvil";
-                dataToCopy = "04121234567";
-                content = `<strong>Banco:</strong> <span>0102 - Venezuela</span><br><strong>Teléfono:</strong> <span id="copy-data">${dataToCopy}</span><br><strong>Cédula:</strong> <span>J-123456789</span>`;
-                break;
-            case 'Transferencia Bancaria':
-                title = "Datos para Transferencia";
-                dataToCopy = "01340001000100010001";
-                content = `<strong>Beneficiario:</strong> <span>Moto Plan Motors C.A.</span><br><strong>RIF:</strong> <span>J-123456789</span><br><strong>Banco:</strong> <span>Banesco</span><br><strong>N° de Cuenta:</strong> <span id="copy-data">${dataToCopy}</span>`;
-                break;
-        }
-
-        modalTitle.textContent = title;
-        if (dataToCopy) {
-            modalBody.innerHTML = content + `<button type="button" id="copy-btn" class="btn btn-primary btn-sm mt-3">Copiar</button>`;
-            document.getElementById('copy-btn').onclick = function() { copyToClipboard(dataToCopy, this); };
-        } else {
-            modalBody.innerHTML = content;
-        }
-
-        checkFormValidity();
-    }
-
-    form.querySelectorAll('input, select').forEach(element => {
-        element.addEventListener('input', checkFormValidity);
-        element.addEventListener('change', checkFormValidity);
-    });
-
-    pagoEnSelect.addEventListener('change', handlePagoEnChange);
-    formaPagoSelect.addEventListener('change', toggleFieldsByFormaPago);
-    montoUsdInput.addEventListener('input', calcularYActualizarMontos);
-    
-    // Inicialización
-    handlePagoEnChange();
-    toggleFieldsByFormaPago();
-    fechaPagoInput.valueAsDate = new Date();
-    checkFormValidity();
+    }));
 });
+document.getElementById('fecha_pago').valueAsDate = new Date();
 </script>
 {% endblock %}

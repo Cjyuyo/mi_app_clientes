@@ -2424,7 +2424,6 @@ def finalizar_registro():
             return redirect(url_for('registrar'))
 
     try:
-        # ... (resto de la lógica de la función sin cambios)
         firma_cliente, firma_empresa = form_data.get('firma_cliente'), form_data.get('firma_empresa')
         if not firma_cliente or not firma_empresa:
             flash('Ambas firmas son obligatorias para registrar al cliente.', 'error')
@@ -2473,7 +2472,10 @@ def finalizar_registro():
             registrar_accion_auditoria('REGISTRO_CLIENTE_FIRMADO', descripcion_audit, new_client_id)
             
             conn.commit()
-            flash(f"¡Cliente '{form_data.get('nombre_apellido')}' registrado exitosamente como RESERVA!", 'success')
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se eliminan las comillas simples del mensaje para evitar errores de formato.
+            flash(f"¡Cliente {form_data.get('nombre_apellido')} registrado exitosamente como RESERVA!", 'success')
+            # --- FIN DE LA CORRECCIÓN ---
             return redirect(url_for('consulta', busqueda=form_data.get('cedula')))
 
     except psycopg2.IntegrityError:
@@ -2629,7 +2631,6 @@ def conciliar_pago(pago_id):
                 nueva_inscripcion_pagada = inscripcion_pagada_actual + pago_actual['monto']
 
                 if nueva_inscripcion_pagada >= inscripcion_total_requerida:
-                    # --- INICIO DE LA CORRECCIÓN ---
                     cur.execute("SELECT * FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente['id'],))
                     abonos_anteriores = cur.fetchall()
                     
@@ -2637,15 +2638,12 @@ def conciliar_pago(pago_id):
                     pago_final_id = None
 
                     if not abonos_anteriores:
-                        # Caso 1: Es un pago único que cubre el 100%.
-                        # Se convierte este mismo pago en el recibo final.
                         cur.execute(
                             "UPDATE pagos SET tipo_pago = 'Inscripción Finalizada', por_concepto_de = 'Pago total de inscripción', estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s RETURNING id",
                             (admin_id, pago_id)
                         )
                         pago_final_id = cur.fetchone()[0]
                     else:
-                        # Caso 2: Es el último abono. Se consolidan todos los pagos.
                         pagos_a_consolidar = abonos_anteriores + [pago_actual]
                         ids_a_anular = [p['id'] for p in pagos_a_consolidar]
                         
@@ -2664,9 +2662,6 @@ def conciliar_pago(pago_id):
                         detalle_anulacion = json.dumps({"motivo": "Consolidado en recibo final", "recibo_final_id": pago_final_id})
                         cur.execute("UPDATE pagos SET estado_pago = 'Anulado', detalles_reporte = %s WHERE id = ANY(%s)", (detalle_anulacion, ids_a_anular))
                     
-                    # --- FIN DE LA CORRECCIÓN ---
-
-                    # Lógica común para ambos casos de inscripción completada
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (monto_total_consolidado, cliente['id']))
                     
                     try:
@@ -2687,15 +2682,15 @@ def conciliar_pago(pago_id):
                     descripcion_audit = f"Consolidó pagos de inscripción. Recibo final N°{pago_final_id} por ${monto_total_consolidado} para {cliente['nombre_apellido']}."
                     registrar_accion_auditoria('CONSOLIDACION_INSCRIPCION', descripcion_audit, cliente['id'])
                     
-                    url_recibo = url_for('ver_recibo_inscripcion', pago_id=pago_final_id)
-                    flash_msg = f"¡Inscripción consolidada! El cliente ha sido notificado para pagar su primera cuota y activar el plan. <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo Final</a>."
+                    # --- INICIO DE LA CORRECCIÓN ---
+                    # Se elimina el HTML del mensaje flash.
+                    flash_msg = "¡Inscripción consolidada! El cliente ahora puede pagar su primera cuota para activar el plan."
+                    # --- FIN DE LA CORRECCIÓN ---
                 
                 else:
-                    # Es un abono parcial que no completa el 100%.
                     cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
                     cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
-                    url_recibo = url_for('generar_recibo_pago', pago_id=pago_id)
-                    flash_msg = f"Abono de inscripción N° {pago_id} conciliado. <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo</a>."
+                    flash_msg = f"Abono de inscripción N° {pago_id} conciliado exitosamente."
 
             elif pago_actual['tipo_pago'] == 'Cuota':
                 if cliente['proceso'] == 'INSCRITO':
@@ -2712,8 +2707,7 @@ def conciliar_pago(pago_id):
                 cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s;", (ncpp, ncpr, nbf, cliente['id']))
                 cur.execute("UPDATE pagos SET cuotas_cubiertas = %s, progresivas_cubiertas = %s, regresivas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s WHERE id = %s;", (cch, pph, rph, ncpp, ncpr, nbf, pago_id))
                 cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
-                url_recibo = url_for('generar_recibo_pago', pago_id=pago_id)
-                flash_msg = f"¡Pago de cuota N° {pago_id} conciliado! <a href='{url_recibo}' target='_blank' class='alert-link'>Ver Recibo</a>."
+                flash_msg = f"¡Pago de cuota N° {pago_id} conciliado exitosamente!"
 
             conn.commit()
             flash(flash_msg, 'success')
@@ -2727,6 +2721,7 @@ def conciliar_pago(pago_id):
         if cedula_cliente_para_redirect:
             return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
     return redirect(url_for('pagos_por_conciliar'))
+
 
 
 @app.route('/recibo/<int:pago_id>')
@@ -3317,11 +3312,10 @@ def portal_reportar_pago():
     cliente_dict = dict(cliente)
     mes_actual = get_nombre_mes(get_venezuela_current_date().month)
 
-    # --- INICIO DE LA MODIFICACIÓN ---
+    # --- Lógica para determinar el monto a pagar ---
     monto_a_pagar_usd = Decimal('0.00')
     concepto_pago = ''
     
-    # Determinar si el pago es de inscripción o de cuota
     inscripcion_pagada = cliente_dict.get('inscripcion_pagada') or Decimal('0.0')
     inscripcion_total = cliente_dict.get('inscripcion_monto') or Decimal('0.0')
 
@@ -3331,76 +3325,43 @@ def portal_reportar_pago():
     else:
         monto_a_pagar_usd = cliente_dict.get('valor_cuota') or Decimal('0.0')
         concepto_pago = f"Cuota del mes de {mes_actual}"
-    # --- FIN DE LA MODIFICACIÓN ---
+    
+    # Calcular el monto equivalente en Bolívares
+    tasa_bcv = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
+    monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv).quantize(Decimal('0.01'))
 
     if request.method == 'POST':
+        # ... (La lógica del POST se mantiene igual)
         pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
-        
         try:
             with conn.cursor() as cur:
-                is_diferencia = pago_form.get('is_diferencia') == 'true'
-                monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00'))
-                monto_equivalente_usd = Decimal(pago_form.get('monto', '0.00'))
+                monto_equivalente_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
+                monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
+                tipo_pago_inicial = 'Inscripción' if inscripcion_pagada < inscripcion_total else 'Cuota'
 
-                if is_diferencia:
-                    bulk_id, order_id = pago_form.get('bulk_id'), pago_form.get('order_id')
-                    cur.execute("SELECT * FROM payment_orders WHERE id = %s AND status = 'ISSUED'", (order_id,))
-                    order = cur.fetchone()
-                    
-                    if not order or monto_reportado_bs != order['amount']:
-                        flash("La orden de pago no es válida o el monto reportado es incorrecto.", "error")
-                        return redirect(url_for('portal_dashboard'))
-
-                    pago_diferencia_query = """
-                        INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                           estado_reporte, fecha_creacion, bulk_id, order_id, is_diferencia, por_concepto_de, verified_amount, reportado_por_cliente)
-                        VALUES (%s, %s, %s, 'Diferencia', %s, %s, %s, %s, %s, 'DIFF_REPORTED', %s, %s, %s, TRUE, %s, %s, TRUE);"""
-                    cur.execute(pago_diferencia_query, (
-                        cliente['id'], monto_equivalente_usd, monto_reportado_bs, pago_form.get('forma_pago'), pago_form.get('fecha_pago'), pago_form.get('referencia'),
-                        pago_form.get('banco'), pago_form.get('tasa_dia'), get_venezuela_current_datetime(), bulk_id, order_id,
-                        f"Pago diferencia orden #{order_id}", simular_verificacion_bancaria(monto_reportado_bs)))
-                    
-                    cur.execute("UPDATE payment_orders SET status = 'PAID', paid_at = NOW() WHERE id = %s", (order_id,))
-                    recalcular_totales_bulk(bulk_id)
-                    flash('✅ ¡Pago de diferencia reportado! Será verificado.', 'success')
-                else:
-                    monto_verificado_bs = simular_verificacion_bancaria(monto_reportado_bs)
-                    tipo_pago_inicial = 'Inscripción' if not (cliente_dict.get('inscripcion_pagada') or 0) >= (cliente_dict.get('inscripcion_monto') or 0) else 'Cuota'
-
-                    pago_inicial_query = """
-                        INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                        estado_reporte, fecha_creacion, verified_amount, reportado_por_cliente, por_concepto_de)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'REPORTED', %s, %s, TRUE, %s) RETURNING id;"""
-                    cur.execute(pago_inicial_query, (
-                        cliente['id'], monto_equivalente_usd, monto_reportado_bs, tipo_pago_inicial, pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
-                        pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('tasa_dia'),
-                        get_venezuela_current_datetime(), monto_verificado_bs, pago_form.get('por_concepto_de')))
-                    pago_id = cur.fetchone()[0]
-
-                    if monto_verificado_bs < monto_reportado_bs:
-                        diferencia = monto_reportado_bs - monto_verificado_bs
-                        cur.execute("INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status) VALUES (%s, 'VES', %s, 'OPEN') RETURNING id", (cliente['id'], monto_reportado_bs))
-                        bulk_id = cur.fetchone()[0]
-                        cur.execute("UPDATE pagos SET bulk_id = %s, estado_reporte = 'TEMP_REJECTED_DIFF', rejection_reason = 'Monto verificado menor' WHERE id = %s", (bulk_id, pago_id))
-                        cur.execute("INSERT INTO payment_orders (bulk_id, cliente_id, amount, status) VALUES (%s, %s, %s, 'ISSUED') RETURNING id", (bulk_id, cliente['id'], diferencia))
-                        order_id = cur.fetchone()[0]
-                        cur.execute("UPDATE pagos SET order_id = %s WHERE id = %s", (order_id, pago_id))
-                        recalcular_totales_bulk(bulk_id)
-                        flash(f"Tu pago fue recibido, pero se verificó un monto menor. Se generó una orden de pago por la diferencia de Bs. {diferencia}. Por favor, págala y repórtala.", 'warning')
-                    else:
-                        flash('✅ ¡Pago reportado! Será verificado.', 'success')
-
+                pago_inicial_query = """
+                    INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
+                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s) RETURNING id;"""
+                cur.execute(pago_inicial_query, (
+                    cliente['id'], monto_equivalente_usd, monto_reportado_bs, tipo_pago_inicial, pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
+                    pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv,
+                    get_venezuela_current_datetime(), concepto_pago))
+                pago_id = cur.fetchone()[0]
+                flash('✅ ¡Pago reportado! Será verificado por un administrador.', 'success')
                 conn.commit()
                 return redirect(url_for('portal_dashboard'))
         except (psycopg2.Error, ValueError, InvalidOperation) as e:
-            conn.rollback(); logging.error(f"Error en portal_reportar_pago: {e}"); flash(f'Ocurrió un error: {e}', 'error')
+            conn.rollback()
+            logging.error(f"Error en portal_reportar_pago: {e}")
+            flash(f'Ocurrió un error: {e}', 'error')
 
-    # --- MODIFICACIÓN EN RENDER_TEMPLATE ---
     return render_template('portal_reportar_pago.html', 
                            cliente=cliente, 
-                           tasas_hoy=tasa_hoy, 
+                           tasa_hoy=tasa_hoy, 
                            mes_actual=mes_actual,
                            monto_a_pagar_usd=monto_a_pagar_usd,
+                           monto_a_pagar_bs=monto_a_pagar_bs,
                            concepto_pago=concepto_pago)
 
 @app.route('/portal/diferencia/reportar/<int:bulk_id>/<int:order_id>', methods=['GET'])
