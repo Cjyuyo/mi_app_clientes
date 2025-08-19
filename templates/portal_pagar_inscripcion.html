@@ -35,7 +35,6 @@
         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         gap: 1.5rem;
     }
-    /* Estilos para la información de pago en el modal */
     .payment-info-modal strong {
         display: block;
         color: #495057;
@@ -45,7 +44,6 @@
         color: #212529;
         font-weight: 500;
     }
-    /* Estilos para el mini billboard de la tasa */
     .tasa-billboard {
         background-color: #e9ecef;
         border-radius: .5rem;
@@ -119,23 +117,19 @@
                         <label for="monto_usd" class="form-label">Monto del Pago (USD)</label>
                         <input type="number" id="monto_usd" step="0.01" name="monto" class="form-control" value="{{ (monto_precargado or '')|float }}" required {% if monto_precargado %}readonly{% endif %}>
                     </div>
-                    <!-- CAMBIO: Se restaura la casilla original de Monto en Bs -->
                     <div class="form-group" id="monto_bs_group" style="display: none;">
                         <label for="monto_bs_calculado" class="form-label">Monto en Bs (Calculado)</label>
                         <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="form-control" readonly>
                         <input type="hidden" id="tasa_dia" name="tasa_dia">
                     </div>
                 </div>
-                <!-- Contenedor flex para alinear el botón y el billboard de la tasa -->
                 <div class="d-flex align-items-center gap-3 mt-3">
                     <div id="ver-datos-container" style="display: none;">
                         <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#paymentDataModal">
                             <i class="bi bi-info-circle-fill me-1"></i> Ver Datos para Pagar
                         </button>
                     </div>
-                    <!-- "Mini billboard" para la tasa y el monto en Bs -->
                     <div id="tasa-info-display" class="tasa-billboard" style="display: none;">
-                        <!-- El contenido se inyectará aquí con JavaScript -->
                     </div>
                 </div>
             </div>
@@ -147,13 +141,32 @@
                         <label for="banco" class="form-label">Banco Origen</label>
                         <select id="banco" name="banco" class="form-select">
                             <option value="">Seleccione un banco...</option>
-                            <option value="0102 - Banco de Venezuela S.A.C.A.">0102 - Banco de Venezuela</option>
-                            <option value="0105 - Mercantil Banco Universal C.A.">0105 - Mercantil</option>
-                            <option value="0108 - BBVA Banco Provincial">0108 - BBVA Provincial</option>
-                            <option value="0134 - Banesco Banco Universal C.A.">0134 - Banesco</option>
-                            <option value="0151 - BFC Banco Fondo Común C.A.">0151 - BFC</option>
-                            <option value="0172 - Bancamiga Banco Universal C.A.">0172 - Bancamiga</option>
-                            <option value="0191 - Banco Nacional de Crédito (BNC)">0191 - BNC</option>
+                            <option value="0102 - Banco de Venezuela S.A.C.A. Banco Universal">0102 - Banco de Venezuela</option>
+                            <option value="0104 - Venezolano de Crédito, S.A. Banco Universal">0104 - Venezolano de Crédito</option>
+                            <option value="0105 - Mercantil Banco, C.A. Banco Universal">0105 - Mercantil Banco</option>
+                            <option value="0108 - BBVA Provincial, S.A. Banco Universal">0108 - BBVA Provincial</option>
+                            <option value="0114 - Bancaribe C.A. Banco Universal">0114 - Bancaribe</option>
+                            <option value="0115 - Banco Exterior C.A. Banco Universal">0115 - Banco Exterior</option>
+                            <option value="0128 - Banco Caroní C.A. Banco Universal">0128 - Banco Caroní</option>
+                            <option value="0134 - Banesco, Banco Universal S.A.C.A.">0134 - Banesco</option>
+                            <option value="0137 - Banco Sofitasa, Banco Universal">0137 - Banco Sofitasa</option>
+                            <option value="0138 - Banco Plaza, Banco Universal">0138 - Banco Plaza</option>
+                            <option value="0146 - Bangente C.A">0146 - Bangente</option>
+                            <option value="0151 - BFC Banco Fondo Común C.A. Banco Universal">0151 - BFC Banco Fondo Común</option>
+                            <option value="0156 - 100% Banco, Banco Universal C.A.">0156 - 100% Banco</option>
+                            <option value="0157 - DelSur Banco Universal C.A.">0157 - DelSur</option>
+                            <option value="0163 - Banco del Tesoro, C.A. Banco Universal">0163 - Banco del Tesoro</option>
+                            <option value="0166 - Banco Agrícola de Venezuela, C.A. Banco Universal">0166 - Banco Agrícola de Venezuela</option>
+                            <option value="0168 - Bancrecer, S.A. Banco Microfinanciero">0168 - Bancrecer</option>
+                            <option value="0169 - Mi Banco, Banco Microfinanciero C.A.">0169 - Mi Banco</option>
+                            <option value="0171 - Banco Activo, Banco Universal">0171 - Banco Activo</option>
+                            <option value="0172 - Bancamiga, Banco Universal C.A.">0172 - Bancamiga</option>
+                            <option value="0173 - Banco Internacional de Desarrollo, C.A. Banco Universal">0173 - Banco Internacional de Desarrollo</option>
+                            <option value="0174 - Banplus Banco Universal, C.A">0174 - Banplus</option>
+                            <option value="0175 - Banco Bicentenario del Pueblo, de la Clase Obrera, Mujer y Comunas B.U.">0175 - Banco Bicentenario</option>
+                            <option value="0177 - Banco de la Fuerza Armada Nacional Bolivariana, B.U.">0177 - BANFANB</option>
+                            <option value="0191 - Banco Nacional de Crédito, C.A. Banco Universal">0191 - BNC</option>
+                            <option value="0601 - Instituto Municipal de Crédito Popular">0601 - Instituto Municipal de Crédito Popular</option>
                         </select>
                     </div>
                     <div class="form-group" id="referencia_group" style="display: none;">
@@ -259,19 +272,16 @@ document.addEventListener('DOMContentLoaded', function() {
         submitButton.disabled = !isValid;
     }
 
-    // CAMBIO: Se actualiza esta función para manejar el nuevo billboard y la casilla de monto
     function calcularYActualizarMontos() {
         const montoUsd = parseFloat(montoUsdInput.value) || 0;
         const tasaDia = parseFloat(tasaDiaInput.value) || 0;
         
-        // Actualizar la casilla del formulario
         if (montoUsd > 0 && tasaDia > 0) {
             montoBsCalculadoInput.value = (montoUsd * tasaDia).toFixed(2);
         } else {
             montoBsCalculadoInput.value = '';
         }
 
-        // Actualizar el billboard informativo
         if (tasaDia > 0) {
             let montoBsTexto = (montoUsd > 0) ? `<strong>Total a Pagar:</strong> ${(montoUsd * tasaDia).toFixed(2)} Bs.` : '';
             tasaInfoDisplay.innerHTML = `<strong>Tasa del Día:</strong> ${tasaDia.toFixed(4)}<br>${montoBsTexto}`;
@@ -283,22 +293,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function handlePagoEnChange() {
         const pagoEnValue = pagoEnSelect.value;
-        tasaDiaInput.value = ''; // Limpiar el valor oculto
-        montoBsGroup.style.display = 'none'; // Ocultar la casilla por defecto
+        tasaDiaInput.value = '';
+        montoBsGroup.style.display = 'none';
         
         let currentRate = null;
         if (pagoEnValue === 'Dolar/BCV') currentRate = tasaUsd;
         else if (pagoEnValue === 'Euro/BCV') currentRate = tasaEur;
 
         if (currentRate) {
-            tasaDiaInput.value = currentRate; // Guardar tasa en el campo oculto
-            montoBsGroup.style.display = 'block'; // Mostrar la casilla de monto en Bs
+            tasaDiaInput.value = currentRate;
+            montoBsGroup.style.display = 'block';
         } else {
             if (pagoEnValue !== 'Efectivo USD' && pagoEnValue !== 'USDT') {
                 alert('No se pudo cargar la tasa de cambio para hoy. El cálculo en Bs no funcionará.');
             }
         }
-        calcularYActualizarMontos(); // Actualizar y mostrar el billboard y la casilla
+        calcularYActualizarMontos();
         checkFormValidity();
     }
 
@@ -350,7 +360,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     pagoEnSelect.addEventListener('change', handlePagoEnChange);
     formaPagoSelect.addEventListener('change', toggleFieldsByFormaPago);
-    montoUsdInput.addEventListener('input', calcularYActualizarMontos); // Se llama a la nueva función
+    montoUsdInput.addEventListener('input', calcularYActualizarMontos);
     
     // Inicialización
     handlePagoEnChange();

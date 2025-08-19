@@ -78,20 +78,38 @@
                         <label for="banco" class="block text-sm font-medium text-slate-700">Banco</label>
                         <select id="banco" name="banco" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                             <option value="">Seleccione un banco...</option>
-                            <option value="0102 - Banco de Venezuela S.A.C.A.">0102 - Banco de Venezuela</option>
-                            <option value="0105 - Mercantil Banco Universal C.A.">0105 - Mercantil</option>
-                            <option value="0108 - BBVA Banco Provincial">0108 - BBVA Provincial</option>
-                            <option value="0134 - Banesco Banco Universal C.A.">0134 - Banesco</option>
-                            <option value="0151 - BFC Banco Fondo Común C.A.">0151 - BFC</option>
-                            <option value="0172 - Bancamiga Banco Universal C.A.">0172 - Bancamiga</option>
-                            <option value="0191 - Banco Nacional de Crédito (BNC)">0191 - BNC</option>
+                            <option value="0102 - Banco de Venezuela S.A.C.A. Banco Universal">0102 - Banco de Venezuela</option>
+                            <option value="0104 - Venezolano de Crédito, S.A. Banco Universal">0104 - Venezolano de Crédito</option>
+                            <option value="0105 - Mercantil Banco, C.A. Banco Universal">0105 - Mercantil Banco</option>
+                            <option value="0108 - BBVA Provincial, S.A. Banco Universal">0108 - BBVA Provincial</option>
+                            <option value="0114 - Bancaribe C.A. Banco Universal">0114 - Bancaribe</option>
+                            <option value="0115 - Banco Exterior C.A. Banco Universal">0115 - Banco Exterior</option>
+                            <option value="0128 - Banco Caroní C.A. Banco Universal">0128 - Banco Caroní</option>
+                            <option value="0134 - Banesco, Banco Universal S.A.C.A.">0134 - Banesco</option>
+                            <option value="0137 - Banco Sofitasa, Banco Universal">0137 - Banco Sofitasa</option>
+                            <option value="0138 - Banco Plaza, Banco Universal">0138 - Banco Plaza</option>
+                            <option value="0146 - Bangente C.A">0146 - Bangente</option>
+                            <option value="0151 - BFC Banco Fondo Común C.A. Banco Universal">0151 - BFC Banco Fondo Común</option>
+                            <option value="0156 - 100% Banco, Banco Universal C.A.">0156 - 100% Banco</option>
+                            <option value="0157 - DelSur Banco Universal C.A.">0157 - DelSur</option>
+                            <option value="0163 - Banco del Tesoro, C.A. Banco Universal">0163 - Banco del Tesoro</option>
+                            <option value="0166 - Banco Agrícola de Venezuela, C.A. Banco Universal">0166 - Banco Agrícola de Venezuela</option>
+                            <option value="0168 - Bancrecer, S.A. Banco Microfinanciero">0168 - Bancrecer</option>
+                            <option value="0169 - Mi Banco, Banco Microfinanciero C.A.">0169 - Mi Banco</option>
+                            <option value="0171 - Banco Activo, Banco Universal">0171 - Banco Activo</option>
+                            <option value="0172 - Bancamiga, Banco Universal C.A.">0172 - Bancamiga</option>
+                            <option value="0173 - Banco Internacional de Desarrollo, C.A. Banco Universal">0173 - Banco Internacional de Desarrollo</option>
+                            <option value="0174 - Banplus Banco Universal, C.A">0174 - Banplus</option>
+                            <option value="0175 - Banco Bicentenario del Pueblo, de la Clase Obrera, Mujer y Comunas B.U.">0175 - Banco Bicentenario</option>
+                            <option value="0177 - Banco de la Fuerza Armada Nacional Bolivariana, B.U.">0177 - BANFANB</option>
+                            <option value="0191 - Banco Nacional de Crédito, C.A. Banco Universal">0191 - BNC</option>
+                            <option value="0601 - Instituto Municipal de Crédito Popular">0601 - Instituto Municipal de Crédito Popular</option>
                         </select>
                     </div>
                     <div>
                         <label for="referencia" class="block text-sm font-medium text-slate-700">Referencia</label>
                         <input type="text" id="referencia" name="referencia" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                     </div>
-                    <!-- >>> CAMBIO ESPECIFICO: Campos adicionales para reportes en Bs -->
                     <div id="pago_movil_telefono_group" style="display: none;">
                         <label for="pago_movil_telefono" class="block text-sm font-medium text-slate-700">Teléfono Emisor (Pago Móvil)</label>
                         <input type="text" id="pago_movil_telefono" name="pago_movil_telefono" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
@@ -104,7 +122,6 @@
                         <label for="binance_user" class="block text-sm font-medium text-slate-700">Usuario o Email (Binance)</label>
                         <input type="text" id="binance_user" name="binance_user" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                     </div>
-                    <!-- <<< FIN CAMBIO -->
                     <div>
                         <label for="fecha_pago" class="block text-sm font-medium text-slate-700">Fecha de Pago</label>
                         <input type="date" id="fecha_pago" name="fecha_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
@@ -151,14 +168,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const bancoGroup = document.getElementById('banco_group');
     const bancoSelect = document.getElementById('banco');
     
-    // >>> CAMBIO ESPECIFICO: Referencias a nuevos campos
     const pagoMovilTelefonoGroup = document.getElementById('pago_movil_telefono_group');
     const pagoMovilCedulaGroup = document.getElementById('pago_movil_cedula_group');
     const binanceUserGroup = document.getElementById('binance_user_group');
     const pagoMovilTelefonoInput = document.getElementById('pago_movil_telefono');
     const pagoMovilCedulaInput = document.getElementById('pago_movil_cedula');
     const binanceUserInput = document.getElementById('binance_user');
-    // <<< FIN CAMBIO
 
     function calcularMontoBs() {
         const montoUsd = parseFloat(montoUsdInput.value) || 0;
@@ -198,7 +213,6 @@ document.addEventListener('DOMContentLoaded', function() {
             bancoSelect.value = '';
         }
         
-        // >>> CAMBIO ESPECIFICO: Lógica para mostrar/ocultar y requerir nuevos campos
         bancoGroup.style.display = (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil') ? 'block' : 'none';
         pagoMovilTelefonoGroup.style.display = (formaPagoValue === 'Pago Movil') ? 'block' : 'none';
         pagoMovilCedulaGroup.style.display = (formaPagoValue === 'Pago Movil') ? 'block' : 'none';
@@ -208,7 +222,6 @@ document.addEventListener('DOMContentLoaded', function() {
         pagoMovilTelefonoInput.required = (formaPagoValue === 'Pago Movil');
         pagoMovilCedulaInput.required = (formaPagoValue === 'Pago Movil');
         binanceUserInput.required = (formaPagoValue === 'Binance');
-        // <<< FIN CAMBIO
     }
 
     pagoEnSelect.addEventListener('change', handlePagoEnChange);
