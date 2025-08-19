@@ -2680,6 +2680,10 @@ def registrar_pago(client_id):
 @app.route('/conciliar_pago/<int:pago_id>', methods=['POST'])
 @admin_required
 def conciliar_pago(pago_id):
+    """
+    Concilia un pago pendiente. Esta función maneja la lógica para pagos de inscripción
+    (incluyendo la consolidación de abonos en un pago final) y pagos de cuotas.
+    """
     conn = get_db()
     cedula_cliente_para_redirect = None
     if not conn:
@@ -2687,22 +2691,138 @@ def conciliar_pago(pago_id):
         return redirect(url_for('pagos_por_conciliar'))
     
     try:
+        # Inicia una transacción para asegurar la integridad de los datos
         with conn.cursor() as cur:
+            # Bloquea la fila del pago para evitar condiciones de carrera
             cur.execute("SELECT * FROM pagos WHERE id = %s FOR UPDATE", (pago_id,))
             pago_actual = cur.fetchone()
 
             if pago_actual:
+                # Bloquea la fila del cliente para actualizar sus datos de forma segura
                 cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s FOR UPDATE", (pago_actual['cliente_id'],))
                 cliente = cur.fetchone()
                 cedula_cliente_para_redirect = cliente['cedula'] if cliente else None
             else:
                 cliente = None
 
+            # Validación: El pago debe existir y estar en estado 'Pendiente'
             if not pago_actual or pago_actual['estado_pago'] != 'Pendiente':
-                flash("El pago no se puede conciliar porque no está pendiente.", 'error')
+                flash("El pago no se puede conciliar porque no existe o no está pendiente.", 'error')
                 if cedula_cliente_para_redirect:
                     return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
                 return redirect(url_for('pagos_por_conciliar'))
+            
+            # =================================================================
+            # ===== CORRECCIÓN APLICADA AQUÍ =====
+            # La línea 'admin_id = g.admin['id']' se coloca en el lugar correcto.
+            # Debe estar dentro del bloque 'try' y después de las validaciones iniciales.
+            # =================================================================
+            admin_id = g.admin['id']
+            flash_msg = ""
+
+            # Lógica para pagos de 'Inscripción'
+            if pago_actual['tipo_pago'] == 'Inscripción':
+                inscripcion_pagada_actual = Decimal(cliente.get('inscripcion_pagada') or 0)
+                inscripcion_total_requerida = Decimal(cliente.get('inscripcion_monto') or 0)
+                nueva_inscripcion_pagada = inscripcion_pagada_actual + pago_actual['monto']
+
+                # Si con este pago se completa o supera el monto de la inscripción
+                if nueva_inscripcion_pagada >= inscripcion_total_requerida:
+                    # Busca abonos anteriores para consolidarlos
+                    cur.execute("SELECT * FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_pago = 'Conciliado'", (cliente['id'],))
+                    abonos_anteriores = cur.fetchall()
+                    
+                    monto_total_consolidado = nueva_inscripcion_pagada
+                    pago_final_id = None
+
+                    if not abonos_anteriores:
+                        # Si este es el primer y único pago que completa la inscripción
+                        cur.execute(
+                            "UPDATE pagos SET tipo_pago = 'Inscripción Finalizada', por_concepto_de = 'Pago total de inscripción', estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s RETURNING id",
+                            (admin_id, pago_id)
+                        )
+                        pago_final_id = cur.fetchone()[0]
+                    else:
+                        # Si había abonos previos, se consolidan todos en un nuevo recibo
+                        pagos_a_consolidar = abonos_anteriores + [pago_actual]
+                        ids_a_anular = [p['id'] for p in pagos_a_consolidar]
+                        
+                        pagos_individuales = [{"id": p['id'], "monto": str(p['monto']), "fecha": p['fecha_pago'].isoformat()} for p in pagos_a_consolidar]
+                        detalles_consolidados = {"pagos_individuales": pagos_individuales}
+                        
+                        cur.execute("""
+                            INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, estado_pago, por_concepto_de, detalles_reporte, conciliado_por_id, fecha_pago, cuotas_cubiertas) 
+                            VALUES (%s, %s, 'Inscripción Finalizada', 'Consolidado', 'Conciliado', 'Pago total de inscripción consolidado', %s, %s, %s, 0) RETURNING id
+                        """, (cliente['id'], monto_total_consolidado, json.dumps(detalles_consolidados), admin_id, pago_actual['fecha_pago']))
+                        pago_final_id = cur.fetchone()[0]
+
+                        # Anula los recibos individuales
+                        detalle_anulacion = json.dumps({"motivo": "Consolidado en recibo final", "recibo_final_id": pago_final_id})
+                        cur.execute("UPDATE pagos SET estado_pago = 'Anulado', detalles_reporte = %s WHERE id = ANY(%s)", (detalle_anulacion, ids_a_anular))
+                    
+                    # Actualiza el estado del cliente a 'INSCRITO'
+                    cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (monto_total_consolidado, cliente['id']))
+                    
+                    # Intenta calcular y guardar las comisiones correspondientes
+                    try:
+                        cur.execute("SELECT asesor, responsable, plan_contratado, contrato_nro FROM clientes WHERE id = %s", (cliente['id'],))
+                        info_cliente_comercial = cur.fetchone()
+                        if info_cliente_comercial and info_cliente_comercial['plan_contratado']:
+                            calcular_y_guardar_comisiones(
+                                contrato_nro=info_cliente_comercial['contrato_nro'],
+                                cliente_id=cliente['id'],
+                                monto_plan=Decimal(info_cliente_comercial['plan_contratado']),
+                                asesor_dueno=info_cliente_comercial['asesor'],
+                                responsable_cierre=info_cliente_comercial['responsable']
+                            )
+                    except Exception as e:
+                        logging.error(f"FALLO AL CALCULAR COMISIONES para contrato {cliente['contrato_nro']}: {e}")
+                        flash(f"Advertencia: El pago fue conciliado, pero hubo un error al generar las comisiones: {e}", "warning")
+
+                    descripcion_audit = f"Consolidó pagos de inscripción. Recibo final N°{pago_final_id} por ${monto_total_consolidado} para {cliente['nombre_apellido']}."
+                    registrar_accion_auditoria('CONSOLIDACION_INSCRIPCION', descripcion_audit, cliente['id'])
+                    flash_msg = "¡Inscripción consolidada! El cliente ahora puede pagar su primera cuota para activar el plan."
+                
+                else:
+                    # Si el pago es solo un abono a la inscripción
+                    cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
+                    cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
+                    flash_msg = f"Abono de inscripción N° {pago_id} conciliado exitosamente."
+
+            # Lógica para pagos de 'Cuota'
+            elif pago_actual['tipo_pago'] == 'Cuota':
+                if cliente['proceso'] == 'INSCRITO':
+                    cur.execute("UPDATE clientes SET proceso = 'Ahorrador', estatus = 'ACTIVO' WHERE id = %s", (cliente['id'],))
+                
+                valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
+                if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
+                
+                cpp, cpr, br = cliente.get('cuotas_pagadas_progresivas', 0), cliente.get('cuotas_pagadas_regresivas', 0), Decimal(cliente.get('balance_regresivo', 0))
+                mtd, pph, rph = pago_actual['monto'] + br, 0, 0
+                if mtd >= valor_cuota: pph, mtd = 1, mtd - valor_cuota
+                bp = mtd
+                while bp >= valor_cuota: rph, bp = rph + 1, bp - valor_cuota
+                nbf, ncpp, ncpr, cch = bp, cpp + pph, cpr + rph, pph + rph
+                
+                cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s;", (ncpp, ncpr, nbf, cliente['id']))
+                cur.execute("UPDATE pagos SET cuotas_cubiertas = %s, progresivas_cubiertas = %s, regresivas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s WHERE id = %s;", (cch, pph, rph, ncpp, ncpr, nbf, pago_id))
+                cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
+                flash_msg = f"¡Pago de cuota N° {pago_id} conciliado exitosamente!"
+
+            # Confirma todos los cambios en la base de datos
+            conn.commit()
+            flash(flash_msg, 'success')
+            return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
+
+    except (psycopg2.Error, ValueError, TypeError) as e:
+        # Si ocurre cualquier error, revierte todos los cambios
+        if conn: conn.rollback()
+        from flask import current_app
+        current_app.logger.error(f"Error al conciliar el pago {pago_id}: {e}")
+        flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
+        if cedula_cliente_para_redirect:
+            return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
+        return redirect(url_for('pagos_por_conciliar'))
             
             # --- CORRECCIÓN: La línea se movió aquí, dentro del 'try' ---
             admin_id = g.admin['id']
