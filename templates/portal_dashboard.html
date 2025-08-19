@@ -162,10 +162,12 @@
                         <h3 class="text-md font-bold text-slate-800">{{ estado_principal.titulo }}</h3>
                         <p class="text-sm text-slate-600 mt-2">{{ estado_principal.mensaje | safe }}</p>
                         {% if estado_principal.boton_texto %}
-                        <a href="{{ estado_principal.boton_url }}" class="inline-block mt-3 text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if not estado_principal.boton_activo %}opacity-50 cursor-not-allowed{% endif %}"
+                        <!-- ========= INICIO DE LA CORRECCIÓN ========= -->
+                        <a href="{{ estado_principal.boton_url }}" class="inline-block mt-3 text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if not estado_principal.boton_activo %}opacity-50 cursor-not-allowed pointer-events-none{% endif %}"
                            {% if not estado_principal.boton_activo %}title="Ya tienes un pago en revisión."{% endif %}>
                             {{ estado_principal.boton_texto }}
                         </a>
+                        <!-- ========= FIN DE LA CORRECCIÓN ========= -->
                         {% endif %}
                     </div>
                     {% endif %}
@@ -174,7 +176,7 @@
                     <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-800 p-4 rounded-lg">
                         <h3 class="font-bold text-md flex items-center gap-2"><i class="bi bi-info-circle-fill"></i> Ciclo de Cobranza Activo</h3>
                         <p class="mt-2 mb-3 text-sm">Nuestro ciclo de cobranza ha comenzado. Realiza tus pagos para mantenerte al día.</p>
-                         <a href="{{ url_for('portal_reportar_pago') }}" class="text-sm text-white font-semibold py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-700">
+                         <a href="{{ url_for('portal_reportar_pago') }}" class="text-sm text-white font-semibold py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 {% if hay_pago_pendiente_general %}opacity-50 cursor-not-allowed pointer-events-none{% endif %}">
                             Reportar un Pago
                         </a>
                     </div>
@@ -231,11 +233,9 @@
             </div>
              
             <!-- ========= INICIO DE LA CORRECCIÓN ========= -->
-            <!-- Este botón ahora solo aparece si el ciclo de cobranza está activo,
-                 evitando la duplicidad con el botón de "Pagar Inscripción". -->
             {% if ciclo_cobranza_activo %}
             <div class="p-5 border-t border-slate-200 bg-slate-50/50 rounded-b-xl">
-                 <a href="{{ url_for('portal_reportar_pago') }}" class="w-full text-center inline-block text-sm text-white font-semibold py-3 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600">
+                 <a href="{{ url_for('portal_reportar_pago') }}" class="w-full text-center inline-block text-sm text-white font-semibold py-3 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if hay_pago_pendiente_general %}opacity-50 cursor-not-allowed pointer-events-none{% endif %}">
                     <i class="bi bi-send-plus-fill mr-1"></i> Reportar un Pago
                 </a>
             </div>
