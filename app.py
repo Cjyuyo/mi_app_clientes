@@ -4259,6 +4259,73 @@ def ver_reporte(pago_id):
                 flash("No tienes permiso para ver este reporte.", "error")
                 return redirect(url_for('portal_dashboard'))
 
+            eventos_unificados = []
+            
+            pagos_relacionados = []
+            if pago['bulk_id']:
+                cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
+                pagos_relacionados = cur.fetchall()
+            else:
+                pagos_relacionados.append(pago)
+
+            for p in pagos_relacionados:
+                eventos_unificados.append({
+                    'fecha': p['fecha_creacion'],
+                    'tipo_evento': 'pago',
+                    'titulo': f"Reporte de Pago #{p['id']}",
+                    'descripcion': f"Cliente reportó un pago de ${p['monto']:.2f} ({p['monto_bs']:.2f} Bs) por concepto de \"{p['por_concepto_de']}\".",
+                    'estado': p['estado_reporte'],
+                    'data': dict(p)
+                })
+
+            ids_pagos = [p['id'] for p in pagos_relacionados]
+            if ids_pagos:
+                placeholders = ','.join(['%s'] * len(ids_pagos))
+                
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se añade el type cast (::integer) para comparar correctamente el texto del JSON con los IDs numéricos.
+                audit_query = f"""
+                    SELECT * FROM registros_auditoria 
+                    WHERE (detalles->>'pago_id')::integer IN ({placeholders}) 
+                    OR {' OR '.join([f"descripcion LIKE '%%reporte #{pid}%%' OR descripcion LIKE '%%reporte N° {pid}%%' " for pid in ids_pagos])}
+                    ORDER BY timestamp ASC
+                """
+                # --- FIN DE LA CORRECCIÓN ---
+
+                cur.execute(audit_query, tuple(ids_pagos))
+                auditoria = cur.fetchall()
+
+                for a in auditoria:
+                    eventos_unificados.append({
+                        'fecha': a['timestamp'],
+                        'tipo_evento': 'auditoria',
+                        'titulo': 'Acción Administrativa',
+                        'descripcion': a['descripcion'],
+                        'autor': a['usuario_nombre']
+                    })
+
+            eventos_unificados.sort(key=lambda x: x['fecha'])
+
+            return render_template(
+                'ver_reporte.html', 
+                pago=pago, 
+                is_client_view=is_client_view, 
+                is_admin_view=is_admin_view,
+                bitacora=eventos_unificados
+            )
+
+    except (psycopg2.Error, json.JSONDecodeError) as e:
+        logging.error(f"Error al cargar el reporte de pago {pago_id}: {e}")
+        flash(f"Ocurrió un error al cargar el reporte: {e}", "error")
+        # Redirige al hub si es admin, o a la home si no lo es
+        if is_admin_view:
+            return redirect(url_for('hub'))
+        return redirect(url_for('home'))
+
+            if is_client_view and pago['cliente_id'] != session['cliente_id']:
+                flash("No tienes permiso para ver este reporte.", "error")
+                return redirect(url_for('portal_dashboard'))
+
             # --- INICIO DE LA CORRECCIÓN: Crear bitácora unificada ---
             eventos_unificados = []
             
