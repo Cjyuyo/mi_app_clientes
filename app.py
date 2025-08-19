@@ -3299,6 +3299,7 @@ def portal_reportar_pago():
         flash('No se pudo conectar con la base de datos.', 'error')
         return redirect(url_for('portal_dashboard'))
 
+    # --- Lógica para obtener datos del cliente y la tasa (sin cambios) ---
     with conn.cursor() as cur:
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
         cliente = cur.fetchone()
@@ -3312,7 +3313,7 @@ def portal_reportar_pago():
     cliente_dict = dict(cliente)
     mes_actual = get_nombre_mes(get_venezuela_current_date().month)
 
-    # --- Lógica para determinar el monto a pagar ---
+    # --- Lógica para determinar el monto a pagar (sin cambios) ---
     monto_a_pagar_usd = Decimal('0.00')
     concepto_pago = ''
     
@@ -3326,12 +3327,11 @@ def portal_reportar_pago():
         monto_a_pagar_usd = cliente_dict.get('valor_cuota') or Decimal('0.0')
         concepto_pago = f"Cuota del mes de {mes_actual}"
     
-    # Calcular el monto equivalente en Bolívares
     tasa_bcv = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
     monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv).quantize(Decimal('0.01'))
 
+    # --- INICIO DE LA CORRECCIÓN EN LA LÓGICA POST ---
     if request.method == 'POST':
-        # ... (La lógica del POST se mantiene igual)
         pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
         try:
             with conn.cursor() as cur:
@@ -3339,15 +3339,30 @@ def portal_reportar_pago():
                 monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
                 tipo_pago_inicial = 'Inscripción' if inscripcion_pagada < inscripcion_total else 'Cuota'
 
+                # --- CORRECCIÓN ---
+                # Se ajusta la consulta para incluir únicamente 'cuotas_cubiertas' con un valor por defecto de 0.
+                # La lógica de 'bulk_id' e 'is_diferencia' se maneja del lado del administrador
+                # en la función 'procesar_reporte', no aquí.
                 pago_inicial_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s) RETURNING id;"""
+                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
+                                    cuotas_cubiertas)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s) RETURNING id;"""
+                
+                # Ejecutamos la consulta con los valores correctos.
                 cur.execute(pago_inicial_query, (
-                    cliente['id'], monto_equivalente_usd, monto_reportado_bs, tipo_pago_inicial, pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
+                    cliente['id'], monto_equivalente_usd, monto_reportado_bs, tipo_pago_inicial, 
+                    pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
                     pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv,
-                    get_venezuela_current_datetime(), concepto_pago))
+                    get_venezuela_current_datetime(), concepto_pago,
+                    0 # Valor por defecto para cuotas_cubiertas para evitar el error not-null.
+                ))
                 pago_id = cur.fetchone()[0]
+
+                # La lógica para manejar los pagos de diferencia (bulks) se encuentra en la ruta
+                # '/procesar_reporte/<int:pago_id>' que es utilizada por los administradores.
+                # Este endpoint solo se encarga de registrar el reporte inicial del cliente.
+
                 flash('✅ ¡Pago reportado! Será verificado por un administrador.', 'success')
                 conn.commit()
                 return redirect(url_for('portal_dashboard'))
@@ -3355,6 +3370,7 @@ def portal_reportar_pago():
             conn.rollback()
             logging.error(f"Error en portal_reportar_pago: {e}")
             flash(f'Ocurrió un error: {e}', 'error')
+    # --- FIN DE LA CORRECCIÓN ---
 
     return render_template('portal_reportar_pago.html', 
                            cliente=cliente, 
@@ -3363,6 +3379,7 @@ def portal_reportar_pago():
                            monto_a_pagar_usd=monto_a_pagar_usd,
                            monto_a_pagar_bs=monto_a_pagar_bs,
                            concepto_pago=concepto_pago)
+
 
 @app.route('/portal/diferencia/reportar/<int:bulk_id>/<int:order_id>', methods=['GET'])
 @portal_login_required
