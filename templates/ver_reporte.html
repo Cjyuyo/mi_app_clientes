@@ -2,13 +2,15 @@
 
 {% block title %}Revisar Reporte de Pago N° {{ pago.id }}{% endblock %}
 
+{% block page_title %}Revisión de Reporte{% endblock %}
+
 {% block body %}
 <div class="max-w-4xl mx-auto space-y-8">
     <!-- Encabezado de la página -->
     <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
             <h1 class="text-3xl font-bold text-slate-800">Revisar Reporte de Pago</h1>
-            <p class="text-slate-500 mt-1">Reporte N° {{ pago.id }}</p>
+            <p class="text-slate-500 mt-1">Reporte N° {{ pago.id }} para el cliente <strong>{{ pago.nombre_apellido }}</strong></p>
         </div>
         {% if is_admin_view %}
         <a href="{{ url_for('reportes_por_revisar') }}" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-slate-700 bg-slate-100 hover:bg-slate-200">
@@ -17,25 +19,53 @@
         {% endif %}
     </div>
 
+    <!-- Bloque de Comparación de Montos -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+            <h3 class="font-semibold text-slate-500 text-sm mb-1">Monto Esperado</h3>
+            <p class="text-3xl font-bold text-slate-800">{{ "%.2f"|format(pago.monto_esperado_bs) }} Bs.</p>
+            <p class="text-xs text-slate-400 mt-1">Calculado según valor de cuota y tasa del día.</p>
+        </div>
+        <div class="bg-white p-5 rounded-xl shadow-sm border 
+            {% if pago.monto_bs < pago.monto_esperado_bs %} border-red-300 bg-red-50 
+            {% elif pago.monto_bs > pago.monto_esperado_bs %} border-yellow-300 bg-yellow-50
+            {% else %} border-green-300 bg-green-50 {% endif %}">
+            <h3 class="font-semibold text-sm 
+                {% if pago.monto_bs < pago.monto_esperado_bs %} text-red-600
+                {% elif pago.monto_bs > pago.monto_esperado_bs %} text-yellow-600
+                {% else %} text-green-600 {% endif %}">Monto Reportado por Cliente</h3>
+            <p class="text-3xl font-bold 
+                {% if pago.monto_bs < pago.monto_esperado_bs %} text-red-700
+                {% elif pago.monto_bs > pago.monto_esperado_bs %} text-yellow-700
+                {% else %} text-green-700 {% endif %}">{{ "%.2f"|format(pago.monto_bs) }} Bs.</p>
+            
+            {# CORREGIDO: Se usa pago.monto_bs en lugar de pago.monto_reportado_bs que no existe #}
+            {% set diferencia = pago.monto_bs - pago.monto_esperado_bs %}
+            {% if diferencia < 0 %}
+                <p class="text-xs text-red-500 mt-1 font-semibold">Faltan {{ "%.2f"|format(diferencia|abs) }} Bs.</p>
+            {% elif diferencia > 0 %}
+                <p class="text-xs text-yellow-600 mt-1 font-semibold">Sobra(n) {{ "%.2f"|format(diferencia) }} Bs.</p>
+            {% else %}
+                 <p class="text-xs text-green-600 mt-1 font-semibold">El monto reportado coincide con el esperado.</p>
+            {% endif %}
+        </div>
+    </div>
+
     <!-- Tarjeta de Detalles del Reporte Principal -->
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="p-5 border-b border-slate-200">
-            <h2 class="text-lg font-bold text-slate-800">Detalles del Reporte Inicial</h2>
+            <h2 class="text-lg font-bold text-slate-800">Detalles del Reporte</h2>
         </div>
         <div class="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
             <!-- Columna 1 -->
             <div class="space-y-5">
                 <div class="bg-slate-50 p-3 rounded-lg">
-                    <span class="text-xs text-slate-500 block">Cliente</span>
-                    <span class="font-semibold text-slate-700">{{ pago.nombre_apellido }}</span>
-                </div>
-                <div class="bg-slate-50 p-3 rounded-lg">
-                    <span class="text-xs text-slate-500 block">Cédula</span>
-                    <span class="font-semibold text-slate-700">{{ pago.cedula }}</span>
-                </div>
-                <div class="bg-slate-50 p-3 rounded-lg">
                     <span class="text-xs text-slate-500 block">Concepto</span>
                     <span class="font-semibold text-slate-700">{{ pago.por_concepto_de or pago.tipo_pago }}</span>
+                </div>
+                 <div class="bg-slate-50 p-3 rounded-lg">
+                    <span class="text-xs text-slate-500 block">Forma de Pago</span>
+                    <span class="font-semibold text-slate-700">{{ pago.forma_pago }}</span>
                 </div>
             </div>
 
@@ -49,27 +79,10 @@
                     <span class="text-xs text-slate-500 block">Fecha del Pago</span>
                     <span class="font-semibold text-slate-700">{{ pago.fecha_pago | format_date }}</span>
                 </div>
-                <div class="bg-slate-50 p-3 rounded-lg">
-                    <span class="text-xs text-slate-500 block">Forma de Pago</span>
-                    <span class="font-semibold text-slate-700">{{ pago.forma_pago }}</span>
-                </div>
             </div>
 
-            <!-- Columna 3 - Detalles Financieros y Específicos -->
+            <!-- Columna 3 -->
             <div class="space-y-5">
-                 <div class="bg-slate-50 p-3 rounded-lg">
-                    <span class="text-xs text-slate-500 block">Monto Reportado</span>
-                    {% if pago.monto_bs and pago.monto_bs > 0 %}
-                        <span class="font-bold text-xl text-slate-800">{{ "%.2f"|format(pago.monto_bs) }} Bs.</span>
-                        {# --- CORRECCIÓN ---: Se añade una comprobación para evitar el error si la tasa es None #}
-                        {% if pago.tasa_dia and pago.tasa_dia > 0 %}
-                        <span class="text-xs text-slate-500 block">Equivalente: ${{ "%.2f"|format(pago.monto) }} @ {{ "%.2f"|format(pago.tasa_dia) }} Bs/$</span>
-                        {% endif %}
-                    {% else %}
-                        <span class="font-bold text-xl text-green-600">${{ "%.2f"|format(pago.monto) }}</span>
-                        <span class="text-xs text-slate-500 block">Moneda: {{ pago.pago_en or 'USD' }}</span>
-                    {% endif %}
-                </div>
                 <div class="bg-slate-50 p-3 rounded-lg">
                     <span class="text-xs text-slate-500 block">Referencia</span>
                     <span class="font-semibold text-slate-700">{{ pago.referencia or 'N/A' }}</span>
@@ -90,6 +103,7 @@
             <h2 class="text-lg font-bold text-slate-800">Bitácora de la Transacción</h2>
         </div>
         <div class="p-5">
+            {% if bitacora %}
             <ol class="relative border-l border-slate-200 space-y-8">
                 {% for evento in bitacora %}
                     <li class="ml-6">
@@ -121,57 +135,61 @@
                     </li>
                 {% endfor %}
             </ol>
+            {% else %}
+            <p class="text-center text-slate-500 py-4">No hay eventos en la bitácora para este reporte.</p>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Tarjeta de Acciones (Solo para Admin) -->
-    {% if is_admin_view %}
-    <div class="bg-white rounded-xl shadow-sm" x-data="{ showRejection: false, rejectionReason: '' }">
+    <!-- ========= SECCIÓN DE ACCIONES MODIFICADA ========= -->
+    {% if is_admin_view and pago.estado_reporte == 'Pendiente de Revision' %}
+    <div class="bg-white rounded-xl shadow-sm" x-data="{ showDiferenciaForm: false }">
         <div class="p-5 border-b border-slate-200">
             <h2 class="text-lg font-bold text-slate-800">Acciones de Validación</h2>
         </div>
         <div class="p-5">
-            <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST">
-                <p class="text-sm text-slate-600 mb-4">Selecciona una acción para este reporte. Si lo apruebas, pasará a la lista de conciliación. Si lo rechazas, se notificará al cliente.</p>
+            <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST" onsubmit="handleFormSubmit(this)">
                 
-                <div x-show="showRejection" x-transition class="bg-red-50 p-4 rounded-lg mb-4 border border-red-200">
-                    <div class="space-y-4">
-                        <div>
-                            <label for="motivo_rechazo" class="block text-sm font-medium text-slate-700"><strong>Motivo del Rechazo</strong></label>
-                            <select name="motivo_rechazo" id="motivo_rechazo" x-model="rejectionReason" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm">
-                                <option value="Referencia inválida">Referencia inválida o no encontrada</option>
-                                <option value="Diferencia de Monto">Diferencia de Monto</option>
-                                <option value="Datos incorrectos">Datos del reporte incorrectos (fecha, banco, etc.)</option>
-                                <option value="Otro">Otro (especificar en auditoría)</option>
-                            </select>
-                        </div>
-                        <div x-show="rejectionReason === 'Diferencia de Monto'" id="diferencia-monto-group">
-                            <label for="diferencia_monto" class="block text-sm font-medium text-slate-700">Monto Recibido Real (en Bs.)</label>
-                            <input type="number" step="0.01" name="diferencia_monto" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" placeholder="Ej: 12500.50">
-                            <p class="text-xs text-slate-500 mt-1">Ingresa el monto que realmente se recibió para calcular la diferencia.</p>
-                        </div>
+                <!-- Formulario para ingresar monto real (aparece al hacer clic) -->
+                <div x-show="showDiferenciaForm" x-transition class="bg-red-50 p-4 rounded-lg mb-4 border border-red-200">
+                    <h3 class="font-bold text-red-800 mb-2">Procesar con Diferencia</h3>
+                    <p class="text-sm text-red-700 mb-3">
+                        Esta acción se usa cuando el monto verificado en la cuenta es <strong>diferente</strong> al monto reportado por el cliente.
+                    </p>
+                    <div>
+                        <label for="monto_real_recibido" class="block text-sm font-medium text-slate-700">Monto Real Recibido (en Bs.)</label>
+                        <input type="number" step="0.01" name="monto_real_recibido" id="monto_real_recibido"
+                               class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" 
+                               placeholder="Ej: 41000.00" required>
+                        <p class="text-xs text-slate-500 mt-1">Ingresa el monto que realmente se recibió para calcular la diferencia.</p>
                     </div>
                 </div>
 
-                <div class="flex justify-end gap-3">
-                    <template x-if="!showRejection">
-                        <button type="button" @click="showRejection = true" class="text-sm bg-white text-red-600 font-semibold py-2 px-4 rounded-lg border border-red-300 hover:bg-red-50">
-                            Rechazar Reporte
+                <!-- Botones de acción -->
+                <div class="flex flex-col md:flex-row justify-end gap-3">
+                    <!-- Botón para mostrar el formulario de diferencia -->
+                    <template x-if="!showDiferenciaForm">
+                        <button type="button" @click="showDiferenciaForm = true" class="w-full md:w-auto text-sm bg-white text-red-600 font-semibold py-2 px-4 rounded-lg border border-red-300 hover:bg-red-50">
+                            Procesar con Diferencia
                         </button>
                     </template>
-                     <template x-if="showRejection">
-                        <button type="button" @click="showRejection = false" class="text-sm bg-white text-slate-700 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50">
+                    
+                    <!-- Botones que aparecen cuando el formulario de diferencia está visible -->
+                    <template x-if="showDiferenciaForm">
+                        <button type="button" @click="showDiferenciaForm = false" class="w-full md:w-auto text-sm bg-white text-slate-700 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50">
                             Cancelar
                         </button>
                     </template>
-                    <template x-if="showRejection">
-                        <button type="submit" name="accion" value="rechazar" class="text-sm bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700">
-                            Confirmar Rechazo
+                    <template x-if="showDiferenciaForm">
+                         <button type="submit" name="accion" value="confirmar_diferencia" class="w-full md:w-auto text-sm bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700">
+                            <i class="bi bi-exclamation-triangle-fill mr-1"></i> Guardar Diferencia
                         </button>
                     </template>
-                    <template x-if="!showRejection">
-                        <button type="submit" name="accion" value="aprobar" class="text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700">
-                            <i class="bi bi-check-circle-fill mr-1"></i> Aprobar y Enviar a Conciliación
+
+                    <!-- Botón para aprobar el monto reportado (siempre que no se esté procesando una diferencia) -->
+                    <template x-if="!showDiferenciaForm">
+                        <button type="submit" name="accion" value="aprobar_completo" class="w-full md:w-auto text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700">
+                            <i class="bi bi-check-circle-fill mr-1"></i> Aprobar Monto Reportado
                         </button>
                     </template>
                 </div>
@@ -179,5 +197,6 @@
         </div>
     </div>
     {% endif %}
+    <!-- ========= FIN DE LA SECCIÓN DE ACCIONES ========= -->
 </div>
 {% endblock %}

@@ -4,6 +4,8 @@
     Reportes por Revisar
 {% endblock %}
 
+{% block page_title %}Reportes por Revisar{% endblock %}
+
 {% block head_extra %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="//unpkg.com/alpinejs" defer></script>
@@ -56,25 +58,22 @@
                         <div class="text-sm space-y-1 text-left md:text-right w-full md:w-auto">
                             {% set monto_reportado = reporte.monto_bs|float %}
                             {% set monto_esperado = reporte.monto_esperado_bs|float if reporte.monto_esperado_bs else monto_reportado %}
-                            {% set tiene_diferencia = monto_reportado < monto_esperado %}
+                            {% set tiene_diferencia = (monto_reportado - monto_esperado)|abs > 0.01 %}
                             
                             <p class="text-slate-500">Monto Esperado: <span class="font-semibold text-slate-700">{{ "%.2f"|format(monto_esperado) }} Bs</span></p>
                             <p class="text-slate-500">Monto Reportado: <span class="font-semibold {% if tiene_diferencia %}text-red-600{% else %}text-green-600{% endif %}">{{ "%.2f"|format(monto_reportado) }} Bs</span></p>
                         </div>
-                        <!-- Botones de Acción -->
-                        <div class="flex items-center space-x-2 mt-4 md:mt-0 md:ml-6">
-                            {% if tiene_diferencia %}
-                                <form action="{{ url_for('procesar_reporte', pago_id=reporte.id) }}" method="POST">
-                                    <input type="hidden" name="accion" value="confirmar_diferencia">
-                                    <button type="submit" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-3 rounded-lg text-sm">Procesar Diferencia</button>
-                                </form>
-                            {% else %}
-                                <form action="{{ url_for('procesar_reporte', pago_id=reporte.id) }}" method="POST">
-                                    <input type="hidden" name="accion" value="aprobar_completo">
-                                    <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 rounded-lg text-sm">Aprobar Completo</button>
-                                </form>
-                            {% endif %}
+
+                        <!-- ========= SECCIÓN DE ACCIONES CORREGIDA ========= -->
+                        <!-- Se eliminaron los botones de acción directa. -->
+                        <!-- Ahora solo hay un botón para ir a la vista de detalles. -->
+                        <div class="flex items-center mt-4 md:mt-0 md:ml-6">
+                            <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm">
+                                Revisar Reporte
+                            </a>
                         </div>
+                        <!-- ========= FIN DE LA CORRECCIÓN ========= -->
+
                     </div>
                 </div>
                 {% endfor %}
