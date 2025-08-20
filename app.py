@@ -1193,17 +1193,16 @@ def procesar_reporte(pago_id):
                 
                 monto_validado = Decimal('0.0')
                 monto_esperado = Decimal('0.0')
-                tasa = None # --- CORRECCIÓN: Inicializar tasa aquí ---
+                tasa = None
 
                 if currency == 'VES':
                     monto_validado = pago['monto_bs']
                     valor_cuota_usd = pago.get('valor_cuota') or Decimal('0.0')
-                    tasa = pago.get('tasa_dia') or Decimal('1.0') # Se asigna valor a tasa
+                    tasa = pago.get('tasa_dia') or Decimal('1.0')
                     monto_esperado = (valor_cuota_usd * tasa).quantize(Decimal('0.01')) if tasa > 0 else monto_validado
                 else: # currency es 'USD'
                     monto_validado = pago['monto']
                     monto_esperado = pago.get('valor_cuota') or Decimal('0.0')
-                    # tasa se mantiene como None, que es el valor correcto para pagos en USD
 
                 if monto_validado >= monto_esperado:
                     flash("Acción no válida. El monto reportado es suficiente. Por favor, use 'Aprobar Completo'.", "warning")
@@ -1222,19 +1221,22 @@ def procesar_reporte(pago_id):
                     monto_validado_usd = monto_validado
                     monto_validado_bs = None
 
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se usa .get() para manejar de forma segura los campos que pueden ser nulos (como 'banco')
                 cur.execute("""
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
                                     estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, bulk_id, estado_pago, revisado_por_id, fecha_revision)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Aprobado', NOW(), FALSE, %s, %s, 'Pendiente', %s, NOW())
                 """, (
-                    cliente_id, monto_validado_usd, monto_validado_bs, pago['tipo_pago'],
-                    pago['forma_pago'], pago['fecha_pago'], f"Parte validada de #{pago_id}", pago['banco'], tasa,
-                    f"Parte validada de '{pago['por_concepto_de']}'", bulk_id, g.admin['id']
+                    cliente_id, monto_validado_usd, monto_validado_bs, pago.get('tipo_pago'),
+                    pago.get('forma_pago'), pago.get('fecha_pago'), f"Parte validada de #{pago_id}", pago.get('banco'), tasa,
+                    f"Parte validada de '{pago.get('por_concepto_de', '')}'", bulk_id, g.admin['id']
                 ))
+                # --- FIN DE LA CORRECCIÓN ---
 
                 detalles_actualizados = {
                     'motivo': 'Diferencia de Monto',
-                    'monto_original_reportado': str(pago['monto_bs'] or pago['monto']),
+                    'monto_original_reportado': str(pago.get('monto_bs') or pago.get('monto')),
                     'monto_recibido_real': str(monto_validado)
                 }
                 cur.execute(
@@ -1267,9 +1269,8 @@ def procesar_reporte(pago_id):
 
             conn.commit()
 
-    except (psycopg2.Error, ValueError, InvalidOperation, NameError) as e: # Añadido NameError para ser explícito
+    except (psycopg2.Error, ValueError, InvalidOperation, NameError) as e:
         conn.rollback()
-        # Loguear el error real te ayudará a depurar en el futuro
         logging.error(f"Error al procesar el reporte {pago_id}: {e}", exc_info=True)
         flash(f"Error CRÍTICO al procesar el reporte: {e}", "error")
     
