@@ -2286,12 +2286,8 @@ def admin_tasa_bcv():
     try:
         with conn.cursor() as cur:
             if request.method == 'POST':
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se eliminan las comas para soportar el formato de copia y pega, 
-                # pero se mantiene el punto como separador decimal.
                 tasa_usd_str = request.form.get('tasa_usd', '').replace(',', '.')
                 tasa_eur_str = request.form.get('tasa_eur', '').replace(',', '.')
-                # --- FIN DE LA CORRECCIÓN ---
 
                 if not tasa_usd_str and not tasa_eur_str:
                     flash('Debe ingresar al menos un valor de tasa para guardar.', 'warning')
@@ -3622,10 +3618,7 @@ def portal_reportar_pago():
     
     tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
     
-    # --- INICIO DE LA CORRECCIÓN ---
-    # Se elimina el redondeo prematuro para mostrar el valor exacto.
     monto_a_pagar_bs = monto_a_pagar_usd * tasa_bcv_calculo
-    # --- FIN DE LA CORRECCIÓN ---
 
     if request.method == 'POST':
         pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
@@ -4218,9 +4211,6 @@ def portal_corregir_reporte(pago_id):
 def portal_pagar_inscripcion():
     """
     Ruta para que un cliente reporte el pago de su inscripción.
-    CORRECCIÓN: Se estandariza la lógica para que el monto en USD guardado sea siempre
-    el oficial del plan del cliente, no uno recalculado a partir del monto en Bs,
-    evitando así discrepancias de forma definitiva.
     """
     conn = get_db()
     if not conn:
@@ -4254,7 +4244,6 @@ def portal_pagar_inscripcion():
         
         try:
             with conn.cursor() as cur:
-                # --- INICIO DE LA LÓGICA CORREGIDA Y ESTANDARIZADA ---
                 cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
                 tasa_del_dia_row = cur.fetchone()
                 tasa_bcv_dia = tasa_del_dia_row['tasa'] if tasa_del_dia_row and tasa_del_dia_row['tasa'] else Decimal('0.0')
@@ -4264,14 +4253,10 @@ def portal_pagar_inscripcion():
                     return redirect(url_for('portal_dashboard'))
 
                 monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                
-                # Se determina el monto oficial en USD que se debe guardar.
                 monto_usd_a_guardar = monto_restante
                 
-                # Para pagos en Binance, el monto reportado por el usuario es en USD y se considera correcto.
                 if pago_form.get('forma_pago') == 'Binance':
                      monto_usd_a_guardar = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
-                # --- FIN DE LA LÓGICA CORREGIDA ---
 
                 pago_origen_id = pago_form.get('pago_origen_id')
                 pago_query = """
@@ -4292,8 +4277,8 @@ def portal_pagar_inscripcion():
 
                 cur.execute(pago_query, (
                     session['cliente_id'], 
-                    monto_usd_a_guardar, # Se guarda el monto oficial en USD.
-                    monto_reportado_bs, # Se guarda el monto en Bs que el cliente reportó.
+                    monto_usd_a_guardar,
+                    monto_reportado_bs,
                     pago_form['forma_pago'], pago_form['fecha_pago'], pago_form.get('pago_en'), 
                     concepto, pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_dia, 
                     get_venezuela_current_datetime(), detalles_json, pago_origen_id
@@ -4697,28 +4682,34 @@ def ver_reporte(pago_id):
 
             pago = dict(pago_row)
             
-            # Se asegura que el cálculo del "Monto Esperado" use siempre la tasa exacta
-            # guardada en el registro del pago, sin redondearla.
+            # --- INICIO DE LA CORRECCIÓN DEFINITIVA ---
+            # 1. Se obtiene la fecha en que se realizó el pago.
+            fecha_del_pago = pago['fecha_pago']
+
+            # 2. Se consulta la tabla 'historial_tasas_bcv' para obtener la tasa MÁS PRECISA
+            #    disponible para esa fecha. Esta es la fuente de verdad.
+            cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
+            tasa_precisa_row = cur.fetchone()
+
+            # 3. Se asigna la tasa precisa para el cálculo.
+            tasa_exacta_para_calculo = tasa_precisa_row['tasa'] if tasa_precisa_row and tasa_precisa_row['tasa'] else pago.get('tasa_dia')
             
-            # 1. Determinar el monto de referencia en USD
-            # --- INICIO DE LA CORRECCIÓN ---
+            # 4. Se actualiza el valor de 'tasa_dia' en el diccionario 'pago' para que la plantilla
+            #    muestre la tasa correcta y precisa al administrador.
+            pago['tasa_dia'] = tasa_exacta_para_calculo
+            # --- FIN DE LA CORRECCIÓN DEFINITIVA ---
+
             pago['monto_dolares_referencia'] = Decimal('0.0')
             if pago.get('tipo_pago') and 'Cuota' in pago['tipo_pago']:
                 pago['monto_dolares_referencia'] = pago.get('valor_cuota', Decimal('0.0'))
             elif pago.get('tipo_pago') and 'Inscripción' in pago['tipo_pago']:
-                # Para la inscripción, la referencia es el monto oficial guardado en el pago.
                 pago['monto_dolares_referencia'] = pago.get('monto', Decimal('0.0'))
-            # --- FIN DE LA CORRECCIÓN ---
             
-            # 2. Calcular el Monto Esperado en Bolívares sin redondeo intermedio
+            # 5. Se calcula el 'Monto Esperado' usando SIEMPRE la tasa exacta que se obtuvo.
             pago['monto_esperado_bs'] = Decimal('0.0')
-            tasa_exacta_guardada = pago.get('tasa_dia')
-            
-            if pago.get('forma_pago') != 'Binance' and pago['monto_dolares_referencia'] and tasa_exacta_guardada:
-                # Se multiplica directamente usando la tasa exacta.
-                pago['monto_esperado_bs'] = (pago['monto_dolares_referencia'] * tasa_exacta_guardada)
+            if pago.get('forma_pago') != 'Binance' and pago['monto_dolares_referencia'] and tasa_exacta_para_calculo:
+                pago['monto_esperado_bs'] = (pago['monto_dolares_referencia'] * tasa_exacta_para_calculo)
 
-            # 3. Decodificar detalles del reporte (JSON)
             detalles = pago.get('detalles_reporte')
             if isinstance(detalles, str):
                 try:
@@ -4728,7 +4719,6 @@ def ver_reporte(pago_id):
             elif detalles is None:
                 pago['detalles_reporte'] = {}
 
-            # Lógica para construir la bitácora de eventos
             eventos_unificados = []
             pagos_relacionados = [pago]
             if pago['bulk_id']:
