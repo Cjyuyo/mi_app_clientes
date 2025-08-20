@@ -108,9 +108,7 @@
             </div>
         </a>
         
-        <!-- ====================================================== -->
-        <!-- ===== NUEVA TARJETA: GESTIÓN DE USUARIOS ===== -->
-        <!-- ====================================================== -->
+        <!-- Tarjeta: Gestión de Usuarios -->
         <a href="{{ url_for('gestion_usuarios') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 flex items-start space-x-4">
             <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-gray-100 text-gray-600">
                 <i class="bi bi-people-fill text-2xl"></i>
@@ -118,6 +116,19 @@
             <div>
                 <h2 class="font-bold text-slate-800 group-hover:text-gray-800 transition-colors">Gestión de Usuarios</h2>
                 <p class="text-sm text-slate-500 mt-1">Administra las cuentas y permisos de los usuarios del sistema.</p>
+            </div>
+        </a>
+
+        <!-- ====================================================== -->
+        <!-- ===== NUEVA TARJETA: TASA DE CAMBIO (BCV) ===== -->
+        <!-- ====================================================== -->
+        <a href="{{ url_for('admin_tasa_bcv') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 flex items-start space-x-4">
+            <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-cyan-100 text-cyan-600">
+                <i class="bi bi-coin text-2xl"></i>
+            </div>
+            <div>
+                <h2 class="font-bold text-slate-800 group-hover:text-cyan-600 transition-colors">Tasa de Cambio (BCV)</h2>
+                <p class="text-sm text-slate-500 mt-1">Establece y consulta el valor de la tasa de cambio del día.</p>
             </div>
         </a>
 
