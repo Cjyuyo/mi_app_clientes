@@ -206,9 +206,11 @@
                     <form action="{{ url_for('consulta') }}" method="post" class="w-full max-w-md" onsubmit="handleFormSubmit(this)">
                         <div class="relative flex items-center">
                             <i class="bi bi-search absolute left-4 text-slate-400"></i>
-                            <input type="search" name="busqueda" placeholder="Buscar por Nombre, Apellido o Cédula..."
+                            <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
+                            <input type="search" name="busqueda" placeholder="Buscar por cédula, nombre o apellido..."
                                    class="w-full pl-11 pr-20 py-2 text-sm text-slate-700 bg-slate-100 border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all duration-300"
                                    value="{{ busqueda if busqueda }}">
+                            <!-- ===== FIN DE LA CORRECCIÓN ===== -->
                             <!-- AÑADIDO: Botón de búsqueda discreto -->
                             <button type="submit" class="absolute right-1.5 h-8 w-16 text-sm font-semibold text-orange-600 bg-orange-100 hover:bg-orange-200 rounded-full transition-colors disabled:opacity-70 disabled:cursor-not-allowed">
                                 <span>Buscar</span>

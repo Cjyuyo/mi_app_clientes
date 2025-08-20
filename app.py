@@ -2746,9 +2746,20 @@ def consulta():
         else:
             try:
                 with conn.cursor() as cur:
-                    query_clientes = "SELECT *, inscripcion_monto AS inscripcion FROM clientes WHERE cedula ILIKE %s OR nombre ILIKE %s OR apellido ILIKE %s ORDER BY nombre, apellido LIMIT 20;"
-                    patron_busqueda = f'%{termino_busqueda}%'
-                    cur.execute(query_clientes, (patron_busqueda, patron_busqueda, patron_busqueda))
+                    # --- INICIO DE LA CORRECCIÓN: Lógica de búsqueda mejorada ---
+                    # Primero intenta una coincidencia exacta por cédula.
+                    # Si no, busca por nombre o apellido.
+                    query_clientes = """
+                        SELECT *, inscripcion_monto AS inscripcion FROM clientes 
+                        WHERE cedula = %s 
+                        OR nombre ILIKE %s 
+                        OR apellido ILIKE %s 
+                        ORDER BY nombre, apellido LIMIT 20;
+                    """
+                    patron_busqueda_like = f'%{termino_busqueda}%'
+                    cur.execute(query_clientes, (termino_busqueda, patron_busqueda_like, patron_busqueda_like))
+                    # --- FIN DE LA CORRECCIÓN ---
+
                     for cliente in cur.fetchall():
                         cliente_dict = dict(cliente)
                         cliente_dict['nombre_apellido'] = f"{cliente.get('nombre', '')} {cliente.get('apellido', '')}".strip()
