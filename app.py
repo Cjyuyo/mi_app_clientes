@@ -1175,12 +1175,25 @@ def procesar_reporte(pago_id):
             cliente_id = pago['cliente_id']
 
             if accion == 'confirmar_diferencia':
-                monto_validado = pago['monto_bs'] or pago['monto']
-                monto_reportado = monto_validado
+                # --- INICIO DE LA CORRECCIÓN ---
+
+                # 1. Determinar la moneda del pago original
+                currency = 'VES' if pago.get('monto_bs') and pago['monto_bs'] > 0 else 'USD'
                 
-                valor_cuota = pago.get('valor_cuota') or Decimal('0.0')
-                tasa_dia = pago.get('tasa_dia') or Decimal('0.0')
-                monto_esperado = (valor_cuota * tasa_dia).quantize(Decimal('0.01')) if tasa_dia > 0 else monto_reportado
+                monto_validado = Decimal('0.0')
+                monto_esperado = Decimal('0.0')
+
+                # 2. Realizar cálculos basados en la moneda
+                if currency == 'VES':
+                    monto_validado = pago['monto_bs']
+                    valor_cuota_usd = pago.get('valor_cuota') or Decimal('0.0')
+                    tasa_dia = pago.get('tasa_dia') or Decimal('0.0')
+                    monto_esperado = (valor_cuota_usd * tasa_dia).quantize(Decimal('0.01')) if tasa_dia > 0 else monto_validado
+                else: # currency es 'USD'
+                    monto_validado = pago['monto']
+                    monto_esperado = pago.get('valor_cuota') or Decimal('0.0')
+
+                # --- FIN DE LA CORRECCIÓN ---
 
                 if monto_validado >= monto_esperado:
                     flash("Acción no válida. El monto reportado es suficiente. Por favor, use 'Aprobar Completo'.", "warning")
@@ -1189,39 +1202,55 @@ def procesar_reporte(pago_id):
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status)
                     VALUES (%s, %s, %s, 'UNDER_REVIEW') RETURNING id
-                """, (cliente_id, 'VES' if pago['monto_bs'] else 'USD', monto_esperado))
+                """, (cliente_id, currency, monto_esperado)) # Se usa la moneda correcta
                 bulk_id = cur.fetchone()[0]
 
-                tasa = pago.get('tasa_dia') or Decimal('1.0')
-                monto_validado_usd = (monto_validado / tasa).quantize(Decimal('0.01')) if tasa > 0 and pago['monto_bs'] else monto_validado
+                # --- INICIO DE LA CORRECCIÓN ---
+
+                # 3. Preparar montos para el nuevo pago validado
+                if currency == 'VES':
+                    tasa = pago.get('tasa_dia') or Decimal('1.0')
+                    monto_validado_usd = (monto_validado / tasa).quantize(Decimal('0.01')) if tasa > 0 else monto_validado
+                    monto_validado_bs = monto_validado
+                else: # currency es 'USD'
+                    monto_validado_usd = monto_validado
+                    monto_validado_bs = None
+
+                # --- FIN DE LA CORRECCIÓN ---
+
                 cur.execute("""
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
                                     estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, bulk_id, estado_pago, revisado_por_id, fecha_revision)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Aprobado', NOW(), FALSE, %s, %s, 'Pendiente', %s, NOW())
                 """, (
-                    cliente_id, monto_validado_usd, monto_validado if pago['monto_bs'] else None, pago['tipo_pago'],
-                    pago['forma_pago'], pago['fecha_pago'], f"Parte validada de #{pago_id}", pago['banco'], tasa,
+                    cliente_id, monto_validado_usd, monto_validado_bs, pago['tipo_pago'], # Se usan los montos corregidos
+                    pago['forma_pago'], pago['fecha_pago'], f"Parte validada de #{pago_id}", pago['banco'], pago.get('tasa_dia'),
                     f"Parte validada de '{pago['por_concepto_de']}'", bulk_id, g.admin['id']
                 ))
 
                 detalles_actualizados = {
                     'motivo': 'Diferencia de Monto',
-                    'monto_original_reportado': str(monto_reportado),
+                    'monto_original_reportado': str(pago['monto_bs'] or pago['monto']),
                     'monto_recibido_real': str(monto_validado)
                 }
                 cur.execute(
                     "UPDATE pagos SET estado_reporte = 'Inconsistente', revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s, bulk_id = %s WHERE id = %s",
                     (g.admin['id'], json.dumps(detalles_actualizados), bulk_id, pago_id)
                 )
+                
+                # --- INICIO DE LA CORRECCIÓN ---
 
+                # 4. Calcular diferencia y crear orden de pago con la moneda y monto correctos
                 monto_pendiente = monto_esperado - monto_validado
                 cur.execute("""
                     INSERT INTO payment_orders (bulk_id, cliente_id, amount, currency, status)
                     VALUES (%s, %s, %s, %s, 'ISSUED')
-                """, (bulk_id, cliente_id, monto_pendiente, 'VES' if pago['monto_bs'] else 'USD'))
+                """, (bulk_id, cliente_id, monto_pendiente, currency)) # Se usa la moneda y monto correctos
+                
+                # --- FIN DE LA CORRECCIÓN ---
                 
                 recalcular_totales_bulk(bulk_id)
-                descripcion_audit = f"Confirmó diferencia para reporte #{pago_id}. Se generó orden de pago por {monto_pendiente} Bs."
+                descripcion_audit = f"Confirmó diferencia para reporte #{pago_id}. Se generó orden de pago por {monto_pendiente:,.2f} {currency}."
                 registrar_accion_auditoria('CONFIRMAR_DIFERENCIA_PAGO', descripcion_audit, cliente_id, {'pago_id': pago_id})
                 flash("Pago parcial procesado. Se ha movido a la pestaña 'Con Diferencia' y se ha notificado al cliente.", "success")
 
