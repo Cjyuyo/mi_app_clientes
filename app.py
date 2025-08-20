@@ -4660,7 +4660,7 @@ def portal_solicitar_retiro():
 
 @app.route('/ver_reporte/<int:pago_id>')
 @app.route('/portal/ver_reporte/<int:pago_id>')
-def ver_reporte(p pago_id):
+def ver_reporte(pago_id):
     is_client_view = 'cliente_id' in session and g.cliente is not None
     is_admin_view = 'admin_id' in session and g.admin is not None
 
@@ -4697,7 +4697,6 @@ def ver_reporte(p pago_id):
 
             pago = dict(pago_row)
             
-            # --- INICIO DE LA CORRECCIÓN ---
             # Se asegura que el cálculo del "Monto Esperado" use siempre la tasa exacta
             # guardada en el registro del pago, sin redondearla.
             
@@ -4726,7 +4725,6 @@ def ver_reporte(p pago_id):
                     pago['detalles_reporte'] = {}
             elif detalles is None:
                 pago['detalles_reporte'] = {}
-            # --- FIN DE LA CORRECCIÓN ---
 
             # Lógica para construir la bitácora de eventos
             eventos_unificados = []
@@ -4734,14 +4732,14 @@ def ver_reporte(p pago_id):
             if pago['bulk_id']:
                 cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
                 pagos_relacionados = [dict(p) for p in cur.fetchall()]
-            for p in pagos_relacionados:
+            for p_item in pagos_relacionados:
                 eventos_unificados.append({
-                    'fecha': p['fecha_creacion'], 'tipo_evento': 'pago',
-                    'titulo': f"Reporte de Pago #{p['id']}",
-                    'descripcion': f"Cliente reportó un pago por concepto de \"{p.get('por_concepto_de', 'N/A')}\".",
-                    'estado': p['estado_reporte'], 'data': p
+                    'fecha': p_item['fecha_creacion'], 'tipo_evento': 'pago',
+                    'titulo': f"Reporte de Pago #{p_item['id']}",
+                    'descripcion': f"Cliente reportó un pago por concepto de \"{p_item.get('por_concepto_de', 'N/A')}\".",
+                    'estado': p_item['estado_reporte'], 'data': p_item
                 })
-            ids_pagos = [p['id'] for p in pagos_relacionados]
+            ids_pagos = [p_item['id'] for p_item in pagos_relacionados]
             if ids_pagos:
                 placeholders = ','.join(['%s'] * len(ids_pagos))
                 audit_query = f"""
