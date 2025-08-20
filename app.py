@@ -2777,62 +2777,64 @@ def registrar_pago(client_id):
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
         return redirect(url_for('consulta'))
+
     with conn.cursor() as cur:
         cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
         cliente = cur.fetchone()
         today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
         cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
         tasas_hoy = cur.fetchone()
+
     if not cliente:
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('consulta'))
-    if request.method == 'POST':
-        pago_form = {k: v if v else None for k, v in request.form.items()}
-        tipo_pago = pago_form.get('tipo_pago')
-        inscripcion_total = Decimal(cliente.get('inscripcion_monto') or 0)
-        inscripcion_pagada = Decimal(cliente.get('inscripcion_pagada') or 0)
-        if tipo_pago == 'Cuota' and inscripcion_pagada < inscripcion_total:
-            flash('Error: No se puede registrar un pago de cuota hasta que la inscripción esté 100% pagada.', 'error')
-            return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
-        if tipo_pago == 'Inscripción' and inscripcion_pagada >= inscripcion_total:
-            flash('Error: La inscripción para este cliente ya ha sido completada.', 'error')
-            return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
-        
-        forma_pago = pago_form.get('forma_pago')
-        referencia = pago_form.get('referencia')
-        
-        if forma_pago != 'Efectivo' and not referencia:
-            flash('Error: La referencia es obligatoria para pagos que no son en efectivo.', 'error')
-            return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
 
-        moneda_referencia, pago_en_valor = None, pago_form.get('pago_en')
-        if pago_en_valor == 'Dolar/BCV': moneda_referencia = 'USD'
-        elif pago_en_valor == 'Euro/BCV': moneda_referencia = 'EUR'
+    if request.method == 'POST':
+        pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
+        
         try:
             with conn.cursor() as cur:
-                detalles_pago = {}
-                if forma_pago == 'Pago Móvil':
-                    detalles_pago['telefono_emisor'] = pago_form.get('pago_movil_telefono')
-                    detalles_pago['cedula_emisor'] = pago_form.get('pago_movil_cedula')
-                elif forma_pago == 'Binance':
-                    detalles_pago['usuario_binance'] = pago_form.get('binance_user')
-                detalles_json = json.dumps(detalles_pago) if detalles_pago else None
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se obtiene la tasa de cambio del día directamente desde la BD en el backend
+                # para asegurar que siempre se guarde el valor correcto.
+                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
+                tasa_del_dia_row = cur.fetchone()
+                tasa_bcv_dia = tasa_del_dia_row['tasa'] if tasa_del_dia_row and tasa_del_dia_row['tasa'] else Decimal('0.0')
+
+                # Si no hay tasa y el pago es en Bs, se detiene la operación.
+                if tasa_bcv_dia == Decimal('0.0') and pago_form.get('forma_pago') not in ['Efectivo', 'Binance']:
+                    flash('No se pudo registrar el pago porque no hay una tasa de cambio configurada para hoy. Por favor, configure la tasa BCV.', 'danger')
+                    return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
+
+                monto_bs_str = pago_form.get('monto_bs', '0').replace(',', '.')
+                monto_bs = Decimal(monto_bs_str) if monto_bs_str else Decimal('0.0')
+                
+                monto_usd = Decimal('0.0')
+                if monto_bs > 0 and tasa_bcv_dia > 0:
+                    monto_usd = (monto_bs / tasa_bcv_dia).quantize(Decimal('0.01'))
+                else:
+                    monto_usd_str = pago_form.get('monto', '0').replace(',', '.')
+                    monto_usd = Decimal(monto_usd_str) if monto_usd_str else Decimal('0.0')
+                # --- FIN DE LA CORRECCIÓN ---
 
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, lugar_emision,
                                         tasa_dia, monto_bs, estado_pago, cuotas_cubiertas, moneda_referencia, fecha_creacion, registrado_por_id, detalles_reporte)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, %s, %s, %s, %s);
                 """
-                cur.execute(pago_query, (client_id, pago_form['monto'], tipo_pago, forma_pago, pago_form['fecha_pago'], pago_form.get('pago_en'), 
-                                         pago_form.get('por_concepto_de'), referencia, pago_form.get('banco'), pago_form.get('lugar_emision'), 
-                                         pago_form.get('tasa_dia'), pago_form.get('monto_bs'), moneda_referencia, get_venezuela_current_datetime(), g.admin['id'], detalles_json))
+                cur.execute(pago_query, (
+                    client_id, monto_usd, pago_form['tipo_pago'], pago_form['forma_pago'], pago_form['fecha_pago'], pago_form.get('pago_en'), 
+                    pago_form.get('por_concepto_de'), pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('lugar_emision'), 
+                    tasa_bcv_dia, monto_bs, 'USD', get_venezuela_current_datetime(), g.admin['id'], None
+                ))
                 conn.commit()
-                flash(f"¡Pago de {tipo_pago} registrado como PENDIENTE! Ahora debe ser conciliado.", 'success')
+                flash(f"¡Pago de {pago_form['tipo_pago']} registrado como PENDIENTE! Ahora debe ser conciliado.", 'success')
                 return redirect(url_for('consulta', busqueda=cliente['cedula']))
         except (psycopg2.Error, ValueError, TypeError) as e:
             conn.rollback()
             flash(f'Ocurrió un error al registrar el pago: {e}', 'error')
             return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
+            
     return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
 
 # --- LÓGICA DE CONCILIACIÓN CON CONSOLIDACIÓN (VERSIÓN FINAL) ---
@@ -3533,11 +3535,6 @@ def portal_dashboard():
 @app.route('/portal/reportar_pago', methods=['GET', 'POST'])
 @portal_login_required
 def portal_reportar_pago():
-    """
-    Muestra el formulario para reportar un pago y procesa el envío.
-    Esta ruta ahora maneja tanto pagos normales (inscripción/cuota) como
-    el pago de una diferencia asociada a un 'bulk'.
-    """
     conn = get_db()
     if not conn:
         flash('No se pudo conectar con la base de datos.', 'error')
@@ -3555,13 +3552,10 @@ def portal_reportar_pago():
     
     cliente_dict = dict(cliente)
     mes_actual = get_nombre_mes(get_venezuela_current_date().month)
-
-    # Determinar el concepto y monto del pago si es un pago normal
-    monto_a_pagar_usd = Decimal('0.00')
-    concepto_pago = ''
     inscripcion_pagada = cliente_dict.get('inscripcion_pagada') or Decimal('0.0')
     inscripcion_total = cliente_dict.get('inscripcion_monto') or Decimal('0.0')
-
+    
+    # Lógica para determinar el concepto del pago
     if inscripcion_pagada < inscripcion_total:
         monto_a_pagar_usd = inscripcion_total - inscripcion_pagada
         concepto_pago = f"Abono a Inscripción (restan ${monto_a_pagar_usd:,.2f})"
@@ -3569,39 +3563,38 @@ def portal_reportar_pago():
         monto_a_pagar_usd = cliente_dict.get('valor_cuota') or Decimal('0.0')
         concepto_pago = f"Cuota del mes de {mes_actual}"
     
-    tasa_bcv = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
-    monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv).quantize(Decimal('0.01'))
+    tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
+    monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv_calculo).quantize(Decimal('0.01'))
 
     if request.method == 'POST':
         pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
         
-        if not pago_form.get('forma_pago'):
-            flash('Debe seleccionar una forma de pago para continuar.', 'error')
-            return render_template('portal_reportar_pago.html', 
-                                   cliente=cliente, 
-                                   tasa_hoy=tasa_hoy, 
-                                   mes_actual=mes_actual,
-                                   monto_a_pagar_usd=monto_a_pagar_usd,
-                                   monto_a_pagar_bs=monto_a_pagar_bs,
-                                   concepto_pago=concepto_pago)
-
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT id FROM pagos WHERE cliente_id = %s AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
-                if cur.fetchone():
-                    flash('Ya tienes un pago reportado que está pendiente de revisión. Por favor, espera a que sea procesado.', 'warning')
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se vuelve a obtener la tasa de cambio del día desde la BD en el backend
+                # para asegurar que siempre se guarde el valor más reciente y correcto.
+                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
+                tasa_del_dia_row = cur.fetchone()
+                tasa_bcv_dia = tasa_del_dia_row['tasa'] if tasa_del_dia_row and tasa_del_dia_row['tasa'] else Decimal('0.0')
+
+                # Si no hay tasa y el pago es en Bs, se detiene la operación.
+                if tasa_bcv_dia == Decimal('0.0') and pago_form.get('forma_pago') not in ['Binance']:
+                    flash('No se pudo reportar el pago porque no hay una tasa de cambio configurada para hoy. Por favor, contacte a un administrador.', 'danger')
                     return redirect(url_for('portal_dashboard'))
+                # --- FIN DE LA CORRECCIÓN ---
 
-                monto_equivalente_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
                 monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                pago_en = pago_form.get('pago_en')
+                monto_equivalente_usd = Decimal('0.0')
 
-                if pago_en == 'USDT':
-                    monto_reportado_bs = Decimal('0.00')
+                if pago_form.get('forma_pago') == 'Binance':
+                    monto_equivalente_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
+                elif monto_reportado_bs > 0 and tasa_bcv_dia > 0:
+                    monto_equivalente_usd = (monto_reportado_bs / tasa_bcv_dia).quantize(Decimal('0.01'))
 
+                # Lógica para manejar si es un pago de diferencia o uno normal
                 bulk_id = pago_form.get('bulk_id')
                 order_id = pago_form.get('order_id')
-                
                 if bulk_id and order_id:
                     tipo_pago = 'Cuota'
                     concepto = f"Pago de diferencia para Bulk #{bulk_id}"
@@ -3621,7 +3614,7 @@ def portal_reportar_pago():
                 cur.execute(pago_query, (
                     cliente['id'], monto_equivalente_usd, monto_reportado_bs, tipo_pago, 
                     pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
-                    pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv,
+                    pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_dia,
                     get_venezuela_current_datetime(), concepto, bulk_id, is_diferencia
                 ))
                 
