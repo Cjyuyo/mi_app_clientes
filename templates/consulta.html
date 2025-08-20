@@ -4,6 +4,12 @@
     Consulta de Clientes
 {% endblock %}
 
+{# AÑADIDO: Se mueve el título de la página al bloque del encabezado para consistencia #}
+{% block page_title %}
+    Consulta de Clientes
+{% endblock %}
+
+
 {% block head_extra %}
     <!-- Librería para notificaciones y alertas visuales -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -24,40 +30,33 @@
             transition: width .6s ease;
         }
         
-        /* --- NUEVO: Estilos para la animación del spinner --- */
+        /* --- Estilos para la animación del spinner --- */
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
         .animate-spin {
           animation: spin 1s linear infinite;
-          display: inline-block; /* Necesario para que la transformación funcione */
+          display: inline-block;
         }
     </style>
 {% endblock %}
 
 {% block body %}
 <div class="space-y-8">
-    <!-- Encabezado y Barra de Búsqueda -->
-    <div class="bg-white p-6 rounded-xl shadow-sm">
-        <h1 class="text-3xl font-bold text-slate-800 mb-2">Consulta de Clientes</h1>
-        <p class="text-slate-500 mb-4">Busca y gestiona la información de tus clientes.</p>
-        <!-- CAMBIO: Se añade el evento onsubmit para deshabilitar el botón al enviar -->
-        <form method="POST" action="{{ url_for('consulta') }}" onsubmit="handleFormSubmit(this)">
-            <div class="flex rounded-lg shadow-sm">
-                <input type="search" name="busqueda" class="form-input w-full px-4 py-3 rounded-l-lg border-slate-300 focus:ring-blue-500 focus:border-blue-500" placeholder="Buscar por Nombre, Apellido o Cédula..." value="{{ busqueda or '' }}" autofocus>
-                <button type="submit" class="bg-blue-600 text-white px-5 py-3 rounded-r-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
-                    <i class="bi bi-search text-lg"></i>
-                </button>
-            </div>
-        </form>
-    </div>
+    
+    <!-- ================================================================== -->
+    <!-- ELIMINADO: Se quitó el bloque de encabezado y la barra de búsqueda antigua de esta página. -->
+    <!-- La búsqueda ahora es manejada globalmente por 'base_sidebar.html'. -->
+    <!-- ================================================================== -->
 
-    <!-- {% if mensaje_error %}
-        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md shadow-sm" role="alert">
-            <p>{{ mensaje_error }}</p>
+    {% if not clientes and busqueda %}
+        <div class="bg-white p-6 rounded-xl shadow-sm text-center">
+            <i class="bi bi-search text-4xl text-slate-400 mb-3"></i>
+            <h2 class="text-xl font-semibold text-slate-700">Sin resultados</h2>
+            <p class="text-slate-500">No se encontraron clientes que coincidan con "{{ busqueda }}".</p>
         </div>
-    {% endif %} -->
+    {% endif %}
 
     <!-- Resultados de Clientes -->
     <div id="client-results" class="space-y-6">
@@ -187,8 +186,7 @@
                  x-transition:enter-start="transition-enter-start"
                  x-transition:leave="transition-leave-active"
                  x-transition:leave-end="transition-leave-end">
-                <!-- CORRECCIÓN: Se cambió 'guardar_oferta' por 'portal_guardar_oferta' para que coincida con la ruta en app.py -->
-                <form action="{{ url_for('portal_guardar_oferta', client_id=cliente.id) }}" method="POST" onsubmit="handleFormSubmit(this)">
+                <form action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" method="POST" onsubmit="handleFormSubmit(this)">
                     <h3 class="font-bold text-slate-800 mb-2">Registrar Oferta para {{ cliente.nombre_apellido }}</h3>
                     <p class="text-sm text-slate-600 mb-4">Seleccione la cantidad de cuotas que el cliente desea adelantar para el próximo acto de adjudicación.</p>
                     <div>
@@ -230,15 +228,10 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script>
-    function handleFormSubmit(form) {
-        const submitButtons = form.querySelectorAll('button[type="submit"]');
-        submitButtons.forEach(button => {
-            button.disabled = true;
-            button.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
-        });
-    }
 
+{# ELIMINADO: La función handleFormSubmit se movió a base_sidebar.html para que esté disponible globalmente #}
+
+<script>
     function confirmDelete(form) {
         Swal.fire({
             title: '¿Está seguro?',

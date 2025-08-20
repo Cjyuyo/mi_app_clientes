@@ -60,6 +60,15 @@
                 to { transform: translate(10%, 5%); }
             }
         }
+        /* --- Estilos para la animación del spinner --- */
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+          animation: spin 1s linear infinite;
+          display: inline-block;
+        }
     </style>
     {% block head_extra %}{% endblock %}
 </head>
@@ -182,22 +191,29 @@
         
         <!-- Main Content -->
         <div class="flex-1 flex flex-col min-w-0">
-            <!-- ========= INICIO DE LA CORRECCIÓN: BARRA SUPERIOR CON BÚSQUEDA MEJORADA ========= -->
+            <!-- ========= BARRA SUPERIOR CON BÚSQUEDA MEJORADA ========= -->
             <header class="hidden md:flex bg-white/80 backdrop-blur-lg border-b border-slate-200/60 h-20 items-center justify-between px-6 flex-shrink-0 sticky top-0 z-20">
                 <!-- Título de la página -->
                 <div class="flex-1">
                      <h1 class="text-lg font-semibold text-slate-800">
-                        {% block page_title %}{% endblock %}
+                        {% block page_title %}Panel de Control{% endblock %}
                     </h1>
                 </div>
                 
                 <!-- Barra de Búsqueda Central -->
                 <div class="flex-1 flex justify-center">
-                    <form action="{{ url_for('consulta') }}" method="post" class="relative w-full max-w-md">
-                        <input type="search" name="busqueda" placeholder="Buscar por Nombre, Apellido o Cédula..."
-                               class="w-full pl-10 pr-4 py-2 text-sm text-slate-700 bg-slate-100 border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all duration-300"
-                               value="{{ busqueda if busqueda }}">
-                        <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <!-- AÑADIDO: onsubmit="handleFormSubmit(this)" para activar el estado de carga -->
+                    <form action="{{ url_for('consulta') }}" method="post" class="w-full max-w-md" onsubmit="handleFormSubmit(this)">
+                        <div class="relative flex items-center">
+                            <i class="bi bi-search absolute left-4 text-slate-400"></i>
+                            <input type="search" name="busqueda" placeholder="Buscar por Nombre, Apellido o Cédula..."
+                                   class="w-full pl-11 pr-20 py-2 text-sm text-slate-700 bg-slate-100 border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all duration-300"
+                                   value="{{ busqueda if busqueda }}">
+                            <!-- AÑADIDO: Botón de búsqueda discreto -->
+                            <button type="submit" class="absolute right-1.5 h-8 w-16 text-sm font-semibold text-orange-600 bg-orange-100 hover:bg-orange-200 rounded-full transition-colors disabled:opacity-70 disabled:cursor-not-allowed">
+                                <span>Buscar</span>
+                            </button>
+                        </div>
                     </form>
                 </div>
 
@@ -221,7 +237,7 @@
                     {% endif %}
                 </div>
             </header>
-            <!-- ========= FIN DE LA CORRECCIÓN ========= -->
+            <!-- ========= FIN DE LA BARRA SUPERIOR ========= -->
 
             <main class="flex-1 p-2 md:p-6 overflow-y-auto">
                 {% block body %}{% endblock %}
@@ -234,6 +250,18 @@
     </div>
 
     <script src="//unpkg.com/alpinejs" defer></script>
+
+    <!-- AÑADIDO: Script para el estado de "Procesando" del botón de búsqueda -->
+    <script>
+        function handleFormSubmit(form) {
+            const submitButtons = form.querySelectorAll('button[type="submit"]');
+            submitButtons.forEach(button => {
+                button.disabled = true;
+                // Reemplazamos el texto con un spinner
+                button.innerHTML = `<span class="flex items-center justify-center"><i class="bi bi-arrow-repeat animate-spin"></i></span>`;
+            });
+        }
+    </script>
 
     {% block scripts_extra %}{% endblock %}
 
