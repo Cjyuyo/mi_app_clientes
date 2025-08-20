@@ -1123,7 +1123,6 @@ def reportes_por_revisar():
             for reporte_row in todos_los_reportes:
                 reporte = dict(reporte_row)
                 
-                # Calcular Monto Esperado para todos los reportes de cuota
                 if reporte['tipo_pago'] == 'Cuota' and reporte.get('valor_cuota') and reporte.get('tasa_dia'):
                     valor_cuota = reporte['valor_cuota']
                     tasa_dia = reporte['tasa_dia']
@@ -1175,12 +1174,10 @@ def procesar_reporte(pago_id):
                 return redirect(url_for('reportes_por_revisar'))
             cliente_id = pago['cliente_id']
 
-            # --- INICIO DE LA LÓGICA MEJORADA ---
             if accion == 'confirmar_diferencia':
                 monto_validado = pago['monto_bs'] or pago['monto']
-                monto_reportado = monto_validado # En este flujo, lo que se valida es lo que se reportó.
+                monto_reportado = monto_validado
                 
-                # Se recalcula el monto esperado para la diferencia
                 valor_cuota = pago.get('valor_cuota') or Decimal('0.0')
                 tasa_dia = pago.get('tasa_dia') or Decimal('0.0')
                 monto_esperado = (valor_cuota * tasa_dia).quantize(Decimal('0.01')) if tasa_dia > 0 else monto_reportado
@@ -1189,14 +1186,12 @@ def procesar_reporte(pago_id):
                     flash("Acción no válida. El monto reportado es suficiente. Por favor, use 'Aprobar Completo'.", "warning")
                     return redirect(url_for('reportes_por_revisar'))
 
-                # 1. Crear el Bulk
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status)
                     VALUES (%s, %s, %s, 'UNDER_REVIEW') RETURNING id
                 """, (cliente_id, 'VES' if pago['monto_bs'] else 'USD', monto_esperado))
                 bulk_id = cur.fetchone()[0]
 
-                # 2. Crear NUEVO pago por el monto validado (que es el reportado)
                 tasa = pago.get('tasa_dia') or Decimal('1.0')
                 monto_validado_usd = (monto_validado / tasa).quantize(Decimal('0.01')) if tasa > 0 and pago['monto_bs'] else monto_validado
                 cur.execute("""
@@ -1209,18 +1204,16 @@ def procesar_reporte(pago_id):
                     f"Parte validada de '{pago['por_concepto_de']}'", bulk_id, g.admin['id']
                 ))
 
-                # 3. Actualizar el pago ORIGINAL
                 detalles_actualizados = {
                     'motivo': 'Diferencia de Monto',
                     'monto_original_reportado': str(monto_reportado),
-                    'monto_recibido_real': str(monto_validado) # Es el mismo que el reportado
+                    'monto_recibido_real': str(monto_validado)
                 }
                 cur.execute(
                     "UPDATE pagos SET estado_reporte = 'Inconsistente', revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s, bulk_id = %s WHERE id = %s",
                     (g.admin['id'], json.dumps(detalles_actualizados), bulk_id, pago_id)
                 )
 
-                # 4. Crear la orden de pago por la diferencia
                 monto_pendiente = monto_esperado - monto_validado
                 cur.execute("""
                     INSERT INTO payment_orders (bulk_id, cliente_id, amount, currency, status)
@@ -1243,7 +1236,6 @@ def procesar_reporte(pago_id):
             else:
                 flash('Acción no válida.', 'error')
                 return redirect(url_for('reportes_por_revisar'))
-            # --- FIN DE LA LÓGICA MEJORADA ---
 
             conn.commit()
 
