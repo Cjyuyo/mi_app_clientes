@@ -3585,26 +3585,31 @@ def portal_reportar_pago():
         
         try:
             with conn.cursor() as cur:
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se vuelve a obtener la tasa de cambio del día desde la BD en el backend
-                # para asegurar que siempre se guarde el valor más reciente y correcto.
                 cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
                 tasa_del_dia_row = cur.fetchone()
                 tasa_bcv_dia = tasa_del_dia_row['tasa'] if tasa_del_dia_row and tasa_del_dia_row['tasa'] else Decimal('0.0')
 
-                # Si no hay tasa y el pago es en Bs, se detiene la operación.
                 if tasa_bcv_dia == Decimal('0.0') and pago_form.get('forma_pago') not in ['Binance']:
                     flash('No se pudo reportar el pago porque no hay una tasa de cambio configurada para hoy. Por favor, contacte a un administrador.', 'danger')
                     return redirect(url_for('portal_dashboard'))
-                # --- FIN DE LA CORRECCIÓN ---
 
                 monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                monto_equivalente_usd = Decimal('0.0')
-
+                
+                # --- INICIO DE LA CORRECCIÓN ---
+                # El monto en USD a guardar debe ser siempre el oficial del plan,
+                # no uno recalculado a partir del input del usuario en Bs.
+                
+                # Se determina de nuevo el monto de referencia en USD dentro del POST
+                # para asegurar que se usa el valor correcto.
+                if inscripcion_pagada < inscripcion_total:
+                    monto_usd_a_guardar = inscripcion_total - inscripcion_pagada
+                else:
+                    monto_usd_a_guardar = cliente.get('valor_cuota') or Decimal('0.0')
+                
+                # Para pagos en Binance, el monto reportado por el usuario es en USD y se considera correcto.
                 if pago_form.get('forma_pago') == 'Binance':
-                    monto_equivalente_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
-                elif monto_reportado_bs > 0 and tasa_bcv_dia > 0:
-                    monto_equivalente_usd = (monto_reportado_bs / tasa_bcv_dia).quantize(Decimal('0.01'))
+                     monto_usd_a_guardar = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
+                # --- FIN DE LA CORRECCIÓN ---
 
                 # Lógica para manejar si es un pago de diferencia o uno normal
                 bulk_id = pago_form.get('bulk_id')
@@ -3626,7 +3631,10 @@ def portal_reportar_pago():
                 """
                 
                 cur.execute(pago_query, (
-                    cliente['id'], monto_equivalente_usd, monto_reportado_bs, tipo_pago, 
+                    cliente['id'], 
+                    monto_usd_a_guardar, # Se usa el monto en USD correcto y oficial.
+                    monto_reportado_bs,  # Se guarda el monto en Bs que el cliente reportó.
+                    tipo_pago, 
                     pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
                     pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_dia,
                     get_venezuela_current_datetime(), concepto, bulk_id, is_diferencia
