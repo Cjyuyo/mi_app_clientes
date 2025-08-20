@@ -31,13 +31,9 @@
             {% else %} border-green-300 bg-green-50 {% endif %}">
             <h3 class="font-semibold text-sm text-slate-600">Monto Reportado por Cliente (Bs.)</h3>
             <p class="text-3xl font-bold text-green-700">{{ "%.2f"|format(pago.monto_bs) }} Bs.</p>
-            
-            <!-- ========= CORRECCIÓN: Se añade un 'if' para evitar el error ========= -->
             {% if pago.tasa_dia %}
             <p class="text-xs text-slate-500 mt-1">Tasa del día reportada: {{ "%.2f"|format(pago.tasa_dia) }} Bs./$</p>
             {% endif %}
-            <!-- ========= FIN DE LA CORRECCIÓN ========= -->
-
         </div>
     </div>
 

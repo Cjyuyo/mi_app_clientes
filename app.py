@@ -4554,6 +4554,7 @@ def ver_reporte(pago_id):
 
     try:
         with conn.cursor() as cur:
+            # Se añaden todos los campos necesarios del cliente para el cálculo
             query = """
                 SELECT p.*,
                        c.nombre || ' ' || c.apellido as nombre_apellido,
@@ -4576,12 +4577,15 @@ def ver_reporte(pago_id):
 
             pago = dict(pago_row)
             
+            # --- LÓGICA MEJORADA ---
+            # 1. Calcular Monto Esperado
             pago['monto_esperado_bs'] = Decimal('0.0')
             if pago.get('tipo_pago') == 'Cuota' and pago.get('valor_cuota') and pago.get('tasa_dia'):
                 pago['monto_esperado_bs'] = (pago['valor_cuota'] * pago['tasa_dia']).quantize(Decimal('0.01'))
             elif pago.get('tipo_pago') == 'Inscripción' and pago.get('inscripcion_monto') and pago.get('tasa_dia'):
                  pago['monto_esperado_bs'] = (pago['inscripcion_monto'] * pago['tasa_dia']).quantize(Decimal('0.01'))
 
+            # 2. Decodificar detalles del reporte (JSON) para que sean accesibles en la plantilla
             detalles = pago.get('detalles_reporte')
             if isinstance(detalles, str):
                 try:
@@ -4590,6 +4594,7 @@ def ver_reporte(pago_id):
                     pago['detalles_reporte'] = {}
             elif detalles is None:
                 pago['detalles_reporte'] = {}
+            # --- FIN LÓGICA MEJORADA ---
 
             eventos_unificados = []
             pagos_relacionados = [pago]
