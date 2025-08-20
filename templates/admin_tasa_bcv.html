@@ -35,7 +35,6 @@
                         <label for="tasa_eur" class="block text-sm font-medium text-slate-600 mb-1">Tasa Euro (EUR)</label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">Bs.</span>
-                            <!-- NOTA: Se usa el filtro |string para forzar la visualización completa del decimal -->
                             <input type="text" name="tasa_eur" id="tasa_eur"
                                    class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                    placeholder="Ej: 161.22197047"
@@ -71,7 +70,6 @@
                             {% for registro in historial_tasas %}
                             <tr>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600">{{ registro.fecha | format_date('%d/%m/%Y') }}</td>
-                                <!-- NOTA: Se usa el filtro |string para forzar la visualización completa del decimal -->
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-800 font-mono">{{ registro.tasa|string if registro.tasa is not none else 'N/A' }}</td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-800 font-mono">{{ registro.tasa_euro|string if registro.tasa_euro is not none else 'N/A' }}</td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600">{{ registro.usuario or 'Sistema' }}</td>

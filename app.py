@@ -4660,7 +4660,7 @@ def portal_solicitar_retiro():
 
 @app.route('/ver_reporte/<int:pago_id>')
 @app.route('/portal/ver_reporte/<int:pago_id>')
-def ver_reporte(pago_id):
+def ver_reporte(p pago_id):
     is_client_view = 'cliente_id' in session and g.cliente is not None
     is_admin_view = 'admin_id' in session and g.admin is not None
 
@@ -4697,19 +4697,25 @@ def ver_reporte(pago_id):
 
             pago = dict(pago_row)
             
-            # --- INICIO DE LA LÓGICA CORREGIDA ---
-            # 1. Calcular Monto de Referencia en Dólares (para todos los casos)
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se asegura que el cálculo del "Monto Esperado" use siempre la tasa exacta
+            # guardada en el registro del pago, sin redondearla.
+            
+            # 1. Determinar el monto de referencia en USD
+            monto_dolares_referencia = Decimal('0.0')
             if pago.get('tipo_pago') and 'Cuota' in pago['tipo_pago']:
-                pago['monto_dolares_referencia'] = pago.get('valor_cuota', Decimal('0.0'))
+                monto_dolares_referencia = pago.get('valor_cuota', Decimal('0.0'))
             elif pago.get('tipo_pago') and 'Inscripción' in pago['tipo_pago']:
-                pago['monto_dolares_referencia'] = pago.get('inscripcion_monto', Decimal('0.0'))
-            else:
-                pago['monto_dolares_referencia'] = pago.get('monto', Decimal('0.0'))
-
-            # 2. Calcular Monto Esperado en Bolívares (solo si aplica)
+                # Para la inscripción, la referencia es el monto oficial guardado en el pago.
+                monto_dolares_referencia = pago.get('monto', Decimal('0.0'))
+            
+            # 2. Calcular el Monto Esperado en Bolívares sin redondeo intermedio
             pago['monto_esperado_bs'] = Decimal('0.0')
-            if pago.get('forma_pago') != 'Binance' and pago.get('monto_dolares_referencia') and pago.get('tasa_dia'):
-                pago['monto_esperado_bs'] = (pago['monto_dolares_referencia'] * pago['tasa_dia']).quantize(Decimal('0.01'))
+            tasa_exacta_guardada = pago.get('tasa_dia')
+            
+            if pago.get('forma_pago') != 'Binance' and monto_dolares_referencia and tasa_exacta_guardada:
+                # Se multiplica directamente usando la tasa exacta.
+                pago['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta_guardada)
 
             # 3. Decodificar detalles del reporte (JSON)
             detalles = pago.get('detalles_reporte')
@@ -4720,11 +4726,10 @@ def ver_reporte(pago_id):
                     pago['detalles_reporte'] = {}
             elif detalles is None:
                 pago['detalles_reporte'] = {}
-            # --- FIN DE LA LÓGICA CORREGIDA ---
+            # --- FIN DE LA CORRECCIÓN ---
 
             # Lógica para construir la bitácora de eventos
             eventos_unificados = []
-            # ... (el resto de la lógica de la bitácora permanece igual) ...
             pagos_relacionados = [pago]
             if pago['bulk_id']:
                 cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
