@@ -58,34 +58,35 @@
         <!-- Columna 2: Monto Esperado en Bs. -->
         <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
             <h3 class="font-semibold text-slate-500 text-sm mb-1">Monto Esperado (Bs.)</h3>
-            <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
-            <p class="text-3xl font-bold text-slate-800">{{ pago.monto_esperado_bs|string if pago.monto_esperado_bs is not none else 'N/A' }} Bs.</p>
+            <p class="text-3xl font-bold text-slate-800">{{ "%.2f"|format(pago.monto_esperado_bs|float) }}</p>
             {% if pago.tasa_dia %}
                 <p class="text-xs text-slate-400 mt-1">Calculado a tasa de {{ pago.tasa_dia|string if pago.tasa_dia is not none else 'N/A' }} Bs./$</p>
             {% else %}
                 <p class="text-xs text-slate-400 mt-1">No se aplica tasa de conversión.</p>
             {% endif %}
-            <!-- ===== FIN DE LA CORRECCIÓN ===== -->
         </div>
 
         <!-- Columna 3: Monto Reportado por Cliente en Bs. -->
+        <!-- ===== INICIO DE LA CORRECCIÓN MATEMÁTICA ===== -->
+        {% set monto_reportado_redondeado = pago.monto_bs|float|round(2) %}
+        {% set monto_esperado_redondeado = pago.monto_esperado_bs|float|round(2) %}
+        {% set diferencia = monto_reportado_redondeado - monto_esperado_redondeado %}
         <div class="bg-white p-5 rounded-xl shadow-sm border 
-            {% if pago.monto_bs < pago.monto_esperado_bs %} border-red-300 bg-red-50 
+            {% if diferencia < -0.01 %} border-red-300 bg-red-50 
             {% else %} border-green-300 bg-green-50 {% endif %}">
             <h3 class="font-semibold text-sm text-slate-600">Monto Reportado (Bs.)</h3>
             <p class="text-3xl font-bold 
-                {% if pago.monto_bs < pago.monto_esperado_bs %} text-red-700
+                {% if diferencia < -0.01 %} text-red-700
                 {% else %} text-green-700 {% endif %}">
-                <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
-                {{ pago.monto_bs|string if pago.monto_bs is not none else 'N/A' }} Bs.
+                {{ "%.2f"|format(pago.monto_bs|float) }}
             </p>
-            {% if pago.tasa_dia %}
-            <p class="text-xs text-slate-500 mt-1">Tasa del día reportada: {{ pago.tasa_dia|string if pago.tasa_dia is not none else 'N/A' }} Bs./$</p>
+            {% if (diferencia|abs) > 0.001 %}
+            <p class="text-xs font-semibold {% if diferencia < 0 %} text-red-600 {% else %} text-green-600 {% endif %} mt-1">Diferencia: {{ "%.2f"|format(diferencia) }} Bs.</p>
             {% else %}
             <p class="text-xs text-slate-500 mt-1">Monto reportado por el cliente.</p>
             {% endif %}
-            <!-- ===== FIN DE LA CORRECCIÓN ===== -->
         </div>
+        <!-- ===== FIN DE LA CORRECCIÓN MATEMÁTICA ===== -->
     </div>
     {% endif %}
     <!-- FIN: Bloque de Comparación de Montos con Lógica Condicional -->

@@ -60,12 +60,13 @@
                         <label for="tasa_eur" class="block text-sm font-medium text-slate-600 mb-1">Tasa Euro (EUR)</label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 font-semibold">Bs.</span>
-                            <!-- Se usa el filtro |string para forzar la visualización completa del decimal sin redondeo -->
+                            <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
                             <input type="text" name="tasa_eur" id="tasa_eur"
                                    class="w-full pl-12 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-slate-800"
                                    placeholder="161.22197047"
                                    value="{{ tasas_de_hoy.eur|string if tasas_de_hoy.eur is not none else '' }}"
                                    inputmode="decimal">
+                            <!-- ===== FIN DE LA CORRECCIÓN ===== -->
                         </div>
                     </div>
                     <div class="pt-2">
@@ -99,9 +100,10 @@
                             {% for registro in historial_tasas %}
                             <tr class="hover:bg-slate-50 transition-colors duration-200">
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600">{{ registro.fecha | format_date('%d/%m/%Y') }}</td>
-                                <!-- Se usa el filtro |string para mostrar el valor completo sin redondeo -->
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-800 font-mono">{{ registro.tasa|string if registro.tasa is not none else 'N/A' }}</td>
+                                <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-800 font-mono">{{ registro.tasa_euro|string if registro.tasa_euro is not none else 'N/A' }}</td>
+                                <!-- ===== FIN DE LA CORRECCIÓN ===== -->
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600">{{ registro.usuario or 'Sistema' }}</td>
                             </tr>
                             {% endfor %}
