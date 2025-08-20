@@ -4544,11 +4544,6 @@ def portal_solicitar_retiro():
 @app.route('/ver_reporte/<int:pago_id>')
 @app.route('/portal/ver_reporte/<int:pago_id>')
 def ver_reporte(pago_id):
-    """
-    Muestra una vista detallada y la bitácora de un reporte de pago.
-    Es "consciente de los lotes (bulks)": si un pago es parte de un lote,
-    muestra el historial completo de todos los pagos y acciones asociados a ese lote.
-    """
     is_client_view = 'cliente_id' in session and g.cliente is not None
     is_admin_view = 'admin_id' in session and g.admin is not None
 
@@ -4563,38 +4558,47 @@ def ver_reporte(pago_id):
 
     try:
         with conn.cursor() as cur:
-            # Obtener el pago principal para la validación de permisos y detalles básicos
+            # --- CORRECCIÓN: Se une con clientes para obtener 'valor_cuota' ---
             query = """
-                SELECT p.*, 
-                       c.nombre || ' ' || c.apellido as nombre_apellido, 
-                       c.cedula, 
+                SELECT p.*,
+                       c.nombre || ' ' || c.apellido as nombre_apellido,
+                       c.cedula,
+                       c.valor_cuota, -- Se añade este campo
                        c.id as cliente_id
                 FROM pagos p
                 JOIN clientes c ON p.cliente_id = c.id
                 WHERE p.id = %s
             """
             cur.execute(query, (pago_id,))
-            pago = cur.fetchone()
+            pago_row = cur.fetchone()
 
-            if not pago:
+            if not pago_row:
                 flash("Reporte de pago no encontrado.", "error")
                 return redirect(url_for('home'))
 
-            if is_client_view and pago['cliente_id'] != session['cliente_id']:
+            if is_client_view and pago_row['cliente_id'] != session['cliente_id']:
                 flash("No tienes permiso para ver este reporte.", "error")
                 return redirect(url_for('portal_dashboard'))
+
+            # --- CORRECCIÓN: Se calcula el monto_esperado_bs aquí ---
+            pago = dict(pago_row) # Convertir a diccionario para poder añadir claves
+            pago['monto_esperado_bs'] = Decimal('0.0')
+            if pago.get('valor_cuota') and pago.get('tasa_dia'):
+                valor_cuota = pago['valor_cuota']
+                tasa_dia = pago['tasa_dia']
+                if tasa_dia > 0:
+                    pago['monto_esperado_bs'] = (valor_cuota * tasa_dia).quantize(Decimal('0.01'))
+            # --- FIN DE LA CORRECCIÓN ---
 
             eventos_unificados = []
             pagos_relacionados = []
             
-            # Si el pago es parte de un bulk, obtenemos todos los pagos de ese bulk
             if pago['bulk_id']:
                 cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
                 pagos_relacionados = cur.fetchall()
             else:
                 pagos_relacionados.append(pago)
 
-            # Formatear los pagos como eventos para la bitácora
             for p in pagos_relacionados:
                 eventos_unificados.append({
                     'fecha': p['fecha_creacion'],
@@ -4605,15 +4609,12 @@ def ver_reporte(pago_id):
                     'data': dict(p)
                 })
 
-            # Obtener los eventos de auditoría relacionados con CUALQUIERA de los pagos del lote
             ids_pagos = [p['id'] for p in pagos_relacionados]
             if ids_pagos:
                 placeholders = ','.join(['%s'] * len(ids_pagos))
-                
-                # Se añade el type cast (::integer) para comparar correctamente el texto del JSON con los IDs numéricos.
                 audit_query = f"""
-                    SELECT * FROM registros_auditoria 
-                    WHERE (detalles->>'pago_id')::integer IN ({placeholders}) 
+                    SELECT * FROM registros_auditoria
+                    WHERE (detalles->>'pago_id')::integer IN ({placeholders})
                     OR {' OR '.join([f"descripcion LIKE '%%reporte #{pid}%%' OR descripcion LIKE '%%reporte N° {pid}%%' " for pid in ids_pagos])}
                     ORDER BY timestamp ASC
                 """
@@ -4629,13 +4630,12 @@ def ver_reporte(pago_id):
                         'autor': a['usuario_nombre']
                     })
 
-            # Ordenar todos los eventos cronológicamente
             eventos_unificados.sort(key=lambda x: x['fecha'])
 
             return render_template(
-                'ver_reporte.html', 
-                pago=pago, 
-                is_client_view=is_client_view, 
+                'ver_reporte.html',
+                pago=pago,
+                is_client_view=is_client_view,
                 is_admin_view=is_admin_view,
                 bitacora=eventos_unificados
             )
@@ -4643,7 +4643,6 @@ def ver_reporte(pago_id):
     except (psycopg2.Error, json.JSONDecodeError) as e:
         logging.error(f"Error al cargar el reporte de pago {pago_id}: {e}")
         flash(f"Ocurrió un error al cargar el reporte: {e}", "error")
-        # Redirige al hub si es admin, o a la home si no lo es
         if is_admin_view:
             return redirect(url_for('hub'))
         return redirect(url_for('portal_dashboard'))
