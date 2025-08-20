@@ -45,7 +45,7 @@
             {% if reportes.pendientes %}
             <div class="divide-y divide-slate-200">
                 {% for reporte in reportes.pendientes %}
-                <div class="p-5" x-data="{ showVerify: false }">
+                <div class="p-5">
                     <div class="flex flex-col md:flex-row items-start md:items-center justify-between">
                         <!-- Info Cliente -->
                         <div class="flex-1 mb-4 md:mb-0">
@@ -116,7 +116,7 @@
             {% endif %}
         </div>
 
-        <!-- Pestaña: Otros Rechazados -->
+        <!-- Pestaña: Otros Rechazados (sin cambios) -->
         <div x-show="activeTab === 'otros'" style="display: none;">
             {% if reportes.otros_rechazados %}
             <div class="divide-y divide-slate-200">
