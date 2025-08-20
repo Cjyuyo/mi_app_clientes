@@ -4190,6 +4190,12 @@ def portal_corregir_reporte(pago_id):
 @app.route('/portal/pagar_inscripcion', methods=['GET', 'POST'])
 @portal_login_required
 def portal_pagar_inscripcion():
+    """
+    Ruta para que un cliente reporte el pago de su inscripción.
+    CORRECCIÓN: Se estandariza la lógica para que el monto en USD guardado sea siempre
+    el oficial del plan del cliente, no uno recalculado a partir del monto en Bs,
+    evitando así discrepancias de forma definitiva.
+    """
     conn = get_db()
     if not conn:
         flash('No se pudo conectar con la base de datos.', 'error')
@@ -4218,41 +4224,53 @@ def portal_pagar_inscripcion():
     monto_restante = inscripcion_monto - inscripcion_pagada
 
     if request.method == 'POST':
-        pago_form = {k: v if v else None for k, v in request.form.items()}
-        if not all(pago_form.get(key) for key in ['monto', 'fecha_pago']):
-            flash('Error: Monto y fecha de pago son campos obligatorios.', 'error')
-            return render_template('portal_pagar_inscripcion.html', cliente=cliente, monto_restante=monto_restante, tasas_hoy=tasas_hoy)
-
-        forma_pago = pago_form.get('forma_pago')
-        if forma_pago != 'Efectivo' and not pago_form.get('referencia'):
-            flash('Error: La referencia es obligatoria para este método de pago.', 'error')
-            return render_template('portal_pagar_inscripcion.html', cliente=cliente, monto_restante=monto_restante, tasas_hoy=tasas_hoy)
-
+        pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
+        
         try:
             with conn.cursor() as cur:
-                pago_origen_id = pago_form.get('pago_origen_id')
+                # --- INICIO DE LA LÓGICA CORREGIDA Y ESTANDARIZADA ---
+                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
+                tasa_del_dia_row = cur.fetchone()
+                tasa_bcv_dia = tasa_del_dia_row['tasa'] if tasa_del_dia_row and tasa_del_dia_row['tasa'] else Decimal('0.0')
 
+                if tasa_bcv_dia == Decimal('0.0') and pago_form.get('forma_pago') not in ['Binance', 'Efectivo']:
+                    flash('No se pudo reportar el pago porque no hay una tasa de cambio configurada para hoy.', 'danger')
+                    return redirect(url_for('portal_dashboard'))
+
+                monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
+                
+                # Se determina el monto oficial en USD que se debe guardar.
+                monto_usd_a_guardar = monto_restante
+                
+                # Para pagos en Binance, el monto reportado por el usuario es en USD y se considera correcto.
+                if pago_form.get('forma_pago') == 'Binance':
+                     monto_usd_a_guardar = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
+                # --- FIN DE LA LÓGICA CORREGIDA ---
+
+                pago_origen_id = pago_form.get('pago_origen_id')
                 pago_query = """
-                    INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia, monto_bs, 
+                    INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia,
                                        estado_pago, cuotas_cubiertas, reportado_por_cliente, estado_reporte, fecha_creacion, detalles_reporte, pago_padre_id) 
-                    VALUES (%s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, TRUE, 'Pendiente de Revision', %s, %s::jsonb, %s);
+                    VALUES (%s, %s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, TRUE, 'Pendiente de Revision', %s, %s::jsonb, %s);
                 """
-                fecha_actual_vet = get_venezuela_current_datetime()
                 
                 detalles_pago = {}
-                if forma_pago == 'Pago Móvil':
+                if pago_form.get('forma_pago') == 'Pago Móvil':
                     detalles_pago['telefono_emisor'] = pago_form.get('pago_movil_telefono')
                     detalles_pago['cedula_emisor'] = pago_form.get('pago_movil_cedula')
-                elif forma_pago == 'Binance':
+                elif pago_form.get('forma_pago') == 'Binance':
                     detalles_pago['usuario_binance'] = pago_form.get('binance_user')
                 detalles_json = json.dumps(detalles_pago) if detalles_pago else None
 
                 concepto = "Pago de Diferencia de Inscripción" if pago_origen_id else "Pago de Inscripción"
 
                 cur.execute(pago_query, (
-                    session['cliente_id'], pago_form['monto'], forma_pago, pago_form['fecha_pago'], pago_form.get('pago_en'), 
-                    concepto, pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('tasa_dia'), 
-                    pago_form.get('monto_bs'), fecha_actual_vet, detalles_json, pago_origen_id
+                    session['cliente_id'], 
+                    monto_usd_a_guardar, # Se guarda el monto oficial en USD.
+                    monto_reportado_bs, # Se guarda el monto en Bs que el cliente reportó.
+                    pago_form['forma_pago'], pago_form['fecha_pago'], pago_form.get('pago_en'), 
+                    concepto, pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_dia, 
+                    get_venezuela_current_datetime(), detalles_json, pago_origen_id
                 ))
                 conn.commit()
                 flash('✅ ¡Pago de inscripción reportado! Será verificado por un administrador.', 'success')
