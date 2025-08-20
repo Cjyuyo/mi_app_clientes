@@ -4558,12 +4558,10 @@ def ver_reporte(pago_id):
 
     try:
         with conn.cursor() as cur:
-            # --- CORRECCIÓN: Se une con clientes para obtener 'valor_cuota' ---
             query = """
                 SELECT p.*,
                        c.nombre || ' ' || c.apellido as nombre_apellido,
-                       c.cedula,
-                       c.valor_cuota, -- Se añade este campo
+                       c.cedula, c.valor_cuota,
                        c.id as cliente_id
                 FROM pagos p
                 JOIN clientes c ON p.cliente_id = c.id
@@ -4580,33 +4578,46 @@ def ver_reporte(pago_id):
                 flash("No tienes permiso para ver este reporte.", "error")
                 return redirect(url_for('portal_dashboard'))
 
-            # --- CORRECCIÓN: Se calcula el monto_esperado_bs aquí ---
-            pago = dict(pago_row) # Convertir a diccionario para poder añadir claves
+            pago = dict(pago_row)
+            
+            # --- LÓGICA MEJORADA ---
+            # 1. Calcular Monto Esperado
             pago['monto_esperado_bs'] = Decimal('0.0')
-            if pago.get('valor_cuota') and pago.get('tasa_dia'):
-                valor_cuota = pago['valor_cuota']
-                tasa_dia = pago['tasa_dia']
-                if tasa_dia > 0:
-                    pago['monto_esperado_bs'] = (valor_cuota * tasa_dia).quantize(Decimal('0.01'))
-            # --- FIN DE LA CORRECCIÓN ---
+            if pago.get('tipo_pago') == 'Cuota' and pago.get('valor_cuota') and pago.get('tasa_dia'):
+                pago['monto_esperado_bs'] = (pago['valor_cuota'] * pago['tasa_dia']).quantize(Decimal('0.01'))
+            elif pago.get('tipo_pago') == 'Inscripción' and pago.get('inscripcion_monto') and pago.get('tasa_dia'):
+                 pago['monto_esperado_bs'] = (pago['inscripcion_monto'] * pago['tasa_dia']).quantize(Decimal('0.01'))
+
+
+            # 2. Decodificar detalles del reporte (JSON)
+            detalles = pago.get('detalles_reporte')
+            if isinstance(detalles, str):
+                try:
+                    pago['detalles_reporte'] = json.loads(detalles)
+                except json.JSONDecodeError:
+                    pago['detalles_reporte'] = {}
+            elif detalles is None:
+                pago['detalles_reporte'] = {}
+            # --- FIN LÓGICA MEJORADA ---
 
             eventos_unificados = []
-            pagos_relacionados = []
-            
+            pagos_relacionados = [pago] # Inicia con el pago actual
+
+            # Si el pago es parte de un bulk, obtenemos todos los pagos de ese bulk
             if pago['bulk_id']:
                 cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
-                pagos_relacionados = cur.fetchall()
-            else:
-                pagos_relacionados.append(pago)
+                # Sobrescribe la lista con todos los pagos del bulk
+                pagos_relacionados = [dict(p) for p in cur.fetchall()]
+
 
             for p in pagos_relacionados:
                 eventos_unificados.append({
                     'fecha': p['fecha_creacion'],
                     'tipo_evento': 'pago',
                     'titulo': f"Reporte de Pago #{p['id']}",
-                    'descripcion': f"Cliente reportó un pago de ${p['monto']:.2f} ({p['monto_bs']:.2f} Bs) por concepto de \"{p['por_concepto_de']}\".",
+                    'descripcion': f"Cliente reportó un pago por concepto de \"{p.get('por_concepto_de', 'N/A')}\".",
                     'estado': p['estado_reporte'],
-                    'data': dict(p)
+                    'data': p
                 })
 
             ids_pagos = [p['id'] for p in pagos_relacionados]
@@ -4640,9 +4651,10 @@ def ver_reporte(pago_id):
                 bitacora=eventos_unificados
             )
 
-    except (psycopg2.Error, json.JSONDecodeError) as e:
-        logging.error(f"Error al cargar el reporte de pago {pago_id}: {e}")
-        flash(f"Ocurrió un error al cargar el reporte: {e}", "error")
+    except (psycopg2.Error, json.JSONDecodeError, KeyError) as e:
+        error_trace = traceback.format_exc()
+        logging.error(f"Error al cargar el reporte de pago {pago_id}:\n{error_trace}")
+        flash(f"Ocurrió un error crítico al cargar el reporte.", "error")
         if is_admin_view:
             return redirect(url_for('hub'))
         return redirect(url_for('portal_dashboard'))
