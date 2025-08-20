@@ -2278,46 +2278,79 @@ def admin_tasa_bcv():
     conn = get_db()
     now_vet, today_date = get_venezuela_current_datetime(), get_venezuela_current_date()
     tasas_de_hoy, historial_tasas = {'usd': None, 'eur': None}, []
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                if request.method == 'POST':
-                    tasa_usd_str, tasa_eur_str = request.form.get('tasa_usd', '').replace(',', '.'), request.form.get('tasa_eur', '').replace(',', '.')
-                    tasa_usd, tasa_eur = Decimal(tasa_usd_str) if tasa_usd_str else Decimal('0'), Decimal(tasa_eur_str) if tasa_eur_str else Decimal('0')
-                    if tasa_usd >= 0 and tasa_eur >= 0:
-                        sql_upsert = """
-                            INSERT INTO historial_tasas_bcv (fecha, tasa, tasa_euro, establecida_por_id) VALUES (%s, %s, %s, %s)
-                            ON CONFLICT (fecha) DO UPDATE SET tasa = EXCLUDED.tasa, tasa_euro = EXCLUDED.tasa_euro, establecida_por_id = EXCLUDED.establecida_por_id;
-                        """
-                        cur.execute(sql_upsert, (today_date, tasa_usd, tasa_eur, g.admin['id']))
-                        if now_vet.hour >= 17 and now_vet.weekday() < 5: 
-                            if now_vet.weekday() == 4: 
-                                for i in range(1, 4): 
-                                    next_day = today_date + timedelta(days=i)
-                                    cur.execute(sql_upsert, (next_day, tasa_usd, tasa_eur, g.admin['id']))
-                                flash('Tasa de Viernes guardada para todo el fin de semana y el Lunes.', 'success')
-                            else:
-                                tomorrow_date = today_date + timedelta(days=1)
-                                cur.execute(sql_upsert, (tomorrow_date, tasa_usd, tasa_eur, g.admin['id']))
-                                flash('Tasa guardada para hoy y mañana.', 'success')
-                        else:
-                            flash('Tasa guardada para hoy.', 'success')
-                        conn.commit()
-                        return redirect(url_for('admin_tasa_bcv'))
+    
+    if not conn:
+        flash('Error de conexión a la base de datos.', 'danger')
+        return render_template('admin_tasa_bcv.html', tasas_de_hoy=tasas_de_hoy, historial_tasas=historial_tasas, anio_actual=today_date.year)
+
+    try:
+        with conn.cursor() as cur:
+            if request.method == 'POST':
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se eliminan las comas para soportar el formato de copia y pega, 
+                # pero se mantiene el punto como separador decimal.
+                tasa_usd_str = request.form.get('tasa_usd', '').replace(',', '.')
+                tasa_eur_str = request.form.get('tasa_eur', '').replace(',', '.')
+                # --- FIN DE LA CORRECCIÓN ---
+
+                if not tasa_usd_str and not tasa_eur_str:
+                    flash('Debe ingresar al menos un valor de tasa para guardar.', 'warning')
+                    return redirect(url_for('admin_tasa_bcv'))
+                
+                tasa_usd = Decimal(tasa_usd_str) if tasa_usd_str else None
+                tasa_eur = Decimal(tasa_eur_str) if tasa_eur_str else None
+
+                if (tasa_usd is not None and tasa_usd < 0) or \
+                   (tasa_eur is not None and tasa_eur < 0):
+                    flash('Los valores de las tasas no pueden ser negativos.', 'danger')
+                    return redirect(url_for('admin_tasa_bcv'))
+
+                cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha = %s", (today_date,))
+                tasa_actual = cur.fetchone()
+
+                final_tasa_usd = tasa_usd if tasa_usd is not None else (tasa_actual['tasa'] if tasa_actual else None)
+                final_tasa_eur = tasa_eur if tasa_eur is not None else (tasa_actual['tasa_euro'] if tasa_actual else None)
+                
+                sql_upsert = """
+                    INSERT INTO historial_tasas_bcv (fecha, tasa, tasa_euro, establecida_por_id) VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (fecha) DO UPDATE SET 
+                        tasa = EXCLUDED.tasa, 
+                        tasa_euro = EXCLUDED.tasa_euro, 
+                        establecida_por_id = EXCLUDED.establecida_por_id;
+                """
+                cur.execute(sql_upsert, (today_date, final_tasa_usd, final_tasa_eur, g.admin['id']))
+                
+                if now_vet.hour >= 17 and now_vet.weekday() < 5: 
+                    if now_vet.weekday() == 4:
+                        for i in range(1, 4):
+                            next_day = today_date + timedelta(days=i)
+                            cur.execute(sql_upsert, (next_day, final_tasa_usd, final_tasa_eur, g.admin['id']))
+                        flash('Tasa de Viernes guardada para todo el fin de semana y el Lunes.', 'success')
                     else:
-                        flash('Las tasas deben ser números positivos.', 'danger')
-                cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_date,))
-                resultado = cur.fetchone()
-                if resultado:
-                    tasas_de_hoy['usd'], tasas_de_hoy['eur'] = resultado['tasa'], resultado['tasa_euro']
-                cur.execute("SELECT h.fecha, h.tasa, h.tasa_euro, a.usuario FROM historial_tasas_bcv h LEFT JOIN administradores a ON h.establecida_por_id = a.id ORDER BY h.fecha DESC LIMIT 30")
-                historial_tasas = cur.fetchall()
-        except InvalidOperation:
-            flash('Por favor, introduce un número válido para las tasas.', 'danger')
-        except psycopg2.Error as e:
-            if conn: conn.rollback()
-            flash(f'Error al procesar la solicitud: {e}', 'danger')
-    return render_template('admin_tasa_bcv.html', tasas_de_hoy=tasas_de_hoy, historial_tasas=historial_tasas, anio_actual=get_venezuela_current_date().year)
+                        tomorrow_date = today_date + timedelta(days=1)
+                        cur.execute(sql_upsert, (tomorrow_date, final_tasa_usd, final_tasa_eur, g.admin['id']))
+                        flash('Tasa guardada para hoy y mañana.', 'success')
+                else:
+                    flash('¡Tasa guardada exitosamente para hoy!', 'success')
+                
+                conn.commit()
+                return redirect(url_for('admin_tasa_bcv'))
+
+            cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_date,))
+            resultado = cur.fetchone()
+            if resultado:
+                tasas_de_hoy['usd'], tasas_de_hoy['eur'] = resultado['tasa'], resultado['tasa_euro']
+            
+            cur.execute("SELECT h.fecha, h.tasa, h.tasa_euro, a.usuario FROM historial_tasas_bcv h LEFT JOIN administradores a ON h.establecida_por_id = a.id ORDER BY h.fecha DESC LIMIT 30")
+            historial_tasas = cur.fetchall()
+
+    except InvalidOperation:
+        flash('Por favor, introduce un número válido para las tasas. Use el punto como separador decimal.', 'danger')
+    except psycopg2.Error as e:
+        if conn: conn.rollback()
+        flash(f'Error al procesar la solicitud: {e}', 'danger')
+        
+    return render_template('admin_tasa_bcv.html', tasas_de_hoy=tasas_de_hoy, historial_tasas=historial_tasas, anio_actual=today_date.year)
 
 @app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
 @admin_required
