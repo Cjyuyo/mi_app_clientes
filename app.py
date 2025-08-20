@@ -3847,7 +3847,15 @@ def portal_login():
             return render_template('portal_login.html', anio_actual=get_venezuela_current_date().year)
         try:
             with conn.cursor() as cur:
-                sql_query = "SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE TRIM(cedula) = %s AND SPLIT_PART(REPLACE(TRIM(contrato_nro), 'MP-', ''), '.', 1) = %s;"
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se simplifica la consulta para hacerla más robusta y evitar errores.
+                # Ahora compara directamente el número de contrato limpio.
+                sql_query = """
+                    SELECT id, (nombre || ' ' || apellido) as nombre_apellido 
+                    FROM clientes 
+                    WHERE TRIM(cedula) = %s AND REPLACE(TRIM(UPPER(contrato_nro)), 'MP-', '') = %s;
+                """
+                # --- FIN DE LA CORRECCIÓN ---
                 cur.execute(sql_query, (cedula, contrato_nro))
                 cliente = cur.fetchone()
             if cliente:
