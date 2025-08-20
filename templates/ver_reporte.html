@@ -19,23 +19,70 @@
         {% endif %}
     </div>
 
-    <!-- Bloque de Comparación de Montos -->
+    <!-- INICIO: Bloque de Comparación de Montos con Lógica Condicional -->
+    {% if pago.forma_pago == 'Binance' %}
+    <!-- Vista para pagos en USDT (Binance) -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Columna 1: Monto Esperado en USDT -->
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+            <h3 class="font-semibold text-slate-500 text-sm mb-1">Monto Esperado (USDT)</h3>
+            <p class="text-3xl font-bold text-slate-800">$ {{ "%.2f"|format(pago.monto_dolares_referencia) }}</p>
+            <p class="text-xs text-slate-400 mt-1">Monto de referencia del plan.</p>
+        </div>
+
+        <!-- Columna 2: Monto Reportado por Cliente en USDT -->
+        <div class="bg-white p-5 rounded-xl shadow-sm border 
+            {% if pago.monto_bs < pago.monto_dolares_referencia %} border-red-300 bg-red-50 
+            {% else %} border-green-300 bg-green-50 {% endif %}">
+            <h3 class="font-semibold text-sm text-slate-600">Monto Reportado (USDT)</h3>
+            <p class="text-3xl font-bold 
+                {% if pago.monto_bs < pago.monto_dolares_referencia %} text-red-700
+                {% else %} text-green-700 {% endif %}">
+                $ {{ "%.2f"|format(pago.monto_bs) }}
+            </p>
+            <p class="text-xs text-slate-500 mt-1">
+                Monto reportado por el cliente.
+            </p>
+        </div>
+    </div>
+    {% else %}
+    <!-- Vista para el resto de los métodos de pago -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Columna 1: Referencia en Dólares -->
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+            <h3 class="font-semibold text-slate-500 text-sm mb-1">Referencia en Dólares</h3>
+            <p class="text-3xl font-bold text-slate-800">$ {{ "%.2f"|format(pago.monto_dolares_referencia) }}</p>
+            <p class="text-xs text-slate-400 mt-1">Monto de referencia del plan.</p>
+        </div>
+
+        <!-- Columna 2: Monto Esperado en Bs. -->
         <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
             <h3 class="font-semibold text-slate-500 text-sm mb-1">Monto Esperado (Bs.)</h3>
             <p class="text-3xl font-bold text-slate-800">{{ "%.2f"|format(pago.monto_esperado_bs) }} Bs.</p>
-            <p class="text-xs text-slate-400 mt-1">Calculado según el plan del cliente.</p>
+            {% if pago.tasa_dia %}
+                <p class="text-xs text-slate-400 mt-1">Calculado a tasa de {{ "%.2f"|format(pago.tasa_dia) }} Bs./$</p>
+            {% else %}
+                <p class="text-xs text-slate-400 mt-1">No se aplica tasa de conversión.</p>
+            {% endif %}
         </div>
+
+        <!-- Columna 3: Monto Reportado por Cliente en Bs. -->
         <div class="bg-white p-5 rounded-xl shadow-sm border 
             {% if pago.monto_bs < pago.monto_esperado_bs %} border-red-300 bg-red-50 
             {% else %} border-green-300 bg-green-50 {% endif %}">
-            <h3 class="font-semibold text-sm text-slate-600">Monto Reportado por Cliente (Bs.)</h3>
-            <p class="text-3xl font-bold text-green-700">{{ "%.2f"|format(pago.monto_bs) }} Bs.</p>
-            {% if pago.tasa_dia %}
-            <p class="text-xs text-slate-500 mt-1">Tasa del día reportada: {{ "%.2f"|format(pago.tasa_dia) }} Bs./$</p>
-            {% endif %}
+            <h3 class="font-semibold text-sm text-slate-600">Monto Reportado (Bs.)</h3>
+            <p class="text-3xl font-bold 
+                {% if pago.monto_bs < pago.monto_esperado_bs %} text-red-700
+                {% else %} text-green-700 {% endif %}">
+                {{ "%.2f"|format(pago.monto_bs) }} Bs.
+            </p>
+            <p class="text-xs text-slate-500 mt-1">
+                Monto reportado por el cliente.
+            </p>
         </div>
     </div>
+    {% endif %}
+    <!-- FIN: Bloque de Comparación de Montos con Lógica Condicional -->
 
     <!-- Tarjeta de Detalles Completos del Reporte -->
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">

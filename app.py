@@ -4577,15 +4577,21 @@ def ver_reporte(pago_id):
 
             pago = dict(pago_row)
             
-            # --- LÓGICA MEJORADA ---
-            # 1. Calcular Monto Esperado
-            pago['monto_esperado_bs'] = Decimal('0.0')
-            if pago.get('tipo_pago') == 'Cuota' and pago.get('valor_cuota') and pago.get('tasa_dia'):
-                pago['monto_esperado_bs'] = (pago['valor_cuota'] * pago['tasa_dia']).quantize(Decimal('0.01'))
-            elif pago.get('tipo_pago') == 'Inscripción' and pago.get('inscripcion_monto') and pago.get('tasa_dia'):
-                 pago['monto_esperado_bs'] = (pago['inscripcion_monto'] * pago['tasa_dia']).quantize(Decimal('0.01'))
+            # --- INICIO DE LA LÓGICA CORREGIDA ---
+            # 1. Calcular Monto de Referencia en Dólares
+            if pago.get('tipo_pago') == 'Cuota':
+                pago['monto_dolares_referencia'] = pago.get('valor_cuota', Decimal('0.0'))
+            elif pago.get('tipo_pago') == 'Inscripción':
+                pago['monto_dolares_referencia'] = pago.get('inscripcion_monto', Decimal('0.0'))
+            else:
+                pago['monto_dolares_referencia'] = Decimal('0.0')
 
-            # 2. Decodificar detalles del reporte (JSON) para que sean accesibles en la plantilla
+            # 2. Calcular Monto Esperado en Bolívares
+            pago['monto_esperado_bs'] = Decimal('0.0')
+            if pago.get('monto_dolares_referencia') and pago.get('tasa_dia'):
+                pago['monto_esperado_bs'] = (pago['monto_dolares_referencia'] * pago['tasa_dia']).quantize(Decimal('0.01'))
+
+            # 3. Decodificar detalles del reporte (JSON)
             detalles = pago.get('detalles_reporte')
             if isinstance(detalles, str):
                 try:
@@ -4594,7 +4600,7 @@ def ver_reporte(pago_id):
                     pago['detalles_reporte'] = {}
             elif detalles is None:
                 pago['detalles_reporte'] = {}
-            # --- FIN LÓGICA MEJORADA ---
+            # --- FIN DE LA LÓGICA CORREGIDA ---
 
             eventos_unificados = []
             pagos_relacionados = [pago]
