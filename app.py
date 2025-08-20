@@ -4630,25 +4630,21 @@ def ver_reporte(pago_id):
 
             pago = dict(pago_row)
             
-            # --- INICIO DE LA LÓGICA CORREGIDA Y MEJORADA ---
-            # 1. Calcular Monto de Referencia en Dólares
-            # Se determina cuál es el monto base en USD que se esperaba para este pago.
+            # --- INICIO DE LA LÓGICA CORREGIDA ---
+            # 1. Calcular Monto de Referencia en Dólares (para todos los casos)
             if pago.get('tipo_pago') and 'Cuota' in pago['tipo_pago']:
                 pago['monto_dolares_referencia'] = pago.get('valor_cuota', Decimal('0.0'))
             elif pago.get('tipo_pago') and 'Inscripción' in pago['tipo_pago']:
                 pago['monto_dolares_referencia'] = pago.get('inscripcion_monto', Decimal('0.0'))
             else:
-                # Para otros tipos de pago, se usa el monto en USD si existe, o cero.
                 pago['monto_dolares_referencia'] = pago.get('monto', Decimal('0.0'))
 
-            # 2. Calcular Monto Esperado en Bolívares
-            # Si hay una tasa y un monto de referencia en USD, se calcula el equivalente en Bs.
+            # 2. Calcular Monto Esperado en Bolívares (solo si aplica)
             pago['monto_esperado_bs'] = Decimal('0.0')
-            if pago.get('monto_dolares_referencia') and pago.get('tasa_dia'):
+            if pago.get('forma_pago') != 'Binance' and pago.get('monto_dolares_referencia') and pago.get('tasa_dia'):
                 pago['monto_esperado_bs'] = (pago['monto_dolares_referencia'] * pago['tasa_dia']).quantize(Decimal('0.01'))
 
             # 3. Decodificar detalles del reporte (JSON)
-            # Asegura que los detalles siempre sean un diccionario para evitar errores en la plantilla.
             detalles = pago.get('detalles_reporte')
             if isinstance(detalles, str):
                 try:
@@ -4657,16 +4653,15 @@ def ver_reporte(pago_id):
                     pago['detalles_reporte'] = {}
             elif detalles is None:
                 pago['detalles_reporte'] = {}
-            # --- FIN DE LA LÓGICA CORREGIDA Y MEJORADA ---
+            # --- FIN DE LA LÓGICA CORREGIDA ---
 
-            # Lógica para construir la bitácora de eventos (sin cambios)
+            # Lógica para construir la bitácora de eventos
             eventos_unificados = []
+            # ... (el resto de la lógica de la bitácora permanece igual) ...
             pagos_relacionados = [pago]
-
             if pago['bulk_id']:
                 cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
                 pagos_relacionados = [dict(p) for p in cur.fetchall()]
-
             for p in pagos_relacionados:
                 eventos_unificados.append({
                     'fecha': p['fecha_creacion'], 'tipo_evento': 'pago',
@@ -4674,7 +4669,6 @@ def ver_reporte(pago_id):
                     'descripcion': f"Cliente reportó un pago por concepto de \"{p.get('por_concepto_de', 'N/A')}\".",
                     'estado': p['estado_reporte'], 'data': p
                 })
-
             ids_pagos = [p['id'] for p in pagos_relacionados]
             if ids_pagos:
                 placeholders = ','.join(['%s'] * len(ids_pagos))
@@ -4686,14 +4680,12 @@ def ver_reporte(pago_id):
                 """
                 cur.execute(audit_query, tuple(ids_pagos))
                 auditoria = cur.fetchall()
-
                 for a in auditoria:
                     eventos_unificados.append({
                         'fecha': a['timestamp'], 'tipo_evento': 'auditoria',
                         'titulo': 'Acción Administrativa', 'descripcion': a['descripcion'],
                         'autor': a['usuario_nombre']
                     })
-
             eventos_unificados.sort(key=lambda x: x['fecha'])
 
             return render_template(
