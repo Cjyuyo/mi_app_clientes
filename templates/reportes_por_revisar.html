@@ -54,29 +54,27 @@
                         </div>
                         <!-- Info Montos -->
                         <div class="text-sm space-y-1 text-left md:text-right w-full md:w-auto">
-                            {% if reporte.monto_esperado_bs %}
-                            <p class="text-slate-500">Monto Esperado: <span class="font-semibold text-slate-700">{{ "%.2f"|format(reporte.monto_esperado_bs) }} Bs</span></p>
-                            {% endif %}
-                            <p class="text-slate-500">Monto Reportado: <span class="font-semibold text-slate-700">{{ "%.2f"|format(reporte.monto_bs) }} Bs</span></p>
+                            {% set monto_reportado = reporte.monto_bs|float %}
+                            {% set monto_esperado = reporte.monto_esperado_bs|float if reporte.monto_esperado_bs else monto_reportado %}
+                            {% set tiene_diferencia = monto_reportado < monto_esperado %}
+                            
+                            <p class="text-slate-500">Monto Esperado: <span class="font-semibold text-slate-700">{{ "%.2f"|format(monto_esperado) }} Bs</span></p>
+                            <p class="text-slate-500">Monto Reportado: <span class="font-semibold {% if tiene_diferencia %}text-red-600{% else %}text-green-600{% endif %}">{{ "%.2f"|format(monto_reportado) }} Bs</span></p>
                         </div>
                         <!-- Botones de Acción -->
                         <div class="flex items-center space-x-2 mt-4 md:mt-0 md:ml-6">
-                            <button @click="showVerify = !showVerify" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-3 rounded-lg text-sm">Verificar</button>
-                            <form action="{{ url_for('procesar_reporte', pago_id=reporte.id) }}" method="POST">
-                                <input type="hidden" name="accion" value="aprobar_completo">
-                                <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 rounded-lg text-sm">Aprobar Completo</button>
-                            </form>
+                            {% if tiene_diferencia %}
+                                <form action="{{ url_for('procesar_reporte', pago_id=reporte.id) }}" method="POST">
+                                    <input type="hidden" name="accion" value="confirmar_diferencia">
+                                    <button type="submit" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-3 rounded-lg text-sm">Procesar Diferencia</button>
+                                </form>
+                            {% else %}
+                                <form action="{{ url_for('procesar_reporte', pago_id=reporte.id) }}" method="POST">
+                                    <input type="hidden" name="accion" value="aprobar_completo">
+                                    <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 rounded-lg text-sm">Aprobar Completo</button>
+                                </form>
+                            {% endif %}
                         </div>
-                    </div>
-                    <!-- Panel de Verificación (Oculto por defecto) -->
-                    <div x-show="showVerify" x-transition class="mt-4 pt-4 border-t border-slate-200">
-                        <h4 class="text-sm font-bold text-slate-700">Verificar Pago Parcial</h4>
-                        <p class="text-xs text-slate-500 mb-2">Si el monto reportado es incorrecto, ingrese el valor real que fue validado. El sistema generará una orden de pago por la diferencia.</p>
-                        <form action="{{ url_for('procesar_reporte', pago_id=reporte.id) }}" method="POST" class="flex items-center gap-2">
-                            <input type="hidden" name="accion" value="verificar_parcial">
-                            <input type="text" name="monto_validado" class="form-input rounded-md border-slate-300 text-sm w-full" placeholder="Monto validado en Bs (Ej: 1500.50)">
-                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg text-sm">Procesar</button>
-                        </form>
                     </div>
                 </div>
                 {% endfor %}
@@ -100,7 +98,7 @@
                         {% set esperado = reporte.monto_esperado_bs|float %}
                         {% set reportado = reporte.detalles_reporte.monto_original_reportado|float %}
                         {% set validado = reporte.detalles_reporte.monto_recibido_real|float %}
-                        {% set diferencia = reportado - validado %}
+                        {% set diferencia = esperado - validado %}
                         <p class="text-slate-500">Monto Esperado: <span class="font-semibold text-slate-700">{{ "%.2f"|format(esperado) }} Bs</span></p>
                         <p class="text-slate-500">Monto Reportado: <span class="font-semibold text-slate-700">{{ "%.2f"|format(reportado) }} Bs</span></p>
                         <p class="text-slate-500">Monto Validado: 

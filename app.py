@@ -1175,23 +1175,28 @@ def procesar_reporte(pago_id):
                 return redirect(url_for('reportes_por_revisar'))
             cliente_id = pago['cliente_id']
 
-            if accion == 'verificar_parcial':
-                monto_validado_str = request.form.get('monto_validado', '0').replace(',', '.')
-                monto_validado = Decimal(monto_validado_str) if monto_validado_str else Decimal('0')
-                monto_reportado = pago['monto_bs'] or pago['monto']
+            # --- INICIO DE LA LÓGICA MEJORADA ---
+            if accion == 'confirmar_diferencia':
+                monto_validado = pago['monto_bs'] or pago['monto']
+                monto_reportado = monto_validado # En este flujo, lo que se valida es lo que se reportó.
+                
+                # Se recalcula el monto esperado para la diferencia
+                valor_cuota = pago.get('valor_cuota') or Decimal('0.0')
+                tasa_dia = pago.get('tasa_dia') or Decimal('0.0')
+                monto_esperado = (valor_cuota * tasa_dia).quantize(Decimal('0.01')) if tasa_dia > 0 else monto_reportado
 
-                if monto_validado <= 0 or monto_validado >= monto_reportado:
-                    flash("El monto validado debe ser mayor a cero y menor que el monto reportado.", "error")
+                if monto_validado >= monto_esperado:
+                    flash("Acción no válida. El monto reportado es suficiente. Por favor, use 'Aprobar Completo'.", "warning")
                     return redirect(url_for('reportes_por_revisar'))
 
                 # 1. Crear el Bulk
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status)
                     VALUES (%s, %s, %s, 'UNDER_REVIEW') RETURNING id
-                """, (cliente_id, 'VES' if pago['monto_bs'] else 'USD', monto_reportado))
+                """, (cliente_id, 'VES' if pago['monto_bs'] else 'USD', monto_esperado))
                 bulk_id = cur.fetchone()[0]
 
-                # 2. Crear NUEVO pago por el monto validado
+                # 2. Crear NUEVO pago por el monto validado (que es el reportado)
                 tasa = pago.get('tasa_dia') or Decimal('1.0')
                 monto_validado_usd = (monto_validado / tasa).quantize(Decimal('0.01')) if tasa > 0 and pago['monto_bs'] else monto_validado
                 cur.execute("""
@@ -1208,7 +1213,7 @@ def procesar_reporte(pago_id):
                 detalles_actualizados = {
                     'motivo': 'Diferencia de Monto',
                     'monto_original_reportado': str(monto_reportado),
-                    'monto_recibido_real': str(monto_validado)
+                    'monto_recibido_real': str(monto_validado) # Es el mismo que el reportado
                 }
                 cur.execute(
                     "UPDATE pagos SET estado_reporte = 'Inconsistente', revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s, bulk_id = %s WHERE id = %s",
@@ -1216,16 +1221,16 @@ def procesar_reporte(pago_id):
                 )
 
                 # 4. Crear la orden de pago por la diferencia
-                monto_pendiente = monto_reportado - monto_validado
+                monto_pendiente = monto_esperado - monto_validado
                 cur.execute("""
                     INSERT INTO payment_orders (bulk_id, cliente_id, amount, currency, status)
                     VALUES (%s, %s, %s, %s, 'ISSUED')
                 """, (bulk_id, cliente_id, monto_pendiente, 'VES' if pago['monto_bs'] else 'USD'))
                 
                 recalcular_totales_bulk(bulk_id)
-                descripcion_audit = f"Verificó pago parcial para reporte #{pago_id}. Monto validado: {monto_validado_str} Bs. Se generó orden de pago por diferencia."
-                registrar_accion_auditoria('VERIFICACION_PAGO_PARCIAL', descripcion_audit, cliente_id, {'pago_id': pago_id})
-                flash("Pago parcial verificado. Se ha movido a la pestaña 'Con Diferencia' y se ha notificado al cliente.", "success")
+                descripcion_audit = f"Confirmó diferencia para reporte #{pago_id}. Se generó orden de pago por {monto_pendiente} Bs."
+                registrar_accion_auditoria('CONFIRMAR_DIFERENCIA_PAGO', descripcion_audit, cliente_id, {'pago_id': pago_id})
+                flash("Pago parcial procesado. Se ha movido a la pestaña 'Con Diferencia' y se ha notificado al cliente.", "success")
 
             elif accion == 'aprobar_completo':
                 descripcion_audit = f"Aprobó el reporte de pago N° {pago_id} como completo."
@@ -1238,6 +1243,7 @@ def procesar_reporte(pago_id):
             else:
                 flash('Acción no válida.', 'error')
                 return redirect(url_for('reportes_por_revisar'))
+            # --- FIN DE LA LÓGICA MEJORADA ---
 
             conn.commit()
 
