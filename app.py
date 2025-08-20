@@ -1109,9 +1109,11 @@ def reportes_por_revisar():
 
     try:
         with conn.cursor() as cur:
+            # Se añade c.valor_cuota y p.tasa_dia a la consulta
             cur.execute("""
                 SELECT p.id, p.monto, p.monto_bs, p.tipo_pago, p.fecha_creacion, p.estado_reporte,
-                       p.cliente_id, c.nombre, c.apellido, c.cedula, p.detalles_reporte
+                       p.cliente_id, c.nombre, c.apellido, c.cedula, p.detalles_reporte,
+                       c.valor_cuota, p.tasa_dia
                 FROM pagos p
                 JOIN clientes c ON p.cliente_id = c.id
                 WHERE p.reportado_por_cliente = TRUE AND p.estado_reporte IN ('Pendiente de Revision', 'Inconsistente')
@@ -1119,7 +1121,8 @@ def reportes_por_revisar():
             """)
             todos_los_reportes = cur.fetchall()
 
-            for reporte in todos_los_reportes:
+            for reporte_row in todos_los_reportes:
+                reporte = dict(reporte_row) # Convertir a diccionario mutable
                 if reporte['estado_reporte'] == 'Pendiente de Revision':
                     reportes_categorizados['pendientes'].append(reporte)
                 elif reporte['estado_reporte'] == 'Inconsistente':
@@ -1129,8 +1132,18 @@ def reportes_por_revisar():
                             detalles = json.loads(detalles)
                         except json.JSONDecodeError:
                             detalles = {}
-                    
+                    reporte['detalles_reporte'] = detalles # Asegurarse de que detalles sea un dict
+
                     if detalles and detalles.get('motivo') == 'Diferencia de Monto':
+                        # --- INICIO DE LA LÓGICA MEJORADA ---
+                        valor_cuota = reporte.get('valor_cuota') or Decimal('0.0')
+                        tasa_dia = reporte.get('tasa_dia') or Decimal('0.0')
+                        
+                        if tasa_dia > 0:
+                            reporte['monto_esperado_bs'] = (valor_cuota * tasa_dia).quantize(Decimal('0.01'))
+                        else:
+                            reporte['monto_esperado_bs'] = Decimal('0.0')
+                        # --- FIN DE LA LÓGICA MEJORADA ---
                         reportes_categorizados['diferencias'].append(reporte)
                     else:
                         reportes_categorizados['otros_rechazados'].append(reporte)

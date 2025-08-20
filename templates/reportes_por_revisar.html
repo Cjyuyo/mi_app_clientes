@@ -87,9 +87,18 @@
                         <div class="text-sm text-slate-500 mt-1">C.I. {{ reporte.cedula }}</div>
                     </div>
                     <div class="text-sm space-y-1 text-right">
-                        <p class="text-slate-500">Reportado: <span class="font-semibold text-red-600">{{ "%.2f"|format(reporte.detalles_reporte.monto_original_reportado|float) }} Bs</span></p>
-                        <p class="text-slate-500">Verificado: <span class="font-semibold text-green-600">{{ "%.2f"|format(reporte.detalles_reporte.monto_recibido_real|float) }} Bs</span></p>
-                        <p class="font-bold text-blue-600 text-xs mt-1">ESPERANDO PAGO DE DIFERENCIA</p>
+                        {% set esperado = reporte.monto_esperado_bs|float %}
+                        {% set reportado = reporte.detalles_reporte.monto_original_reportado|float %}
+                        {% set validado = reporte.detalles_reporte.monto_recibido_real|float %}
+                        {% set diferencia = esperado - validado %}
+                        <p class="text-slate-500">Monto Esperado: <span class="font-semibold text-slate-700">{{ "%.2f"|format(esperado) }} Bs</span></p>
+                        <p class="text-slate-500">Monto Reportado: <span class="font-semibold text-slate-700">{{ "%.2f"|format(reportado) }} Bs</span></p>
+                        <p class="text-slate-500">Monto Validado: 
+                            <span class="font-semibold text-green-600">{{ "%.2f"|format(validado) }} Bs</span>
+                            <i class="bi bi-check-circle-fill text-green-600" title="Verificado pero incompleto"></i>
+                        </p>
+                        <p class="text-slate-500">Diferencia Pendiente: <span class="font-semibold text-red-600">{{ "%.2f"|format(diferencia) }} Bs</span></p>
+                        <p class="font-bold text-blue-600 text-xs mt-1">ORDEN DE PAGO GENERADA</p>
                     </div>
                 </div>
                 {% endfor %}
