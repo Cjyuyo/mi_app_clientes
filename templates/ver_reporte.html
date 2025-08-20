@@ -22,66 +22,39 @@
     <!-- Bloque de Comparación de Montos -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-            <h3 class="font-semibold text-slate-500 text-sm mb-1">Monto Esperado ({{ pago.moneda_referencia or 'USD' }})</h3>
-            <p class="text-3xl font-bold text-slate-800">
-                {% if pago.moneda_referencia == 'VES' %}
-                    {{ "%.2f"|format(pago.monto_esperado_bs) }} Bs.
-                {% else %}
-                    ${{ "%.2f"|format(pago.valor_cuota) }}
-                {% endif %}
-            </p>
+            <h3 class="font-semibold text-slate-500 text-sm mb-1">Monto Esperado (Bs.)</h3>
+            <p class="text-3xl font-bold text-slate-800">{{ "%.2f"|format(pago.monto_esperado_bs) }} Bs.</p>
             <p class="text-xs text-slate-400 mt-1">Calculado según el plan del cliente.</p>
         </div>
         <div class="bg-white p-5 rounded-xl shadow-sm border 
-            {% set monto_mostrado = pago.monto_bs if pago.pago_en != 'USDT' else pago.monto %}
-            {% set monto_esperado_cmp = pago.monto_esperado_bs if pago.pago_en != 'USDT' else pago.valor_cuota %}
-            {% if monto_mostrado < monto_esperado_cmp %} border-red-300 bg-red-50 
+            {% if pago.monto_bs < pago.monto_esperado_bs %} border-red-300 bg-red-50 
             {% else %} border-green-300 bg-green-50 {% endif %}">
-            <h3 class="font-semibold text-sm text-slate-600">Monto Reportado por Cliente</h3>
-            <p class="text-3xl font-bold text-green-700">
-                {% if pago.pago_en == 'USDT' %}
-                    ${{ "%.2f"|format(pago.monto) }}
-                {% else %}
-                    {{ "%.2f"|format(pago.monto_bs) }} Bs.
-                {% endif %}
-            </p>
-            <p class="text-xs text-slate-500 mt-1">Moneda del pago: {{ pago.pago_en }}</p>
+            <h3 class="font-semibold text-sm text-slate-600">Monto Reportado por Cliente (Bs.)</h3>
+            <p class="text-3xl font-bold text-green-700">{{ "%.2f"|format(pago.monto_bs) }} Bs.</p>
+            <p class="text-xs text-slate-500 mt-1">Tasa del día reportada: {{ "%.2f"|format(pago.tasa_dia) }} Bs./$</p>
         </div>
     </div>
 
-    <!-- ========= Tarjeta de Detalles del Reporte (MEJORADA) ========= -->
+    <!-- Tarjeta de Detalles Completos del Reporte -->
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="p-5 border-b border-slate-200">
             <h2 class="text-lg font-bold text-slate-800">Detalles Completos del Reporte</h2>
         </div>
         <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            <!-- Columna 1: Info General -->
-            <div class="space-y-4">
-                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Concepto</span><span class="font-semibold text-slate-700">{{ pago.por_concepto_de or pago.tipo_pago }}</span></div>
-                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Fecha del Pago</span><span class="font-semibold text-slate-700">{{ pago.fecha_pago | format_date }}</span></div>
-                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Fecha del Reporte</span><span class="font-semibold text-slate-700">{{ pago.fecha_creacion | format_datetime }}</span></div>
-            </div>
-            <!-- Columna 2: Info de la Transacción -->
-            <div class="space-y-4">
-                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Forma de Pago</span><span class="font-semibold text-slate-700">{{ pago.forma_pago }}</span></div>
-                <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Referencia / ID Transacción</span><span class="font-semibold text-slate-700">{{ pago.referencia or 'N/A' }}</span></div>
-                {% if pago.forma_pago != 'Binance' %}
-                    <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Banco</span><span class="font-semibold text-slate-700">{{ pago.banco or 'N/A' }}</span></div>
-                {% endif %}
-            </div>
-            <!-- Columna 3: Detalles Específicos del Pago -->
-            <div class="space-y-4">
-                {% if pago.forma_pago == 'Binance' %}
-                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-200"><span class="text-xs text-blue-500 block">Usuario Binance</span><span class="font-semibold text-blue-800">{{ pago.detalles_reporte.usuario_binance or 'No especificado' }}</span></div>
-                {% elif pago.forma_pago == 'Pago Movil' %}
-                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-200"><span class="text-xs text-blue-500 block">Teléfono Emisor</span><span class="font-semibold text-blue-800">{{ pago.detalles_reporte.telefono_emisor or 'No especificado' }}</span></div>
-                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-200"><span class="text-xs text-blue-500 block">Cédula Emisor</span><span class="font-semibold text-blue-800">{{ pago.detalles_reporte.cedula_emisor or 'No especificado' }}</span></div>
-                {% endif %}
-            </div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Concepto</span><span class="font-semibold text-slate-700">{{ pago.por_concepto_de or pago.tipo_pago }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Fecha del Pago</span><span class="font-semibold text-slate-700">{{ pago.fecha_pago | format_date }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Forma de Pago</span><span class="font-semibold text-slate-700">{{ pago.forma_pago }}</span></div>
+            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Referencia / ID</span><span class="font-semibold text-slate-700">{{ pago.referencia or 'N/A' }}</span></div>
+            {% if pago.forma_pago != 'Binance' %}<div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Banco</span><span class="font-semibold text-slate-700">{{ pago.banco or 'N/A' }}</span></div>{% endif %}
+            {% if pago.forma_pago == 'Binance' and pago.detalles_reporte %}<div class="bg-blue-50 p-3 rounded-lg border border-blue-200"><span class="text-xs text-blue-500 block">Usuario Binance</span><span class="font-semibold text-blue-800">{{ pago.detalles_reporte.usuario_binance or 'N/A' }}</span></div>{% endif %}
+            {% if pago.forma_pago == 'Pago Movil' and pago.detalles_reporte %}
+                <div class="bg-blue-50 p-3 rounded-lg border border-blue-200"><span class="text-xs text-blue-500 block">Teléfono Emisor</span><span class="font-semibold text-blue-800">{{ pago.detalles_reporte.telefono_emisor or 'N/A' }}</span></div>
+                <div class="bg-blue-50 p-3 rounded-lg border border-blue-200"><span class="text-xs text-blue-500 block">Cédula Emisor</span><span class="font-semibold text-blue-800">{{ pago.detalles_reporte.cedula_emisor or 'N/A' }}</span></div>
+            {% endif %}
         </div>
     </div>
     
-    <!-- Bitácora y Acciones (sin cambios) -->
+    <!-- Bitácora de la Transacción -->
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="p-5 border-b border-slate-200">
             <h2 class="text-lg font-bold text-slate-800">Bitácora de la Transacción</h2>
@@ -115,6 +88,7 @@
         </div>
     </div>
 
+    <!-- Acciones de Validación -->
     {% if is_admin_view and pago.estado_reporte == 'Pendiente de Revision' %}
     <div class="bg-white rounded-xl shadow-sm" x-data="{ showDiferenciaForm: false }">
         <div class="p-5 border-b border-slate-200">

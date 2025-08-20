@@ -1181,65 +1181,65 @@ def procesar_reporte(pago_id):
 
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT p.*, c.valor_cuota FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s FOR UPDATE", (pago_id,))
+            cur.execute("SELECT p.*, c.valor_cuota, c.inscripcion_monto FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s FOR UPDATE", (pago_id,))
             pago = cur.fetchone()
 
             if not pago or pago['estado_reporte'] != 'Pendiente de Revision':
-                flash("Este reporte no se puede procesar porque ya no está pendiente.", "warning")
+                flash("Este reporte ya no está pendiente.", "warning")
                 return redirect(url_for('reportes_por_revisar'))
 
             cliente_id = pago['cliente_id']
 
             if accion == 'confirmar_diferencia':
-                currency = 'VES' if pago.get('monto_bs') and pago['monto_bs'] > 0 else 'USD'
-                monto_reportado = pago['monto_bs'] if currency == 'VES' else pago['monto']
+                monto_real_recibido_str = request.form.get('monto_real_recibido')
+                if not monto_real_recibido_str:
+                    flash("Debe ingresar el monto real recibido para procesar una diferencia.", "error")
+                    return redirect(url_for('ver_reporte', pago_id=pago_id))
+                
+                monto_real_recibido = Decimal(monto_real_recibido_str)
+                currency = 'VES' if pago.get('pago_en') != 'USDT' else 'USD'
+                
                 monto_esperado = Decimal('0.0')
-
                 if currency == 'VES':
-                    valor_cuota_usd = pago.get('valor_cuota') or Decimal('0.0')
-                    tasa = pago.get('tasa_dia') or Decimal('1.0')
-                    monto_esperado = (valor_cuota_usd * tasa).quantize(Decimal('0.01'))
-                else: # USD
-                    monto_esperado = pago.get('valor_cuota') or Decimal('0.0')
+                    base_amount = pago['valor_cuota'] if pago['tipo_pago'] == 'Cuota' else pago['inscripcion_monto']
+                    monto_esperado = (base_amount * pago['tasa_dia']).quantize(Decimal('0.01'))
+                else:
+                    monto_esperado = pago['valor_cuota'] if pago['tipo_pago'] == 'Cuota' else pago['inscripcion_monto']
 
-                if monto_reportado >= monto_esperado:
-                    flash("Acción no válida. El monto reportado es suficiente. Use 'Aprobar Completo'.", "warning")
-                    return redirect(url_for('reportes_por_revisar'))
+                if monto_real_recibido >= monto_esperado:
+                    flash("El monto real recibido es suficiente. Apruebe el reporte.", "warning")
+                    return redirect(url_for('ver_reporte', pago_id=pago_id))
 
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
                     VALUES (%s, %s, %s, 'UNDER_REVIEW', %s) RETURNING id
-                """, (cliente_id, currency, monto_esperado, monto_reportado))
+                """, (cliente_id, currency, monto_esperado, monto_real_recibido))
                 bulk_id = cur.fetchone()[0]
 
                 detalles = {
                     'motivo': 'Diferencia de Monto',
-                    'monto_original_reportado': str(monto_reportado),
-                    'monto_recibido_real': str(monto_reportado)
+                    'monto_original_reportado': str(pago['monto_bs'] if currency == 'VES' else pago['monto']),
+                    'monto_recibido_real': str(monto_real_recibido)
                 }
                 
                 cur.execute(
                     """
-                    UPDATE pagos 
-                    SET estado_reporte = 'Inconsistente', 
-                        revisado_por_id = %s, 
-                        fecha_revision = NOW(), 
-                        detalles_reporte = %s, 
-                        bulk_id = %s
+                    UPDATE pagos SET estado_reporte = 'Inconsistente', revisado_por_id = %s, 
+                           fecha_revision = NOW(), detalles_reporte = %s, bulk_id = %s
                     WHERE id = %s
                     """,
                     (g.admin['id'], json.dumps(detalles), bulk_id, pago_id)
                 )
 
-                monto_pendiente = monto_esperado - monto_reportado
+                monto_pendiente = monto_esperado - monto_real_recibido
                 cur.execute("""
                     INSERT INTO payment_orders (bulk_id, cliente_id, amount, currency, status)
                     VALUES (%s, %s, %s, %s, 'ISSUED')
                 """, (bulk_id, cliente_id, monto_pendiente, currency))
                 
-                descripcion_audit = f"Confirmó diferencia para reporte #{pago_id}. Se generó orden de pago por {monto_pendiente:,.2f} {currency}."
+                descripcion_audit = f"Confirmó diferencia para reporte #{pago_id}. Monto real: {monto_real_recibido}. Se generó orden por {monto_pendiente:,.2f} {currency}."
                 registrar_accion_auditoria('CONFIRMAR_DIFERENCIA_PAGO', descripcion_audit, cliente_id, {'pago_id': pago_id})
-                flash("Pago parcial procesado. El reporte se movió a 'Con Diferencia' y se generó una orden de pago para el cliente.", "success")
+                flash("Diferencia procesada. Se generó una orden de pago para el cliente.", "success")
 
             elif accion == 'aprobar_completo':
                 cur.execute(
@@ -1250,19 +1250,15 @@ def procesar_reporte(pago_id):
             
             else:
                 flash('Acción no válida.', 'error')
-                return redirect(url_for('reportes_por_revisar'))
+                return redirect(url_for('ver_reporte', pago_id=pago_id))
 
             conn.commit()
 
-    # --- MODIFICADO: Bloque 'except' mejorado ---
-    # Ahora, en lugar de solo mostrar el error, se captura y registra la traza completa
-    # del archivo y la línea donde ocurrió el fallo. Esto es invaluable para la depuración.
     except (psycopg2.Error, ValueError, InvalidOperation) as e:
         conn.rollback()
         error_trace = traceback.format_exc()
-        logging.error(f"Error CRÍTICO al procesar el reporte {pago_id}:\n{error_trace}")
-        flash(f"Ocurrió un error inesperado al procesar el reporte. Por favor, contacte a soporte técnico.", "error")
-    # --- FIN DE LA MODIFICACIÓN ---
+        logging.error(f"Error al procesar el reporte {pago_id}:\n{error_trace}")
+        flash(f"Error CRÍTICO al procesar el reporte.", "error")
     
     return redirect(url_for('reportes_por_revisar'))
 
@@ -4561,7 +4557,7 @@ def ver_reporte(pago_id):
             query = """
                 SELECT p.*,
                        c.nombre || ' ' || c.apellido as nombre_apellido,
-                       c.cedula, c.valor_cuota,
+                       c.cedula, c.valor_cuota, c.inscripcion_monto,
                        c.id as cliente_id
                 FROM pagos p
                 JOIN clientes c ON p.cliente_id = c.id
@@ -4580,16 +4576,12 @@ def ver_reporte(pago_id):
 
             pago = dict(pago_row)
             
-            # --- LÓGICA MEJORADA ---
-            # 1. Calcular Monto Esperado
             pago['monto_esperado_bs'] = Decimal('0.0')
             if pago.get('tipo_pago') == 'Cuota' and pago.get('valor_cuota') and pago.get('tasa_dia'):
                 pago['monto_esperado_bs'] = (pago['valor_cuota'] * pago['tasa_dia']).quantize(Decimal('0.01'))
             elif pago.get('tipo_pago') == 'Inscripción' and pago.get('inscripcion_monto') and pago.get('tasa_dia'):
                  pago['monto_esperado_bs'] = (pago['inscripcion_monto'] * pago['tasa_dia']).quantize(Decimal('0.01'))
 
-
-            # 2. Decodificar detalles del reporte (JSON)
             detalles = pago.get('detalles_reporte')
             if isinstance(detalles, str):
                 try:
@@ -4598,17 +4590,13 @@ def ver_reporte(pago_id):
                     pago['detalles_reporte'] = {}
             elif detalles is None:
                 pago['detalles_reporte'] = {}
-            # --- FIN LÓGICA MEJORADA ---
 
             eventos_unificados = []
-            pagos_relacionados = [pago] # Inicia con el pago actual
+            pagos_relacionados = [pago]
 
-            # Si el pago es parte de un bulk, obtenemos todos los pagos de ese bulk
             if pago['bulk_id']:
                 cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
-                # Sobrescribe la lista con todos los pagos del bulk
                 pagos_relacionados = [dict(p) for p in cur.fetchall()]
-
 
             for p in pagos_relacionados:
                 eventos_unificados.append({
