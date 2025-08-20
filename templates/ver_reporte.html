@@ -76,9 +76,13 @@
                 {% else %} text-green-700 {% endif %}">
                 {{ "%.2f"|format(pago.monto_bs) }} Bs.
             </p>
-            <p class="text-xs text-slate-500 mt-1">
-                Monto reportado por el cliente.
-            </p>
+            <!-- INICIO: Tasa del día añadida -->
+            {% if pago.tasa_dia %}
+            <p class="text-xs text-slate-500 mt-1">Tasa del día reportada: {{ "%.2f"|format(pago.tasa_dia) }} Bs./$</p>
+            {% else %}
+            <p class="text-xs text-slate-500 mt-1">Monto reportado por el cliente.</p>
+            {% endif %}
+            <!-- FIN: Tasa del día añadida -->
         </div>
     </div>
     {% endif %}
