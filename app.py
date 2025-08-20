@@ -3361,13 +3361,15 @@ def portal_dashboard():
             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s AND estado_pago != 'Anulado' ORDER BY fecha_pago DESC, id DESC LIMIT 5;", (session['cliente_id'],))
             cliente_dict['pagos'] = cur.fetchall()
 
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Se verifica si existe CUALQUIER pago pendiente de revisión para deshabilitar todos los botones de pago.
             cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
             hay_pago_pendiente_general = cur.fetchone() is not None
+
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se busca si hay órdenes de pago pendientes.
+            cur.execute("SELECT * FROM payment_orders WHERE cliente_id = %s AND status = 'ISSUED'", (session['cliente_id'],))
+            ordenes_pendientes = cur.fetchall()
             # --- FIN DE LA CORRECCIÓN ---
 
-            ordenes_pendientes = []
             reportes_rechazados = [] 
             estado_principal = {} 
             cita_confirmada = None 
@@ -3432,7 +3434,9 @@ def portal_dashboard():
 
             historial_gestiones = []
 
-            if cliente_dict.get('proceso') == 'RESERVA':
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se añade la condición 'and not ordenes_pendientes' para ocultar el botón si hay diferencias.
+            if cliente_dict.get('proceso') == 'RESERVA' and not ordenes_pendientes:
                 inscripcion_pagada = cliente_dict.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
                 inscripcion_total = cliente_dict.get('inscripcion_monto', Decimal('0.0')) or Decimal('0.0')
                 
@@ -3446,7 +3450,7 @@ def portal_dashboard():
                         'boton_activo': not hay_pago_pendiente_general
                     }
             
-            elif cliente_dict.get('proceso') == 'INSCRITO':
+            elif cliente_dict.get('proceso') == 'INSCRITO' and not ordenes_pendientes:
                 estado_principal = {
                     'titulo': '¡Felicitaciones! Es hora de activar tu plan',
                     'mensaje': f"Tu inscripción ha sido completada. Para comenzar a sumar cuotas a tu plan, por favor realiza el pago de tu primera cuota por un monto de ${cliente_dict.get('valor_cuota', 0):,.2f}.",
@@ -3454,10 +3458,8 @@ def portal_dashboard():
                     'boton_url': url_for('portal_reportar_pago'),
                     'boton_activo': not hay_pago_pendiente_general
                 }
+            # --- FIN DE LA CORRECCIÓN ---
             
-            cur.execute("SELECT * FROM payment_orders WHERE cliente_id = %s AND status = 'ISSUED'", (session['cliente_id'],))
-            ordenes_pendientes = cur.fetchall()
-
             return render_template('portal_dashboard.html', 
                                    cliente=cliente_dict, 
                                    ordenes_pendientes=ordenes_pendientes,
@@ -3634,21 +3636,66 @@ def portal_diferencia_reportar(bulk_id, order_id):
     if request.method == 'POST':
         pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
         
-        # --- INICIO DE LA CORRECCIÓN ---
-        # Se añade una validación para asegurar que la forma de pago no sea nula.
         if not pago_form.get('forma_pago'):
             flash('Debe seleccionar una forma de pago para continuar.', 'error')
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se pasan los montos correctos al renderizar de nuevo en caso de error
             return render_template('portal_reportar_pago.html', 
                                    cliente=cliente, 
                                    tasa_hoy=tasa_hoy, 
                                    is_diferencia=True, 
                                    bulk_id=bulk_id, 
                                    order_id=order_id, 
-                                   monto_precargado_bs=monto_a_pagar_bs, 
-                                   monto_equivalente_usd=monto_equivalente_usd,
+                                   monto_a_pagar_bs=monto_a_pagar_bs, 
+                                   monto_a_pagar_usd=monto_equivalente_usd,
                                    tasa_bcv=tasa_bcv,
                                    concepto_pago=f"Pago de diferencia (Orden #{order_id})")
-        # --- FIN DE LA CORRECCIÓN ---
+            # --- FIN DE LA CORRECCIÓN ---
+
+        try:
+            with conn.cursor() as cur:
+                monto_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
+                monto_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
+                
+                pago_query = """
+                    INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
+                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
+                                    bulk_id, is_diferencia, cuotas_cubiertas)
+                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, TRUE, 0) RETURNING id;
+                """
+                cur.execute(pago_query, (
+                    cliente['id'], monto_usd, monto_bs, pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
+                    pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv,
+                    get_venezuela_current_datetime(), f"Pago de diferencia para Bulk #{bulk_id}", bulk_id
+                ))
+                
+                cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
+                
+                recalcular_totales_bulk(bulk_id)
+
+                flash('✅ ¡Pago de diferencia reportado! Será verificado por un administrador.', 'success')
+                conn.commit()
+                return redirect(url_for('portal_dashboard'))
+
+        except (psycopg2.Error, ValueError, InvalidOperation) as e:
+            conn.rollback()
+            logging.error(f"Error en portal_diferencia_reportar (POST): {e}")
+            flash(f'Ocurrió un error al reportar el pago de la diferencia: {e}', 'error')
+            return redirect(url_for('portal_dashboard'))
+
+    # --- INICIO DE LA CORRECCIÓN ---
+    # Se cambian los nombres de las variables para que coincidan con el template
+    return render_template('portal_reportar_pago.html', 
+                           cliente=cliente, 
+                           tasa_hoy=tasa_hoy, 
+                           is_diferencia=True, 
+                           bulk_id=bulk_id, 
+                           order_id=order_id, 
+                           monto_a_pagar_bs=monto_a_pagar_bs, 
+                           monto_a_pagar_usd=monto_equivalente_usd,
+                           tasa_bcv=tasa_bcv,
+                           concepto_pago=f"Pago de diferencia (Orden #{order_id})")
+    # --- FIN DE LA CORRECCIÓN ---
 
         try:
             with conn.cursor() as cur:
