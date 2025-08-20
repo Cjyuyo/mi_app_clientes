@@ -246,18 +246,22 @@ document.addEventListener('alpine:init', () => {
             });
         },
 
+        // ===== INICIO DE LA CORRECCIÓN DE CÁLCULO =====
         updateBsFromUsd() {
             if (this.pagoEn === 'Dolar/BCV' && this.tasa > 0) {
-                this.montoBs = parseFloat((this.montoUsd * this.tasa).toFixed(2));
+                // Se multiplica y luego se redondea para mantener precisión
+                this.montoBs = Math.round((this.montoUsd * this.tasa) * 100) / 100;
             } else {
                 this.montoBs = 0;
             }
         },
         updateUsdFromBs() {
             if (this.pagoEn === 'Dolar/BCV' && this.tasa > 0) {
-                this.montoUsd = parseFloat((this.montoBs / this.tasa).toFixed(2));
+                // Se evita el redondeo prematuro aquí. El backend hará el cálculo final.
+                this.montoUsd = this.montoBs / this.tasa;
             }
         }
+        // ===== FIN DE LA CORRECCIÓN DE CÁLCULO =====
     }));
 });
 document.getElementById('fecha_pago').valueAsDate = new Date();
