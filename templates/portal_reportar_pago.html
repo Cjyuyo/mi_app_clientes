@@ -19,6 +19,12 @@
 
         <!-- Campos Ocultos -->
         <input type="hidden" name="forma_pago" x-model="formaPago">
+        
+        <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
+        <!-- Se añade un campo oculto para enviar la tasa del día al servidor -->
+        <input type="hidden" name="tasa_dia" :value="tasa">
+        <!-- ===== FIN DE LA CORRECCIÓN ===== -->
+
         {% if modo_correccion and pago_a_corregir %}
             <input type="hidden" name="pago_id_a_corregir" value="{{ pago_a_corregir.id }}">
         {% endif %}

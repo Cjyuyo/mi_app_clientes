@@ -17,6 +17,11 @@
         <!-- CAMPO OCULTO PARA FORMA DE PAGO -->
         <input type="hidden" name="forma_pago" x-model="formaPago">
 
+        <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
+        <!-- Se añade un campo oculto para enviar la tasa del día al servidor -->
+        <input type="hidden" name="tasa_dia" :value="tasa">
+        <!-- ===== FIN DE LA CORRECCIÓN ===== -->
+
         <div class="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg text-center">
             <p class="font-semibold">Monto Pendiente de Inscripción:</p>
             <p class="text-2xl font-bold">${{ "%.2f"|format(monto_restante|float) }}</p>
@@ -257,4 +262,4 @@ document.addEventListener('alpine:init', () => {
 });
 document.getElementById('fecha_pago').valueAsDate = new Date();
 </script>
-{% endblock %}
+{% endblock
