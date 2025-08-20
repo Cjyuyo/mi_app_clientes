@@ -26,7 +26,7 @@
         <!-- Columna 1: Monto Esperado en USDT -->
         <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
             <h3 class="font-semibold text-slate-500 text-sm mb-1">Monto Esperado (USDT)</h3>
-            <p class="text-3xl font-bold text-slate-800">$ {{ "%.2f"|format(pago.monto_dolares_referencia) }}</p>
+            <p class="text-3xl font-bold text-slate-800">$ {{ pago.monto_dolares_referencia|string if pago.monto_dolares_referencia is not none else '0.00' }}</p>
             <p class="text-xs text-slate-400 mt-1">Monto de referencia del plan.</p>
         </div>
 
@@ -38,7 +38,7 @@
             <p class="text-3xl font-bold 
                 {% if pago.monto_bs < pago.monto_dolares_referencia %} text-red-700
                 {% else %} text-green-700 {% endif %}">
-                $ {{ "%.2f"|format(pago.monto_bs) }}
+                $ {{ pago.monto_bs|string if pago.monto_bs is not none else '0.00' }}
             </p>
             <p class="text-xs text-slate-500 mt-1">
                 Monto reportado por el cliente.
@@ -58,9 +58,11 @@
         <!-- Columna 2: Monto Esperado en Bs. -->
         <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
             <h3 class="font-semibold text-slate-500 text-sm mb-1">Monto Esperado (Bs.)</h3>
-            <p class="text-3xl font-bold text-slate-800">{{ "%.2f"|format(pago.monto_esperado_bs) }} Bs.</p>
+            <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
+            <p class="text-3xl font-bold text-slate-800">{{ pago.monto_esperado_bs|string if pago.monto_esperado_bs is not none else '0.00' }} Bs.</p>
             {% if pago.tasa_dia %}
-                <p class="text-xs text-slate-400 mt-1">Calculado a tasa de {{ "%.2f"|format(pago.tasa_dia) }} Bs./$</p>
+                <p class="text-xs text-slate-400 mt-1">Calculado a tasa de {{ pago.tasa_dia|string if pago.tasa_dia is not none else 'N/A' }} Bs./$</p>
+            <!-- ===== FIN DE LA CORRECCIÓN ===== -->
             {% else %}
                 <p class="text-xs text-slate-400 mt-1">No se aplica tasa de conversión.</p>
             {% endif %}
@@ -74,10 +76,12 @@
             <p class="text-3xl font-bold 
                 {% if pago.monto_bs < pago.monto_esperado_bs %} text-red-700
                 {% else %} text-green-700 {% endif %}">
-                {{ "%.2f"|format(pago.monto_bs) }} Bs.
+                <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
+                {{ pago.monto_bs|string if pago.monto_bs is not none else '0.00' }} Bs.
             </p>
             {% if pago.tasa_dia %}
-            <p class="text-xs text-slate-500 mt-1">Tasa del día reportada: {{ "%.2f"|format(pago.tasa_dia) }} Bs./$</p>
+            <p class="text-xs text-slate-500 mt-1">Tasa del día reportada: {{ pago.tasa_dia|string if pago.tasa_dia is not none else 'N/A' }} Bs./$</p>
+            <!-- ===== FIN DE LA CORRECCIÓN ===== -->
             {% else %}
             <p class="text-xs text-slate-500 mt-1">Monto reportado por el cliente.</p>
             {% endif %}
