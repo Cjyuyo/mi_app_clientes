@@ -2787,6 +2787,11 @@ def consulta():
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 @admin_required
 def registrar_pago(client_id):
+    """
+    Ruta para que un administrador registre un pago manualmente.
+    CORRECCIÓN: Se asegura de que el monto en USD guardado sea el oficial del plan del cliente,
+    no uno recalculado a partir del monto en Bs, para evitar discrepancias.
+    """
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
@@ -2809,26 +2814,28 @@ def registrar_pago(client_id):
         try:
             with conn.cursor() as cur:
                 # --- INICIO DE LA CORRECCIÓN ---
-                # Se obtiene la tasa de cambio del día directamente desde la BD en el backend
-                # para asegurar que siempre se guarde el valor correcto.
+                # Se obtiene la tasa de cambio del día directamente desde la BD en el backend.
                 cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
                 tasa_del_dia_row = cur.fetchone()
                 tasa_bcv_dia = tasa_del_dia_row['tasa'] if tasa_del_dia_row and tasa_del_dia_row['tasa'] else Decimal('0.0')
 
-                # Si no hay tasa y el pago es en Bs, se detiene la operación.
                 if tasa_bcv_dia == Decimal('0.0') and pago_form.get('forma_pago') not in ['Efectivo', 'Binance']:
-                    flash('No se pudo registrar el pago porque no hay una tasa de cambio configurada para hoy. Por favor, configure la tasa BCV.', 'danger')
+                    flash('No se pudo registrar el pago porque no hay una tasa de cambio configurada para hoy.', 'danger')
                     return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
 
                 monto_bs_str = pago_form.get('monto_bs', '0').replace(',', '.')
                 monto_bs = Decimal(monto_bs_str) if monto_bs_str else Decimal('0.0')
                 
-                monto_usd = Decimal('0.0')
-                if monto_bs > 0 and tasa_bcv_dia > 0:
-                    monto_usd = (monto_bs / tasa_bcv_dia).quantize(Decimal('0.01'))
-                else:
+                # Se determina el monto oficial en USD que se debe guardar.
+                if pago_form['tipo_pago'] == 'Inscripción':
+                    monto_usd_a_guardar = cliente.get('inscripcion_monto', Decimal('0.0'))
+                else: # 'Cuota'
+                    monto_usd_a_guardar = cliente.get('valor_cuota', Decimal('0.0'))
+                
+                # Si el pago es en Efectivo o Binance, se toma el monto en USD del formulario.
+                if pago_form.get('pago_en') in ['Efectivo USD', 'Binance']:
                     monto_usd_str = pago_form.get('monto', '0').replace(',', '.')
-                    monto_usd = Decimal(monto_usd_str) if monto_usd_str else Decimal('0.0')
+                    monto_usd_a_guardar = Decimal(monto_usd_str) if monto_usd_str else Decimal('0.0')
                 # --- FIN DE LA CORRECCIÓN ---
 
                 pago_query = """
@@ -2837,9 +2844,13 @@ def registrar_pago(client_id):
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, %s, %s, %s, %s);
                 """
                 cur.execute(pago_query, (
-                    client_id, monto_usd, pago_form['tipo_pago'], pago_form['forma_pago'], pago_form['fecha_pago'], pago_form.get('pago_en'), 
+                    client_id, 
+                    monto_usd_a_guardar, # Se guarda el monto oficial en USD.
+                    pago_form['tipo_pago'], pago_form['forma_pago'], pago_form['fecha_pago'], pago_form.get('pago_en'), 
                     pago_form.get('por_concepto_de'), pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('lugar_emision'), 
-                    tasa_bcv_dia, monto_bs, 'USD', get_venezuela_current_datetime(), g.admin['id'], None
+                    tasa_bcv_dia, 
+                    monto_bs, # Se guarda el monto en Bs reportado.
+                    'USD', get_venezuela_current_datetime(), g.admin['id'], None
                 ))
                 conn.commit()
                 flash(f"¡Pago de {pago_form['tipo_pago']} registrado como PENDIENTE! Ahora debe ser conciliado.", 'success')
@@ -3549,6 +3560,11 @@ def portal_dashboard():
 @app.route('/portal/reportar_pago', methods=['GET', 'POST'])
 @portal_login_required
 def portal_reportar_pago():
+    """
+    Ruta para que un cliente reporte un pago desde su portal.
+    CORRECCIÓN: Se asegura de que el monto en USD guardado sea el oficial del plan del cliente,
+    no uno recalculado a partir del monto en Bs, para evitar discrepancias.
+    """
     conn = get_db()
     if not conn:
         flash('No se pudo conectar con la base de datos.', 'error')
@@ -3569,7 +3585,6 @@ def portal_reportar_pago():
     inscripcion_pagada = cliente_dict.get('inscripcion_pagada') or Decimal('0.0')
     inscripcion_total = cliente_dict.get('inscripcion_monto') or Decimal('0.0')
     
-    # Lógica para determinar el concepto del pago
     if inscripcion_pagada < inscripcion_total:
         monto_a_pagar_usd = inscripcion_total - inscripcion_pagada
         concepto_pago = f"Abono a Inscripción (restan ${monto_a_pagar_usd:,.2f})"
@@ -3590,28 +3605,22 @@ def portal_reportar_pago():
                 tasa_bcv_dia = tasa_del_dia_row['tasa'] if tasa_del_dia_row and tasa_del_dia_row['tasa'] else Decimal('0.0')
 
                 if tasa_bcv_dia == Decimal('0.0') and pago_form.get('forma_pago') not in ['Binance']:
-                    flash('No se pudo reportar el pago porque no hay una tasa de cambio configurada para hoy. Por favor, contacte a un administrador.', 'danger')
+                    flash('No se pudo reportar el pago porque no hay una tasa de cambio configurada para hoy.', 'danger')
                     return redirect(url_for('portal_dashboard'))
 
                 monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
                 
                 # --- INICIO DE LA CORRECCIÓN ---
-                # El monto en USD a guardar debe ser siempre el oficial del plan,
-                # no uno recalculado a partir del input del usuario en Bs.
-                
-                # Se determina de nuevo el monto de referencia en USD dentro del POST
-                # para asegurar que se usa el valor correcto.
+                # Se determina el monto oficial en USD que se debe guardar.
                 if inscripcion_pagada < inscripcion_total:
                     monto_usd_a_guardar = inscripcion_total - inscripcion_pagada
                 else:
                     monto_usd_a_guardar = cliente.get('valor_cuota') or Decimal('0.0')
                 
-                # Para pagos en Binance, el monto reportado por el usuario es en USD y se considera correcto.
                 if pago_form.get('forma_pago') == 'Binance':
                      monto_usd_a_guardar = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
                 # --- FIN DE LA CORRECCIÓN ---
 
-                # Lógica para manejar si es un pago de diferencia o uno normal
                 bulk_id = pago_form.get('bulk_id')
                 order_id = pago_form.get('order_id')
                 if bulk_id and order_id:
@@ -3632,8 +3641,8 @@ def portal_reportar_pago():
                 
                 cur.execute(pago_query, (
                     cliente['id'], 
-                    monto_usd_a_guardar, # Se usa el monto en USD correcto y oficial.
-                    monto_reportado_bs,  # Se guarda el monto en Bs que el cliente reportó.
+                    monto_usd_a_guardar, # Se usa el monto en USD correcto.
+                    monto_reportado_bs,  # Se usa el monto en Bs reportado.
                     tipo_pago, 
                     pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
                     pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_dia,
@@ -3650,7 +3659,6 @@ def portal_reportar_pago():
                 
         except (psycopg2.Error, ValueError, InvalidOperation) as e:
             conn.rollback()
-            logging.error(f"Error en portal_reportar_pago (POST): {e}")
             flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
 
     return render_template('portal_reportar_pago.html', 
