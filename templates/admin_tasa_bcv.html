@@ -5,82 +5,89 @@
 {% endblock %}
 
 {% block body %}
-<div class="space-y-8">
-    <!-- Encabezado de la página -->
+<div class="space-y-6">
+    <!-- Encabezado -->
     <div class="bg-white p-6 rounded-xl shadow-sm">
         <h1 class="text-3xl font-bold text-slate-800">Gestión de Tasas de Cambio</h1>
         <p class="text-slate-500 mt-1">Establece la tasa del día y consulta el historial de cambios.</p>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Columna del Formulario -->
-        <div class="lg:col-span-1">
-            <div class="bg-white rounded-xl shadow-sm">
-                <div class="p-5 border-b border-slate-200">
-                    <h2 class="text-lg font-bold text-slate-800">Establecer Tasa del Día</h2>
+    <!-- Contenido Principal: Formulario e Historial -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Columna del Formulario para Establecer Tasa -->
+        <div class="bg-white p-6 rounded-xl shadow-sm">
+            <h2 class="text-xl font-bold text-slate-800 mb-4">Establecer Tasa del Día</h2>
+            <form method="POST" action="{{ url_for('admin_tasa_bcv') }}">
+                <div class="space-y-4">
+                    <div>
+                        <label for="tasa_usd" class="block text-sm font-medium text-slate-600 mb-1">Tasa Dólar (USD)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">Bs.</span>
+                            <input type="text" name="tasa_usd" id="tasa_usd"
+                                   class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="Ej: 138.12830000"
+                                   value="{{ tasas_de_hoy.usd if tasas_de_hoy.usd is not none else '' }}"
+                                   inputmode="decimal">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="tasa_eur" class="block text-sm font-medium text-slate-600 mb-1">Tasa Euro (EUR)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">Bs.</span>
+                            <!-- NOTA: Se muestra el valor completo sin redondeo -->
+                            <input type="text" name="tasa_eur" id="tasa_eur"
+                                   class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="Ej: 161.22197047"
+                                   value="{{ tasas_de_hoy.eur if tasas_de_hoy.eur is not none else '' }}"
+                                   inputmode="decimal">
+                        </div>
+                    </div>
+                    <div>
+                        <button type="submit"
+                                class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                            Guardar Tasa
+                        </button>
+                    </div>
                 </div>
-                <div class="p-5">
-                    <form method="POST" action="{{ url_for('admin_tasa_bcv') }}" class="space-y-4">
-                        <div>
-                            <label for="tasa_usd" class="block text-sm font-medium text-slate-700 mb-1">Tasa Dólar (USD)</label>
-                            <div class="relative">
-                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                    <span class="text-slate-500 sm:text-sm">Bs.</span>
-                                </div>
-                                <input type="text" inputmode="decimal" class="block w-full rounded-md border-slate-300 py-2 pl-10 pr-4 shadow-sm focus:border-blue-500 focus:ring-blue-500" id="tasa_usd" name="tasa_usd" value="{{ tasas_de_hoy.usd if tasas_de_hoy.usd is not none else '' }}" placeholder="Ej: 36.50" required>
-                            </div>
-                        </div>
-                        <div>
-                            <label for="tasa_eur" class="block text-sm font-medium text-slate-700 mb-1">Tasa Euro (EUR)</label>
-                            <div class="relative">
-                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                    <span class="text-slate-500 sm:text-sm">Bs.</span>
-                                </div>
-                                <input type="text" inputmode="decimal" class="block w-full rounded-md border-slate-300 py-2 pl-10 pr-4 shadow-sm focus:border-blue-500 focus:ring-blue-500" id="tasa_eur" name="tasa_eur" value="{{ tasas_de_hoy.eur if tasas_de_hoy.eur is not none else '' }}" placeholder="Ej: 40.20" required>
-                            </div>
-                        </div>
-                        <div class="pt-2">
-                            <button type="submit" class="w-full justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                Guardar Tasa
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+            </form>
         </div>
 
-        <!-- Columna del Historial -->
-        <div class="lg:col-span-2">
-            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div class="p-5 border-b border-slate-200">
-                    <h2 class="text-lg font-bold text-slate-800">Historial Reciente (Últimos 30 días)</h2>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left text-slate-500">
-                        <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+        <!-- Columna del Historial de Tasas -->
+        <div class="bg-white p-6 rounded-xl shadow-sm">
+            <h2 class="text-xl font-bold text-slate-800 mb-4">Historial Reciente (Últimos 30 días)</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Fecha</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tasa USD (Bs.)</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tasa EUR (Bs.)</th>
+                            <!-- ===== INICIO DE LA CORRECCIÓN: Se añade columna de Trazabilidad ===== -->
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Establecida por</th>
+                            <!-- ===== FIN DE LA CORRECCIÓN ===== -->
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-slate-200">
+                        {% if historial_tasas %}
+                            {% for registro in historial_tasas %}
                             <tr>
-                                <th scope="col" class="px-6 py-3">Fecha</th>
-                                <th scope="col" class="px-6 py-3">Tasa USD (Bs.)</th>
-                                <th scope="col" class="px-6 py-3">Tasa EUR (Bs.)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for tasa in historial %}
-                            <tr class="bg-white border-b hover:bg-slate-50">
-                                <td class="px-6 py-4 font-medium text-slate-900">{{ tasa.fecha | format_date }}</td>
-                                <td class="px-6 py-4">{{ "{:,.2f}".format(tasa.tasa_usd) }}</td>
-                                <td class="px-6 py-4">{{ "{:,.2f}".format(tasa.tasa_eur) }}</td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="3" class="text-center p-6 text-slate-500">
-                                    No hay historial de tasas para mostrar.
-                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600">{{ registro.fecha | format_date('%d/%m/%Y') }}</td>
+                                <!-- NOTA: Se muestra el valor completo sin redondeo -->
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-800 font-mono">{{ registro.tasa if registro.tasa is not none else 'N/A' }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-800 font-mono">{{ registro.tasa_euro if registro.tasa_euro is not none else 'N/A' }}</td>
+                                <!-- ===== INICIO DE LA CORRECCIÓN: Se muestra el usuario ===== -->
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600">{{ registro.usuario or 'Sistema' }}</td>
+                                <!-- ===== FIN DE LA CORRECCIÓN ===== -->
                             </tr>
                             {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                        {% else %}
+                            <tr>
+                                <td colspan="4" class="px-4 py-4 text-center text-sm text-slate-500">No hay historial de tasas para mostrar.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
