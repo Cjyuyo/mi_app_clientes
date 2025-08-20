@@ -1221,18 +1221,28 @@ def procesar_reporte(pago_id):
                     monto_validado_usd = monto_validado
                     monto_validado_bs = None
 
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se usa .get() para manejar de forma segura los campos que pueden ser nulos (como 'banco')
-                cur.execute("""
+                # --- INICIO DE LA CORRECCIÓN CON DIAGNÓSTICO ---
+                # Se añade logging explícito para verificar los datos antes de la inserción.
+                
+                insert_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, bulk_id, estado_pago, revisado_por_id, fecha_revision)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Aprobado', NOW(), FALSE, %s, %s, 'Pendiente', %s, NOW())
-                """, (
+                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, bulk_id, estado_pago, 
+                                    revisado_por_id, fecha_revision, cuotas_cubiertas)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Aprobado', NOW(), FALSE, %s, %s, 'Pendiente', %s, NOW(), %s)
+                """
+                
+                # El último valor (0) es para 'cuotas_cubiertas'
+                data_tuple = (
                     cliente_id, monto_validado_usd, monto_validado_bs, pago.get('tipo_pago'),
                     pago.get('forma_pago'), pago.get('fecha_pago'), f"Parte validada de #{pago_id}", pago.get('banco'), tasa,
-                    f"Parte validada de '{pago.get('por_concepto_de', '')}'", bulk_id, g.admin['id']
-                ))
-                # --- FIN DE LA CORRECCIÓN ---
+                    f"Parte validada de '{pago.get('por_concepto_de', '')}'", bulk_id, g.admin['id'], 0
+                )
+
+                # Este log aparecerá en la consola de tu servidor y nos dirá exactamente qué se está intentando insertar.
+                logging.info(f"DEBUG-INSERT: Intentando insertar pago parcial con datos: {data_tuple}")
+                
+                cur.execute(insert_query, data_tuple)
+                # --- FIN DE LA CORRECCIÓN CON DIAGNÓSTICO ---
 
                 detalles_actualizados = {
                     'motivo': 'Diferencia de Monto',
