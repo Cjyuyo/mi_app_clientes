@@ -45,28 +45,38 @@
             {% if reportes.pendientes %}
             <div class="divide-y divide-slate-200">
                 {% for reporte in reportes.pendientes %}
-                <div class="p-5 flex flex-col md:flex-row items-start md:items-center justify-between space-y-3 md:space-y-0">
-                    <div class="flex-1">
-                        <p class="font-bold text-slate-800">{{ reporte.nombre }} {{ reporte.apellido }}</p>
-                        <div class="text-sm text-slate-500 mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                            <span><i class="bi bi-credit-card-fill"></i> C.I. {{ reporte.cedula }}</span>
-                            <span><i class="bi bi-calendar-event-fill"></i> {{ reporte.fecha_creacion | format_datetime }}</span>
-                            <span><i class="bi bi-tag-fill"></i> {{ reporte.tipo_pago }}</span>
+                <div class="p-5" x-data="{ showVerify: false }">
+                    <div class="flex flex-col md:flex-row items-start md:items-center justify-between">
+                        <!-- Info Cliente -->
+                        <div class="flex-1 mb-4 md:mb-0">
+                            <p class="font-bold text-slate-800">{{ reporte.nombre }} {{ reporte.apellido }}</p>
+                            <div class="text-sm text-slate-500 mt-1">C.I. {{ reporte.cedula }}</div>
                         </div>
-                    </div>
-                    <div class="flex items-center space-x-4 w-full md:w-auto">
-                        <div class="text-right flex-grow">
-                            <p class="text-lg font-bold text-green-600">${{ "%.2f"|format(reporte.monto) }}</p>
-                            {% if reporte.monto_bs %}<p class="text-xs text-slate-500">{{ "%.2f"|format(reporte.monto_bs) }} Bs</p>{% endif %}
+                        <!-- Info Montos -->
+                        <div class="text-sm space-y-1 text-left md:text-right w-full md:w-auto">
+                            {% if reporte.monto_esperado_bs %}
+                            <p class="text-slate-500">Monto Esperado: <span class="font-semibold text-slate-700">{{ "%.2f"|format(reporte.monto_esperado_bs) }} Bs</span></p>
+                            {% endif %}
+                            <p class="text-slate-500">Monto Reportado: <span class="font-semibold text-slate-700">{{ "%.2f"|format(reporte.monto_bs) }} Bs</span></p>
                         </div>
-                        <div class="flex space-x-2">
-                            <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-3 rounded-lg transition-colors" title="Ver Detalles"><i class="bi bi-eye-fill"></i></a>
-                            <button onclick="openRejectModal({{ reporte.id }})" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-3 rounded-lg transition-colors" title="Rechazar"><i class="bi bi-x-circle-fill"></i></button>
-                            <form action="{{ url_for('procesar_reporte', pago_id=reporte.id) }}" method="POST" onsubmit="return confirm('¿Seguro que desea APROBAR este reporte?');">
-                                <input type="hidden" name="accion" value="aprobar">
-                                <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 rounded-lg transition-colors" title="Aprobar"><i class="bi bi-check-circle-fill"></i></button>
+                        <!-- Botones de Acción -->
+                        <div class="flex items-center space-x-2 mt-4 md:mt-0 md:ml-6">
+                            <button @click="showVerify = !showVerify" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-3 rounded-lg text-sm">Verificar</button>
+                            <form action="{{ url_for('procesar_reporte', pago_id=reporte.id) }}" method="POST">
+                                <input type="hidden" name="accion" value="aprobar_completo">
+                                <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 rounded-lg text-sm">Aprobar Completo</button>
                             </form>
                         </div>
+                    </div>
+                    <!-- Panel de Verificación (Oculto por defecto) -->
+                    <div x-show="showVerify" x-transition class="mt-4 pt-4 border-t border-slate-200">
+                        <h4 class="text-sm font-bold text-slate-700">Verificar Pago Parcial</h4>
+                        <p class="text-xs text-slate-500 mb-2">Si el monto reportado es incorrecto, ingrese el valor real que fue validado. El sistema generará una orden de pago por la diferencia.</p>
+                        <form action="{{ url_for('procesar_reporte', pago_id=reporte.id) }}" method="POST" class="flex items-center gap-2">
+                            <input type="hidden" name="accion" value="verificar_parcial">
+                            <input type="text" name="monto_validado" class="form-input rounded-md border-slate-300 text-sm w-full" placeholder="Monto validado en Bs (Ej: 1500.50)">
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg text-sm">Procesar</button>
+                        </form>
                     </div>
                 </div>
                 {% endfor %}
@@ -90,7 +100,7 @@
                         {% set esperado = reporte.monto_esperado_bs|float %}
                         {% set reportado = reporte.detalles_reporte.monto_original_reportado|float %}
                         {% set validado = reporte.detalles_reporte.monto_recibido_real|float %}
-                        {% set diferencia = esperado - validado %}
+                        {% set diferencia = reportado - validado %}
                         <p class="text-slate-500">Monto Esperado: <span class="font-semibold text-slate-700">{{ "%.2f"|format(esperado) }} Bs</span></p>
                         <p class="text-slate-500">Monto Reportado: <span class="font-semibold text-slate-700">{{ "%.2f"|format(reportado) }} Bs</span></p>
                         <p class="text-slate-500">Monto Validado: 
@@ -132,59 +142,4 @@
         </div>
     </div>
 </div>
-
-<!-- Modal para Rechazar Reporte (sin cambios) -->
-<div id="rejectModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
-    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
-        <form id="rejectForm" method="POST">
-            <input type="hidden" name="accion" value="rechazar">
-            <h3 class="text-lg font-bold">Rechazar Reporte de Pago</h3>
-            <div class="mt-4 space-y-4">
-                <div>
-                    <label for="motivo_rechazo" class="block text-sm font-medium text-gray-700">Motivo del Rechazo</label>
-                    <select id="motivo_rechazo" name="motivo_rechazo" class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" onchange="toggleDiferenciaMonto(this.value)">
-                        <option>Referencia Inválida</option>
-                        <option>Datos Incompletos</option>
-                        <option value="Diferencia de Monto">Diferencia de Monto</option>
-                        <option>Otro</option>
-                    </select>
-                </div>
-                <div id="diferencia_monto_div" class="hidden">
-                    <label for="diferencia_monto" class="block text-sm font-medium text-gray-700">Monto Real Recibido (en Bs)</label>
-                    <input type="text" name="diferencia_monto" id="diferencia_monto" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Ej: 1500.50">
-                    <p class="text-xs text-gray-500 mt-1">El sistema creará una nueva orden de pago para el cliente por la diferencia.</p>
-                </div>
-            </div>
-            <div class="mt-6 flex justify-end space-x-2">
-                <button type="button" onclick="closeRejectModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancelar</button>
-                <button type="submit" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg">Confirmar Rechazo</button>
-            </div>
-        </form>
-    </div>
-</div>
-{% endblock %}
-
-{% block scripts_extra %}
-<script>
-    const rejectModal = document.getElementById('rejectModal');
-    const rejectForm = document.getElementById('rejectForm');
-    const diferenciaMontoDiv = document.getElementById('diferencia_monto_div');
-
-    function openRejectModal(pagoId) {
-        rejectForm.action = `/procesar_reporte/${pagoId}`;
-        rejectModal.classList.remove('hidden');
-    }
-
-    function closeRejectModal() {
-        rejectModal.classList.add('hidden');
-    }
-
-    function toggleDiferenciaMonto(selectedValue) {
-        if (selectedValue === 'Diferencia de Monto') {
-            diferenciaMontoDiv.classList.remove('hidden');
-        } else {
-            diferenciaMontoDiv.classList.add('hidden');
-        }
-    }
-</script>
 {% endblock %}
