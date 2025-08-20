@@ -1181,80 +1181,74 @@ def procesar_reporte(pago_id):
 
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT p.*, c.valor_cuota FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s", (pago_id,))
+            # Bloquear la fila para evitar que dos administradores la procesen al mismo tiempo
+            cur.execute("SELECT p.*, c.valor_cuota FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s FOR UPDATE", (pago_id,))
             pago = cur.fetchone()
-            if not pago:
-                flash("El pago no existe.", "error")
+
+            # Verificar que el pago todavía está pendiente
+            if not pago or pago['estado_reporte'] != 'Pendiente de Revision':
+                flash("Este reporte no se puede procesar porque ya no está pendiente.", "warning")
                 return redirect(url_for('reportes_por_revisar'))
+
             cliente_id = pago['cliente_id']
 
             if accion == 'confirmar_diferencia':
+                # Determinar moneda y montos
                 currency = 'VES' if pago.get('monto_bs') and pago['monto_bs'] > 0 else 'USD'
-                
-                monto_validado = Decimal('0.0')
+                monto_reportado = pago['monto_bs'] if currency == 'VES' else pago['monto']
                 monto_esperado = Decimal('0.0')
-                tasa = None
 
                 if currency == 'VES':
-                    monto_validado = pago['monto_bs']
                     valor_cuota_usd = pago.get('valor_cuota') or Decimal('0.0')
                     tasa = pago.get('tasa_dia') or Decimal('1.0')
-                    monto_esperado = (valor_cuota_usd * tasa).quantize(Decimal('0.01')) if tasa > 0 else monto_validado
-                else: # currency es 'USD'
-                    monto_validado = pago['monto']
+                    monto_esperado = (valor_cuota_usd * tasa).quantize(Decimal('0.01'))
+                else: # USD
                     monto_esperado = pago.get('valor_cuota') or Decimal('0.0')
 
-                if monto_validado >= monto_esperado:
-                    flash("Acción no válida. El monto reportado es suficiente. Por favor, use 'Aprobar Completo'.", "warning")
+                if monto_reportado >= monto_esperado:
+                    flash("Acción no válida. El monto reportado es suficiente. Use 'Aprobar Completo'.", "warning")
                     return redirect(url_for('reportes_por_revisar'))
 
+                # --- LÓGICA SIMPLIFICADA ---
+                # 1. Crear un 'bulk' para agrupar esta transacción y el futuro pago de la diferencia
                 cur.execute("""
-                    INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status)
-                    VALUES (%s, %s, %s, 'UNDER_REVIEW') RETURNING id
-                """, (cliente_id, currency, monto_esperado))
+                    INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
+                    VALUES (%s, %s, %s, 'UNDER_REVIEW', %s) RETURNING id
+                """, (cliente_id, currency, monto_esperado, monto_reportado))
                 bulk_id = cur.fetchone()[0]
 
-                if currency == 'VES':
-                    monto_validado_usd = (monto_validado / tasa).quantize(Decimal('0.01')) if tasa > 0 else monto_validado
-                    monto_validado_bs = monto_validado
-                else:
-                    monto_validado_usd = monto_validado
-                    monto_validado_bs = None
-
-                cur.execute("""
-                    INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, bulk_id, estado_pago, 
-                                    revisado_por_id, fecha_revision, cuotas_cubiertas)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Aprobado', NOW(), FALSE, %s, %s, 'Pendiente', %s, NOW(), %s)
-                """, (
-                    cliente_id, monto_validado_usd, monto_validado_bs, pago.get('tipo_pago'),
-                    pago.get('forma_pago'), pago.get('fecha_pago'), f"Parte validada de #{pago_id}", pago.get('banco'), tasa,
-                    f"Parte validada de '{pago.get('por_concepto_de', '')}'", bulk_id, g.admin['id'], 0
-                ))
-
-                detalles_actualizados = {
+                # 2. Actualizar el reporte ORIGINAL del cliente para reflejar la inconsistencia
+                detalles = {
                     'motivo': 'Diferencia de Monto',
-                    'monto_original_reportado': str(pago.get('monto_bs') or pago.get('monto')),
-                    'monto_recibido_real': str(monto_validado)
+                    'monto_original_reportado': str(monto_reportado),
+                    'monto_recibido_real': str(monto_reportado)
                 }
-                cur.execute(
-                    "UPDATE pagos SET estado_reporte = 'Inconsistente', revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s, bulk_id = %s WHERE id = %s",
-                    (g.admin['id'], json.dumps(detalles_actualizados), bulk_id, pago_id)
-                )
                 
-                monto_pendiente = monto_esperado - monto_validado
+                cur.execute(
+                    """
+                    UPDATE pagos 
+                    SET estado_reporte = 'Inconsistente', 
+                        revisado_por_id = %s, 
+                        fecha_revision = NOW(), 
+                        detalles_reporte = %s, 
+                        bulk_id = %s
+                    WHERE id = %s
+                    """,
+                    (g.admin['id'], json.dumps(detalles), bulk_id, pago_id)
+                )
+
+                # 3. Crear la orden de pago para el cliente por el monto pendiente
+                monto_pendiente = monto_esperado - monto_reportado
                 cur.execute("""
                     INSERT INTO payment_orders (bulk_id, cliente_id, amount, currency, status)
                     VALUES (%s, %s, %s, %s, 'ISSUED')
                 """, (bulk_id, cliente_id, monto_pendiente, currency))
                 
-                recalcular_totales_bulk(bulk_id)
                 descripcion_audit = f"Confirmó diferencia para reporte #{pago_id}. Se generó orden de pago por {monto_pendiente:,.2f} {currency}."
                 registrar_accion_auditoria('CONFIRMAR_DIFERENCIA_PAGO', descripcion_audit, cliente_id, {'pago_id': pago_id})
-                flash("Pago parcial procesado. Se ha movido a la pestaña 'Con Diferencia' y se ha notificado al cliente.", "success")
+                flash("Pago parcial procesado. El reporte se movió a 'Con Diferencia' y se generó una orden de pago para el cliente.", "success")
 
             elif accion == 'aprobar_completo':
-                descripcion_audit = f"Aprobó el reporte de pago N° {pago_id} como completo."
                 cur.execute(
                     "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
                     (g.admin['id'], pago_id)
@@ -1267,7 +1261,7 @@ def procesar_reporte(pago_id):
 
             conn.commit()
 
-    except (psycopg2.Error, ValueError, InvalidOperation, NameError) as e:
+    except (psycopg2.Error, ValueError, InvalidOperation) as e:
         conn.rollback()
         logging.error(f"Error al procesar el reporte {pago_id}: {e}", exc_info=True)
         flash(f"Error CRÍTICO al procesar el reporte: {e}", "error")
