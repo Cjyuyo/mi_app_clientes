@@ -1181,11 +1181,9 @@ def procesar_reporte(pago_id):
 
     try:
         with conn.cursor() as cur:
-            # Bloquear la fila para evitar que dos administradores la procesen al mismo tiempo
             cur.execute("SELECT p.*, c.valor_cuota FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s FOR UPDATE", (pago_id,))
             pago = cur.fetchone()
 
-            # Verificar que el pago todavía está pendiente
             if not pago or pago['estado_reporte'] != 'Pendiente de Revision':
                 flash("Este reporte no se puede procesar porque ya no está pendiente.", "warning")
                 return redirect(url_for('reportes_por_revisar'))
@@ -1193,7 +1191,6 @@ def procesar_reporte(pago_id):
             cliente_id = pago['cliente_id']
 
             if accion == 'confirmar_diferencia':
-                # Determinar moneda y montos
                 currency = 'VES' if pago.get('monto_bs') and pago['monto_bs'] > 0 else 'USD'
                 monto_reportado = pago['monto_bs'] if currency == 'VES' else pago['monto']
                 monto_esperado = Decimal('0.0')
@@ -1209,15 +1206,12 @@ def procesar_reporte(pago_id):
                     flash("Acción no válida. El monto reportado es suficiente. Use 'Aprobar Completo'.", "warning")
                     return redirect(url_for('reportes_por_revisar'))
 
-                # --- LÓGICA SIMPLIFICADA ---
-                # 1. Crear un 'bulk' para agrupar esta transacción y el futuro pago de la diferencia
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
                     VALUES (%s, %s, %s, 'UNDER_REVIEW', %s) RETURNING id
                 """, (cliente_id, currency, monto_esperado, monto_reportado))
                 bulk_id = cur.fetchone()[0]
 
-                # 2. Actualizar el reporte ORIGINAL del cliente para reflejar la inconsistencia
                 detalles = {
                     'motivo': 'Diferencia de Monto',
                     'monto_original_reportado': str(monto_reportado),
@@ -1237,7 +1231,6 @@ def procesar_reporte(pago_id):
                     (g.admin['id'], json.dumps(detalles), bulk_id, pago_id)
                 )
 
-                # 3. Crear la orden de pago para el cliente por el monto pendiente
                 monto_pendiente = monto_esperado - monto_reportado
                 cur.execute("""
                     INSERT INTO payment_orders (bulk_id, cliente_id, amount, currency, status)
@@ -1261,10 +1254,15 @@ def procesar_reporte(pago_id):
 
             conn.commit()
 
+    # --- MODIFICADO: Bloque 'except' mejorado ---
+    # Ahora, en lugar de solo mostrar el error, se captura y registra la traza completa
+    # del archivo y la línea donde ocurrió el fallo. Esto es invaluable para la depuración.
     except (psycopg2.Error, ValueError, InvalidOperation) as e:
         conn.rollback()
-        logging.error(f"Error al procesar el reporte {pago_id}: {e}", exc_info=True)
-        flash(f"Error CRÍTICO al procesar el reporte: {e}", "error")
+        error_trace = traceback.format_exc()
+        logging.error(f"Error CRÍTICO al procesar el reporte {pago_id}:\n{error_trace}")
+        flash(f"Ocurrió un error inesperado al procesar el reporte. Por favor, contacte a soporte técnico.", "error")
+    # --- FIN DE LA MODIFICACIÓN ---
     
     return redirect(url_for('reportes_por_revisar'))
 
@@ -2343,7 +2341,8 @@ def reporte_flujo_caja():
 def perfil_cliente(cliente_id):
     conn = get_db()
     cliente, gestiones, historial_eventos = None, [], []
-    pagos_procesados = []  # Esta es la nueva lista que se enviará a la plantilla
+    # MODIFICADO: Se cambia el nombre de la variable para mayor claridad
+    pagos_procesados = []
 
     if conn:
         try:
@@ -2354,9 +2353,12 @@ def perfil_cliente(cliente_id):
                     flash("Cliente no encontrado.", "error")
                     return redirect(url_for('consulta'))
                 
-                # Se obtiene toda la información de los pagos y sus "bulks" (procesos de inconsistencia) asociados
+                # MODIFICADO: La consulta ahora une con 'payment_bulks' para obtener toda la info del expediente
                 cur.execute("""
-                    SELECT p.*, b.status as bulk_status, b.expected_amount as bulk_expected, b.total_verified as bulk_verified 
+                    SELECT p.*, 
+                           b.status as bulk_status, 
+                           b.expected_amount as bulk_expected, 
+                           b.total_verified as bulk_verified 
                     FROM pagos p 
                     LEFT JOIN payment_bulks b ON p.bulk_id = b.id 
                     WHERE p.cliente_id = %s ORDER BY p.fecha_creacion DESC, p.id DESC
@@ -2364,6 +2366,8 @@ def perfil_cliente(cliente_id):
                 todos_los_pagos = cur.fetchall()
                 
                 # --- INICIO DE LA NUEVA LÓGICA PARA AGRUPAR PAGOS ---
+                # Este bloque procesa la lista de pagos para agrupar aquellos que pertenecen a un 'bulk'.
+                # Así, en la vista, se mostrará un solo item por cada proceso de inconsistencia.
                 processed_bulk_ids = set()
                 for pago in todos_los_pagos:
                     if pago['bulk_id']:
@@ -2371,7 +2375,7 @@ def perfil_cliente(cliente_id):
                         if pago['bulk_id'] not in processed_bulk_ids:
                             # Si es la primera vez que vemos este proceso, creamos un resumen
                             summary_item = {
-                                'tipo_vista': 'inconsistencia',
+                                'tipo_vista': 'inconsistencia', # Identificador para la plantilla
                                 'bulk_id': pago['bulk_id'],
                                 'fecha_creacion': pago['fecha_creacion'],
                                 'monto_total': pago['bulk_expected'],
@@ -2394,7 +2398,6 @@ def perfil_cliente(cliente_id):
                 """, (cliente_id,))
                 gestiones = cur.fetchall()
 
-                # El resto de la lógica para el historial de eventos no cambia...
                 cur.execute("""
                     SELECT 
                         'solicitud' as origen, id, 'Solicitud de ' || tipo_solicitud AS tipo, 
@@ -2433,9 +2436,12 @@ def perfil_cliente(cliente_id):
                     historial_eventos.append(evento_fmt)
 
         except (psycopg2.Error, json.JSONDecodeError) as e:
-            flash(f"Error al cargar el perfil del cliente: {e}", "error")
+            error_trace = traceback.format_exc()
+            logging.error(f"Error al cargar perfil del cliente {cliente_id}:\n{error_trace}")
+            flash("Error al cargar el perfil del cliente.", "error")
             return redirect(url_for('consulta'))
             
+    # MODIFICADO: Se pasa la nueva lista 'pagos_procesados' a la plantilla
     return render_template('cliente_perfil.html', cliente=cliente, pagos=pagos_procesados, gestiones=gestiones, historial_eventos=historial_eventos, anio_actual=get_venezuela_current_date().year, admin_rol=g.admin['rol'])
 
 @app.route('/api/bulk_detalle/<int:bulk_id>')
@@ -3358,11 +3364,13 @@ def portal_dashboard():
             cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
             hay_pago_pendiente_general = cur.fetchone() is not None
 
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Se busca si hay órdenes de pago pendientes.
+            # --- MODIFICADO: Lógica para obtener órdenes de pago por diferencia ---
+            # Esta consulta obtiene las órdenes de pago pendientes (diferencias).
+            # La variable 'ordenes_pendientes' contendrá el 'bulk_id' y el 'id' de la orden,
+            # que son necesarios para construir la nueva URL en la plantilla HTML.
             cur.execute("SELECT * FROM payment_orders WHERE cliente_id = %s AND status = 'ISSUED'", (session['cliente_id'],))
             ordenes_pendientes = cur.fetchall()
-            # --- FIN DE LA CORRECCIÓN ---
+            # --- FIN DE LA MODIFICACIÓN ---
 
             reportes_rechazados = [] 
             estado_principal = {} 
@@ -3428,8 +3436,7 @@ def portal_dashboard():
 
             historial_gestiones = []
 
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Se añade la condición 'and not ordenes_pendientes' para ocultar el botón si hay diferencias.
+            # --- MODIFICADO: Se añade 'and not ordenes_pendientes' para ocultar botones si hay diferencias ---
             if cliente_dict.get('proceso') == 'RESERVA' and not ordenes_pendientes:
                 inscripcion_pagada = cliente_dict.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
                 inscripcion_total = cliente_dict.get('inscripcion_monto', Decimal('0.0')) or Decimal('0.0')
@@ -3452,7 +3459,7 @@ def portal_dashboard():
                     'boton_url': url_for('portal_reportar_pago'),
                     'boton_activo': not hay_pago_pendiente_general
                 }
-            # --- FIN DE LA CORRECCIÓN ---
+            # --- FIN DE LA MODIFICACIÓN ---
             
             return render_template('portal_dashboard.html', 
                                    cliente=cliente_dict, 
@@ -3467,10 +3474,11 @@ def portal_dashboard():
                                    )
             
     except (psycopg2.Error, KeyError) as e:
-        logging.error(f"Error en portal_dashboard: {e}")
+        # MODIFICADO: Añadido traceback para mejor depuración
+        error_trace = traceback.format_exc()
+        logging.error(f"Error en portal_dashboard:\n{error_trace}")
         flash('Ocurrió un error inesperado al cargar tu portal.', 'error')
         return redirect(url_for('portal_login'))
-
 
 @app.route('/portal/reportar_pago', methods=['GET', 'POST'])
 @portal_login_required
@@ -3588,6 +3596,7 @@ def portal_reportar_pago():
                            monto_a_pagar_bs=monto_a_pagar_bs,
                            concepto_pago=concepto_pago)
 
+# NUEVO: Esta es la nueva ruta completa para manejar el pago de diferencias.
 @app.route('/portal/diferencia/reportar/<int:bulk_id>/<int:order_id>', methods=['GET', 'POST'])
 @portal_login_required
 def portal_diferencia_reportar(bulk_id, order_id):
@@ -3618,10 +3627,21 @@ def portal_diferencia_reportar(bulk_id, order_id):
 
             # Calcula los montos a mostrar en el formulario
             tasa_bcv = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
-            monto_a_pagar_bs = order['amount']
+            
+            # El monto en la orden de pago está en la moneda del bulk (VES o USD)
+            monto_a_pagar = order['amount']
+            moneda_orden = order['currency']
+            
+            monto_a_pagar_bs = Decimal('0.0')
             monto_equivalente_usd = Decimal('0.0')
-            if tasa_bcv > 0:
-                monto_equivalente_usd = (monto_a_pagar_bs / tasa_bcv).quantize(Decimal('0.01'))
+
+            if moneda_orden == 'VES':
+                monto_a_pagar_bs = monto_a_pagar
+                if tasa_bcv > 0:
+                    monto_equivalente_usd = (monto_a_pagar_bs / tasa_bcv).quantize(Decimal('0.01'))
+            else: # Es USD
+                monto_equivalente_usd = monto_a_pagar
+                monto_a_pagar_bs = (monto_equivalente_usd * tasa_bcv).quantize(Decimal('0.01'))
 
     except psycopg2.Error as e:
         flash(f"Error al cargar la página de reporte: {e}", "error")
@@ -3632,18 +3652,63 @@ def portal_diferencia_reportar(bulk_id, order_id):
         
         if not pago_form.get('forma_pago'):
             flash('Debe seleccionar una forma de pago para continuar.', 'error')
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Se pasan los montos correctos al renderizar de nuevo en caso de error
             return render_template('portal_reportar_pago.html', 
                                    cliente=cliente, 
                                    tasa_hoy=tasa_hoy, 
                                    is_diferencia=True, 
                                    bulk_id=bulk_id, 
                                    order_id=order_id, 
-                                   monto_a_pagar_bs=monto_a_pagar_bs, 
-                                   monto_a_pagar_usd=monto_equivalente_usd,
+                                   monto_precargado_bs=monto_a_pagar_bs, 
+                                   monto_equivalente_usd=monto_equivalente_usd,
                                    tasa_bcv=tasa_bcv,
                                    concepto_pago=f"Pago de diferencia (Orden #{order_id})")
+
+        try:
+            with conn.cursor() as cur:
+                monto_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
+                monto_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
+                
+                # Insertar el nuevo pago, asociándolo al bulk existente
+                pago_query = """
+                    INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
+                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
+                                    bulk_id, is_diferencia, cuotas_cubiertas)
+                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, TRUE, 0) RETURNING id;
+                """
+                cur.execute(pago_query, (
+                    cliente['id'], monto_usd, monto_bs, pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
+                    pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv,
+                    get_venezuela_current_datetime(), f"Pago de diferencia para Bulk #{bulk_id}", bulk_id
+                ))
+                
+                # Actualizar el estado de la orden de pago a 'PAID'
+                cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
+                
+                # Recalcular los totales del bulk
+                recalcular_totales_bulk(bulk_id)
+
+                flash('✅ ¡Pago de diferencia reportado! Será verificado por un administrador.', 'success')
+                conn.commit()
+                return redirect(url_for('portal_dashboard'))
+
+        except (psycopg2.Error, ValueError, InvalidOperation) as e:
+            conn.rollback()
+            error_trace = traceback.format_exc()
+            logging.error(f"Error en portal_diferencia_reportar (POST):\n{error_trace}")
+            flash(f'Ocurrió un error al reportar el pago de la diferencia.', 'error')
+            return redirect(url_for('portal_dashboard'))
+
+    # Renderiza la plantilla de reporte, pero con los datos de la diferencia precargados
+    return render_template('portal_reportar_pago.html', 
+                           cliente=cliente, 
+                           tasa_hoy=tasa_hoy, 
+                           is_diferencia=True, 
+                           bulk_id=bulk_id, 
+                           order_id=order_id, 
+                           monto_precargado_bs=monto_a_pagar_bs, 
+                           monto_equivalente_usd=monto_equivalente_usd,
+                           tasa_bcv=tasa_bcv,
+                           concepto_pago=f"Pago de diferencia (Orden #{order_id})")
             # --- FIN DE LA CORRECCIÓN ---
 
         try:
