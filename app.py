@@ -423,7 +423,10 @@ def delete_client(client_id):
         logging.error(f"ERROR INESPERADO AL ELIMINAR CLIENTE ID {client_id}: {e}")
         flash(f'Ocurrió un error inesperado al eliminar: {e}', 'error')
 
-    return redirect(url_for('consulta'))
+    # ===== INICIO DE LA CORRECCIÓN =====
+    # Se cambia la redirección para que vaya al 'hub' en lugar de 'consulta'.
+    return redirect(url_for('hub'))
+    # ===== FIN DE LA CORRECCIÓN =====
 
 @app.route('/guardar_oferta/<int:client_id>', methods=['POST'])
 @admin_required
