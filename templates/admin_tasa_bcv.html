@@ -27,7 +27,7 @@
                             <input type="text" name="tasa_usd" id="tasa_usd"
                                    class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                    placeholder="Ej: 138.12830000"
-                                   value="{{ tasas_de_hoy.usd if tasas_de_hoy.usd is not none else '' }}"
+                                   value="{{ tasas_de_hoy.usd|string if tasas_de_hoy.usd is not none else '' }}"
                                    inputmode="decimal">
                         </div>
                     </div>
@@ -35,11 +35,11 @@
                         <label for="tasa_eur" class="block text-sm font-medium text-slate-600 mb-1">Tasa Euro (EUR)</label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">Bs.</span>
-                            <!-- NOTA: Se muestra el valor completo sin redondeo -->
+                            <!-- NOTA: Se usa el filtro |string para forzar la visualización completa del decimal -->
                             <input type="text" name="tasa_eur" id="tasa_eur"
                                    class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                                    placeholder="Ej: 161.22197047"
-                                   value="{{ tasas_de_hoy.eur if tasas_de_hoy.eur is not none else '' }}"
+                                   value="{{ tasas_de_hoy.eur|string if tasas_de_hoy.eur is not none else '' }}"
                                    inputmode="decimal">
                         </div>
                     </div>
@@ -63,9 +63,7 @@
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Fecha</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tasa USD (Bs.)</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tasa EUR (Bs.)</th>
-                            <!-- ===== INICIO DE LA CORRECCIÓN: Se añade columna de Trazabilidad ===== -->
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Establecida por</th>
-                            <!-- ===== FIN DE LA CORRECCIÓN ===== -->
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-slate-200">
@@ -73,12 +71,10 @@
                             {% for registro in historial_tasas %}
                             <tr>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600">{{ registro.fecha | format_date('%d/%m/%Y') }}</td>
-                                <!-- NOTA: Se muestra el valor completo sin redondeo -->
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-800 font-mono">{{ registro.tasa if registro.tasa is not none else 'N/A' }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-800 font-mono">{{ registro.tasa_euro if registro.tasa_euro is not none else 'N/A' }}</td>
-                                <!-- ===== INICIO DE LA CORRECCIÓN: Se muestra el usuario ===== -->
+                                <!-- NOTA: Se usa el filtro |string para forzar la visualización completa del decimal -->
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-800 font-mono">{{ registro.tasa|string if registro.tasa is not none else 'N/A' }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-800 font-mono">{{ registro.tasa_euro|string if registro.tasa_euro is not none else 'N/A' }}</td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600">{{ registro.usuario or 'Sistema' }}</td>
-                                <!-- ===== FIN DE LA CORRECCIÓN ===== -->
                             </tr>
                             {% endfor %}
                         {% else %}

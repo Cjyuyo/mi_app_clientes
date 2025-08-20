@@ -3593,11 +3593,6 @@ def portal_dashboard():
 @app.route('/portal/reportar_pago', methods=['GET', 'POST'])
 @portal_login_required
 def portal_reportar_pago():
-    """
-    Ruta para que un cliente reporte un pago desde su portal.
-    CORRECCIÓN: Se asegura de que el monto en USD guardado sea el oficial del plan del cliente,
-    no uno recalculado a partir del monto en Bs, para evitar discrepancias.
-    """
     conn = get_db()
     if not conn:
         flash('No se pudo conectar con la base de datos.', 'error')
@@ -3626,7 +3621,11 @@ def portal_reportar_pago():
         concepto_pago = f"Cuota del mes de {mes_actual}"
     
     tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
-    monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv_calculo).quantize(Decimal('0.01'))
+    
+    # --- INICIO DE LA CORRECCIÓN ---
+    # Se elimina el redondeo prematuro para mostrar el valor exacto.
+    monto_a_pagar_bs = monto_a_pagar_usd * tasa_bcv_calculo
+    # --- FIN DE LA CORRECCIÓN ---
 
     if request.method == 'POST':
         pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
@@ -3643,8 +3642,6 @@ def portal_reportar_pago():
 
                 monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
                 
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se determina el monto oficial en USD que se debe guardar.
                 if inscripcion_pagada < inscripcion_total:
                     monto_usd_a_guardar = inscripcion_total - inscripcion_pagada
                 else:
@@ -3652,7 +3649,6 @@ def portal_reportar_pago():
                 
                 if pago_form.get('forma_pago') == 'Binance':
                      monto_usd_a_guardar = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
-                # --- FIN DE LA CORRECCIÓN ---
 
                 bulk_id = pago_form.get('bulk_id')
                 order_id = pago_form.get('order_id')
@@ -3673,10 +3669,7 @@ def portal_reportar_pago():
                 """
                 
                 cur.execute(pago_query, (
-                    cliente['id'], 
-                    monto_usd_a_guardar, # Se usa el monto en USD correcto.
-                    monto_reportado_bs,  # Se usa el monto en Bs reportado.
-                    tipo_pago, 
+                    cliente['id'], monto_usd_a_guardar, monto_reportado_bs, tipo_pago, 
                     pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
                     pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_dia,
                     get_venezuela_current_datetime(), concepto, bulk_id, is_diferencia
