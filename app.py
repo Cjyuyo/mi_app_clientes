@@ -4581,12 +4581,13 @@ def ver_reporte(pago_id):
             # 1. Calcular Monto de Referencia en Dólares
             if pago.get('tipo_pago') == 'Cuota':
                 pago['monto_dolares_referencia'] = pago.get('valor_cuota', Decimal('0.0'))
+            # Se añade la condición para 'Inscripción'
             elif pago.get('tipo_pago') == 'Inscripción':
                 pago['monto_dolares_referencia'] = pago.get('inscripcion_monto', Decimal('0.0'))
             else:
                 pago['monto_dolares_referencia'] = Decimal('0.0')
 
-            # 2. Calcular Monto Esperado en Bolívares
+            # 2. Calcular Monto Esperado en Bolívares (ahora funciona para ambos tipos)
             pago['monto_esperado_bs'] = Decimal('0.0')
             if pago.get('monto_dolares_referencia') and pago.get('tasa_dia'):
                 pago['monto_esperado_bs'] = (pago['monto_dolares_referencia'] * pago['tasa_dia']).quantize(Decimal('0.01'))
