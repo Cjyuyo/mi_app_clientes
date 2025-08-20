@@ -1,182 +1,163 @@
 {% extends 'base_sidebar.html' %}
 
-{% block title %}Revisar Reporte de Pago N° {{ pago.id }}{% endblock %}
+{% block title %}Revisión de Reporte #{{ pago.id }}{% endblock %}
 
-{% block page_title %}Revisión de Reporte{% endblock %}
+{% block head_extra %}
+<script src="//unpkg.com/alpinejs" defer></script>
+<style>
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in {
+        animation: fadeIn 0.5s ease-out forwards;
+    }
+    .fade-in-delay-1 { animation-delay: 0.1s; }
+    .fade-in-delay-2 { animation-delay: 0.2s; }
+    .fade-in-delay-3 { animation-delay: 0.3s; }
+</style>
+{% endblock %}
 
 {% block body %}
-<div class="max-w-4xl mx-auto space-y-8">
-    <!-- Encabezado de la página -->
-    <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-        <div>
-            <h1 class="text-3xl font-bold text-slate-800">Revisar Reporte de Pago</h1>
-            <p class="text-slate-500 mt-1">Reporte N° {{ pago.id }} para el cliente <strong>{{ pago.nombre_apellido }}</strong></p>
-        </div>
-        {% if is_admin_view %}
-        <a href="{{ url_for('reportes_por_revisar') }}" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-slate-700 bg-slate-100 hover:bg-slate-200">
-            <i class="bi bi-arrow-left mr-2"></i> Volver a la lista
-        </a>
-        {% endif %}
-    </div>
-
-    <!-- INICIO: Bloque de Comparación de Montos con Lógica Condicional -->
-    {% if pago.forma_pago == 'Binance' %}
-    <!-- Vista para pagos en USDT (Binance) -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Columna 1: Monto Esperado en USDT -->
-        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-            <h3 class="font-semibold text-slate-500 text-sm mb-1">Monto Esperado (USDT)</h3>
-            <p class="text-3xl font-bold text-slate-800">$ {{ pago.monto_dolares_referencia|string if pago.monto_dolares_referencia is not none else '0.00' }}</p>
-            <p class="text-xs text-slate-400 mt-1">Monto de referencia del plan.</p>
-        </div>
-
-        <!-- Columna 2: Monto Reportado por Cliente en USDT -->
-        <div class="bg-white p-5 rounded-xl shadow-sm border 
-            {% if pago.monto_bs < pago.monto_dolares_referencia %} border-red-300 bg-red-50 
-            {% else %} border-green-300 bg-green-50 {% endif %}">
-            <h3 class="font-semibold text-sm text-slate-600">Monto Reportado (USDT)</h3>
-            <p class="text-3xl font-bold 
-                {% if pago.monto_bs < pago.monto_dolares_referencia %} text-red-700
-                {% else %} text-green-700 {% endif %}">
-                $ {{ pago.monto_bs|string if pago.monto_bs is not none else '0.00' }}
-            </p>
-            <p class="text-xs text-slate-500 mt-1">
-                Monto reportado por el cliente.
-            </p>
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Encabezado con Gradiente y Animación -->
+    <div class="fade-in bg-gradient-to-r from-slate-800 to-slate-900 text-white p-6 rounded-2xl shadow-lg">
+        <div class="flex flex-col md:flex-row justify-between md:items-center">
+            <div>
+                <p class="text-sm font-medium text-slate-400">Revisión de Reporte #{{ pago.id }}</p>
+                <h1 class="text-3xl font-bold tracking-tight mt-1">Cliente: {{ pago.nombre_apellido }}</h1>
+            </div>
+            {% if is_admin_view %}
+            <a href="{{ url_for('reportes_por_revisar') }}" class="mt-4 md:mt-0 inline-flex items-center justify-center px-4 py-2 border border-slate-600 text-sm font-semibold rounded-lg text-white bg-white/10 hover:bg-white/20 transition-all duration-300">
+                <i class="bi bi-arrow-left mr-2"></i> Volver a la lista
+            </a>
+            {% endif %}
         </div>
     </div>
-    {% else %}
-    <!-- Vista para el resto de los métodos de pago -->
+
+    <!-- Tarjetas de Montos con Animación y Diseño Moderno -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- Columna 1: Referencia en Dólares -->
-        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-            <h3 class="font-semibold text-slate-500 text-sm mb-1">Referencia en Dólares</h3>
-            <p class="text-3xl font-bold text-slate-800">$ {{ "%.2f"|format(pago.monto_dolares_referencia) }}</p>
-            <p class="text-xs text-slate-400 mt-1">Monto de referencia del plan.</p>
+        <!-- Tarjeta 1: Referencia en Dólares -->
+        <div class="fade-in fade-in-delay-1 bg-white p-6 rounded-2xl shadow-md border-t-4 border-blue-500 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="font-semibold text-slate-500">Referencia USD</h3>
+                <i class="bi bi-currency-dollar text-2xl text-blue-300"></i>
+            </div>
+            <p class="text-4xl font-bold text-slate-800">$ {{ "%.2f"|format(pago.monto_dolares_referencia) }}</p>
+            <p class="text-xs text-slate-400 mt-1">Monto oficial del plan.</p>
         </div>
 
-        <!-- Columna 2: Monto Esperado en Bs. -->
-        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-            <h3 class="font-semibold text-slate-500 text-sm mb-1">Monto Esperado (Bs.)</h3>
-            <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
-            <p class="text-3xl font-bold text-slate-800">{{ pago.monto_esperado_bs|string if pago.monto_esperado_bs is not none else '0.00' }} Bs.</p>
+        <!-- Tarjeta 2: Monto Esperado en Bs. -->
+        <div class="fade-in fade-in-delay-2 bg-white p-6 rounded-2xl shadow-md border-t-4 border-slate-400 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="font-semibold text-slate-500">Monto Esperado (Bs.)</h3>
+                <i class="bi bi-calculator-fill text-2xl text-slate-300"></i>
+            </div>
+            <p class="text-4xl font-bold text-slate-800">{{ pago.monto_esperado_bs|string if pago.monto_esperado_bs else 'N/A' }}</p>
             {% if pago.tasa_dia %}
-                <p class="text-xs text-slate-400 mt-1">Calculado a tasa de {{ pago.tasa_dia|string if pago.tasa_dia is not none else 'N/A' }} Bs./$</p>
-            <!-- ===== FIN DE LA CORRECCIÓN ===== -->
-            {% else %}
-                <p class="text-xs text-slate-400 mt-1">No se aplica tasa de conversión.</p>
+                <p class="text-xs text-slate-400 mt-1">Tasa BCV: {{ pago.tasa_dia|string if pago.tasa_dia else 'N/A' }}</p>
             {% endif %}
         </div>
 
-        <!-- Columna 3: Monto Reportado por Cliente en Bs. -->
-        <div class="bg-white p-5 rounded-xl shadow-sm border 
-            {% if pago.monto_bs < pago.monto_esperado_bs %} border-red-300 bg-red-50 
-            {% else %} border-green-300 bg-green-50 {% endif %}">
-            <h3 class="font-semibold text-sm text-slate-600">Monto Reportado (Bs.)</h3>
-            <p class="text-3xl font-bold 
-                {% if pago.monto_bs < pago.monto_esperado_bs %} text-red-700
-                {% else %} text-green-700 {% endif %}">
-                <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
-                {{ pago.monto_bs|string if pago.monto_bs is not none else '0.00' }} Bs.
-            </p>
-            {% if pago.tasa_dia %}
-            <p class="text-xs text-slate-500 mt-1">Tasa del día reportada: {{ pago.tasa_dia|string if pago.tasa_dia is not none else 'N/A' }} Bs./$</p>
-            <!-- ===== FIN DE LA CORRECCIÓN ===== -->
-            {% else %}
-            <p class="text-xs text-slate-500 mt-1">Monto reportado por el cliente.</p>
+        <!-- Tarjeta 3: Monto Reportado por Cliente en Bs. -->
+        {% set diferencia = (pago.monto_bs or 0) - (pago.monto_esperado_bs or 0) %}
+        {% set es_diferente = diferencia|abs > 0.01 %}
+        <div class="fade-in fade-in-delay-3 p-6 rounded-2xl shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300
+            {% if not es_diferente %} bg-green-50 border-t-4 border-green-500 
+            {% else %} bg-red-50 border-t-4 border-red-500 {% endif %}">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="font-semibold {% if not es_diferente %} text-green-800 {% else %} text-red-800 {% endif %}">Monto Reportado (Bs.)</h3>
+                <i class="bi bi-file-earmark-check-fill text-2xl {% if not es_diferente %} text-green-300 {% else %} text-red-300 {% endif %}"></i>
+            </div>
+            <p class="text-4xl font-bold {% if not es_diferente %} text-green-900 {% else %} text-red-900 {% endif %}">{{ pago.monto_bs|string if pago.monto_bs else 'N/A' }}</p>
+            {% if es_diferente %}
+                <p class="text-xs font-semibold mt-1 {% if diferencia > 0 %} text-green-700 {% else %} text-red-700 {% endif %}">
+                    Diferencia: {{ diferencia|string }} Bs.
+                </p>
             {% endif %}
         </div>
     </div>
-    {% endif %}
-    <!-- FIN: Bloque de Comparación de Montos con Lógica Condicional -->
 
-    <!-- Tarjeta de Detalles Completos del Reporte -->
-    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-slate-200">
-            <h2 class="text-lg font-bold text-slate-800">Detalles Completos del Reporte</h2>
-        </div>
-        <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Concepto</span><span class="font-semibold text-slate-700">{{ pago.por_concepto_de or pago.tipo_pago }}</span></div>
-            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Fecha del Pago</span><span class="font-semibold text-slate-700">{{ pago.fecha_pago | format_date }}</span></div>
-            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Forma de Pago</span><span class="font-semibold text-slate-700">{{ pago.forma_pago }}</span></div>
-            <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Referencia / ID</span><span class="font-semibold text-slate-700">{{ pago.referencia or 'N/A' }}</span></div>
-            {% if pago.forma_pago != 'Binance' %}<div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Banco</span><span class="font-semibold text-slate-700">{{ pago.banco or 'N/A' }}</span></div>{% endif %}
-            {% if pago.forma_pago == 'Binance' and pago.detalles_reporte %}<div class="bg-blue-50 p-3 rounded-lg border border-blue-200"><span class="text-xs text-blue-500 block">Usuario Binance</span><span class="font-semibold text-blue-800">{{ pago.detalles_reporte.usuario_binance or 'N/A' }}</span></div>{% endif %}
-            {% if pago.forma_pago == 'Pago Movil' and pago.detalles_reporte %}
-                <div class="bg-blue-50 p-3 rounded-lg border border-blue-200"><span class="text-xs text-blue-500 block">Teléfono Emisor</span><span class="font-semibold text-blue-800">{{ pago.detalles_reporte.telefono_emisor or 'N/A' }}</span></div>
-                <div class="bg-blue-50 p-3 rounded-lg border border-blue-200"><span class="text-xs text-blue-500 block">Cédula Emisor</span><span class="font-semibold text-blue-800">{{ pago.detalles_reporte.cedula_emisor or 'N/A' }}</span></div>
+    <!-- Layout de dos columnas para Detalles y Bitácora -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+        <!-- Columna Izquierda: Detalles y Acciones -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Detalles del Reporte -->
+            <div class="fade-in fade-in-delay-2 bg-white rounded-2xl shadow-md">
+                <div class="p-5 border-b border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-list-ul text-blue-500"></i> Detalles del Reporte</h2>
+                </div>
+                <div class="p-5 space-y-4">
+                    <div class="flex justify-between items-center"><span class="text-sm text-slate-500">Concepto:</span><span class="font-semibold text-slate-700 text-right">{{ pago.por_concepto_de or pago.tipo_pago }}</span></div>
+                    <div class="flex justify-between items-center"><span class="text-sm text-slate-500">Fecha del Pago:</span><span class="font-semibold text-slate-700">{{ pago.fecha_pago | format_date }}</span></div>
+                    <div class="flex justify-between items-center"><span class="text-sm text-slate-500">Forma de Pago:</span><span class="font-semibold text-slate-700">{{ pago.forma_pago }}</span></div>
+                    <div class="flex justify-between items-center"><span class="text-sm text-slate-500">Referencia / ID:</span><span class="font-semibold text-slate-700 font-mono">{{ pago.referencia or 'N/A' }}</span></div>
+                    {% if pago.forma_pago != 'Binance' %}<div class="flex justify-between items-center"><span class="text-sm text-slate-500">Banco:</span><span class="font-semibold text-slate-700 text-right">{{ pago.banco or 'N/A' }}</span></div>{% endif %}
+                </div>
+            </div>
+
+            <!-- Acciones de Validación -->
+            {% if is_admin_view and pago.estado_reporte == 'Pendiente de Revision' %}
+            <div class="fade-in fade-in-delay-3 bg-white rounded-2xl shadow-md" x-data="{ showDiferenciaForm: false }">
+                <div class="p-5 border-b border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-shield-check text-purple-500"></i> Acciones de Validación</h2>
+                </div>
+                <div class="p-5">
+                    <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST">
+                        <div x-show="showDiferenciaForm" x-transition class="bg-red-50 p-4 rounded-lg mb-4 border border-red-200">
+                            <h3 class="font-bold text-red-800 mb-2">Procesar con Diferencia</h3>
+                            <p class="text-sm text-red-700 mb-3">Se usa cuando el monto verificado es <strong>diferente</strong> al reportado.</p>
+                            <div>
+                                <label for="monto_real_recibido" class="block text-sm font-medium text-slate-700">Monto Real Recibido (Bs.)</label>
+                                <input type="text" inputmode="decimal" name="monto_real_recibido" id="monto_real_recibido" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" placeholder="Ej: 44200.00" required>
+                            </div>
+                        </div>
+                        <div class="flex flex-col md:flex-row justify-end gap-3">
+                            <button x-show="!showDiferenciaForm" type="button" @click="showDiferenciaForm = true" class="w-full md:w-auto text-sm bg-white text-red-600 font-semibold py-2 px-4 rounded-lg border border-red-300 hover:bg-red-50 transition-all">Procesar con Diferencia</button>
+                            <button x-show="showDiferenciaForm" type="button" @click="showDiferenciaForm = false" class="w-full md:w-auto text-sm bg-white text-slate-700 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50 transition-all">Cancelar</button>
+                            <button x-show="showDiferenciaForm" type="submit" name="accion" value="confirmar_diferencia" class="w-full md:w-auto text-sm bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition-all">Guardar Diferencia</button>
+                            <button x-show="!showDiferenciaForm" type="submit" name="accion" value="aprobar_completo" class="w-full md:w-auto text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition-all">Aprobar Monto Reportado</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
             {% endif %}
         </div>
-    </div>
-    
-    <!-- Bitácora de la Transacción -->
-    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-slate-200">
-            <h2 class="text-lg font-bold text-slate-800">Bitácora de la Transacción</h2>
-        </div>
-        <div class="p-5">
-            {% if bitacora %}
-            <ol class="relative border-l border-slate-200 space-y-8">
-                {% for evento in bitacora %}
-                    <li class="ml-6">
-                        {% if evento.tipo_evento == 'pago' %}
-                            <span class="absolute flex items-center justify-center w-6 h-6 bg-blue-100 rounded-full -left-3 ring-8 ring-white"><i class="bi bi-cash-coin text-blue-600"></i></span>
-                            <div class="p-4 bg-slate-50 rounded-lg border">
-                                <h3 class="flex items-center mb-1 text-md font-semibold text-slate-900">{{ evento.titulo }}{% if evento.estado == 'Aprobado' %}<span class="bg-green-100 text-green-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded ml-3">Aprobado</span>{% elif evento.estado == 'Inconsistente' %}<span class="bg-red-100 text-red-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded ml-3">Rechazado</span>{% else %}<span class="bg-yellow-100 text-yellow-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded ml-3">{{ evento.estado }}</span>{% endif %}</h3>
-                                <time class="block mb-2 text-sm font-normal leading-none text-slate-400">{{ evento.fecha | format_datetime }}</time>
+
+        <!-- Columna Derecha: Bitácora -->
+        <div class="lg:col-span-3 bg-white rounded-2xl shadow-md">
+            <div class="p-5 border-b border-slate-200">
+                <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-clock-history text-green-500"></i> Bitácora de la Transacción</h2>
+            </div>
+            <div class="p-5">
+                {% if bitacora %}
+                <ol class="relative border-l border-slate-200 ml-4">
+                    {% for evento in bitacora %}
+                        <li class="mb-10 ml-8 fade-in">
+                            <span class="absolute flex items-center justify-center w-8 h-8 rounded-full -left-4 ring-8 ring-white
+                                {% if evento.tipo_evento == 'pago' %} bg-blue-100 text-blue-600 
+                                {% else %} bg-slate-100 text-slate-600 {% endif %}">
+                                <i class="bi {% if evento.tipo_evento == 'pago' %} bi-cash-coin {% else %} bi-person-check-fill {% endif %}"></i>
+                            </span>
+                            <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                                <h3 class="flex items-center mb-1 text-md font-semibold text-slate-900">{{ evento.titulo }}
+                                    {% if evento.estado == 'Aprobado' %}<span class="bg-green-100 text-green-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded ml-3">Aprobado</span>
+                                    {% elif evento.estado == 'Inconsistente' %}<span class="bg-red-100 text-red-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded ml-3">Rechazado</span>
+                                    {% elif evento.estado %}<span class="bg-yellow-100 text-yellow-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded ml-3">{{ evento.estado }}</span>
+                                    {% endif %}
+                                </h3>
+                                <time class="block mb-2 text-sm font-normal leading-none text-slate-400">{{ evento.fecha | format_datetime }} {% if evento.autor %}por {{ evento.autor }}{% endif %}</time>
                                 <p class="text-base font-normal text-slate-600">{{ evento.descripcion }}</p>
                             </div>
-                        {% elif evento.tipo_evento == 'auditoria' %}
-                            <span class="absolute flex items-center justify-center w-6 h-6 bg-slate-100 rounded-full -left-3 ring-8 ring-white"><i class="bi bi-person-check-fill text-slate-600"></i></span>
-                             <div class="p-4 bg-white rounded-lg">
-                                <h3 class="text-md font-semibold text-slate-900">{{ evento.titulo }}</h3>
-                                <time class="block mb-2 text-sm font-normal leading-none text-slate-400">{{ evento.fecha | format_datetime }} por {{ evento.autor }}</time>
-                                <p class="text-base font-normal text-slate-600">{{ evento.descripcion }}</p>
-                            </div>
-                        {% endif %}
-                    </li>
-                {% endfor %}
-            </ol>
-            {% else %}
-            <p class="text-center text-slate-500 py-4">No hay eventos en la bitácora para este reporte.</p>
-            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ol>
+                {% else %}
+                <p class="text-center text-slate-500 py-4">No hay eventos en la bitácora para este reporte.</p>
+                {% endif %}
+            </div>
         </div>
     </div>
-
-    <!-- Acciones de Validación -->
-    {% if is_admin_view and pago.estado_reporte == 'Pendiente de Revision' %}
-    <div class="bg-white rounded-xl shadow-sm" x-data="{ showDiferenciaForm: false }">
-        <div class="p-5 border-b border-slate-200">
-            <h2 class="text-lg font-bold text-slate-800">Acciones de Validación</h2>
-        </div>
-        <div class="p-5">
-            <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST">
-                <div x-show="showDiferenciaForm" x-transition class="bg-red-50 p-4 rounded-lg mb-4 border border-red-200">
-                    <h3 class="font-bold text-red-800 mb-2">Procesar con Diferencia</h3>
-                    <p class="text-sm text-red-700 mb-3">Esta acción se usa cuando el monto verificado en la cuenta es <strong>diferente</strong> al monto reportado por el cliente.</p>
-                    <div>
-                        <label for="monto_real_recibido" class="block text-sm font-medium text-slate-700">Monto Real Recibido (en Bs.)</label>
-                        <input type="number" step="0.01" name="monto_real_recibido" id="monto_real_recibido" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" placeholder="Ej: 41000.00" required>
-                        <p class="text-xs text-slate-500 mt-1">Ingresa el monto que realmente se recibió para calcular la diferencia.</p>
-                    </div>
-                </div>
-                <div class="flex flex-col md:flex-row justify-end gap-3">
-                    <template x-if="!showDiferenciaForm">
-                        <button type="button" @click="showDiferenciaForm = true" class="w-full md:w-auto text-sm bg-white text-red-600 font-semibold py-2 px-4 rounded-lg border border-red-300 hover:bg-red-50">Procesar con Diferencia</button>
-                    </template>
-                    <template x-if="showDiferenciaForm">
-                        <button type="button" @click="showDiferenciaForm = false" class="w-full md:w-auto text-sm bg-white text-slate-700 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50">Cancelar</button>
-                    </template>
-                    <template x-if="showDiferenciaForm">
-                         <button type="submit" name="accion" value="confirmar_diferencia" class="w-full md:w-auto text-sm bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700"><i class="bi bi-exclamation-triangle-fill mr-1"></i> Guardar Diferencia</button>
-                    </template>
-                    <template x-if="!showDiferenciaForm">
-                        <button type="submit" name="accion" value="aprobar_completo" class="w-full md:w-auto text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700"><i class="bi bi-check-circle-fill mr-1"></i> Aprobar Monto Reportado</button>
-                    </template>
-                </div>
-            </form>
-        </div>
-    </div>
-    {% endif %}
 </div>
 {% endblock %}

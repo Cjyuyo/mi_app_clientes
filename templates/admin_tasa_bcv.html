@@ -4,17 +4,33 @@
     Gestión de Tasas de Cambio
 {% endblock %}
 
+{% block head_extra %}
+<script src="//unpkg.com/alpinejs" defer></script>
+<style>
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in {
+        animation: fadeIn 0.5s ease-out forwards;
+        opacity: 0;
+    }
+    .fade-in-delay-1 { animation-delay: 0.1s; }
+    .fade-in-delay-2 { animation-delay: 0.2s; }
+</style>
+{% endblock %}
+
 {% block body %}
 <div class="space-y-6">
-    <!-- Encabezado -->
-    <div class="bg-white p-6 rounded-xl shadow-sm">
+    <!-- Encabezado con Gradiente y Animación -->
+    <div class="fade-in bg-gradient-to-r from-slate-800 to-slate-900 text-white p-6 rounded-2xl shadow-lg">
         <div class="flex items-center gap-4">
-            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-cyan-100 text-cyan-600">
-                <i class="bi bi-coin text-2xl"></i>
+            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-white/10">
+                <i class="bi bi-coin text-2xl text-cyan-300"></i>
             </div>
             <div>
-                <h1 class="text-3xl font-bold text-slate-800">Gestión de Tasas de Cambio</h1>
-                <p class="text-slate-500 mt-1">Establece la tasa del día y consulta el historial de cambios.</p>
+                <h1 class="text-3xl font-bold tracking-tight">Gestión de Tasas de Cambio</h1>
+                <p class="text-slate-400 mt-1">Establece la tasa oficial del día y consulta el historial de cambios.</p>
             </div>
         </div>
     </div>
@@ -23,7 +39,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         <!-- Columna del Formulario para Establecer Tasa -->
-        <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm">
+        <div class="fade-in fade-in-delay-1 lg:col-span-1 bg-white p-6 rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300">
             <h2 class="text-xl font-bold text-slate-800 mb-1">Establecer Tasa del Día</h2>
             <p class="text-sm text-slate-500 mb-6">Los valores guardados se usarán para todos los cálculos.</p>
             
@@ -44,7 +60,6 @@
                         <label for="tasa_eur" class="block text-sm font-medium text-slate-600 mb-1">Tasa Euro (EUR)</label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 font-semibold">Bs.</span>
-                            <!-- Se usa el filtro |string para forzar la visualización completa del decimal sin redondeo -->
                             <input type="text" name="tasa_eur" id="tasa_eur"
                                    class="w-full pl-12 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-slate-800"
                                    placeholder="161.22197047"
@@ -54,7 +69,7 @@
                     </div>
                     <div class="pt-2">
                         <button type="submit"
-                                class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 ease-in-out flex items-center justify-center gap-2">
+                                class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 ease-in-out flex items-center justify-center gap-2 transform hover:scale-105">
                             <i class="bi bi-check2-circle"></i>
                             Guardar Tasa
                         </button>
@@ -64,9 +79,9 @@
         </div>
 
         <!-- Columna del Historial de Tasas -->
-        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm">
+        <div class="fade-in fade-in-delay-2 lg:col-span-2 bg-white p-6 rounded-2xl shadow-md">
             <h2 class="text-xl font-bold text-slate-800 mb-1">Historial de Cambios</h2>
-            <p class="text-sm text-slate-500 mb-6">Últimos 30 registros de tasas establecidas.</p>
+            <p class="text-sm text-slate-500 mb-6">Últimos registros de tasas establecidas.</p>
             
             <div class="overflow-x-auto border border-slate-200 rounded-lg">
                 <table class="min-w-full divide-y divide-slate-200">
@@ -81,9 +96,8 @@
                     <tbody class="bg-white divide-y divide-slate-200">
                         {% if historial_tasas %}
                             {% for registro in historial_tasas %}
-                            <tr class="hover:bg-slate-50">
+                            <tr class="hover:bg-slate-50 transition-colors duration-200">
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600">{{ registro.fecha | format_date('%d/%m/%Y') }}</td>
-                                <!-- Se usa el filtro |string para mostrar el valor completo sin redondeo -->
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-800 font-mono">{{ registro.tasa|string if registro.tasa is not none else 'N/A' }}</td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-800 font-mono">{{ registro.tasa_euro|string if registro.tasa_euro is not none else 'N/A' }}</td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600">{{ registro.usuario or 'Sistema' }}</td>
@@ -91,7 +105,12 @@
                             {% endfor %}
                         {% else %}
                             <tr>
-                                <td colspan="4" class="px-4 py-6 text-center text-sm text-slate-500">No hay historial de tasas para mostrar.</td>
+                                <td colspan="4" class="px-4 py-6 text-center text-sm text-slate-500">
+                                    <div class="flex flex-col items-center gap-2">
+                                        <i class="bi bi-cloud-drizzle text-4xl text-slate-300"></i>
+                                        <span>No hay historial de tasas para mostrar.</span>
+                                    </div>
+                                </td>
                             </tr>
                         {% endif %}
                     </tbody>
