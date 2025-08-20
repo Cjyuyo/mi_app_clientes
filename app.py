@@ -4701,20 +4701,22 @@ def ver_reporte(pago_id):
             # guardada en el registro del pago, sin redondearla.
             
             # 1. Determinar el monto de referencia en USD
-            monto_dolares_referencia = Decimal('0.0')
+            # --- INICIO DE LA CORRECCIÓN ---
+            pago['monto_dolares_referencia'] = Decimal('0.0')
             if pago.get('tipo_pago') and 'Cuota' in pago['tipo_pago']:
-                monto_dolares_referencia = pago.get('valor_cuota', Decimal('0.0'))
+                pago['monto_dolares_referencia'] = pago.get('valor_cuota', Decimal('0.0'))
             elif pago.get('tipo_pago') and 'Inscripción' in pago['tipo_pago']:
                 # Para la inscripción, la referencia es el monto oficial guardado en el pago.
-                monto_dolares_referencia = pago.get('monto', Decimal('0.0'))
+                pago['monto_dolares_referencia'] = pago.get('monto', Decimal('0.0'))
+            # --- FIN DE LA CORRECCIÓN ---
             
             # 2. Calcular el Monto Esperado en Bolívares sin redondeo intermedio
             pago['monto_esperado_bs'] = Decimal('0.0')
             tasa_exacta_guardada = pago.get('tasa_dia')
             
-            if pago.get('forma_pago') != 'Binance' and monto_dolares_referencia and tasa_exacta_guardada:
+            if pago.get('forma_pago') != 'Binance' and pago['monto_dolares_referencia'] and tasa_exacta_guardada:
                 # Se multiplica directamente usando la tasa exacta.
-                pago['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta_guardada)
+                pago['monto_esperado_bs'] = (pago['monto_dolares_referencia'] * tasa_exacta_guardada)
 
             # 3. Decodificar detalles del reporte (JSON)
             detalles = pago.get('detalles_reporte')
