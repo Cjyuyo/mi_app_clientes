@@ -3607,7 +3607,7 @@ def portal_diferencia_reportar(bulk_id, order_id):
         flash("Error de conexión.", "error")
         return redirect(url_for('portal_dashboard'))
     
-    # --- INICIO DE LA CORRECCIÓN DE INDENTACIÓN ---
+     # --- INICIO DE LA CORRECCIÓN DE INDENTACIÓN ---
     try:
         with conn.cursor() as cur:
             # Valida que la orden de pago exista, pertenezca al cliente y esté pendiente
@@ -3662,16 +3662,16 @@ def portal_diferencia_reportar(bulk_id, order_id):
                                    monto_a_pagar_usd=monto_equivalente_usd,
                                    concepto_pago=f"Pago de diferencia (Orden #{order_id})")
 
-        try:
-            with conn.cursor() as cur:
-                monto_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
-                monto_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
+    try:
+        with conn.cursor() as cur:
+            monto_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
+            monto_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
                 
-                pago_query = """
-                    INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
+            pago_query = """
+                INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
                                     estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
                                     bulk_id, is_diferencia, cuotas_cubiertas)
-                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, TRUE, 0) RETURNING id;
+                VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, TRUE, 0) RETURNING id;
                 """
                 cur.execute(pago_query, (
                     cliente['id'], monto_usd, monto_bs, pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
@@ -3744,11 +3744,12 @@ def portal_diferencia_reportar(bulk_id, order_id):
                            monto_a_pagar_usd=monto_equivalente_usd,
                            concepto_pago=f"Pago de diferencia (Orden #{order_id})")
 
-        try:
+    try:
             with conn.cursor() as cur:
                 monto_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
                 monto_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
                 
+                # Insertar el nuevo pago, asociándolo al bulk existente
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
                                     estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
@@ -3761,7 +3762,10 @@ def portal_diferencia_reportar(bulk_id, order_id):
                     get_venezuela_current_datetime(), f"Pago de diferencia para Bulk #{bulk_id}", bulk_id
                 ))
                 
+                # Actualizar el estado de la orden de pago a 'PAID'
                 cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
+                
+                # Recalcular los totales del bulk
                 recalcular_totales_bulk(bulk_id)
 
                 flash('✅ ¡Pago de diferencia reportado! Será verificado por un administrador.', 'success')
