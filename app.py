@@ -2670,8 +2670,6 @@ def finalizar_registro():
             flash('Ambas firmas son obligatorias para registrar al cliente.', 'error')
             return redirect(url_for('registrar'))
             
-        # --- INICIO DE LA CORRECCIÓN ---
-        # Se recalculan los valores en el backend para garantizar consistencia antes de guardar.
         plan_contratado = Decimal(form_data.get('plan_contratado', '0').replace(',', '.'))
         cuotas_totales = int(form_data.get('cuotas_totales', 0))
         moneda_pago = form_data.get('moneda_pago')
@@ -2686,7 +2684,6 @@ def finalizar_registro():
         factor_cuota = base * (Decimal('24') / Decimal(cuotas_totales))
         valor_cuota_calculado = (plan_contratado * factor_cuota).quantize(Decimal('0.01'))
         form_data['valor_cuota'] = valor_cuota_calculado
-        # --- FIN DE LA CORRECCIÓN ---
         
         responsable_cierre = form_data.get('responsable', '') 
 
@@ -2700,7 +2697,11 @@ def finalizar_registro():
                 'firma_digital': firma_cliente, 'firma_empresa': firma_empresa, 
                 'fecha_firma': datetime.now(VENEZUELA_TZ), 'proceso': 'RESERVA',
                 'ruta_foto_cliente_s3': ruta_s3_cliente,
-                'ruta_foto_cedula_s3': ruta_s3_cedula
+                'ruta_foto_cedula_s3': ruta_s3_cedula,
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se establece el estado inicial como 'PENDIENTE' para evitar ambigüedades.
+                'estatus': 'PENDIENTE'
+                # --- FIN DE LA CORRECCIÓN ---
             }
             
             optional_fields = [
@@ -3115,6 +3116,11 @@ def edit_client(client_id):
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('consulta'))
 
+    # --- INICIO DE LA CORRECCIÓN ---
+    # Variable para controlar si se puede editar el estado en la plantilla HTML.
+    edicion_de_estado_bloqueada = cliente_actual['proceso'] == 'RESERVA'
+    # --- FIN DE LA CORRECCIÓN ---
+
     if request.method == 'POST':
         try:
             form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
@@ -3147,6 +3153,12 @@ def edit_client(client_id):
                 update_data = dict(cliente_actual)
                 update_data.update(form_data)
                 
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Si la edición de estado está bloqueada, forzamos a que el estado no cambie.
+                if edicion_de_estado_bloqueada:
+                    update_data['estatus'] = cliente_actual['estatus']
+                # --- FIN DE LA CORRECCIÓN ---
+
                 update_query = """
                 UPDATE clientes SET
                     nombre = %(nombre)s, apellido = %(apellido)s, cedula = %(cedula)s, contrato_nro = %(contrato_nro)s,
@@ -3174,7 +3186,7 @@ def edit_client(client_id):
             conn.rollback()
             flash(f'Ocurrió un error al actualizar: {e}', 'error')
             
-    return render_template('edit_cliente.html', cliente=cliente_actual)
+    return render_template('edit_cliente.html', cliente=cliente_actual, edicion_de_estado_bloqueada=edicion_de_estado_bloqueada)
 
 @app.route('/adjudicacion', methods=['GET'])
 @admin_required
