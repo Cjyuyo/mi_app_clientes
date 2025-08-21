@@ -1160,6 +1160,21 @@ def reportes_por_revisar():
                         bulks_procesados.add(bulk_id)
                 
                 elif reporte['estado_reporte'] == 'Pendiente de Revision':
+                    # --- INICIO DE LA CORRECCIÓN ---
+                    # REGLA: Se aplica la subconsulta de la tasa para los pagos pendientes.
+                    fecha_del_pago = reporte.get('fecha_pago', get_venezuela_current_date())
+                    cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
+                    tasa_row = cur.fetchone()
+                    tasa_exacta = tasa_row['tasa'] if tasa_row and tasa_row['tasa'] else reporte.get('tasa_dia')
+
+                    monto_dolares_referencia = Decimal('0.0')
+                    if 'Cuota' in reporte.get('tipo_pago', ''):
+                        monto_dolares_referencia = reporte.get('valor_cuota', Decimal('0.0'))
+                    elif 'Inscripción' in reporte.get('tipo_pago', ''):
+                        monto_dolares_referencia = reporte.get('inscripcion_monto', Decimal('0.0'))
+                    
+                    reporte['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta) if monto_dolares_referencia and tasa_exacta else Decimal('0.0')
+                    # --- FIN DE LA CORRECCIÓN ---
                     reportes_categorizados['pendientes'].append(reporte)
                 
                 elif reporte['estado_reporte'] == 'Inconsistente':
@@ -4538,9 +4553,6 @@ def portal_solicitar_retiro():
 @app.route('/ver_reporte/<int:pago_id>')
 @app.route('/portal/ver_reporte/<int:pago_id>')
 def ver_reporte(pago_id):
-    # ... (La lógica de esta función para obtener los datos no necesita cambios) ...
-    # Se mantiene igual que en la versión anterior, ya que solo recupera datos.
-    # La nueva lógica de botones estará en la plantilla HTML.
     is_client_view = 'cliente_id' in session and g.cliente is not None
     is_admin_view = 'admin_id' in session and g.admin is not None
 
@@ -4573,6 +4585,25 @@ def ver_reporte(pago_id):
             
             pago = dict(pago_row)
             
+            # REGLA: JAMÁS SE BORRA LA SUBCONSULTA DE LA TASA.
+            # Se busca la tasa precisa correspondiente a la fecha en que se realizó el pago.
+            fecha_del_pago = pago.get('fecha_pago', get_venezuela_current_date())
+            cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
+            tasa_row = cur.fetchone()
+            # Si se encuentra una tasa en el historial, se usa; si no, se usa la que está guardada en el pago.
+            tasa_exacta = tasa_row['tasa'] if tasa_row and tasa_row['tasa'] else pago.get('tasa_dia')
+
+            # Se determina el monto en dólares que sirve como referencia para el cálculo.
+            monto_dolares_referencia = Decimal('0.0')
+            if 'Cuota' in pago.get('tipo_pago', ''):
+                monto_dolares_referencia = pago.get('valor_cuota', Decimal('0.0'))
+            elif 'Inscripción' in pago.get('tipo_pago', ''):
+                monto_dolares_referencia = pago.get('inscripcion_monto', Decimal('0.0'))
+            
+            # Se añaden los valores calculados al diccionario para que la plantilla los pueda usar.
+            pago['monto_dolares_referencia'] = monto_dolares_referencia
+            pago['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta) if monto_dolares_referencia and tasa_exacta else Decimal('0.0')
+
             pagos_del_mismo_bulk = []
             if pago.get('bulk_id'):
                 cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
