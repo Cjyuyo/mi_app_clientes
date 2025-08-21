@@ -1145,7 +1145,7 @@ def reportes_por_revisar():
             cur.execute("""
                 SELECT p.id, p.monto, p.monto_bs, p.tipo_pago, p.fecha_creacion, p.estado_reporte,
                        p.cliente_id, c.nombre, c.apellido, c.cedula, p.detalles_reporte,
-                       c.valor_cuota, p.tasa_dia, p.fecha_pago
+                       c.valor_cuota, c.inscripcion_monto, p.tasa_dia, p.fecha_pago
                 FROM pagos p
                 JOIN clientes c ON p.cliente_id = c.id
                 WHERE p.reportado_por_cliente = TRUE AND p.estado_reporte IN ('Pendiente de Revision', 'Inconsistente')
@@ -1157,7 +1157,7 @@ def reportes_por_revisar():
                 reporte = dict(reporte_row)
                 
                 # --- INICIO DE LA CORRECCIÓN ---
-                # Se aplica la misma lógica de 'ver_reporte' para obtener la tasa más precisa.
+                # Se replica la lógica exacta de 'ver_reporte' para obtener la tasa precisa.
                 fecha_del_pago = reporte.get('fecha_pago', get_venezuela_current_date())
 
                 cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
@@ -1165,18 +1165,17 @@ def reportes_por_revisar():
 
                 tasa_exacta_para_calculo = tasa_precisa_row['tasa'] if tasa_precisa_row and tasa_precisa_row['tasa'] else reporte.get('tasa_dia')
                 
-                # Se calcula el monto de referencia en dólares
+                # Se calcula el monto de referencia en dólares (para cuota o inscripción).
                 monto_dolares_referencia = Decimal('0.0')
                 if reporte.get('tipo_pago') and 'Cuota' in reporte['tipo_pago']:
                     monto_dolares_referencia = reporte.get('valor_cuota', Decimal('0.0'))
                 elif reporte.get('tipo_pago') and 'Inscripción' in reporte['tipo_pago']:
-                    # Para la inscripción, el monto en USD ya está en la columna 'monto' del pago
                     monto_dolares_referencia = reporte.get('monto', Decimal('0.0'))
 
-                # Se calcula el 'Monto Esperado' usando la tasa exacta y el monto de referencia.
+                # Se calcula el 'Monto Esperado' sin redondear, preservando el objeto Decimal.
                 reporte['monto_esperado_bs'] = Decimal('0.0')
                 if monto_dolares_referencia and tasa_exacta_para_calculo:
-                    reporte['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta_para_calculo).quantize(Decimal('0.01'))
+                    reporte['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta_para_calculo)
                 # --- FIN DE LA CORRECCIÓN ---
 
 
@@ -1196,66 +1195,6 @@ def reportes_por_revisar():
                             detalles = {}
                         detalles['monto_recibido_real'] = '0.00' # Valor por defecto
                     
-                    reporte['detalles_reporte'] = detalles
-                    
-                    motivo = detalles.get('motivo', '')
-                    if motivo in ['Diferencia de Monto', 'Discrepancia Verificada por Admin']:
-                        reportes_categorizados['diferencias'].append(reporte)
-                    else:
-                        reportes_categorizados['otros_rechazados'].append(reporte)
-
-    except (psycopg2.Error, json.JSONDecodeError) as e:
-        logging.error(f"Error al obtener y categorizar reportes: {e}")
-        flash("Error al cargar la lista de reportes.", "danger")
-
-    return render_template('reportes_por_revisar.html', reportes=reportes_categorizados)
-    
-    try:
-        with conn.cursor() as cur:
-            # Obtiene todos los reportes que están pendientes o que ya fueron marcados como inconsistentes.
-            cur.execute("""
-                SELECT p.id, p.monto, p.monto_bs, p.tipo_pago, p.fecha_creacion, p.estado_reporte,
-                       p.cliente_id, c.nombre, c.apellido, c.cedula, p.detalles_reporte,
-                       c.valor_cuota, p.tasa_dia
-                FROM pagos p
-                JOIN clientes c ON p.cliente_id = c.id
-                WHERE p.reportado_por_cliente = TRUE AND p.estado_reporte IN ('Pendiente de Revision', 'Inconsistente')
-                ORDER BY p.fecha_creacion ASC;
-            """)
-            todos_los_reportes = cur.fetchall()
-
-            for reporte_row in todos_los_reportes:
-                reporte = dict(reporte_row)
-                
-                # Calcula el monto esperado en Bs para facilitar la comparación visual.
-                if reporte['tipo_pago'] == 'Cuota' and reporte.get('valor_cuota') and reporte.get('tasa_dia'):
-                    valor_cuota = reporte['valor_cuota']
-                    tasa_dia = reporte['tasa_dia']
-                    if tasa_dia > 0:
-                        reporte['monto_esperado_bs'] = (valor_cuota * tasa_dia).quantize(Decimal('0.01'))
-                    else:
-                        reporte['monto_esperado_bs'] = Decimal('0.0')
-
-                # Clasifica los reportes en las pestañas correspondientes.
-                if reporte['estado_reporte'] == 'Pendiente de Revision':
-                    reportes_categorizados['pendientes'].append(reporte)
-                elif reporte['estado_reporte'] == 'Inconsistente':
-                    detalles = reporte['detalles_reporte']
-                    if isinstance(detalles, str):
-                        try:
-                            detalles = json.loads(detalles)
-                        except json.JSONDecodeError:
-                            detalles = {}
-                    
-                    # --- INICIO DE LA CORRECCIÓN ---
-                    # Nos aseguramos de que la clave 'monto_recibido_real' siempre exista
-                    # antes de pasar los datos a la plantilla para evitar el UndefinedError.
-                    if 'monto_recibido_real' not in (detalles or {}):
-                        if detalles is None:
-                            detalles = {}
-                        detalles['monto_recibido_real'] = '0.00' # Valor por defecto
-                    # --- FIN DE LA CORRECCIÓN ---
-
                     reporte['detalles_reporte'] = detalles
                     
                     motivo = detalles.get('motivo', '')
