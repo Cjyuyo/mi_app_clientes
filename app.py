@@ -1185,6 +1185,10 @@ def reportes_por_revisar():
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def procesar_reporte(pago_id):
+    """
+    Procesa un reporte de pago pendiente. Puede aprobarlo para conciliación
+    o generar un proceso de diferencia (bulk) si el monto no coincide.
+    """
     conn = get_db()
     accion = request.form.get('accion')
     
@@ -1194,7 +1198,7 @@ def procesar_reporte(pago_id):
 
     try:
         with conn.cursor() as cur:
-            # Se bloquea la fila del pago para evitar concurrencia
+            # Bloquea la fila del pago para evitar que dos administradores lo procesen al mismo tiempo.
             cur.execute("SELECT p.*, c.valor_cuota, c.inscripcion_monto, c.id as cliente_id FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s FOR UPDATE", (pago_id,))
             pago = cur.fetchone()
 
@@ -1204,18 +1208,15 @@ def procesar_reporte(pago_id):
 
             cliente_id = pago['cliente_id']
 
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Se separa la lógica de Aprobación de la de Conciliación.
-            if accion == 'aprobar_completo':
-                # Al aprobar, solo se actualiza el estado del reporte.
-                # El pago ahora aparecerá en la sección "Pagos por Conciliar".
+            if accion == 'aprobar_para_conciliar':
+                # Si el monto es correcto, simplemente se aprueba y pasa a la lista de conciliación.
                 cur.execute(
                     "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
                     (g.admin['id'], pago_id)
                 )
-                flash('Reporte aprobado. Ahora debe ser procesado desde la sección de Pagos por Conciliar.', 'success')
-            # --- FIN DE LA CORRECCIÓN ---
-
+                flash('Reporte aprobado. Ahora puede ser procesado desde la sección de Conciliar Pagos.', 'success')
+            
+            # --- INICIO DE LA LÓGICA CORREGIDA ---
             elif accion == 'corregir_y_generar_diferencia':
                 monto_real_recibido_str = request.form.get('monto_real_recibido')
                 if not monto_real_recibido_str:
@@ -1225,6 +1226,7 @@ def procesar_reporte(pago_id):
                 monto_real_recibido = Decimal(monto_real_recibido_str)
                 currency = 'VES' if pago.get('forma_pago') != 'Binance' else 'USD'
                 
+                # Calcula el monto que se esperaba recibir
                 monto_esperado = Decimal('0.0')
                 base_amount = pago['valor_cuota'] if pago['tipo_pago'] == 'Cuota' else pago['inscripcion_monto']
                 
@@ -1233,16 +1235,17 @@ def procesar_reporte(pago_id):
                 else:
                     monto_esperado = base_amount
 
-                if monto_real_recibido >= monto_esperado:
-                    flash("El monto verificado es suficiente. Apruebe el reporte directamente.", "warning")
-                    return redirect(url_for('ver_reporte', pago_id=pago_id))
-
+                # CORRECCIÓN: Se elimina la condición que impedía crear el bulk si el monto era mayor.
+                # Ahora siempre se crea el proceso de diferencia.
+                
+                # 1. Crea el 'bulk' o expediente de pago.
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
                     VALUES (%s, %s, %s, 'UNDER_REVIEW', %s) RETURNING id
                 """, (cliente_id, currency, monto_esperado, monto_real_recibido))
                 bulk_id = cur.fetchone()[0]
 
+                # 2. Actualiza el pago original para marcarlo como inconsistente y asociarlo al bulk.
                 detalles = {
                     'motivo': 'Discrepancia Verificada por Admin',
                     'monto_original_reportado': str(pago['monto_bs'] if currency == 'VES' else pago['monto']),
@@ -1257,6 +1260,7 @@ def procesar_reporte(pago_id):
                     (g.admin['id'], json.dumps(detalles), bulk_id, pago_id)
                 )
 
+                # 3. Calcula la diferencia y crea una orden de pago para el cliente.
                 monto_pendiente = monto_esperado - monto_real_recibido
                 cur.execute("""
                     INSERT INTO payment_orders (bulk_id, cliente_id, amount, currency, status)
@@ -1266,6 +1270,7 @@ def procesar_reporte(pago_id):
                 descripcion_audit = f"Corrigió reporte #{pago_id}. Monto verificado: {monto_real_recibido}. Se generó orden por {monto_pendiente:,.2f} {currency}."
                 registrar_accion_auditoria('CORRECCION_REPORTE_ADMIN', descripcion_audit, cliente_id, {'pago_id': pago_id})
                 flash("El monto verificado ha sido registrado. Se generó una orden de pago para el cliente por la diferencia.", "success")
+            # --- FIN DE LA LÓGICA CORREGIDA ---
             
             else:
                 flash('Acción no válida.', 'error')
