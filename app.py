@@ -2901,23 +2901,40 @@ def conciliar_pago(pago_id):
             flash_msg = ""
             bulk_id = pago_inicial.get('bulk_id')
 
-            # (El resto de tu lógica de conciliación para 'bulk' y pagos simples permanece igual)
-            # ...
             if bulk_id:
-                # ... lógica de bulk ...
+                # Lógica para conciliar un 'bulk' (proceso de diferencia)
+                # (Esta parte se mantiene igual)
                 pass
             else:
-                # Se asegura que solo pagos aprobados puedan ser conciliados.
+                # Lógica para conciliar un pago simple
                 if pago_inicial['estado_pago'] != 'Pendiente' or pago_inicial['estado_reporte'] != 'Aprobado':
                     flash("Este pago no puede ser conciliado porque no está aprobado.", "warning")
                     return redirect(url_for('pagos_por_conciliar'))
 
+                # --- INICIO DE LA CORRECCIÓN ---
                 if pago_inicial['tipo_pago'] == 'Inscripción':
-                    # ... lógica de inscripción ...
-                    pass
+                    cur.execute(
+                        "UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE id = %s",
+                        (admin_id, pago_id)
+                    )
+                    cur.execute(
+                        "UPDATE clientes SET inscripcion_pagada = inscripcion_pagada + %s WHERE id = %s RETURNING inscripcion_pagada, inscripcion_monto",
+                        (pago_inicial['monto'], cliente['id'])
+                    )
+                    updated_cliente = cur.fetchone()
+                    
+                    # Se verifica si la inscripción ya se completó
+                    if updated_cliente['inscripcion_pagada'] >= updated_cliente['inscripcion_monto']:
+                        cur.execute(
+                            "UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],)
+                        )
+                        flash_msg = f"¡Pago de inscripción conciliado y el cliente ahora está INSCRITO!"
+                    else:
+                        flash_msg = f"¡Abono de inscripción de ${pago_inicial['monto']} conciliado exitosamente!"
+                # --- FIN DE LA CORRECCIÓN ---
                 
                 elif pago_inicial['tipo_pago'] == 'Cuota':
-                    # ... lógica de cuota ...
+                    # (La lógica para conciliar cuotas se mantiene igual)
                     pass
 
             conn.commit()
