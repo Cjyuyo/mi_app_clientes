@@ -3556,21 +3556,24 @@ def portal_reportar_pago():
     
     tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
     
-    # --- REGLA DE REDONDEO APLICADA AQUÍ ---
+    # --- INICIO DE LA CORRECCIÓN: REGLA DE REDONDEO APLICADA AQUÍ ---
+    # Se calcula el monto en Bolívares y se redondea a 2 decimales.
     monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv_calculo).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
     if request.method == 'POST':
         # ... (la lógica del POST para guardar el pago iría aquí) ...
         pass
 
+    # Se envían a la plantilla los montos ya redondeados.
     return render_template('portal_reportar_pago.html', 
                            cliente=cliente, 
                            tasa_hoy=tasa_hoy, 
                            mes_actual=mes_actual,
+                           # Se asegura que el monto en USD también tenga el formato correcto.
                            monto_a_pagar_usd=monto_a_pagar_usd.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
                            monto_a_pagar_bs=monto_a_pagar_bs,
                            concepto_pago=concepto_pago)
-
+                           
 # NUEVO: Esta es la nueva ruta completa para manejar el pago de diferencias.
 @app.route('/portal/diferencia/reportar/<int:bulk_id>/<int:order_id>', methods=['GET', 'POST'])
 @portal_login_required
