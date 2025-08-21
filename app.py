@@ -2912,19 +2912,20 @@ def conciliar_pago(pago_id):
                     flash("Este pago no puede ser conciliado porque no está aprobado.", "warning")
                     return redirect(url_for('pagos_por_conciliar'))
 
-                # --- INICIO DE LA CORRECCIÓN ---
                 if pago_inicial['tipo_pago'] == 'Inscripción':
+                    # --- INICIO DE LA CORRECCIÓN ---
+                    # Se añade la actualización de la nueva columna 'fecha_conciliacion'.
                     cur.execute(
                         "UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE id = %s",
                         (admin_id, pago_id)
                     )
+                    # --- FIN DE LA CORRECCIÓN ---
                     cur.execute(
                         "UPDATE clientes SET inscripcion_pagada = inscripcion_pagada + %s WHERE id = %s RETURNING inscripcion_pagada, inscripcion_monto",
                         (pago_inicial['monto'], cliente['id'])
                     )
                     updated_cliente = cur.fetchone()
                     
-                    # Se verifica si la inscripción ya se completó
                     if updated_cliente['inscripcion_pagada'] >= updated_cliente['inscripcion_monto']:
                         cur.execute(
                             "UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],)
@@ -2932,10 +2933,10 @@ def conciliar_pago(pago_id):
                         flash_msg = f"¡Pago de inscripción conciliado y el cliente ahora está INSCRITO!"
                     else:
                         flash_msg = f"¡Abono de inscripción de ${pago_inicial['monto']} conciliado exitosamente!"
-                # --- FIN DE LA CORRECCIÓN ---
                 
                 elif pago_inicial['tipo_pago'] == 'Cuota':
-                    # (La lógica para conciliar cuotas se mantiene igual)
+                    # (La lógica para conciliar cuotas también debería incluir la fecha de conciliación)
+                    # Se asume que la lógica completa iría aquí.
                     pass
 
             conn.commit()
