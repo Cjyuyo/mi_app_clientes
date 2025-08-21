@@ -4718,6 +4718,9 @@ def gestion_usuarios():
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def agregar_usuario():
+    nombre_completo = request.form.get('nombre_completo')
+    usuario = request.form.get('usuario')
+    password = request.form.get('password')
     rol = request.form.get('rol')
     # Solo un superadmin puede crear otro superadmin
     if rol == 'superadmin' and g.admin['rol'] != 'superadmin':
