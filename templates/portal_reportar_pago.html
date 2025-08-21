@@ -19,11 +19,7 @@
 
         <!-- Campos Ocultos -->
         <input type="hidden" name="forma_pago" x-model="formaPago">
-        
-        <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
-        <!-- Se añade un campo oculto para enviar la tasa del día al servidor -->
         <input type="hidden" name="tasa_dia" :value="tasa">
-        <!-- ===== FIN DE LA CORRECCIÓN ===== -->
 
         {% if modo_correccion and pago_a_corregir %}
             <input type="hidden" name="pago_id_a_corregir" value="{{ pago_a_corregir.id }}">
@@ -66,16 +62,23 @@
 
                 <div>
                     <label for="monto_usd" class="block text-sm font-medium text-slate-700" x-text="pagoEn === 'USDT' ? 'Monto a Pagar (USDT)' : 'Monto a Pagar (USD)'">Monto a Pagar (USD)</label>
-                    <input type="number" id="monto_usd" step="0.01" name="monto"
-                           class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                           x-model.number="montoUsd" @input="updateBsFromUsd" required>
+                    <input type="text" id="monto_usd" name="monto"
+                           class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm"
+                           :value="montoUsd.toFixed(18)" readonly>
                 </div>
                 
                 <div x-show="pagoEn === 'Dolar/BCV'">
-                    <label for="monto_bs" class="block text-sm font-medium text-slate-700">Monto Equivalente (Bs)</label>
-                    <input type="number" id="monto_bs" step="0.01" name="monto_bs"
+                    <label for="monto_bs_display" class="block text-sm font-medium text-slate-700">Monto Equivalente (Bs)</label>
+                    <input type="text" id="monto_bs_display"
+                           class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm"
+                           :value="montoBs.toFixed(2)" readonly>
+                </div>
+
+                <div>
+                    <label for="monto_reportado_bs" class="block text-sm font-medium text-slate-700">Monto Exacto Pagado (Bs)</label>
+                    <input type="number" id="monto_reportado_bs" step="0.01" name="monto_bs"
                            class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                           x-model.number="montoBs" @input="updateUsdFromBs" required>
+                           required>
                 </div>
             </div>
         </div>
@@ -249,31 +252,7 @@
                         this.formaPago = newValue;
                     }
                 });
-
-                // Inicializa los valores de los campos
-                this.$nextTick(() => {
-                    document.getElementById('monto_usd').value = this.montoUsd.toFixed(2);
-                    document.getElementById('monto_bs').value = this.montoBs.toFixed(2);
-                });
             },
-            
-            // ===== INICIO DE LA CORRECCIÓN DE CÁLCULO =====
-            updateBsFromUsd() {
-                if (this.pagoEn === 'Dolar/BCV' && this.tasa > 0) {
-                    // Se multiplica y luego se redondea para mantener precisión
-                    this.montoBs = Math.round((this.montoUsd * this.tasa) * 100) / 100;
-                } else {
-                    this.montoBs = 0;
-                }
-            },
-            updateUsdFromBs() {
-                if (this.pagoEn === 'Dolar/BCV' && this.tasa > 0) {
-                    // Se evita el redondeo prematuro aquí. El backend hará el cálculo final.
-                    // Se mantiene el valor con más decimales para el modelo de Alpine.
-                    this.montoUsd = this.montoBs / this.tasa;
-                }
-            }
-            // ===== FIN DE LA CORRECCIÓN DE CÁLCULO =====
         }));
     });
     document.getElementById('fecha_pago').valueAsDate = new Date();
