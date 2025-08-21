@@ -15,6 +15,15 @@ import logging
 import pytz
 import json
 import base64
+import traceback
+
+# ===== INICIO: IMPORTACIONES PARA WEBSOCKETS =====
+from flask_socketio import SocketIO, emit
+import eventlet
+# Es importante ejecutar monkey_patch para que las librerías estándar
+# cooperen con eventlet y no bloqueen el servidor.
+eventlet.monkey_patch()
+# ===== FIN: IMPORTACIONES PARA WEBSOCKETS =====
 
 # Imports para AWS S3
 import boto3
@@ -35,6 +44,15 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-desarrollo')
 
+# ===== INICIO: CONFIGURACIÓN DE WEBSOCKETS =====
+# Se inicializa SocketIO envolviendo la aplicación Flask y especificando 'eventlet'
+# como el servidor asíncrono para manejar las conexiones.
+socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
+# Un diccionario para rastrear a los usuarios conectados por su ID de sesión de WebSocket.
+online_users = {}  # Formato: {sid: username}
+# ===== FIN: CONFIGURACIÓN DE WEBSOCKETS =====
+
+
 VENEZUELA_TZ = pytz.timezone('America/Caracas')
 
 def get_venezuela_current_datetime():
@@ -48,13 +66,6 @@ def get_venezuela_current_date():
 # =================================================================================
 # ===== FUNCIONES DE UTILIDAD Y FILTROS JINJA =====
 # =================================================================================
-
-def get_proximo_dia_habil(fecha):
-    """Calcula el próximo día hábil a partir de una fecha dada, saltando fines de semana."""
-    proximo_dia = fecha + timedelta(days=1)
-    while proximo_dia.weekday() >= 5:  # 5 = Sábado, 6 = Domingo
-        proximo_dia += timedelta(days=1)
-    return proximo_dia
 
 def time_ago(time_value):
     """Convierte un datetime a un formato legible 'hace X tiempo'."""
@@ -153,6 +164,77 @@ def close_db(exception):
     db = g.pop('db', None)
     if db is not None:
         db.close()
+
+# =================================================================================
+# ===== MANEJADORES DE EVENTOS WEBSOCKET =====
+# =================================================================================
+
+@socketio.on('connect')
+def handle_connect():
+    """Se ejecuta cuando un cliente se conecta al WebSocket."""
+    admin_id = session.get('admin_id')
+    if admin_id:
+        with app.app_context():
+            conn = get_db()
+            if conn:
+                try:
+                    with conn.cursor() as cur:
+                        cur.execute("SELECT usuario FROM administradores WHERE id = %s", (admin_id,))
+                        admin = cur.fetchone()
+                        if admin:
+                            online_users[request.sid] = admin['usuario']
+                            cur.execute("UPDATE administradores SET estatus_online = TRUE, ultimo_visto = NOW() WHERE id = %s", (admin_id,))
+                            conn.commit()
+                            emit_online_users()
+                    logging.info(f"Admin '{admin['usuario']}' conectado con SID: {request.sid}")
+                except psycopg2.Error as e:
+                    logging.error(f"Error en handle_connect: {e}")
+                    conn.rollback()
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Se ejecuta cuando un cliente se desconecta."""
+    if request.sid in online_users:
+        username = online_users.pop(request.sid)
+        with app.app_context():
+            conn = get_db()
+            if conn:
+                try:
+                    with conn.cursor() as cur:
+                        cur.execute("UPDATE administradores SET estatus_online = FALSE, ultimo_visto = NOW() WHERE usuario = %s", (username,))
+                        conn.commit()
+                        emit_online_users()
+                    logging.info(f"Admin '{username}' desconectado.")
+                except psycopg2.Error as e:
+                    logging.error(f"Error en handle_disconnect: {e}")
+                    conn.rollback()
+
+def emit_online_users():
+    """Obtiene y emite la lista actualizada de usuarios a todos los clientes."""
+    with app.app_context():
+        conn = get_db()
+        if not conn: return
+
+        users_list = []
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT usuario, estatus_online, ultimo_visto
+                    FROM administradores 
+                    WHERE rol IN ('superadmin', 'gerente', 'administradora', 'asesor')
+                    ORDER BY usuario
+                """)
+                usuarios_db = cur.fetchall()
+                for user in usuarios_db:
+                    users_list.append({
+                        "username": user['usuario'],
+                        "is_online": user['estatus_online'],
+                        "last_seen_iso": user['ultimo_visto'].isoformat() if user['ultimo_visto'] else None
+                    })
+        except psycopg2.Error as e:
+            logging.error(f"Error en emit_online_users: {e}")
+        
+        socketio.emit('update_online_users', {'users': users_list})
 
 # =================================================================================
 # ===== GESTIÓN DE SESIÓN Y AUTENTICACIÓN =====
@@ -266,7 +348,6 @@ def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_d
     YUSBELIS = 'Yusbelis'
     
     comisiones_a_registrar = []
-    # Usamos los nombres tal como vienen de la base de datos, sin modificarlos con .title()
     asesor_dueno_std = asesor_dueno.strip() if asesor_dueno else ''
     responsable_cierre_std = responsable_cierre.strip() if responsable_cierre else ''
     primer_nombre_responsable = responsable_cierre_std.split(' ')[0]
@@ -305,15 +386,12 @@ def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_d
         sobrante_empresa = POOL_COMISIONES - total_comisiones_pagadas
         try:
             with conn.cursor() as cur:
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se cambia a.usuario por a.nombre_completo para que la búsqueda coincida
                 sql_comisiones = """
                     INSERT INTO comisiones (origen_id, origen_tipo, asesor_id, moneda, base, pct_comision, monto, estado, notas, fecha_origen)
                     SELECT c.id, 'Venta', a.id, 'USD', %s, 1, %s, 'pendiente', %s, c.fecha_ingreso
                     FROM clientes c, administradores a
                     WHERE c.id = %s AND a.nombre_completo = %s
                 """
-                # --- FIN DE LA CORRECCIÓN ---
                 for comision in comisiones_a_registrar:
                     if comision['monto'] > 0:
                          cur.execute(sql_comisiones, (monto_plan, comision['monto'], comision['concepto'], cliente_id, comision['beneficiario']))
@@ -562,13 +640,10 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None, detalles_ad
 
 @app.route('/')
 def home():
-    # Si un administrador ya inició sesión, lo llevamos a su hub.
     if g.admin:
         return redirect(url_for('hub'))
-    # Si un cliente ya inició sesión, lo llevamos a su portal.
     elif g.cliente:
         return redirect(url_for('portal_dashboard'))
-    # Si nadie ha iniciado sesión, mostramos la nueva landing page.
     return render_template('landing.html', anio_actual=get_venezuela_current_date().year)
 
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -586,18 +661,7 @@ def admin_login():
             if admin and check_password_hash(admin['password_hash'], password):
                 session.clear()
                 session['admin_id'] = admin['id']
-                cur.execute("UPDATE administradores SET ultimo_login = NOW(), estatus_online = TRUE, ultimo_visto = NOW() WHERE id = %s", (admin['id'],))
-                conn.commit()
-                
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se guarda un mensaje especial en la sesión en lugar de usar flash.
-                # Esto solo ocurrirá una vez al día.
-                today_str = get_venezuela_current_date().isoformat()
-                if session.get('last_welcome_date') != today_str:
-                    session['show_welcome_modal'] = f"¡Bienvenido de nuevo, {admin['usuario']}!"
-                    session['last_welcome_date'] = today_str
-                # --- FIN DE LA CORRECCIÓN ---
-
+                # La actualización de estado online se manejará por WebSocket al conectar.
                 return redirect(url_for('hub'))
             else:
                 flash('Usuario o contraseña incorrectos.', 'danger')
@@ -605,17 +669,10 @@ def admin_login():
 
 @app.route('/admin/logout')
 def admin_logout():
-    admin_id = session.get('admin_id')
-    if admin_id:
-        conn = get_db()
-        if conn:
-            with conn.cursor() as cur:
-                cur.execute("UPDATE administradores SET estatus_online = FALSE WHERE id = %s", (admin_id,))
-                conn.commit()
+    # La desconexión del WebSocket se encargará de actualizar el estado.
     session.clear()
     flash('Has cerrado la sesión exitosamente.', 'info')
     return redirect(url_for('admin_login'))
-
 # =================================================================================
 # ===== RUTAS DEL PANEL DE ADMINISTRADOR =====
 # =================================================================================
@@ -1169,7 +1226,6 @@ def reportes_por_revisar():
         flash("Error al cargar la lista de reportes.", "danger")
 
     return render_template('reportes_por_revisar.html', reportes=reportes_categorizados)
-
 
 @app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
 @admin_required
@@ -2842,61 +2898,6 @@ def registrar_pago(client_id):
             return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
             
     return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
-
-# --- LÓGICA DE CONCILIACIÓN CON CONSOLIDACIÓN (VERSIÓN FINAL) ---
-@app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
-@admin_required
-@rol_requerido('superadmin', 'gerente', 'administradora')
-def procesar_reporte(pago_id):
-    conn = get_db()
-    accion = request.form.get('accion')
-    
-    if not conn:
-        flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('reportes_por_revisar'))
-
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT p.*, c.id as cliente_id FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s FOR UPDATE", (pago_id,))
-            pago = cur.fetchone()
-
-            if not pago or pago['estado_reporte'] != 'Pendiente de Revision':
-                flash("Este reporte ya no está pendiente o no existe.", "warning")
-                return redirect(url_for('reportes_por_revisar'))
-
-            cliente_id = pago['cliente_id']
-
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Esta nueva acción aprueba el pago y redirige a la lista de conciliación.
-            if accion == 'aprobar_para_conciliar':
-                cur.execute(
-                    "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
-                    (g.admin['id'], pago_id)
-                )
-                conn.commit()
-                flash('Reporte aprobado. Ahora puede ser procesado desde la sección de Conciliar Pagos.', 'success')
-                return redirect(url_for('pagos_por_conciliar'))
-            # --- FIN DE LA CORRECCIÓN ---
-
-            elif accion == 'corregir_y_generar_diferencia':
-                # (Tu lógica existente para manejar diferencias va aquí...)
-                monto_real_recibido_str = request.form.get('monto_real_recibido')
-                # ... resto de la lógica ...
-                flash("El monto verificado ha sido registrado. Se generó una orden de pago para el cliente por la diferencia.", "success")
-            
-            else:
-                flash('Acción no válida.', 'error')
-                return redirect(url_for('ver_reporte', pago_id=pago_id))
-
-            conn.commit()
-
-    except (psycopg2.Error, ValueError, InvalidOperation) as e:
-        conn.rollback()
-        logging.error(f"Error al procesar el reporte {pago_id}: {e}")
-        flash(f"Error CRÍTICO al procesar el reporte: {e}", "error")
-    
-    return redirect(url_for('reportes_por_revisar'))
-
 
 # --- LÓGICA DE CONCILIACIÓN (AHORA SIN APROBACIÓN AUTOMÁTICA) ---
 @app.route('/conciliar_pago/<int:pago_id>', methods=['POST'])
@@ -4906,4 +4907,4 @@ def resetear_password(user_id):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    socketio.run(app, host='0.0.0.0', port=port, debug=True)

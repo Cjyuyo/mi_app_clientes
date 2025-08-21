@@ -1,9 +1,11 @@
 Flask
 gunicorn
+Flask-SocketIO
+eventlet
 psycopg2-binary
 python-dotenv
-pandas
-tqdm
-fpdf
-XlsxWriter
 boto3
+pandas
+XlsxWriter
+fpdf
+tqdm
