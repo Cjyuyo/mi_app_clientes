@@ -1194,62 +1194,18 @@ def procesar_reporte(pago_id):
 
             cliente_id = pago['cliente_id']
 
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se separa la lógica de Aprobación de la de Conciliación.
             if accion == 'aprobar_completo':
-                # Paso 1: Marcar el reporte como Aprobado
+                # Al aprobar, solo se actualiza el estado del reporte.
+                # El pago ahora aparecerá en la sección "Pagos por Conciliar".
                 cur.execute(
                     "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
                     (g.admin['id'], pago_id)
                 )
-                
-                # Paso 2: Conciliar el pago inmediatamente
-                cur.execute("SELECT * FROM clientes WHERE id = %s FOR UPDATE", (cliente_id,))
-                cliente = cur.fetchone()
+                flash('Reporte aprobado. Ahora debe ser procesado desde la sección de Pagos por Conciliar.', 'success')
+            # --- FIN DE LA CORRECCIÓN ---
 
-                if pago['tipo_pago'] == 'Inscripción':
-                    inscripcion_pagada_actual = Decimal(cliente.get('inscripcion_pagada') or 0)
-                    nueva_inscripcion_pagada = inscripcion_pagada_actual + pago['monto']
-                    cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente_id))
-                    
-                    if nueva_inscripcion_pagada >= (cliente.get('inscripcion_monto') or 0):
-                         cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente_id,))
-                         cur.execute("UPDATE pagos SET tipo_pago = 'Inscripción Finalizada' WHERE id = %s", (pago_id,))
-                         try:
-                            calcular_y_guardar_comisiones(
-                                contrato_nro=cliente['contrato_nro'], cliente_id=cliente_id,
-                                monto_plan=Decimal(cliente['plan_contratado']), asesor_dueno=cliente['asesor'],
-                                responsable_cierre=cliente['responsable']
-                            )
-                            flash_msg = "Reporte aprobado. ¡Inscripción completada y comisiones generadas!"
-                         except Exception as e:
-                            logging.error(f"FALLO AL GENERAR COMISIONES para contrato {cliente['contrato_nro']}: {e}")
-                            flash_msg = "Reporte aprobado e inscripción completada, pero HUBO UN ERROR al generar las comisiones."
-                    else:
-                        flash_msg = "Reporte aprobado y abono a inscripción conciliado."
-
-                elif pago['tipo_pago'] == 'Cuota':
-                    if cliente['proceso'] == 'INSCRITO':
-                        cur.execute("UPDATE clientes SET proceso = 'Ahorrador', estatus = 'ACTIVO' WHERE id = %s", (cliente_id,))
-                    
-                    valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
-                    if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido.')
-                    
-                    cpp, cpr, br = cliente.get('cuotas_pagadas_progresivas', 0), cliente.get('cuotas_pagadas_regresivas', 0), Decimal(cliente.get('balance_regresivo', 0))
-                    mtd, pph, rph = pago['monto'] + br, 0, 0
-                    if mtd >= valor_cuota: pph, mtd = 1, mtd - valor_cuota
-                    bp = mtd
-                    while bp >= valor_cuota: rph, bp = rph + 1, bp - valor_cuota
-                    nbf, ncpp, ncpr, cch = bp, cpp + pph, cpr + rph, pph + rph
-                    
-                    cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s;", (ncpp, ncpr, nbf, cliente_id))
-                    cur.execute("UPDATE pagos SET cuotas_cubiertas = %s, progresivas_cubiertas = %s, regresivas_cubiertas = %s, cuotas_progresivas_al_pagar = %s, cuotas_regresivas_al_pagar = %s, balance_al_pagar = %s WHERE id = %s;", (cch, pph, rph, ncpp, ncpr, nbf, pago_id))
-                    flash_msg = "Reporte aprobado y cuota conciliada exitosamente."
-
-                # Paso 3: Marcar el pago como Conciliado
-                cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (g.admin['id'], pago_id))
-                
-                flash(flash_msg, 'success')
-
-            # --- INICIO DE LA NUEVA LÓGICA PARA MANEJAR DISCREPANCIAS DELIBERADAS ---
             elif accion == 'corregir_y_generar_diferencia':
                 monto_real_recibido_str = request.form.get('monto_real_recibido')
                 if not monto_real_recibido_str:
@@ -1259,7 +1215,6 @@ def procesar_reporte(pago_id):
                 monto_real_recibido = Decimal(monto_real_recibido_str)
                 currency = 'VES' if pago.get('forma_pago') != 'Binance' else 'USD'
                 
-                # Calcular el monto esperado basado en el plan del cliente y la tasa del día del pago
                 monto_esperado = Decimal('0.0')
                 base_amount = pago['valor_cuota'] if pago['tipo_pago'] == 'Cuota' else pago['inscripcion_monto']
                 
@@ -1272,14 +1227,12 @@ def procesar_reporte(pago_id):
                     flash("El monto verificado es suficiente. Apruebe el reporte directamente.", "warning")
                     return redirect(url_for('ver_reporte', pago_id=pago_id))
 
-                # Crear un nuevo 'bulk' para manejar este proceso de pago fraccionado
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
                     VALUES (%s, %s, %s, 'UNDER_REVIEW', %s) RETURNING id
                 """, (cliente_id, currency, monto_esperado, monto_real_recibido))
                 bulk_id = cur.fetchone()[0]
 
-                # Actualizar el reporte original del cliente para marcarlo como inconsistente y asociarlo al bulk
                 detalles = {
                     'motivo': 'Discrepancia Verificada por Admin',
                     'monto_original_reportado': str(pago['monto_bs'] if currency == 'VES' else pago['monto']),
@@ -1294,7 +1247,6 @@ def procesar_reporte(pago_id):
                     (g.admin['id'], json.dumps(detalles), bulk_id, pago_id)
                 )
 
-                # Calcular la diferencia y crear una orden de pago para el cliente
                 monto_pendiente = monto_esperado - monto_real_recibido
                 cur.execute("""
                     INSERT INTO payment_orders (bulk_id, cliente_id, amount, currency, status)
@@ -1304,7 +1256,6 @@ def procesar_reporte(pago_id):
                 descripcion_audit = f"Corrigió reporte #{pago_id}. Monto verificado: {monto_real_recibido}. Se generó orden por {monto_pendiente:,.2f} {currency}."
                 registrar_accion_auditoria('CORRECCION_REPORTE_ADMIN', descripcion_audit, cliente_id, {'pago_id': pago_id})
                 flash("El monto verificado ha sido registrado. Se generó una orden de pago para el cliente por la diferencia.", "success")
-            # --- FIN DE LA NUEVA LÓGICA ---
             
             else:
                 flash('Acción no válida.', 'error')
