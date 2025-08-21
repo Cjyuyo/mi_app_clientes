@@ -693,13 +693,20 @@ def hub():
 @app.route('/api/get_active_sessions')
 @admin_required
 def get_active_sessions():
+    """
+    Endpoint de API para obtener la lista de administradores, su estado online
+    y cuándo fue la última vez que estuvieron activos.
+    """
     conn = get_db()
     if not conn:
+        # Si no hay conexión a la base de datos, devuelve una lista vacía.
         return jsonify([])
 
     users_list = []
     try:
         with conn.cursor() as cur:
+            # Consulta la base de datos para obtener todos los usuarios, su última vez vistos,
+            # y calcula si están 'online' (activos en los últimos 2 minutos).
             cur.execute("""
                 SELECT usuario, ultimo_visto, 
                        (ultimo_visto > NOW() - INTERVAL '2 minutes') AS is_online
@@ -707,15 +714,18 @@ def get_active_sessions():
             """)
             usuarios_db = cur.fetchall()
             for user in usuarios_db:
+                # Formatea los datos para la respuesta JSON.
                 users_list.append({
                     "username": user['usuario'],
                     "is_online": user['is_online'],
-                    "last_seen": time_ago(user['ultimo_visto'])
+                    "last_seen": time_ago(user['ultimo_visto']) # Usa la función time_ago para un formato amigable.
                 })
     except psycopg2.Error as e:
+        # Maneja errores de base de datos.
         logging.error(f"Error en API get_active_sessions: {e}")
         return jsonify({"error": "Database error"}), 500
         
+    # Devuelve la lista de usuarios en formato JSON.
     return jsonify(users_list)
 
 @app.route('/hub_asesor')
@@ -2842,61 +2852,6 @@ def registrar_pago(client_id):
             return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
             
     return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
-
-# --- LÓGICA DE CONCILIACIÓN CON CONSOLIDACIÓN (VERSIÓN FINAL) ---
-@app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
-@admin_required
-@rol_requerido('superadmin', 'gerente', 'administradora')
-def procesar_reporte(pago_id):
-    conn = get_db()
-    accion = request.form.get('accion')
-    
-    if not conn:
-        flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('reportes_por_revisar'))
-
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT p.*, c.id as cliente_id FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.id = %s FOR UPDATE", (pago_id,))
-            pago = cur.fetchone()
-
-            if not pago or pago['estado_reporte'] != 'Pendiente de Revision':
-                flash("Este reporte ya no está pendiente o no existe.", "warning")
-                return redirect(url_for('reportes_por_revisar'))
-
-            cliente_id = pago['cliente_id']
-
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Esta nueva acción aprueba el pago y redirige a la lista de conciliación.
-            if accion == 'aprobar_para_conciliar':
-                cur.execute(
-                    "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
-                    (g.admin['id'], pago_id)
-                )
-                conn.commit()
-                flash('Reporte aprobado. Ahora puede ser procesado desde la sección de Conciliar Pagos.', 'success')
-                return redirect(url_for('pagos_por_conciliar'))
-            # --- FIN DE LA CORRECCIÓN ---
-
-            elif accion == 'corregir_y_generar_diferencia':
-                # (Tu lógica existente para manejar diferencias va aquí...)
-                monto_real_recibido_str = request.form.get('monto_real_recibido')
-                # ... resto de la lógica ...
-                flash("El monto verificado ha sido registrado. Se generó una orden de pago para el cliente por la diferencia.", "success")
-            
-            else:
-                flash('Acción no válida.', 'error')
-                return redirect(url_for('ver_reporte', pago_id=pago_id))
-
-            conn.commit()
-
-    except (psycopg2.Error, ValueError, InvalidOperation) as e:
-        conn.rollback()
-        logging.error(f"Error al procesar el reporte {pago_id}: {e}")
-        flash(f"Error CRÍTICO al procesar el reporte: {e}", "error")
-    
-    return redirect(url_for('reportes_por_revisar'))
-
 
 # --- LÓGICA DE CONCILIACIÓN (AHORA SIN APROBACIÓN AUTOMÁTICA) ---
 @app.route('/conciliar_pago/<int:pago_id>', methods=['POST'])
