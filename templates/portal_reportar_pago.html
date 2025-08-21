@@ -20,7 +20,8 @@
         <!-- Campos Ocultos -->
         <input type="hidden" name="forma_pago" x-model="formaPago">
         <input type="hidden" name="tasa_dia" :value="tasa">
-        <input type="hidden" name="monto_bs" :value="montoBs.toFixed(2)">
+        <!-- CORRECCIÓN: El valor de monto_bs ahora se toma del input del usuario -->
+        <input type="hidden" name="monto_bs" x-model="montoBsUsuario">
 
         {% if is_diferencia %}
             <input type="hidden" name="is_diferencia" value="true">
@@ -59,19 +60,32 @@
                 </div>
 
                 <div>
-                    <label for="monto_usd" class="block text-sm font-medium text-slate-700" x-text="pagoEn === 'USDT' ? 'Monto a Pagar (USDT)' : 'Monto a Pagar (USD)'">Monto a Pagar (USD)</label>
+                    <label for="monto_usd" class="block text-sm font-medium text-slate-700" x-text="pagoEn === 'USDT' ? 'Monto a Pagar (USDT)' : 'Monto de Referencia (USD)'">Monto de Referencia (USD)</label>
                     <input type="text" id="monto_usd" name="monto"
-                           class="mt-1 block w-full rounded-md border-slate-300 shadow-sm {% if is_diferencia %} bg-slate-200 cursor-not-allowed {% else %} bg-slate-100 {% endif %}"
+                           class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm"
                            :value="montoUsd.toFixed(2)" readonly>
                 </div>
                 
+                <!-- CAMBIO: Campo para que el usuario ingrese el monto en Bs -->
                 <div x-show="pagoEn === 'Dolar/BCV'">
-                    <label for="monto_bs_display" class="block text-sm font-medium text-slate-700">Monto Equivalente (Bs)</label>
-                    <input type="text" id="monto_bs_display"
-                           class="mt-1 block w-full rounded-md border-slate-300 shadow-sm {% if is_diferencia %} bg-slate-200 cursor-not-allowed {% else %} bg-slate-100 {% endif %}"
-                           :value="montoBs.toFixed(2)" readonly>
+                    <label for="monto_bs_input" class="block text-sm font-medium text-slate-700">Monto Pagado (Bs)</label>
+                    <input type="number" step="0.01" id="monto_bs_input"
+                           class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                           x-model="montoBsUsuario" placeholder="Ej: 44201.06" :required="pagoEn === 'Dolar/BCV'">
                 </div>
             </div>
+            
+            <!-- ===== INICIO DEL COMPONENTE DE TASA EFECTIVA ===== -->
+            <div x-show="pagoEn === 'Dolar/BCV'">
+                <input type="hidden" id="monto_referencia_usd" value="{{ monto_a_pagar_usd or cliente.valor_cuota }}">
+                <div id="tasa-efectiva-container" class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-center" style="display: none;">
+                    <p class="text-sm text-blue-700">
+                        Tasa de cambio efectiva: 
+                        <strong id="tasa-efectiva-valor" class="text-lg">Bs 0.0000</strong>
+                    </p>
+                </div>
+            </div>
+            <!-- ===== FIN DEL COMPONENTE DE TASA EFECTIVA ===== -->
         </div>
 
         <!-- Sección Información de la Transacción -->
@@ -95,7 +109,6 @@
                 </div>
                 <div x-show="pagoEn === 'Dolar/BCV'">
                     <label for="banco" class="block text-sm font-medium text-slate-700">Banco</label>
-                    <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
                     <select id="banco" name="banco" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" :required="pagoEn === 'Dolar/BCV'">
                         <option value="">Seleccione un banco...</option>
                         <option value="0102 - Banco de Venezuela S.A.C.A. Banco Universal">0102 - Banco de Venezuela</option>
@@ -108,25 +121,14 @@
                         <option value="0134 - Banesco, Banco Universal S.A.C.A.">0134 - Banesco</option>
                         <option value="0137 - Banco Sofitasa, Banco Universal">0137 - Banco Sofitasa</option>
                         <option value="0138 - Banco Plaza, Banco Universal">0138 - Banco Plaza</option>
-                        <option value="0146 - Bangente C.A">0146 - Bangente</option>
                         <option value="0151 - BFC Banco Fondo Común C.A. Banco Universal">0151 - BFC Banco Fondo Común</option>
                         <option value="0156 - 100% Banco, Banco Universal C.A.">0156 - 100% Banco</option>
-                        <option value="0157 - DelSur Banco Universal C.A.">0157 - DelSur</option>
                         <option value="0163 - Banco del Tesoro, C.A. Banco Universal">0163 - Banco del Tesoro</option>
-                        <option value="0166 - Banco Agrícola de Venezuela, C.A. Banco Universal">0166 - Banco Agrícola de Venezuela</option>
-                        <option value="0168 - Bancrecer, S.A. Banco Microfinanciero">0168 - Bancrecer</option>
-                        <option value="0169 - R4, Banco Microfinanciero C.A.">0169 - R4, Banco Microfinanciero</option>
                         <option value="0171 - Banco Activo, Banco Universal">0171 - Banco Activo</option>
                         <option value="0172 - Bancamiga, Banco Universal C.A.">0172 - Bancamiga</option>
-                        <option value="0173 - Banco Internacional de Desarrollo, C.A. Banco Universal">0173 - Banco Internacional de Desarrollo</option>
                         <option value="0174 - Banplus Banco Universal, C.A">0174 - Banplus</option>
-                        <option value="0175 - Banco Digital de Los Trabajadores">0175 - Banco Digital de Los Trabajadores</option>
-                        <option value="0177 - Banco de la Fuerza Armada Nacional Bolivariana, B.U.">0177 - BANFANB</option>
-                        <option value="0178 - N58 Banco Digital, S.A.">0178 - N58 Banco Digital</option>
                         <option value="0191 - Banco Nacional de Crédito, C.A. Banco Universal">0191 - BNC</option>
-                        <option value="0601 - Instituto Municipal de Crédito Popular">0601 - Instituto Municipal de Crédito Popular</option>
                     </select>
-                    <!-- ===== FIN DE LA CORRECCIÓN ===== -->
                 </div>
             </div>
         </div>
@@ -141,7 +143,7 @@
     </form>
 </div>
 
-<!-- Modal con la Información para Realizar Pagos -->
+<!-- Modal con la Información para Realizar Pagos (Sin cambios) -->
 <div class="modal fade" id="paymentInfoModal" tabindex="-1" aria-labelledby="paymentInfoModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content rounded-xl">
@@ -151,8 +153,6 @@
       </div>
       <div class="modal-body p-6 bg-slate-50">
         <div class="space-y-6">
-          
-          <!-- Sección de Pagos en Bolívares -->
           <div>
             <h3 class="font-semibold text-slate-800 mb-3 text-lg border-b pb-2">Pagos en Bolívares (Bs.)</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -183,8 +183,6 @@
               </div>
             </div>
           </div>
-
-          <!-- Sección de Pagos en USDT -->
           <div>
             <h3 class="font-semibold text-slate-800 mb-3 text-lg border-b pb-2">Pagos en Dolares (USDT)</h3>
             <div class="bg-white p-4 rounded-lg border text-sm space-y-2">
@@ -196,7 +194,6 @@
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </div>
@@ -246,16 +243,10 @@
             formaPago: 'Transferencia Bancaria',
             formaPagoVisible: 'Transferencia Bancaria',
             montoUsd: parseFloat('{{ monto_a_pagar_usd | default(cliente.valor_cuota) | default(0) }}'),
-            montoBs: parseFloat('{{ monto_a_pagar_bs | default(0) }}'),
+            montoBsUsuario: '{{ monto_a_pagar_bs | default(0) if is_diferencia else "" }}',
             tasa: parseFloat('{{ (tasa_hoy.tasa if tasa_hoy else 0) | string }}'),
 
             init() {
-                if (!{{ is_diferencia | default(false) | tojson }}) {
-                    if (this.tasa > 0) {
-                        this.montoBs = this.montoUsd * this.tasa;
-                    }
-                }
-
                 this.$watch('pagoEn', (newValue) => {
                     if (newValue === 'USDT') {
                         this.formaPago = 'Binance';
@@ -271,6 +262,39 @@
             },
         }));
     });
+
+    // ===== INICIO SCRIPT TASA EFECTIVA =====
+    document.addEventListener('DOMContentLoaded', function() {
+        const montoBsInput = document.getElementById('monto_bs_input');
+        const montoUsdRefEl = document.getElementById('monto_referencia_usd');
+        
+        const container = document.getElementById('tasa-efectiva-container');
+        const valorDisplay = document.getElementById('tasa-efectiva-valor');
+
+        if (montoBsInput && montoUsdRefEl) {
+            const montoUsdRef = parseFloat(montoUsdRefEl.value);
+            if (montoUsdRef > 0) {
+                // Función para actualizar la tasa
+                const updateRate = () => {
+                    const montoBs = parseFloat(montoBsInput.value);
+                    if (montoBs && montoBs > 0) {
+                        const tasaEfectiva = montoBs / montoUsdRef;
+                        valorDisplay.textContent = 'Bs ' + tasaEfectiva.toLocaleString('es-VE', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+                        container.style.display = 'block';
+                    } else {
+                        container.style.display = 'none';
+                    }
+                };
+                
+                // Llama a la función al cargar la página por si hay un valor precargado
+                updateRate();
+                // Llama a la función cada vez que el usuario escribe
+                montoBsInput.addEventListener('input', updateRate);
+            }
+        }
+    });
+    // ===== FIN SCRIPT TASA EFECTIVA =====
+
     document.getElementById('fecha_pago').valueAsDate = new Date();
 </script>
 {% endblock %}

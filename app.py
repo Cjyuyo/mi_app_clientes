@@ -4586,23 +4586,29 @@ def ver_reporte(pago_id):
             pago = dict(pago_row)
             
             # REGLA: JAMÁS SE BORRA LA SUBCONSULTA DE LA TASA.
-            # Se busca la tasa precisa correspondiente a la fecha en que se realizó el pago.
             fecha_del_pago = pago.get('fecha_pago', get_venezuela_current_date())
             cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
             tasa_row = cur.fetchone()
-            # Si se encuentra una tasa en el historial, se usa; si no, se usa la que está guardada en el pago.
             tasa_exacta = tasa_row['tasa'] if tasa_row and tasa_row['tasa'] else pago.get('tasa_dia')
 
-            # Se determina el monto en dólares que sirve como referencia para el cálculo.
             monto_dolares_referencia = Decimal('0.0')
             if 'Cuota' in pago.get('tipo_pago', ''):
                 monto_dolares_referencia = pago.get('valor_cuota', Decimal('0.0'))
             elif 'Inscripción' in pago.get('tipo_pago', ''):
                 monto_dolares_referencia = pago.get('inscripcion_monto', Decimal('0.0'))
             
-            # Se añaden los valores calculados al diccionario para que la plantilla los pueda usar.
             pago['monto_dolares_referencia'] = monto_dolares_referencia
             pago['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta) if monto_dolares_referencia and tasa_exacta else Decimal('0.0')
+
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se calcula la tasa de cambio efectiva que utilizó el cliente.
+            # Esto se hace dividiendo el monto en bolívares que reportó entre el monto de referencia en USD.
+            pago['tasa_efectiva_cliente'] = Decimal('0.0')
+            monto_bs_decimal = pago.get('monto_bs') or Decimal('0.0')
+            if monto_dolares_referencia > 0 and monto_bs_decimal > 0:
+                # Se usa quantize para redondear a 4 decimales y obtener una vista precisa.
+                pago['tasa_efectiva_cliente'] = (monto_bs_decimal / monto_dolares_referencia).quantize(Decimal('0.0001'))
+            # --- FIN DE LA CORRECCIÓN ---
 
             pagos_del_mismo_bulk = []
             if pago.get('bulk_id'):

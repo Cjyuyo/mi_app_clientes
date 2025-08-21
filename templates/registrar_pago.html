@@ -38,45 +38,52 @@
                         <label for="pago_en" class="block text-sm font-medium text-slate-700">Pago en</label>
                         <select id="pago_en" name="pago_en" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
                             <option value="Efectivo USD" selected>Efectivo USD</option>
-                            <option value="Dolar/BCV">Dolar/BCV</option>
-                            <option value="Euro/BCV">Euro/BCV</option>
-                            <option value="USDT">USDT</option>
-                            <option value="Bolívares Efectivo">Bolívares Efectivo</option>
+                            <option value="Dolar/BCV">Bolívares (Tasa BCV)</option>
+                            <option value="USDT">USDT (Binance)</option>
                         </select>
                     </div>
-                    <div>
-                        <label for="forma_pago" class="block text-sm font-medium text-slate-700">Forma de Pago</label>
-                        <select id="forma_pago" name="forma_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
-                            <option value="">Seleccione...</option>
-                            <option value="Efectivo">Efectivo</option>
-                            <option value="Transferencia Bancaria">Transferencia Bancaria</option>
-                            <option value="Pago Movil">Pago Móvil</option>
-                            <option value="Binance">Binance</option>
-                            <option value="Nequi">Nequi</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="monto_usd" class="block text-sm font-medium text-slate-700">Monto del Pago (USD)</label>
+                    <div id="monto_usd_group">
+                        <label for="monto_usd" class="block text-sm font-medium text-slate-700">Monto del Pago (USD/USDT)</label>
                         <input type="number" id="monto_usd" step="0.01" name="monto" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
                     </div>
-                    <div id="tasa_dia_group" style="display: none;">
-                        <label for="tasa_dia" class="block text-sm font-medium text-slate-700">Tasa del Día (BCV)</label>
-                        <input type="number" id="tasa_dia" step="0.01" name="tasa_dia" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" readonly>
-                    </div>
                     <div id="monto_bs_group" style="display: none;">
-                        <label for="monto_bs_calculado" class="block text-sm font-medium text-slate-700">Monto en Bs (Calculado)</label>
-                        <input type="number" id="monto_bs_calculado" step="0.01" name="monto_bs" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" readonly>
+                        <label for="monto_bs_input" class="block text-sm font-medium text-slate-700">Monto Pagado (Bs)</label>
+                        <input type="number" id="monto_bs_input" step="0.01" name="monto_bs" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                     </div>
                 </div>
+                
+                <!-- ===== INICIO DEL COMPONENTE DE TASA EFECTIVA ===== -->
+                <div id="tasa-efectiva-wrapper" style="display: none;">
+                    <input type="hidden" id="monto_referencia_usd" value="">
+                    <div id="tasa-efectiva-container" class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-center" style="display: none;">
+                        <p class="text-sm text-blue-700">
+                            Tasa de cambio efectiva: 
+                            <strong id="tasa-efectiva-valor" class="text-lg">Bs 0.0000</strong>
+                        </p>
+                    </div>
+                </div>
+                <!-- ===== FIN DEL COMPONENTE DE TASA EFECTIVA ===== -->
             </div>
 
             <!-- Sección de Información Adicional -->
             <div>
                 <h2 class="text-lg font-semibold text-slate-700 border-b pb-2 mb-4">Información Adicional</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="forma_pago" class="block text-sm font-medium text-slate-700">Forma de Pago</label>
+                        <select id="forma_pago" name="forma_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+                            <option value="Pago Movil">Pago Móvil</option>
+                            <option value="Binance">Binance</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="referencia" class="block text-sm font-medium text-slate-700">Referencia</label>
+                        <input type="text" id="referencia" name="referencia" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
                     <div id="banco_group" style="display: none;">
                         <label for="banco" class="block text-sm font-medium text-slate-700">Banco</label>
-                        <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
                         <select id="banco" name="banco" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                             <option value="">Seleccione un banco...</option>
                             <option value="0102 - Banco de Venezuela S.A.C.A. Banco Universal">0102 - Banco de Venezuela</option>
@@ -89,41 +96,14 @@
                             <option value="0134 - Banesco, Banco Universal S.A.C.A.">0134 - Banesco</option>
                             <option value="0137 - Banco Sofitasa, Banco Universal">0137 - Banco Sofitasa</option>
                             <option value="0138 - Banco Plaza, Banco Universal">0138 - Banco Plaza</option>
-                            <option value="0146 - Bangente C.A">0146 - Bangente</option>
                             <option value="0151 - BFC Banco Fondo Común C.A. Banco Universal">0151 - BFC Banco Fondo Común</option>
                             <option value="0156 - 100% Banco, Banco Universal C.A.">0156 - 100% Banco</option>
-                            <option value="0157 - DelSur Banco Universal C.A.">0157 - DelSur</option>
                             <option value="0163 - Banco del Tesoro, C.A. Banco Universal">0163 - Banco del Tesoro</option>
-                            <option value="0166 - Banco Agrícola de Venezuela, C.A. Banco Universal">0166 - Banco Agrícola de Venezuela</option>
-                            <option value="0168 - Bancrecer, S.A. Banco Microfinanciero">0168 - Bancrecer</option>
-                            <option value="0169 - R4, Banco Microfinanciero C.A.">0169 - R4, Banco Microfinanciero</option>
                             <option value="0171 - Banco Activo, Banco Universal">0171 - Banco Activo</option>
                             <option value="0172 - Bancamiga, Banco Universal C.A.">0172 - Bancamiga</option>
-                            <option value="0173 - Banco Internacional de Desarrollo, C.A. Banco Universal">0173 - Banco Internacional de Desarrollo</option>
                             <option value="0174 - Banplus Banco Universal, C.A">0174 - Banplus</option>
-                            <option value="0175 - Banco Digital de Los Trabajadores">0175 - Banco Digital de Los Trabajadores</option>
-                            <option value="0177 - Banco de la Fuerza Armada Nacional Bolivariana, B.U.">0177 - BANFANB</option>
-                            <option value="0178 - N58 Banco Digital, S.A.">0178 - N58 Banco Digital</option>
                             <option value="0191 - Banco Nacional de Crédito, C.A. Banco Universal">0191 - BNC</option>
-                            <option value="0601 - Instituto Municipal de Crédito Popular">0601 - Instituto Municipal de Crédito Popular</option>
                         </select>
-                        <!-- ===== FIN DE LA CORRECCIÓN ===== -->
-                    </div>
-                    <div>
-                        <label for="referencia" class="block text-sm font-medium text-slate-700">Referencia</label>
-                        <input type="text" id="referencia" name="referencia" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                    </div>
-                    <div id="pago_movil_telefono_group" style="display: none;">
-                        <label for="pago_movil_telefono" class="block text-sm font-medium text-slate-700">Teléfono Emisor (Pago Móvil)</label>
-                        <input type="text" id="pago_movil_telefono" name="pago_movil_telefono" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                    </div>
-                    <div id="pago_movil_cedula_group" style="display: none;">
-                        <label for="pago_movil_cedula" class="block text-sm font-medium text-slate-700">Cédula Emisor (Pago Móvil)</label>
-                        <input type="text" id="pago_movil_cedula" name="pago_movil_cedula" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                    </div>
-                    <div id="binance_user_group" style="display: none;">
-                        <label for="binance_user" class="block text-sm font-medium text-slate-700">Usuario o Email (Binance)</label>
-                        <input type="text" id="binance_user" name="binance_user" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                     </div>
                     <div>
                         <label for="fecha_pago" class="block text-sm font-medium text-slate-700">Fecha de Pago</label>
@@ -158,94 +138,66 @@
 {% block scripts_extra %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const tasaUsd = {{ tasas_hoy.tasa|float if tasas_hoy and tasas_hoy.tasa else 'null' }};
-    const tasaEur = {{ tasas_hoy.tasa_euro|float if tasas_hoy and tasas_hoy.tasa_euro else 'null' }};
+    // Referencias a elementos del DOM
     const pagoEnSelect = document.getElementById('pago_en');
     const formaPagoSelect = document.getElementById('forma_pago');
     const montoUsdInput = document.getElementById('monto_usd');
-    const tasaDiaInput = document.getElementById('tasa_dia');
-    const montoBsCalculadoInput = document.getElementById('monto_bs_calculado');
-    const montoBsGroup = document.getElementById('monto_bs_group');
-    const tasaDiaGroup = document.getElementById('tasa_dia_group');
-    const referenciaInput = document.getElementById('referencia');
+    const montoBsInput = document.getElementById('monto_bs_input');
     const bancoGroup = document.getElementById('banco_group');
-    const bancoSelect = document.getElementById('banco');
-    
-    const pagoMovilTelefonoGroup = document.getElementById('pago_movil_telefono_group');
-    const pagoMovilCedulaGroup = document.getElementById('pago_movil_cedula_group');
-    const binanceUserGroup = document.getElementById('binance_user_group');
-    const pagoMovilTelefonoInput = document.getElementById('pago_movil_telefono');
-    const pagoMovilCedulaInput = document.getElementById('pago_movil_cedula');
-    const binanceUserInput = document.getElementById('binance_user');
+    const montoUsdGroup = document.getElementById('monto_usd_group');
+    const montoBsGroup = document.getElementById('monto_bs_group');
 
-    function calcularMontoBs() {
-        const montoUsd = parseFloat(montoUsdInput.value) || 0;
-        const tasaDia = parseFloat(tasaDiaInput.value) || 0;
-        if (montoUsd > 0 && tasaDia > 0) {
-            montoBsCalculadoInput.value = (montoUsd * tasaDia).toFixed(2);
-        } else {
-            montoBsCalculadoInput.value = '';
-        }
-    }
+    // Referencias para la tasa efectiva
+    const tasaEfectivaWrapper = document.getElementById('tasa-efectiva-wrapper');
+    const montoUsdRefEl = document.getElementById('monto_referencia_usd');
+    const container = document.getElementById('tasa-efectiva-container');
+    const valorDisplay = document.getElementById('tasa-efectiva-valor');
 
-    function handlePagoEnChange() {
+    function toggleFields() {
         const pagoEnValue = pagoEnSelect.value;
-        tasaDiaInput.value = '';
-        montoBsGroup.style.display = 'none';
-        tasaDiaGroup.style.display = 'none';
-        
-        if (pagoEnValue === 'Dolar/BCV') {
-            tasaDiaInput.value = tasaUsd || '';
-            montoBsGroup.style.display = 'block';
-            tasaDiaGroup.style.display = 'block';
-        } else if (pagoEnValue === 'Euro/BCV') {
-            tasaDiaInput.value = tasaEur || '';
-            montoBsGroup.style.display = 'block';
-            tasaDiaGroup.style.display = 'block';
-        }
-        calcularMontoBs();
-    }
-
-    function toggleFieldsByFormaPago() {
         const formaPagoValue = formaPagoSelect.value;
-        const isEfectivo = formaPagoValue === 'Efectivo';
-        referenciaInput.disabled = isEfectivo;
-        bancoSelect.disabled = isEfectivo;
-        if (isEfectivo) {
-            referenciaInput.value = '';
-            bancoSelect.value = '';
-        }
         
-        bancoGroup.style.display = (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil') ? 'block' : 'none';
-        pagoMovilTelefonoGroup.style.display = (formaPagoValue === 'Pago Movil') ? 'block' : 'none';
-        pagoMovilCedulaGroup.style.display = (formaPagoValue === 'Pago Movil') ? 'block' : 'none';
-        binanceUserGroup.style.display = (formaPagoValue === 'Binance') ? 'block' : 'none';
+        // Lógica de visibilidad de campos de monto
+        if (pagoEnValue === 'Dolar/BCV') {
+            montoUsdGroup.style.display = 'block';
+            montoBsGroup.style.display = 'block';
+            tasaEfectivaWrapper.style.display = 'block';
+            montoBsInput.required = true;
+        } else {
+            montoUsdGroup.style.display = 'block';
+            montoBsGroup.style.display = 'none';
+            tasaEfectivaWrapper.style.display = 'none';
+            montoBsInput.required = false;
+            montoBsInput.value = '';
+        }
 
-        bancoSelect.required = (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil');
-        pagoMovilTelefonoInput.required = (formaPagoValue === 'Pago Movil');
-        pagoMovilCedulaInput.required = (formaPagoValue === 'Pago Movil');
-        binanceUserInput.required = (formaPagoValue === 'Binance');
+        // Lógica de visibilidad de campos de información adicional
+        bancoGroup.style.display = (formaPagoValue === 'Transferencia Bancaria' || formaPagoValue === 'Pago Movil') ? 'block' : 'none';
     }
 
-    pagoEnSelect.addEventListener('change', handlePagoEnChange);
-    formaPagoSelect.addEventListener('change', toggleFieldsByFormaPago);
-    montoUsdInput.addEventListener('input', calcularMontoBs);
-    
-    handlePagoEnChange();
-    toggleFieldsByFormaPago();
+    function updateEffectiveRate() {
+        const montoUsd = parseFloat(montoUsdInput.value);
+        const montoBs = parseFloat(montoBsInput.value);
 
-    document.querySelector('form').addEventListener('submit', function(e) {
-        if (this.getAttribute('data-submitted') === 'true') {
-            e.preventDefault();
-            return;
+        if (montoUsd && montoUsd > 0 && montoBs && montoBs > 0) {
+            const tasaEfectiva = montoBs / montoUsd;
+            valorDisplay.textContent = 'Bs ' + tasaEfectiva.toLocaleString('es-VE', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+            container.style.display = 'block';
+        } else {
+            container.style.display = 'none';
         }
-        this.setAttribute('data-submitted', 'true');
-        const submitButton = this.querySelector('button[type="submit"]');
-        if(submitButton) {
-            submitButton.setAttribute('disabled', 'disabled');
-            submitButton.innerHTML = 'Procesando...';
-        }
-    });
+    }
+
+    // Event Listeners
+    pagoEnSelect.addEventListener('change', toggleFields);
+    formaPagoSelect.addEventListener('change', toggleFields);
+    montoUsdInput.addEventListener('input', updateEffectiveRate);
+    montoBsInput.addEventListener('input', updateEffectiveRate);
+
+    // Estado inicial
+    toggleFields();
+    updateEffectiveRate();
+    document.getElementById('fecha_pago').valueAsDate = new Date();
 });
 </script>
 {% endblock %}
