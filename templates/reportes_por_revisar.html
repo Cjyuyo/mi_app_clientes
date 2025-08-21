@@ -1,139 +1,157 @@
 {% extends 'base_sidebar.html' %}
 
-{% block title %}
-    Reportes por Revisar
-{% endblock %}
-
-{% block page_title %}Reportes por Revisar{% endblock %}
-
-{% block head_extra %}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="//unpkg.com/alpinejs" defer></script>
-{% endblock %}
+{% block title %}Reportes de Pago por Revisar{% endblock %}
 
 {% block body %}
-<div class="space-y-6" x-data="{ activeTab: 'pendientes' }">
-    <!-- Encabezado -->
-    <div class="bg-white p-6 rounded-xl shadow-sm">
+<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="flex justify-between items-center mb-6">
         <h1 class="text-3xl font-bold text-slate-800">Reportes de Pago por Revisar</h1>
-        <p class="text-slate-500 mt-1">Verifica y procesa los pagos reportados por los clientes.</p>
     </div>
 
-    <!-- Navegación de Pestañas -->
-    <div class="bg-white rounded-xl shadow-sm p-2">
-        <nav class="flex space-x-2">
-            <button @click="activeTab = 'pendientes'" 
-                    :class="{ 'bg-blue-600 text-white': activeTab === 'pendientes', 'text-slate-600 hover:bg-slate-100': activeTab !== 'pendientes' }"
-                    class="flex-1 text-sm font-semibold py-2 px-4 rounded-md transition-colors flex items-center justify-center gap-2">
-                Pendientes <span class="bg-blue-200 text-blue-800 text-xs font-bold px-2 py-0.5 rounded-full">{{ reportes.pendientes|length }}</span>
-            </button>
-            <button @click="activeTab = 'diferencias'"
-                    :class="{ 'bg-blue-600 text-white': activeTab === 'diferencias', 'text-slate-600 hover:bg-slate-100': activeTab !== 'diferencias' }"
-                    class="flex-1 text-sm font-semibold py-2 px-4 rounded-md transition-colors flex items-center justify-center gap-2">
-                Con Diferencia <span class="bg-yellow-200 text-yellow-800 text-xs font-bold px-2 py-0.5 rounded-full">{{ reportes.diferencias|length }}</span>
-            </button>
-            <button @click="activeTab = 'otros'"
-                    :class="{ 'bg-blue-600 text-white': activeTab === 'otros', 'text-slate-600 hover:bg-slate-100': activeTab !== 'otros' }"
-                    class="flex-1 text-sm font-semibold py-2 px-4 rounded-md transition-colors flex items-center justify-center gap-2">
-                Otros Rechazados <span class="bg-red-200 text-red-800 text-xs font-bold px-2 py-0.5 rounded-full">{{ reportes.otros_rechazados|length }}</span>
-            </button>
-        </nav>
+    <!-- Pestañas de Navegación -->
+    <div class="mb-6">
+        <div class="border-b border-gray-200">
+            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                <a href="#pendientes" class="tab-link active-tab whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    Pendientes <span class="bg-blue-100 text-blue-600 ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium">{{ reportes.pendientes|length }}</span>
+                </a>
+                <a href="#diferencias" class="tab-link whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    Con Diferencia <span class="bg-yellow-100 text-yellow-800 ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium">{{ reportes.diferencias|length }}</span>
+                </a>
+                <a href="#otros-rechazados" class="tab-link whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    Otros Rechazados <span class="bg-red-100 text-red-600 ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium">{{ reportes.otros_rechazados|length }}</span>
+                </a>
+            </nav>
+        </div>
     </div>
 
     <!-- Contenido de las Pestañas -->
-    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-        <!-- Pestaña: Pendientes -->
-        <div x-show="activeTab === 'pendientes'">
-            {% if reportes.pendientes %}
-            <div class="divide-y divide-slate-200">
-                {% for reporte in reportes.pendientes %}
-                <div class="p-5">
-                    <div class="flex flex-col md:flex-row items-start md:items-center justify-between">
-                        <!-- Info Cliente -->
-                        <div class="flex-1 mb-4 md:mb-0">
-                            <p class="font-bold text-slate-800">{{ reporte.nombre }} {{ reporte.apellido }}</p>
-                            <div class="text-sm text-slate-500 mt-1">C.I. {{ reporte.cedula }}</div>
-                        </div>
-                        <!-- Info Montos -->
-                        <div class="text-sm space-y-1 text-left md:text-right w-full md:w-auto">
-                            {% set monto_reportado = reporte.monto_bs %}
-                            {% set monto_esperado = reporte.monto_esperado_bs if reporte.monto_esperado_bs else monto_reportado %}
-                            {% set tiene_diferencia = (monto_reportado - monto_esperado)|abs > 0.01 %}
-                            
-                            <!-- ===== INICIO DE LA CORRECCIÓN: Se muestra el monto sin redondear ===== -->
-                            <p class="text-slate-500">Monto Esperado: <span class="font-semibold text-slate-700">{{ monto_esperado|string }} Bs</span></p>
-                            <p class="text-slate-500">Monto Reportado: <span class="font-semibold {% if tiene_diferencia %}text-red-600{% else %}text-green-600{% endif %}">{{ monto_reportado|string }} Bs</span></p>
-                            <!-- ===== FIN DE LA CORRECCIÓN ===== -->
-                        </div>
-
-                        <div class="flex items-center mt-4 md:mt-0 md:ml-6">
-                            <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm">
-                                Revisar Reporte
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <div class="text-center p-10"><p class="text-slate-500">No hay reportes pendientes de revisión.</p></div>
-            {% endif %}
-        </div>
-
-        <!-- Pestaña: Con Diferencia -->
-        <div x-show="activeTab === 'diferencias'" style="display: none;">
-            {% if reportes.diferencias %}
-            <div class="divide-y divide-slate-200">
-                {% for reporte in reportes.diferencias %}
-                <div class="p-5 flex flex-col md:flex-row items-start md:items-center justify-between space-y-3 md:space-y-0">
-                    <div class="flex-1">
-                        <p class="font-bold text-slate-800">{{ reporte.nombre }} {{ reporte.apellido }}</p>
-                        <div class="text-sm text-slate-500 mt-1">C.I. {{ reporte.cedula }}</div>
-                    </div>
-                    <div class="text-sm space-y-1 text-right">
-                        {% set esperado = reporte.monto_esperado_bs %}
-                        {% set reportado = reporte.detalles_reporte.monto_original_reportado|float %}
-                        {% set validado = reporte.detalles_reporte.monto_recibido_real|float %}
-                        {% set diferencia = esperado - validado %}
-                        <p class="text-slate-500">Monto Esperado: <span class="font-semibold text-slate-700">{{ esperado|string }} Bs</span></p>
-                        <p class="text-slate-500">Monto Reportado: <span class="font-semibold text-slate-700">{{ reportado|string }} Bs</span></p>
-                        <p class="text-slate-500">Monto Validado: 
-                            <span class="font-semibold text-green-600">{{ validado|string }} Bs</span>
-                            <i class="bi bi-check-circle-fill text-green-600" title="Verificado pero incompleto"></i>
-                        </p>
-                        <p class="text-slate-500">Diferencia Pendiente: <span class="font-semibold text-red-600">{{ diferencia|string }} Bs</span></p>
-                        <p class="font-bold text-blue-600 text-xs mt-1">ORDEN DE PAGO GENERADA</p>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <div class="text-center p-10"><p class="text-slate-500">No hay reportes con diferencia de monto.</p></div>
-            {% endif %}
-        </div>
-
-        <!-- Pestaña: Otros Rechazados -->
-        <div x-show="activeTab === 'otros'" style="display: none;">
-            {% if reportes.otros_rechazados %}
-            <div class="divide-y divide-slate-200">
-                {% for reporte in reportes.otros_rechazados %}
-                <div class="p-5 flex flex-col md:flex-row items-start md:items-center justify-between space-y-3 md:space-y-0">
-                    <div class="flex-1">
-                        <p class="font-bold text-slate-800">{{ reporte.nombre }} {{ reporte.apellido }}</p>
-                        <div class="text-sm text-slate-500 mt-1">C.I. {{ reporte.cedula }}</div>
-                        <p class="text-xs text-red-600 mt-1">Motivo: {{ reporte.detalles_reporte.motivo or 'No especificado' }}</p>
+    <div id="pendientes" class="tab-content">
+        {% for reporte in reportes.pendientes %}
+            <div class="bg-white shadow-sm rounded-lg mb-4 overflow-hidden">
+                <div class="p-5 flex justify-between items-center">
+                    <div>
+                        <p class="text-lg font-semibold text-slate-900">{{ reporte.nombre }} {{ reporte.apellido }}</p>
+                        <p class="text-sm text-slate-500">C.I. {{ reporte.cedula }}</p>
                     </div>
                     <div class="text-right">
-                        <p class="text-lg font-bold text-slate-700">${{ "%.2f"|format(reporte.monto) }}</p>
-                        {% if reporte.monto_bs %}<p class="text-xs text-slate-500">{{ reporte.monto_bs|string }} Bs</p>{% endif %}
+                        <!-- INICIO DE LA CORRECCIÓN -->
+                        <p class="text-sm font-medium text-slate-600">Monto Esperado: <span class="text-green-600 font-bold">{{ "%.2f"|format(reporte.monto_esperado_bs) }} Bs</span></p>
+                        <p class="text-sm font-medium text-slate-600">Monto Reportado: <span class="text-blue-600 font-bold">{{ "%.2f"|format(reporte.monto_bs) }} Bs</span></p>
+                        {% if reporte.tasa_dia %}
+                        <p class="text-xs text-gray-500 mt-1">Tasa del Día: {{ "%.2f"|format(reporte.tasa_dia) }} Bs</p>
+                        {% endif %}
+                        <!-- FIN DE LA CORRECCIÓN -->
+                    </div>
+                    <div>
+                        <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm">
+                            Revisar Reporte
+                        </a>
                     </div>
                 </div>
-                {% endfor %}
             </div>
-            {% else %}
-            <div class="text-center p-10"><p class="text-slate-500">No hay otros reportes rechazados.</p></div>
-            {% endif %}
-        </div>
+        {% else %}
+            <p class="text-center text-slate-500 py-10">No hay reportes pendientes de revisión.</p>
+        {% endfor %}
+    </div>
+
+    <div id="diferencias" class="tab-content hidden">
+        {% for reporte in reportes.diferencias %}
+            <div class="bg-white shadow-sm rounded-lg mb-4 overflow-hidden border-l-4 border-yellow-400">
+                <div class="p-5 flex justify-between items-center">
+                    <div>
+                        <p class="text-lg font-semibold text-slate-900">{{ reporte.nombre }} {{ reporte.apellido }}</p>
+                        <p class="text-sm text-slate-500">C.I. {{ reporte.cedula }}</p>
+                    </div>
+                    <div class="text-right">
+                        <!-- INICIO DE LA CORRECCIÓN -->
+                        <p class="text-sm font-medium text-slate-600">Monto Esperado: <span class="text-green-600 font-bold">{{ "%.2f"|format(reporte.monto_esperado_bs) }} Bs</span></p>
+                        <p class="text-sm font-medium text-slate-600">Monto Reportado: <span class="text-yellow-600 font-bold">{{ "%.2f"|format(reporte.monto_bs) }} Bs</span></p>
+                        {% if reporte.tasa_dia %}
+                        <p class="text-xs text-gray-500 mt-1">Tasa del Día: {{ "%.2f"|format(reporte.tasa_dia) }} Bs</p>
+                        {% endif %}
+                        <!-- FIN DE LA CORRECCIÓN -->
+                    </div>
+                    <div>
+                        <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg text-sm">
+                            Ver Diferencia
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <p class="text-center text-slate-500 py-10">No hay reportes con diferencias.</p>
+        {% endfor %}
+    </div>
+
+    <div id="otros-rechazados" class="tab-content hidden">
+        {% for reporte in reportes.otros_rechazados %}
+            <div class="bg-white shadow-sm rounded-lg mb-4 overflow-hidden border-l-4 border-red-400">
+                <div class="p-5 flex justify-between items-center">
+                    <div>
+                        <p class="text-lg font-semibold text-slate-900">{{ reporte.nombre }} {{ reporte.apellido }}</p>
+                        <p class="text-sm text-slate-500">C.I. {{ reporte.cedula }}</p>
+                        <p class="text-xs text-red-600 mt-1">Motivo: {{ reporte.detalles_reporte.motivo }}</p>
+                    </div>
+                    <div class="text-right">
+                        <!-- INICIO DE LA CORRECCIÓN -->
+                        <p class="text-sm font-medium text-slate-600">Monto Reportado: <span class="text-red-600 font-bold">{{ "%.2f"|format(reporte.monto_bs) }} Bs</span></p>
+                        {% if reporte.tasa_dia %}
+                        <p class="text-xs text-gray-500 mt-1">Tasa del Día: {{ "%.2f"|format(reporte.tasa_dia) }} Bs</p>
+                        {% endif %}
+                        <!-- FIN DE LA CORRECCIÓN -->
+                    </div>
+                    <div>
+                        <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm">
+                            Ver Detalles
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <p class="text-center text-slate-500 py-10">No hay otros reportes rechazados.</p>
+        {% endfor %}
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tabs = document.querySelectorAll('.tab-link');
+    const contents = document.querySelectorAll('.tab-content');
+
+    // Muestra el contenido de la pestaña activa al cargar la página
+    const activeTab = document.querySelector('.tab-link.active-tab');
+    if (activeTab) {
+        const activeContentId = activeTab.getAttribute('href').substring(1);
+        const activeContent = document.getElementById(activeContentId);
+        if (activeContent) {
+            activeContent.classList.remove('hidden');
+        }
+    }
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            tabs.forEach(item => item.classList.remove('active-tab'));
+            contents.forEach(content => content.classList.add('hidden'));
+            
+            this.classList.add('active-tab');
+            const contentId = this.getAttribute('href').substring(1);
+            document.getElementById(contentId).classList.remove('hidden');
+        });
+    });
+});
+</script>
+
+<style>
+.tab-link {
+    border-color: transparent;
+    color: #475569; /* slate-600 */
+}
+.active-tab {
+    border-color: #3b82f6; /* blue-500 */
+    color: #1e293b; /* slate-800 */
+}
+</style>
 {% endblock %}

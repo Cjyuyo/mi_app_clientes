@@ -17,7 +17,6 @@
         <!-- Campos Ocultos -->
         <input type="hidden" name="forma_pago" x-model="formaPago">
         <input type="hidden" name="tasa_dia" :value="tasa">
-        <!-- MODIFICACIÓN: Se añade un campo oculto que enviará el monto en Bs calculado -->
         <input type="hidden" name="monto_bs" :value="montoBs.toFixed(2)">
 
         <div class="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg text-center">
@@ -77,8 +76,6 @@
                            class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm"
                            :value="montoBs.toFixed(2)" readonly>
                 </div>
-
-                <!-- MODIFICACIÓN: Se elimina el campo de entrada para el monto exacto en Bs -->
             </div>
         </div>
 
@@ -103,12 +100,38 @@
                 </div>
                 <div x-show="pagoEn === 'Dolar/BCV'">
                     <label for="banco" class="block text-sm font-medium text-slate-700">Banco</label>
+                    <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
                     <select id="banco" name="banco" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" :required="pagoEn === 'Dolar/BCV'">
                         <option value="">Seleccione un banco...</option>
                         <option value="0102 - Banco de Venezuela S.A.C.A. Banco Universal">0102 - Banco de Venezuela</option>
+                        <option value="0104 - Venezolano de Crédito, S.A. Banco Universal">0104 - Venezolano de Crédito</option>
+                        <option value="0105 - Mercantil Banco, C.A. Banco Universal">0105 - Mercantil Banco</option>
+                        <option value="0108 - BBVA Provincial, S.A. Banco Universal">0108 - BBVA Provincial</option>
+                        <option value="0114 - Bancaribe C.A. Banco Universal">0114 - Bancaribe</option>
+                        <option value="0115 - Banco Exterior C.A. Banco Universal">0115 - Banco Exterior</option>
+                        <option value="0128 - Banco Caroní C.A. Banco Universal">0128 - Banco Caroní</option>
                         <option value="0134 - Banesco, Banco Universal S.A.C.A.">0134 - Banesco</option>
-                        <!-- ... más bancos ... -->
+                        <option value="0137 - Banco Sofitasa, Banco Universal">0137 - Banco Sofitasa</option>
+                        <option value="0138 - Banco Plaza, Banco Universal">0138 - Banco Plaza</option>
+                        <option value="0146 - Bangente C.A">0146 - Bangente</option>
+                        <option value="0151 - BFC Banco Fondo Común C.A. Banco Universal">0151 - BFC Banco Fondo Común</option>
+                        <option value="0156 - 100% Banco, Banco Universal C.A.">0156 - 100% Banco</option>
+                        <option value="0157 - DelSur Banco Universal C.A.">0157 - DelSur</option>
+                        <option value="0163 - Banco del Tesoro, C.A. Banco Universal">0163 - Banco del Tesoro</option>
+                        <option value="0166 - Banco Agrícola de Venezuela, C.A. Banco Universal">0166 - Banco Agrícola de Venezuela</option>
+                        <option value="0168 - Bancrecer, S.A. Banco Microfinanciero">0168 - Bancrecer</option>
+                        <option value="0169 - R4, Banco Microfinanciero C.A.">0169 - R4, Banco Microfinanciero</option>
+                        <option value="0171 - Banco Activo, Banco Universal">0171 - Banco Activo</option>
+                        <option value="0172 - Bancamiga, Banco Universal C.A.">0172 - Bancamiga</option>
+                        <option value="0173 - Banco Internacional de Desarrollo, C.A. Banco Universal">0173 - Banco Internacional de Desarrollo</option>
+                        <option value="0174 - Banplus Banco Universal, C.A">0174 - Banplus</option>
+                        <option value="0175 - Banco Digital de Los Trabajadores">0175 - Banco Digital de Los Trabajadores</option>
+                        <option value="0177 - Banco de la Fuerza Armada Nacional Bolivariana, B.U.">0177 - BANFANB</option>
+                        <option value="0178 - N58 Banco Digital, S.A.">0178 - N58 Banco Digital</option>
+                        <option value="0191 - Banco Nacional de Crédito, C.A. Banco Universal">0191 - BNC</option>
+                        <option value="0601 - Instituto Municipal de Crédito Popular">0601 - Instituto Municipal de Crédito Popular</option>
                     </select>
+                    <!-- ===== FIN DE LA CORRECCIÓN ===== -->
                 </div>
             </div>
         </div>

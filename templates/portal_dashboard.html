@@ -145,22 +145,29 @@
                         {% endif %}
                     {% endwith %}
 
-                    <!-- ========= INICIO DE LA CORRECCIÓN ========= -->
+                    <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
                     {% if ordenes_pendientes %}
                         {% for orden in ordenes_pendientes %}
                         <div class="bg-red-100 border-l-4 border-red-500 text-red-800 p-4 rounded-lg">
                             <h3 class="font-bold text-md flex items-center gap-2"><i class="bi bi-exclamation-triangle-fill"></i> ¡Acción Requerida!</h3>
                             <p class="mt-2 mb-3 text-sm">
-                                Detectamos un pago por un monto menor. Por favor, completa la diferencia pendiente de 
+                                Detectamos una inconsistencia en uno de tus pagos. Por favor, completa la diferencia pendiente de 
                                 <strong class="font-semibold">{{ "%.2f"|format(orden.amount) }} {{ "Bs." if orden.currency == 'VES' else orden.currency }}</strong>.
                             </p>
-                            <a href="{{ url_for('portal_diferencia_reportar', bulk_id=orden.bulk_id, order_id=orden.id) }}" class="text-sm text-white font-semibold py-2 px-3 rounded-lg bg-red-600 hover:bg-red-700 mt-2 inline-block">
-                                Pagar Diferencia
-                            </a>
+                            <div class="flex items-center gap-3 mt-2">
+                                <a href="{{ url_for('portal_diferencia_reportar', bulk_id=orden.bulk_id, order_id=orden.id) }}" class="text-sm text-white font-semibold py-2 px-3 rounded-lg bg-red-600 hover:bg-red-700 inline-block">
+                                    Pagar Diferencia
+                                </a>
+                                {% if orden.pago_original_id %}
+                                <a href="{{ url_for('ver_reporte', pago_id=orden.pago_original_id) }}" target="_blank" class="text-sm text-red-700 font-semibold py-2 px-3 rounded-lg bg-white border border-red-600 hover:bg-red-50 inline-block">
+                                    Ver Reporte
+                                </a>
+                                {% endif %}
+                            </div>
                         </div>
                         {% endfor %}
                     {% endif %}
-                    <!-- ========= FIN DE LA CORRECCIÓN ========= -->
+                    <!-- ===== FIN DE LA CORRECCIÓN ===== -->
 
                     {% if estado_principal %}
                     <div class="bg-white p-4 rounded-lg border">
