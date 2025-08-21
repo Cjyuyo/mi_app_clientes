@@ -57,14 +57,16 @@
 
                 <div x-show="pagoEn === 'Dolar/BCV'">
                     <label for="tasa_dia_display" class="block text-sm font-medium text-slate-700">Tasa del Día (BCV)</label>
-                    <input type="text" id="tasa_dia_display" value="{{ '%.4f'|format(tasa_hoy.tasa) if tasa_hoy and tasa_hoy.tasa else 'No disponible' }}" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" readonly>
+                    <input type="text" id="tasa_dia_display" value="{{ tasa_hoy.tasa if tasa_hoy and tasa_hoy.tasa else 'No disponible' }}" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" readonly>
                 </div>
 
                 <div>
                     <label for="monto_usd" class="block text-sm font-medium text-slate-700" x-text="pagoEn === 'USDT' ? 'Monto a Pagar (USDT)' : 'Monto a Pagar (USD)'">Monto a Pagar (USD)</label>
+                    <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
                     <input type="text" id="monto_usd" name="monto"
                            class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm"
-                           :value="montoUsd.toFixed(18)" readonly>
+                           :value="montoUsd.toFixed(2)" readonly>
+                    <!-- ===== FIN DE LA CORRECCIÓN ===== -->
                 </div>
                 
                 <div x-show="pagoEn === 'Dolar/BCV'">

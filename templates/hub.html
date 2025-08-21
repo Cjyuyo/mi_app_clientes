@@ -1,77 +1,95 @@
-{% extends 'base_sidebar.html' %}
+{% extends "base_sidebar.html" %}
 
 {% block title %}Panel de Control{% endblock %}
 
 {% block body %}
-<!-- Contenedor Principal -->
-<div class="p-4 md:p-6 space-y-6">
-
+<div class="space-y-6">
     <!-- Encabezado de Bienvenida -->
     <div class="bg-white p-6 rounded-xl shadow-sm">
-        <h1 class="text-2xl md:text-3xl font-bold text-slate-800">Panel de Control</h1>
-        <p class="text-slate-500 mt-1">Bienvenido de nuevo, {{ g.admin.usuario }}. Aquí tienes un resumen de la actividad.</p>
+        <h1 class="text-3xl font-bold text-slate-800">Panel de Control</h1>
+        <p class="text-slate-500 mt-1">Bienvenido de nuevo, <strong>{{ g.admin.usuario }}</strong>. Aquí tienes un resumen de la actividad.</p>
     </div>
 
-    <!-- Tarjetas de Estadísticas Principales -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500">
-            <h3 class="font-semibold text-slate-500 text-sm">Clientes en Cartera</h3>
-            <p class="text-3xl font-bold text-slate-800 mt-1">{{ stats.clientes_cartera }}</p>
+    <!-- KPIs Principales (Compactados) -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-xl shadow-sm flex items-center gap-3">
+            <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-blue-100 text-blue-600"><i class="bi bi-people-fill text-xl"></i></div>
+            <div>
+                <div class="text-xs text-slate-500 font-medium">Clientes</div>
+                <div class="text-xl font-bold text-slate-800">{{ stats.clientes_cartera | default('0') }}</div>
+            </div>
         </div>
-        <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-green-500">
-            <h3 class="font-semibold text-slate-500 text-sm">Recaudado este Mes</h3>
-            <p class="text-3xl font-bold text-slate-800 mt-1">${{ "%.2f"|format(stats.recaudado_mes) }}</p>
+        <div class="bg-white p-4 rounded-xl shadow-sm flex items-center gap-3">
+            <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-green-100 text-green-600"><i class="bi bi-cash-stack text-xl"></i></div>
+            <div>
+                <div class="text-xs text-slate-500 font-medium">Recaudado Mes</div>
+                <div class="text-xl font-bold text-slate-800">${{ "%.2f"|format(stats.recaudado_mes) if stats.recaudado_mes is not none else '0.00' }}</div>
+            </div>
         </div>
-        <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-orange-500">
-            <h3 class="font-semibold text-slate-500 text-sm">Solicitudes Pendientes</h3>
-            <p class="text-3xl font-bold text-slate-800 mt-1">{{ stats.solicitudes_pendientes }}</p>
+        <div class="bg-white p-4 rounded-xl shadow-sm flex items-center gap-3">
+            <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600"><i class="bi bi-clipboard2-check-fill text-xl"></i></div>
+            <div>
+                <div class="text-xs text-slate-500 font-medium">Solicitudes</div>
+                <div class="text-xl font-bold text-slate-800">{{ stats.solicitudes_pendientes | default('0') }}</div>
+            </div>
         </div>
-        <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-purple-500">
-            <h3 class="font-semibold text-slate-500 text-sm">Tasa BCV</h3>
-            <p class="text-3xl font-bold text-slate-800 mt-1">{{ stats.tasa_bcv }}</p>
+        <div class="bg-white p-4 rounded-xl shadow-sm flex items-center gap-3">
+            <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-purple-100 text-purple-600"><i class="bi bi-graph-up-arrow text-xl"></i></div>
+            <div>
+                <div class="text-xs text-slate-500 font-medium">Tasa BCV</div>
+                <div class="text-xl font-bold text-slate-800">{{ stats.tasa_bcv | default('N/A') }}</div>
+            </div>
         </div>
     </div>
 
-    <!-- Sección de Operaciones y Equipo en Tiempo Real -->
+    <!-- Centro de Operaciones y Actividad (Compactados) -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        <!-- Columna de Centro de Operaciones -->
-        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm">
-            <h2 class="text-lg font-bold text-slate-800 mb-4">Centro de Operaciones</h2>
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
-                <a href="{{ url_for('reportes_por_revisar') }}" class="p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-                    <i class="bi bi-file-earmark-text text-3xl text-red-500"></i>
-                    <p class="mt-2 text-sm font-semibold text-slate-700">Revisar Reportes</p>
-                </a>
-                <a href="{{ url_for('pagos_por_conciliar') }}" class="p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-                    <i class="bi bi-check2-circle text-3xl text-green-500"></i>
-                    <p class="mt-2 text-sm font-semibold text-slate-700">Conciliar Pagos</p>
-                </a>
-                <a href="{{ url_for('solicitudes_hub') }}" class="p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-                    <i class="bi bi-person-lines-fill text-3xl text-blue-500"></i>
-                    <p class="mt-2 text-sm font-semibold text-slate-700">Gestionar Solicitudes</p>
-                </a>
-                <a href="{{ url_for('registrar') }}" class="p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-                    <i class="bi bi-person-plus text-3xl text-indigo-500"></i>
-                    <p class="mt-2 text-sm font-semibold text-slate-700">Registrar Cliente</p>
-                </a>
-                <a href="{{ url_for('admin_tasa_bcv') }}" class="p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-                    <i class="bi bi-graph-up-arrow text-3xl text-teal-500"></i>
-                    <p class="mt-2 text-sm font-semibold text-slate-700">Gestionar Tasa</p>
-                </a>
-                <a href="{{ url_for('reporte_morosidad') }}" class="p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-                    <i class="bi bi-exclamation-diamond text-3xl text-yellow-500"></i>
-                    <p class="mt-2 text-sm font-semibold text-slate-700">Ver Morosidad</p>
-                </a>
+        <!-- Columna de Operaciones -->
+        <div class="lg:col-span-2">
+            <div class="bg-white p-4 rounded-xl shadow-sm h-full">
+                <h2 class="text-base font-bold text-slate-800 mb-3">Centro de Operaciones</h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <a href="{{ url_for('reportes_por_revisar') }}" class="relative group bg-slate-50 p-3 rounded-lg hover:bg-slate-100 transition-colors text-center">
+                        {% if stats.reportes_pendientes > 0 %}<span class="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">{{ stats.reportes_pendientes }}</span>{% endif %}
+                        <i class="bi bi-journal-check text-2xl text-red-500 mb-1"></i>
+                        <span class="text-xs font-semibold text-slate-700 block">Revisar Reportes</span>
+                    </a>
+                    <a href="{{ url_for('pagos_por_conciliar') }}" class="relative group bg-slate-50 p-3 rounded-lg hover:bg-slate-100 transition-colors text-center">
+                        {% if stats.pagos_por_conciliar > 0 %}<span class="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-yellow-400 text-xs font-bold text-yellow-900">{{ stats.pagos_por_conciliar }}</span>{% endif %}
+                        <i class="bi bi-patch-check-fill text-2xl text-green-500 mb-1"></i>
+                        <span class="text-xs font-semibold text-slate-700 block">Conciliar Pagos</span>
+                    </a>
+                    <a href="{{ url_for('solicitudes_hub') }}" class="relative group bg-slate-50 p-3 rounded-lg hover:bg-slate-100 transition-colors text-center">
+                        {% if stats.solicitudes_pendientes > 0 %}<span class="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-purple-500 text-xs font-bold text-white">{{ stats.solicitudes_pendientes }}</span>{% endif %}
+                        <i class="bi bi-inbox-fill text-2xl text-purple-500 mb-1"></i>
+                        <span class="text-xs font-semibold text-slate-700 block">Gestionar Solicitudes</span>
+                    </a>
+                    <a href="{{ url_for('registrar') }}" class="group bg-slate-50 p-3 rounded-lg hover:bg-slate-100 transition-colors text-center">
+                        <i class="bi bi-person-plus-fill text-2xl text-blue-500 mb-1"></i>
+                        <span class="text-xs font-semibold text-slate-700 block">Registrar Cliente</span>
+                    </a>
+                    <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
+                    <!-- Se agrega el botón para gestionar la Tasa BCV -->
+                    <a href="{{ url_for('admin_tasa_bcv') }}" class="group bg-slate-50 p-3 rounded-lg hover:bg-slate-100 transition-colors text-center">
+                        <i class="bi bi-coin text-2xl text-cyan-500 mb-1"></i>
+                        <span class="text-xs font-semibold text-slate-700 block">Gestionar Tasa</span>
+                    </a>
+                    <!-- ===== FIN DE LA CORRECCIÓN ===== -->
+                    <a href="{{ url_for('reporte_morosidad') }}" class="group bg-slate-50 p-3 rounded-lg hover:bg-slate-100 transition-colors text-center">
+                        <i class="bi bi-file-earmark-excel-fill text-2xl text-teal-500 mb-1"></i>
+                        <span class="text-xs font-semibold text-slate-700 block">Ver Morosidad</span>
+                    </a>
+                </div>
             </div>
         </div>
 
-        <!-- Columna de Equipo en Tiempo Real -->
-        <div class="bg-white p-6 rounded-xl shadow-sm">
-            <h2 class="text-lg font-bold text-slate-800 mb-4">Equipo en Tiempo Real</h2>
-            <div id="user-list" class="space-y-3">
-                <!-- El contenido se generará dinámicamente con JavaScript -->
-                <div class="text-center text-slate-400 py-4">Cargando...</div>
+        <!-- Columna de Actividad -->
+        <div class="lg:col-span-1">
+            <div class="bg-white p-4 rounded-xl shadow-sm h-full">
+                <h2 class="text-base font-bold text-slate-800 mb-3">Equipo en Tiempo Real</h2>
+                <div id="active-sessions-list" class="space-y-3">
+                    <div class="text-center text-slate-500 py-4">Cargando...</div>
+                </div>
             </div>
         </div>
     </div>
@@ -79,76 +97,40 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<!-- 1. Incluir la librería cliente de Socket.IO -->
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // 2. Conectar al servidor de WebSocket
-    // La conexión se establece automáticamente con el servidor que sirvió la página.
-    const socket = io();
-
-    const userListElement = document.getElementById('user-list');
-
-    // 3. Escuchar el evento 'update_online_users' del servidor
-    socket.on('update_online_users', function(data) {
-        renderUserList(data.users);
+    document.addEventListener('DOMContentLoaded', function () {
+        const sessionsList = document.getElementById('active-sessions-list');
+        const fetchActiveSessions = async () => {
+            try {
+                const response = await fetch("{{ url_for('get_active_sessions') }}");
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const users = await response.json();
+                sessionsList.innerHTML = '';
+                if (!users || users.length === 0) {
+                    sessionsList.innerHTML = '<div class="text-center text-slate-500 py-4 text-sm">No hay usuarios activos.</div>';
+                } else {
+                    users.forEach(user => {
+                        const userElement = document.createElement('div');
+                        userElement.className = 'flex items-center justify-between';
+                        const statusIcon = user.is_online 
+                            ? '<span class="w-2.5 h-2.5 bg-green-500 rounded-full" title="En línea"></span>'
+                            : '<span class="w-2.5 h-2.5 bg-slate-300 rounded-full" title="Desconectado"></span>';
+                        userElement.innerHTML = `
+                            <div class="flex items-center gap-3">
+                                ${statusIcon}
+                                <span class="font-semibold text-sm text-slate-700">${user.username}</span>
+                            </div>
+                            <small class="text-xs text-slate-400">${user.last_seen}</small>`;
+                        sessionsList.appendChild(userElement);
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching active sessions:', error);
+                sessionsList.innerHTML = '<div class="text-center text-red-500 py-4 text-sm">Error al cargar sesiones.</div>';
+            }
+        };
+        fetchActiveSessions();
+        setInterval(fetchActiveSessions, 10000); 
     });
-
-    // Función para renderizar la lista de usuarios
-    function renderUserList(users) {
-        if (!userListElement) return;
-        userListElement.innerHTML = ''; // Limpiar la lista actual
-
-        if (users.length === 0) {
-            userListElement.innerHTML = '<p class="text-slate-500">No hay usuarios para mostrar.</p>';
-            return;
-        }
-
-        users.forEach(user => {
-            const userDiv = document.createElement('div');
-            userDiv.className = 'flex items-center justify-between';
-
-            const userInfo = document.createElement('div');
-            userInfo.className = 'flex items-center';
-
-            const statusDot = document.createElement('span');
-            statusDot.className = `h-2.5 w-2.5 rounded-full mr-2 ${user.is_online ? 'bg-green-500' : 'bg-slate-400'}`;
-            
-            const username = document.createElement('span');
-            username.className = 'font-medium text-slate-700';
-            username.textContent = user.username;
-
-            userInfo.appendChild(statusDot);
-            userInfo.appendChild(username);
-
-            const lastSeen = document.createElement('span');
-            lastSeen.className = 'text-xs text-slate-500';
-            // Si el usuario está online, muestra "En línea", si no, calcula el tiempo.
-            lastSeen.textContent = user.is_online ? 'En línea' : timeAgo(user.last_seen_iso);
-
-            userDiv.appendChild(userInfo);
-            userDiv.appendChild(lastSeen);
-            userListElement.appendChild(userDiv);
-        });
-    }
-
-    // Función para calcular "hace X tiempo" en JavaScript
-    function timeAgo(isoString) {
-        if (!isoString) return 'Nunca';
-        const date = new Date(isoString);
-        const now = new Date();
-        const seconds = Math.round((now - date) / 1000);
-        const minutes = Math.round(seconds / 60);
-        const hours = Math.round(minutes / 60);
-        const days = Math.round(hours / 24);
-
-        if (seconds < 10) return 'justo ahora';
-        if (seconds < 60) return `hace ${seconds} seg`;
-        if (minutes < 60) return `hace ${minutes} min`;
-        if (hours < 24) return `hace ${hours} h`;
-        return `hace ${days} d`;
-    }
-});
 </script>
 {% endblock %}
