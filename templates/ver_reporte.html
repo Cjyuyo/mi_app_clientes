@@ -13,7 +13,11 @@
     <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
             <h1 class="text-3xl font-bold text-slate-800">
-                {% if is_admin_view %}Revisar Reporte de Pago{% else %}Detalle del Reporte{% endif %}
+                {% if pago.bulk_id %}
+                    Revisar Proceso de Diferencia #{{ pago.bulk_id }}
+                {% else %}
+                    Revisar Reporte de Pago #{{ pago.id }}
+                {% endif %}
             </h1>
             <p class="text-slate-500 mt-1">Reporte N° {{ pago.id }} para el cliente <strong>{{ pago.nombre_apellido }}</strong></p>
         </div>
@@ -24,77 +28,119 @@
         {% endif %}
     </div>
 
-    <!-- Bloque de Comparación de Montos -->
-    {% if pago.forma_pago == 'Binance' %}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-            <h3 class="font-semibold text-slate-500 text-sm mb-1">Monto Esperado (USDT)</h3>
-            <p class="text-3xl font-bold text-slate-800">$ {{ "%.2f"|format(pago.monto_dolares_referencia) }}</p>
-            <p class="text-xs text-slate-400 mt-1">Monto de referencia del plan.</p>
+    <!-- Bloque de Comparación de Montos (Original, sin cambios) -->
+    {% if not pago.bulk_id %}
+        {% if pago.forma_pago == 'Binance' %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="font-semibold text-slate-500 text-sm mb-1">Monto Esperado (USDT)</h3>
+                <p class="text-3xl font-bold text-slate-800">$ {{ "%.2f"|format(pago.monto_dolares_referencia) }}</p>
+                <p class="text-xs text-slate-400 mt-1">Monto de referencia del plan.</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border {% if pago.monto < pago.monto_dolares_referencia %} border-red-300 bg-red-50 {% else %} border-green-300 bg-green-50 {% endif %}">
+                <h3 class="font-semibold text-sm text-slate-600">Monto Reportado (USDT)</h3>
+                <p class="text-3xl font-bold {% if pago.monto < pago.monto_dolares_referencia %} text-red-700 {% else %} text-green-700 {% endif %}">$ {{ "%.2f"|format(pago.monto) }}</p>
+                <p class="text-xs text-slate-500 mt-1">Monto reportado por el cliente.</p>
+            </div>
         </div>
-        <div class="bg-white p-5 rounded-xl shadow-sm border {% if pago.monto < pago.monto_dolares_referencia %} border-red-300 bg-red-50 {% else %} border-green-300 bg-green-50 {% endif %}">
-            <h3 class="font-semibold text-sm text-slate-600">Monto Reportado (USDT)</h3>
-            <p class="text-3xl font-bold {% if pago.monto < pago.monto_dolares_referencia %} text-red-700 {% else %} text-green-700 {% endif %}">$ {{ "%.2f"|format(pago.monto) }}</p>
-            <p class="text-xs text-slate-500 mt-1">Monto reportado por el cliente.</p>
+        {% else %}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="font-semibold text-slate-500 text-sm mb-1">Referencia en Dólares</h3>
+                <p class="text-3xl font-bold text-slate-800">$ {{ "%.2f"|format(pago.monto_dolares_referencia) }}</p>
+                <p class="text-xs text-slate-400 mt-1">Monto de referencia del plan.</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="font-semibold text-slate-500 text-sm mb-1">Monto Esperado (Bs.)</h3>
+                <p class="text-3xl font-bold text-slate-800">{{ "%.2f"|format(pago.monto_esperado_bs|float) }}</p>
+                {% if pago.tasa_dia %}<p class="text-xs text-slate-400 mt-1">Calculado a tasa de {{ pago.tasa_dia|string if pago.tasa_dia is not none else 'N/A' }} Bs./$</p>{% else %}<p class="text-xs text-slate-400 mt-1">No se aplica tasa de conversión.</p>{% endif %}
+            </div>
+            {% set monto_reportado_redondeado = pago.monto_bs|float|round(2) %}{% set monto_esperado_redondeado = pago.monto_esperado_bs|float|round(2) %}{% set diferencia = monto_reportado_redondeado - monto_esperado_redondeado %}
+            <div class="bg-white p-5 rounded-xl shadow-sm border {% if diferencia < -0.01 %} border-red-300 bg-red-50 {% else %} border-green-300 bg-green-50 {% endif %}">
+                <h3 class="font-semibold text-sm text-slate-600">Monto Reportado (Bs.)</h3>
+                <p class="text-3xl font-bold {% if diferencia < -0.01 %} text-red-700 {% else %} text-green-700 {% endif %}">{{ "%.2f"|format(pago.monto_bs|float) }}</p>
+                {% if (diferencia|abs) > 0.001 %}<p class="text-xs font-semibold {% if diferencia < 0 %} text-red-600 {% else %} text-green-600 {% endif %} mt-1">Diferencia: {{ "%.2f"|format(diferencia) }} Bs.</p>{% else %}<p class="text-xs text-slate-500 mt-1">Monto reportado por el cliente.</p>{% endif %}
+            </div>
         </div>
-    </div>
-    {% else %}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-            <h3 class="font-semibold text-slate-500 text-sm mb-1">Referencia en Dólares</h3>
-            <p class="text-3xl font-bold text-slate-800">$ {{ "%.2f"|format(pago.monto_dolares_referencia) }}</p>
-            <p class="text-xs text-slate-400 mt-1">Monto de referencia del plan.</p>
-        </div>
-        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-            <h3 class="font-semibold text-slate-500 text-sm mb-1">Monto Esperado (Bs.)</h3>
-            <p class="text-3xl font-bold text-slate-800">{{ "%.2f"|format(pago.monto_esperado_bs|float) }}</p>
-            {% if pago.tasa_dia %}<p class="text-xs text-slate-400 mt-1">Calculado a tasa de {{ pago.tasa_dia|string if pago.tasa_dia is not none else 'N/A' }} Bs./$</p>{% else %}<p class="text-xs text-slate-400 mt-1">No se aplica tasa de conversión.</p>{% endif %}
-        </div>
-        {% set monto_reportado_redondeado = pago.monto_bs|float|round(2) %}{% set monto_esperado_redondeado = pago.monto_esperado_bs|float|round(2) %}{% set diferencia = monto_reportado_redondeado - monto_esperado_redondeado %}
-        <div class="bg-white p-5 rounded-xl shadow-sm border {% if diferencia < -0.01 %} border-red-300 bg-red-50 {% else %} border-green-300 bg-green-50 {% endif %}">
-            <h3 class="font-semibold text-sm text-slate-600">Monto Reportado (Bs.)</h3>
-            <p class="text-3xl font-bold {% if diferencia < -0.01 %} text-red-700 {% else %} text-green-700 {% endif %}">{{ "%.2f"|format(pago.monto_bs|float) }}</p>
-            {% if (diferencia|abs) > 0.001 %}<p class="text-xs font-semibold {% if diferencia < 0 %} text-red-600 {% else %} text-green-600 {% endif %} mt-1">Diferencia: {{ "%.2f"|format(diferencia) }} Bs.</p>{% else %}<p class="text-xs text-slate-500 mt-1">Monto reportado por el cliente.</p>{% endif %}
-        </div>
-    </div>
+        {% endif %}
     {% endif %}
 
     <!-- ================================================================== -->
-    <!-- ===== INICIO DE LA CORRECCIÓN: SECCIÓN DE CONTEXTO DEL PAGO ===== -->
+    <!-- ===== INICIO DE LA SECCIÓN INTEGRADA: GESTIÓN DE DIFERENCIAS ===== -->
     <!-- ================================================================== -->
-    <!-- Este bloque solo se mostrará si el pago es parte de un proceso de diferencia -->
-    {% if pago_contexto_original %}
-    <div class="bg-amber-50 border border-amber-200 rounded-xl shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-amber-200">
-            <h2 class="text-lg font-bold text-amber-900">
-                <i class="bi bi-link-45deg mr-2"></i>Contexto del Proceso de Diferencia (Bulk #{{ pago.bulk_id }})
+    {% if pago.bulk_id %}
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800">
+                Estado del Proceso de Conciliación (Bulk #{{ pago.bulk_id }})
             </h2>
-            <p class="text-sm text-amber-700 mt-1">
-                Este pago corresponde a una diferencia generada a partir del <strong>Reporte Original #{{ pago_contexto_original.id }}</strong>.
-            </p>
         </div>
-        <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            <div class="bg-white p-3 rounded-lg border">
-                <span class="text-xs text-slate-500 block">Monto Esperado Original</span>
-                <span class="font-semibold text-slate-700">{{ "%.2f"|format(pago_contexto_original.monto_esperado_bs_calculado|float) }} Bs.</span>
+        <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div class="bg-slate-50 p-3 rounded-lg">
+                <span class="text-xs text-slate-500 block">Monto Total Esperado</span>
+                <span class="font-semibold text-slate-700 text-xl">{{ "%.2f"|format(pago.bulk_expected_amount|float) }} Bs.</span>
             </div>
-            <div class="bg-white p-3 rounded-lg border">
-                <span class="text-xs text-slate-500 block">Monto Confirmado por Admin</span>
-                <span class="font-semibold text-slate-700">{{ "%.2f"|format(pago_contexto_original.detalles_reporte.monto_recibido_real|float) }} Bs.</span>
+            <div class="bg-slate-50 p-3 rounded-lg">
+                <span class="text-xs text-slate-500 block">Monto Total Validado</span>
+                <span class="font-semibold text-green-700 text-xl">{{ "%.2f"|format(pago.bulk_total_verified|float) }} Bs.</span>
             </div>
-             <div class="bg-white p-3 rounded-lg border">
-                <span class="text-xs text-slate-500 block">Orden de Pago Generada</span>
-                <span class="font-semibold text-red-600">{{ "%.2f"|format(orden_pago.amount|float) }} {{ orden_pago.currency }}</span>
+            {% set diferencia_total = (pago.bulk_total_verified or 0) - (pago.bulk_expected_amount or 0) %}
+            <div class="bg-slate-50 p-3 rounded-lg">
+                <span class="text-xs text-slate-500 block">Estado Actual</span>
+                {% if diferencia_total >= -0.01 %}
+                    <span class="font-semibold text-green-600 text-xl">Listo para Conciliar</span>
+                {% else %}
+                    <span class="font-semibold text-amber-600 text-xl">Pendiente por {{ "%.2f"|format(diferencia_total * -1) }} Bs.</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="p-5 border-t border-slate-200">
+            <h3 class="font-semibold text-slate-700 mb-3">Desglose de Pagos Registrados:</h3>
+            <div class="space-y-3">
+                {% for p in pagos_del_mismo_bulk %}
+                <div class="flex items-center justify-between text-sm p-3 rounded-md {% if p.is_diferencia %}bg-amber-50{% elif p.estado_reporte == 'Inconsistente' %}bg-red-50{% else %}bg-slate-50{% endif %}">
+                    <div>
+                        <strong>Reporte #{{ p.id }}:</strong> {{ "%.2f"|format(p.monto_bs|float) }} Bs. (Ref: {{ p.referencia }})
+                        {% if p.estado_reporte == 'Pendiente de Revision' %}
+                            <span class="ml-2 text-xs font-medium bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">Pendiente de Validación</span>
+                        {% elif p.estado_reporte == 'Aprobado' %}
+                             <span class="ml-2 text-xs font-medium bg-green-100 text-green-800 px-2 py-1 rounded-full">Validado</span>
+                        {% else %}
+                             <span class="ml-2 text-xs font-medium bg-red-100 text-red-800 px-2 py-1 rounded-full">{{ p.estado_reporte }}</span>
+                        {% endif %}
+                    </div>
+                    {% if p.estado_reporte == 'Pendiente de Revision' and is_admin_view %}
+                    <div x-data="{ open: false }" class="relative">
+                        <button @click="open = !open" class="text-xs bg-slate-600 text-white font-semibold py-1 px-3 rounded-md hover:bg-slate-700">
+                            Gestionar <i class="bi bi-chevron-down ml-1"></i>
+                        </button>
+                        <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10" style="display: none;">
+                            <div class="py-1">
+                                <form action="{{ url_for('validar_pago_individual', pago_id=p.id) }}" method="POST" class="w-full">
+                                    <button type="submit" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">
+                                        <i class="bi bi-check-circle mr-2"></i>Validar Pago
+                                    </button>
+                                </form>
+                                <button @click="$dispatch('open-new-difference-modal', { pago_id: {{ p.id }} })" 
+                                        onclick="return confirm('¡ADVERTENCIA!\\n\\n¿Está seguro de que desea generar una NUEVA diferencia para este pago?\\n\\nEsta acción marcará el reporte actual como inconsistente y creará una nueva orden de pago para el cliente.')"
+                                        class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                    <i class="bi bi-exclamation-triangle mr-2"></i>Generar Nueva Diferencia
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
             </div>
         </div>
     </div>
     {% endif %}
     <!-- ================================================================ -->
-    <!-- ===== FIN DE LA CORRECCIÓN: SECCIÓN DE CONTEXTO DEL PAGO ===== -->
+    <!-- ===== FIN DE LA SECCIÓN INTEGRADA ===== -->
     <!-- ================================================================ -->
-
-
-    <!-- Detalles Completos del Reporte -->
+    
+    <!-- Detalles Completos del Reporte (Original, sin cambios) -->
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Detalles Completos del Reporte</h2></div>
         <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -111,16 +157,8 @@
         </div>
     </div>
     
-    <!-- Bitácora de la Transacción -->
-    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Bitácora de la Transacción</h2></div>
-        <div class="p-5">
-            <p class="text-center text-slate-500 py-4">La bitácora detallada se está reconstruyendo. Por ahora, el contexto del pago se muestra en la sección superior.</p>
-        </div>
-    </div>
-
-    <!-- Acciones de Validación (Solo para Administradores) -->
-    {% if is_admin_view %}
+    <!-- Acciones de Validación (Ahora solo para pagos SIN bulk) -->
+    {% if is_admin_view and not pago.bulk_id %}
         <div x-data="{ showDiferenciaModal: false }">
             {% if pago.estado_reporte == 'Pendiente de Revision' %}
             <div class="bg-white rounded-xl shadow-sm">
@@ -134,10 +172,10 @@
             </div>
             {% endif %}
 
-            <!-- Modal para Manejar Diferencia -->
+            <!-- Modal para Manejar Diferencia (Original, sin cambios) -->
             <div x-show="showDiferenciaModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 z-10 overflow-y-auto bg-gray-500 bg-opacity-75" style="display: none;">
                 <div class="flex items-center justify-center min-h-screen">
-                    <div @click.away="showDiferenciaModal = false" class="bg-white rounded-lg shadow-xl transform transition-all sm:max-w-lg sm:w-full" x-show="showDiferenciaModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+                    <div @click.away="showDiferenciaModal = false" class="bg-white rounded-lg shadow-xl transform transition-all sm:max-w-lg sm:w-full">
                         <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST">
                             <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                                 <div class="sm:flex sm:items-start">
@@ -170,5 +208,26 @@
             </div>
         </div>
     {% endif %}
+
+    <!-- Acción Final de Conciliación (Solo para pagos CON bulk) -->
+    {% if is_admin_view and pago.bulk_id %}
+    <div class="bg-white rounded-xl shadow-sm">
+        <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Acción Final</h2></div>
+        <div class="p-5 flex justify-end">
+            {% if diferencia_total >= -0.01 %}
+                <form action="{{ url_for('conciliar_bulk', bulk_id=pago.bulk_id) }}" method="POST">
+                    <button type="submit" class="w-full md:w-auto text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700">
+                        <i class="bi bi-check-circle-fill mr-2"></i>Conciliar Proceso y Generar Recibo
+                    </button>
+                </form>
+            {% else %}
+                <button type="button" class="w-full md:w-auto text-sm bg-slate-400 text-white font-semibold py-2 px-4 rounded-lg cursor-not-allowed" disabled>
+                    Conciliar Proceso (Validar pagos pendientes)
+                </button>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
 </div>
 {% endblock %}
