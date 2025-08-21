@@ -881,43 +881,6 @@ def ver_reporte_cita(solicitud_id):
         flash(f"Error al cargar el reporte: {e}", "error")
         return redirect(url_for('home'))
 
-        @app.route('/admin/pagos/validar/<int:pago_id>', methods=['POST'])
-@admin_required
-@rol_requerido('superadmin', 'gerente', 'administradora')
-def validar_pago_individual(pago_id):
-    conn = get_db()
-    if not conn:
-        flash("Error de conexión.", "danger")
-        return redirect(url_for('reportes_por_revisar'))
-
-    try:
-        with conn.cursor() as cur:
-            # Obtenemos el pago y su bulk_id
-            cur.execute("SELECT id, bulk_id FROM pagos WHERE id = %s AND estado_reporte = 'Pendiente de Revision'", (pago_id,))
-            pago = cur.fetchone()
-
-            if not pago or not pago['bulk_id']:
-                flash("Este pago no se puede validar o ya fue procesado.", "warning")
-                return redirect(request.referrer or url_for('reportes_por_revisar'))
-
-            bulk_id = pago['bulk_id']
-            
-            # Actualizamos el estado del pago individual
-            cur.execute("UPDATE pagos SET estado_reporte = 'Aprobado' WHERE id = %s", (pago_id,))
-            
-            # Recalculamos el total verificado del bulk
-            recalcular_totales_bulk(bulk_id)
-            
-            conn.commit()
-            flash(f"Pago #{pago_id} validado correctamente. El total del bulk ha sido actualizado.", "success")
-
-    except psycopg2.Error as e:
-        conn.rollback()
-        flash(f"Error al validar el pago: {e}", "danger")
-
-    # Redirigimos de vuelta a la página anterior para que el admin vea el cambio
-    return redirect(request.referrer or url_for('reportes_por_revisar'))
-
 # =================================================================================
 # --- MÓDULO DE GESTIÓN ADMINISTRATIVA E SOLICITUDES ---
 # =================================================================================
@@ -4628,6 +4591,45 @@ def ver_reporte(pago_id):
             return redirect(url_for('portal_dashboard'))
         else:
             return redirect(url_for('hub'))
+# =================================================================================
+# ===== RUTA 3: NUEVA RUTA PARA VALIDAR PAGOS INDIVIDUALES DENTRO DE UN BULK =====
+# =================================================================================
+@app.route('/admin/pagos/validar/<int:pago_id>', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora')
+def validar_pago_individual(pago_id):
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión.", "danger")
+        return redirect(url_for('reportes_por_revisar'))
+
+    try:
+        with conn.cursor() as cur:
+            # Obtenemos el pago y su bulk_id
+            cur.execute("SELECT id, bulk_id FROM pagos WHERE id = %s AND estado_reporte = 'Pendiente de Revision'", (pago_id,))
+            pago = cur.fetchone()
+
+            if not pago or not pago['bulk_id']:
+                flash("Este pago no se puede validar o ya fue procesado.", "warning")
+                return redirect(request.referrer or url_for('reportes_por_revisar'))
+
+            bulk_id = pago['bulk_id']
+            
+            # Actualizamos el estado del pago individual
+            cur.execute("UPDATE pagos SET estado_reporte = 'Aprobado' WHERE id = %s", (pago_id,))
+            
+            # Recalculamos el total verificado del bulk
+            recalcular_totales_bulk(bulk_id)
+            
+            conn.commit()
+            flash(f"Pago #{pago_id} validado correctamente. El total del bulk ha sido actualizado.", "success")
+
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error al validar el pago: {e}", "danger")
+
+    # Redirigimos de vuelta a la página anterior para que el admin vea el cambio
+    return redirect(request.referrer or url_for('reportes_por_revisar'))
 
 @app.route('/api/pago_detalle/<int:pago_id>')
 @admin_required
