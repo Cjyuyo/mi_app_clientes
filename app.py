@@ -15,6 +15,7 @@ import logging
 import pytz
 import json
 import base64
+import traceback
 
 # Imports para AWS S3
 import boto3
@@ -3607,7 +3608,6 @@ def portal_diferencia_reportar(bulk_id, order_id):
         flash("Error de conexión.", "error")
         return redirect(url_for('portal_dashboard'))
     
-     # --- INICIO DE LA CORRECCIÓN DE INDENTACIÓN ---
     try:
         with conn.cursor() as cur:
             # Valida que la orden de pago exista, pertenezca al cliente y esté pendiente
@@ -3645,7 +3645,6 @@ def portal_diferencia_reportar(bulk_id, order_id):
     except psycopg2.Error as e:
         flash(f"Error al cargar la página de reporte: {e}", "error")
         return redirect(url_for('portal_dashboard'))
-    # --- FIN DE LA CORRECCIÓN DE INDENTACIÓN ---
 
     if request.method == 'POST':
         pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
@@ -3662,56 +3661,15 @@ def portal_diferencia_reportar(bulk_id, order_id):
                                    monto_a_pagar_usd=monto_equivalente_usd,
                                    concepto_pago=f"Pago de diferencia (Orden #{order_id})")
 
-    try:
-        with conn.cursor() as cur:
-            monto_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
-            monto_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                
-            pago_query = """
-                INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
-                                    bulk_id, is_diferencia, cuotas_cubiertas)
-                VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, TRUE, 0) RETURNING id;
-                """
-                cur.execute(pago_query, (
-                    cliente['id'], monto_usd, monto_bs, pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
-                    pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv,
-                    get_venezuela_current_datetime(), f"Pago de diferencia para Bulk #{bulk_id}", bulk_id
-                ))
-                
-                cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
-                recalcular_totales_bulk(bulk_id)
-
-                flash('✅ ¡Pago de diferencia reportado! Será verificado por un administrador.', 'success')
-                conn.commit()
-                return redirect(url_for('portal_dashboard'))
-
-        except (psycopg2.Error, ValueError, InvalidOperation) as e:
-            conn.rollback()
-            error_trace = traceback.format_exc()
-            logging.error(f"Error en portal_diferencia_reportar (POST):\n{error_trace}")
-            flash(f'Ocurrió un error al reportar el pago de la diferencia.', 'error')
-            return redirect(url_for('portal_dashboard'))
-
-    return render_template('portal_reportar_pago.html', 
-                           cliente=cliente, 
-                           tasa_hoy=tasa_hoy, 
-                           is_diferencia=True, 
-                           bulk_id=bulk_id, 
-                           order_id=order_id, 
-                           monto_a_pagar_bs=monto_a_pagar_bs, 
-                           monto_a_pagar_usd=monto_equivalente_usd,
-                           concepto_pago=f"Pago de diferencia (Orden #{order_id})")
-
         try:
             with conn.cursor() as cur:
                 monto_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
                 monto_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                
+                    
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
-                                    bulk_id, is_diferencia, cuotas_cubiertas)
+                                        estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
+                                        bulk_id, is_diferencia, cuotas_cubiertas)
                     VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, TRUE, 0) RETURNING id;
                 """
                 cur.execute(pago_query, (
@@ -3719,7 +3677,7 @@ def portal_diferencia_reportar(bulk_id, order_id):
                     pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv,
                     get_venezuela_current_datetime(), f"Pago de diferencia para Bulk #{bulk_id}", bulk_id
                 ))
-                
+                    
                 cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
                 recalcular_totales_bulk(bulk_id)
 
@@ -3744,139 +3702,6 @@ def portal_diferencia_reportar(bulk_id, order_id):
                            monto_a_pagar_usd=monto_equivalente_usd,
                            concepto_pago=f"Pago de diferencia (Orden #{order_id})")
 
-    try:
-            with conn.cursor() as cur:
-                monto_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
-                monto_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                
-                # Insertar el nuevo pago, asociándolo al bulk existente
-                pago_query = """
-                    INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
-                                    bulk_id, is_diferencia, cuotas_cubiertas)
-                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, TRUE, 0) RETURNING id;
-                """
-                cur.execute(pago_query, (
-                    cliente['id'], monto_usd, monto_bs, pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
-                    pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv,
-                    get_venezuela_current_datetime(), f"Pago de diferencia para Bulk #{bulk_id}", bulk_id
-                ))
-                
-                # Actualizar el estado de la orden de pago a 'PAID'
-                cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
-                
-                # Recalcular los totales del bulk
-                recalcular_totales_bulk(bulk_id)
-
-                flash('✅ ¡Pago de diferencia reportado! Será verificado por un administrador.', 'success')
-                conn.commit()
-                return redirect(url_for('portal_dashboard'))
-
-        except (psycopg2.Error, ValueError, InvalidOperation) as e:
-            conn.rollback()
-            error_trace = traceback.format_exc()
-            logging.error(f"Error en portal_diferencia_reportar (POST):\n{error_trace}")
-            flash(f'Ocurrió un error al reportar el pago de la diferencia.', 'error')
-            return redirect(url_for('portal_dashboard'))
-
-    return render_template('portal_reportar_pago.html', 
-                           cliente=cliente, 
-                           tasa_hoy=tasa_hoy, 
-                           is_diferencia=True, 
-                           bulk_id=bulk_id, 
-                           order_id=order_id, 
-                           monto_a_pagar_bs=monto_a_pagar_bs, 
-                           monto_a_pagar_usd=monto_equivalente_usd,
-                           concepto_pago=f"Pago de diferencia (Orden #{order_id})")
-
-        try:
-            with conn.cursor() as cur:
-                monto_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
-                monto_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                
-                pago_query = """
-                    INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
-                                    bulk_id, is_diferencia, cuotas_cubiertas)
-                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, TRUE, 0) RETURNING id;
-                """
-                cur.execute(pago_query, (
-                    cliente['id'], monto_usd, monto_bs, pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
-                    pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv,
-                    get_venezuela_current_datetime(), f"Pago de diferencia para Bulk #{bulk_id}", bulk_id
-                ))
-                
-                cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
-                recalcular_totales_bulk(bulk_id)
-
-                flash('✅ ¡Pago de diferencia reportado! Será verificado por un administrador.', 'success')
-                conn.commit()
-                return redirect(url_for('portal_dashboard'))
-
-        except (psycopg2.Error, ValueError, InvalidOperation) as e:
-            conn.rollback()
-            error_trace = traceback.format_exc()
-            logging.error(f"Error en portal_diferencia_reportar (POST):\n{error_trace}")
-            flash(f'Ocurrió un error al reportar el pago de la diferencia.', 'error')
-            return redirect(url_for('portal_dashboard'))
-
-    # Pasa los valores correctos a la plantilla para que se muestren
-    return render_template('portal_reportar_pago.html', 
-                           cliente=cliente, 
-                           tasa_hoy=tasa_hoy, 
-                           is_diferencia=True, 
-                           bulk_id=bulk_id, 
-                           order_id=order_id, 
-                           monto_a_pagar_bs=monto_a_pagar_bs, 
-                           monto_a_pagar_usd=monto_equivalente_usd,
-                           concepto_pago=f"Pago de diferencia (Orden #{order_id})")
-
-        try:
-            with conn.cursor() as cur:
-                monto_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
-                monto_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                
-                # Insertar el nuevo pago, asociándolo al bulk existente
-                pago_query = """
-                    INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
-                                    bulk_id, is_diferencia, cuotas_cubiertas)
-                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, TRUE, 0) RETURNING id;
-                """
-                cur.execute(pago_query, (
-                    cliente['id'], monto_usd, monto_bs, pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
-                    pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv,
-                    get_venezuela_current_datetime(), f"Pago de diferencia para Bulk #{bulk_id}", bulk_id
-                ))
-                
-                # Actualizar el estado de la orden de pago a 'PAID'
-                cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
-                
-                # Recalcular los totales del bulk
-                recalcular_totales_bulk(bulk_id)
-
-                flash('✅ ¡Pago de diferencia reportado! Será verificado por un administrador.', 'success')
-                conn.commit()
-                return redirect(url_for('portal_dashboard'))
-
-        except (psycopg2.Error, ValueError, InvalidOperation) as e:
-            conn.rollback()
-            error_trace = traceback.format_exc()
-            logging.error(f"Error en portal_diferencia_reportar (POST):\n{error_trace}")
-            flash(f'Ocurrió un error al reportar el pago de la diferencia.', 'error')
-            return redirect(url_for('portal_dashboard'))
-
-    # Renderiza la plantilla de reporte, pero con los datos de la diferencia precargados
-    return render_template('portal_reportar_pago.html', 
-                           cliente=cliente, 
-                           tasa_hoy=tasa_hoy, 
-                           is_diferencia=True, 
-                           bulk_id=bulk_id, 
-                           order_id=order_id, 
-                           monto_precargado_bs=monto_a_pagar_bs, 
-                           monto_equivalente_usd=monto_equivalente_usd,
-                           tasa_bcv=tasa_bcv,
-                           concepto_pago=f"Pago de diferencia (Orden #{order_id})")
 
 @app.route('/admin/pagos/por-revisar')
 @admin_required
