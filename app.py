@@ -1123,6 +1123,10 @@ def cancelar_cita_admin(solicitud_id):
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def reportes_por_revisar():
+    """
+    Muestra y categoriza los reportes de pago enviados por los clientes
+    que requieren atención administrativa.
+    """
     conn = get_db()
     reportes_categorizados = {
         'pendientes': [],
@@ -1136,6 +1140,7 @@ def reportes_por_revisar():
 
     try:
         with conn.cursor() as cur:
+            # Obtiene todos los reportes que están pendientes o que ya fueron marcados como inconsistentes.
             cur.execute("""
                 SELECT p.id, p.monto, p.monto_bs, p.tipo_pago, p.fecha_creacion, p.estado_reporte,
                        p.cliente_id, c.nombre, c.apellido, c.cedula, p.detalles_reporte,
@@ -1150,6 +1155,7 @@ def reportes_por_revisar():
             for reporte_row in todos_los_reportes:
                 reporte = dict(reporte_row)
                 
+                # Calcula el monto esperado en Bs para facilitar la comparación visual.
                 if reporte['tipo_pago'] == 'Cuota' and reporte.get('valor_cuota') and reporte.get('tasa_dia'):
                     valor_cuota = reporte['valor_cuota']
                     tasa_dia = reporte['tasa_dia']
@@ -1158,6 +1164,7 @@ def reportes_por_revisar():
                     else:
                         reporte['monto_esperado_bs'] = Decimal('0.0')
 
+                # Clasifica los reportes en las pestañas correspondientes.
                 if reporte['estado_reporte'] == 'Pendiente de Revision':
                     reportes_categorizados['pendientes'].append(reporte)
                 elif reporte['estado_reporte'] == 'Inconsistente':
@@ -1169,17 +1176,20 @@ def reportes_por_revisar():
                             detalles = {}
                     reporte['detalles_reporte'] = detalles
                     
-                    if detalles and detalles.get('motivo') == 'Diferencia de Monto':
+                    # --- INICIO DE LA CORRECCIÓN ---
+                    # Ahora se aceptan ambos motivos para clasificar un reporte como "Con Diferencia".
+                    motivo = detalles.get('motivo', '')
+                    if motivo in ['Diferencia de Monto', 'Discrepancia Verificada por Admin']:
                         reportes_categorizados['diferencias'].append(reporte)
                     else:
                         reportes_categorizados['otros_rechazados'].append(reporte)
+                    # --- FIN DE LA CORRECCIÓN ---
 
     except (psycopg2.Error, json.JSONDecodeError) as e:
         logging.error(f"Error al obtener y categorizar reportes: {e}")
         flash("Error al cargar la lista de reportes.", "danger")
 
     return render_template('reportes_por_revisar.html', reportes=reportes_categorizados)
-
 
 @app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
 @admin_required
@@ -3613,43 +3623,88 @@ def portal_diferencia_reportar(bulk_id, order_id):
             cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
             tasa_hoy = cur.fetchone()
 
+            # --- INICIO DE LA CORRECCIÓN ---
             # Calcula los montos a mostrar en el formulario
             tasa_bcv = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
             
             # El monto en la orden de pago está en la moneda del bulk (VES o USD)
-            monto_a_pagar = order['amount']
+            monto_a_pagar_diferencia = order['amount']
             moneda_orden = order['currency']
             
             monto_a_pagar_bs = Decimal('0.0')
             monto_equivalente_usd = Decimal('0.0')
 
             if moneda_orden == 'VES':
-                monto_a_pagar_bs = monto_a_pagar
+                monto_a_pagar_bs = monto_a_pagar_diferencia
                 if tasa_bcv > 0:
                     monto_equivalente_usd = (monto_a_pagar_bs / tasa_bcv).quantize(Decimal('0.01'))
             else: # Es USD
-                monto_equivalente_usd = monto_a_pagar
+                monto_equivalente_usd = monto_a_pagar_diferencia
                 monto_a_pagar_bs = (monto_equivalente_usd * tasa_bcv).quantize(Decimal('0.01'))
+            # --- FIN DE LA CORRECCIÓN ---
 
     except psycopg2.Error as e:
         flash(f"Error al cargar la página de reporte: {e}", "error")
         return redirect(url_for('portal_dashboard'))
 
     if request.method == 'POST':
+        # (La lógica del POST para guardar el pago ya es correcta y no necesita cambios)
         pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
         
         if not pago_form.get('forma_pago'):
             flash('Debe seleccionar una forma de pago para continuar.', 'error')
+            # Pasa los valores recalculados de nuevo si hay un error en el post
             return render_template('portal_reportar_pago.html', 
                                    cliente=cliente, 
                                    tasa_hoy=tasa_hoy, 
                                    is_diferencia=True, 
                                    bulk_id=bulk_id, 
                                    order_id=order_id, 
-                                   monto_precargado_bs=monto_a_pagar_bs, 
-                                   monto_equivalente_usd=monto_equivalente_usd,
-                                   tasa_bcv=tasa_bcv,
+                                   monto_a_pagar_bs=monto_a_pagar_bs, 
+                                   monto_a_pagar_usd=monto_equivalente_usd,
                                    concepto_pago=f"Pago de diferencia (Orden #{order_id})")
+
+        try:
+            with conn.cursor() as cur:
+                monto_usd = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
+                monto_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
+                
+                pago_query = """
+                    INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
+                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
+                                    bulk_id, is_diferencia, cuotas_cubiertas)
+                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, TRUE, 0) RETURNING id;
+                """
+                cur.execute(pago_query, (
+                    cliente['id'], monto_usd, monto_bs, pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
+                    pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv,
+                    get_venezuela_current_datetime(), f"Pago de diferencia para Bulk #{bulk_id}", bulk_id
+                ))
+                
+                cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
+                recalcular_totales_bulk(bulk_id)
+
+                flash('✅ ¡Pago de diferencia reportado! Será verificado por un administrador.', 'success')
+                conn.commit()
+                return redirect(url_for('portal_dashboard'))
+
+        except (psycopg2.Error, ValueError, InvalidOperation) as e:
+            conn.rollback()
+            error_trace = traceback.format_exc()
+            logging.error(f"Error en portal_diferencia_reportar (POST):\n{error_trace}")
+            flash(f'Ocurrió un error al reportar el pago de la diferencia.', 'error')
+            return redirect(url_for('portal_dashboard'))
+
+    # Pasa los valores correctos a la plantilla para que se muestren
+    return render_template('portal_reportar_pago.html', 
+                           cliente=cliente, 
+                           tasa_hoy=tasa_hoy, 
+                           is_diferencia=True, 
+                           bulk_id=bulk_id, 
+                           order_id=order_id, 
+                           monto_a_pagar_bs=monto_a_pagar_bs, 
+                           monto_a_pagar_usd=monto_equivalente_usd,
+                           concepto_pago=f"Pago de diferencia (Orden #{order_id})")
 
         try:
             with conn.cursor() as cur:
