@@ -1175,16 +1175,23 @@ def reportes_por_revisar():
                             detalles = json.loads(detalles)
                         except json.JSONDecodeError:
                             detalles = {}
-                    reporte['detalles_reporte'] = detalles
                     
                     # --- INICIO DE LA CORRECCIÓN ---
-                    # Ahora se aceptan ambos motivos para clasificar un reporte como "Con Diferencia".
+                    # Nos aseguramos de que la clave 'monto_recibido_real' siempre exista
+                    # antes de pasar los datos a la plantilla para evitar el UndefinedError.
+                    if 'monto_recibido_real' not in (detalles or {}):
+                        if detalles is None:
+                            detalles = {}
+                        detalles['monto_recibido_real'] = '0.00' # Valor por defecto
+                    # --- FIN DE LA CORRECCIÓN ---
+
+                    reporte['detalles_reporte'] = detalles
+                    
                     motivo = detalles.get('motivo', '')
                     if motivo in ['Diferencia de Monto', 'Discrepancia Verificada por Admin']:
                         reportes_categorizados['diferencias'].append(reporte)
                     else:
                         reportes_categorizados['otros_rechazados'].append(reporte)
-                    # --- FIN DE LA CORRECCIÓN ---
 
     except (psycopg2.Error, json.JSONDecodeError) as e:
         logging.error(f"Error al obtener y categorizar reportes: {e}")
