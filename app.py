@@ -2397,8 +2397,10 @@ def reporte_flujo_caja():
 def perfil_cliente(cliente_id):
     conn = get_db()
     cliente, gestiones, historial_eventos = None, [], []
-    # MODIFICADO: Se cambia el nombre de la variable para mayor claridad
+    # --- INICIO DE LA CORRECCIÓN ---
+    # Se cambia el nombre de la variable para mayor claridad
     pagos_procesados = []
+    # --- FIN DE LA CORRECCIÓN ---
 
     if conn:
         try:
@@ -2409,7 +2411,8 @@ def perfil_cliente(cliente_id):
                     flash("Cliente no encontrado.", "error")
                     return redirect(url_for('consulta'))
                 
-                # MODIFICADO: La consulta ahora une con 'payment_bulks' para obtener toda la info del expediente
+                # --- INICIO DE LA CORRECCIÓN ---
+                # La consulta ahora une con 'payment_bulks' para obtener toda la info del expediente
                 cur.execute("""
                     SELECT p.*, 
                            b.status as bulk_status, 
@@ -2421,7 +2424,6 @@ def perfil_cliente(cliente_id):
                 """, (cliente_id,))
                 todos_los_pagos = cur.fetchall()
                 
-                # --- INICIO DE LA NUEVA LÓGICA PARA AGRUPAR PAGOS ---
                 # Este bloque procesa la lista de pagos para agrupar aquellos que pertenecen a un 'bulk'.
                 # Así, en la vista, se mostrará un solo item por cada proceso de inconsistencia.
                 processed_bulk_ids = set()
@@ -2446,7 +2448,7 @@ def perfil_cliente(cliente_id):
                         pago_dict = dict(pago)
                         pago_dict['tipo_vista'] = 'normal'
                         pagos_procesados.append(pago_dict)
-                # --- FIN DE LA NUEVA LÓGICA ---
+                # --- FIN DE LA CORRECCIÓN ---
 
                 cur.execute("""
                     SELECT g.nota, g.tipo_gestion, g.fecha_creacion, a.usuario as gestor_nombre FROM gestiones_cobranza g
@@ -2497,7 +2499,7 @@ def perfil_cliente(cliente_id):
             flash("Error al cargar el perfil del cliente.", "error")
             return redirect(url_for('consulta'))
             
-    # MODIFICADO: Se pasa la nueva lista 'pagos_procesados' a la plantilla
+    # Se pasa la nueva lista 'pagos_procesados' a la plantilla
     return render_template('cliente_perfil.html', cliente=cliente, pagos=pagos_procesados, gestiones=gestiones, historial_eventos=historial_eventos, anio_actual=get_venezuela_current_date().year, admin_rol=g.admin['rol'])
 
 @app.route('/api/bulk_detalle/<int:bulk_id>')
@@ -4573,7 +4575,6 @@ def ver_reporte(pago_id):
 
     try:
         with conn.cursor() as cur:
-            # ... (código para obtener el pago principal, sin cambios) ...
             query = """
                 SELECT p.*, c.nombre || ' ' || c.apellido as nombre_apellido, c.cedula, 
                        c.valor_cuota, c.inscripcion_monto, c.id as cliente_id
@@ -4638,12 +4639,10 @@ def ver_reporte(pago_id):
                 pago['monto_esperado_bs'] = pago['monto_bs']
                 pago['monto_dolares_referencia'] = orden_pago['amount'] if orden_pago and orden_pago['currency'] == 'USD' else pago['monto']
             else:
-                 # ... (lógica existente para pagos normales)
                 pago['monto_dolares_referencia'] = pago.get('valor_cuota', Decimal('0.0')) if 'Cuota' in pago.get('tipo_pago', '') else pago.get('monto', Decimal('0.0'))
                 pago['monto_esperado_bs'] = (pago['monto_dolares_referencia'] * tasa_exacta_para_calculo) if pago['monto_dolares_referencia'] and tasa_exacta_para_calculo else Decimal('0.0')
             # --- FIN DE LA CORRECCIÓN ---
 
-            # ... (código para procesar detalles y bitácora, sin cambios) ...
             detalles = pago.get('detalles_reporte')
             if isinstance(detalles, str):
                 try: pago['detalles_reporte'] = json.loads(detalles)
@@ -4652,8 +4651,7 @@ def ver_reporte(pago_id):
                 pago['detalles_reporte'] = {}
             
             eventos_unificados = []
-            # ... (código de bitácora sin cambios)
-
+            
             return render_template(
                 'ver_reporte.html',
                 pago=pago,
@@ -4668,8 +4666,12 @@ def ver_reporte(pago_id):
         error_trace = traceback.format_exc()
         logging.error(f"Error al cargar el reporte de pago {pago_id}:\n{error_trace}")
         flash(f"Ocurrió un error crítico al cargar el reporte.", "error")
-        return redirect(url_for('hub'))
-        return redirect(url_for('portal_dashboard'))
+        # --- INICIO DE LA CORRECCIÓN ---
+        # Se añade la lógica para redirigir al usuario correcto en caso de error.
+        if is_client_view:
+            return redirect(url_for('portal_dashboard'))
+        else:
+            return redirect(url_for('hub'))
 
 @app.route('/api/pago_detalle/<int:pago_id>')
 @admin_required

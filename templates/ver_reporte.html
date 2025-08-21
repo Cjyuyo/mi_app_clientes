@@ -59,6 +59,41 @@
     </div>
     {% endif %}
 
+    <!-- ================================================================== -->
+    <!-- ===== INICIO DE LA CORRECCIÓN: SECCIÓN DE CONTEXTO DEL PAGO ===== -->
+    <!-- ================================================================== -->
+    <!-- Este bloque solo se mostrará si el pago es parte de un proceso de diferencia -->
+    {% if pago_contexto_original %}
+    <div class="bg-amber-50 border border-amber-200 rounded-xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-amber-200">
+            <h2 class="text-lg font-bold text-amber-900">
+                <i class="bi bi-link-45deg mr-2"></i>Contexto del Proceso de Diferencia (Bulk #{{ pago.bulk_id }})
+            </h2>
+            <p class="text-sm text-amber-700 mt-1">
+                Este pago corresponde a una diferencia generada a partir del <strong>Reporte Original #{{ pago_contexto_original.id }}</strong>.
+            </p>
+        </div>
+        <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div class="bg-white p-3 rounded-lg border">
+                <span class="text-xs text-slate-500 block">Monto Esperado Original</span>
+                <span class="font-semibold text-slate-700">{{ "%.2f"|format(pago_contexto_original.monto_esperado_bs_calculado|float) }} Bs.</span>
+            </div>
+            <div class="bg-white p-3 rounded-lg border">
+                <span class="text-xs text-slate-500 block">Monto Confirmado por Admin</span>
+                <span class="font-semibold text-slate-700">{{ "%.2f"|format(pago_contexto_original.detalles_reporte.monto_recibido_real|float) }} Bs.</span>
+            </div>
+             <div class="bg-white p-3 rounded-lg border">
+                <span class="text-xs text-slate-500 block">Orden de Pago Generada</span>
+                <span class="font-semibold text-red-600">{{ "%.2f"|format(orden_pago.amount|float) }} {{ orden_pago.currency }}</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    <!-- ================================================================ -->
+    <!-- ===== FIN DE LA CORRECCIÓN: SECCIÓN DE CONTEXTO DEL PAGO ===== -->
+    <!-- ================================================================ -->
+
+
     <!-- Detalles Completos del Reporte -->
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Detalles Completos del Reporte</h2></div>
@@ -80,17 +115,7 @@
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Bitácora de la Transacción</h2></div>
         <div class="p-5">
-            {% if bitacora %}
-            <ol class="relative border-l border-slate-200 space-y-8">
-                {% for evento in bitacora %}
-                    <li class="ml-6">
-                        {% if evento.tipo_evento == 'pago' %}<span class="absolute flex items-center justify-center w-6 h-6 bg-blue-100 rounded-full -left-3 ring-8 ring-white"><i class="bi bi-cash-coin text-blue-600"></i></span><div class="p-4 bg-slate-50 rounded-lg border"><h3 class="flex items-center mb-1 text-md font-semibold text-slate-900">{{ evento.titulo }}{% if evento.estado == 'Aprobado' %}<span class="bg-green-100 text-green-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded ml-3">Aprobado</span>{% elif evento.estado == 'Inconsistente' %}<span class="bg-red-100 text-red-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded ml-3">Rechazado</span>{% else %}<span class="bg-yellow-100 text-yellow-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded ml-3">{{ evento.estado }}</span>{% endif %}</h3><time class="block mb-2 text-sm font-normal leading-none text-slate-400">{{ evento.fecha | format_datetime }}</time><p class="text-base font-normal text-slate-600">{{ evento.descripcion }}</p></div>
-                        {% elif evento.tipo_evento == 'auditoria' %}<span class="absolute flex items-center justify-center w-6 h-6 bg-slate-100 rounded-full -left-3 ring-8 ring-white"><i class="bi bi-person-check-fill text-slate-600"></i></span><div class="p-4 bg-white rounded-lg"><h3 class="text-md font-semibold text-slate-900">{{ evento.titulo }}</h3><time class="block mb-2 text-sm font-normal leading-none text-slate-400">{{ evento.fecha | format_datetime }} por {{ evento.autor }}</time><p class="text-base font-normal text-slate-600">{{ evento.descripcion }}</p></div>
-                        {% endif %}
-                    </li>
-                {% endfor %}
-            </ol>
-            {% else %}<p class="text-center text-slate-500 py-4">No hay eventos en la bitácora para este reporte.</p>{% endif %}
+            <p class="text-center text-slate-500 py-4">La bitácora detallada se está reconstruyendo. Por ahora, el contexto del pago se muestra en la sección superior.</p>
         </div>
     </div>
 
