@@ -2849,7 +2849,7 @@ def registrar_pago(client_id):
 def conciliar_pago(pago_id):
     """
     Concilia un pago pendiente o un 'bulk' de pagos completo.
-    - Si es un pago simple, lo aplica directamente.
+    - Si es un pago simple, lo aprueba si es necesario y luego lo aplica.
     - Si es parte de un 'bulk', consolida todos los pagos del lote,
       actualiza el estado del cliente con el monto total y genera un único recibo.
     """
@@ -2867,6 +2867,18 @@ def conciliar_pago(pago_id):
             if not pago_inicial:
                 flash("El pago a conciliar no existe.", 'error')
                 return redirect(url_for('pagos_por_conciliar'))
+
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Si el reporte viene directamente de la vista de revisión, se aprueba primero.
+            if pago_inicial['estado_reporte'] == 'Pendiente de Revision':
+                cur.execute(
+                    "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
+                    (g.admin['id'], pago_id)
+                )
+                # Se vuelve a cargar el pago para tener el estado actualizado en la variable.
+                cur.execute("SELECT * FROM pagos WHERE id = %s FOR UPDATE", (pago_id,))
+                pago_inicial = cur.fetchone()
+            # --- FIN DE LA CORRECCIÓN ---
 
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s FOR UPDATE", (pago_inicial['cliente_id'],))
             cliente = cur.fetchone()
@@ -2886,7 +2898,6 @@ def conciliar_pago(pago_id):
 
                 monto_total_a_aplicar = bulk['total_verified']
                 
-                # Lógica de cuotas usando el monto total del bulk
                 valor_cuota = Decimal(cliente.get('valor_cuota') or 0)
                 if valor_cuota <= 0: raise ValueError('El cliente no tiene un valor de cuota válido para conciliar el lote.')
 
@@ -2898,8 +2909,6 @@ def conciliar_pago(pago_id):
                 nbf, ncpp, ncpr = bp, cpp + pph, cpr + rph
                 
                 cur.execute("UPDATE clientes SET cuotas_pagadas_progresivas = %s, cuotas_pagadas_regresivas = %s, balance_regresivo = %s WHERE id = %s;", (ncpp, ncpr, nbf, cliente['id']))
-
-                # Actualizar estados
                 cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE bulk_id = %s", (admin_id, bulk_id))
                 cur.execute("UPDATE payment_bulks SET status = 'RECONCILED' WHERE id = %s", (bulk_id,))
                 
@@ -2925,8 +2934,6 @@ def conciliar_pago(pago_id):
                         cur.execute("UPDATE clientes SET inscripcion_pagada = %s, proceso = 'INSCRITO' WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
                         cur.execute("UPDATE pagos SET tipo_pago = 'Inscripción Finalizada', estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
                         
-                        # --- INICIO DE LA CORRECCIÓN ---
-                        # Se llama a la función para generar comisiones justo después de completar la inscripción.
                         try:
                             calcular_y_guardar_comisiones(
                                 contrato_nro=cliente['contrato_nro'],
@@ -2939,7 +2946,6 @@ def conciliar_pago(pago_id):
                         except Exception as e:
                             logging.error(f"FALLO AL GENERAR COMISIONES para contrato {cliente['contrato_nro']}: {e}")
                             flash_msg = "¡Inscripción completada! El cliente ahora es Inscrito, pero HUBO UN ERROR al generar las comisiones. Revise los logs."
-                        # --- FIN DE LA CORRECCIÓN ---
                     else:
                         cur.execute("UPDATE clientes SET inscripcion_pagada = %s WHERE id = %s", (nueva_inscripcion_pagada, cliente['id']))
                         cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s WHERE id = %s", (admin_id, pago_id))
