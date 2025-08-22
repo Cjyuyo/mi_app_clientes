@@ -34,7 +34,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 load_dotenv()
 app = Flask(__name__)
-app.jinja_env.filters['format_decimal'] = format_decimal_smart
 app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-desarrollo')
 
 VENEZUELA_TZ = pytz.timezone('America/Caracas')
@@ -50,6 +49,26 @@ def get_venezuela_current_date():
 # =================================================================================
 # ===== FUNCIONES DE UTILIDAD Y FILTROS JINJA =====
 # =================================================================================
+
+def format_decimal_smart(value):
+    """
+    Filtro de Jinja para formatear un número decimal con alta precisión,
+    eliminando los ceros finales innecesarios.
+    Ej: 150.5000 -> '150.5', 200.0000 -> '200', 123.4567 -> '123.4567'
+    """
+    if value is None:
+        return ''
+    try:
+        # Convierte el valor a un objeto Decimal para un manejo preciso
+        d = Decimal(value)
+        # Normaliza el número para eliminar ceros a la derecha y lo convierte a string
+        return d.normalize().to_eng_string()
+    except (TypeError, InvalidOperation):
+        return str(value)
+
+# --- Registro del filtro personalizado en Jinja ---
+app.jinja_env.filters['format_decimal'] = format_decimal_smart
+
 
 def get_proximo_dia_habil(fecha):
     """Calcula el próximo día hábil a partir de una fecha dada, saltando fines de semana."""
