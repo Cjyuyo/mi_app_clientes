@@ -9,7 +9,6 @@
 
 {% block body %}
 <div class="max-w-4xl mx-auto space-y-8">
-    <!-- Encabezado de la página -->
     <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
             <h1 class="text-3xl font-bold text-slate-800">
@@ -28,7 +27,6 @@
         {% endif %}
     </div>
 
-    <!-- Bloque de Comparación de Montos -->
     {% if not pago.bulk_id %}
         {% if pago.forma_pago == 'Binance' %}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -53,16 +51,13 @@
             <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
                 <h3 class="font-semibold text-slate-500 text-sm mb-1">Monto Esperado (Bs.)</h3>
                 <p class="text-3xl font-bold text-slate-800">{{ "%.2f"|format(pago.monto_esperado_bs|float) }}</p>
-                <!-- --- INICIO DE LA CORRECCIÓN --- -->
-                <!-- Ahora se muestran ambas tasas para mayor claridad -->
                 <div class="text-xs text-slate-400 mt-1 space-y-1">
                     <p><strong>Tasa BCV Oficial:</strong> {{ "Bs {:,.2f}".format(pago.tasa_dia) if pago.tasa_dia else 'N/A' }}</p>
                     {% if pago.tasa_efectiva_cliente %}
                     <p><strong>Tasa Cliente (Efectiva):</strong> <span class="font-semibold text-slate-600">{{ "Bs {:,.4f}".format(pago.tasa_efectiva_cliente) }}</span></p>
                     {% endif %}
                 </div>
-                <!-- --- FIN DE LA CORRECCIÓN --- -->
-            </div>
+                </div>
             {% set monto_reportado_redondeado = pago.monto_bs|float|round(2) %}{% set monto_esperado_redondeado = pago.monto_esperado_bs|float|round(2) %}{% set diferencia = monto_reportado_redondeado - monto_esperado_redondeado %}
             <div class="bg-white p-5 rounded-xl shadow-sm border {% if diferencia < -0.01 %} border-red-300 bg-red-50 {% else %} border-green-300 bg-green-50 {% endif %}">
                 <h3 class="font-semibold text-sm text-slate-600">Monto Reportado (Bs.)</h3>
@@ -73,9 +68,6 @@
         {% endif %}
     {% endif %}
 
-    <!-- ================================================================== -->
-    <!-- ===== SECCIÓN DE GESTIÓN DE DIFERENCIAS (SIN CAMBIOS) ===== -->
-    <!-- ================================================================== -->
     {% if pago.bulk_id %}
     <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         <div class="p-5 border-b border-slate-200">
@@ -145,7 +137,6 @@
     </div>
     {% endif %}
     
-    <!-- Detalles Completos del Reporte (SIN CAMBIOS) -->
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Detalles Completos del Reporte</h2></div>
         <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -162,7 +153,6 @@
         </div>
     </div>
     
-    <!-- Acciones de Validación (SIN CAMBIOS) -->
     {% if is_admin_view and not pago.bulk_id %}
         <div x-data="{ showDiferenciaModal: false }">
             {% if pago.estado_reporte == 'Pendiente de Revision' %}
@@ -177,7 +167,6 @@
             </div>
             {% endif %}
 
-            <!-- Modal para Manejar Diferencia (SIN CAMBIOS) -->
             <div x-show="showDiferenciaModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 z-10 overflow-y-auto bg-gray-500 bg-opacity-75" style="display: none;">
                 <div class="flex items-center justify-center min-h-screen">
                     <div @click.away="showDiferenciaModal = false" class="bg-white rounded-lg shadow-xl transform transition-all sm:max-w-lg sm:w-full">
@@ -214,7 +203,6 @@
         </div>
     {% endif %}
 
-    <!-- Acción Final de Conciliación (SIN CAMBIOS) -->
     {% if is_admin_view and pago.bulk_id %}
     <div class="bg-white rounded-xl shadow-sm">
         <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Acción Final</h2></div>
