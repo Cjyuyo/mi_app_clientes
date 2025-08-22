@@ -57,7 +57,6 @@
                     <p><strong>Tasa BCV Oficial:</strong> {{ pago.tasa_dia | format_decimal if pago.tasa_dia else 'N/A' }} Bs</p>
                 </div>
             </div>
-            <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
             {% set diferencia = (pago.monto_bs|float) - (pago.monto_esperado_bs|float) %}
             <div class="bg-white p-5 rounded-xl shadow-sm border {% if diferencia < -0.01 %} border-red-300 bg-red-50 {% else %} border-green-300 bg-green-50 {% endif %}">
                 <h3 class="font-semibold text-sm text-slate-600">Monto Reportado (Bs.)</h3>
@@ -69,7 +68,6 @@
                     {% if (diferencia|abs) > 0.01 %}<p class="font-semibold {% if diferencia < 0 %} text-red-600 {% else %} text-green-600 {% endif %}">Diferencia: {{ diferencia | format_decimal }} Bs.</p>{% endif %}
                 </div>
             </div>
-            <!-- ===== FIN DE LA CORRECCIÓN ===== -->
         </div>
         {% endif %}
     {% endif %}
