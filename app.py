@@ -1133,6 +1133,9 @@ def reportes_por_revisar():
 
     try:
         with conn.cursor() as cur:
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se simplifica la consulta para asegurar que todos los reportes pendientes de revisión aparezcan.
+            # La condición principal ahora es simplemente que el estado del reporte sea 'Pendiente de Revision'.
             cur.execute("""
                 SELECT p.*, c.nombre, c.apellido, c.cedula, c.valor_cuota, c.inscripcion_monto,
                        b.expected_amount as bulk_expected_amount,
@@ -1140,45 +1143,30 @@ def reportes_por_revisar():
                 FROM pagos p 
                 JOIN clientes c ON p.cliente_id = c.id
                 LEFT JOIN payment_bulks b ON p.bulk_id = b.id
-                WHERE p.reportado_por_cliente = TRUE 
-                  AND p.estado_reporte IN ('Pendiente de Revision', 'Inconsistente')
-                  AND p.estado_pago = 'Pendiente'
+                WHERE p.estado_reporte = 'Pendiente de Revision'
                 ORDER BY p.fecha_creacion ASC;
             """)
+            # --- FIN DE LA CORRECIÓN ---
+            
             todos_los_reportes = cur.fetchall()
 
-            bulks_procesados = set()
             for reporte_row in todos_los_reportes:
                 reporte = dict(reporte_row)
                 
-                if reporte.get('bulk_id'):
-                    bulk_id = reporte['bulk_id']
-                    if bulk_id not in bulks_procesados:
-                        reporte['monto_esperado_bs'] = reporte['bulk_expected_amount']
-                        reporte['monto_reportado_bs'] = reporte['bulk_total_verified']
-                        reportes_categorizados['diferencias'].append(reporte)
-                        bulks_procesados.add(bulk_id)
-                
-                elif reporte['estado_reporte'] == 'Pendiente de Revision':
-                    # --- INICIO DE LA CORRECCIÓN ---
-                    # REGLA: Se aplica la subconsulta de la tasa para los pagos pendientes.
-                    fecha_del_pago = reporte.get('fecha_pago', get_venezuela_current_date())
-                    cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
-                    tasa_row = cur.fetchone()
-                    tasa_exacta = tasa_row['tasa'] if tasa_row and tasa_row['tasa'] else reporte.get('tasa_dia')
+                # REGLA: Se aplica la subconsulta de la tasa para los pagos pendientes.
+                fecha_del_pago = reporte.get('fecha_pago', get_venezuela_current_date())
+                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
+                tasa_row = cur.fetchone()
+                tasa_exacta = tasa_row['tasa'] if tasa_row and tasa_row['tasa'] else reporte.get('tasa_dia')
 
-                    monto_dolares_referencia = Decimal('0.0')
-                    if 'Cuota' in reporte.get('tipo_pago', ''):
-                        monto_dolares_referencia = reporte.get('valor_cuota', Decimal('0.0'))
-                    elif 'Inscripción' in reporte.get('tipo_pago', ''):
-                        monto_dolares_referencia = reporte.get('inscripcion_monto', Decimal('0.0'))
-                    
-                    reporte['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta) if monto_dolares_referencia and tasa_exacta else Decimal('0.0')
-                    # --- FIN DE LA CORRECCIÓN ---
-                    reportes_categorizados['pendientes'].append(reporte)
+                monto_dolares_referencia = Decimal('0.0')
+                if 'Cuota' in reporte.get('tipo_pago', ''):
+                    monto_dolares_referencia = reporte.get('valor_cuota', Decimal('0.0'))
+                elif 'Inscripción' in reporte.get('tipo_pago', ''):
+                    monto_dolares_referencia = reporte.get('inscripcion_monto', Decimal('0.0'))
                 
-                elif reporte['estado_reporte'] == 'Inconsistente':
-                    reportes_categorizados['otros_rechazados'].append(reporte)
+                reporte['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta) if monto_dolares_referencia and tasa_exacta else Decimal('0.0')
+                reportes_categorizados['pendientes'].append(reporte)
 
     except (psycopg2.Error, json.JSONDecodeError) as e:
         logging.error(f"Error al obtener y categorizar reportes: {e}")
