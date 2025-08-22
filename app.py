@@ -3542,14 +3542,6 @@ def portal_reportar_pago():
         
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
-                tasa_del_dia_row = cur.fetchone()
-                tasa_bcv_dia = tasa_del_dia_row['tasa'] if tasa_del_dia_row and tasa_del_dia_row['tasa'] else Decimal('0.0')
-
-                if tasa_bcv_dia == Decimal('0.0') and pago_form.get('forma_pago') not in ['Binance']:
-                    flash('No se pudo reportar el pago porque no hay una tasa de cambio configurada para hoy.', 'danger')
-                    return redirect(url_for('portal_dashboard'))
-
                 monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
                 
                 if inscripcion_pagada < inscripcion_total:
@@ -3581,7 +3573,7 @@ def portal_reportar_pago():
                 cur.execute(pago_query, (
                     cliente['id'], monto_usd_a_guardar, monto_reportado_bs, tipo_pago, 
                     pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
-                    pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_dia,
+                    pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_calculo,
                     get_venezuela_current_datetime(), concepto, bulk_id, is_diferencia
                 ))
                 
@@ -4104,9 +4096,6 @@ def portal_corregir_reporte(pago_id):
 @app.route('/portal/pagar_inscripcion', methods=['GET', 'POST'])
 @portal_login_required
 def portal_pagar_inscripcion():
-    """
-    Ruta para que un cliente reporte el pago de su inscripción.
-    """
     conn = get_db()
     if not conn:
         flash('No se pudo conectar con la base de datos.', 'error')
@@ -4117,7 +4106,7 @@ def portal_pagar_inscripcion():
         cliente = cur.fetchone()
         
         today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
-        cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
+        cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
         tasas_hoy = cur.fetchone()
 
     if not cliente:
@@ -4133,20 +4122,14 @@ def portal_pagar_inscripcion():
         return redirect(url_for('portal_dashboard'))
     
     monto_restante = inscripcion_monto - inscripcion_pagada
+    tasa_bcv_calculo = tasas_hoy['tasa'] if tasas_hoy and tasas_hoy['tasa'] else Decimal('0.0')
+    monto_a_pagar_bs = monto_restante * tasa_bcv_calculo
 
     if request.method == 'POST':
         pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
         
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
-                tasa_del_dia_row = cur.fetchone()
-                tasa_bcv_dia = tasa_del_dia_row['tasa'] if tasa_del_dia_row and tasa_del_dia_row['tasa'] else Decimal('0.0')
-
-                if tasa_bcv_dia == Decimal('0.0') and pago_form.get('forma_pago') not in ['Binance', 'Efectivo']:
-                    flash('No se pudo reportar el pago porque no hay una tasa de cambio configurada para hoy.', 'danger')
-                    return redirect(url_for('portal_dashboard'))
-
                 monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
                 monto_usd_a_guardar = monto_restante
                 
@@ -4175,7 +4158,7 @@ def portal_pagar_inscripcion():
                     monto_usd_a_guardar,
                     monto_reportado_bs,
                     pago_form['forma_pago'], pago_form['fecha_pago'], pago_form.get('pago_en'), 
-                    concepto, pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_dia, 
+                    concepto, pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_calculo, 
                     get_venezuela_current_datetime(), detalles_json, pago_origen_id
                 ))
                 conn.commit()
@@ -4185,7 +4168,7 @@ def portal_pagar_inscripcion():
             conn.rollback()
             flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
 
-    return render_template('portal_pagar_inscripcion.html', cliente=cliente, monto_restante=monto_restante, tasas_hoy=tasas_hoy)
+    return render_template('portal_pagar_inscripcion.html', cliente=cliente, monto_restante=monto_restante, tasas_hoy=tasas_hoy, monto_a_pagar_bs=monto_a_pagar_bs)
 
 @app.route('/portal/estado_cuenta')
 @portal_login_required
