@@ -54,7 +54,9 @@
                 <h3 class="font-semibold text-slate-500 text-sm mb-1">Monto Esperado (Bs.)</h3>
                 <p class="text-3xl font-bold text-slate-800">{{ pago.monto_esperado_bs | format_decimal }}</p>
                 <div class="text-xs text-slate-400 mt-1 space-y-1">
+                    <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
                     <p><strong>Tasa BCV Oficial:</strong> {{ pago.tasa_dia | format_decimal if pago.tasa_dia else 'N/A' }} Bs</p>
+                    <!-- ===== FIN DE LA CORRECCIÓN ===== -->
                 </div>
             </div>
             {% set diferencia = (pago.monto_bs|float) - (pago.monto_esperado_bs|float) %}
