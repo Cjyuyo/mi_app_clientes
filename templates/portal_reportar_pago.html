@@ -19,9 +19,8 @@
 
         <!-- Campos Ocultos -->
         <input type="hidden" name="forma_pago" x-model="formaPago">
-        <input type="hidden" name="tasa_dia" :value="tasa">
-        <!-- CORRECCIÓN: El valor de monto_bs ahora se toma del input del usuario -->
-        <input type="hidden" name="monto_bs" x-model="montoBsUsuario">
+        <input type="hidden" name="tasa_dia" value="{{ tasa_hoy.tasa if tasa_hoy else 0 }}">
+        <input type="hidden" name="monto_bs" value="{{ monto_a_pagar_bs }}">
 
         {% if is_diferencia %}
             <input type="hidden" name="is_diferencia" value="true">
@@ -63,32 +62,20 @@
                     <label for="monto_usd" class="block text-sm font-medium text-slate-700" x-text="pagoEn === 'USDT' ? 'Monto a Pagar (USDT)' : 'Monto de Referencia (USD)'">Monto de Referencia (USD)</label>
                     <input type="text" id="monto_usd" name="monto"
                            class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm"
-                           :value="montoUsd.toFixed(2)" readonly>
+                           value="{{ '%.2f'|format(monto_a_pagar_usd|float) }}" readonly>
                 </div>
                 
-                <!-- CAMBIO: Campo para que el usuario ingrese el monto en Bs -->
+                <!-- CAMBIO CLAVE: El monto en Bs ahora es fijo y no editable -->
                 <div x-show="pagoEn === 'Dolar/BCV'">
                     <label for="monto_bs_input" class="block text-sm font-medium text-slate-700">Monto Pagado (Bs)</label>
-                    <input type="number" step="0.01" id="monto_bs_input"
-                           class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                           x-model="montoBsUsuario" placeholder="Ej: 44201.06" :required="pagoEn === 'Dolar/BCV'">
+                    <input type="text" id="monto_bs_input"
+                           class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm"
+                           value="{{ '%.2f'|format(monto_a_pagar_bs|float) }}" readonly>
                 </div>
             </div>
-            
-            <!-- ===== INICIO DEL COMPONENTE DE TASA EFECTIVA ===== -->
-            <div x-show="pagoEn === 'Dolar/BCV'">
-                <input type="hidden" id="monto_referencia_usd" value="{{ monto_a_pagar_usd or cliente.valor_cuota }}">
-                <div id="tasa-efectiva-container" class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-center" style="display: none;">
-                    <p class="text-sm text-blue-700">
-                        Tasa de cambio efectiva: 
-                        <strong id="tasa-efectiva-valor" class="text-lg">Bs 0.0000</strong>
-                    </p>
-                </div>
-            </div>
-            <!-- ===== FIN DEL COMPONENTE DE TASA EFECTIVA ===== -->
         </div>
 
-        <!-- Sección Información de la Transacción -->
+        <!-- Sección Información de la Transacción (Sin cambios) -->
         <div>
             <h2 class="text-lg font-semibold text-slate-700 border-b pb-2 mb-4">Información de la Transacción</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -242,9 +229,6 @@
             pagoEn: 'Dolar/BCV',
             formaPago: 'Transferencia Bancaria',
             formaPagoVisible: 'Transferencia Bancaria',
-            montoUsd: parseFloat('{{ monto_a_pagar_usd | default(cliente.valor_cuota) | default(0) }}'),
-            montoBsUsuario: '{{ monto_a_pagar_bs | default(0) if is_diferencia else "" }}',
-            tasa: parseFloat('{{ (tasa_hoy.tasa if tasa_hoy else 0) | string }}'),
 
             init() {
                 this.$watch('pagoEn', (newValue) => {
@@ -262,38 +246,6 @@
             },
         }));
     });
-
-    // ===== INICIO SCRIPT TASA EFECTIVA =====
-    document.addEventListener('DOMContentLoaded', function() {
-        const montoBsInput = document.getElementById('monto_bs_input');
-        const montoUsdRefEl = document.getElementById('monto_referencia_usd');
-        
-        const container = document.getElementById('tasa-efectiva-container');
-        const valorDisplay = document.getElementById('tasa-efectiva-valor');
-
-        if (montoBsInput && montoUsdRefEl) {
-            const montoUsdRef = parseFloat(montoUsdRefEl.value);
-            if (montoUsdRef > 0) {
-                // Función para actualizar la tasa
-                const updateRate = () => {
-                    const montoBs = parseFloat(montoBsInput.value);
-                    if (montoBs && montoBs > 0) {
-                        const tasaEfectiva = montoBs / montoUsdRef;
-                        valorDisplay.textContent = 'Bs ' + tasaEfectiva.toLocaleString('es-VE', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
-                        container.style.display = 'block';
-                    } else {
-                        container.style.display = 'none';
-                    }
-                };
-                
-                // Llama a la función al cargar la página por si hay un valor precargado
-                updateRate();
-                // Llama a la función cada vez que el usuario escribe
-                montoBsInput.addEventListener('input', updateRate);
-            }
-        }
-    });
-    // ===== FIN SCRIPT TASA EFECTIVA =====
 
     document.getElementById('fecha_pago').valueAsDate = new Date();
 </script>

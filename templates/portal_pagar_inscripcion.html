@@ -16,9 +16,8 @@
         
         <!-- Campos Ocultos -->
         <input type="hidden" name="forma_pago" x-model="formaPago">
-        <input type="hidden" name="tasa_dia" :value="tasa">
-        <!-- CORRECCIÓN: El valor de monto_bs ahora se toma del input del usuario -->
-        <input type="hidden" name="monto_bs" x-model="montoBsUsuario">
+        <input type="hidden" name="tasa_dia" value="{{ tasas_hoy.tasa if tasas_hoy else 0 }}">
+        <input type="hidden" name="monto_bs" value="{{ (monto_restante * (tasas_hoy.tasa if tasas_hoy else 0)) }}">
 
         <div class="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg text-center">
             <p class="font-semibold">Monto Pendiente de Inscripción:</p>
@@ -59,35 +58,20 @@
                     <label for="monto_usd" class="block text-sm font-medium text-slate-700" x-text="pagoEn === 'USDT' ? 'Monto a Pagar (USDT)' : 'Monto de Referencia (USD)'">Monto de Referencia (USD)</label>
                     <input type="text" id="monto_usd" name="monto"
                            class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm"
-                           :value="montoUsd.toFixed(2)" readonly>
+                           value="{{ '%.2f'|format(monto_restante|float) }}" readonly>
                 </div>
                 
-                <!-- CORRECCIÓN: Se añade un campo para que el usuario ingrese el monto en Bs -->
+                <!-- CAMBIO CLAVE: El monto en Bs ahora es fijo y no editable -->
                 <div x-show="pagoEn === 'Dolar/BCV'">
-                    <label for="monto_bs_input" class="block text-sm font-medium text-slate-700">Monto Pagado (Bs)</label>
-                     <input type="number" step="0.01" id="monto_bs_input"
-                           class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                           x-model="montoBsUsuario" placeholder="Ej: 44201.06" :required="pagoEn === 'Dolar/BCV'">
+                    <label for="monto_bs_input" class="block text-sm font-medium text-slate-700">Monto a Pagar (Bs)</label>
+                     <input type="text" id="monto_bs_input"
+                           class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm"
+                           value="{{ (monto_restante * (tasas_hoy.tasa if tasas_hoy else 0))|round(2, 'floor') }}" readonly>
                 </div>
             </div>
-            
-            <!-- ===== INICIO DEL COMPONENTE DE TASA EFECTIVA ===== -->
-            <div x-show="pagoEn === 'Dolar/BCV'">
-                <!-- Campo Oculto para la Referencia en USD -->
-                <input type="hidden" id="monto_referencia_usd" value="{{ monto_restante }}">
-
-                <!-- Contenedor para mostrar la Tasa Efectiva -->
-                <div id="tasa-efectiva-container" class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-center" style="display: none;">
-                    <p class="text-sm text-blue-700">
-                        Tasa de cambio efectiva: 
-                        <strong id="tasa-efectiva-valor" class="text-lg">Bs 0.0000</strong>
-                    </p>
-                </div>
-            </div>
-            <!-- ===== FIN DEL COMPONENTE DE TASA EFECTIVA ===== -->
         </div>
 
-        <!-- Sección Información de la Transacción -->
+        <!-- Sección Información de la Transacción (Sin cambios) -->
         <div>
             <h2 class="text-lg font-semibold text-slate-700 border-b pb-2 mb-4">Información de la Transacción</h2>
              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -230,9 +214,6 @@ document.addEventListener('alpine:init', () => {
         pagoEn: 'Dolar/BCV',
         formaPago: 'Transferencia Bancaria',
         formaPagoVisible: 'Transferencia Bancaria',
-        montoUsd: parseFloat('{{ monto_restante | default(0) }}'),
-        montoBsUsuario: '', // Nuevo: campo para el input del usuario
-        tasa: parseFloat('{{ (tasas_hoy.tasa if tasas_hoy else 0) | string }}'),
         
         init() {
             this.$watch('pagoEn', (newValue) => {
@@ -250,33 +231,6 @@ document.addEventListener('alpine:init', () => {
         }
     }));
 });
-
-// ===== INICIO SCRIPT TASA EFECTIVA =====
-document.addEventListener('DOMContentLoaded', function() {
-    const montoBsInput = document.getElementById('monto_bs_input');
-    const montoUsdRefEl = document.getElementById('monto_referencia_usd');
-    
-    const container = document.getElementById('tasa-efectiva-container');
-    const valorDisplay = document.getElementById('tasa-efectiva-valor');
-
-    if (montoBsInput && montoUsdRefEl) {
-        const montoUsdRef = parseFloat(montoUsdRefEl.value);
-        if (montoUsdRef > 0) {
-            montoBsInput.addEventListener('input', function() {
-                const montoBs = parseFloat(this.value);
-                
-                if (montoBs && montoBs > 0) {
-                    const tasaEfectiva = montoBs / montoUsdRef;
-                    valorDisplay.textContent = 'Bs ' + tasaEfectiva.toLocaleString('es-VE', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
-                    container.style.display = 'block';
-                } else {
-                    container.style.display = 'none';
-                }
-            });
-        }
-    }
-});
-// ===== FIN SCRIPT TASA EFECTIVA =====
 
 document.getElementById('fecha_pago').valueAsDate = new Date();
 </script>
