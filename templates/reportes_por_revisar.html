@@ -2,154 +2,139 @@
 
 {% block title %}Reportes de Pago por Revisar{% endblock %}
 
-{% block body %}
-<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-3xl font-bold text-slate-800">Reportes de Pago por Revisar</h1>
-    </div>
+{% block page_title %}Reportes por Revisar{% endblock %}
 
-    <!-- Pestañas de Navegación -->
-    <div class="mb-6">
-        <div class="border-b border-gray-200">
-            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-                <a href="#pendientes" class="tab-link active-tab whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                    Pendientes <span class="bg-blue-100 text-blue-600 ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium">{{ reportes.pendientes|length }}</span>
+{% block body %}
+<div class="max-w-7xl mx-auto space-y-6 lg:space-y-8 font-sans">
+
+    <!-- Encabezado Principal -->
+    <header>
+        <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Reportes de Pago por Revisar</h1>
+        <p class="text-slate-500 mt-1">Gestiona los pagos reportados por los clientes que requieren tu atención.</p>
+    </header>
+
+    <!-- Pestañas de Navegación con Alpine.js para la interactividad -->
+    <div x-data="{ activeTab: 'pendientes' }">
+        <div class="border-b border-slate-200">
+            <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+                <!-- Pestaña Pendientes -->
+                <a href="#" @click.prevent="activeTab = 'pendientes'"
+                   :class="{ 'border-blue-600 text-blue-600': activeTab === 'pendientes', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'pendientes' }"
+                   class="whitespace-nowrap py-3 px-1 border-b-2 font-semibold text-sm transition-colors">
+                    Pendientes
+                    <span :class="{ 'bg-blue-100 text-blue-600': activeTab === 'pendientes', 'bg-slate-100 text-slate-600': activeTab !== 'pendientes' }"
+                          class="ml-2 py-0.5 px-2 rounded-full text-xs font-medium">
+                        {{ reportes.pendientes|length }}
+                    </span>
                 </a>
-                <a href="#diferencias" class="tab-link whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                    Con Diferencia <span class="bg-yellow-100 text-yellow-800 ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium">{{ reportes.diferencias|length }}</span>
-                </a>
-                <a href="#otros-rechazados" class="tab-link whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                    Otros Rechazados <span class="bg-red-100 text-red-600 ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium">{{ reportes.otros_rechazados|length }}</span>
+                <!-- Pestaña Con Diferencia (si aplica en tu lógica) -->
+                <a href="#" @click.prevent="activeTab = 'diferencias'"
+                   :class="{ 'border-amber-500 text-amber-600': activeTab === 'diferencias', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'diferencias' }"
+                   class="whitespace-nowrap py-3 px-1 border-b-2 font-semibold text-sm transition-colors">
+                    Con Diferencia
+                    <span :class="{ 'bg-amber-100 text-amber-600': activeTab === 'diferencias', 'bg-slate-100 text-slate-600': activeTab !== 'diferencias' }"
+                          class="ml-2 py-0.5 px-2 rounded-full text-xs font-medium">
+                        {{ reportes.diferencias|length }}
+                    </span>
                 </a>
             </nav>
         </div>
-    </div>
 
-    <!-- Contenido de las Pestañas -->
-    <div id="pendientes" class="tab-content">
-        {% for reporte in reportes.pendientes %}
-            <div class="bg-white shadow-sm rounded-lg mb-4 overflow-hidden">
-                <div class="p-5 flex justify-between items-center">
-                    <div>
-                        <p class="text-lg font-semibold text-slate-900">{{ reporte.nombre }} {{ reporte.apellido }}</p>
-                        <p class="text-sm text-slate-500">C.I. {{ reporte.cedula }}</p>
-                    </div>
-                    <div class="text-right">
-                        {% if reporte.monto_esperado_bs is defined %}
-                        <p class="text-sm font-medium text-slate-600">Monto Esperado: <span class="text-green-600 font-bold">{{ reporte.monto_esperado_bs | format_decimal }} Bs</span></p>
-                        {% endif %}
-                        <p class="text-sm font-medium text-slate-600">Monto Reportado: <span class="text-blue-600 font-bold">{{ reporte.monto_bs | format_decimal }} Bs</span></p>
-                        {% if reporte.tasa_dia %}
-                        <p class="text-xs text-gray-500 mt-1">Tasa del Día: {{ reporte.tasa_dia | format_decimal }} Bs</p>
-                        {% endif %}
-                    </div>
-                    <div>
-                        <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm">
-                            Revisar Reporte
-                        </a>
+        <!-- Contenido de las Pestañas -->
+        <div class="mt-6">
+            <!-- Contenido Pestaña: Pendientes -->
+            <div x-show="activeTab === 'pendientes'" class="space-y-4">
+                {% for reporte in reportes.pendientes %}
+                <div class="bg-white rounded-xl shadow-md border border-slate-200 hover:border-blue-400 transition-all duration-300">
+                    <div class="p-4 grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                        <!-- Información del Cliente -->
+                        <div class="sm:col-span-1">
+                            <a href="{{ url_for('perfil_cliente', cliente_id=reporte.cliente_id) }}" class="font-bold text-slate-800 hover:underline">{{ reporte.nombre }} {{ reporte.apellido }}</a>
+                            <p class="text-sm text-slate-500 font-mono">C.I. {{ reporte.cedula }}</p>
+                            <p class="text-xs text-slate-400 mt-1" title="{{ reporte.fecha_creacion | format_datetime }}">
+                                Reportado {{ reporte.fecha_creacion | time_ago }}
+                            </p>
+                        </div>
+                        
+                        <!-- Comparación de Montos -->
+                        <div class="sm:col-span-2 grid grid-cols-2 gap-4 text-center">
+                            <div>
+                                <p class="text-xs text-slate-500">Monto Esperado</p>
+                                <p class="font-semibold text-slate-700 font-mono text-lg">{{ "%.2f"|format(reporte.monto_esperado_bs|float) }} Bs</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-500">Monto Reportado</p>
+                                <p class="font-bold text-blue-600 font-mono text-lg">{{ "%.2f"|format(reporte.monto_bs|float) }} Bs</p>
+                            </div>
+                        </div>
+
+                        <!-- Botón de Acción -->
+                        <div class="sm:col-span-1 w-full sm:w-auto sm:justify-self-end">
+                            <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="w-full inline-flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-semibold rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm">
+                                <i class="bi bi-search mr-2"></i> Revisar Reporte
+                            </a>
+                        </div>
                     </div>
                 </div>
+                {% else %}
+                <!-- Estado Vacío para Pendientes -->
+                <div class="text-center py-16 text-slate-500 border-2 border-dashed rounded-xl">
+                    <div class="inline-block bg-green-100 p-4 rounded-full">
+                        <i class="bi bi-check2-all text-4xl text-green-500"></i>
+                    </div>
+                    <p class="mt-4 font-semibold text-slate-700">¡Todo en orden!</p>
+                    <p class="text-sm">No hay reportes nuevos pendientes de revisión.</p>
+                </div>
+                {% endfor %}
             </div>
-        {% else %}
-            <p class="text-center text-slate-500 py-10">No hay reportes pendientes de revisión.</p>
-        {% endfor %}
-    </div>
 
-    <div id="diferencias" class="tab-content hidden">
-        {% for reporte in reportes.diferencias %}
-            <div class="bg-white shadow-sm rounded-lg mb-4 overflow-hidden border-l-4 border-yellow-400">
-                <div class="p-5 flex justify-between items-center">
-                    <div>
-                        <p class="text-lg font-semibold text-slate-900">{{ reporte.nombre }} {{ reporte.apellido }}</p>
-                        <p class="text-sm text-slate-500">C.I. {{ reporte.cedula }}</p>
-                    </div>
-                    <div class="text-right">
-                        {% if reporte.monto_esperado_bs is defined %}
-                        <p class="text-sm font-medium text-slate-600">Monto Esperado: <span class="text-green-600 font-bold">{{ reporte.monto_esperado_bs | format_decimal }} Bs</span></p>
-                        {% endif %}
-                        <p class="text-sm font-medium text-slate-600">Monto Reportado: <span class="text-yellow-600 font-bold">{{ reporte.monto_bs | format_decimal }} Bs</span></p>
-                        {% if reporte.tasa_dia %}
-                        <p class="text-xs text-gray-500 mt-1">Tasa del Día: {{ reporte.tasa_dia | format_decimal }} Bs</p>
-                        {% endif %}
-                    </div>
-                    <div>
-                        <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg text-sm">
-                            Ver Diferencia
-                        </a>
+            <!-- Contenido Pestaña: Con Diferencia -->
+            <div x-show="activeTab === 'diferencias'" class="space-y-4" style="display: none;">
+                {% for reporte in reportes.diferencias %}
+                <div class="bg-amber-50 rounded-xl shadow-md border border-amber-200 hover:border-amber-400 transition-all duration-300">
+                    <div class="p-4 grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+                        <!-- Información del Cliente -->
+                        <div class="sm:col-span-1">
+                            <a href="{{ url_for('perfil_cliente', cliente_id=reporte.cliente_id) }}" class="font-bold text-slate-800 hover:underline">{{ reporte.nombre }} {{ reporte.apellido }}</a>
+                            <p class="text-sm text-slate-500 font-mono">C.I. {{ reporte.cedula }}</p>
+                        </div>
+                        
+                        <!-- Comparación de Montos -->
+                        <div class="sm:col-span-2 grid grid-cols-2 gap-4 text-center">
+                            <div>
+                                <p class="text-xs text-slate-500">Monto Esperado</p>
+                                <p class="font-semibold text-slate-700 font-mono text-lg">{{ "%.2f"|format(reporte.monto_esperado_bs|float) }} Bs</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-amber-600">Monto Reportado</p>
+                                <p class="font-bold text-amber-600 font-mono text-lg">{{ "%.2f"|format(reporte.monto_bs|float) }} Bs</p>
+                            </div>
+                        </div>
+
+                        <!-- Botón de Acción -->
+                        <div class="sm:col-span-1 w-full sm:w-auto sm:justify-self-end">
+                            <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="w-full inline-flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-semibold rounded-md text-white bg-amber-500 hover:bg-amber-600 transition-colors shadow-sm">
+                                <i class="bi bi-calculator mr-2"></i> Ver Diferencia
+                            </a>
+                        </div>
                     </div>
                 </div>
-            </div>
-        {% else %}
-            <p class="text-center text-slate-500 py-10">No hay reportes con diferencias.</p>
-        {% endfor %}
-    </div>
-
-    <div id="otros-rechazados" class="tab-content hidden">
-        {% for reporte in reportes.otros_rechazados %}
-            <div class="bg-white shadow-sm rounded-lg mb-4 overflow-hidden border-l-4 border-red-400">
-                <div class="p-5 flex justify-between items-center">
-                    <div>
-                        <p class="text-lg font-semibold text-slate-900">{{ reporte.nombre }} {{ reporte.apellido }}</p>
-                        <p class="text-sm text-slate-500">C.I. {{ reporte.cedula }}</p>
-                        <p class="text-xs text-red-600 mt-1">Motivo: {{ reporte.detalles_reporte.motivo }}</p>
+                {% else %}
+                <!-- Estado Vacío para Diferencias -->
+                <div class="text-center py-16 text-slate-500 border-2 border-dashed rounded-xl">
+                    <div class="inline-block bg-slate-100 p-4 rounded-full">
+                        <i class="bi bi-files text-4xl text-slate-400"></i>
                     </div>
-                    <div class="text-right">
-                        <p class="text-sm font-medium text-slate-600">Monto Reportado: <span class="text-red-600 font-bold">{{ reporte.monto_bs | format_decimal }} Bs</span></p>
-                        {% if reporte.tasa_dia %}
-                        <p class="text-xs text-gray-500 mt-1">Tasa del Día: {{ reporte.tasa_dia | format_decimal }} Bs</p>
-                        {% endif %}
-                    </div>
-                    <div>
-                        <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm">
-                            Ver Detalles
-                        </a>
-                    </div>
+                    <p class="mt-4 font-semibold text-slate-700">Sin Novedades</p>
+                    <p class="text-sm">No hay reportes marcados con diferencias.</p>
                 </div>
+                {% endfor %}
             </div>
-        {% else %}
-            <p class="text-center text-slate-500 py-10">No hay otros reportes rechazados.</p>
-        {% endfor %}
+        </div>
     </div>
 </div>
+{% endblock %}
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const tabs = document.querySelectorAll('.tab-link');
-    const contents = document.querySelectorAll('.tab-content');
-
-    // Muestra el contenido de la pestaña activa al cargar la página
-    const activeTab = document.querySelector('.tab-link.active-tab');
-    if (activeTab) {
-        const activeContentId = activeTab.getAttribute('href').substring(1);
-        const activeContent = document.getElementById(activeContentId);
-        if (activeContent) {
-            activeContent.classList.remove('hidden');
-        }
-    }
-
-    tabs.forEach(tab => {
-        tab.addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            tabs.forEach(item => item.classList.remove('active-tab'));
-            contents.forEach(content => content.classList.add('hidden'));
-            
-            this.classList.add('active-tab');
-            const contentId = this.getAttribute('href').substring(1);
-            document.getElementById(contentId).classList.remove('hidden');
-        });
-    });
-});
-</script>
-
-<style>
-.tab-link {
-    border-color: transparent;
-    color: #475569; /* slate-600 */
-}
-.active-tab {
-    border-color: #3b82f6; /* blue-500 */
-    color: #1e293b; /* slate-800 */
-}
-</style>
+{% block scripts_extra %}
+    <script src="//unpkg.com/alpinejs" defer></script>
 {% endblock %}

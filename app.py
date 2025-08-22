@@ -3600,21 +3600,14 @@ def portal_reportar_pago():
     if not cliente:
         session.clear(); flash('No se encontró su información de cliente.', 'error'); return redirect(url_for('portal_login'))
     
+    # --- LÓGICA PARA LA PLANTILLA UNIFICADA ---
     cliente_dict = dict(cliente)
     mes_actual = get_nombre_mes(get_venezuela_current_date().month)
-    inscripcion_pagada = cliente_dict.get('inscripcion_pagada') or Decimal('0.0')
-    inscripcion_total = cliente_dict.get('inscripcion_monto') or Decimal('0.0')
-    
-    if inscripcion_pagada < inscripcion_total:
-        monto_a_pagar_usd = inscripcion_total - inscripcion_pagada
-        concepto_pago = f"Abono a Inscripción (restan ${monto_a_pagar_usd:,.2f})"
-    else:
-        monto_a_pagar_usd = cliente_dict.get('valor_cuota') or Decimal('0.0')
-        concepto_pago = f"Cuota del mes de {mes_actual}"
-    
+    monto_a_pagar_usd = cliente_dict.get('valor_cuota') or Decimal('0.0')
+    concepto_pago = f"Cuota del mes de {mes_actual}"
     tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
-    
     monto_a_pagar_bs = monto_a_pagar_usd * tasa_bcv_calculo
+    # -----------------------------------------
 
     if request.method == 'POST':
         pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
@@ -3622,45 +3615,25 @@ def portal_reportar_pago():
         try:
             with conn.cursor() as cur:
                 monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                
-                if inscripcion_pagada < inscripcion_total:
-                    monto_usd_a_guardar = inscripcion_total - inscripcion_pagada
-                else:
-                    monto_usd_a_guardar = cliente.get('valor_cuota') or Decimal('0.0')
+                monto_usd_a_guardar = cliente.get('valor_cuota') or Decimal('0.0')
                 
                 if pago_form.get('forma_pago') == 'Binance':
                      monto_usd_a_guardar = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
 
-                bulk_id = pago_form.get('bulk_id')
-                order_id = pago_form.get('order_id')
-                if bulk_id and order_id:
-                    tipo_pago = 'Cuota'
-                    concepto = f"Pago de diferencia para Bulk #{bulk_id}"
-                    is_diferencia = True
-                else:
-                    tipo_pago = 'Inscripción' if inscripcion_pagada < inscripcion_total else 'Cuota'
-                    concepto = concepto_pago
-                    is_diferencia = False
-
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
-                                    bulk_id, is_diferencia, cuotas_cubiertas)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, %s, 0) RETURNING id;
+                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, cuotas_cubiertas)
+                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, 0) RETURNING id;
                 """
                 
                 cur.execute(pago_query, (
-                    cliente['id'], monto_usd_a_guardar, monto_reportado_bs, tipo_pago, 
+                    cliente['id'], monto_usd_a_guardar, monto_reportado_bs,
                     pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
                     pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_calculo,
-                    get_venezuela_current_datetime(), concepto, bulk_id, is_diferencia
+                    get_venezuela_current_datetime(), concepto_pago
                 ))
                 
-                if is_diferencia:
-                    cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
-                    recalcular_totales_bulk(bulk_id)
-
-                flash('✅ ¡Pago reportado! Será verificado por un administrador.', 'success')
+                flash('✅ ¡Pago de cuota reportado! Será verificado por un administrador.', 'success')
                 conn.commit()
                 return redirect(url_for('portal_dashboard'))
                 
@@ -3668,10 +3641,10 @@ def portal_reportar_pago():
             conn.rollback()
             flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
 
-    return render_template('portal_reportar_pago.html', 
+    # Se renderiza la plantilla unificada con las variables correctas
+    return render_template('portal_pago_unificado.html', 
                            cliente=cliente, 
                            tasa_hoy=tasa_hoy, 
-                           mes_actual=mes_actual,
                            monto_a_pagar_usd=monto_a_pagar_usd,
                            monto_a_pagar_bs=monto_a_pagar_bs,
                            concepto_pago=concepto_pago)
@@ -3681,14 +3654,14 @@ def portal_reportar_pago():
 @portal_login_required
 def portal_diferencia_reportar(bulk_id, order_id):
     """
-    Gestiona el reporte de un pago para una orden de diferencia específica.
+    Gestiona el reporte de un pago para una orden de diferencia específica,
+    utilizando la plantilla de pago unificada.
     """
     conn = get_db()
     if not conn: 
         flash("Error de conexión.", "error")
         return redirect(url_for('portal_dashboard'))
     
-    # ... (código para obtener datos de la orden, cliente y tasa, sin cambios) ...
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM payment_orders WHERE id = %s AND bulk_id = %s AND cliente_id = %s AND status = 'ISSUED'", (order_id, bulk_id, session['cliente_id']))
@@ -3703,19 +3676,24 @@ def portal_diferencia_reportar(bulk_id, order_id):
             cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
             tasa_hoy = cur.fetchone()
 
+            # --- LÓGICA PARA LA PLANTILLA UNIFICADA ---
             tasa_bcv = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
-            monto_a_pagar_diferencia = order['amount']
+            monto_diferencia = order['amount']
             moneda_orden = order['currency']
+            
             monto_a_pagar_bs = Decimal('0.0')
-            monto_equivalente_usd = Decimal('0.0')
+            monto_a_pagar_usd = Decimal('0.0')
 
             if moneda_orden == 'VES':
-                monto_a_pagar_bs = monto_a_pagar_diferencia
+                monto_a_pagar_bs = monto_diferencia
                 if tasa_bcv > 0:
-                    monto_equivalente_usd = (monto_a_pagar_bs / tasa_bcv)
-            else:
-                monto_equivalente_usd = monto_a_pagar_diferencia
-                monto_a_pagar_bs = (monto_equivalente_usd * tasa_bcv)
+                    monto_a_pagar_usd = (monto_a_pagar_bs / tasa_bcv)
+            else: # Moneda es USD
+                monto_a_pagar_usd = monto_diferencia
+                monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv)
+            
+            concepto_pago = f"Pago de diferencia (Orden #{order_id})"
+            # -----------------------------------------
 
     except psycopg2.Error as e:
         flash(f"Error al cargar la página de reporte: {e}", "error")
@@ -3727,15 +3705,11 @@ def portal_diferencia_reportar(bulk_id, order_id):
         try:
             with conn.cursor() as cur:
                 monto_bs_reportado = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                
-                # --- INICIO DE LA CORRECCIÓN ---
                 tasa_bcv_dia = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
                 monto_usd_calculado = Decimal('0.0')
                 if tasa_bcv_dia > 0:
                     monto_usd_calculado = monto_bs_reportado / tasa_bcv_dia
 
-                concepto_pago_diferencia = f"Pago de diferencia para Bulk #{bulk_id}"
-                
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
                                     estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
@@ -3745,9 +3719,8 @@ def portal_diferencia_reportar(bulk_id, order_id):
                 cur.execute(pago_query, (
                     cliente['id'], monto_usd_calculado, monto_bs_reportado, pago_form.get('forma_pago'), pago_form.get('fecha_pago'),
                     pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_dia,
-                    get_venezuela_current_datetime(), concepto_pago_diferencia, bulk_id
+                    get_venezuela_current_datetime(), concepto_pago, bulk_id
                 ))
-                # --- FIN DE LA CORRECCIÓN ---
                 
                 cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
                 recalcular_totales_bulk(bulk_id)
@@ -3761,12 +3734,16 @@ def portal_diferencia_reportar(bulk_id, order_id):
             flash(f'Ocurrió un error al reportar el pago de la diferencia.', 'error')
             return redirect(url_for('portal_dashboard'))
 
-    return render_template('portal_reportar_pago.html', 
-                           cliente=cliente, tasa_hoy=tasa_hoy, is_diferencia=True, 
-                           bulk_id=bulk_id, order_id=order_id, 
+    # Se renderiza la plantilla unificada con las variables correctas
+    return render_template('portal_pago_unificado.html', 
+                           cliente=cliente, 
+                           tasa_hoy=tasa_hoy, 
+                           is_diferencia=True, # Variable clave para que la plantilla sepa que es una diferencia
+                           bulk_id=bulk_id, 
+                           order_id=order_id, 
                            monto_a_pagar_bs=monto_a_pagar_bs, 
-                           monto_a_pagar_usd=monto_equivalente_usd,
-                           concepto_pago=f"Pago de diferencia (Orden #{order_id})")
+                           monto_a_pagar_usd=monto_a_pagar_usd,
+                           concepto_pago=concepto_pago)
 
 @app.route('/admin/pagos/por-revisar')
 @admin_required
@@ -4186,7 +4163,7 @@ def portal_pagar_inscripcion():
         
         today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
         cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
-        tasas_hoy = cur.fetchone()
+        tasa_hoy = cur.fetchone()
 
     if not cliente:
         session.clear()
@@ -4200,9 +4177,12 @@ def portal_pagar_inscripcion():
         flash('Tu inscripción ya está completa.', 'info')
         return redirect(url_for('portal_dashboard'))
     
+    # --- LÓGICA PARA LA PLANTILLA UNIFICADA ---
     monto_restante = inscripcion_monto - inscripcion_pagada
-    tasa_bcv_calculo = tasas_hoy['tasa'] if tasas_hoy and tasas_hoy['tasa'] else Decimal('0.0')
+    tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
     monto_a_pagar_bs = monto_restante * tasa_bcv_calculo
+    concepto_pago = f"Pago de Inscripción (restan ${monto_restante:,.2f})"
+    # -----------------------------------------
 
     if request.method == 'POST':
         pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
@@ -4215,11 +4195,10 @@ def portal_pagar_inscripcion():
                 if pago_form.get('forma_pago') == 'Binance':
                      monto_usd_a_guardar = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
 
-                pago_origen_id = pago_form.get('pago_origen_id')
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia,
-                                       estado_pago, cuotas_cubiertas, reportado_por_cliente, estado_reporte, fecha_creacion, detalles_reporte, pago_padre_id) 
-                    VALUES (%s, %s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, TRUE, 'Pendiente de Revision', %s, %s::jsonb, %s);
+                                       estado_pago, cuotas_cubiertas, reportado_por_cliente, estado_reporte, fecha_creacion, detalles_reporte) 
+                    VALUES (%s, %s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, TRUE, 'Pendiente de Revision', %s, %s::jsonb);
                 """
                 
                 detalles_pago = {}
@@ -4230,15 +4209,13 @@ def portal_pagar_inscripcion():
                     detalles_pago['usuario_binance'] = pago_form.get('binance_user')
                 detalles_json = json.dumps(detalles_pago) if detalles_pago else None
 
-                concepto = "Pago de Diferencia de Inscripción" if pago_origen_id else "Pago de Inscripción"
-
                 cur.execute(pago_query, (
                     session['cliente_id'], 
                     monto_usd_a_guardar,
                     monto_reportado_bs,
                     pago_form['forma_pago'], pago_form['fecha_pago'], pago_form.get('pago_en'), 
-                    concepto, pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_calculo, 
-                    get_venezuela_current_datetime(), detalles_json, pago_origen_id
+                    concepto_pago, pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_calculo, 
+                    get_venezuela_current_datetime(), detalles_json
                 ))
                 conn.commit()
                 flash('✅ ¡Pago de inscripción reportado! Será verificado por un administrador.', 'success')
@@ -4247,7 +4224,14 @@ def portal_pagar_inscripcion():
             conn.rollback()
             flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
 
-    return render_template('portal_pagar_inscripcion.html', cliente=cliente, monto_restante=monto_restante, tasas_hoy=tasas_hoy, monto_a_pagar_bs=monto_a_pagar_bs)
+    # Se renderiza la plantilla unificada con las variables correctas
+    return render_template('portal_pago_unificado.html', 
+                           cliente=cliente, 
+                           monto_restante=monto_restante, # Variable clave para que la plantilla sepa que es una inscripción
+                           tasa_hoy=tasa_hoy, 
+                           monto_a_pagar_usd=monto_restante,
+                           monto_a_pagar_bs=monto_a_pagar_bs,
+                           concepto_pago=concepto_pago)
 
 @app.route('/portal/estado_cuenta')
 @portal_login_required
