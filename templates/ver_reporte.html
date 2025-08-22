@@ -55,17 +55,21 @@
                 <p class="text-3xl font-bold text-slate-800">{{ pago.monto_esperado_bs | format_decimal }}</p>
                 <div class="text-xs text-slate-400 mt-1 space-y-1">
                     <p><strong>Tasa BCV Oficial:</strong> {{ pago.tasa_dia | format_decimal if pago.tasa_dia else 'N/A' }} Bs</p>
-                    {% if pago.tasa_efectiva_cliente %}
-                    <p><strong>Tasa Cliente (Efectiva):</strong> <span class="font-semibold text-slate-600">{{ pago.tasa_efectiva_cliente | format_decimal }} Bs</span></p>
-                    {% endif %}
                 </div>
             </div>
+            <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
             {% set diferencia = (pago.monto_bs|float) - (pago.monto_esperado_bs|float) %}
             <div class="bg-white p-5 rounded-xl shadow-sm border {% if diferencia < -0.01 %} border-red-300 bg-red-50 {% else %} border-green-300 bg-green-50 {% endif %}">
                 <h3 class="font-semibold text-sm text-slate-600">Monto Reportado (Bs.)</h3>
                 <p class="text-3xl font-bold {% if diferencia < -0.01 %} text-red-700 {% else %} text-green-700 {% endif %}">{{ pago.monto_bs | format_decimal }}</p>
-                {% if (diferencia|abs) > 0.01 %}<p class="text-xs font-semibold {% if diferencia < 0 %} text-red-600 {% else %} text-green-600 {% endif %} mt-1">Diferencia: {{ diferencia | format_decimal }} Bs.</p>{% else %}<p class="text-xs text-slate-500 mt-1">Monto reportado por el cliente.</p>{% endif %}
+                <div class="text-xs text-slate-400 mt-1 space-y-1">
+                    {% if pago.tasa_efectiva_cliente %}
+                    <p><strong>Tasa Cliente (Efectiva):</strong> <span class="font-semibold text-slate-600">{{ pago.tasa_efectiva_cliente | format_decimal }} Bs</span></p>
+                    {% endif %}
+                    {% if (diferencia|abs) > 0.01 %}<p class="font-semibold {% if diferencia < 0 %} text-red-600 {% else %} text-green-600 {% endif %}">Diferencia: {{ diferencia | format_decimal }} Bs.</p>{% endif %}
+                </div>
             </div>
+            <!-- ===== FIN DE LA CORRECCIÓN ===== -->
         </div>
         {% endif %}
     {% endif %}
