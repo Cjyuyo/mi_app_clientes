@@ -1174,6 +1174,61 @@ def reportes_por_revisar():
 
     return render_template('reportes_por_revisar.html', reportes=reportes_categorizados)
 
+ # --- INICIO DE LA CORRECCIÓN ---
+# Esta es una función auxiliar que contiene la lógica pura de conciliación.
+# La usamos para evitar repetir código.
+def _conciliar_pago_logica(pago_id, cur):
+    """
+    Ejecuta la lógica de base de datos para conciliar un pago.
+    Esta función NO hace commit. La transacción debe ser manejada por la función que la llama.
+    """
+    cur.execute("SELECT * FROM pagos WHERE id = %s FOR UPDATE", (pago_id,))
+    pago = cur.fetchone()
+    if not pago:
+        raise ValueError(f"Pago con ID {pago_id} no encontrado para conciliar.")
+
+    cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s FOR UPDATE", (pago['cliente_id'],))
+    cliente = cur.fetchone()
+    if not cliente:
+        raise ValueError(f"Cliente con ID {pago['cliente_id']} no encontrado.")
+
+    admin_id = g.admin['id']
+    flash_msg = ""
+
+    if pago['tipo_pago'] == 'Inscripción':
+        cur.execute(
+            "UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE id = %s",
+            (admin_id, pago_id)
+        )
+        cur.execute(
+            "UPDATE clientes SET inscripcion_pagada = inscripcion_pagada + %s WHERE id = %s RETURNING inscripcion_pagada, inscripcion_monto",
+            (pago['monto'], cliente['id'])
+        )
+        updated_cliente = cur.fetchone()
+        
+        if updated_cliente['inscripcion_pagada'] >= updated_cliente['inscripcion_monto']:
+            cur.execute(
+                "UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],)
+            )
+            flash_msg = f"¡Pago de inscripción conciliado y el cliente ahora está INSCRITO!"
+        else:
+            flash_msg = f"¡Abono de inscripción de ${pago['monto']} conciliado exitosamente!"
+    
+    elif pago['tipo_pago'] == 'Cuota':
+        # Aquí iría la lógica completa para conciliar una cuota
+        # (actualizar cuotas pagadas, balance, etc.)
+        cur.execute(
+            "UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE id = %s",
+            (admin_id, pago_id)
+        )
+        flash_msg = f"¡Pago de cuota de ${pago['monto']} conciliado exitosamente!"
+
+    # Registrar auditoría
+    descripcion_audit = f"Concilió el pago N° {pago_id} (Tipo: {pago['tipo_pago']}, Monto: ${pago['monto']})."
+    registrar_accion_auditoria('CONCILIACION_PAGO', descripcion_audit, cliente['id'])
+    
+    return flash_msg, cliente['cedula']
+
 @app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
@@ -1205,12 +1260,10 @@ def procesar_reporte(pago_id):
             
             elif accion == 'corregir_y_generar_diferencia':
                 monto_real_recibido_str = request.form.get('monto_real_recibido')
-                # --- INICIO DE LA CORRECCIÓN ---
-                motivo_cliente = request.form.get('motivo_cliente') # Capturamos el nuevo campo
+                motivo_cliente = request.form.get('motivo_cliente')
                 if not monto_real_recibido_str or not motivo_cliente:
                     flash("Debe ingresar el monto real y el motivo para el cliente.", "error")
                     return redirect(url_for('ver_reporte', pago_id=pago_id))
-                # --- FIN DE LA CORRECCIÓN ---
                 
                 monto_real_recibido = Decimal(monto_real_recibido_str)
                 currency = 'VES' if pago.get('forma_pago') != 'Binance' else 'USD'
@@ -1223,21 +1276,27 @@ def procesar_reporte(pago_id):
                 else:
                     monto_esperado = base_amount
                 
+                # --- LÓGICA DE BITÁCORA: Creación del primer evento ---
+                evento_inicial = {
+                    "timestamp": get_venezuela_current_datetime().isoformat(),
+                    "usuario": g.admin['usuario'],
+                    "accion": f"Se generó orden de pago por diferencia de {monto_esperado - monto_real_recibido:,.2f} {currency}.",
+                    "detalles": f"Motivo para el cliente: {motivo_cliente}"
+                }
+                bitacora = [evento_inicial]
+                
                 cur.execute("""
-                    INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
-                    VALUES (%s, %s, %s, 'UNDER_REVIEW', %s) RETURNING id
-                """, (cliente_id, currency, monto_esperado, monto_real_recibido))
+                    INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified, event_log)
+                    VALUES (%s, %s, %s, 'UNDER_REVIEW', %s, %s) RETURNING id
+                """, (cliente_id, currency, monto_esperado, monto_real_recibido, json.dumps(bitacora)))
                 bulk_id = cur.fetchone()[0]
 
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Añadimos el nuevo motivo al JSON de detalles
                 detalles = {
                     'motivo': 'Discrepancia Verificada por Admin',
                     'monto_original_reportado': str(pago['monto_bs'] if currency == 'VES' else pago['monto']),
                     'monto_recibido_real': str(monto_real_recibido),
                     'motivo_para_cliente': motivo_cliente 
                 }
-                # --- FIN DE LA CORRECCIÓN ---
 
                 cur.execute(
                     """
