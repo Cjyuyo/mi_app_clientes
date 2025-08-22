@@ -34,6 +34,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 load_dotenv()
 app = Flask(__name__)
+app.jinja_env.filters['format_decimal'] = format_decimal_smart
 app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-desarrollo')
 
 VENEZUELA_TZ = pytz.timezone('America/Caracas')
