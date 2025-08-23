@@ -66,18 +66,6 @@ def format_decimal_smart(value):
     except (TypeError, InvalidOperation):
         return str(value)
 
-# --- Registro de TODOS los filtros personalizados en Jinja ---
-app.jinja_env.filters['format_decimal'] = format_decimal_smart
-app.jinja_env.filters['time_ago'] = time_ago  # <-- ESTA ES LA LÍNEA AÑADIDA
-
-
-def get_proximo_dia_habil(fecha):
-    """Calcula el próximo día hábil a partir de una fecha dada, saltando fines de semana."""
-    proximo_dia = fecha + timedelta(days=1)
-    while proximo_dia.weekday() >= 5:  # 5 = Sábado, 6 = Domingo
-        proximo_dia += timedelta(days=1)
-    return proximo_dia
-
 def time_ago(time_value):
     """Convierte un datetime a un formato legible 'hace X tiempo'."""
     if not time_value:
@@ -105,6 +93,20 @@ def time_ago(time_value):
         return f"hace {int(hours)} hora{'s' if int(hours) > 1 else ''}"
     else:
         return f"hace {int(days)} día{'s' if int(days) > 1 else ''}"
+
+# --- INICIO DE LA CORRECCIÓN ---
+# El bloque de registro de filtros ahora va DESPUÉS de definir las funciones.
+app.jinja_env.filters['format_decimal'] = format_decimal_smart
+app.jinja_env.filters['time_ago'] = time_ago
+# --- FIN DE LA CORRECCIÓN ---
+
+
+def get_proximo_dia_habil(fecha):
+    """Calcula el próximo día hábil a partir de una fecha dada, saltando fines de semana."""
+    proximo_dia = fecha + timedelta(days=1)
+    while proximo_dia.weekday() >= 5:  # 5 = Sábado, 6 = Domingo
+        proximo_dia += timedelta(days=1)
+    return proximo_dia
 
 @app.template_filter('format_datetime')
 def format_datetime_filter(value, format='%d/%m/%Y %I:%M %p'):
@@ -151,7 +153,6 @@ def format_date_filter(value, format='%d/%m/%Y'):
         format_es = format_es.replace('%A', dias_semana[value.weekday()])
         return value.strftime(format_es)
     return value
-
 
 # =================================================================================
 # ===== CONEXIÓN A LA BASE DE DATOS =====
