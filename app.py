@@ -1271,10 +1271,17 @@ def procesar_reporte(pago_id):
 
             cliente_id = pago['cliente_id']
 
+            # --- INICIO DE LA CORRECCIÓN DE INDENTACIÓN ---
             if accion == 'aprobar_para_conciliar':
-                # ... (lógica de aprobación sin cambios) ...
+                # Este es el bloque de código que faltaba y estaba causando el error.
+                cur.execute(
+                    "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
+                    (g.admin['id'], pago_id)
+                )
+                flash('Reporte aprobado. Ahora puede ser procesado desde la sección de Conciliar Pagos.', 'success')
             
             elif accion == 'corregir_y_generar_diferencia':
+            # --- FIN DE LA CORRECCIÓN DE INDENTACIÓN ---
                 monto_real_recibido_str = request.form.get('monto_real_recibido')
                 motivo_cliente = request.form.get('motivo_cliente')
                 if not monto_real_recibido_str or not motivo_cliente:
@@ -1282,7 +1289,6 @@ def procesar_reporte(pago_id):
                     return redirect(url_for('ver_reporte', pago_id=pago_id))
                 
                 monto_real_recibido = Decimal(monto_real_recibido_str)
-
                 currency = 'VES' if pago.get('pago_en') == 'Dolar/BCV' else 'USD'
                 base_amount_usd = pago['valor_cuota'] if pago['tipo_pago'] == 'Cuota' else pago['inscripcion_monto']
                 
@@ -1292,7 +1298,6 @@ def procesar_reporte(pago_id):
                     monto_esperado = base_amount_usd
                     currency = 'USD' 
                 
-                # Esta es la parte que necesita la columna 'event_log'
                 evento_inicial = {
                     "timestamp": get_venezuela_current_datetime().isoformat(),
                     "usuario": g.admin['usuario'],
@@ -1307,13 +1312,44 @@ def procesar_reporte(pago_id):
                 """, (cliente_id, currency, monto_esperado, monto_real_recibido, json.dumps(bitacora)))
                 bulk_id = cur.fetchone()[0]
 
-                # ... (resto de la lógica para actualizar pagos y crear órdenes) ...
+                detalles = {
+                    'motivo': 'Discrepancia Verificada por Admin',
+                    'monto_original_reportado': str(pago['monto_bs'] if currency == 'VES' else pago['monto']),
+                    'monto_recibido_real': str(monto_real_recibido),
+                    'motivo_para_cliente': motivo_cliente 
+                }
+
+                cur.execute(
+                    """
+                    UPDATE pagos SET estado_reporte = 'Inconsistente', revisado_por_id = %s, 
+                           fecha_revision = NOW(), detalles_reporte = %s, bulk_id = %s
+                    WHERE id = %s
+                    """,
+                    (g.admin['id'], json.dumps(detalles), bulk_id, pago_id)
+                )
+
+                monto_pendiente = monto_esperado - monto_real_recibido
+                if monto_pendiente > 0:
+                    cur.execute("""
+                        INSERT INTO payment_orders (bulk_id, cliente_id, amount, currency, status)
+                        VALUES (%s, %s, %s, %s, 'ISSUED')
+                    """, (bulk_id, cliente_id, monto_pendiente, currency))
+                
+                descripcion_audit = f"Corrigió reporte #{pago_id}. Monto verificado: {monto_real_recibido}. Se generó orden por {monto_pendiente:,.2f} {currency}."
+                registrar_accion_auditoria('CORRECCION_REPORTE_ADMIN', descripcion_audit, cliente_id, {'pago_id': pago_id})
+                flash("El monto verificado ha sido registrado. Se generó una orden de pago para el cliente por la diferencia.", "success")
             
+            else:
+                flash('Acción no válida.', 'error')
+                return redirect(url_for('ver_reporte', pago_id=pago_id))
+
             conn.commit()
 
     except (psycopg2.Error, ValueError, InvalidOperation) as e:
         conn.rollback()
-        # ... (manejo de errores) ...
+        error_trace = traceback.format_exc()
+        logging.error(f"Error al procesar el reporte {pago_id}:\n{error_trace}")
+        flash(f"Error CRÍTICO al procesar el reporte: {e}", "error")
     
     return redirect(url_for('reportes_por_revisar'))
 
@@ -2585,38 +2621,29 @@ def agregar_gestion(cliente_id):
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'asesor')
 def registrar():
-    """
-    Prepara y muestra el formulario de registro de un nuevo cliente.
-    """
     conn = get_db()
-    responsables = []
-    if not conn:
-        flash("Error de conexión a la base de datos.", "danger")
-        return redirect(url_for('hub'))
+    lista_completa = []
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                # Se obtienen únicamente los roles especificados
+                query = """
+                    SELECT id, nombre_completo, rol 
+                    FROM administradores 
+                    WHERE rol IN ('superadmin', 'gerente', 'asesor') 
+                    AND estatus = 'Activo'
+                    ORDER BY nombre_completo
+                """
+                cur.execute(query)
+                lista_completa = cur.fetchall()
+        except psycopg2.Error as e:
+            flash(f"Error al cargar la lista de personal administrativo: {e}", "danger")
     
-    try:
-        with conn.cursor() as cur:
-            # ESTA ES LA CONSULTA CORRECTA: Selecciona el 'rol' para poder filtrar.
-            sql_query = """
-                SELECT id, nombre_completo, rol 
-                FROM administradores 
-                WHERE estatus = 'Activo' 
-                AND rol NOT IN ('asistente', 'administradora')
-                ORDER BY nombre_completo
-            """
-            cur.execute(sql_query)
-            responsables = cur.fetchall()
-            
-    except psycopg2.Error as e:
-        flash(f"Error al cargar la lista de personal: {e}", "danger")
-        responsables = []
-
-    # Se pasa la lista completa con los roles a la plantilla.
-    return render_template(
-        'registrar.html', 
-        responsables=responsables, 
-        anio_actual=get_venezuela_current_date().year
-    )
+    # Se envía una única lista a la plantilla
+    return render_template('registrar.html', 
+                           responsables=lista_completa,
+                           anio_actual=get_venezuela_current_date().year
+                           )
 
 @app.route('/registrar_cliente', methods=['POST'])
 @admin_required
