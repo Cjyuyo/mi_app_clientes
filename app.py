@@ -1146,7 +1146,7 @@ def cancelar_cita_admin(solicitud_id):
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def reportes_por_revisar():
     conn = get_db()
-    reportes_categorizados = {'pendientes': [], 'diferencias': [], 'otros_rechazados': []}
+    reportes_categorizados = {'pendientes': [], 'diferencias': []}
 
     if not conn:
         flash("Error de conexión con la base de datos.", "danger")
@@ -1154,27 +1154,21 @@ def reportes_por_revisar():
 
     try:
         with conn.cursor() as cur:
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Se simplifica la consulta para asegurar que todos los reportes pendientes de revisión aparezcan.
-            # La condición principal ahora es simplemente que el estado del reporte sea 'Pendiente de Revision'.
-            cur.execute("""
-                SELECT p.*, c.nombre, c.apellido, c.cedula, c.valor_cuota, c.inscripcion_monto,
-                       b.expected_amount as bulk_expected_amount,
-                       b.total_verified as bulk_total_verified
+            # CORRECCIÓN: La consulta ahora busca tanto los pendientes como los que tienen inconsistencias (diferencias)
+            query = """
+                SELECT p.*, c.nombre, c.apellido, c.cedula, c.valor_cuota, c.inscripcion_monto
                 FROM pagos p 
                 JOIN clientes c ON p.cliente_id = c.id
-                LEFT JOIN payment_bulks b ON p.bulk_id = b.id
-                WHERE p.estado_reporte = 'Pendiente de Revision'
+                WHERE p.estado_reporte IN ('Pendiente de Revision', 'Inconsistente')
                 ORDER BY p.fecha_creacion ASC;
-            """)
-            # --- FIN DE LA CORRECIÓN ---
+            """
+            cur.execute(query)
             
             todos_los_reportes = cur.fetchall()
 
             for reporte_row in todos_los_reportes:
                 reporte = dict(reporte_row)
                 
-                # REGLA: Se aplica la subconsulta de la tasa para los pagos pendientes.
                 fecha_del_pago = reporte.get('fecha_pago', get_venezuela_current_date())
                 cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
                 tasa_row = cur.fetchone()
@@ -1187,7 +1181,12 @@ def reportes_por_revisar():
                     monto_dolares_referencia = reporte.get('inscripcion_monto', Decimal('0.0'))
                 
                 reporte['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta) if monto_dolares_referencia and tasa_exacta else Decimal('0.0')
-                reportes_categorizados['pendientes'].append(reporte)
+                
+                # Clasifica el reporte en la pestaña correcta
+                if reporte['estado_reporte'] == 'Inconsistente':
+                    reportes_categorizados['diferencias'].append(reporte)
+                else:
+                    reportes_categorizados['pendientes'].append(reporte)
 
     except (psycopg2.Error, json.JSONDecodeError) as e:
         logging.error(f"Error al obtener y categorizar reportes: {e}")
@@ -1287,17 +1286,20 @@ def procesar_reporte(pago_id):
                     return redirect(url_for('ver_reporte', pago_id=pago_id))
                 
                 monto_real_recibido = Decimal(monto_real_recibido_str)
-                currency = 'VES' if pago.get('forma_pago') != 'Binance' else 'USD'
+
+                # CORRECCIÓN: Se determina la moneda basado en el campo 'pago_en' que es más confiable
+                currency = 'VES' if pago.get('pago_en') == 'Dolar/BCV' else 'USD'
                 
                 monto_esperado = Decimal('0.0')
-                base_amount = pago['valor_cuota'] if pago['tipo_pago'] == 'Cuota' else pago['inscripcion_monto']
+                base_amount_usd = pago['valor_cuota'] if pago['tipo_pago'] == 'Cuota' else pago['inscripcion_monto']
                 
+                # Se calcula el monto esperado en la moneda correcta
                 if currency == 'VES' and pago['tasa_dia']:
-                    monto_esperado = (base_amount * pago['tasa_dia']).quantize(Decimal('0.01'))
-                else:
-                    monto_esperado = base_amount
+                    monto_esperado = (base_amount_usd * pago['tasa_dia']).quantize(Decimal('0.01'))
+                else: 
+                    monto_esperado = base_amount_usd
+                    currency = 'USD' 
                 
-                # --- LÓGICA DE BITÁCORA: Creación del primer evento ---
                 evento_inicial = {
                     "timestamp": get_venezuela_current_datetime().isoformat(),
                     "usuario": g.admin['usuario'],
@@ -1329,10 +1331,11 @@ def procesar_reporte(pago_id):
                 )
 
                 monto_pendiente = monto_esperado - monto_real_recibido
-                cur.execute("""
-                    INSERT INTO payment_orders (bulk_id, cliente_id, amount, currency, status)
-                    VALUES (%s, %s, %s, %s, 'ISSUED')
-                """, (bulk_id, cliente_id, monto_pendiente, currency))
+                if monto_pendiente > 0:
+                    cur.execute("""
+                        INSERT INTO payment_orders (bulk_id, cliente_id, amount, currency, status)
+                        VALUES (%s, %s, %s, %s, 'ISSUED')
+                    """, (bulk_id, cliente_id, monto_pendiente, currency))
                 
                 descripcion_audit = f"Corrigió reporte #{pago_id}. Monto verificado: {monto_real_recibido}. Se generó orden por {monto_pendiente:,.2f} {currency}."
                 registrar_accion_auditoria('CORRECCION_REPORTE_ADMIN', descripcion_audit, cliente_id, {'pago_id': pago_id})
