@@ -66,8 +66,9 @@ def format_decimal_smart(value):
     except (TypeError, InvalidOperation):
         return str(value)
 
-# --- Registro del filtro personalizado en Jinja ---
+# --- Registro de TODOS los filtros personalizados en Jinja ---
 app.jinja_env.filters['format_decimal'] = format_decimal_smart
+app.jinja_env.filters['time_ago'] = time_ago  # <-- ESTA ES LA LÍNEA AÑADIDA
 
 
 def get_proximo_dia_habil(fecha):
@@ -104,7 +105,6 @@ def time_ago(time_value):
         return f"hace {int(hours)} hora{'s' if int(hours) > 1 else ''}"
     else:
         return f"hace {int(days)} día{'s' if int(days) > 1 else ''}"
-
 
 @app.template_filter('format_datetime')
 def format_datetime_filter(value, format='%d/%m/%Y %I:%M %p'):
