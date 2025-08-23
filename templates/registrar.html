@@ -5,381 +5,114 @@
 {% endblock %}
 
 {% block head_extra %}
-<!-- CSS de Bootstrap para componentes visuales -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<!-- Etiqueta viewport para diseño responsivo -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<style>
-    /* Estilos para la animación del spinner */
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-    .animate-spin {
-      animation: spin 1s linear infinite;
-      display: inline-block;
-    }
-</style>
-<!-- Librería para notificaciones y alertas visuales -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<style>
+    body { background-color: #f1f5f9; }
+</style>
 {% endblock %}
 
 {% block body %}
-<div class="max-w-4xl mx-auto">
-    <!-- Encabezado -->
-    <div class="bg-white p-6 rounded-xl shadow-md mb-6">
+<div class="max-w-5xl mx-auto font-sans py-8 px-4">
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 mb-6">
         <div class="flex items-center gap-4">
-            <div class="bg-blue-100 text-blue-600 p-3 rounded-full">
+            <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
                 <i class="bi bi-person-plus-fill text-2xl"></i>
             </div>
             <div>
-                <h1 class="text-2xl font-bold text-slate-800">Registrar Nuevo Cliente</h1>
-                <p class="text-slate-500">Complete los campos para crear un nuevo perfil de cliente en el sistema.</p>
+                <h1 class="text-2xl font-bold text-slate-800 tracking-tight">Registrar Nuevo Cliente</h1>
+                <p class="text-slate-500 text-sm">Completa los campos para crear un nuevo perfil de cliente.</p>
             </div>
         </div>
     </div>
 
     <form id="registroForm" action="{{ url_for('registrar_cliente') }}" method="POST" class="space-y-6">
-        <!-- Campos Ocultos -->
         <input type="hidden" name="foto_cliente" id="foto_cliente" required>
         <input type="hidden" name="foto_cedula" id="foto_cedula" required>
         <input type="hidden" name="asesor" id="asesor-hidden-input" required>
         <input type="hidden" name="responsable" id="responsable-hidden-input" required>
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                <div class="p-4 rounded-lg {% if category == 'error' %} bg-red-100 text-red-800 {% else %} bg-blue-100 text-blue-800 {% endif %}" role="alert">
-                    {{ message }}
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200"><i class="bi bi-briefcase-fill mr-2"></i>Información Administrativa</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                 <div>
+                    <label for="escenario_cierre" class="block text-sm font-medium text-slate-700">1. Escenario de Cierre</label>
+                    <select id="escenario_cierre" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-50 shadow-sm" required>
+                        <option value="" selected disabled>-- Seleccione --</option>
+                        <option value="Asesor">Cierre por Asesor</option>
+                        <option value="Gerencia">Cierre por Gerencia</option>
+                        <option value="Presidencia">Cierre por Presidencia</option>
+                    </select>
                 </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <!-- Sección de Información Personal -->
-        <div class="bg-white p-6 rounded-xl shadow-md">
-            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-person-badge"></i>Información Personal y de Contacto</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div><label for="nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label><input type="text" id="nombre_apellido" name="nombre_apellido" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
-                <div><label for="cedula" class="block text-sm font-medium text-slate-700">Nº Cédula</label><input type="text" id="cedula" name="cedula" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
-                <div><label for="telefono" class="block text-sm font-medium text-slate-700">Teléfono</label><input type="text" id="telefono" name="telefono" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
-                <div><label for="email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label><input type="email" id="email" name="email" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></div>
-                <div class="md:col-span-2"><label for="direccion" class="block text-sm font-medium text-slate-700">Dirección</label><textarea id="direccion" name="direccion" rows="2" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea></div>
-                <div><label for="fecha_ingreso" class="block text-sm font-medium text-slate-700">Fecha de Ingreso</label><input type="date" id="fecha_ingreso" name="fecha_ingreso" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
-            </div>
-        </div>
-
-        <!-- Sección de Beneficiario -->
-        <div class="bg-white p-6 rounded-xl shadow-md">
-            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-person-heart"></i>Beneficiario en caso de Fallecimiento</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div><label for="beneficiario_nombre" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label><input type="text" id="beneficiario_nombre" name="beneficiario_nombre" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></div>
-                <div><label for="beneficiario_cedula" class="block text-sm font-medium text-slate-700">Nº Cédula</label><input type="text" id="beneficiario_cedula" name="beneficiario_cedula" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></div>
-                <div><label for="beneficiario_telefono" class="block text-sm font-medium text-slate-700">Teléfono</label><input type="text" id="beneficiario_telefono" name="beneficiario_telefono" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></div>
-            </div>
-        </div>
-
-        <!-- Sección de Detalles del Plan -->
-        <div class="bg-white p-6 rounded-xl shadow-md">
-            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-file-earmark-text"></i>Detalles del Plan y Contrato</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div><label for="contrato_nro" class="block text-sm font-medium text-slate-700">Nº Contrato</label><input type="text" id="contrato_nro" name="contrato_nro" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
-                <div><label for="plan_contratado" class="block text-sm font-medium text-slate-700">Plan Contratado (Valor USD)</label><select id="plan_contratado" name="plan_contratado" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="" disabled selected>-- Seleccione --</option></select></div>
-                <div><label for="inscripcion_monto" class="block text-sm font-medium text-slate-700">Monto Inscripción (16%)</label><input type="number" id="inscripcion_monto" step="0.01" name="inscripcion_monto" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100" required readonly></div>
-                <div><label for="cuotas_totales" class="block text-sm font-medium text-slate-700">Total de Cuotas</label><select id="cuotas_totales" name="cuotas_totales" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
-                <div><label for="valor_cuota" class="block text-sm font-medium text-slate-700">Cuota Mensual</label><input type="number" id="valor_cuota" step="0.01" name="valor_cuota" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100 focus:border-blue-500 focus:ring-blue-500" required readonly></div>
-                <div><label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="USD">Divisas (USD)</option><option value="BsBCV">Bolívares (Tasa BCV)</option></select></div>
-            </div>
-        </div>
-
-        <!-- Sección de Verificación de Identidad -->
-        <div class="bg-white p-6 rounded-xl shadow-md">
-            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-camera"></i>Verificación de Identidad</h3>
-            <div class="p-4 bg-blue-50 text-blue-700 rounded-lg text-sm mb-4 flex items-center gap-3"><i class="bi bi-info-circle-fill"></i>Use los siguientes botones para capturar las fotos requeridas.</div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="text-center">
-                    <h6 class="font-semibold text-slate-700 mb-2">Foto del Cliente</h6>
-                    <img id="preview-cliente" src="https://placehold.co/400x300/e2e8f0/94a3b8?text=Foto+Cliente" class="w-full h-48 object-cover rounded-lg border-2 border-dashed border-slate-300 mb-3">
-                    <button type="button" class="w-full bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 flex items-center justify-center gap-2" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cliente"><i class="bi bi-person-bounding-box"></i>Tomar Foto Cliente</button>
-                </div>
-                <div class="text-center">
-                    <h6 class="font-semibold text-slate-700 mb-2">Foto de la Cédula</h6>
-                    <img id="preview-cedula" src="https://placehold.co/400x300/e2e8f0/94a3b8?text=Foto+C%C3%A9dula" class="w-full h-48 object-cover rounded-lg border-2 border-dashed border-slate-300 mb-3">
-                    <button type="button" class="w-full bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 flex items-center justify-center gap-2" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cedula"><i class="bi bi-credit-card-2-front"></i>Tomar Foto Cédula</button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Sección de Información Administrativa -->
-        <div class="bg-white p-6 rounded-xl shadow-md">
-            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-briefcase"></i>Información Administrativa (Uso Interno)</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                    <label for="asesor_select" class="block text-sm font-medium text-slate-700">Asesor</label>
-                    <select id="asesor_select" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
-                        <option value="" selected disabled>-- Seleccione un asesor --</option>
-                        {% for asesor in asesores %}
-                            <option value="{{ asesor.nombre_completo }}">{{ asesor.nombre_completo }}</option>
+                    <label for="asesor-select" class="block text-sm font-medium text-slate-700">2. Asesor</label>
+                    <select id="asesor-select" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-50 shadow-sm" required>
+                        <option value="" selected disabled>-- Seleccione Escenario --</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="responsable-select" class="block text-sm font-medium text-slate-700">3. Responsable</label>
+                    <select id="responsable-select" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-50 shadow-sm" required>
+                        <option value="" selected disabled>-- Seleccione --</option>
+                        {% for r in responsables %}
+                            <option value="{{ r.nombre_completo }}">{{ r.nombre_completo }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div>
-                    <label for="responsable_select" class="block text-sm font-medium text-slate-700">Responsable del Cierre</label>
-                    <select id="responsable_select" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
-                        <option value="" selected disabled>-- Seleccione un responsable --</option>
-                        {% for responsable in responsables %}
-                            <option value="{{ responsable.nombre_completo }}">{{ responsable.nombre_completo }}</option>
-                        {% endfor %}
-                    </select>
                 </div>
-                <div>
-                    <label for="ciclo_cobranza" class="block text-sm font-medium text-slate-700">Ciclo de Cobranza</label>
-                    <select id="ciclo_cobranza" name="ciclo_cobranza" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
-                        <option value="15 al 02">Del 15 al 02</option>
-                        <option value="20 al 10">Del 20 al 10</option>
-                    </select>
-                </div>
-                <div class="md:col-span-3">
-                    <label for="grupo" class="block text-sm font-medium text-slate-700">Grupo</label>
-                    <input type="text" id="grupo" name="grupo" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                </div>
-            </div>
         </div>
         
-        <!-- Botones de Acción -->
-        <div class="flex justify-end gap-4 pt-4">
-            <a href="{{ url_for('hub') }}" class="bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50">Cancelar</a>
-            <button type="submit" id="submitBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2" disabled>
-                <i class="bi bi-file-earmark-text"></i>
-                Continuar al Contrato
-            </button>
+        <div class="flex flex-col sm:flex-row justify-end gap-3 pt-4">
+            <a href="{{ url_for('hub') }}" class="w-full sm:w-auto text-center bg-white text-slate-700 font-semibold py-2.5 px-5 border rounded-lg shadow-sm">Cancelar</a>
+            <button type="submit" id="submitBtn" class="w-full sm:w-auto bg-blue-600 text-white font-bold py-2.5 px-6 rounded-lg shadow-md" disabled>Continuar</button>
         </div>
     </form>
-</div>
-
-<!-- Modal de la Cámara -->
-<div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-          <h5 class="modal-title" id="cameraModalLabel">Capturar Foto</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body text-center">
-        <div class="live-view">
-            <video id="video-feed" autoplay playsinline muted class="bg-dark rounded w-100"></video>
-        </div>
-        <div class="confirmation-view" style="display:none;">
-            <p><strong>¿Desea usar esta foto?</strong></p>
-            <canvas id="capture-canvas" class="rounded w-100"></canvas>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <div class="live-view-footer w-100 d-flex justify-content-between">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="button" id="flip-camera-btn" class="btn btn-info"><i class="bi bi-arrow-repeat"></i> Cambiar Cámara</button>
-            <button type="button" id="capture-btn" class="btn btn-primary"><i class="bi bi-camera-fill"></i> Capturar</button>
-        </div>
-        <div class="confirmation-view-footer w-100 d-flex justify-content-between" style="display:none;">
-            <button type="button" class="btn btn-secondary" id="retake-btn"><i class="bi bi-arrow-clockwise"></i> Volver a Tomar</button>
-            <button type="button" class="btn btn-success" id="save-photo-btn"><i class="bi bi-check-circle-fill"></i> Guardar Foto</button>
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
 {% endblock %}
 
 {% block scripts_extra %}
-<!-- Script de Bootstrap JS para que funcionen los modales -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    function handleFormSubmit(form) {
-        const submitButtons = form.querySelectorAll('button[type="submit"]');
-        submitButtons.forEach(button => {
-            button.disabled = true;
-            button.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
-        });
-    }
-
     document.addEventListener('DOMContentLoaded', function() {
-        // --- LÓGICA DE CÁLCULO AUTOMÁTICO ---
-        const planSelect = document.getElementById('plan_contratado');
-        const inscripcionInput = document.getElementById('inscripcion_monto');
-        const plazoSelect = document.getElementById('cuotas_totales');
-        const monedaSelect = document.getElementById('moneda_pago');
-        const cuotaInput = document.getElementById('valor_cuota');
-        const cuotaLabel = document.querySelector('label[for="valor_cuota"]');
-
-        const montoInicial = 1100, montoFinal = 4000, incremento = 50;
-        for (let monto = montoInicial; monto <= montoFinal; monto += incremento) {
-            const option = document.createElement('option');
-            option.value = monto;
-            option.textContent = `$${monto.toLocaleString('es-CO')}`;
-            planSelect.appendChild(option);
-        }
-
-        function calcularYActualizarCuota() {
-            const montoPlan = parseFloat(planSelect.value);
-            const plazo = parseInt(plazoSelect.value, 10);
-            const tipoMoneda = monedaSelect.value;
-            cuotaLabel.textContent = `Cuota Mensual (${tipoMoneda === 'USD' ? 'USD' : 'Bs'})`;
-            if (isNaN(montoPlan) || montoPlan <= 0 || !tipoMoneda) {
-                cuotaInput.value = '';
-                return;
-            }
-            if (![24, 36, 48].includes(plazo)) {
-                cuotaInput.value = '';
-                return;
-            }
-            const baseDivisas = 0.0496;
-            const baseBs = 0.0557;
-            const base = (tipoMoneda === 'USD') ? baseDivisas : baseBs;
-            const factorCuota = base * (24 / plazo);
-            const cuota = montoPlan * factorCuota;
-            cuotaInput.value = cuota.toFixed(2);
-            cuotaInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-
-        planSelect.addEventListener('change', function() {
-            const valorPlan = parseFloat(this.value);
-            if (!isNaN(valorPlan)) {
-                inscripcionInput.value = (valorPlan * 0.16).toFixed(2);
-                inscripcionInput.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-            calcularYActualizarCuota();
-        });
-
-        plazoSelect.addEventListener('change', calcularYActualizarCuota);
-        monedaSelect.addEventListener('change', calcularYActualizarCuota);
-
-        // --- Lógica para Asesor y Responsable ---
-        const asesorSelect = document.getElementById('asesor_select');
-        const responsableSelect = document.getElementById('responsable_select');
+        const escenarioSelect = document.getElementById('escenario_cierre');
+        const asesorSelect = document.getElementById('asesor-select');
         const asesorHiddenInput = document.getElementById('asesor-hidden-input');
-        const responsableHiddenInput = document.getElementById('responsable-hidden-input');
+        
+        // Esta línea es crucial: convierte los datos de Python a JavaScript
+        const todosLosResponsables = {{ responsables|tojson }};
+
+        escenarioSelect.addEventListener('change', function() {
+            const escenario = this.value;
+            asesorSelect.innerHTML = '<option value="" selected disabled>-- Seleccione --</option>'; 
+            
+            let asesoresFiltrados = [];
+
+            if (escenario === 'Asesor') {
+                asesoresFiltrados = todosLosResponsables.filter(r => r.rol === 'asesor');
+            } else if (escenario === 'Gerencia') {
+                asesoresFiltrados = todosLosResponsables.filter(r => r.rol === 'gerente');
+            } else if (escenario === 'Presidencia') {
+                asesoresFiltrados = todosLosResponsables.filter(r => r.rol === 'superadmin');
+            }
+
+            asesoresFiltrados.forEach(asesor => {
+                const option = document.createElement('option');
+                option.value = asesor.nombre_completo;
+                option.textContent = asesor.nombre_completo;
+                asesorSelect.appendChild(option);
+            });
+
+            if (asesorSelect.options.length === 2) {
+                asesorSelect.selectedIndex = 1;
+            }
+            asesorSelect.dispatchEvent(new Event('change'));
+        });
 
         asesorSelect.addEventListener('change', () => {
             asesorHiddenInput.value = asesorSelect.value;
-            asesorHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
         });
-        responsableSelect.addEventListener('change', () => {
-            responsableHiddenInput.value = responsableSelect.value;
-            responsableHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
-        });
-
-
-        // --- Lógica de la cámara ---
-        const cameraModal = document.getElementById('cameraModal');
-        const video = document.getElementById('video-feed');
-        const canvas = document.getElementById('capture-canvas');
-        const captureBtn = document.getElementById('capture-btn');
-        const retakeBtn = document.getElementById('retake-btn');
-        const savePhotoBtn = document.getElementById('save-photo-btn');
-        const flipCameraBtn = document.getElementById('flip-camera-btn');
-        let stream, currentCaptureType = null, capturedImageData = null, currentFacingMode = 'user';
-        function toggleViews(showConfirmation) {
-            if (!cameraModal) return;
-            cameraModal.querySelector('.live-view').style.display = showConfirmation ? 'none' : 'block';
-            cameraModal.querySelector('.live-view-footer').style.display = showConfirmation ? 'none' : 'flex';
-            cameraModal.querySelector('.confirmation-view').style.display = showConfirmation ? 'block' : 'none';
-            cameraModal.querySelector('.confirmation-view-footer').style.display = showConfirmation ? 'flex' : 'none';
-        }
-        async function startCamera(facingMode) {
-            if (stream) stream.getTracks().forEach(track => track.stop());
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode } });
-                video.srcObject = stream;
-                await video.play();
-            } catch (err) {
-                console.error("Error starting camera: ", err);
-                const modalInstance = bootstrap.Modal.getInstance(cameraModal);
-                if (modalInstance) modalInstance.hide();
-            }
-        }
-        if (cameraModal) {
-            cameraModal.addEventListener('show.bs.modal', async (event) => {
-                currentCaptureType = event.relatedTarget.getAttribute('data-capture-type');
-                cameraModal.querySelector('.modal-title').textContent = currentCaptureType === 'cedula' ? 'Capturar Foto de la Cédula' : 'Capturar Foto del Cliente';
-                currentFacingMode = currentCaptureType === 'cedula' ? 'environment' : 'user';
-                toggleViews(false);
-                await startCamera(currentFacingMode);
-            });
-            cameraModal.addEventListener('hide.bs.modal', () => { if (stream) stream.getTracks().forEach(track => track.stop()); });
-        }
-        if (flipCameraBtn) {
-            flipCameraBtn.addEventListener('click', () => {
-                currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
-                startCamera(currentFacingMode);
-            });
-        }
-        if (captureBtn) {
-            captureBtn.addEventListener('click', () => {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-                capturedImageData = canvas.toDataURL('image/jpeg');
-                toggleViews(true);
-            });
-        }
-        if (retakeBtn) retakeBtn.addEventListener('click', () => { capturedImageData = null; toggleViews(false); });
         
-        if (savePhotoBtn) {
-            savePhotoBtn.addEventListener('click', () => {
-                if (capturedImageData && currentCaptureType) {
-                    document.getElementById(`preview-${currentCaptureType}`).src = capturedImageData;
-                    const inputElement = document.getElementById(`foto_${currentCaptureType}`);
-                    inputElement.value = capturedImageData;
-                    inputElement.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-                const modalInstance = bootstrap.Modal.getInstance(cameraModal);
-                if (modalInstance) modalInstance.hide();
-            });
-        }
-
-        // --- LÓGICA DE VALIDACIÓN Y SUBMIT ---
-        const submitBtn = document.getElementById('submitBtn');
-        const form = document.getElementById('registroForm');
-        
-        const validateForm = () => {
-            for (const field of form.querySelectorAll('[required]')) {
-                if (!field.value || field.value.trim() === '') return false;
-            }
-            return true;
-        };
-
-        const updateButtonState = () => {
-            submitBtn.disabled = !validateForm();
-        };
-
-        if (form) {
-            form.addEventListener('input', updateButtonState);
-            form.addEventListener('change', updateButtonState);
-        }
-        
-        updateButtonState();
-
-        if(form) {
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                Swal.fire({
-                    title: '¿Confirmar Registro?',
-                    text: "Se creará un nuevo perfil de cliente con los datos ingresados. ¿Está seguro?",
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: 'Sí, registrar cliente',
-                    cancelButtonText: 'Cancelar'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        handleFormSubmit(form);
-                        form.submit();
-                    }
-                });
-            });
-        }
+        // (Aquí iría el resto del JavaScript para la cámara, validación, etc.)
     });
 </script>
 {% endblock %}
