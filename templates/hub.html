@@ -153,24 +153,28 @@
                     }
 
                     const newContent = users.map(user => {
-                        const { icon, text, textColor } = this.getStatusInfo(user.status, user.is_online);
-                        const lastSeenText = user.is_online ? text : user.last_seen;
-                        
                         // --- INICIO DE LA MODIFICACIÓN ---
-                        // Se crea una variable que contiene el texto "(Online)" solo si el usuario está conectado.
-                        const onlineIndicator = user.is_online 
-                            ? '<span class="ml-1.5 text-xs font-semibold text-green-500">(Online)</span>' 
-                            : '';
-                        // --- FIN DE LA MODIFICACIÓN ---
+                        // Un usuario se considera 'online' si la API lo marca como tal, o si su
+                        // última actividad fue hace menos de 5 minutos (300 segundos).
+                        // NOTA IMPORTANTE: Esto requiere que la API devuelva un campo numérico
+                        // `inactivity_seconds` con los segundos desde la última conexión.
+                        const FIVE_MINUTES_IN_SECONDS = 300;
+                        const isEffectivelyOnline = user.is_online || (user.inactivity_seconds !== undefined && user.inactivity_seconds < FIVE_MINUTES_IN_SECONDS);
 
+                        const { icon, text, textColor } = this.getStatusInfo(user.status, isEffectivelyOnline);
+                        
+                        // Si el usuario está 'efectivamente online', mostramos su estado (ej. "Disponible").
+                        // De lo contrario, mostramos el tiempo desde su última conexión (ej. "hace 10 minutos").
+                        const lastSeenText = isEffectivelyOnline ? text : user.last_seen;
+                        // --- FIN DE LA MODIFICACIÓN ---
+                        
                         return `
                             <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 transition-colors">
                                 <div class="flex items-center gap-3">
                                     ${icon}
                                     <div>
                                         <span class="font-semibold text-sm text-slate-700">${user.username}</span>
-                                        ${onlineIndicator}
-                                    </div>
+                                        </div>
                                 </div>
                                 <small class="text-xs font-medium ${textColor}">${lastSeenText}</small>
                             </div>
@@ -195,7 +199,7 @@
                         body: JSON.stringify({ status: newStatus })
                     });
                     if (!response.ok) throw new Error('Failed to update status');
-                    this.fetchActiveSessions();
+                    this.fetchActiveSessions(); // Actualiza la vista inmediatamente después de cambiar el estado
                 } catch (error) {
                     console.error('Error updating status:', error);
                 }
@@ -203,7 +207,7 @@
 
             init() {
                 this.fetchActiveSessions();
-                setInterval(() => this.fetchActiveSessions(), 4000);
+                setInterval(() => this.fetchActiveSessions(), 4000); // Mantiene la actualización frecuente
             }
         }
     }

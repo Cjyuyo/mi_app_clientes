@@ -24,13 +24,11 @@
     </header>
 
     <form id="registroForm" action="{{ url_for('registrar_cliente') }}" method="POST" class="space-y-6" x-data="cameraHandler()">
-        <!-- Campos ocultos para datos de la cámara y administrativos -->
         <input type="hidden" name="foto_cliente" id="foto_cliente" x-model="photoData.cliente" required>
         <input type="hidden" name="foto_cedula" id="foto_cedula" x-model="photoData.cedula" required>
         <input type="hidden" name="asesor" id="asesor-hidden-input" required>
         <input type="hidden" name="responsable" id="responsable-hidden-input" required>
 
-        <!-- ORDEN CORREGIDO 1: Sección de Fotos -->
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-camera-fill text-slate-400"></i>Verificación de Identidad</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -53,7 +51,6 @@
             </div>
         </div>
         
-        <!-- ORDEN CORREGIDO 2: Sección de Información Administrativa con Lógica de Escenarios -->
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-briefcase-fill text-slate-400"></i>Información Administrativa</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
@@ -84,7 +81,6 @@
             </div>
         </div>
 
-        <!-- ORDEN CORREGIDO 3: Sección de Información Personal -->
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-person-badge-fill text-slate-400"></i>Información Personal y de Contacto</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
@@ -98,7 +94,6 @@
             </div>
         </div>
         
-        <!-- ORDEN CORREGIDO 4: Sección de Plan y Contrato -->
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-file-earmark-text-fill text-slate-400"></i>Detalles del Plan y Contrato</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
@@ -111,7 +106,6 @@
             </div>
         </div>
 
-        <!-- ORDEN CORREGIDO 5: Sección de Beneficiario -->
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-person-heart text-slate-400"></i>Beneficiario (Opcional)</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
@@ -128,21 +122,21 @@
                 Continuar al Contrato
             </button>
         </div>
-    </form>
 
-    <!-- Modal de Cámara (manejado por AlpineJS) -->
-    <div x-show="isCameraOpen" x-cloak class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-xl p-6 w-full max-w-2xl text-center" @click.away="closeCamera()">
-            <h3 class="text-xl font-bold mb-4">Tomar Fotografía</h3>
-            <video id="video" class="w-full h-auto rounded-lg bg-slate-200" autoplay playsinline muted></video>
-            <canvas id="canvas"></canvas>
-            <div class="mt-4 flex gap-4 justify-center">
-                <button @click.prevent="closeCamera()" class="bg-slate-200 text-slate-700 font-semibold py-2 px-5 rounded-lg">Cancelar</button>
-                <button @click.prevent="capturePhoto()" class="bg-blue-600 text-white font-bold py-2 px-5 rounded-lg">Capturar</button>
+        <div x-show="isCameraOpen" x-cloak class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-xl p-6 w-full max-w-2xl text-center" @click.away="closeCamera()">
+                <h3 class="text-xl font-bold mb-4">Tomar Fotografía</h3>
+                <video id="video" class="w-full h-auto rounded-lg bg-slate-200" autoplay playsinline muted></video>
+                <canvas id="canvas"></canvas>
+                <div class="mt-4 flex gap-4 justify-center">
+                    <button @click.prevent="closeCamera()" class="bg-slate-200 text-slate-700 font-semibold py-2 px-5 rounded-lg">Cancelar</button>
+                    <button @click.prevent="capturePhoto()" class="bg-blue-600 text-white font-bold py-2 px-5 rounded-lg">Capturar</button>
+                </div>
             </div>
         </div>
+        </form>
+    
     </div>
-</div>
 {% endblock %}
 
 {% block scripts_extra %}
