@@ -151,7 +151,7 @@
                 </div>
                 <div x-show="activeTab === 'gestiones'" x-cloak class="space-y-4">
                     {% if admin_rol in ['superadmin', 'gerente', 'administradora'] %}
-                    <form action="{{ url_for('agregar_gestion', client_id=cliente.id) }}" method="POST" class="bg-slate-50 p-4 rounded-lg border">
+                    <form action="/agregar_gestion/{{ cliente.id }}" method="POST" class="bg-slate-50 p-4 rounded-lg border">
                         <h3 class="font-bold text-slate-800 mb-2">Registrar Nueva Gestión</h3>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div class="sm:col-span-1"><select name="tipo_gestion" class="w-full rounded-md border-slate-300 shadow-sm text-sm" required><option>Llamada</option><option>WhatsApp</option><option>Visita</option><option>Acuerdo de Pago</option><option>Otro</option></select></div>
@@ -214,4 +214,4 @@
         });
     }
 </script>
-{% endblock %}
+{% endblock %}}
