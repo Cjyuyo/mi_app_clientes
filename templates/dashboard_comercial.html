@@ -67,7 +67,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm font-semibold text-slate-500">Monto Total Cerrado</p>
-                    <p class="text-4xl font-bold text-slate-800 mt-1">${{ "{:,.2f}".format(stats.monto_total_cerrado) if stats.monto_total_cerrado is not none else '0.00' }}</p>
+                    <p class="text-4xl font-bold text-slate-800 mt-1">${{ "%.2f"|format(stats.monto_total_cerrado) if stats.monto_total_cerrado is not none else '0.00' }}</p>
                 </div>
                 <div class="w-12 h-12 flex items-center justify-center rounded-full bg-green-100 text-green-600">
                     <i class="bi bi-cash-stack text-2xl"></i>
@@ -78,7 +78,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm font-semibold text-slate-500">Plan Promedio</p>
-                    <p class="text-4xl font-bold text-slate-800 mt-1">${{ "{:,.2f}".format(stats.plan_promedio) if stats.plan_promedio is not none else '0.00' }}</p>
+                    <p class="text-4xl font-bold text-slate-800 mt-1">${{ "%.2f"|format(stats.plan_promedio) if stats.plan_promedio is not none else '0.00' }}</p>
                 </div>
                 <div class="w-12 h-12 flex items-center justify-center rounded-full bg-orange-100 text-orange-600">
                     <i class="bi bi-bar-chart-line-fill text-2xl"></i>
