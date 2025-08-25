@@ -1457,34 +1457,91 @@ def tesoreria_rebalanceo():
 @rol_requerido('superadmin', 'gerente')
 def dashboard_comercial():
     conn = get_db()
+    
+    # Valores por defecto para todas las variables que necesita la plantilla
+    # Esto asegura que la página no se rompa incluso si la BD falla.
+    comisiones, asesores, lotes = [], [], []
+    stats = defaultdict(lambda: {'monto': Decimal('0.0'), 'conteo': 0})
+    args = request.args
+    today = get_venezuela_current_date()
+    
+    filters = {
+        'fecha_desde_origen': args.get('fecha_desde_origen', (today - timedelta(days=30)).strftime('%Y-%m-%d')),
+        'fecha_hasta_origen': args.get('fecha_hasta_origen', today.strftime('%Y-%m-%d')),
+        'fecha_desde_pago': args.get('fecha_desde_pago'),
+        'fecha_hasta_pago': args.get('fecha_hasta_pago'),
+        'asesor_id': args.get('asesor_id'),
+        'estado': args.get('estado'),
+        'moneda': args.get('moneda'),
+        'lote_id': args.get('lote_id')
+    }
+
     if not conn:
-        flash("Error de conexión a la base de datos.", "danger")
-        stats = defaultdict(lambda: {'monto': Decimal('0.0'), 'conteo': 0})
+        flash("Error de conexión a la base de datos. No se pudieron cargar los datos.", "danger")
         return render_template(
             'dashboard_comercial.html', 
-            comisiones=[], stats=stats, asesores=[], lotes=[], filters={},
+            comisiones=comisiones, stats=stats, asesores=asesores, lotes=lotes, filters=filters,
             anio_actual=get_venezuela_current_date().year
         )
 
-    args = request.args
-    today = get_venezuela_current_date()
-    fecha_desde_origen = args.get('fecha_desde_origen', (today - timedelta(days=30)).strftime('%Y-%m-%d'))
-    fecha_hasta_origen = args.get('fecha_hasta_origen', today.strftime('%Y-%m-%d'))
-    asesor_id = args.get('asesor_id')
-    estado = args.get('estado')
-    # ... (y el resto de la función completa que ya tienes) ...
-    # ...
+    # --- Construcción de la consulta SQL ---
+    base_query = """
+        SELECT 
+            c.id, c.fecha_origen, a.usuario as asesor, cl.nombre || ' ' || cl.apellido as cliente,
+            cl.plan_contratado, c.moneda, c.tasa_bcv_usada, c.base, c.pct_comision, c.pct_split,
+            c.monto, c.estado, c.payment_batch_id, c.notas,
+            (SELECT SUM(monto_ajuste) FROM comisiones_rebalanceos cr WHERE cr.comision_id_origen = c.id) as total_ajustes
+        FROM comisiones c
+        JOIN administradores a ON c.asesor_id = a.id
+        LEFT JOIN clientes cl ON c.origen_id = cl.id AND c.origen_tipo = 'Venta'
+    """
+    
+    filters_sql_list = []
+    params = []
+
+    if filters['fecha_desde_origen']: filters_sql_list.append("c.fecha_origen >= %s"); params.append(filters['fecha_desde_origen'])
+    if filters['fecha_hasta_origen']: filters_sql_list.append("c.fecha_origen <= %s"); params.append(filters['fecha_hasta_origen'])
+    if filters['asesor_id']: filters_sql_list.append("c.asesor_id = %s"); params.append(filters['asesor_id'])
+    if filters['estado']: filters_sql_list.append("c.estado = %s"); params.append(filters['estado'])
+    # ... (puedes añadir más filtros aquí si es necesario) ...
+
+    if filters_sql_list:
+        base_query += " WHERE " + " AND ".join(filters_sql_list)
+    
+    base_query += " ORDER BY c.fecha_origen DESC"
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(base_query, tuple(params))
+            comisiones = cur.fetchall()
+            
+            cur.execute("SELECT estado, moneda, SUM(monto) as total_monto, COUNT(id) as total_conteo FROM comisiones GROUP BY estado, moneda")
+            stats_db = cur.fetchall()
+            for row in stats_db:
+                if row['moneda'] == 'USD':
+                    stats[row['estado']]['monto'] += row['total_monto']
+                    stats[row['estado']]['conteo'] += row['total_conteo']
+            
+            cur.execute("SELECT SUM(monto_ajuste) FROM comisiones_rebalanceos")
+            total_rebalanceos = cur.fetchone()[0]
+            stats['rebalanceos']['monto'] = total_rebalanceos or Decimal('0.0')
+
+            cur.execute("SELECT id, nombre_completo FROM administradores WHERE rol IN ('superadmin', 'gerente', 'asesor') ORDER BY nombre_completo")
+            asesores = cur.fetchall()
+            
+            cur.execute("SELECT id, created_at FROM comisiones_lotes_pago ORDER BY created_at DESC")
+            lotes = cur.fetchall()
+            
+    except psycopg2.Error as e:
+        flash(f"Error al cargar el dashboard de comisiones: {e}", "danger")
+
     return render_template(
         'dashboard_comercial.html',
         comisiones=comisiones,
         stats=stats,
         asesores=asesores,
         lotes=lotes,
-        filters={
-            'fecha_desde_origen': fecha_desde_origen, 'fecha_hasta_origen': fecha_hasta_origen,
-            'fecha_desde_pago': args.get('fecha_desde_pago'), 'fecha_hasta_pago': args.get('fecha_hasta_pago'),
-            'asesor_id': asesor_id, 'estado': estado, 'moneda': args.get('moneda'), 'lote_id': args.get('lote_id')
-        },
+        filters=filters,
         anio_actual=get_venezuela_current_date().year
     )
 # >>> COMISIONES: END [dashboard_comercial]
