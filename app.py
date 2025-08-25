@@ -659,41 +659,70 @@ def hub():
 
     return render_template('hub.html', stats=stats, tasa_ocupacion=tasa_ocupacion, welcome_message=welcome_message)
 
-
 @app.route('/api/get_active_sessions')
 @admin_required
 def get_active_sessions():
     """
-    Endpoint de API para obtener la lista de administradores, su estado online
-    y cuándo fue la última vez que estuvieron activos.
+    Endpoint de API mejorado para obtener la lista de administradores,
+    su estado de sesión y su estado de actividad actual.
     """
     conn = get_db()
     if not conn:
-        # Si no hay conexión a la base de datos, devuelve una lista vacía.
         return jsonify([])
 
     users_list = []
     try:
         with conn.cursor() as cur:
-            # Consulta la base de datos para obtener todos los usuarios, su última vez vistos,
-            # y calcula si están 'online' (activos en los últimos 2 minutos).
+            # Se añade la columna 'current_status' a la consulta
             cur.execute("""
-                SELECT usuario, ultimo_visto, 
+                SELECT usuario, ultimo_visto, current_status,
                        (ultimo_visto > NOW() - INTERVAL '2 minutes') AS is_online
                 FROM administradores ORDER BY usuario
             """)
             usuarios_db = cur.fetchall()
             for user in usuarios_db:
-                # Formatea los datos para la respuesta JSON.
+                # Se determina el estado final a mostrar
+                final_status = 'Desconectado'
+                if user['is_online']:
+                    final_status = user['current_status'] or 'Disponible'
+
                 users_list.append({
                     "username": user['usuario'],
                     "is_online": user['is_online'],
-                    "last_seen": time_ago(user['ultimo_visto']) # Usa la función time_ago para un formato amigable.
+                    "status": final_status,
+                    "last_seen": time_ago(user['ultimo_visto'])
                 })
     except psycopg2.Error as e:
-        # Maneja errores de base de datos.
         logging.error(f"Error en API get_active_sessions: {e}")
         return jsonify({"error": "Database error"}), 500
+        
+    return jsonify(users_list)
+
+@app.route('/api/update_status', methods=['POST'])
+@admin_required
+def update_status():
+    """
+    Endpoint para que un administrador actualice su propio estado de actividad.
+    """
+    conn = get_db()
+    new_status = request.json.get('status')
+    allowed_statuses = ['Disponible', 'Ocupado', 'Reunion', 'Descanso']
+
+    if not conn or not new_status or new_status not in allowed_statuses:
+        return jsonify({'status': 'error', 'message': 'Datos inválidos'}), 400
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE administradores SET current_status = %s WHERE id = %s",
+                (new_status, g.admin['id'])
+            )
+            conn.commit()
+            return jsonify({'status': 'success', 'message': 'Estado actualizado.'})
+    except psycopg2.Error as e:
+        conn.rollback()
+        logging.error(f"Error al actualizar estado para admin {g.admin['id']}: {e}")
+        return jsonify({'status': 'error', 'message': 'Error de base de datos'}), 500
         
     # Devuelve la lista de usuarios en formato JSON.
     return jsonify(users_list)
