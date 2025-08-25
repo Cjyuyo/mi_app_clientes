@@ -1458,42 +1458,35 @@ def tesoreria_rebalanceo():
 def dashboard_comercial():
     conn = get_db()
     if not conn:
-        return jsonify({"error": "No hay conexión a la BD"})
+        flash("Error de conexión a la base de datos.", "danger")
+        stats = defaultdict(lambda: {'monto': Decimal('0.0'), 'conteo': 0})
+        return render_template(
+            'dashboard_comercial.html', 
+            comisiones=[], stats=stats, asesores=[], lotes=[], filters={},
+            anio_actual=get_venezuela_current_date().year
+        )
 
-    comisiones_raw = []
-    try:
-        with conn.cursor() as cur:
-            # Usamos una consulta simple sin filtros para la prueba
-            query = """
-                SELECT c.id, c.fecha_origen, a.nombre_completo as asesor, c.monto, c.estado
-                FROM comisiones c
-                JOIN administradores a ON c.asesor_id = a.id
-                LIMIT 10;
-            """
-            cur.execute(query)
-            comisiones_raw = cur.fetchall()
-
-        # Convertir los resultados a un formato que jsonify pueda manejar
-        comisiones_list = []
-        for row in comisiones_raw:
-            comisiones_list.append({
-                "id": row['id'],
-                "fecha_origen": row['fecha_origen'].isoformat() if row['fecha_origen'] else None,
-                "asesor": row['asesor'],
-                "monto": str(row['monto']),
-                "estado": row['estado']
-            })
-
-        return jsonify({
-            "mensaje": "PRUEBA DE DATOS EXITOSA",
-            "numero_de_comisiones_encontradas": len(comisiones_list),
-            "datos_de_comisiones": comisiones_list
-        })
-
-    except psycopg2.Error as e:
-        return jsonify({"error_db": f"Error de base de datos: {str(e)}"})
-    except Exception as e:
-        return jsonify({"error_inesperado": f"Error inesperado: {str(e)}"})
+    args = request.args
+    today = get_venezuela_current_date()
+    fecha_desde_origen = args.get('fecha_desde_origen', (today - timedelta(days=30)).strftime('%Y-%m-%d'))
+    fecha_hasta_origen = args.get('fecha_hasta_origen', today.strftime('%Y-%m-%d'))
+    asesor_id = args.get('asesor_id')
+    estado = args.get('estado')
+    # ... (y el resto de la función completa que ya tienes) ...
+    # ...
+    return render_template(
+        'dashboard_comercial.html',
+        comisiones=comisiones,
+        stats=stats,
+        asesores=asesores,
+        lotes=lotes,
+        filters={
+            'fecha_desde_origen': fecha_desde_origen, 'fecha_hasta_origen': fecha_hasta_origen,
+            'fecha_desde_pago': args.get('fecha_desde_pago'), 'fecha_hasta_pago': args.get('fecha_hasta_pago'),
+            'asesor_id': asesor_id, 'estado': estado, 'moneda': args.get('moneda'), 'lote_id': args.get('lote_id')
+        },
+        anio_actual=get_venezuela_current_date().year
+    )
 # >>> COMISIONES: END [dashboard_comercial]
 
 
