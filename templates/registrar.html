@@ -1,356 +1,399 @@
-{% extends 'base_sidebar.html' %}
-{% block title %}Registrar Nuevo Cliente{% endblock %}
+{% extends "base_sidebar.html" %}
+
+{% block title %}Registro de Cliente{% endblock %}
+
+{% block page_title %}Registro de Nuevo Cliente{% endblock %}
 
 {% block head_extra %}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
-    /* Estilo para el efecto espejo en la cámara frontal */
-    #video, #photo-preview { transform: scaleX(-1); }
-    .animate-spin {
-        animation: spin 1s linear infinite;
+    /* Estilos para el Modal de la Cámara */
+    #cameraModal {
+        background-color: rgba(0, 0, 0, 0.7);
+        z-index: 1050;
     }
-    @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
+
+    .modal-content-camera {
+        background-color: #2c3e50;
+        color: white;
+        border-radius: 1rem;
+        border: none;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.5);
     }
+
+    .camera-header {
+        background-color: #34495e;
+        border-bottom: 1px solid #4a627a;
+        padding: 1rem 1.5rem;
+        border-top-left-radius: 1rem;
+        border-top-right-radius: 1rem;
+    }
+    
+    .camera-header h5 {
+        font-weight: 600;
+    }
+
+    .camera-tabs {
+        display: flex;
+        justify-content: center;
+        padding: 1rem;
+        background-color: #34495e;
+        gap: 10px;
+    }
+
+    .camera-tabs .nav-link {
+        color: #bdc3c7;
+        font-weight: bold;
+        border: 2px solid transparent;
+        border-radius: 25px;
+        padding: 0.5rem 1.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .camera-tabs .nav-link.active {
+        color: #ffffff;
+        background-color: #e67e22;
+        border-color: #e67e22;
+    }
+    
+    .camera-tabs .nav-link:not(.active):hover {
+        color: #ffffff;
+        border-color: #e67e22;
+    }
+
+    #videoContainer {
+        position: relative;
+        background-color: #000;
+        overflow: hidden;
+        border-radius: 0.5rem;
+        margin: 1rem;
+    }
+
+    #cameraFeed, #photoPreview {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 0.5rem;
+    }
+
+    #photoPreview {
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 10;
+    }
+    
+    #overlayText {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: rgba(255, 255, 255, 0.8);
+        text-align: center;
+        font-size: 1.2rem;
+        font-weight: bold;
+        text-shadow: 1px 1px 4px black;
+        pointer-events: none;
+    }
+
+    .camera-controls {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        padding: 1rem;
+    }
+
+    .camera-controls button {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 2.5rem;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .camera-controls button span {
+        font-size: 0.8rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .camera-controls button:hover {
+        transform: scale(1.1);
+        color: #e67e22;
+    }
+    
+    #captureBtn {
+        font-size: 4rem;
+        color: #e67e22;
+        text-shadow: 0px 0px 10px rgba(230, 126, 34, 0.5);
+    }
+    #captureBtn:hover {
+        color: #f39c12;
+    }
+
 </style>
 {% endblock %}
 
 {% block body %}
-<div class="max-w-6xl mx-auto font-sans py-8 px-4">
-    <header class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 mb-6">
-        <div class="flex items-center gap-4">
-            <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                <i class="bi bi-person-plus-fill text-2xl"></i>
+<div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80">
+    <h3 class="text-xl font-bold text-slate-800 mb-6 border-b pb-3">Información del Cliente</h3>
+    <form action="{{ url_for('registrar_cliente') }}" method="post" id="registroForm" class="space-y-6">
+
+        <div class="grid md:grid-cols-2 gap-6">
+            <div>
+                <label for="nombre_apellido" class="text-sm font-semibold text-slate-600 mb-1 block">Nombre y Apellido</label>
+                <input type="text" id="nombre_apellido" name="nombre_apellido" required class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-orange-500 transition">
             </div>
             <div>
-                <h1 class="text-2xl font-bold text-slate-800 tracking-tight">Registrar Nuevo Cliente</h1>
-                <p class="text-slate-500 text-sm">Completa los campos para crear un nuevo perfil de cliente en el sistema.</p>
+                <label for="cedula" class="text-sm font-semibold text-slate-600 mb-1 block">Cédula</label>
+                <input type="text" id="cedula" name="cedula" required class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-orange-500 transition">
             </div>
         </div>
-    </header>
 
-    <form id="registroForm" action="{{ url_for('registrar_cliente') }}" method="POST" class="space-y-6" x-data="formController()" @input="validateEntireForm()">
-        <input type="hidden" name="foto_cliente" id="foto_cliente" x-model="photoData.cliente" required>
-        <input type="hidden" name="foto_cedula" id="foto_cedula" x-model="photoData.cedula" required>
-        <input type="hidden" name="asesor" id="asesor-hidden-input" required>
-        <input type="hidden" name="responsable" id="responsable-hidden-input" required>
+        <h3 class="text-xl font-bold text-slate-800 mt-8 mb-4 border-b pb-3">Documentos Fotográficos</h3>
+        <div class="grid md:grid-cols-2 gap-6 items-center">
+            <div class="text-center p-4 border border-dashed border-slate-300 rounded-lg">
+                <p class="font-semibold text-slate-700 mb-2">Foto del Cliente (Selfie)</p>
+                <img id="preview_cliente" src="https://via.placeholder.com/150?text=Selfie" alt="Vista previa selfie" class="mx-auto h-32 w-32 object-cover rounded-full mb-3">
+                <button type="button" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 text-sm" onclick="openCamera('cliente')">
+                    <i class="bi bi-camera-fill mr-2"></i>Abrir Cámara
+                </button>
+                <input type="hidden" name="foto_cliente" id="foto_cliente">
+            </div>
 
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-camera-fill text-slate-400"></i>Verificación de Identidad</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="text-center">
-                    <h4 class="font-semibold text-slate-700 mb-2">Foto del Cliente</h4>
-                    <div class="w-full h-48 bg-slate-100 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-300 mb-3 overflow-hidden">
-                        <template x-if="!photoData.cliente"><i class="bi bi-camera-fill text-4xl text-slate-400"></i></template>
-                        <template x-if="photoData.cliente"><img :src="photoData.cliente" class="w-full h-full object-cover" style="transform: scaleX(-1);"></template>
-                    </div>
-                    <button @click.prevent="openCamera('cliente')" type="button" class="w-full bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"><i class="bi bi-camera"></i> Tomar Foto Cliente</button>
-                </div>
-                <div class="text-center">
-                    <h4 class="font-semibold text-slate-700 mb-2">Foto de la Cédula</h4>
-                    <div class="w-full h-48 bg-slate-100 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-300 mb-3 overflow-hidden">
-                        <template x-if="!photoData.cedula"><i class="bi bi-person-vcard-fill text-4xl text-slate-400"></i></template>
-                        <template x-if="photoData.cedula"><img :src="photoData.cedula" class="w-full h-full object-cover" style="transform: none;"></template>
-                    </div>
-                    <button @click.prevent="openCamera('cedula')" type="button" class="w-full bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"><i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula</button>
-                </div>
+            <div class="text-center p-4 border border-dashed border-slate-300 rounded-lg">
+                <p class="font-semibold text-slate-700 mb-2">Foto de la Cédula</p>
+                <img id="preview_cedula" src="https://via.placeholder.com/150?text=Documento" alt="Vista previa cédula" class="mx-auto h-32 w-32 object-cover rounded-lg mb-3">
+                <button type="button" class="bg-gray-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-800 text-sm" onclick="openCamera('cedula')">
+                    <i class="bi bi-person-vcard-fill mr-2"></i>Abrir Cámara
+                </button>
+                <input type="hidden" name="foto_cedula" id="foto_cedula">
             </div>
         </div>
         
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-briefcase-fill text-slate-400"></i>Información Administrativa</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                 <div>
-                    <label for="escenario_cierre" class="block text-sm font-medium text-slate-700">1. Escenario de Cierre</label>
-                    <select id="escenario_cierre" name="escenario_cierre_selector" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required>
-                        <option value="" selected disabled>-- Seleccione --</option>
-                        <option value="Asesor">Cierre por Asesor</option>
-                        <option value="Gerencia">Cierre por Gerencia</option>
-                        <option value="Presidencia">Cierre por Presidencia</option>
-                    </select>
-                </div>
-                <div id="asesor-container">
-                    <label for="asesor-placeholder" class="block text-sm font-medium text-slate-700">2. Asesor</label>
-                    <input type="text" id="asesor-placeholder" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" placeholder="Seleccione escenario" disabled>
-                </div>
-                <div id="responsable-container">
-                    <label for="responsable-placeholder" class="block text-sm font-medium text-slate-700">3. Responsable</label>
-                    <input type="text" id="responsable-placeholder" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" placeholder="Seleccione escenario" disabled>
-                </div>
-                <div>
-                    <label for="ciclo_cobranza" class="block text-sm font-medium text-slate-700">Ciclo de Cobranza</label>
-                    <select id="ciclo_cobranza" name="ciclo_cobranza" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required>
-                        <option value="15 al 02">Del 15 al 02</option>
-                        <option value="20 al 10">Del 20 al 10</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-person-badge-fill text-slate-400"></i>Información Personal y de Contacto</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                <div><label for="nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label><input type="text" id="nombre_apellido" name="nombre_apellido" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required></div>
-                <div><label for="cedula" class="block text-sm font-medium text-slate-700">Nº Cédula</label><input type="text" id="cedula" name="cedula" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required></div>
-                <div><label for="telefono" class="block text-sm font-medium text-slate-700">Teléfono</label><input type="text" id="telefono" name="telefono" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required></div>
-                <div><label for="email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label><input type="email" id="email" name="email" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></div>
-                <div class="md:col-span-2"><label for="direccion" class="block text-sm font-medium text-slate-700">Dirección</label><textarea id="direccion" name="direccion" rows="2" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></textarea></div>
-                <div><label for="fecha_ingreso" class="block text-sm font-medium text-slate-700">Fecha de Ingreso</label><input type="date" id="fecha_ingreso" name="fecha_ingreso" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required></div>
-                 <div><label for="grupo" class="block text-sm font-medium text-slate-700">Grupo</label><input type="text" id="grupo" name="grupo" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></div>
-            </div>
-        </div>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-file-earmark-text-fill text-slate-400"></i>Detalles del Plan y Contrato</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
-                <div><label for="contrato_nro" class="block text-sm font-medium text-slate-700">Nº Contrato</label><input type="text" id="contrato_nro" name="contrato_nro" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required></div>
-                <div><label for="plan_contratado" class="block text-sm font-medium text-slate-700">Plan Contratado ($)</label><select id="plan_contratado" name="plan_contratado" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required><option value="" disabled selected>-- Seleccione --</option></select></div>
-                <div><label for="inscripcion_monto" class="block text-sm font-medium text-slate-700">Monto Inscripción (16%)</label><input type="text" id="inscripcion_monto" name="inscripcion_monto" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" required readonly></div>
-                <div><label for="cuotas_totales" class="block text-sm font-medium text-slate-700">Total de Cuotas</label><select id="cuotas_totales" name="cuotas_totales" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
-                <div><label for="valor_cuota" class="block text-sm font-medium text-slate-700">Cuota Mensual ($)</label><input type="text" id="valor_cuota" name="valor_cuota" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" required readonly></div>
-                <div><label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required><option value="USD">Divisas (USD)</option><option value="BsBCV">Bolívares (Tasa BCV)</option></select></div>
-            </div>
-        </div>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-person-heart text-slate-400"></i>Beneficiario (Opcional)</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
-                <div><label for="beneficiario_nombre" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label><input type="text" id="beneficiario_nombre" name="beneficiario_nombre" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></div>
-                <div><label for="beneficiario_cedula" class="block text-sm font-medium text-slate-700">Nº Cédula</label><input type="text" id="beneficiario_cedula" name="beneficiario_cedula" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></div>
-                <div><label for="beneficiario_telefono" class="block text-sm font-medium text-slate-700">Teléfono</label><input type="text" id="beneficiario_telefono" name="beneficiario_telefono" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></div>
-            </div>
-        </div>
-        
-        <div class="flex justify-end gap-4 pt-4">
-            <a href="{{ url_for('hub') }}" class="bg-white text-slate-700 font-semibold py-2.5 px-5 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-colors">Cancelar</a>
-            <button type="submit" :disabled="isSubmitDisabled" class="bg-orange-500 text-white font-bold py-2.5 px-6 rounded-lg shadow-md hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors">
-                <i class="bi bi-arrow-right-circle-fill"></i>
-                Continuar al Contrato
+        <div class="mt-8 pt-6 border-t">
+            <button type="submit" class="w-full bg-orange-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-orange-600 transition-all shadow-md text-base">
+                <i class="bi bi-person-plus-fill mr-2"></i>
+                <span>Proceder a Firmar Contrato</span>
             </button>
         </div>
+    </form>
+</div>
 
-        <div x-show="isCameraOpen" x-cloak class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" @keydown.escape.window="closeCamera()">
-            <div class="bg-white rounded-xl p-4 w-full max-w-md text-center shadow-2xl">
-                <h3 class="text-lg font-bold mb-4 text-slate-800">Tomar Fotografía</h3>
-                <div class="relative w-full aspect-[4/5] rounded-lg bg-slate-200 overflow-hidden border border-slate-300">
-                    
-                    <template x-if="cameraState === 'loading'">
-                        <div class="absolute inset-0 flex flex-col items-center justify-center bg-slate-200">
-                            <i class="bi bi-arrow-repeat text-4xl text-slate-500 animate-spin"></i>
-                            <p class="mt-2 text-slate-600">Iniciando cámara...</p>
-                        </div>
-                    </template>
-                    
-                    <template x-if="cameraState === 'error'">
-                        <div class="absolute inset-0 flex flex-col items-center justify-center bg-red-50 p-4">
-                            <i class="bi bi-exclamation-triangle-fill text-4xl text-red-500"></i>
-                            <p class="mt-2 text-red-700 font-semibold text-center" x-text="cameraError"></p>
-                        </div>
-                    </template>
+<div class="modal fade fixed top-0 left-0 hidden w-full h-full outline-none overflow-x-hidden overflow-y-auto" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg relative w-auto pointer-events-none">
+        <div class="modal-content border-none shadow-lg relative flex flex-col w-full pointer-events-auto bg-white bg-clip-padding rounded-md outline-none text-current modal-content-camera">
+            
+            <div class="camera-header flex flex-shrink-0 items-center justify-between p-4 border-b border-gray-200 rounded-t-md">
+                <h5 class="text-xl font-medium leading-normal text-gray-800" id="cameraModalLabel"><i class="bi bi-camera-reels-fill mr-2"></i>Captura de Documentos</h5>
+                <button type="button" class="btn-close box-content w-4 h-4 p-1 text-white border-none rounded-none opacity-50 focus:shadow-none focus:outline-none focus:opacity-100 hover:text-white hover:opacity-75 hover:no-underline" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
 
-                    <div x-show="cameraState === 'streaming' || cameraState === 'captured'">
-                        <video id="video" x-show="cameraState === 'streaming'" class="w-full h-full object-cover" autoplay playsinline muted></video>
-                        <img id="photo-preview" x-show="cameraState === 'captured'" :src="capturedImageData" class="w-full h-full object-cover">
-                    </div>
+            <ul class="nav nav-tabs flex flex-row flex-wrap list-none border-b-0 pl-0 camera-tabs" id="cameraTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <a href="#selfieTab" class="nav-link active" data-bs-toggle="pill" role="tab" aria-selected="true">
+                        <i class="bi bi-person-bounding-box mr-2"></i> Selfie
+                    </a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a href="#documentTab" class="nav-link" data-bs-toggle="pill" role="tab" aria-selected="false">
+                        <i class="bi bi-card-heading mr-2"></i> Documento
+                    </a>
+                </li>
+            </ul>
+
+            <div class="modal-body relative p-4">
+                <div id="videoContainer" class="relative bg-black rounded-lg">
+                    <video id="cameraFeed" playsinline autoplay class="w-full h-auto rounded-lg"></video>
+                    <img id="photoPreview" src="" alt="Vista Previa" class="hidden w-full h-auto rounded-lg">
+                    <div id="overlayText">Alinee el documento</div>
                 </div>
-                <canvas id="canvas" class="hidden"></canvas>
-                
-                <div class="mt-5">
-                    <div x-show="cameraState === 'streaming'" class="flex items-center justify-center gap-4">
-                        <button @click.prevent="closeCamera()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300 transition-colors">Cancelar</button>
-                        <button @click.prevent="capturePhoto()" class="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors flex items-center gap-2"><i class="bi bi-camera-fill"></i>Capturar</button>
-                        <button @click.prevent="flipCamera()" x-show="hasMultipleCameras" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300 transition-colors">Voltear</button>
-                    </div>
+                <canvas id="cameraCanvas" class="hidden"></canvas>
+            </div>
 
-                    <div x-show="cameraState === 'captured'" x-cloak class="flex items-center justify-center gap-4">
-                        <button @click.prevent="retakePhoto()" class="px-4 py-2 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition-colors flex items-center gap-2"><i class="bi bi-arrow-counterclockwise"></i>Repetir</button>
-                        <button @click.prevent="acceptPhoto()" class="px-6 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors flex items-center gap-2"><i class="bi bi-check-circle-fill"></i>Aceptar</button>
-                    </div>
+            <div class="camera-controls modal-footer flex flex-shrink-0 flex-wrap items-center justify-center p-4 border-t border-gray-200 rounded-b-md">
+                <div id="initialControls" class="w-full flex justify-around items-center">
+                    <button id="closeModalBtn" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle-fill"></i>
+                        <span>Cancelar</span>
+                    </button>
+                    <button id="captureBtn">
+                        <i class="bi bi-camera-fill"></i>
+                    </button>
+                    <button id="flipCameraBtn">
+                        <i class="bi bi-arrow-repeat"></i>
+                        <span>Voltear</span>
+                    </button>
+                </div>
 
-                    <div x-show="cameraState === 'error'" x-cloak class="flex items-center justify-center">
-                        <button @click.prevent="closeCamera()" class="px-6 py-2 bg-slate-600 text-white rounded-lg font-semibold hover:bg-slate-700 transition-colors">Cerrar</button>
-                    </div>
+                <div id="previewControls" class="hidden w-full flex justify-around items-center">
+                    <button id="recaptureBtn">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                        <span>Repetir</span>
+                    </button>
+                    <button id="saveBtn" class="text-green-400">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>Guardar</span>
+                    </button>
                 </div>
             </div>
         </div>
-    </form>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts_extra %}
 <script>
-    function formController() {
-        return {
-            // --- ESTADO DEL FORMULARIO ---
-            isSubmitDisabled: true,
+document.addEventListener('DOMContentLoaded', function() {
+    // Referencias a elementos del DOM
+    const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
+    const video = document.getElementById('cameraFeed');
+    const canvas = document.getElementById('cameraCanvas');
+    const photoPreview = document.getElementById('photoPreview');
+    const overlayText = document.getElementById('overlayText');
+    
+    const initialControls = document.getElementById('initialControls');
+    const previewControls = document.getElementById('previewControls');
+    const captureBtn = document.getElementById('captureBtn');
+    const recaptureBtn = document.getElementById('recaptureBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const flipCameraBtn = document.getElementById('flipCameraBtn');
+    const selfieTab = document.querySelector('a[href="#selfieTab"]');
+    const documentTab = document.querySelector('a[href="#documentTab"]');
 
-            // --- ESTADO DE LA CÁMARA ---
-            isCameraOpen: false,
-            cameraState: 'idle', // 'idle', 'loading', 'streaming', 'captured', 'error'
-            cameraError: '',
-            photoTarget: null,
-            photoData: { cliente: '', cedula: '' },
-            stream: null,
-            capturedImageData: null,
-            facingMode: 'user',
-            hasMultipleCameras: false,
-            
-            // --- MÉTODOS ---
-            init() {
-                this.validateEntireForm();
-                // Detectar si hay más de una cámara disponible
-                navigator.mediaDevices.enumerateDevices()
-                    .then(devices => {
-                        this.hasMultipleCameras = devices.filter(d => d.kind === 'videoinput').length > 1;
-                    });
-                this.initializeFormPlugins();
-            },
+    let currentStream;
+    let currentMode = 'cliente'; // 'cliente' para selfie, 'cedula' para documento
+    let facingMode = 'user'; // 'user' para frontal, 'environment' para trasera
 
-            validateEntireForm() {
-                const form = document.getElementById('registroForm');
-                let isValid = true;
-                for (const field of form.querySelectorAll('[required]')) {
-                    if (!field.value || String(field.value).trim() === '') {
-                        isValid = false;
-                        break; 
-                    }
+    // Función para abrir y configurar la cámara
+    window.openCamera = function(mode) {
+        currentMode = mode;
+        // Selecciona la pestaña y modo de cámara adecuado
+        if (mode === 'cliente') {
+            facingMode = 'user';
+            selfieTab.click();
+        } else {
+            facingMode = 'environment';
+            documentTab.click();
+        }
+        resetCameraState();
+        startCamera();
+        cameraModal.show();
+    };
+    
+    // Función para iniciar el stream de la cámara
+    async function startCamera() {
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+        }
+        try {
+            const constraints = {
+                video: {
+                    facingMode: facingMode,
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
                 }
-                this.isSubmitDisabled = !isValid;
-            },
-
-            // --- LÓGICA DE LA CÁMARA ---
-            openCamera(target) {
-                this.photoTarget = target;
-                this.isCameraOpen = true;
-                this.cameraState = 'loading';
-                // Usar la cámara trasera por defecto para la cédula
-                if (target === 'cedula' && this.hasMultipleCameras) {
-                    this.facingMode = 'environment';
-                } else {
-                    this.facingMode = 'user';
-                }
-                this.$nextTick(() => this.startStream());
-            },
-
-            startStream() {
-                if (this.stream) this.stream.getTracks().forEach(track => track.stop());
-                
-                const constraints = { video: { facingMode: this.facingMode }, audio: false };
-                navigator.mediaDevices.getUserMedia(constraints)
-                    .then(stream => {
-                        this.stream = stream;
-                        let video = document.getElementById('video');
-                        video.srcObject = stream;
-                        this.cameraState = 'streaming';
-                    }).catch(err => {
-                        console.error("Error al acceder a la cámara: ", err);
-                        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                            this.cameraError = 'Permiso denegado. Revisa los permisos de la cámara en tu navegador.';
-                        } else {
-                            this.cameraError = 'No se pudo acceder a la cámara. Inténtalo de nuevo o usa otro dispositivo.';
-                        }
-                        this.cameraState = 'error';
-                    });
-            },
-
-            capturePhoto() {
-                const video = document.getElementById('video');
-                const canvas = document.getElementById('canvas');
-                const context = canvas.getContext('2d'); // Corregido de 'd' a '2d'
-                
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                
-                // Si la cámara es frontal, voltea la imagen para que no salga en modo espejo
-                if (this.facingMode === 'user' && this.photoTarget === 'cliente') {
-                    context.translate(canvas.width, 0);
-                    context.scale(-1, 1);
-                }
-                
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                this.capturedImageData = canvas.toDataURL('image/jpeg');
-                this.cameraState = 'captured';
-            },
-
-            acceptPhoto() {
-                this.photoData[this.photoTarget] = this.capturedImageData;
-                this.validateEntireForm();
-                this.closeCamera();
-            },
-
-            retakePhoto() {
-                this.capturedImageData = null;
-                this.cameraState = 'streaming';
-            },
-
-            flipCamera() {
-                this.facingMode = (this.facingMode === 'user') ? 'environment' : 'user';
-                this.cameraState = 'loading';
-                this.$nextTick(() => this.startStream());
-            },
-
-            closeCamera() {
-                if (this.stream) this.stream.getTracks().forEach(track => track.stop());
-                this.isCameraOpen = false;
-                this.stream = null;
-                this.capturedImageData = null;
-                // Resetear estados al cerrar
-                this.cameraState = 'idle';
-                this.cameraError = '';
-                this.facingMode = 'user';
-            },
-
-            // --- LÓGICA ADICIONAL DEL FORMULARIO ---
-            initializeFormPlugins() {
-                const form = document.getElementById('registroForm');
-                const planSelect = document.getElementById('plan_contratado');
-                const inscripcionInput = document.getElementById('inscripcion_monto');
-                const cuotasSelect = document.getElementById('cuotas_totales');
-                const monedaSelect = document.getElementById('moneda_pago');
-                const valorCuotaInput = document.getElementById('valor_cuota');
-                const escenarioSelect = document.getElementById('escenario_cierre');
-
-                const calcularValorCuota = () => {
-                    const plan = parseFloat(planSelect.value);
-                    const cuotas = parseInt(cuotasSelect.value);
-                    if (isNaN(plan) || isNaN(cuotas)) { valorCuotaInput.value = ''; return; }
-                    const base = (monedaSelect.value === 'USD') ? 0.0496 : 0.0557;
-                    valorCuotaInput.value = (plan * (base * (24 / cuotas))).toFixed(2);
-                };
-
-                for (let monto = 1100; monto <= 4000; monto += 50) {
-                    planSelect.add(new Option(`$${monto.toLocaleString('es-ES')}`, monto));
-                }
-
-                planSelect.addEventListener('change', () => {
-                    const valorPlan = parseFloat(planSelect.value);
-                    inscripcionInput.value = isNaN(valorPlan) ? '' : (valorPlan * 0.16).toFixed(2);
-                    calcularValorCuota();
-                });
-                cuotasSelect.addEventListener('change', calcularValorCuota);
-                monedaSelect.addEventListener('change', calcularValorCuota);
-                
-                // Lógica de escenarios de cierre (sin cambios)
-                escenarioSelect.addEventListener('change', () => { 
-                    // ... Aquí va la lógica para mostrar/ocultar los campos de asesor y responsable ...
-                });
-
-                document.getElementById('fecha_ingreso').value = new Date().toISOString().split('T')[0];
-
-                form.addEventListener('submit', function(e) {
-                    const submitButton = e.currentTarget.querySelector('button[type="submit"]');
-                    if (submitButton.disabled) {
-                        e.preventDefault();
-                        Swal.fire({ icon: 'error', title: 'Campos Incompletos', text: 'Por favor, complete todos los campos requeridos, incluyendo las fotografías.' });
-                        return;
-                    }
-                    submitButton.disabled = true;
-                    submitButton.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
-                });
-            },
-        };
+            };
+            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = currentStream;
+            updateOverlayText();
+        } catch (err) {
+            console.error("Error al acceder a la cámara:", err);
+            alert("No se pudo acceder a la cámara. Asegúrate de haber otorgado los permisos.");
+            cameraModal.hide();
+        }
     }
 
-    document.addEventListener('alpine:init', () => {
-        Alpine.data('formController', formController);
+    // Cambiar entre cámara frontal y trasera
+    flipCameraBtn.addEventListener('click', () => {
+        facingMode = (facingMode === 'user') ? 'environment' : 'user';
+        startCamera();
     });
+    
+    // Cambiar modo con las pestañas
+    selfieTab.addEventListener('click', () => {
+        if (facingMode !== 'user') {
+            facingMode = 'user';
+            startCamera();
+        }
+    });
+
+    documentTab.addEventListener('click', () => {
+        if (facingMode !== 'environment') {
+            facingMode = 'environment';
+            startCamera();
+        }
+    });
+
+    // Capturar la foto
+    captureBtn.addEventListener('click', () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext('2d');
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        photoPreview.src = dataUrl;
+
+        // Cambiar a la vista de previsualización
+        video.classList.add('hidden');
+        photoPreview.classList.remove('hidden');
+        initialControls.classList.add('hidden');
+        previewControls.classList.remove('hidden');
+        overlayText.classList.add('hidden');
+    });
+
+    // Volver a capturar
+    recaptureBtn.addEventListener('click', () => {
+        resetCameraState();
+    });
+    
+    // Guardar la foto
+    saveBtn.addEventListener('click', () => {
+        const imageData = photoPreview.src;
+        const activeTab = document.querySelector('#cameraTab .nav-link.active').getAttribute('href');
+
+        if (activeTab === '#selfieTab') {
+            document.getElementById('foto_cliente').value = imageData;
+            document.getElementById('preview_cliente').src = imageData;
+        } else {
+            document.getElementById('foto_cedula').value = imageData;
+            document.getElementById('preview_cedula').src = imageData;
+        }
+        
+        cameraModal.hide();
+    });
+
+    // Resetea el estado de la cámara a la vista en vivo
+    function resetCameraState() {
+        photoPreview.classList.add('hidden');
+        video.classList.remove('hidden');
+        previewControls.classList.add('hidden');
+        initialControls.classList.remove('hidden');
+        overlayText.classList.remove('hidden');
+    }
+    
+    // Actualiza el texto guía
+    function updateOverlayText(){
+        const activeTab = document.querySelector('#cameraTab .nav-link.active').getAttribute('href');
+        if (activeTab === '#selfieTab') {
+            overlayText.textContent = 'Centra tu rostro en la cámara';
+        } else {
+            overlayText.textContent = 'Alinea el documento en el recuadro';
+        }
+    }
+    
+    // Detener la cámara cuando se cierra el modal
+    document.getElementById('cameraModal').addEventListener('hidden.bs.modal', function () {
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+        }
+    });
+});
 </script>
 {% endblock %}
