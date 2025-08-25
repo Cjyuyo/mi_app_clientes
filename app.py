@@ -2510,27 +2510,33 @@ def get_bulk_detalle(bulk_id):
 
 @app.route('/agregar_gestion/<int:cliente_id>', methods=['POST'])
 @admin_required
-@rol_requerido('superadmin', 'gerente', 'administradora') # Asesores no pueden agregar gestiones
-def agregar_gestion(cliente_id):
+@rol_requerido('superadmin', 'gerente', 'administradora')
+def agregar_gestion(cliente_id): # <--- AQUÍ ESTÁ LA CORRECCIÓN
     nota = request.form.get('nota')
     tipo_gestion = request.form.get('tipo_gestion')
     if not nota or not nota.strip() or not tipo_gestion:
         flash("El tipo de gestión y la nota no pueden estar vacíos.", "warning")
         return redirect(url_for('perfil_cliente', cliente_id=cliente_id))
+    
     conn = get_db()
     if conn and g.admin:
         try:
             with conn.cursor() as cur:
-                cur.execute("INSERT INTO gestiones_cobranza (cliente_id, gestor_id, tipo_gestion, nota) VALUES (%s, %s, %s, %s)", (cliente_id, g.admin['id'], tipo_gestion, nota.strip()))
+                cur.execute("INSERT INTO gestiones_cobranza (cliente_id, gestor_id, tipo_gestion, nota) VALUES (%s, %s, %s, %s)", 
+                            (cliente_id, g.admin['id'], tipo_gestion, nota.strip()))
+                
                 cur.execute("SELECT nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
                 cliente = cur.fetchone()
+                
                 descripcion = f"Agregó gestión '{tipo_gestion}' para el cliente {cliente['nombre']} {cliente['apellido']}: '{nota[:50]}...'"
                 registrar_accion_auditoria('AGREGAR_GESTION', descripcion, cliente_id)
+                
                 conn.commit()
                 flash("Gestión guardada exitosamente.", "success")
         except psycopg2.Error as e:
             conn.rollback()
             flash(f"Error al guardar la gestión: {e}", "error")
+            
     return redirect(url_for('perfil_cliente', cliente_id=cliente_id))
 
 @app.route('/registrar')
