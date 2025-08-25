@@ -2424,14 +2424,14 @@ def perfil_cliente(cliente_id):
 
     try:
         with conn.cursor() as cur:
-            # 1. Obtener datos del cliente
+            # Paso 1: Obtener los datos principales del cliente
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (cliente_id,))
             cliente = cur.fetchone()
             if not cliente:
                 flash("Cliente no encontrado.", "error")
                 return redirect(url_for('consulta'))
 
-            # 2. Obtener todos los historiales que la plantilla necesita
+            # Paso 2: Obtener todos los historiales que la plantilla necesita
             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_creacion DESC", (cliente_id,))
             pagos = cur.fetchall()
 
@@ -2441,18 +2441,18 @@ def perfil_cliente(cliente_id):
             cur.execute("""
                 SELECT g.nota, g.tipo_gestion, g.fecha_creacion, a.usuario as gestor_nombre
                 FROM gestiones_cobranza g
-                JOIN administradores a ON g.gestor_id = a.id
+                LEFT JOIN administradores a ON g.gestor_id = a.id
                 WHERE g.cliente_id = %s ORDER BY g.fecha_creacion DESC;
             """, (cliente_id,))
             gestiones = cur.fetchall()
 
-            # 3. Convertir a diccionario y añadir los conteos que la plantilla necesita
+            # Paso 3: Convertir a diccionario y añadir los conteos
             cliente_dict = dict(cliente)
             cliente_dict['conteo_pagos'] = len(pagos)
             cliente_dict['conteo_ofertas'] = len(ofertas)
             cliente_dict['conteo_gestiones'] = len(gestiones)
 
-            # 4. Renderizar la plantilla con TODOS los datos requeridos
+            # Paso 4: Renderizar la plantilla correcta con TODOS los datos
             return render_template(
                 'cliente_perfil.html',
                 cliente=cliente_dict,
@@ -2463,9 +2463,11 @@ def perfil_cliente(cliente_id):
             )
 
     except Exception as e:
+        # Usamos logging para registrar el error real en la consola del servidor
         logging.error(f"Error CRÍTICO al cargar perfil del cliente {cliente_id}: {e}\n{traceback.format_exc()}")
         flash("Ocurrió un error grave al cargar el perfil del cliente. El problema ha sido registrado.", "error")
         return redirect(url_for('consulta'))
+
     # 4. Se pasan las nuevas variables (`cliente_dict` y `ofertas`) a la plantilla.
     return render_template('cliente_perfil.html',
                            cliente=cliente_dict, # Usamos el diccionario modificado
