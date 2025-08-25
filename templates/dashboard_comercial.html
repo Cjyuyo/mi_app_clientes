@@ -1,358 +1,252 @@
-{% extends 'base_sidebar.html' %}
+{% extends "base_sidebar.html" %}
 
-{% block title %}
-    Dashboard Comercial
+{% block title %}Dashboard Comercial{% endblock %}
+
+{% block page_title %}Dashboard Comercial{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf-autotable.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 {% endblock %}
 
 {% block body %}
-<div class="space-y-6">
-    <!-- Encabezado y Filtros -->
-    <div class="bg-white p-6 rounded-xl shadow-sm">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
-            <div>
-                <h1 class="text-3xl font-bold text-slate-800">Dashboard de Comisiones</h1>
-                <p class="text-slate-500 mt-1">Gestiona, aprueba y paga las comisiones de los asesores.</p>
+<div class="space-y-8">
+    
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <form method="GET" action="{{ url_for('dashboard_comercial') }}" class="flex flex-wrap items-center gap-4 md:gap-6">
+            <h3 class="text-lg font-bold text-slate-800 mr-4">Filtros</h3>
+            
+            <div class="flex-grow md:flex-grow-0">
+                <label for="responsable" class="text-sm font-semibold text-slate-600 sr-only">Responsable</label>
+                <div class="relative">
+                    <select id="responsable" name="responsable" class="w-full md:w-auto appearance-none bg-slate-50 border border-slate-300 rounded-lg py-2 pl-4 pr-10 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 transition">
+                        <option value="todos">Todos los Responsables</option>
+                        {% for r in responsables %}
+                            <option value="{{ r[1] }}" {% if r[1] == responsable_seleccionado %}selected{% endif %}>{{ r[1] }}</option>
+                        {% endfor %}
+                    </select>
+                    <i class="bi bi-person-check-fill absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                </div>
             </div>
-            <div class="mt-4 md:mt-0">
-                <button id="export-pdf-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out">
+
+            <div class="flex-grow md:flex-grow-0">
+                <label for="rango_fecha" class="text-sm font-semibold text-slate-600 sr-only">Rango de Fechas</label>
+                <div class="relative">
+                    <select id="rango_fecha" name="rango_fecha" class="w-full md:w-auto appearance-none bg-slate-50 border border-slate-300 rounded-lg py-2 pl-4 pr-10 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 transition">
+                        <option value="mes_actual" {% if rango_seleccionado == 'mes_actual' %}selected{% endif %}>Este Mes</option>
+                        <option value="mes_anterior" {% if rango_seleccionado == 'mes_anterior' %}selected{% endif %}>Mes Anterior</option>
+                        <option value="ultimos_30_dias" {% if rango_seleccionado == 'ultimos_30_dias' %}selected{% endif %}>Últimos 30 días</option>
+                        <option value="ano_actual" {% if rango_seleccionado == 'ano_actual' %}selected{% endif %}>Este Año</option>
+                    </select>
+                    <i class="bi bi-calendar-range-fill absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                </div>
+            </div>
+
+            <button type="submit" class="w-full md:w-auto bg-orange-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-orange-600 transition-all shadow-sm flex items-center justify-center gap-2">
+                <i class="bi bi-funnel-fill"></i>
+                <span>Aplicar</span>
+            </button>
+        </form>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-semibold text-slate-500">Total de Cierres</p>
+                    <p class="text-4xl font-bold text-slate-800 mt-1">{{ stats.total_cierres | default('0') }}</p>
+                </div>
+                <div class="w-12 h-12 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                    <i class="bi bi-person-check-fill text-2xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-semibold text-slate-500">Monto Total Cerrado</p>
+                    <p class="text-4xl font-bold text-slate-800 mt-1">${{ "{:,.2f}".format(stats.monto_total_cerrado) if stats.monto_total_cerrado is not none else '0.00' }}</p>
+                </div>
+                <div class="w-12 h-12 flex items-center justify-center rounded-full bg-green-100 text-green-600">
+                    <i class="bi bi-cash-stack text-2xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-semibold text-slate-500">Plan Promedio</p>
+                    <p class="text-4xl font-bold text-slate-800 mt-1">${{ "{:,.2f}".format(stats.plan_promedio) if stats.plan_promedio is not none else '0.00' }}</p>
+                </div>
+                <div class="w-12 h-12 flex items-center justify-center rounded-full bg-orange-100 text-orange-600">
+                    <i class="bi bi-bar-chart-line-fill text-2xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-semibold text-slate-500">Tasa de Conversión</p>
+                    <p class="text-4xl font-bold text-slate-800 mt-1">{{ "%.2f"|format(stats.tasa_conversion) if stats.tasa_conversion is not none else '0.00' }}%</p>
+                </div>
+                <div class="w-12 h-12 flex items-center justify-center rounded-full bg-purple-100 text-purple-600">
+                    <i class="bi bi-bullseye text-2xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80">
+        <h3 class="text-lg font-bold text-slate-800 mb-4">Rendimiento de Cierres en el Tiempo</h3>
+        <canvas id="cierresChart" height="100"></canvas>
+    </div>
+    
+    <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80">
+        <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
+            <h3 class="text-lg font-bold text-slate-800">Detalle de Cierres</h3>
+            <div class="flex items-center gap-3">
+                <button onclick="exportToPDF()" class="bg-red-50 text-red-700 font-semibold py-2 px-4 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-2 text-sm">
                     <i class="bi bi-file-earmark-pdf-fill"></i> PDF
                 </button>
-                <button id="export-excel-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out">
+                <button onclick="exportToExcel()" class="bg-green-50 text-green-700 font-semibold py-2 px-4 rounded-lg hover:bg-green-100 transition-colors flex items-center gap-2 text-sm">
                     <i class="bi bi-file-earmark-excel-fill"></i> Excel
                 </button>
             </div>
         </div>
-        
-        <!-- Formulario de Filtros -->
-        <form method="GET" action="{{ url_for('dashboard_comercial') }}" class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-            <div>
-                <label for="fecha_desde_origen" class="block text-sm font-medium text-slate-700">Desde (Origen)</label>
-                <input type="date" name="fecha_desde_origen" id="fecha_desde_origen" value="{{ filters.fecha_desde_origen }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-            </div>
-            <div>
-                <label for="fecha_hasta_origen" class="block text-sm font-medium text-slate-700">Hasta (Origen)</label>
-                <input type="date" name="fecha_hasta_origen" id="fecha_hasta_origen" value="{{ filters.fecha_hasta_origen }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-            </div>
-            <div>
-                <label for="asesor_id" class="block text-sm font-medium text-slate-700">Asesor</label>
-                <select name="asesor_id" id="asesor_id" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    <option value="">Todos</option>
-                    {% for asesor in asesores %}
-                    <option value="{{ asesor.id }}" {% if filters.asesor_id == asesor.id|string %}selected{% endif %}>{{ asesor.nombre_completo }}</option> <!-- CAMBIO AQUÍ -->
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label for="estado" class="block text-sm font-medium text-slate-700">Estado</label>
-                <select name="estado" id="estado" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    <option value="">Todos</option>
-                    <option value="pendiente" {% if filters.estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
-                    <option value="aprobado" {% if filters.estado == 'aprobado' %}selected{% endif %}>Aprobado</option>
-                    <option value="pagado" {% if filters.estado == 'pagado' %}selected{% endif %}>Pagado</option>
-                </select>
-            </div>
-            <div class="flex space-x-2">
-                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out">Filtrar</button>
-                <a href="{{ url_for('dashboard_comercial') }}" class="w-full text-center bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-4 rounded-lg transition">Limpiar</a>
-            </div>
-        </form>
-    </div>
-
-    <!-- KPIs -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white p-4 rounded-xl shadow-sm"><div class="text-xs text-slate-500">Pendiente</div><div class="text-xl font-bold text-orange-500">${{ "{:,.2f}".format(stats.pendiente.monto) }}</div><div class="text-xs text-slate-400">{{ stats.pendiente.conteo }} items</div></div>
-        <div class="bg-white p-4 rounded-xl shadow-sm"><div class="text-xs text-slate-500">Aprobado (Listo p/ Pagar)</div><div class="text-xl font-bold text-blue-500">${{ "{:,.2f}".format(stats.aprobado.monto) }}</div><div class="text-xs text-slate-400">{{ stats.aprobado.conteo }} items</div></div>
-        <div class="bg-white p-4 rounded-xl shadow-sm"><div class="text-xs text-slate-500">Pagado</div><div class="text-xl font-bold text-green-500">${{ "{:,.2f}".format(stats.pagado.monto) }}</div><div class="text-xs text-slate-400">{{ stats.pagado.conteo }} items</div></div>
-        <div class="bg-white p-4 rounded-xl shadow-sm"><div class="text-xs text-slate-500">Ajustes / Rebalanceos</div><div class="text-xl font-bold text-slate-600">${{ "{:,.2f}".format(stats.rebalanceos.monto) }}</div></div>
-    </div>
-
-    <!-- Tabla de Comisiones -->
-    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-slate-200 flex justify-between items-center">
-            <h2 class="text-lg font-bold text-slate-800">Detalle de Comisiones</h2>
-            <div class="space-x-2">
-                <button id="approve-selected-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 rounded-lg text-sm disabled:bg-slate-300" disabled><i class="bi bi-check-circle-fill"></i> Aprobar</button>
-                <button id="generate-batch-btn" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 px-3 rounded-lg text-sm disabled:bg-slate-300" disabled><i class="bi bi-collection-fill"></i> Generar Lote</button>
-            </div>
-        </div>
         <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left text-slate-500">
-                <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+            <table id="tablaCierres" class="w-full text-sm text-left text-slate-500">
+                <thead class="text-xs text-slate-700 uppercase bg-slate-100">
                     <tr>
-                        <th scope="col" class="p-4"><input type="checkbox" id="select-all-checkbox"></th>
-                        <th scope="col" class="px-6 py-3">Fecha Origen</th>
-                        <th scope="col" class="px-6 py-3">Asesor</th>
-                        <th scope="col" class="px-6 py-3">Cliente / Origen</th>
-                        <th scope="col" class="px-6 py-3 text-right">Monto</th>
-                        <th scope="col" class="px-6 py-3 text-center">Estado</th>
-                        <th scope="col" class="px-6 py-3 text-center">Lote</th>
-                        <th scope="col" class="px-6 py-3 text-center">Acciones</th>
+                        <th scope="col" class="px-6 py-3 rounded-l-lg">Responsable</th>
+                        <th scope="col" class="px-6 py-3">Cliente</th>
+                        <th scope="col" class="px-6 py-3">Cédula</th>
+                        <th scope="col" class="px-6 py-3">Monto del Plan</th>
+                        <th scope="col" class="px-6 py-3 rounded-r-lg">Fecha de Ingreso</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for comision in comisiones %}
+                    {% for cierre in cierres %}
                     <tr class="bg-white border-b hover:bg-slate-50">
-                        <td class="p-4"><input type="checkbox" class="commission-checkbox" data-id="{{ comision.id }}" data-estado="{{ comision.estado }}"></td>
-                        <td class="px-6 py-4">{{ comision.fecha_origen|format_date }}</td>
-                        <td class="px-6 py-4 font-medium text-slate-900">{{ comision.asesor }}</td>
-                        <td class="px-6 py-4">{{ comision.cliente or 'N/A' }}</td>
-                        <td class="px-6 py-4 text-right font-semibold text-slate-800">${{ "{:,.2f}".format(comision.monto) }}</td>
-                        <td class="px-6 py-4 text-center">
-                            {% if comision.estado == 'pendiente' %}
-                                <span class="px-2 py-1 text-xs font-semibold text-orange-800 bg-orange-100 rounded-full">Pendiente</span>
-                            {% elif comision.estado == 'aprobado' %}
-                                <span class="px-2 py-1 text-xs font-semibold text-blue-800 bg-blue-100 rounded-full">Aprobado</span>
-                            {% elif comision.estado == 'pagado' %}
-                                <span class="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">Pagado</span>
-                            {% else %}
-                                <span class="px-2 py-1 text-xs font-semibold text-slate-800 bg-slate-100 rounded-full">{{ comision.estado }}</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-6 py-4 text-center">
-                            {% if comision.payment_batch_id %}
-                                <a href="#" class="font-semibold text-indigo-600 hover:underline view-batch-details" data-lote-id="{{ comision.payment_batch_id }}">#{{ comision.payment_batch_id }}</a>
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td class="px-6 py-4 text-center">
-                            <button class="text-blue-600 hover:text-blue-800 font-semibold view-commission-details" data-id="{{ comision.id }}">
-                                Detalles
-                            </button>
-                        </td>
+                        <td class="px-6 py-4 font-medium text-slate-900">{{ cierre.responsable }}</td>
+                        <td class="px-6 py-4">{{ cierre.nombre_apellido }}</td>
+                        <td class="px-6 py-4">{{ cierre.cedula }}</td>
+                        <td class="px-6 py-4 font-semibold">${{ "{:,.2f}".format(cierre.plan_contratado) }}</td>
+                        <td class="px-6 py-4">{{ cierre.fecha_ingreso.strftime('%d-%m-%Y') }}</td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="8" class="text-center p-6 text-slate-500">No se encontraron comisiones con los filtros aplicados.</td>
+                        <td colspan="5" class="text-center py-8 text-slate-500">No hay datos de cierres para los filtros seleccionados.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
-</div>
 
-<!-- Modales -->
-<!-- Modal para Detalles de Comisión -->
-<div id="commission-details-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
-        <div class="flex justify-between items-center pb-3 border-b">
-            <h3 class="text-lg font-bold text-slate-800" id="modal-title">Detalles de la Comisión</h3>
-            <button id="close-modal-btn" class="text-black close-modal">
-                <i class="bi bi-x-lg"></i>
-            </button>
-        </div>
-        <div class="mt-3" id="modal-body">
-            <!-- Contenido dinámico se insertará aquí -->
-        </div>
-    </div>
 </div>
-
-<!-- Modal para Detalles de Lote -->
-<div id="batch-details-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
-        <div class="flex justify-between items-center pb-3 border-b">
-            <h3 class="text-lg font-bold text-slate-800" id="batch-modal-title">Detalles del Lote de Pago</h3>
-            <button id="close-batch-modal-btn" class="text-black close-modal">
-                <i class="bi bi-x-lg"></i>
-            </button>
-        </div>
-        <div class="mt-3" id="batch-modal-body">
-            <!-- Contenido dinámico -->
-        </div>
-    </div>
-</div>
-
 {% endblock %}
 
 {% block scripts_extra %}
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const commissionModal = document.getElementById('commission-details-modal');
-    const batchModal = document.getElementById('batch-details-modal');
-    const closeModalBtns = document.querySelectorAll('.close-modal');
+    // Inicialización del gráfico de Chart.js
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('cierresChart').getContext('2d');
+        const chartData = {{ chart_data | tojson | safe }};
 
-    // --- Lógica para mostrar/ocultar modales ---
-    const openModal = (modal) => modal.classList.remove('hidden');
-    const closeModal = (modal) => modal.classList.add('hidden');
-
-    document.querySelectorAll('.view-commission-details').forEach(button => {
-        button.addEventListener('click', async (e) => {
-            const comId = e.currentTarget.dataset.id;
-            const modalBody = commissionModal.querySelector('#modal-body');
-            commissionModal.querySelector('#modal-title').textContent = `Detalles de Comisión #${comId}`;
-            modalBody.innerHTML = '<p>Cargando...</p>';
-            openModal(commissionModal);
-
-            try {
-                const response = await fetch(`/comercial/api/comision_detalle/${comId}`);
-                const data = await response.json();
-                if (data.error) throw new Error(data.error);
-                
-                let content = `
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div><strong>Asesor:</strong> ${data.comision.asesor_nombre}</div>
-                        <div><strong>Cliente:</strong> ${data.comision.cliente_nombre || 'N/A'}</div>
-                        <div><strong>Monto:</strong> $${parseFloat(data.comision.monto).toFixed(2)}</div>
-                        <div><strong>Estado:</strong> ${data.comision.estado}</div>
-                        <div><strong>Fecha Origen:</strong> ${new Date(data.comision.fecha_origen).toLocaleDateString()}</div>
-                        <div><strong>Lote de Pago:</strong> ${data.comision.lote_id ? `#${data.comision.lote_id}` : 'Ninguno'}</div>
-                    </div>
-                    <h4 class="font-bold mt-4">Notas:</h4>
-                    <p class="text-sm bg-slate-50 p-2 rounded">${data.comision.notas || 'Sin notas.'}</p>
-                `;
-                modalBody.innerHTML = content;
-            } catch (error) {
-                modalBody.innerHTML = `<p class="text-red-500">Error al cargar detalles: ${error.message}</p>`;
-            }
-        });
-    });
-
-    document.querySelectorAll('.view-batch-details').forEach(button => {
-        button.addEventListener('click', async (e) => {
-            e.preventDefault();
-            const loteId = e.currentTarget.dataset.loteId;
-            const modalBody = batchModal.querySelector('#batch-modal-body');
-            batchModal.querySelector('#batch-modal-title').textContent = `Detalles del Lote #${loteId}`;
-            modalBody.innerHTML = '<p>Cargando...</p>';
-            openModal(batchModal);
-            
-            try {
-                const response = await fetch(`/comercial/lotes/detalle/${loteId}`);
-                const data = await response.json();
-                if (data.error) throw new Error(data.error);
-
-                let resumenHtml = '<ul>';
-                data.resumen.forEach(item => {
-                    resumenHtml += `<li><strong>${item.asesor}:</strong> $${parseFloat(item.total_monto).toFixed(2)}</li>`;
-                });
-                resumenHtml += '</ul>';
-
-                let content = `
-                    <div class="text-sm space-y-2">
-                        <p><strong>Total Items:</strong> ${data.lote.total_items}</p>
-                        <p><strong>Monto Total USD:</strong> $${parseFloat(data.lote.total_monto_usd).toFixed(2)}</p>
-                        <p><strong>Fecha de Creación:</strong> ${new Date(data.lote.created_at).toLocaleString()}</p>
-                        <p><strong>Estado:</strong> ${data.lote.paid_at ? 'Pagado' : 'Pendiente de Pago'}</p>
-                    </div>
-                    <h4 class="font-bold mt-4">Resumen por Asesor:</h4>
-                    <div class="text-sm bg-slate-50 p-2 rounded">${resumenHtml}</div>
-                `;
-                if (!data.lote.paid_at) {
-                    content += `
-                        <div class="mt-4 pt-4 border-t">
-                            <h4 class="font-bold">Marcar como Pagado</h4>
-                            <div class="flex gap-2 mt-2">
-                                <input type="text" id="payment-method" placeholder="Método de Pago" class="flex-grow rounded-md border-slate-300">
-                                <input type="text" id="payment-ref" placeholder="Referencia" class="flex-grow rounded-md border-slate-300">
-                                <button id="pay-batch-btn" data-lote-id="${loteId}" class="bg-green-500 text-white px-3 py-1 rounded-md">Pagar</button>
-                            </div>
-                        </div>
-                    `;
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    label: 'Monto Total por Día',
+                    data: chartData.values,
+                    borderColor: '#F99417', // Naranja corporativo
+                    backgroundColor: 'rgba(249, 148, 23, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#F99417',
+                    pointBorderColor: '#fff',
+                    pointHoverRadius: 7,
+                    pointHoverBackgroundColor: '#F99417',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value, index, values) {
+                                return '$' + value.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    },
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
                 }
-                modalBody.innerHTML = content;
-            } catch (error) {
-                 modalBody.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
             }
         });
     });
 
-    closeModalBtns.forEach(btn => btn.addEventListener('click', () => {
-        closeModal(commissionModal);
-        closeModal(batchModal);
-    }));
+    // Funciones para exportar a PDF y Excel con librerías actualizadas
+    function exportToPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
 
-    // --- Lógica de Selección y Acciones en Lote ---
-    const selectAllCheckbox = document.getElementById('select-all-checkbox');
-    const checkboxes = document.querySelectorAll('.commission-checkbox');
-    const approveBtn = document.getElementById('approve-selected-btn');
-    const generateBtn = document.getElementById('generate-batch-btn');
+        const titulo = "Reporte de Cierres - {{ responsable_seleccionado | capitalize }}";
+        const fecha = new Date().toLocaleDateString();
 
-    function updateButtonState() {
-        const selectedPendientes = [...checkboxes].filter(cb => cb.checked && cb.dataset.estado === 'pendiente').length;
-        const selectedAprobadas = [...checkboxes].filter(cb => cb.checked && cb.dataset.estado === 'aprobado').length;
+        doc.setFontSize(18);
+        doc.text(titulo, 14, 22);
+        doc.setFontSize(11);
+        doc.text(`Fecha: ${fecha}`, 14, 30);
         
-        approveBtn.disabled = selectedPendientes === 0;
-        generateBtn.disabled = selectedAprobadas === 0;
+        // autoTable es un plugin de jsPDF para crear tablas fácilmente
+        doc.autoTable({
+            html: '#tablaCierres',
+            startY: 35,
+            theme: 'grid',
+            headStyles: { fillColor: [43, 58, 85] }, // Azul corporativo
+        });
+        
+        doc.save(`reporte_cierres_${new Date().toISOString().split('T')[0]}.pdf`);
     }
 
-    selectAllCheckbox.addEventListener('change', (e) => {
-        checkboxes.forEach(cb => cb.checked = e.target.checked);
-        updateButtonState();
-    });
+    function exportToExcel() {
+        const tabla = document.getElementById('tablaCierres');
+        // Convierte la tabla HTML a una hoja de cálculo
+        const workbook = XLSX.utils.table_to_book(tabla, { sheet: "Cierres" });
+        // Escribe el archivo Excel y lo descarga
+        XLSX.writeFile(workbook, `reporte_cierres_${new Date().toISOString().split('T')[0]}.xlsx`);
+    }
 
-    checkboxes.forEach(cb => cb.addEventListener('change', updateButtonState));
-
-    approveBtn.addEventListener('click', async () => {
-        const selectedIds = [...checkboxes].filter(cb => cb.checked && cb.dataset.estado === 'pendiente').map(cb => cb.dataset.id);
-        if (selectedIds.length === 0) return;
-
-        if (confirm(`¿Seguro que quieres aprobar ${selectedIds.length} comisiones?`)) {
-            const response = await fetch('/comercial/api/aprobar_comisiones', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ ids: selectedIds })
-            });
-            const result = await response.json();
-            alert(result.message);
-            if (result.status === 'success') window.location.reload();
-        }
-    });
-
-    generateBtn.addEventListener('click', async () => {
-        const selectedIds = [...checkboxes].filter(cb => cb.checked && cb.dataset.estado === 'aprobado').map(cb => cb.dataset.id);
-        if (selectedIds.length === 0) return;
-
-        if (confirm(`¿Seguro que quieres generar un lote con ${selectedIds.length} comisiones?`)) {
-             const response = await fetch('/comercial/lotes/generar', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ ids: selectedIds })
-            });
-            const result = await response.json();
-            alert(result.message);
-            if (result.status === 'success') window.location.reload();
-        }
-    });
-
-    // --- Lógica para Pagar Lote (delegación de eventos) ---
-    batchModal.addEventListener('click', async (e) => {
-        if (e.target.id === 'pay-batch-btn') {
-            const loteId = e.target.dataset.loteId;
-            const metodo = document.getElementById('payment-method').value;
-            const referencia = document.getElementById('payment-ref').value;
-            if (!metodo) {
-                alert('Por favor, especifica un método de pago.');
-                return;
-            }
-            const response = await fetch(`/comercial/lotes/pagar/${loteId}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ metodo_pago: metodo, referencia: referencia })
-            });
-            const result = await response.json();
-            alert(result.message);
-            if (result.status === 'success') {
-                closeModal(batchModal);
-                window.location.reload();
-            }
-        }
-    });
-
-    // --- Lógica de Exportación ---
-    const buildExportUrl = (format) => {
-        const params = new URLSearchParams(new FormData(document.querySelector('form')));
-        params.set('formato', format);
-        return `/comercial/exportar?${params.toString()}`;
-    };
-
-    document.getElementById('export-pdf-btn').addEventListener('click', () => {
-        window.location.href = buildExportUrl('pdf');
-    });
-    document.getElementById('export-excel-btn').addEventListener('click', () => {
-        window.location.href = buildExportUrl('xlsx');
-    });
-
-});
 </script>
 {% endblock %}
