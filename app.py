@@ -1499,7 +1499,7 @@ def dashboard_comercial():
         fecha_inicio = today.replace(day=1)
         fecha_fin = today
 
-    # 3. Construir consulta dinámica para los datos de ventas
+    # 3. Construir consulta dinámica para los datos de ventas (cierres)
     base_query = """
         SELECT 
             c.responsable,
@@ -1529,7 +1529,6 @@ def dashboard_comercial():
             # Obtener la lista de todos los responsables de ventas para el filtro
             cur.execute("SELECT DISTINCT id, responsable FROM clientes WHERE responsable IS NOT NULL AND responsable != '' ORDER BY responsable")
             responsables_raw = cur.fetchall()
-            # Formatear para la plantilla que espera una tupla/lista `r[1]`
             responsables = [(row['id'], row['responsable']) for row in responsables_raw]
 
             # Ejecutar la consulta principal para obtener los detalles de los cierres
@@ -1545,17 +1544,14 @@ def dashboard_comercial():
                 stats['monto_total_cerrado'] = df['plan_contratado'].sum()
                 
                 plan_promedio_val = df['plan_contratado'].mean() if stats['total_cierres'] > 0 else 0
-                # Coincidir con el acceso anidado de la plantilla: stats.plan_promedio.plan_promedio
                 stats['plan_promedio'] = {'plan_promedio': plan_promedio_val}
 
-                # Valor provisional para la tasa de conversión, ya que no hay datos de prospectos
-                stats['tasa_conversion'] = 100.0 if stats['total_cierres'] > 0 else 0.0
-
+                stats['tasa_conversion'] = 100.0 # Placeholder
+                
                 # Preparar datos para el gráfico
                 df['fecha_ingreso'] = pd.to_datetime(df['fecha_ingreso'])
                 cierres_por_dia = df.groupby(df['fecha_ingreso'].dt.date)['plan_contratado'].sum()
                 
-                # Crear un rango de fechas completo para mostrar días con cero ventas en el gráfico
                 date_range = pd.date_range(start=fecha_inicio, end=fecha_fin, freq='D')
                 cierres_por_dia = cierres_por_dia.reindex(date_range.date, fill_value=0)
                 
@@ -1564,7 +1560,6 @@ def dashboard_comercial():
 
     except psycopg2.Error as e:
         flash(f"Error al cargar el dashboard comercial: {e}", "danger")
-        # Asegurar que se usen los valores por defecto en caso de un error en la consulta
         stats = default_stats.copy()
         cierres = []
         chart_data = {'labels': [], 'values': []}
@@ -1574,7 +1569,7 @@ def dashboard_comercial():
         'dashboard_comercial.html',
         stats=stats,
         cierres=cierres,
-        chart_data=chart_data, # Pasar el dict directamente, el filtro 'tojson' de Jinja lo manejará
+        chart_data=chart_data,
         responsables=responsables,
         responsable_seleccionado=responsable_seleccionado,
         rango_seleccionado=rango_seleccionado,
