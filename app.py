@@ -2422,96 +2422,50 @@ def perfil_cliente(cliente_id):
         flash("Error de conexión a la base de datos.", "error")
         return redirect(url_for('consulta'))
 
-    # Tu inicialización de variables se mantiene
-    cliente, gestiones, historial_eventos = None, [], []
-    pagos_procesados = []
-
     try:
         with conn.cursor() as cur:
+            # 1. Obtener datos del cliente
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (cliente_id,))
             cliente = cur.fetchone()
             if not cliente:
                 flash("Cliente no encontrado.", "error")
                 return redirect(url_for('consulta'))
 
-            # --- Tu lógica de pagos con 'payment_bulks' se mantiene intacta ---
-            cur.execute("""
-                SELECT p.*,
-                       b.status as bulk_status,
-                       b.expected_amount as bulk_expected,
-                       b.total_verified as bulk_verified
-                FROM pagos p
-                LEFT JOIN payment_bulks b ON p.bulk_id = b.id
-                WHERE p.cliente_id = %s ORDER BY p.fecha_creacion DESC, p.id DESC
-            """, (cliente_id,))
-            todos_los_pagos = cur.fetchall()
-            processed_bulk_ids = set()
-            for pago in todos_los_pagos:
-                if pago['bulk_id']:
-                    if pago['bulk_id'] not in processed_bulk_ids:
-                        summary_item = {
-                            'tipo_vista': 'inconsistencia',
-                            'bulk_id': pago['bulk_id'],
-                            'fecha_creacion': pago['fecha_creacion'],
-                            'monto_total': pago['bulk_expected'],
-                            'monto_pagado': pago['bulk_verified'],
-                            'estado': pago['bulk_status'],
-                            'concepto': f"Proceso de Inconsistencia #{pago['bulk_id']}"
-                        }
-                        pagos_procesados.append(summary_item)
-                        processed_bulk_ids.add(pago['bulk_id'])
-                else:
-                    pago_dict = dict(pago)
-                    pago_dict['tipo_vista'] = 'normal'
-                    pagos_procesados.append(pago_dict)
+            # 2. Obtener todos los historiales que la plantilla necesita
+            cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_creacion DESC", (cliente_id,))
+            pagos = cur.fetchall()
 
-            # --- Tu lógica de gestiones se mantiene intacta ---
-            cur.execute("""
-                SELECT g.nota, g.tipo_gestion, g.fecha_creacion, a.usuario as gestor_nombre FROM gestiones_cobranza g
-                JOIN administradores a ON g.gestor_id = a.id WHERE g.cliente_id = %s ORDER BY g.fecha_creacion DESC;
-            """, (cliente_id,))
-            gestiones = cur.fetchall()
-
-            # --- Tu lógica de historial de eventos se mantiene intacta ---
-            cur.execute("""
-                SELECT 'solicitud' as origen, id, 'Solicitud de ' || tipo_solicitud AS tipo,
-                       detalles, fecha_creacion AS fecha, estado, revisado_por_id,
-                       (SELECT usuario FROM administradores WHERE id = revisado_por_id) as usuario
-                FROM solicitudes WHERE cliente_id = %s
-                UNION ALL
-                SELECT 'gestion' as origen, g.id, 'Gestión de Cobranza' as tipo,
-                       json_build_object('nota', g.nota) as detalles, g.fecha_creacion as fecha,
-                       'Realizada' as estado, g.gestor_id as revisado_por_id, a.usuario
-                FROM gestiones_cobranza g JOIN administradores a ON g.gestor_id = a.id
-                WHERE g.cliente_id = %s
-                ORDER BY fecha DESC;
-            """, (cliente_id, cliente_id))
-            raw_events = cur.fetchall()
-            # ... (tu bucle for para procesar raw_events se mantiene) ...
-            for event in raw_events:
-                # ... tu código de procesamiento de eventos ...
-                historial_eventos.append(evento_fmt)
-
-            ### INICIO DE LA CORRECCIÓN ###
-            # 1. Se añade la consulta para obtener las ofertas (esto faltaba).
             cur.execute("SELECT * FROM ofertas WHERE cliente_id = %s ORDER BY fecha_oferta DESC", (cliente_id,))
             ofertas = cur.fetchall()
 
-            # 2. Se convierte el objeto cliente a un diccionario para poder añadirle datos.
-            cliente_dict = dict(cliente)
+            cur.execute("""
+                SELECT g.nota, g.tipo_gestion, g.fecha_creacion, a.usuario as gestor_nombre
+                FROM gestiones_cobranza g
+                JOIN administradores a ON g.gestor_id = a.id
+                WHERE g.cliente_id = %s ORDER BY g.fecha_creacion DESC;
+            """, (cliente_id,))
+            gestiones = cur.fetchall()
 
-            # 3. Se añaden los conteos que tu plantilla necesita para las pestañas.
-            cliente_dict['conteo_pagos'] = len(todos_los_pagos)
+            # 3. Convertir a diccionario y añadir los conteos que la plantilla necesita
+            cliente_dict = dict(cliente)
+            cliente_dict['conteo_pagos'] = len(pagos)
             cliente_dict['conteo_ofertas'] = len(ofertas)
             cliente_dict['conteo_gestiones'] = len(gestiones)
-            ### FIN DE LA CORRECCIÓN ###
 
-    except (psycopg2.Error, json.JSONDecodeError) as e:
-        error_trace = traceback.format_exc()
-        logging.error(f"Error al cargar perfil del cliente {cliente_id}:\n{error_trace}")
-        flash("Error al cargar el perfil del cliente.", "error")
+            # 4. Renderizar la plantilla con TODOS los datos requeridos
+            return render_template(
+                'cliente_perfil.html',
+                cliente=cliente_dict,
+                pagos=pagos,
+                ofertas=ofertas,
+                gestiones=gestiones,
+                admin_rol=g.admin['rol']
+            )
+
+    except Exception as e:
+        logging.error(f"Error CRÍTICO al cargar perfil del cliente {cliente_id}: {e}\n{traceback.format_exc()}")
+        flash("Ocurrió un error grave al cargar el perfil del cliente. El problema ha sido registrado.", "error")
         return redirect(url_for('consulta'))
-
     # 4. Se pasan las nuevas variables (`cliente_dict` y `ofertas`) a la plantilla.
     return render_template('cliente_perfil.html',
                            cliente=cliente_dict, # Usamos el diccionario modificado

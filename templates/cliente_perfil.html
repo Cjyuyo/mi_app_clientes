@@ -20,7 +20,6 @@
 {% block body %}
 <div class="space-y-8" x-data="{ showOfferForm: false }">
 
-    <!-- Encabezado y Resumen del Perfil -->
     <div class="bg-white rounded-xl shadow-md border border-slate-200 p-6">
         <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
             <div>
@@ -40,7 +39,6 @@
             </div>
         </div>
         
-        <!-- Detalles del Cliente -->
         <div class="mt-6 pt-6 border-t border-slate-200 grid grid-cols-2 md:grid-cols-4 gap-5 text-sm">
             <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Grupo</span><span class="font-semibold text-slate-700">{{ cliente.grupo or 'N/A' }}</span></div>
             <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Plan</span><span class="font-semibold text-slate-700">${{ "%.2f"|format(cliente.plan_contratado|float) if cliente.plan_contratado else '0.00' }}</span></div>
@@ -48,9 +46,7 @@
             <div class="bg-slate-50 p-3 rounded-lg"><span class="text-xs text-slate-500 block">Asesor</span><span class="font-semibold text-slate-700">{{ cliente.asesor or 'N/A' }}</span></div>
         </div>
 
-        <!-- Barras de Progreso -->
         <div class="mt-6 pt-6 border-t border-slate-200 space-y-4">
-            <!-- Progreso de Inscripción -->
             <div>
                 {% set inscripcion_pagada = cliente.inscripcion_pagada|float if cliente.inscripcion_pagada else 0.0 %}
                 {% set inscripcion_monto = cliente.inscripcion_monto|float if cliente.inscripcion_monto else 0.0 %}
@@ -64,7 +60,6 @@
                 </div>
             </div>
 
-            <!-- Progreso de Cuotas Progresivas -->
             <div>
                 {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int if cliente.cuotas_pagadas_progresivas else 0 %}
                 {% set cuotas_totales = cliente.cuotas_totales|int if cliente.cuotas_totales else 1 %}
@@ -78,7 +73,6 @@
                 </div>
             </div>
 
-            <!-- Progreso de Cuotas Regresivas -->
             <div>
                 {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas|int if cliente.cuotas_pagadas_regresivas else 0 %}
                 {% set cuotas_totales_regresivas = cliente.cuotas_totales|int if cliente.cuotas_totales else 1 %}
@@ -94,7 +88,6 @@
         </div>
     </div>
 
-    <!-- Pestañas de Información -->
     <div class="bg-white rounded-xl shadow-md border border-slate-200" x-data="{ activeTab: 'pagos' }">
         <div class="px-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
             <nav class="-mb-px flex space-x-6" aria-label="Tabs">
@@ -102,7 +95,6 @@
                 <button @click="activeTab = 'ofertas'" :class="{ 'border-blue-600 text-blue-600': activeTab === 'ofertas', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ofertas' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ofertas ({{ cliente.conteo_ofertas }})</button>
                 <button @click="activeTab = 'gestiones'" :class="{ 'border-blue-600 text-blue-600': activeTab === 'gestiones', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'gestiones' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Gestiones ({{ cliente.conteo_gestiones }})</button>
             </nav>
-            <!-- Botonera de Acciones -->
             <div class="py-2 flex flex-wrap items-center justify-center md:justify-end gap-2">
                 <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="flex items-center gap-2 text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"><i class="bi bi-cash-coin"></i>Registrar Pago</a>
                 <button @click="showOfferForm = !showOfferForm" class="flex items-center gap-2 text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"><i class="bi bi-gem"></i>Registrar Oferta</button>
@@ -126,7 +118,6 @@
             </div>
         </div>
 
-        <!-- Formulario de Oferta Plegable -->
         <div x-show="showOfferForm" x-cloak class="p-6 border-b border-slate-200 bg-slate-50" x-transition>
             <form action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" method="POST">
                 <h3 class="font-bold text-slate-800 mb-2">Registrar Oferta de Adjudicación</h3>
@@ -149,7 +140,6 @@
         </div>
 
         <div class="p-6">
-            <!-- Contenido de Pestañas -->
             <div x-show="activeTab === 'pagos'" class="space-y-3">
                 {% for pago in pagos %}{% include 'partials/_pago_item.html' %}{% else %}<p class="text-slate-500 text-center py-8">No hay pagos registrados.</p>{% endfor %}
             </div>

@@ -32,11 +32,9 @@
         </div>
     {% endif %}
 
-    <!-- Resultados de Clientes -->
     <div id="client-results" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {% for cliente in clientes %}
         <div class="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col">
-            <!-- Encabezado de la Tarjeta de Cliente -->
             <div class="p-5 border-b border-slate-200 flex justify-between items-start">
                 <div>
                     <h2 class="text-lg font-bold text-slate-800">{{ cliente.nombre_apellido }}</h2>
@@ -53,9 +51,7 @@
                 </span>
             </div>
             
-            <!-- Detalles del Cliente con Barras de Progreso -->
             <div class="p-5 space-y-4 flex-grow">
-                <!-- Progreso de Inscripción -->
                 <div>
                     {% set inscripcion_pagada = cliente.inscripcion_pagada|float if cliente.inscripcion_pagada else 0.0 %}
                     {% set inscripcion_monto = cliente.inscripcion_monto|float if cliente.inscripcion_monto else 0.0 %}
@@ -69,7 +65,6 @@
                     </div>
                 </div>
 
-                <!-- Progreso de Cuotas -->
                 <div>
                     {% set cuotas_pagadas = cliente.cuotas_pagadas_progresivas|int if cliente.cuotas_pagadas_progresivas else 0 %}
                     {% set cuotas_totales = cliente.cuotas_totales|int if cliente.cuotas_totales else 1 %}
@@ -89,7 +84,6 @@
                 </div>
             </div>
 
-            <!-- Acciones de la Tarjeta -->
             <div class="bg-slate-50 p-4 border-t border-slate-200 flex items-center justify-end gap-2">
                 <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
                     <i class="bi bi-eye-fill"></i> Ver Perfil
