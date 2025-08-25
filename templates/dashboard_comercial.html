@@ -1,251 +1,55 @@
-{% extends "base_sidebar.html" %}
-
-{% block title %}Dashboard Comercial{% endblock %}
-
-{% block page_title %}Dashboard Comercial{% endblock %}
-
-{% block head_extra %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf-autotable.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-{% endblock %}
-
-{% block body %}
-<div class="space-y-8">
-    
-    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-        <form method="GET" action="{{ url_for('dashboard_comercial') }}" class="flex flex-wrap items-center gap-4 md:gap-6">
-            <h3 class="text-lg font-bold text-slate-800 mr-4">Filtros</h3>
-            
-            <div class="flex-grow md:flex-grow-0">
-                <label for="responsable" class="text-sm font-semibold text-slate-600 sr-only">Responsable</label>
-                <div class="relative">
-                    <select id="responsable" name="responsable" class="w-full md:w-auto appearance-none bg-slate-50 border border-slate-300 rounded-lg py-2 pl-4 pr-10 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 transition">
-                        <option value="todos">Todos los Responsables</option>
-                        {% for r in responsables %}
-                            <option value="{{ r[1] }}" {% if r[1] == responsable_seleccionado %}selected{% endif %}>{{ r[1] }}</option>
-                        {% endfor %}
-                    </select>
-                    <i class="bi bi-person-check-fill absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
-                </div>
-            </div>
-
-            <div class="flex-grow md:flex-grow-0">
-                <label for="rango_fecha" class="text-sm font-semibold text-slate-600 sr-only">Rango de Fechas</label>
-                <div class="relative">
-                    <select id="rango_fecha" name="rango_fecha" class="w-full md:w-auto appearance-none bg-slate-50 border border-slate-300 rounded-lg py-2 pl-4 pr-10 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 transition">
-                        <option value="mes_actual" {% if rango_seleccionado == 'mes_actual' %}selected{% endif %}>Este Mes</option>
-                        <option value="mes_anterior" {% if rango_seleccionado == 'mes_anterior' %}selected{% endif %}>Mes Anterior</option>
-                        <option value="ultimos_30_dias" {% if rango_seleccionado == 'ultimos_30_dias' %}selected{% endif %}>Últimos 30 días</option>
-                        <option value="ano_actual" {% if rango_seleccionado == 'ano_actual' %}selected{% endif %}>Este Año</option>
-                    </select>
-                    <i class="bi bi-calendar-range-fill absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
-                </div>
-            </div>
-
-            <button type="submit" class="w-full md:w-auto bg-orange-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-orange-600 transition-all shadow-sm flex items-center justify-center gap-2">
-                <i class="bi bi-funnel-fill"></i>
-                <span>Aplicar</span>
-            </button>
-        </form>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-semibold text-slate-500">Total de Cierres</p>
-                    <p class="text-4xl font-bold text-slate-800 mt-1">{{ stats.total_cierres | default('0') }}</p>
-                </div>
-                <div class="w-12 h-12 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                    <i class="bi bi-person-check-fill text-2xl"></i>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-semibold text-slate-500">Monto Total Cerrado</p>
-                   <p class="text-4xl font-bold text-slate-800 mt-1">${{ "%.2f"|format(stats.monto_total_cerrado) if stats.monto_total_cerrado is not none else '0.00' }}</p>
-                </div>
-                <div class="w-12 h-12 flex items-center justify-center rounded-full bg-green-100 text-green-600">
-                    <i class="bi bi-cash-stack text-2xl"></i>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-semibold text-slate-500">Plan Promedio</p>
-                    <p class="text-4xl font-bold text-slate-800 mt-1">${{ "%.2f"|format(stats.plan_promedio.plan_promedio) if stats.plan_promedio and stats.plan_promedio.plan_promedio is not none else '0.00' }}</p>
-                </div>
-                <div class="w-12 h-12 flex items-center justify-center rounded-full bg-orange-100 text-orange-600">
-                    <i class="bi bi-bar-chart-line-fill text-2xl"></i>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-semibold text-slate-500">Tasa de Conversión</p>
-                    <p class="text-4xl font-bold text-slate-800 mt-1">{{ "%.2f"|format(stats.tasa_conversion) if stats.tasa_conversion is not none else '0.00' }}%</p>
-                </div>
-                <div class="w-12 h-12 flex items-center justify-center rounded-full bg-purple-100 text-purple-600">
-                    <i class="bi bi-bullseye text-2xl"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80">
-        <h3 class="text-lg font-bold text-slate-800 mb-4">Rendimiento de Cierres en el Tiempo</h3>
-        <canvas id="cierresChart" height="100"></canvas>
-    </div>
-    
-    <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80">
-        <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
-            <h3 class="text-lg font-bold text-slate-800">Detalle de Cierres</h3>
-            <div class="flex items-center gap-3">
-                <button onclick="exportToPDF()" class="bg-red-50 text-red-700 font-semibold py-2 px-4 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-2 text-sm">
-                    <i class="bi bi-file-earmark-pdf-fill"></i> PDF
-                </button>
-                <button onclick="exportToExcel()" class="bg-green-50 text-green-700 font-semibold py-2 px-4 rounded-lg hover:bg-green-100 transition-colors flex items-center gap-2 text-sm">
-                    <i class="bi bi-file-earmark-excel-fill"></i> Excel
-                </button>
-            </div>
-        </div>
-        <div class="overflow-x-auto">
-            <table id="tablaCierres" class="w-full text-sm text-left text-slate-500">
-                <thead class="text-xs text-slate-700 uppercase bg-slate-100">
-                    <tr>
-                        <th scope="col" class="px-6 py-3 rounded-l-lg">Responsable</th>
-                        <th scope="col" class="px-6 py-3">Cliente</th>
-                        <th scope="col" class="px-6 py-3">Cédula</th>
-                        <th scope="col" class="px-6 py-3">Monto del Plan</th>
-                        <th scope="col" class="px-6 py-3 rounded-r-lg">Fecha de Ingreso</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for cierre in cierres %}
-                    <tr class="bg-white border-b hover:bg-slate-50">
-                        <td class="px-6 py-4 font-medium text-slate-900">{{ cierre.responsable }}</td>
-                        <td class="px-6 py-4">{{ cierre.nombre_apellido }}</td>
-                        <td class="px-6 py-4">{{ cierre.cedula }}</td>
-                        <td class="px-6 py-4 font-semibold">${{ "{:,.2f}".format(cierre.plan_contratado) }}</td>
-                        <td class="px-6 py-4">{{ cierre.fecha_ingreso.strftime('%d-%m-%Y') }}</td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="5" class="text-center py-8 text-slate-500">No hay datos de cierres para los filtros seleccionados.</td>
-                    </tr>
+{% extends 'base_sidebar.html' %} {% block title %} Dashboard Comercial {% endblock %} {% block body %}
+Dashboard de Comisiones
+Gestiona, aprueba y paga las comisiones de los asesores.
+PDF Excel
+Desde (Origen)
+Hasta (Origen)
+Asesor
+                    Todos
+                    {% for asesor in asesores %}
+                    {{ asesor.nombre_completo }} 
                     {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+                
+Estado
+                    Todos
+                    Pendiente
+                    Aprobado
+                    Pagado
+                
+Filtrar Limpiar
+Pendiente
+${{ "{:,.2f}".format(stats.pendiente.monto) }}
+{{ stats.pendiente.conteo }} items
+Aprobado (Listo p/ Pagar)
+${{ "{:,.2f}".format(stats.aprobado.monto) }}
+{{ stats.aprobado.conteo }} items
+Pagado
+${{ "{:,.2f}".format(stats.pagado.monto) }}
+{{ stats.pagado.conteo }} items
+Ajustes / Rebalanceos
+${{ "{:,.2f}".format(stats.rebalanceos.monto) }}
+Detalle de Comisiones
+Aprobar Generar Lote
+{% for comision in comisiones %} {% else %} {% endfor %}
 
-</div>
-{% endblock %}
+Fecha Origen
+Asesor
+Cliente / Origen
+Monto
+Estado
+Lote
+Acciones
 
-{% block scripts_extra %}
-<script>
-    // INICIO: SCRIPT COMPLETO Y RESTAURADO
-    document.addEventListener('DOMContentLoaded', function() {
-        const ctx = document.getElementById('cierresChart').getContext('2d');
-        const chartData = {{ chart_data | tojson | safe }};
+{{ comision.fecha_origen|format_date }}
+{{ comision.asesor }}
+{{ comision.cliente or 'N/A' }}
+${{ "{:,.2f}".format(comision.monto) }}
+{% if comision.estado == 'pendiente' %} Pendiente {% elif comision.estado == 'aprobado' %} Aprobado {% elif comision.estado == 'pagado' %} Pagado {% else %} {{ comision.estado }} {% endif %}
+{% if comision.payment_batch_id %} #{{ comision.payment_batch_id }} {% else %} - {% endif %}
+Detalles
+No se encontraron comisiones con los filtros aplicados.
+Detalles de la ComisiÃ³n
 
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: chartData.labels,
-                datasets: [{
-                    label: 'Monto Total por Día',
-                    data: chartData.values,
-                    borderColor: '#F99417',
-                    backgroundColor: 'rgba(249, 148, 23, 0.1)',
-                    borderWidth: 3,
-                    tension: 0.4,
-                    fill: true,
-                    pointBackgroundColor: '#F99417',
-                    pointBorderColor: '#fff',
-                    pointHoverRadius: 7,
-                    pointHoverBackgroundColor: '#F99417',
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value, index, values) {
-                                return '$' + value.toLocaleString();
-                            }
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed.y !== null) {
-                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
-                                }
-                                return label;
-                            }
-                        }
-                    },
-                },
-                interaction: {
-                    mode: 'nearest',
-                    axis: 'x',
-                    intersect: false
-                }
-            }
-        });
-    });
+Detalles del Lote de Pago
 
-    function exportToPDF() {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-
-        const titulo = "Reporte de Cierres - {{ responsable_seleccionado | replace('todos', 'Todos') | capitalize }}";
-        const fecha = new Date().toLocaleDateString('es-VE');
-
-        doc.setFontSize(18);
-        doc.text(titulo, 14, 22);
-        doc.setFontSize(11);
-        doc.text(`Fecha de Emisión: ${fecha}`, 14, 30);
-        
-        doc.autoTable({
-            html: '#tablaCierres',
-            startY: 35,
-            theme: 'grid',
-            headStyles: { fillColor: [43, 58, 85] }, // Azul corporativo
-        });
-        
-        const fechaArchivo = new Date().toISOString().split('T')[0];
-        doc.save(`reporte_cierres_${fechaArchivo}.pdf`);
-    }
-
-    function exportToExcel() {
-        const tabla = document.getElementById('tablaCierres');
-        const workbook = XLSX.utils.table_to_book(tabla, { sheet: "Cierres" });
-        
-        const fechaArchivo = new Date().toISOString().split('T')[0];
-        XLSX.writeFile(workbook, `reporte_cierres_${fechaArchivo}.xlsx`);
-    }
-    // FIN: SCRIPT COMPLETO Y RESTAURADO
-</script>
-{% endblock %}
+{% endblock %} {% block scripts_extra %} {% endblock %}

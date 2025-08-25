@@ -1457,128 +1457,117 @@ def tesoreria_rebalanceo():
 @rol_requerido('superadmin', 'gerente')
 def dashboard_comercial():
     conn = get_db()
-    # Valores por defecto para evitar errores en la plantilla si falla la conexión a la BD
-    default_stats = {
-        'total_cierres': 0, 
-        'monto_total_cerrado': Decimal('0.0'), 
-        'plan_promedio': {'plan_promedio': Decimal('0.0')}, 
-        'tasa_conversion': 0.0
-    }
-    
     if not conn:
         flash("Error de conexión a la base de datos.", "danger")
-        return render_template('dashboard_comercial.html', 
-                               stats=default_stats,
-                               cierres=[],
-                               chart_data={'labels': [], 'values': []},
-                               responsables=[],
-                               responsable_seleccionado='todos',
-                               rango_seleccionado='mes_actual',
-                               anio_actual=get_venezuela_current_date().year)
+        return render_template('dashboard_comercial.html', anio_actual=get_venezuela_current_date().year)
 
-    # 1. Obtener filtros de la URL
-    responsable_seleccionado = request.args.get('responsable', 'todos')
-    rango_seleccionado = request.args.get('rango_fecha', 'mes_actual')
+    # --- Obtener filtros de la URL ---
+    args = request.args
     today = get_venezuela_current_date()
+    # Rango de fechas de origen de la comisión
+    fecha_desde_origen = args.get('fecha_desde_origen', (today - timedelta(days=30)).strftime('%Y-%m-%d'))
+    fecha_hasta_origen = args.get('fecha_hasta_origen', today.strftime('%Y-%m-%d'))
+    # Rango de fechas de pago
+    fecha_desde_pago = args.get('fecha_desde_pago')
+    fecha_hasta_pago = args.get('fecha_hasta_pago')
+    # Otros filtros
+    asesor_id = args.get('asesor_id')
+    estado = args.get('estado')
+    moneda = args.get('moneda')
+    lote_id = args.get('lote_id')
 
-    # 2. Calcular rangos de fecha según la selección
-    if rango_seleccionado == 'mes_actual':
-        fecha_inicio = today.replace(day=1)
-        fecha_fin = today
-    elif rango_seleccionado == 'mes_anterior':
-        primer_dia_mes_actual = today.replace(day=1)
-        fecha_fin = primer_dia_mes_actual - timedelta(days=1)
-        fecha_inicio = fecha_fin.replace(day=1)
-    elif rango_seleccionado == 'ultimos_30_dias':
-        fecha_inicio = today - timedelta(days=30)
-        fecha_fin = today
-    elif rango_seleccionado == 'ano_actual':
-        fecha_inicio = today.replace(month=1, day=1)
-        fecha_fin = today
-    else: # Por defecto, 'mes_actual'
-        fecha_inicio = today.replace(day=1)
-        fecha_fin = today
-
-    # 3. Construir consulta dinámica para los datos de ventas (cierres)
-    # =====> EL PROBLEMA ESTÁ AQUÍ <=====
-    # La consulta usa "FROM clientes c", pero la columna 'plan_contratado' está en 'contratos_historicos'.
+    # --- Construcción de la consulta SQL ---
     base_query = """
         SELECT 
-            c.responsable,
-            c.nombre || ' ' || c.apellido AS nombre_apellido,
-            c.cedula,
-            c.plan_contratado,
-            c.fecha_ingreso
-        FROM clientes c
-        WHERE c.fecha_ingreso BETWEEN %s AND %s AND c.responsable IS NOT NULL
+            c.id, c.fecha_origen, a.usuario as asesor, cl.nombre || ' ' || cl.apellido as cliente,
+            cl.plan_contratado, c.moneda, c.tasa_bcv_usada, c.base, c.pct_comision, c.pct_split,
+            c.monto, c.estado, c.payment_batch_id, c.notas,
+            (SELECT SUM(monto_ajuste) FROM comisiones_rebalanceos cr WHERE cr.comision_id_origen = c.id) as total_ajustes
+        FROM comisiones c
+        JOIN administradores a ON c.asesor_id = a.id
+        LEFT JOIN clientes cl ON c.origen_id = cl.id AND c.origen_tipo = 'Venta'
     """
-    params = [fecha_inicio, fecha_fin]
-
-    if responsable_seleccionado != 'todos':
-        base_query += " AND c.responsable = %s"
-        params.append(responsable_seleccionado)
     
-    base_query += " ORDER BY c.fecha_ingreso DESC"
+    filters = []
+    params = []
 
-    # 4. Inicializar variables para la plantilla
-    stats = default_stats.copy()
-    cierres = []
-    chart_data = {'labels': [], 'values': []}
-    responsables = []
+    if fecha_desde_origen:
+        filters.append("c.fecha_origen >= %s")
+        params.append(fecha_desde_origen)
+    if fecha_hasta_origen:
+        filters.append("c.fecha_origen <= %s")
+        params.append(fecha_hasta_origen)
+    if fecha_desde_pago:
+        filters.append("c.paid_at >= %s")
+        params.append(fecha_desde_pago)
+    if fecha_hasta_pago:
+        filters.append("c.paid_at <= %s")
+        params.append(fecha_hasta_pago)
+    if asesor_id:
+        filters.append("c.asesor_id = %s")
+        params.append(asesor_id)
+    if estado:
+        filters.append("c.estado = %s")
+        params.append(estado)
+    if moneda:
+        filters.append("c.moneda = %s")
+        params.append(moneda)
+    if lote_id:
+        filters.append("c.payment_batch_id = %s")
+        params.append(lote_id)
+
+    if filters:
+        base_query += " WHERE " + " AND ".join(filters)
+    
+    base_query += " ORDER BY c.fecha_origen DESC"
+
+    # --- Ejecución de consultas ---
+    comisiones, asesores, lotes = [], [], []
+    stats = defaultdict(lambda: {'monto': Decimal('0.0'), 'conteo': 0})
     
     try:
         with conn.cursor() as cur:
-            # Obtener la lista de todos los responsables de ventas para el filtro
-            cur.execute("SELECT DISTINCT id, responsable FROM clientes WHERE responsable IS NOT NULL AND responsable != '' ORDER BY responsable")
-            responsables_raw = cur.fetchall()
-            responsables = [(row['id'], row['responsable']) for row in responsables_raw]
-
-            # Ejecutar la consulta principal para obtener los detalles de los cierres
             cur.execute(base_query, tuple(params))
-            cierres = cur.fetchall()
+            comisiones = cur.fetchall()
             
-            # Calcular estadísticas si se encuentran datos
-            if cierres:
-                df = pd.DataFrame(cierres)
-                # =====> AQUÍ ES DONDE OCURRE EL 'KeyError' <=====
-                # El DataFrame 'df' no tiene la columna 'plan_contratado' porque la consulta anterior falló en encontrarla.
-                df['plan_contratado'] = pd.to_numeric(df['plan_contratado'], errors='coerce').fillna(0)
-                
-                stats['total_cierres'] = len(df)
-                stats['monto_total_cerrado'] = df['plan_contratado'].sum()
-                
-                plan_promedio_val = df['plan_contratado'].mean() if stats['total_cierres'] > 0 else 0
-                stats['plan_promedio'] = {'plan_promedio': plan_promedio_val}
+            # Calcular estadísticas para las tarjetas
+            cur.execute("SELECT estado, moneda, SUM(monto) as total_monto, COUNT(id) as total_conteo FROM comisiones GROUP BY estado, moneda")
+            stats_db = cur.fetchall()
+            for row in stats_db:
+                # Se simplifica a USD para el ejemplo. Una versión real sumaría Bs con tasa.
+                if row['moneda'] == 'USD':
+                    stats[row['estado']]['monto'] += row['total_monto']
+                    stats[row['estado']]['conteo'] += row['total_conteo']
+            
+            cur.execute("SELECT SUM(monto_ajuste) FROM comisiones_rebalanceos")
+            total_rebalanceos = cur.fetchone()[0]
+            stats['rebalanceos']['monto'] = total_rebalanceos or Decimal('0.0')
 
-                stats['tasa_conversion'] = 100.0 # Placeholder
-                
-                # Preparar datos para el gráfico
-                df['fecha_ingreso'] = pd.to_datetime(df['fecha_ingreso'])
-                cierres_por_dia = df.groupby(df['fecha_ingreso'].dt.date)['plan_contratado'].sum()
-                
-                date_range = pd.date_range(start=fecha_inicio, end=fecha_fin, freq='D')
-                cierres_por_dia = cierres_por_dia.reindex(date_range.date, fill_value=0)
-                
-                chart_data['labels'] = [d.strftime('%d-%m-%Y') for d in cierres_por_dia.index]
-                chart_data['values'] = [float(v) for v in cierres_por_dia.values]
-
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se selecciona 'nombre_completo' en lugar de 'usuario' para mostrar en el filtro.
+            cur.execute("SELECT id, nombre_completo FROM administradores WHERE rol IN ('superadmin', 'gerente', 'asesor') ORDER BY nombre_completo")
+            # --- FIN DE LA CORRECCIÓN ---
+            asesores = cur.fetchall()
+            
+            cur.execute("SELECT id, created_at FROM comisiones_lotes_pago ORDER BY created_at DESC")
+            lotes = cur.fetchall()
+            
     except psycopg2.Error as e:
-        flash(f"Error al cargar el dashboard comercial: {e}", "danger")
-        stats = default_stats.copy()
-        cierres = []
-        chart_data = {'labels': [], 'values': []}
+        flash(f"Error al cargar el dashboard de comisiones: {e}", "danger")
 
-    # 5. Renderizar la plantilla con la estructura de datos correcta
     return render_template(
         'dashboard_comercial.html',
+        comisiones=comisiones,
         stats=stats,
-        cierres=cierres,
-        chart_data=chart_data,
-        responsables=responsables,
-        responsable_seleccionado=responsable_seleccionado,
-        rango_seleccionado=rango_seleccionado,
+        asesores=asesores,
+        lotes=lotes,
+        filters={
+            'fecha_desde_origen': fecha_desde_origen, 'fecha_hasta_origen': fecha_hasta_origen,
+            'fecha_desde_pago': fecha_desde_pago, 'fecha_hasta_pago': fecha_hasta_pago,
+            'asesor_id': asesor_id, 'estado': estado, 'moneda': moneda, 'lote_id': lote_id
+        },
         anio_actual=get_venezuela_current_date().year
-    )
+        )
 # >>> COMISIONES: END [dashboard_comercial]
 
 
