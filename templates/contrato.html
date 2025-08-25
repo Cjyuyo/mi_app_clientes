@@ -56,7 +56,6 @@
     </style>
 </head>
 <body class="bg-slate-100" x-data="{ isModalOpen: false, modalImageUrl: '' }">
-    <!-- Barra de Acciones (Solo visible en pantalla) -->
     <div class="no-print sticky top-0 bg-slate-800 text-white p-3 shadow-md z-50">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             {% if modo_pre_registro %}
@@ -102,7 +101,6 @@
         <section class="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-8">
             <h2 class="text-xl font-bold text-center text-slate-800 mb-6">Detalles del Plan</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Columna Izquierda -->
                 <div class="space-y-4">
                     <div class="bg-white p-4 rounded-lg shadow-sm border">
                         <h3 class="font-semibold text-slate-600 mb-2 flex items-center gap-2"><i class="bi bi-person-badge-fill text-blue-600"></i> Información del Adherente</h3>
@@ -116,14 +114,14 @@
                         <p class="text-sm text-slate-500 mt-2">Bien a Adquirir: <strong>Moto 0km</strong></p>
                     </div>
                 </div>
-                <!-- Columna Derecha -->
                 <div class="space-y-4">
                     <div class="bg-white p-4 rounded-lg shadow-sm border">
                         <h3 class="font-semibold text-slate-600 mb-2 flex items-center gap-2"><i class="bi bi-calendar-check-fill text-blue-600"></i> Condiciones de Pago</h3>
                         <p class="text-sm text-slate-500">Plazo del Contrato</p>
                         <p class="text-slate-800 font-medium">{{ cliente.cuotas_totales }} meses</p>
                         <p class="text-sm text-slate-500 mt-2">Cuota Mensual: <strong>${{ "%.2f"|format(cliente.valor_cuota|float) }}</strong></p>
-                    </div>
+                        <p class="text-sm text-slate-500 mt-2">Total del Contrato: <strong class="text-base">${{ "%.2f"|format((cliente.valor_cuota|float) * (cliente.cuotas_totales|int)) }}</strong></p>
+                        </div>
                     <div class="bg-white p-4 rounded-lg shadow-sm border">
                         <h3 class="font-semibold text-slate-600 mb-2 flex items-center gap-2"><i class="bi bi-currency-dollar text-blue-600"></i> Modalidad de Pago</h3>
                         <p class="text-sm text-slate-500">Moneda de Pago</p>
@@ -140,10 +138,8 @@
             </div>
         </section>
 
-        <!-- INICIO DE LAS CLÁUSULAS RESTAURADAS -->
         <article class="prose prose-sm max-w-none text-justify">
             {% if cliente.moneda_pago == 'BsBCV' %}
-                <!-- CONTRATO VERSIÓN BOLÍVARES -->
                 <p>Entre las partes, por un lado, <strong>MOTO PLAN MOTORS, C.A.</strong>, sociedad mercantil constituida bajo las leyes de la República Bolivariana de Venezuela, inscrita en el Registro Mercantil Primero del Estado Portuguesa bajo el número de tomo 66-A RM410, número 18 del año 2023, con RIF J-50408959-1 e inscrita en el RUPDAE, en lo sucesivo denominada “LA EMPRESA”, y por otro lado, el solicitante identificado en la solicitud de inscripción anexa, en lo sucesivo denominado “EL CLIENTE”, convienen en celebrar el presente Contrato de Adhesión, el cual se regirá por las siguientes cláusulas:</p>
                 <h3>CAPÍTULO I: DISPOSICIONES GENERALES Y NATURALEZA DEL CONTRATO</h3>
                 <p><strong>Cláusula 1.</strong> LA EMPRESA es una persona jurídica legalmente constituida. EL CLIENTE se adhiere voluntariamente a este contrato. <br><em>Fundamento Legal: Código de Comercio y Código Civil.</em></p>
@@ -173,9 +169,8 @@
                 <p><strong>Cláusula 19.</strong> Mientras no haya sido adjudicado, EL CLIENTE podrá: <br> 19.1. Retracto: dentro de los primeros 7 días desde la firma. Después de ese plazo, el contrato es obligatorio. <br> 19.2. Cambio de grupo: a uno de mayor o menor monto. <br> 19.3. Traspaso: a un tercero solvente, con aprobación de LA EMPRESA. <br> 19.4. Rescisión voluntaria: en cualquier momento. Se reintegrarán solo los aportes netos, descontando inscripción, gastos y tributos. El reintegro será cuota a cuota, a medida que el grupo cumpla su ciclo, para no afectar el fondo común y se indicará el cronograma de devolución dentro de 15 días hábiles posteriores a la notificación formal por parte del cliente. <br> 19.5. Designación de beneficiario: para heredar el contrato en caso de fallecimiento. <br> <em>Fundamento Legal: Art. 1161 Código Civil y autonomía contractual.</em></p>
                 <h3>CAPÍTULO VII: DOMICILIO, JURISDICCIÓN Y MEDIOS ELECTRÓNICOS</h3>
                 <p><strong>Cláusula 20.</strong> Las partes se someten a la jurisdicción de los tribunales venezolanos y acuerdan como domicilio el indicado en la solicitud.</p>
-                <p><strong>Cláusula X. Firma y Documentos Electrónicos.</strong> Este contrato podrá ser firmado electrónicamente. Los recibos, notificaciones y comunicaciones podrán emitirse en formato digital, siendo plenamente válidos y exigibles. <br><em>Fundamento Legal: Ley sobre Mensajes de Datos y Firmas Electrónicas, Artículos 6, 7, 9, 12 y 13.</em></p>
+                <p><strong>Cláusula 21. Firma y Documentos Electrónicos.</strong> Este contrato podrá ser firmado electrónicamente. Los recibos, notificaciones y comunicaciones podrán emitirse en formato digital, siendo plenamente válidos y exigibles. <br><em>Fundamento Legal: Ley sobre Mensajes de Datos y Firmas Electrónicas, Artículos 6, 7, 9, 12 y 13.</em></p>
             {% else %}
-                <!-- CONTRATO VERSIÓN DIVISAS -->
                 <p>Entre las partes, por un lado, <strong>MOTO PLAN MOTORS, C.A.</strong>, sociedad mercantil constituida bajo las leyes de la República Bolivariana de Venezuela, inscrita en el Registro Mercantil Primero del Estado Portuguesa bajo el número de tomo 66-A RM410, número 18 del año 2023, con RIF J-50408959-1 e inscrita en el RUPDAE, en lo sucesivo denominada “LA EMPRESA”, y por otro lado, el solicitante identificado en la solicitud de inscripción anexa, en lo sucesivo denominado “EL CLIENTE”, convienen en celebrar el presente Contrato de Adhesión, el cual se regirá por las siguientes cláusulas:</p>
                 <h3>CAPÍTULO I: DISPOSICIONES GENERALES Y NATURALEZA DEL CONTRATO</h3>
                 <p><strong>Cláusula 1.</strong> LA EMPRESA es una persona jurídica legalmente constituida. EL CLIENTE se adhiere voluntariamente a este contrato. <br><em>Fundamento Legal: Código de Comercio y Código Civil.</em></p>
@@ -208,7 +203,6 @@
                 <p><strong>Cláusula 21. Firma y Documentos Electrónicos.</strong> Este contrato podrá ser firmado electrónicamente. Los recibos, notificaciones y comunicaciones podrán emitirse en formato digital, siendo plenamente válidos y exigibles. <br><em>Fundamento Legal: Ley sobre Mensajes de Datos y Firmas Electrónicas, Artículos 6, 7, 9, 12 y 13.</em></p>
             {% endif %}
         </article>
-        <!-- FIN DE LAS CLÁUSULAS RESTAURADAS -->
         
         <footer class="mt-10 pt-8 border-t">
             <p class="text-center font-semibold mb-6">FIRMA DEL CLIENTE: Declara haber leído, comprendido y aceptado todas las cláusulas del presente contrato.</p>
@@ -309,3 +303,4 @@
     </script>
 </body>
 </html>
+}
