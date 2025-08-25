@@ -1459,70 +1459,47 @@ def dashboard_comercial():
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", "danger")
-        return render_template('dashboard_comercial.html', anio_actual=get_venezuela_current_date().year)
+        # Asegúrate de que tu plantilla pueda manejar el caso de no recibir datos
+        return render_template('dashboard_comercial.html', comisiones=[], stats=defaultdict(lambda: {'monto': Decimal('0.0'), 'conteo': 0}), asesores=[], filters={}, anio_actual=get_venezuela_current_date().year)
 
-    # --- Obtener filtros de la URL ---
     args = request.args
     today = get_venezuela_current_date()
-    # Rango de fechas de origen de la comisión
     fecha_desde_origen = args.get('fecha_desde_origen', (today - timedelta(days=30)).strftime('%Y-%m-%d'))
     fecha_hasta_origen = args.get('fecha_hasta_origen', today.strftime('%Y-%m-%d'))
-    # Rango de fechas de pago
-    fecha_desde_pago = args.get('fecha_desde_pago')
-    fecha_hasta_pago = args.get('fecha_hasta_pago')
-    # Otros filtros
     asesor_id = args.get('asesor_id')
     estado = args.get('estado')
-    moneda = args.get('moneda')
-    lote_id = args.get('lote_id')
 
-    # --- Construcción de la consulta SQL ---
     base_query = """
         SELECT 
-            c.id, c.fecha_origen, a.usuario as asesor, cl.nombre || ' ' || cl.apellido as cliente,
-            cl.plan_contratado, c.moneda, c.tasa_bcv_usada, c.base, c.pct_comision, c.pct_split,
-            c.monto, c.estado, c.payment_batch_id, c.notas,
-            (SELECT SUM(monto_ajuste) FROM comisiones_rebalanceos cr WHERE cr.comision_id_origen = c.id) as total_ajustes
+            c.id, c.fecha_origen, a.nombre_completo as asesor, cl.nombre || ' ' || cl.apellido as cliente,
+            c.monto, c.estado, c.payment_batch_id
         FROM comisiones c
         JOIN administradores a ON c.asesor_id = a.id
         LEFT JOIN clientes cl ON c.origen_id = cl.id AND c.origen_tipo = 'Venta'
     """
     
-    filters = []
+    filters_sql = []
     params = []
 
     if fecha_desde_origen:
-        filters.append("c.fecha_origen >= %s")
+        filters_sql.append("c.fecha_origen >= %s")
         params.append(fecha_desde_origen)
     if fecha_hasta_origen:
-        filters.append("c.fecha_origen <= %s")
+        filters_sql.append("c.fecha_origen <= %s")
         params.append(fecha_hasta_origen)
-    if fecha_desde_pago:
-        filters.append("c.paid_at >= %s")
-        params.append(fecha_desde_pago)
-    if fecha_hasta_pago:
-        filters.append("c.paid_at <= %s")
-        params.append(fecha_hasta_pago)
     if asesor_id:
-        filters.append("c.asesor_id = %s")
+        filters_sql.append("c.asesor_id = %s")
         params.append(asesor_id)
     if estado:
-        filters.append("c.estado = %s")
+        filters_sql.append("c.estado = %s")
         params.append(estado)
-    if moneda:
-        filters.append("c.moneda = %s")
-        params.append(moneda)
-    if lote_id:
-        filters.append("c.payment_batch_id = %s")
-        params.append(lote_id)
 
-    if filters:
-        base_query += " WHERE " + " AND ".join(filters)
+    if filters_sql:
+        base_query += " WHERE " + " AND ".join(filters_sql)
     
     base_query += " ORDER BY c.fecha_origen DESC"
 
-    # --- Ejecución de consultas ---
-    comisiones, asesores, lotes = [], [], []
+    comisiones, asesores = [], []
     stats = defaultdict(lambda: {'monto': Decimal('0.0'), 'conteo': 0})
     
     try:
@@ -1530,27 +1507,19 @@ def dashboard_comercial():
             cur.execute(base_query, tuple(params))
             comisiones = cur.fetchall()
             
-            # Calcular estadísticas para las tarjetas
-            cur.execute("SELECT estado, moneda, SUM(monto) as total_monto, COUNT(id) as total_conteo FROM comisiones GROUP BY estado, moneda")
+            # Calcular estadísticas generales para las tarjetas (sin filtros)
+            cur.execute("SELECT estado, SUM(monto) as total_monto, COUNT(id) as total_conteo FROM comisiones WHERE moneda = 'USD' GROUP BY estado")
             stats_db = cur.fetchall()
             for row in stats_db:
-                # Se simplifica a USD para el ejemplo. Una versión real sumaría Bs con tasa.
-                if row['moneda'] == 'USD':
-                    stats[row['estado']]['monto'] += row['total_monto']
-                    stats[row['estado']]['conteo'] += row['total_conteo']
+                stats[row['estado']]['monto'] += row['total_monto']
+                stats[row['estado']]['conteo'] += row['total_conteo']
             
             cur.execute("SELECT SUM(monto_ajuste) FROM comisiones_rebalanceos")
             total_rebalanceos = cur.fetchone()[0]
             stats['rebalanceos']['monto'] = total_rebalanceos or Decimal('0.0')
 
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Se selecciona 'nombre_completo' en lugar de 'usuario' para mostrar en el filtro.
             cur.execute("SELECT id, nombre_completo FROM administradores WHERE rol IN ('superadmin', 'gerente', 'asesor') ORDER BY nombre_completo")
-            # --- FIN DE LA CORRECCIÓN ---
             asesores = cur.fetchall()
-            
-            cur.execute("SELECT id, created_at FROM comisiones_lotes_pago ORDER BY created_at DESC")
-            lotes = cur.fetchall()
             
     except psycopg2.Error as e:
         flash(f"Error al cargar el dashboard de comisiones: {e}", "danger")
@@ -1560,14 +1529,12 @@ def dashboard_comercial():
         comisiones=comisiones,
         stats=stats,
         asesores=asesores,
-        lotes=lotes,
         filters={
             'fecha_desde_origen': fecha_desde_origen, 'fecha_hasta_origen': fecha_hasta_origen,
-            'fecha_desde_pago': fecha_desde_pago, 'fecha_hasta_pago': fecha_hasta_pago,
-            'asesor_id': asesor_id, 'estado': estado, 'moneda': moneda, 'lote_id': lote_id
+            'asesor_id': asesor_id, 'estado': estado
         },
         anio_actual=get_venezuela_current_date().year
-        )
+    )
 # >>> COMISIONES: END [dashboard_comercial]
 
 
