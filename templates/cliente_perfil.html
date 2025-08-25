@@ -4,236 +4,177 @@
     Perfil de {{ cliente.nombre_apellido }}
 {% endblock %}
 
-{% block head %}
-    {{ super() }}
-    <!-- Se añade Alpine.js para manejar fácilmente el estado de las pestañas -->
-    <script src="//unpkg.com/alpinejs" defer></script>
+{% block page_title %}
+    Perfil del Cliente
 {% endblock %}
 
+{% block head_extra %}
+    <script src="//unpkg.com/alpinejs" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% endblock %}
 
 {% block body %}
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-    <!-- Columna Izquierda: Resumen del Cliente -->
-    <div class="lg:col-span-1 space-y-6">
-        <div class="bg-white rounded-xl shadow-sm">
-            <div class="p-5 bg-slate-700 text-white rounded-t-xl text-center">
-                <h2 class="text-xl font-bold">{{ cliente.nombre_apellido }}</h2>
-                <p class="text-sm text-slate-300">{{ cliente.cedula }}</p>
+    <!-- Columna Izquierda: Tarjeta de Resumen del Cliente -->
+    <div class="lg:col-span-1 space-y-6 lg:sticky lg:top-28">
+        <div class="bg-white rounded-xl shadow-md border border-slate-200">
+            <div class="p-6 text-center">
+                <div class="relative w-24 h-24 mx-auto mb-4">
+                    <img src="https://ui-avatars.com/api/?name={{ cliente.nombre_apellido|replace(' ', '+') }}&background=2B3A55&color=fff&size=128&bold=true" alt="Avatar" class="w-full h-full rounded-full shadow-md">
+                    <span class="absolute bottom-1 right-1 block h-5 w-5 rounded-full border-2 border-white
+                        {% set estatus = cliente.estatus | upper if cliente.estatus else '' %}
+                        {% if estatus == 'ACTIVO' or estatus == 'AHORRADOR' or estatus == 'ADJUDICADO' %} bg-green-500
+                        {% elif estatus == 'INACTIVO' or estatus == 'RETIRO' %} bg-red-500
+                        {% else %} bg-yellow-400
+                        {% endif %}" title="{{ cliente.estatus }}">
+                    </span>
+                </div>
+                <h2 class="text-xl font-bold text-slate-800">{{ cliente.nombre_apellido }}</h2>
+                <p class="text-sm text-slate-500 font-mono">{{ cliente.cedula }}</p>
+                <div class="mt-4 flex justify-center gap-2">
+                    <span class="text-xs font-semibold py-1 px-3 rounded-full bg-blue-100 text-blue-800">{{ cliente.proceso }}</span>
+                    <span class="text-xs font-semibold py-1 px-3 rounded-full bg-slate-100 text-slate-800">{{ cliente.estatus }}</span>
+                </div>
             </div>
-            <div class="p-5">
+            <div class="border-t border-slate-200 p-5">
                 <ul class="space-y-3 text-sm">
-                    <li class="flex justify-between items-center">
-                        <span class="text-slate-500">Teléfono:</span>
-                        <span class="font-semibold text-slate-700">{{ cliente.telefono or 'N/A' }}</span>
-                    </li>
-                    <li class="flex justify-between items-center">
-                        <span class="text-slate-500">Contrato N°:</span>
-                        <span class="font-semibold text-slate-700">{{ cliente.contrato_nro or 'N/A' }}</span>
-                    </li>
-                    <li class="flex justify-between items-center">
-                        <span class="text-slate-500">Plan:</span>
-                        <span class="font-semibold text-slate-700">{{ cliente.plan_contratado or 'N/A' }}</span>
-                    </li>
-                    <li class="flex justify-between items-center">
-                        <span class="text-slate-500">Proceso:</span>
-                        <span class="font-semibold py-1 px-2.5 bg-blue-100 text-blue-800 rounded-md">{{ cliente.proceso }}</span>
-                    </li>
-                    <li class="flex justify-between items-center">
-                        <span class="text-slate-500">Estatus:</span>
-                        <span class="font-semibold py-1 px-2.5 bg-green-100 text-green-800 rounded-md">{{ cliente.estatus }}</span>
-                    </li>
+                    <li class="flex items-center gap-3"><i class="bi bi-telephone-fill text-slate-400 w-5 text-center"></i><span class="font-semibold text-slate-700">{{ cliente.telefono or 'N/A' }}</span></li>
+                    <li class="flex items-center gap-3"><i class="bi bi-file-earmark-text-fill text-slate-400 w-5 text-center"></i><span class="font-semibold text-slate-700">{{ cliente.contrato_nro or 'N/A' }}</span></li>
+                    <li class="flex items-center gap-3"><i class="bi bi-tag-fill text-slate-400 w-5 text-center"></i><span class="font-semibold text-slate-700">${{ "%.2f"|format(cliente.plan_contratado|float) }}</span></li>
                 </ul>
             </div>
+        </div>
+        
+        <!-- Acciones Rápidas -->
+        <div class="bg-white rounded-xl shadow-md border border-slate-200 p-4 space-y-2">
+            <h3 class="font-bold text-slate-800 text-center mb-2">Acciones Rápidas</h3>
+             <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="w-full flex items-center justify-center gap-2 bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"><i class="bi bi-cash-coin"></i> Registrar Pago</a>
+             <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" target="_blank" class="w-full flex items-center justify-center gap-2 bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-slate-700 transition-colors"><i class="bi bi-file-earmark-pdf-fill"></i> Ver Contrato</a>
         </div>
     </div>
 
     <!-- Columna Derecha: Pestañas de Información -->
-    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm" x-data="{ activeTab: 'pagos' }">
-        <!-- Navegación de Pestañas -->
-        <div class="px-5 border-b border-slate-200">
-            <nav class="-mb-px flex space-x-6">
-                <button @click="activeTab = 'pagos'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'pagos', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'pagos' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                    Historial de Pagos
-                </button>
-                <button @click="activeTab = 'historial'" :class="{ 'border-blue-500 text-blue-600': activeTab === 'historial', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'historial' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                    Gestiones y Eventos
-                </button>
-            </nav>
-        </div>
-
-        <!-- Contenido de las Pestañas -->
-        <div class="p-5">
-            <!-- Pestaña de Historial de Pagos -->
-            <div x-show="activeTab === 'pagos'" class="space-y-4">
-                {% for pago in pagos %}
-                    <!-- Condición para mostrar un pago normal o un resumen de inconsistencia -->
-                    {% if pago.tipo_vista == 'normal' %}
-                        <div class="bg-white p-4 rounded-lg shadow-sm flex items-center justify-between flex-wrap">
-                            <div class="flex-grow">
-                                <p class="font-bold text-gray-800">{{ pago.tipo_pago }}</p>
-                                <p class="text-sm text-gray-500">{{ pago.fecha_pago | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</p>
-                            </div>
-                            <div class="text-right mx-4">
-                                <p class="text-lg font-semibold text-gray-900">${{ "%.2f"|format(pago.monto) }}</p>
-                                <span class="px-2 py-1 text-xs font-semibold rounded-full 
-                                    {% if pago.estado_pago == 'Conciliado' %} bg-green-100 text-green-800
-                                    {% elif pago.estado_pago == 'Pendiente' %} bg-yellow-100 text-yellow-800
-                                    {% else %} bg-red-100 text-red-800 {% endif %}">
-                                    {{ pago.estado_pago }}
-                                </span>
-                            </div>
-                            <div class="flex items-center space-x-2 mt-2 md:mt-0">
-                                <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-300">Detalles</a>
-                                {% if pago.estado_pago == 'Conciliado' %}
-                                    <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">Recibo</a>
-                                {% endif %}
-                            </div>
-                        </div>
-                    {% elif pago.tipo_vista == 'inconsistencia' %}
-                        <div class="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-r-lg shadow-sm flex items-center justify-between flex-wrap">
-                            <div class="flex-grow">
-                                <p class="font-bold text-orange-800">{{ pago.concepto }}</p>
-                                <p class="text-sm text-orange-600">{{ pago.fecha_creacion | format_datetime }} | Total a Pagar: ${{ "%.2f"|format(pago.monto_total) }}</p>
-                            </div>
-                            <div class="text-right mx-4">
-                                <p class="text-lg font-semibold text-gray-900">Pagado: ${{ "%.2f"|format(pago.monto_pagado) }}</p>
-                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">
-                                    {{ pago.estado | replace('_', ' ') | title }}
-                                </span>
-                            </div>
-                            <div class="flex items-center space-x-2 mt-2 md:mt-0">
-                                <button onclick="verProcesoInconsistencia({{ pago.bulk_id }})" class="bg-orange-500 text-white px-3 py-1 rounded text-sm hover:bg-orange-600">
-                                    Ver Proceso
-                                </button>
-                            </div>
-                        </div>
-                    {% endif %}
-                {% else %}
-                    <p class="text-gray-500 text-center py-4">No hay pagos registrados para este cliente.</p>
-                {% endfor %}
+    <div class="lg:col-span-2" x-data="{ activeTab: 'pagos' }">
+        <div class="bg-white rounded-xl shadow-md border border-slate-200">
+            <div class="px-5 border-b border-slate-200">
+                <nav class="-mb-px flex space-x-6">
+                    <button @click="activeTab = 'pagos'" :class="{ 'border-blue-600 text-blue-600': activeTab === 'pagos', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'pagos' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Historial de Pagos</button>
+                    <button @click="activeTab = 'historial'" :class="{ 'border-blue-600 text-blue-600': activeTab === 'historial', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'historial' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Gestiones y Eventos</button>
+                </nav>
             </div>
 
-            <!-- Pestaña de Gestiones y Eventos -->
-            <div x-show="activeTab === 'historial'">
-                {% if admin_rol in ['superadmin', 'gerente', 'administradora'] %}
-                <h3 class="text-lg font-bold text-slate-800 mb-4">Registrar Nueva Gestión de Cobranza</h3>
-                <form action="{{ url_for('agregar_gestion', cliente_id=cliente.id) }}" method="POST">
-                    <div class="space-y-4">
-                        <div>
-                            <label for="tipo_gestion" class="block text-sm font-medium text-slate-700">Tipo de Gestión</label>
-                            <select id="tipo_gestion" name="tipo_gestion" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" required>
-                                <option>Llamada</option>
-                                <option>Mensaje de WhatsApp</option>
-                                <option>Mensaje de Texto (SMS)</option>
-                                <option>Visita</option>
-                                <option>Acuerdo de Pago</option>
-                                <option>Otro</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="resultado" class="block text-sm font-medium text-slate-700">Resultado / Observaciones</label>
-                            <textarea id="resultado" name="nota" rows="4" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" required></textarea>
-                        </div>
-                        <div class="text-right">
-                            <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                Guardar Gestión
-                            </button>
-                        </div>
-                    </div>
-                </form>
-                <hr class="my-6">
-                {% endif %}
-                <h3 class="text-lg font-bold text-slate-800 mb-4">Historial Completo de Eventos</h3>
-                <div class="space-y-4">
-                    {% for evento in historial_eventos %}
-                        <div class="p-4 bg-slate-50 rounded-lg">
-                            <div class="flex justify-between items-center">
-                                 <div class="flex items-center gap-2">
-                                    <span class="font-semibold text-slate-700">{{ evento.tipo }}</span>
-                                    {% if evento.origen == 'solicitud' and 'Cita' in evento.tipo and evento.estado == 'Completada' and evento.detalles and evento.detalles.reporte %}
-                                    <a href="{{ url_for('ver_reporte_cita', solicitud_id=evento.id) }}" target="_blank" class="text-xs bg-sky-600 text-white font-semibold py-1 px-2 rounded-md hover:bg-sky-700">
-                                        <i class="bi bi-file-earmark-text"></i> Ver Reporte
-                                    </a>
-                                    {% endif %}
+            <div class="p-5">
+                <!-- Pestaña de Historial de Pagos -->
+                <div x-show="activeTab === 'pagos'" class="space-y-4">
+                    {% for pago in pagos %}
+                        {% if pago.tipo_vista == 'normal' %}
+                            <div class="flex items-start justify-between p-4 rounded-lg hover:bg-slate-50 transition-colors">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full {% if pago.estado_pago == 'Conciliado' %} bg-green-100 text-green-600 {% elif pago.estado_pago == 'Pendiente' %} bg-yellow-100 text-yellow-600 {% else %} bg-red-100 text-red-600 {% endif %}"><i class="bi bi-cash text-xl"></i></div>
+                                    <div>
+                                        <p class="font-bold text-slate-800">{{ pago.tipo_pago }} - ${{ "%.2f"|format(pago.monto) }}</p>
+                                        <p class="text-xs text-slate-500">{{ pago.fecha_pago | format_date }} | Ref: {{ pago.referencia or 'N/A' }}</p>
+                                    </div>
                                 </div>
-                                <span class="text-xs text-slate-500">{{ evento.fecha | format_datetime }} por {{ evento.usuario }}</span>
+                                <div class="flex items-center gap-2">
+                                    <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" class="text-xs bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded-md hover:bg-slate-300">Detalles</a>
+                                    {% if pago.estado_pago == 'Conciliado' %}<a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" class="text-xs bg-blue-600 text-white font-semibold py-1 px-2 rounded-md hover:bg-blue-700">Recibo</a>{% endif %}
+                                </div>
                             </div>
-                            <p class="text-sm text-slate-600 mt-2">{{ evento.descripcion }}</p>
-                        </div>
+                        {% elif pago.tipo_vista == 'inconsistencia' %}
+                            <div class="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-r-lg flex items-start justify-between">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-orange-100 text-orange-600"><i class="bi bi-exclamation-triangle-fill text-xl"></i></div>
+                                    <div>
+                                        <p class="font-bold text-orange-800">{{ pago.concepto }}</p>
+                                        <p class="text-xs text-orange-600">Total a Pagar: ${{ "%.2f"|format(pago.monto_total) }} | Pagado: ${{ "%.2f"|format(pago.monto_pagado) }}</p>
+                                    </div>
+                                </div>
+                                <button onclick="verProcesoInconsistencia({{ pago.bulk_id }})" class="text-xs bg-orange-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-orange-600">Ver Proceso</button>
+                            </div>
+                        {% endif %}
                     {% else %}
-                        <p class="text-center text-slate-500 py-4">No hay eventos en el historial.</p>
+                        <p class="text-slate-500 text-center py-8">No hay pagos registrados.</p>
                     {% endfor %}
+                </div>
+
+                <!-- Pestaña de Gestiones y Eventos -->
+                <div x-show="activeTab === 'historial'" x-cloak>
+                    {% if admin_rol in ['superadmin', 'gerente', 'administradora'] %}
+                    <form action="{{ url_for('agregar_gestion', cliente_id=cliente.id) }}" method="POST" class="mb-6 bg-slate-50 p-4 rounded-lg border">
+                        <h3 class="font-bold text-slate-800 mb-2">Registrar Nueva Gestión</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div class="sm:col-span-1"><select name="tipo_gestion" class="w-full rounded-md border-slate-300 shadow-sm text-sm" required><option>Llamada</option><option>WhatsApp</option><option>Visita</option><option>Acuerdo de Pago</option><option>Otro</option></select></div>
+                            <div class="sm:col-span-2"><textarea name="nota" rows="2" class="w-full rounded-md border-slate-300 shadow-sm text-sm" placeholder="Resultado / Observaciones..." required></textarea></div>
+                        </div>
+                        <div class="text-right mt-3"><button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg text-sm hover:bg-blue-700">Guardar Gestión</button></div>
+                    </form>
+                    {% endif %}
+                    <div class="space-y-4">
+                        {% for evento in historial_eventos %}
+                            <div class="flex items-start gap-4">
+                                <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-100 text-slate-500"><i class="bi bi-calendar3-event-fill text-xl"></i></div>
+                                <div>
+                                    <p class="font-semibold text-slate-700">{{ evento.tipo }}</p>
+                                    <p class="text-sm text-slate-600">{{ evento.descripcion }}</p>
+                                    <p class="text-xs text-slate-400 mt-1">{{ evento.fecha | format_datetime }} por {{ evento.usuario }}</p>
+                                </div>
+                            </div>
+                        {% else %}
+                            <p class="text-center text-slate-500 py-8">No hay eventos en el historial.</p>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Estructura del Modal (añade esto al final de tu archivo, antes de </body>) -->
-<div id="inconsistencia-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full transform transition-all">
+<!-- Modal para Detalles de Inconsistencia -->
+<div id="inconsistencia-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50 p-4" x-data="{ show: false }" @open-modal.window="show = ($event.detail === 'inconsistencia-modal')" x-show="show" @keydown.escape.window="show = false">
+    <div @click.away="show = false" class="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full transform transition-all" x-show="show" x-transition>
         <div class="flex justify-between items-center border-b pb-3 mb-4">
             <h3 class="text-xl font-semibold text-gray-800" id="modal-title">Detalle del Proceso</h3>
-            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-800 text-3xl leading-none">&times;</button>
+            <button @click="show = false" class="text-gray-400 hover:text-gray-800 text-3xl leading-none">&times;</button>
         </div>
-        <div id="modal-body" class="max-h-[60vh] overflow-y-auto">
-            <!-- El contenido se cargará aquí con JavaScript -->
-            <p>Cargando...</p>
-        </div>
+        <div id="modal-body" class="max-h-[60vh] overflow-y-auto"></div>
         <div class="border-t pt-4 mt-4 text-right">
-            <button onclick="closeModal()" class="bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300">
-                Cerrar
-            </button>
+            <button @click="show = false" class="bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300">Cerrar</button>
         </div>
     </div>
 </div>
 
 <script>
-    const modal = document.getElementById('inconsistencia-modal');
-    const modalBody = document.getElementById('modal-body');
-    const modalTitle = document.getElementById('modal-title');
-
-    function closeModal() {
-        modal.classList.add('hidden');
-    }
-
     async function verProcesoInconsistencia(bulkId) {
+        const modalBody = document.getElementById('modal-body');
+        const modalTitle = document.getElementById('modal-title');
+        
+        window.dispatchEvent(new CustomEvent('open-modal', { detail: 'inconsistencia-modal' }));
+        
         modalBody.innerHTML = '<p class="text-center p-8">Cargando...</p>';
-        modal.classList.remove('hidden');
-        modalTitle.innerText = `Detalle del Proceso de Inconsistencia #${bulkId}`;
+        modalTitle.innerText = `Detalle del Proceso #${bulkId}`;
 
         try {
             const response = await fetch(`/api/bulk_detalle/${bulkId}`);
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'No se pudo cargar la información.');
-            }
+            if (!response.ok) throw new Error('No se pudo cargar la información.');
             const data = await response.json();
 
             let content = `
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 text-center md:text-left">
                     <div><p class="text-sm text-gray-500">Estado</p><p class="font-semibold">${data.bulk.status.replace('_', ' ').title()}</p></div>
-                    <div><p class="text-sm text-gray-500">Monto Total Esperado</p><p class="font-semibold">${parseFloat(data.bulk.expected_amount).toFixed(2)} ${data.bulk.currency}</p></div>
-                    <div><p class="text-sm text-gray-500">Monto Total Verificado</p><p class="font-semibold text-green-600">${parseFloat(data.bulk.total_verified).toFixed(2)} ${data.bulk.currency}</p></div>
+                    <div><p class="text-sm text-gray-500">Monto Esperado</p><p class="font-semibold">${parseFloat(data.bulk.expected_amount).toFixed(2)} ${data.bulk.currency}</p></div>
+                    <div><p class="text-sm text-gray-500">Monto Verificado</p><p class="font-semibold text-green-600">${parseFloat(data.bulk.total_verified).toFixed(2)} ${data.bulk.currency}</p></div>
                 </div>
-                <h4 class="font-semibold mb-2 border-t pt-4">Pagos Realizados:</h4>
+                <h4 class="font-semibold mb-2 border-t pt-4">Pagos Asociados:</h4>
                 <div class="space-y-3">
             `;
 
             data.pagos.forEach(pago => {
                 content += `
                     <div class="border p-3 rounded-md bg-gray-50 text-sm">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p><strong>Pago ID: ${pago.id}</strong> | ${new Date(pago.fecha_pago).toLocaleDateString()}</p>
-                                <p><strong>Ref:</strong> ${pago.referencia || 'N/A'}</p>
-                            </div>
-                            <span class="px-2 py-1 text-xs font-semibold rounded-full ${pago.estado_reporte === 'Inconsistente' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}">${pago.estado_reporte}</span>
-                        </div>
-                        <div class="mt-2 pt-2 border-t">
-                            <p><strong>Monto Reportado:</strong> ${parseFloat(pago.monto_bs).toFixed(2)} Bs (Equivalente a $${parseFloat(pago.monto).toFixed(2)} @ ${parseFloat(pago.tasa_dia).toFixed(2)})</p>
-                        </div>
+                        <p><strong>Pago ID: ${pago.id}</strong> | ${new Date(pago.fecha_pago).toLocaleDateString()}</p>
+                        <p><strong>Monto Reportado:</strong> ${parseFloat(pago.monto_bs).toFixed(2)} Bs</p>
                     </div>
                 `;
             });
@@ -245,11 +186,5 @@
             modalBody.innerHTML = `<p class="text-center p-8 text-red-500">${error.message}</p>`;
         }
     }
-
-    window.addEventListener('keydown', (e) => {
-        if (e.key === "Escape" && !modal.classList.contains('hidden')) {
-            closeModal();
-        }
-    });
 </script>
 {% endblock %}
