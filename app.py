@@ -2400,13 +2400,14 @@ def perfil_cliente(cliente_id):
 
     try:
         with conn.cursor() as cur:
+            # 1. Obtener datos principales del cliente
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (cliente_id,))
             cliente = cur.fetchone()
             if not cliente:
                 flash("Cliente no encontrado.", "error")
                 return redirect(url_for('consulta'))
 
-            # --- OBTENCIÓN DE DATOS CRUDOS ---
+            # 2. Obtener listas de datos relacionados (pagos, ofertas, gestiones)
             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_creacion DESC", (cliente_id,))
             pagos_raw = cur.fetchall()
 
@@ -2420,7 +2421,7 @@ def perfil_cliente(cliente_id):
             """, (cliente_id,))
             gestiones_raw = cur.fetchall()
 
-            # --- PROCESAMIENTO Y LIMPIEZA DE DATOS (LA PARTE CLAVE) ---
+            # 3. Procesar los datos para formatear fechas y añadir información útil
             pagos_procesados = []
             for pago in pagos_raw:
                 pago_dict = dict(pago)
@@ -2448,11 +2449,13 @@ def perfil_cliente(cliente_id):
                     gestion_dict['fecha_creacion_formateada'] = 'Fecha no disponible'
                 gestiones_procesadas.append(gestion_dict)
 
+            # 4. Preparar el objeto final del cliente con los conteos
             cliente_dict = dict(cliente)
             cliente_dict['conteo_pagos'] = len(pagos_procesados)
             cliente_dict['conteo_ofertas'] = len(ofertas_procesadas)
             cliente_dict['conteo_gestiones'] = len(gestiones_procesadas)
             
+            # 5. Renderizar la plantilla con los datos correctos y procesados
             return render_template(
                 'cliente_perfil.html',
                 cliente=cliente_dict,
@@ -2463,6 +2466,7 @@ def perfil_cliente(cliente_id):
             )
 
     except Exception as e:
+        # Manejo de errores para cualquier problema inesperado durante el proceso
         logging.error(f"Error CRÍTICO al cargar perfil del cliente {cliente_id}: {e}\n{traceback.format_exc()}")
         flash("Ocurrió un error grave al cargar el perfil del cliente. El problema ha sido registrado.", "error")
         return redirect(url_for('consulta'))

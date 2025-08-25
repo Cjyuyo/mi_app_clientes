@@ -15,6 +15,7 @@
 {% block body %}
 <div class="space-y-8">
     
+    {# --- MENSAJE CUANDO NO SE ENCUENTRA UN CLIENTE --- #}
     {% if not clientes and busqueda %}
         <div class="bg-white p-8 rounded-xl shadow-sm text-center border border-slate-200 mt-8">
             <div class="inline-block bg-slate-100 p-4 rounded-full mb-4">
@@ -28,19 +29,25 @@
         </div>
     {% endif %}
 
-    <div class="space-y-6">
-        {% for cliente in clientes %}
-        <div x-data="{ activeTab: 'pagos' }" class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
-            
-            <div class="p-5 bg-slate-50 border-b border-slate-200">
-                <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
-                    <div>
-                        <h2 class="text-2xl font-bold text-slate-800">{{ cliente.nombre_apellido }}</h2>
-                        <p class="text-sm text-slate-500">Contrato: <span class="font-mono">{{ cliente.contrato_nro or 'N/A' }}</span></p>
+    {# --- VISTA COMPLETA DEL PERFIL DEL CLIENTE ENCONTRADO --- #}
+    {% for cliente in clientes %}
+    <div x-data="{ 
+        showOfferForm: false, 
+        activeTab: 'pagos' 
+    }" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        {# --- COLUMNA IZQUIERDA: PERFIL, PROGRESO Y ACCIONES --- #}
+        <aside class="lg:col-span-1 lg:sticky top-24 self-start space-y-6">
+            <div class="bg-white rounded-xl shadow-md border border-slate-200">
+                <div class="p-5 text-center">
+                    <div class="w-24 h-24 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-4xl mx-auto mb-3">
+                        {{ cliente.nombre[0]|upper if cliente.nombre }}{{ cliente.apellido[0]|upper if cliente.apellido }}
                     </div>
-                    <div class="flex items-center gap-2 flex-shrink-0">
-                        <span class="text-sm font-semibold py-1 px-3 rounded-full bg-blue-100 text-blue-800">{{ cliente.proceso }}</span>
-                        <span class="text-sm font-semibold py-1 px-3 rounded-full
+                    <h1 class="text-2xl font-bold text-slate-800 tracking-tight">{{ cliente.nombre_apellido }}</h1>
+                    <p class="text-slate-500 font-mono text-sm">C.I: {{ cliente.cedula }}</p>
+                    <div class="mt-3 flex justify-center items-center gap-2">
+                        <span class="text-xs font-semibold py-1 px-3 rounded-full bg-blue-100 text-blue-800">{{ cliente.proceso }}</span>
+                        <span class="text-xs font-semibold py-1 px-3 rounded-full
                             {% set estatus = cliente.estatus | upper if cliente.estatus else '' %}
                             {% if estatus == 'ACTIVO' or estatus == 'AHORRADOR' or estatus == 'ADJUDICADO' %} bg-green-100 text-green-800
                             {% elif estatus == 'INACTIVO' or estatus == 'RETIRO' %} bg-red-100 text-red-800
@@ -50,26 +57,94 @@
                         </span>
                     </div>
                 </div>
-                <div class="mt-4 pt-4 border-t border-slate-200 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div><p class="text-slate-500">Cédula</p><p class="font-semibold text-slate-700 font-mono">{{ cliente.cedula }}</p></div>
-                    <div><p class="text-slate-500">Teléfono</p><p class="font-semibold text-slate-700">{{ cliente.telefono or 'N/A' }}</p></div>
-                    <div><p class="text-slate-500">Plan</p><p class="font-semibold text-slate-700">${{ "%.2f"|format(cliente.plan_contratado|float) if cliente.plan_contratado else '0.00' }}</p></div>
-                    <div><p class="text-slate-500">Asesor</p><p class="font-semibold text-slate-700">{{ cliente.asesor or 'N/A' }}</p></div>
+                
+                <div class="border-t border-slate-200 p-5 space-y-3 text-sm">
+                    <div class="flex justify-between items-center"><span class="text-slate-500">Contrato:</span><span class="font-semibold font-mono text-slate-700">{{ cliente.contrato_nro or 'N/A' }}</span></div>
+                    <div class="flex justify-between items-center"><span class="text-slate-500">Plan:</span><span class="font-semibold text-slate-700">${{ "%.2f"|format(cliente.plan_contratado|float) if cliente.plan_contratado else '0.00' }}</span></div>
+                    <div class="flex justify-between items-center"><span class="text-slate-500">Grupo:</span><span class="font-semibold text-slate-700">{{ cliente.grupo or 'N/A' }}</span></div>
+                    <div class="flex justify-between items-center"><span class="text-slate-500">Asesor:</span><span class="font-semibold text-slate-700">{{ cliente.asesor or 'N/A' }}</span></div>
+                </div>
+
+                <div class="border-t border-slate-200 p-4 grid grid-cols-2 gap-2">
+                    <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="text-center text-sm bg-green-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"><i class="bi bi-cash-coin"></i>Registrar Pago</a>
+                    <button @click="showOfferForm = !showOfferForm" class="text-center text-sm bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"><i class="bi bi-gem"></i>Registrar Oferta</button>
+                    <div class="col-span-2">
+                         <div x-data="{ open: false }" class="relative">
+                            <button @click="open = !open" class="w-full text-center text-sm bg-slate-100 text-slate-700 font-semibold py-2 px-3 rounded-lg hover:bg-slate-200 transition-colors flex items-center justify-center gap-2">
+                                Más Acciones <i class="bi bi-chevron-down"></i>
+                            </button>
+                            <div x-show="open" @click.away="open = false" x-cloak x-transition class="absolute bottom-full mb-2 w-full bg-white rounded-lg shadow-lg py-2 z-50 border border-slate-200 origin-bottom">
+                                <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" target="_blank" class="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"><i class="bi bi-file-earmark-pdf-fill mr-3"></i>Contrato</a>
+                                {% if admin_rol in ['superadmin', 'gerente', 'administradora'] %}
+                                <a href="#" onclick="confirmEdit('{{ url_for('edit_client', client_id=cliente.id) }}')" class="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"><i class="bi bi-pencil-square mr-3"></i>Editar</a>
+                                {% endif %}
+                                {% if admin_rol == 'superadmin' %}
+                                <div class="border-t my-1"></div>
+                                <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="event.preventDefault(); confirmDelete(this);">
+                                    <button type="submit" class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"><i class="bi bi-trash-fill mr-3"></i>Eliminar</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div>
-                <div class="px-5 border-b border-slate-200">
+            <div class="bg-white rounded-xl shadow-md border border-slate-200 p-5 space-y-4">
+                <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4">Progreso Financiero</h3>
+                <div>
+                    {% set inscripcion_pagada = cliente.inscripcion_pagada|float if cliente.inscripcion_pagada else 0.0 %}
+                    {% set inscripcion_monto = cliente.inscripcion_monto|float if cliente.inscripcion_monto else 0.0 %}
+                    {% set inscripcion_percent = (inscripcion_pagada / inscripcion_monto * 100) if inscripcion_monto > 0 else 0 %}
+                    <div class="flex justify-between items-center mb-1"><span class="text-sm font-semibold text-slate-600">Inscripción</span><span class="text-xs font-medium text-slate-500">${{ "%.2f"|format(inscripcion_pagada) }} / ${{ "%.2f"|format(inscripcion_monto) }}</span></div>
+                    <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="bg-yellow-400 h-2.5 rounded-full" style="width: {{ inscripcion_percent }}%"></div></div>
+                </div>
+                <div>
+                    {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int if cliente.cuotas_pagadas_progresivas else 0 %}
+                    {% set cuotas_totales = cliente.cuotas_totales|int if cliente.cuotas_totales else 1 %}
+                    {% set progresivas_percent = (cuotas_progresivas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                    <div class="flex justify-between items-center mb-1"><span class="text-sm font-semibold text-slate-600">Cuotas Progresivas</span><span class="text-xs font-medium text-slate-500">{{ cuotas_progresivas }} de {{ cuotas_totales }}</span></div>
+                    <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="bg-blue-600 h-2.5 rounded-full" style="width: {{ progresivas_percent }}%"></div></div>
+                </div>
+            </div>
+        </aside>
+
+        {# --- COLUMNA DERECHA: PESTAÑAS DE PAGOS, OFERTAS Y GESTIONES --- #}
+        <div class="lg:col-span-2 space-y-6">
+            <div x-show="showOfferForm" x-cloak class="bg-white p-5 rounded-xl shadow-md border border-slate-200" x-transition>
+                <form action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" method="POST">
+                    <h3 class="font-bold text-slate-800 mb-2">Registrar Oferta de Adjudicación</h3>
+                    <div>
+                        <label for="cuotas_ofertadas-{{ cliente.id }}" class="block text-sm font-medium text-slate-700">Número de Cuotas a Ofertar</label>
+                        <select class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm bg-slate-50" name="cuotas_ofertadas" required>
+                            {% set cuotas_restantes = (cliente.cuotas_totales|int) - (cliente.cuotas_pagadas_progresivas|int) %}
+                            {% if cuotas_restantes > 0 %}
+                                {% for i in range(1, cuotas_restantes + 1) %}<option value="{{ i }}">{{ i }} cuota(s)</option>{% endfor %}
+                            {% else %}
+                                <option value="">No hay cuotas restantes</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                    <div class="flex justify-end gap-2 mt-4">
+                        <button type="button" @click="showOfferForm = false" class="bg-white text-slate-700 py-2 px-4 border border-slate-300 rounded-md text-sm font-semibold hover:bg-slate-50">Cancelar</button>
+                        <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded-md text-sm font-semibold hover:bg-blue-700">Guardar Oferta</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md border border-slate-200">
+                <div class="px-6 border-b border-slate-200">
                     <nav class="-mb-px flex space-x-6" aria-label="Tabs">
-                        <button @click="activeTab = 'pagos'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'pagos', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'pagos' }" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">Pagos ({{ cliente.conteo_pagos }})</button>
-                        <button @click="activeTab = 'ofertas'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'ofertas', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ofertas' }" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">Ofertas ({{ cliente.conteo_ofertas }})</button>
-                        <button @click="activeTab = 'gestiones'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'gestiones', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'gestiones' }" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">Gestiones ({{ cliente.conteo_gestiones }})</button>
+                        <button @click="activeTab = 'pagos'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'pagos', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'pagos' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Pagos ({{ cliente.conteo_pagos }})</button>
+                        <button @click="activeTab = 'ofertas'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'ofertas', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ofertas' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ofertas ({{ cliente.conteo_ofertas }})</button>
+                        <button @click="activeTab = 'gestiones'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'gestiones', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'gestiones' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Gestiones ({{ cliente.conteo_gestiones }})</button>
                     </nav>
                 </div>
-                <div class="p-5 max-h-60 overflow-y-auto">
-                    <div x-show="activeTab === 'pagos'" class="space-y-3">
+
+                <div class="p-6">
+                    <div x-show="activeTab === 'pagos'" class="space-y-4 max-h-[40rem] overflow-y-auto">
                         {% for pago in cliente.pagos %}
-                        <div class="border rounded-md p-3 flex items-center justify-between gap-2">
+                        <div class="border rounded-lg p-3 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors">
                             <div>
                                 <p class="font-semibold text-slate-700">{{ pago.tipo_pago }} - ${{ "%.2f"|format(pago.monto|float) }}</p>
                                 <p class="text-xs text-slate-500">{{ pago.fecha_pago.strftime('%d/%m/%Y') }} | Ref: {{ pago.referencia or 'N/A' }}</p>
@@ -81,50 +156,84 @@
                                 {% endif %}">{{ pago.estado_pago }}</span>
                         </div>
                         {% else %}
-                        <p class="text-slate-500 text-center py-4">No hay pagos registrados.</p>
+                        <p class="text-slate-500 text-center py-8">No hay pagos registrados.</p>
                         {% endfor %}
                     </div>
-                     <div x-show="activeTab === 'ofertas'" class="space-y-3">
+                    <div x-show="activeTab === 'ofertas'" x-cloak class="space-y-4 max-h-[40rem] overflow-y-auto">
                         {% for oferta in cliente.ofertas %}
                         <div class="border rounded-lg p-3">
                             <p class="font-semibold text-slate-700">Oferta de {{ oferta.cuotas_ofertadas }} cuota(s)</p>
                             <p class="text-xs text-slate-500">Registrada el: {{ oferta.fecha_oferta.strftime('%d/%m/%Y') }} | Estado: <span class="font-bold">{{ oferta.estado_oferta|capitalize }}</span></p>
                         </div>
                         {% else %}
-                        <p class="text-slate-500 text-center py-4">No hay ofertas registradas.</p>
+                        <p class="text-slate-500 text-center py-8">No hay ofertas registradas.</p>
                         {% endfor %}
                     </div>
-                     <div x-show="activeTab === 'gestiones'" class="space-y-3">
+                    <div x-show="activeTab === 'gestiones'" x-cloak class="space-y-4 max-h-[40rem] overflow-y-auto">
+                        {% if admin_rol in ['superadmin', 'gerente', 'administradora'] %}
+                        <form action="/agregar_gestion/{{ cliente.id }}" method="POST" class="bg-slate-50 p-4 rounded-lg border">
+                            <h3 class="font-bold text-slate-800 mb-2">Registrar Nueva Gestión</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div class="sm:col-span-1"><select name="tipo_gestion" class="w-full rounded-md border-slate-300 shadow-sm text-sm bg-slate-50" required><option>Llamada</option><option>WhatsApp</option><option>Visita</option><option>Acuerdo de Pago</option><option>Otro</option></select></div>
+                                <div class="sm:col-span-2"><textarea name="nota" rows="2" class="w-full rounded-md border-slate-300 shadow-sm text-sm bg-slate-50" placeholder="Resultado / Observaciones..." required></textarea></div>
+                            </div>
+                            <div class="text-right mt-3"><button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg text-sm hover:bg-blue-700">Guardar Gestión</button></div>
+                        </form>
+                        {% endif %}
                         {% for gestion in cliente.gestiones %}
-                        <div class="border rounded-lg p-3">
+                        <div class="border rounded-lg p-4 bg-white hover:bg-slate-50">
                             <div class="flex justify-between items-center mb-1">
                                 <p class="font-bold text-sm text-slate-800">{{ gestion.tipo_gestion }}</p>
                                 <p class="text-xs text-slate-500">{{ gestion.fecha_creacion.strftime('%d/%m/%Y a las %I:%M %p') }}</p>
                             </div>
-                            <p class="text-sm text-slate-600">{{ gestion.nota }}</p>
-                            <p class="text-right text-xs text-slate-500 italic">Por: {{ gestion.gestor_nombre }}</p>
+                            <p class="text-sm text-slate-600 mb-2">{{ gestion.nota }}</p>
+                            <p class="text-right text-xs text-slate-500 italic">Por: {{ gestion.gestor_nombre or 'Sistema' }}</p>
                         </div>
                         {% else %}
-                        <p class="text-slate-500 text-center py-4">No hay gestiones registradas.</p>
+                        <p class="text-center text-slate-500 py-8">No hay gestiones registradas.</p>
                         {% endfor %}
                     </div>
                 </div>
             </div>
-            
-            <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-end gap-3">
-                 <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="text-sm bg-slate-700 text-white font-semibold py-2 px-4 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-2">
-                    <i class="bi bi-person-bounding-box"></i> Ver Perfil Completo
-                </a>
-            </div>
         </div>
-        {% endfor %}
     </div>
+    {% endfor %}
 </div>
 {% endblock %}
 
 {% block scripts_extra %}
 <script>
-    // Las funciones de confirmación no son necesarias en esta vista,
-    // ya que todas las acciones destructivas están en la página de perfil.
+    function confirmDelete(form) {
+        Swal.fire({
+            title: '¿Está seguro?',
+            text: "¡Esta acción es irreversible! Se eliminará al cliente y todos sus registros asociados.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, eliminarlo',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                form.submit();
+            }
+        });
+    }
+    function confirmEdit(url) {
+        Swal.fire({
+            title: '¿Desea editar este cliente?',
+            text: "Será redirigido a la página de edición.",
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, editar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = url;
+            }
+        });
+    }
 </script>
 {% endblock %}

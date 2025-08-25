@@ -55,24 +55,24 @@
         <div class="bg-white p-6 rounded-xl shadow-md">
             <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-person-badge"></i>Información Personal y de Contacto</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div><label for="nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label><input type="text" id="nombre_apellido" name="nombre_apellido" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
-                <div><label for="cedula" class="block text-sm font-medium text-slate-700">Nº Cédula</label><input type="text" id="cedula" name="cedula" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
-                <div><label for="telefono" class="block text-sm font-medium text-slate-700">Teléfono</label><input type="text" id="telefono" name="telefono" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
-                <div><label for="email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label><input type="email" id="email" name="email" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></div>
-                <div class="md:col-span-2"><label for="direccion" class="block text-sm font-medium text-slate-700">Dirección</label><textarea id="direccion" name="direccion" rows="2" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea></div>
-                <div><label for="fecha_ingreso" class="block text-sm font-medium text-slate-700">Fecha de Ingreso</label><input type="date" id="fecha_ingreso" name="fecha_ingreso" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
+                <div><label for="nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label><input type="text" id="nombre_apellido" name="nombre_apellido" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></div>
+                <div><label for="cedula" class="block text-sm font-medium text-slate-700">Nº Cédula</label><input type="text" id="cedula" name="cedula" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></div>
+                <div><label for="telefono" class="block text-sm font-medium text-slate-700">Teléfono</label><input type="text" id="telefono" name="telefono" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></div>
+                <div><label for="email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label><input type="email" id="email" name="email" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50"></div>
+                <div class="md:col-span-2"><label for="direccion" class="block text-sm font-medium text-slate-700">Dirección</label><textarea id="direccion" name="direccion" rows="2" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50"></textarea></div>
+                <div><label for="fecha_ingreso" class="block text-sm font-medium text-slate-700">Fecha de Ingreso</label><input type="date" id="fecha_ingreso" name="fecha_ingreso" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></div>
             </div>
         </div>
 
         <div class="bg-white p-6 rounded-xl shadow-md">
             <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-file-earmark-text"></i>Detalles del Plan y Contrato</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div><label for="contrato_nro" class="block text-sm font-medium text-slate-700">Nº Contrato</label><input type="text" id="contrato_nro" name="contrato_nro" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
-                <div><label for="plan_contratado" class="block text-sm font-medium text-slate-700">Plan Contratado (Valor USD)</label><select id="plan_contratado" name="plan_contratado" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="" disabled selected>-- Seleccione --</option></select></div>
+                <div><label for="contrato_nro" class="block text-sm font-medium text-slate-700">Nº Contrato</label><input type="text" id="contrato_nro" name="contrato_nro" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></div>
+                <div><label for="plan_contratado" class="block text-sm font-medium text-slate-700">Plan Contratado (Valor USD)</label><select id="plan_contratado" name="plan_contratado" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required><option value="" disabled selected>-- Seleccione --</option></select></div>
                 <div><label for="inscripcion_monto" class="block text-sm font-medium text-slate-700">Monto Inscripción (16%)</label><input type="number" id="inscripcion_monto" step="0.01" name="inscripcion_monto" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100" required readonly></div>
-                <div><label for="cuotas_totales" class="block text-sm font-medium text-slate-700">Total de Cuotas</label><select id="cuotas_totales" name="cuotas_totales" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
+                <div><label for="cuotas_totales" class="block text-sm font-medium text-slate-700">Total de Cuotas</label><select id="cuotas_totales" name="cuotas_totales" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
                 <div><label for="valor_cuota" class="block text-sm font-medium text-slate-700">Cuota Mensual</label><input type="number" id="valor_cuota" step="0.01" name="valor_cuota" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100 focus:border-blue-500 focus:ring-blue-500" required readonly></div>
-                <div><label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="USD">Divisas (USD)</option><option value="BsBCV">Bolívares (Tasa BCV)</option></select></div>
+                <div><label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required><option value="USD">Divisas (USD)</option><option value="BsBCV">Bolívares (Tasa BCV)</option></select></div>
             </div>
         </div>
         
@@ -97,7 +97,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label for="asesor_select" class="block text-sm font-medium text-slate-700">Asesor</label>
-                    <select id="asesor_select" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                    <select id="asesor_select" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required>
                         <option value="" selected disabled>-- Seleccione --</option>
                         {% for responsable in responsables %}
                             <option value="{{ responsable.nombre_completo }}">{{ responsable.nombre_completo }}</option>
@@ -106,7 +106,7 @@
                 </div>
                 <div>
                     <label for="responsable_select" class="block text-sm font-medium text-slate-700">Responsable del Cierre</label>
-                    <select id="responsable_select" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                    <select id="responsable_select" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required>
                         <option value="" selected disabled>-- Seleccione --</option>
                         {% for responsable in responsables %}
                             <option value="{{ responsable.nombre_completo }}">{{ responsable.nombre_completo }}</option>
