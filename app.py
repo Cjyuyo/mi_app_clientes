@@ -1500,6 +1500,8 @@ def dashboard_comercial():
         fecha_fin = today
 
     # 3. Construir consulta dinámica para los datos de ventas (cierres)
+    # =====> EL PROBLEMA ESTÁ AQUÍ <=====
+    # La consulta usa "FROM clientes c", pero la columna 'plan_contratado' está en 'contratos_historicos'.
     base_query = """
         SELECT 
             c.responsable,
@@ -1538,6 +1540,8 @@ def dashboard_comercial():
             # Calcular estadísticas si se encuentran datos
             if cierres:
                 df = pd.DataFrame(cierres)
+                # =====> AQUÍ ES DONDE OCURRE EL 'KeyError' <=====
+                # El DataFrame 'df' no tiene la columna 'plan_contratado' porque la consulta anterior falló en encontrarla.
                 df['plan_contratado'] = pd.to_numeric(df['plan_contratado'], errors='coerce').fillna(0)
                 
                 stats['total_cierres'] = len(df)
