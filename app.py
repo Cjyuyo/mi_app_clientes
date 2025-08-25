@@ -1456,85 +1456,8 @@ def tesoreria_rebalanceo():
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def dashboard_comercial():
-    conn = get_db()
-    if not conn:
-        flash("Error de conexión a la base de datos.", "danger")
-        # Asegúrate de que tu plantilla pueda manejar el caso de no recibir datos
-        return render_template('dashboard_comercial.html', comisiones=[], stats=defaultdict(lambda: {'monto': Decimal('0.0'), 'conteo': 0}), asesores=[], filters={}, anio_actual=get_venezuela_current_date().year)
-
-    args = request.args
-    today = get_venezuela_current_date()
-    fecha_desde_origen = args.get('fecha_desde_origen', (today - timedelta(days=30)).strftime('%Y-%m-%d'))
-    fecha_hasta_origen = args.get('fecha_hasta_origen', today.strftime('%Y-%m-%d'))
-    asesor_id = args.get('asesor_id')
-    estado = args.get('estado')
-
-    base_query = """
-        SELECT 
-            c.id, c.fecha_origen, a.nombre_completo as asesor, cl.nombre || ' ' || cl.apellido as cliente,
-            c.monto, c.estado, c.payment_batch_id
-        FROM comisiones c
-        JOIN administradores a ON c.asesor_id = a.id
-        LEFT JOIN clientes cl ON c.origen_id = cl.id AND c.origen_tipo = 'Venta'
-    """
-    
-    filters_sql = []
-    params = []
-
-    if fecha_desde_origen:
-        filters_sql.append("c.fecha_origen >= %s")
-        params.append(fecha_desde_origen)
-    if fecha_hasta_origen:
-        filters_sql.append("c.fecha_origen <= %s")
-        params.append(fecha_hasta_origen)
-    if asesor_id:
-        filters_sql.append("c.asesor_id = %s")
-        params.append(asesor_id)
-    if estado:
-        filters_sql.append("c.estado = %s")
-        params.append(estado)
-
-    if filters_sql:
-        base_query += " WHERE " + " AND ".join(filters_sql)
-    
-    base_query += " ORDER BY c.fecha_origen DESC"
-
-    comisiones, asesores = [], []
-    stats = defaultdict(lambda: {'monto': Decimal('0.0'), 'conteo': 0})
-    
-    try:
-        with conn.cursor() as cur:
-            cur.execute(base_query, tuple(params))
-            comisiones = cur.fetchall()
-            
-            # Calcular estadísticas generales para las tarjetas (sin filtros)
-            cur.execute("SELECT estado, SUM(monto) as total_monto, COUNT(id) as total_conteo FROM comisiones WHERE moneda = 'USD' GROUP BY estado")
-            stats_db = cur.fetchall()
-            for row in stats_db:
-                stats[row['estado']]['monto'] += row['total_monto']
-                stats[row['estado']]['conteo'] += row['total_conteo']
-            
-            cur.execute("SELECT SUM(monto_ajuste) FROM comisiones_rebalanceos")
-            total_rebalanceos = cur.fetchone()[0]
-            stats['rebalanceos']['monto'] = total_rebalanceos or Decimal('0.0')
-
-            cur.execute("SELECT id, nombre_completo FROM administradores WHERE rol IN ('superadmin', 'gerente', 'asesor') ORDER BY nombre_completo")
-            asesores = cur.fetchall()
-            
-    except psycopg2.Error as e:
-        flash(f"Error al cargar el dashboard de comisiones: {e}", "danger")
-
-    return render_template(
-        'dashboard_comercial.html',
-        comisiones=comisiones,
-        stats=stats,
-        asesores=asesores,
-        filters={
-            'fecha_desde_origen': fecha_desde_origen, 'fecha_hasta_origen': fecha_hasta_origen,
-            'asesor_id': asesor_id, 'estado': estado
-        },
-        anio_actual=get_venezuela_current_date().year
-    )
+    # Prueba para forzar la actualización del servidor
+    return "DEPLOYMENT FORZADO Y EXITOSO - HORA 5:52 PM"
 # >>> COMISIONES: END [dashboard_comercial]
 
 
