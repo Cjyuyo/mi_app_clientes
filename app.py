@@ -2713,53 +2713,64 @@ def finalizar_registro():
 @app.route('/consulta', methods=['GET', 'POST'])
 @admin_required
 def consulta():
-    clientes_encontrados, mensaje_error = [], None
+    clientes_encontrados = []
+    # Se asegura de obtener el término de búsqueda ya sea por formulario (POST) o por URL (GET)
     termino_busqueda_raw = request.form.get('busqueda', request.args.get('busqueda', ''))
     termino_busqueda = termino_busqueda_raw.strip()
+    
     if termino_busqueda:
         conn = get_db()
         if not conn:
-            mensaje_error = "Error de conexión a la base de datos."
+            flash("Error de conexión a la base de datos.", "error")
         else:
             try:
                 with conn.cursor() as cur:
-                    # --- INICIO DE LA CORRECCIÓN: Lógica de búsqueda mejorada ---
-                    # Primero intenta una coincidencia exacta por cédula.
-                    # Si no, busca por nombre o apellido.
+                    # Búsqueda mejorada por cédula, nombre/apellido o contrato
                     query_clientes = """
-                        SELECT *, inscripcion_monto AS inscripcion FROM clientes 
+                        SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes 
                         WHERE cedula = %s 
-                        OR nombre ILIKE %s 
-                        OR apellido ILIKE %s 
-                        ORDER BY nombre, apellido LIMIT 20;
+                        OR (nombre || ' ' || apellido) ILIKE %s 
+                        OR contrato_nro ILIKE %s
+                        ORDER BY nombre, apellido LIMIT 10;
                     """
-                    patron_busqueda_like = f'%{termino_busqueda}%'
-                    cur.execute(query_clientes, (termino_busqueda, patron_busqueda_like, patron_busqueda_like))
-                    # --- FIN DE LA CORRECCIÓN ---
+                    patron_like = f'%{termino_busqueda}%'
+                    cur.execute(query_clientes, (termino_busqueda, patron_like, patron_like))
+                    
+                    # Para cada cliente encontrado, ahora también buscamos sus detalles
+                    for cliente_row in cur.fetchall():
+                        cliente_dict = dict(cliente_row)
+                        cliente_id = cliente_dict['id']
 
-                    for cliente in cur.fetchall():
-                        cliente_dict = dict(cliente)
-                        cliente_dict['nombre_apellido'] = f"{cliente.get('nombre', '')} {cliente.get('apellido', '')}".strip()
-                        
-                        cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_creacion DESC, id DESC", (cliente_dict['id'],))
+                        # Cargar pagos
+                        cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_creacion DESC", (cliente_id,))
                         cliente_dict['pagos'] = cur.fetchall()
-                        cur.execute("SELECT * FROM ofertas WHERE cliente_id = %s ORDER BY fecha_oferta DESC", (cliente_dict['id'],))
+                        cliente_dict['conteo_pagos'] = len(cliente_dict['pagos'])
+
+                        # Cargar ofertas
+                        cur.execute("SELECT * FROM ofertas WHERE cliente_id = %s ORDER BY fecha_oferta DESC", (cliente_id,))
                         cliente_dict['ofertas'] = cur.fetchall()
+                        cliente_dict['conteo_ofertas'] = len(cliente_dict['ofertas'])
 
-                        cur.execute("SELECT COUNT(*) FROM pagos WHERE cliente_id = %s", (cliente_dict['id'],))
-                        cliente_dict['conteo_pagos'] = cur.fetchone()[0]
-                        cur.execute("SELECT COUNT(*) FROM ofertas WHERE cliente_id = %s", (cliente_dict['id'],))
-                        cliente_dict['conteo_ofertas'] = cur.fetchone()[0]
-                        cur.execute("SELECT COUNT(*) FROM gestiones_cobranza WHERE cliente_id = %s", (cliente_dict['id'],))
-                        cliente_dict['conteo_gestiones'] = cur.fetchone()[0]
-
+                        # Cargar gestiones (con LEFT JOIN para evitar errores si un gestor es eliminado)
+                        cur.execute("""
+                            SELECT g.*, a.usuario as gestor_nombre
+                            FROM gestiones_cobranza g
+                            LEFT JOIN administradores a ON g.gestor_id = a.id
+                            WHERE g.cliente_id = %s ORDER BY g.fecha_creacion DESC;
+                        """, (cliente_id,))
+                        cliente_dict['gestiones'] = cur.fetchall()
+                        cliente_dict['conteo_gestiones'] = len(cliente_dict['gestiones'])
+                        
                         clientes_encontrados.append(cliente_dict)
                         
-                    if not clientes_encontrados:
-                        mensaje_error = "🚫 No se encontraron clientes que coincidan con su búsqueda."
             except psycopg2.Error as e:
-                mensaje_error = f"Error al consultar la base de datos: {e}"
-    return render_template('consulta.html', clientes=clientes_encontrados, mensaje_error=mensaje_error, busqueda=termino_busqueda_raw, admin_rol=g.admin['rol'])
+                flash(f"Error al consultar la base de datos: {e}", "error")
+
+    # Pasa la variable 'busqueda' a la plantilla para que el mensaje de "Sin Resultados" funcione
+    return render_template('consulta.html', 
+                           clientes=clientes_encontrados, 
+                           busqueda=termino_busqueda, 
+                           admin_rol=g.admin['rol'])
 
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 @admin_required
