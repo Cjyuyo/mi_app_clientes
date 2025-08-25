@@ -5,7 +5,6 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
     #video, #photo-preview { 
-        /* Efecto espejo para la cámara frontal para que el usuario se vea de forma natural */
         transform: scaleX(-1); 
     }
     #canvas { display: none; }
@@ -126,47 +125,41 @@
             </button>
         </div>
 
-        <div x-show="isCameraOpen" x-cloak class="fixed inset-0 bg-black flex flex-col items-center justify-center z-50 p-4">
-            <div class="relative w-full max-w-lg aspect-[3/4] rounded-xl bg-slate-800 overflow-hidden">
-                <template x-if="capturedImageData">
-                    <img id="photo-preview" :src="capturedImageData" class="w-full h-full object-cover">
-                </template>
-                <video x-show="!capturedImageData" id="video" class="w-full h-full object-cover" autoplay playsinline muted></video>
-                <button @click.prevent="closeCamera()" class="absolute top-4 left-4 bg-black/40 text-white rounded-full h-10 w-10 flex items-center justify-center text-xl hover:bg-black/60 transition">
-                    <i class="bi bi-x-lg"></i>
-                </button>
-            </div>
-            
-            <div class="w-full max-w-lg mt-6">
-                <div class="flex items-center justify-around">
-                    <template x-if="capturedImageData">
-                        <button @click.prevent="retakePhoto()" class="bg-white/20 text-white rounded-full h-16 w-16 flex items-center justify-center text-2xl hover:bg-white/30 transition">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
-                        <button @click.prevent="acceptPhoto()" class="bg-green-500 text-white rounded-full h-20 w-20 flex items-center justify-center text-4xl hover:bg-green-600 transition ring-4 ring-white/30">
-                            <i class="bi bi-check"></i>
-                        </button>
-                        <div class="w-16 h-16"></div> </template>
-
+        <div x-show="isCameraOpen" x-cloak class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" @keydown.escape.window="closeCamera()">
+            <div class="bg-white rounded-xl p-4 w-full max-w-md text-center shadow-2xl">
+                <h3 class="text-lg font-bold mb-4 text-slate-800">Tomar Fotografía</h3>
+                
+                <div class="relative w-full aspect-[4/5] rounded-lg bg-slate-200 overflow-hidden border border-slate-300">
                     <template x-if="!capturedImageData">
-                        <button @click.prevent="flipCamera()" x-show="hasMultipleCameras" class="bg-white/20 text-white rounded-full h-16 w-16 flex items-center justify-center text-2xl hover:bg-white/30 transition">
-                            <i class="bi bi-arrow-repeat"></i>
-                        </button>
-                        <button @click.prevent="capturePhoto()" class="bg-white text-blue-600 rounded-full h-20 w-20 flex items-center justify-center text-4xl hover:bg-slate-200 transition ring-4 ring-white/30">
-                            <i class="bi bi-camera-fill"></i>
-                        </button>
-                        <div x-show="!hasMultipleCameras" class="w-16 h-16"></div>
+                        <video id="video" class="w-full h-full object-cover" autoplay playsinline muted></video>
                     </template>
+                    <template x-if="capturedImageData">
+                        <img id="photo-preview" :src="capturedImageData" class="w-full h-full object-cover">
+                    </template>
+                </div>
+                <canvas id="canvas"></canvas>
+
+                <div class="mt-5">
+                    <div x-show="!capturedImageData" class="flex items-center justify-center gap-4 animate-fade-in">
+                        <button @click.prevent="closeCamera()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300 transition-colors">Cancelar</button>
+                        <button @click.prevent="capturePhoto()" class="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors flex items-center gap-2"><i class="bi bi-camera-fill"></i>Capturar</button>
+                        <button @click.prevent="flipCamera()" x-show="hasMultipleCameras" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300 transition-colors">Voltear</button>
+                    </div>
+
+                    <div x-show="capturedImageData" x-cloak class="flex items-center justify-center gap-4 animate-fade-in">
+                        <button @click.prevent="retakePhoto()" class="px-4 py-2 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition-colors flex items-center gap-2"><i class="bi bi-arrow-counterclockwise"></i>Repetir</button>
+                        <button @click.prevent="acceptPhoto()" class="px-6 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors flex items-center gap-2"><i class="bi bi-check-circle-fill"></i>Aceptar</button>
+                    </div>
                 </div>
             </div>
         </div>
-        <canvas id="canvas"></canvas>
-    </form>
+        </form>
 </div>
 {% endblock %}
 
 {% block scripts_extra %}
 <script>
+    // La lógica de AlpineJS no cambia, es robusta. El problema estaba en el diseño (HTML/CSS).
     function cameraHandler() {
         return {
             isCameraOpen: false,
@@ -252,6 +245,7 @@
         }
     }
 
+    // Lógica del formulario principal (sin cambios)
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('registroForm');
         const submitBtn = document.getElementById('submitBtn');
@@ -266,7 +260,6 @@
         const asesorHiddenInput = document.getElementById('asesor-hidden-input');
         const responsableHiddenInput = document.getElementById('responsable-hidden-input');
         
-        // --- LÓGICA DE CÁLCULO DE PLAN ---
         function calcularValorCuota() {
             const plan = parseFloat(planSelect.value);
             const cuotas = parseInt(cuotasSelect.value);
@@ -299,7 +292,6 @@
         cuotasSelect.addEventListener('change', calcularValorCuota);
         monedaSelect.addEventListener('change', calcularValorCuota);
 
-        // --- LÓGICA DE ESCENARIOS ADMINISTRATIVOS ---
         escenarioSelect.addEventListener('change', function() {
             const escenario = this.value;
             const baseInputClasses = 'mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm';
@@ -360,7 +352,6 @@
             responsableHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
         });
 
-        // --- VALIDACIÓN Y SUBMIT ---
         const validateForm = () => {
             for (const field of form.querySelectorAll('[required]')) {
                 if (!field.value || field.value.trim() === '') return false;
@@ -380,7 +371,6 @@
             submitBtn.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
         });
 
-        // --- INICIALIZACIÓN ---
         document.getElementById('fecha_ingreso').value = new Date().toISOString().split('T')[0];
         popularPlanes();
         updateButtonState();
