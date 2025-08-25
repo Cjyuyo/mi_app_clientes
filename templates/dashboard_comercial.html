@@ -67,7 +67,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm font-semibold text-slate-500">Monto Total Cerrado</p>
-                    <p class="text-4xl font-bold text-slate-800 mt-1">${{ "%.2f"|format(stats.monto_total_cerrado) if stats.monto_total_cerrado is not none else '0.00' }}</p>
+                    <p class="text-4xl font-bold text-slate-800 mt-1">${{ "%.2f"|format(stats.monto_total_cerrado.monto_total_cerrado) if stats.monto_total_cerrado and stats.monto_total_cerrado.monto_total_cerrado is not none else '0.00' }}</p>
                 </div>
                 <div class="w-12 h-12 flex items-center justify-center rounded-full bg-green-100 text-green-600">
                     <i class="bi bi-cash-stack text-2xl"></i>
@@ -78,7 +78,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm font-semibold text-slate-500">Plan Promedio</p>
-                    <p class="text-4xl font-bold text-slate-800 mt-1">${{ "%.2f"|format(stats.plan_promedio) if stats.plan_promedio is not none else '0.00' }}</p>
+                    <p class="text-4xl font-bold text-slate-800 mt-1">${{ "%.2f"|format(stats.plan_promedio.plan_promedio) if stats.plan_promedio and stats.plan_promedio.plan_promedio is not none else '0.00' }}</p>
                 </div>
                 <div class="w-12 h-12 flex items-center justify-center rounded-full bg-orange-100 text-orange-600">
                     <i class="bi bi-bar-chart-line-fill text-2xl"></i>
@@ -150,7 +150,7 @@
 
 {% block scripts_extra %}
 <script>
-    // Inicialización del gráfico de Chart.js
+    // INICIO: SCRIPT COMPLETO Y RESTAURADO
     document.addEventListener('DOMContentLoaded', function() {
         const ctx = document.getElementById('cierresChart').getContext('2d');
         const chartData = {{ chart_data | tojson | safe }};
@@ -162,7 +162,7 @@
                 datasets: [{
                     label: 'Monto Total por Día',
                     data: chartData.values,
-                    borderColor: '#F99417', // Naranja corporativo
+                    borderColor: '#F99417',
                     backgroundColor: 'rgba(249, 148, 23, 0.1)',
                     borderWidth: 3,
                     tension: 0.4,
@@ -216,20 +216,18 @@
         });
     });
 
-    // Funciones para exportar a PDF y Excel con librerías actualizadas
     function exportToPDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
-        const titulo = "Reporte de Cierres - {{ responsable_seleccionado | capitalize }}";
-        const fecha = new Date().toLocaleDateString();
+        const titulo = "Reporte de Cierres - {{ responsable_seleccionado | replace('todos', 'Todos') | capitalize }}";
+        const fecha = new Date().toLocaleDateString('es-VE');
 
         doc.setFontSize(18);
         doc.text(titulo, 14, 22);
         doc.setFontSize(11);
-        doc.text(`Fecha: ${fecha}`, 14, 30);
+        doc.text(`Fecha de Emisión: ${fecha}`, 14, 30);
         
-        // autoTable es un plugin de jsPDF para crear tablas fácilmente
         doc.autoTable({
             html: '#tablaCierres',
             startY: 35,
@@ -237,16 +235,17 @@
             headStyles: { fillColor: [43, 58, 85] }, // Azul corporativo
         });
         
-        doc.save(`reporte_cierres_${new Date().toISOString().split('T')[0]}.pdf`);
+        const fechaArchivo = new Date().toISOString().split('T')[0];
+        doc.save(`reporte_cierres_${fechaArchivo}.pdf`);
     }
 
     function exportToExcel() {
         const tabla = document.getElementById('tablaCierres');
-        // Convierte la tabla HTML a una hoja de cálculo
         const workbook = XLSX.utils.table_to_book(tabla, { sheet: "Cierres" });
-        // Escribe el archivo Excel y lo descarga
-        XLSX.writeFile(workbook, `reporte_cierres_${new Date().toISOString().split('T')[0]}.xlsx`);
+        
+        const fechaArchivo = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(workbook, `reporte_cierres_${fechaArchivo}.xlsx`);
     }
-
+    // FIN: SCRIPT COMPLETO Y RESTAURADO
 </script>
 {% endblock %}
