@@ -4,7 +4,11 @@
 {% block head_extra %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
-    #video { transform: scaleX(-1); }
+    /* Estilos para el video y la imagen capturada */
+    #video, #photo-preview { 
+        transform: scaleX(-1); /* Efecto espejo para la cámara frontal */
+    }
+    /* El canvas no necesita ser visible */
     #canvas { display: none; }
 </style>
 {% endblock %}
@@ -34,17 +38,17 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="text-center">
                     <h4 class="font-semibold text-slate-700 mb-2">Foto del Cliente</h4>
-                    <div class="w-full h-48 bg-slate-100 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-300 mb-3">
+                    <div class="w-full h-48 bg-slate-100 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-300 mb-3 overflow-hidden">
                         <template x-if="!photoData.cliente"><i class="bi bi-camera-fill text-4xl text-slate-400"></i></template>
-                        <template x-if="photoData.cliente"><img :src="photoData.cliente" class="w-full h-full object-cover rounded-lg"></template>
+                        <template x-if="photoData.cliente"><img :src="photoData.cliente" class="w-full h-full object-cover"></template>
                     </div>
                     <button @click.prevent="openCamera('cliente')" type="button" class="w-full bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"><i class="bi bi-camera"></i> Tomar Foto Cliente</button>
                 </div>
                 <div class="text-center">
                     <h4 class="font-semibold text-slate-700 mb-2">Foto de la Cédula</h4>
-                    <div class="w-full h-48 bg-slate-100 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-300 mb-3">
+                    <div class="w-full h-48 bg-slate-100 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-300 mb-3 overflow-hidden">
                         <template x-if="!photoData.cedula"><i class="bi bi-person-vcard-fill text-4xl text-slate-400"></i></template>
-                        <template x-if="photoData.cedula"><img :src="photoData.cedula" class="w-full h-full object-cover rounded-lg"></template>
+                        <template x-if="photoData.cedula"><img :src="photoData.cedula" class="w-full h-full object-cover"></template>
                     </div>
                     <button @click.prevent="openCamera('cedula')" type="button" class="w-full bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"><i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula</button>
                 </div>
@@ -126,68 +130,143 @@
         <div x-show="isCameraOpen" x-cloak class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
             <div class="bg-white rounded-xl p-6 w-full max-w-2xl text-center" @click.away="closeCamera()">
                 <h3 class="text-xl font-bold mb-4">Tomar Fotografía</h3>
-                <video id="video" class="w-full h-auto rounded-lg bg-slate-200" autoplay playsinline muted></video>
+                
+                <div class="relative w-full rounded-lg bg-slate-200 overflow-hidden">
+                    <template x-if="capturedImageData">
+                        <img id="photo-preview" :src="capturedImageData" class="w-full h-auto">
+                    </template>
+                    <template x-if="!capturedImageData">
+                        <video id="video" class="w-full h-auto" autoplay playsinline muted></video>
+                    </template>
+                </div>
                 <canvas id="canvas"></canvas>
-                <div class="mt-4 flex gap-4 justify-center">
-                    <button @click.prevent="closeCamera()" class="bg-slate-200 text-slate-700 font-semibold py-2 px-5 rounded-lg">Cancelar</button>
-                    <button @click.prevent="capturePhoto()" class="bg-blue-600 text-white font-bold py-2 px-5 rounded-lg">Capturar</button>
+
+                <div class="mt-6 flex gap-4 justify-center flex-wrap">
+                    <template x-if="capturedImageData">
+                        <div class="flex gap-4 justify-center w-full">
+                             <button @click.prevent="retakePhoto()" class="flex-1 bg-slate-200 text-slate-800 font-semibold py-2.5 px-5 rounded-lg flex items-center justify-center gap-2 hover:bg-slate-300 transition-colors">
+                                <i class="bi bi-arrow-counterclockwise"></i> Tomar Otra
+                            </button>
+                            <button @click.prevent="acceptPhoto()" class="flex-1 bg-green-600 text-white font-bold py-2.5 px-5 rounded-lg flex items-center justify-center gap-2 hover:bg-green-700 transition-colors">
+                               <i class="bi bi-check-circle-fill"></i> Aceptar Foto
+                            </button>
+                        </div>
+                    </template>
+                    <template x-if="!capturedImageData">
+                        <div class="flex gap-4 justify-center w-full">
+                            <button @click.prevent="closeCamera()" class="bg-slate-200 text-slate-700 font-semibold py-2 px-5 rounded-lg">Cancelar</button>
+                            <button @click.prevent="capturePhoto()" class="bg-blue-600 text-white font-bold py-2 px-8 rounded-lg text-lg"><i class="bi bi-camera-fill"></i></button>
+                            <button @click.prevent="flipCamera()" x-show="hasMultipleCameras" class="bg-slate-200 text-slate-700 font-semibold py-2 px-5 rounded-lg"><i class="bi bi-arrow-repeat"></i></button>
+                        </div>
+                    </template>
                 </div>
             </div>
         </div>
         </form>
-    
-    </div>
+</div>
 {% endblock %}
 
 {% block scripts_extra %}
 <script>
-    // Lógica de la cámara manejada por AlpineJS
+    // INICIO DE LA CORRECCIÓN: Lógica de cámara mejorada
     function cameraHandler() {
         return {
             isCameraOpen: false,
             photoTarget: null,
             photoData: { cliente: '', cedula: '' },
             stream: null,
+            capturedImageData: null, // Almacena la foto temporalmente para revisión
+            facingMode: 'user', // 'user' para frontal, 'environment' para trasera
+            hasMultipleCameras: false,
+
+            // Verifica si hay múltiples cámaras al iniciar
+            init() {
+                navigator.mediaDevices.enumerateDevices()
+                    .then(devices => {
+                        const videoInputs = devices.filter(device => device.kind === 'videoinput');
+                        this.hasMultipleCameras = videoInputs.length > 1;
+                    });
+            },
+            
+            // Inicia o reinicia el stream de la cámara
+            startStream() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                }
+                const videoConstraints = {
+                    video: { facingMode: this.facingMode },
+                    audio: false
+                };
+                navigator.mediaDevices.getUserMedia(videoConstraints)
+                    .then(stream => {
+                        this.stream = stream;
+                        document.getElementById('video').srcObject = stream;
+                    }).catch(err => {
+                        console.error("Error al acceder a la cámara: ", err);
+                        Swal.fire('Error de Cámara', 'No se pudo acceder a la cámara. Revisa los permisos.', 'error');
+                        this.closeCamera();
+                    });
+            },
+
+            // Abre el modal y enciende la cámara
             openCamera(target) {
                 this.photoTarget = target;
                 this.isCameraOpen = true;
-                this.$nextTick(() => {
-                    const video = document.getElementById('video');
-                    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-                        .then(stream => {
-                            this.stream = stream;
-                            video.srcObject = stream;
-                        }).catch(err => {
-                            console.error("Error al acceder a la cámara: ", err);
-                            this.closeCamera();
-                        });
-                });
+                this.$nextTick(() => this.startStream());
             },
+
+            // Captura la imagen actual y la muestra para confirmación
             capturePhoto() {
                 const video = document.getElementById('video');
                 const canvas = document.getElementById('canvas');
                 const context = canvas.getContext('2d');
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
-                context.translate(canvas.width, 0);
-                context.scale(-1, 1);
+
+                // Si es la cámara frontal, voltea la imagen para que no se vea en modo espejo
+                if (this.facingMode === 'user') {
+                    context.translate(canvas.width, 0);
+                    context.scale(-1, 1);
+                }
+                
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                this.photoData[this.photoTarget] = canvas.toDataURL('image/jpeg');
+                this.capturedImageData = canvas.toDataURL('image/jpeg');
+            },
+
+            // Acepta la foto capturada, la guarda y cierra el modal
+            acceptPhoto() {
+                this.photoData[this.photoTarget] = this.capturedImageData;
                 document.getElementById(`foto_${this.photoTarget}`).dispatchEvent(new Event('input', { bubbles: true }));
                 this.closeCamera();
             },
+
+            // Descarta la foto capturada y vuelve al modo video
+            retakePhoto() {
+                this.capturedImageData = null;
+            },
+            
+            // Cambia entre cámara frontal y trasera
+            flipCamera() {
+                this.facingMode = (this.facingMode === 'user') ? 'environment' : 'user';
+                this.startStream();
+            },
+
+            // Cierra el modal y apaga la cámara
             closeCamera() {
                 if (this.stream) {
                     this.stream.getTracks().forEach(track => track.stop());
                 }
                 this.isCameraOpen = false;
                 this.stream = null;
+                this.capturedImageData = null; // Limpia la imagen capturada al cerrar
             }
         }
     }
+    // FIN DE LA CORRECCIÓN
 
     // Lógica del formulario (Vanilla JS para compatibilidad)
     document.addEventListener('DOMContentLoaded', function() {
+        // ... (El resto del script de Vanilla JS no necesita cambios) ...
         const form = document.getElementById('registroForm');
         const submitBtn = document.getElementById('submitBtn');
         const planSelect = document.getElementById('plan_contratado');
@@ -201,7 +280,6 @@
         const asesorHiddenInput = document.getElementById('asesor-hidden-input');
         const responsableHiddenInput = document.getElementById('responsable-hidden-input');
         
-        // --- LÓGICA DE CÁLCULO DE PLAN ---
         function calcularValorCuota() {
             const plan = parseFloat(planSelect.value);
             const cuotas = parseInt(cuotasSelect.value);
@@ -234,7 +312,6 @@
         cuotasSelect.addEventListener('change', calcularValorCuota);
         monedaSelect.addEventListener('change', calcularValorCuota);
 
-        // --- LÓGICA DE ESCENARIOS ADMINISTRATIVOS ---
         escenarioSelect.addEventListener('change', function() {
             const escenario = this.value;
             const baseInputClasses = 'mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm';
@@ -254,18 +331,14 @@
             const listaAsesores = {{ responsables | tojson | safe }};
             let optionsAsesores = '<option value="" selected disabled>-- Seleccione Asesor --</option>';
             
-            // --- INICIO DE LA CORRECCIÓN ---
-            // Se verifica que 'listaAsesores' sea un array antes de iterar.
             if (Array.isArray(listaAsesores)) {
                 listaAsesores.forEach(asesor => {
-                    // Se accede al nombre por índice [1], que es más robusto.
                     const nombreAsesor = asesor[1]; 
                     if (nombreAsesor) {
                         optionsAsesores += `<option value="${nombreAsesor}">${nombreAsesor}</option>`;
                     }
                 });
             }
-            // --- FIN DE LA CORRECCIÓN ---
 
             if (escenario === 'Asesor') {
                 asesorContainer.innerHTML = `<label for="asesor-select" class="block text-sm font-medium text-slate-700">2. Asesor</label><select id="asesor-select" class="${baseInputClasses}" required>${optionsAsesores}</select>`;
@@ -280,7 +353,6 @@
                 responsableContainer.innerHTML = `<label for="responsable-select" class="block text-sm font-medium text-slate-700">3. Responsable de Cierre</label><select id="responsable-select" class="${baseInputClasses}" required>${optionsPresidencia}</select>`;
             }
 
-            // Añadir listeners a los nuevos elementos
             const asesorSelectEl = document.getElementById('asesor-select');
             const responsableSelectEl = document.getElementById('responsable-select');
             if (asesorSelectEl) {
@@ -300,7 +372,6 @@
             responsableHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
         });
 
-        // --- VALIDACIÓN Y SUBMIT ---
         const validateForm = () => {
             for (const field of form.querySelectorAll('[required]')) {
                 if (!field.value || field.value.trim() === '') return false;
@@ -320,7 +391,6 @@
             submitBtn.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
         });
 
-        // --- INICIALIZACIÓN ---
         document.getElementById('fecha_ingreso').value = new Date().toISOString().split('T')[0];
         popularPlanes();
         updateButtonState();
