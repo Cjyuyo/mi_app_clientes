@@ -1180,32 +1180,32 @@ def _conciliar_pago_logica(pago_id, cur):
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def procesar_reporte(pago_id):
+    """
+    Procesa un reporte de pago enviado por un cliente. Puede aprobarlo para
+    conciliación o marcarlo como inconsistente y generar una orden de pago
+    por la diferencia.
+    """
     conn = get_db()
     accion = request.form.get('accion')
+    if not conn or not accion:
+        flash("Solicitud inválida o error de conexión.", "danger")
+        return redirect(url_for('reportes_por_revisar'))
+
     try:
+        # La transacción comienza aquí. Todas las operaciones son atómicas.
         with conn.cursor() as cur:
-            # ... (lógica para obtener el pago) ...
-            if accion == 'aprobar_para_conciliar':
-                cur.execute(
-                    "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
-                    (g.admin['id'], pago_id)
-                )
-                flash('Reporte aprobado y listo para conciliación.', 'success')
-            elif accion == 'corregir_y_generar_diferencia':
-                # ... (lógica corregida para calcular diferencia y crear bulk ID, como se discutió) ...
-                pass
-            conn.commit()
-    except Exception as e:
-        conn.rollback()
-        flash(f"Error CRÍTICO al procesar el reporte: {e}", "error")
-    
-    return redirect(url_for('reportes_por_revisar'))
+            # Se obtiene el pago para asegurar que existe y está pendiente
+            cur.execute("SELECT * FROM pagos WHERE id = %s AND estado_reporte = 'Pendiente de Revision'", (pago_id,))
+            pago = cur.fetchone()
+            if not pago:
+                flash("El reporte de pago no se encontró o ya fue procesado.", "warning")
+                return redirect(url_for('reportes_por_revisar'))
 
             cliente_id = pago['cliente_id']
 
             # --- INICIO DE LA CORRECCIÓN DE INDENTACIÓN ---
+            # La lógica 'if/elif' ahora está correctamente indentada dentro del bloque 'with'.
             if accion == 'aprobar_para_conciliar':
-                # Este es el bloque de código que faltaba y estaba causando el error.
                 cur.execute(
                     "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
                     (g.admin['id'], pago_id)
@@ -1213,7 +1213,6 @@ def procesar_reporte(pago_id):
                 flash('Reporte aprobado. Ahora puede ser procesado desde la sección de Conciliar Pagos.', 'success')
             
             elif accion == 'corregir_y_generar_diferencia':
-            # --- FIN DE LA CORRECCIÓN DE INDENTACIÓN ---
                 monto_real_recibido_str = request.form.get('monto_real_recibido')
                 motivo_cliente = request.form.get('motivo_cliente')
                 if not monto_real_recibido_str or not motivo_cliente:
@@ -1222,13 +1221,13 @@ def procesar_reporte(pago_id):
                 
                 monto_real_recibido = Decimal(monto_real_recibido_str)
                 currency = 'VES' if pago.get('pago_en') == 'Dolar/BCV' else 'USD'
-                base_amount_usd = pago['valor_cuota'] if pago['tipo_pago'] == 'Cuota' else pago['inscripcion_monto']
                 
-                if currency == 'VES' and pago['tasa_dia']:
-                    monto_esperado = (base_amount_usd * pago['tasa_dia']).quantize(Decimal('0.01'))
-                else: 
-                    monto_esperado = base_amount_usd
-                    currency = 'USD' 
+                # Se obtienen los datos del cliente para calcular el monto esperado
+                cur.execute("SELECT valor_cuota, inscripcion_monto FROM clientes WHERE id = %s", (cliente_id,))
+                cliente_datos = cur.fetchone()
+                base_amount_usd = cliente_datos['valor_cuota'] if pago['tipo_pago'] == 'Cuota' else cliente_datos['inscripcion_monto']
+                
+                monto_esperado = (base_amount_usd * pago['tasa_dia']).quantize(Decimal('0.01')) if currency == 'VES' and pago['tasa_dia'] else base_amount_usd
                 
                 evento_inicial = {
                     "timestamp": get_venezuela_current_datetime().isoformat(),
@@ -1236,12 +1235,11 @@ def procesar_reporte(pago_id):
                     "accion": f"Se generó orden de pago por diferencia de {monto_esperado - monto_real_recibido:,.2f} {currency}.",
                     "detalles": f"Motivo para el cliente: {motivo_cliente}"
                 }
-                bitacora = [evento_inicial]
                 
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified, event_log)
                     VALUES (%s, %s, %s, 'UNDER_REVIEW', %s, %s) RETURNING id
-                """, (cliente_id, currency, monto_esperado, monto_real_recibido, json.dumps(bitacora)))
+                """, (cliente_id, currency, monto_esperado, monto_real_recibido, json.dumps([evento_inicial])))
                 bulk_id = cur.fetchone()[0]
 
                 detalles = {
@@ -1274,6 +1272,7 @@ def procesar_reporte(pago_id):
             else:
                 flash('Acción no válida.', 'error')
                 return redirect(url_for('ver_reporte', pago_id=pago_id))
+            # --- FIN DE LA CORRECCIÓN DE INDENTACIÓN ---
 
             conn.commit()
 
