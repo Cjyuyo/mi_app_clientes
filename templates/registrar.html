@@ -30,44 +30,7 @@
         <input type="hidden" name="asesor" id="asesor-hidden-input" required>
         <input type="hidden" name="responsable" id="responsable-hidden-input" required>
 
-        <!-- Sección de Información Personal -->
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-person-badge-fill text-slate-400"></i>Información Personal y de Contacto</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                <div><label for="nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label><input type="text" id="nombre_apellido" name="nombre_apellido" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required></div>
-                <div><label for="cedula" class="block text-sm font-medium text-slate-700">Nº Cédula</label><input type="text" id="cedula" name="cedula" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required></div>
-                <div><label for="telefono" class="block text-sm font-medium text-slate-700">Teléfono</label><input type="text" id="telefono" name="telefono" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required></div>
-                <div><label for="email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label><input type="email" id="email" name="email" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></div>
-                <div class="md:col-span-2"><label for="direccion" class="block text-sm font-medium text-slate-700">Dirección</label><textarea id="direccion" name="direccion" rows="2" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></textarea></div>
-                <div><label for="fecha_ingreso" class="block text-sm font-medium text-slate-700">Fecha de Ingreso</label><input type="date" id="fecha_ingreso" name="fecha_ingreso" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required></div>
-                 <div><label for="grupo" class="block text-sm font-medium text-slate-700">Grupo</label><input type="text" id="grupo" name="grupo" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></div>
-            </div>
-        </div>
-        
-        <!-- Sección de Beneficiario -->
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-person-heart text-slate-400"></i>Beneficiario (Opcional)</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
-                <div><label for="beneficiario_nombre" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label><input type="text" id="beneficiario_nombre" name="beneficiario_nombre" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></div>
-                <div><label for="beneficiario_cedula" class="block text-sm font-medium text-slate-700">Nº Cédula</label><input type="text" id="beneficiario_cedula" name="beneficiario_cedula" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></div>
-                <div><label for="beneficiario_telefono" class="block text-sm font-medium text-slate-700">Teléfono</label><input type="text" id="beneficiario_telefono" name="beneficiario_telefono" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></div>
-            </div>
-        </div>
-
-        <!-- Sección de Plan y Contrato -->
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-file-earmark-text-fill text-slate-400"></i>Detalles del Plan y Contrato</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
-                <div><label for="contrato_nro" class="block text-sm font-medium text-slate-700">Nº Contrato</label><input type="text" id="contrato_nro" name="contrato_nro" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required></div>
-                <div><label for="plan_contratado" class="block text-sm font-medium text-slate-700">Plan Contratado ($)</label><select id="plan_contratado" name="plan_contratado" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required><option value="" disabled selected>-- Seleccione --</option></select></div>
-                <div><label for="inscripcion_monto" class="block text-sm font-medium text-slate-700">Monto Inscripción (16%)</label><input type="text" id="inscripcion_monto" name="inscripcion_monto" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" required readonly></div>
-                <div><label for="cuotas_totales" class="block text-sm font-medium text-slate-700">Total de Cuotas</label><select id="cuotas_totales" name="cuotas_totales" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
-                <div><label for="valor_cuota" class="block text-sm font-medium text-slate-700">Cuota Mensual ($)</label><input type="text" id="valor_cuota" name="valor_cuota" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" required readonly></div>
-                <div><label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required><option value="USD">Divisas (USD)</option><option value="BsBCV">Bolívares (Tasa BCV)</option></select></div>
-            </div>
-        </div>
-
-        <!-- Sección de Fotos -->
+        <!-- ORDEN CORREGIDO 1: Sección de Fotos -->
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-camera-fill text-slate-400"></i>Verificación de Identidad</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -90,7 +53,7 @@
             </div>
         </div>
         
-        <!-- Sección de Información Administrativa con Lógica de Escenarios -->
+        <!-- ORDEN CORREGIDO 2: Sección de Información Administrativa con Lógica de Escenarios -->
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-briefcase-fill text-slate-400"></i>Información Administrativa</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
@@ -118,6 +81,43 @@
                         <option value="20 al 10">Del 20 al 10</option>
                     </select>
                 </div>
+            </div>
+        </div>
+
+        <!-- ORDEN CORREGIDO 3: Sección de Información Personal -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-person-badge-fill text-slate-400"></i>Información Personal y de Contacto</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                <div><label for="nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label><input type="text" id="nombre_apellido" name="nombre_apellido" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required></div>
+                <div><label for="cedula" class="block text-sm font-medium text-slate-700">Nº Cédula</label><input type="text" id="cedula" name="cedula" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required></div>
+                <div><label for="telefono" class="block text-sm font-medium text-slate-700">Teléfono</label><input type="text" id="telefono" name="telefono" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required></div>
+                <div><label for="email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label><input type="email" id="email" name="email" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></div>
+                <div class="md:col-span-2"><label for="direccion" class="block text-sm font-medium text-slate-700">Dirección</label><textarea id="direccion" name="direccion" rows="2" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></textarea></div>
+                <div><label for="fecha_ingreso" class="block text-sm font-medium text-slate-700">Fecha de Ingreso</label><input type="date" id="fecha_ingreso" name="fecha_ingreso" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required></div>
+                 <div><label for="grupo" class="block text-sm font-medium text-slate-700">Grupo</label><input type="text" id="grupo" name="grupo" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></div>
+            </div>
+        </div>
+        
+        <!-- ORDEN CORREGIDO 4: Sección de Plan y Contrato -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-file-earmark-text-fill text-slate-400"></i>Detalles del Plan y Contrato</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+                <div><label for="contrato_nro" class="block text-sm font-medium text-slate-700">Nº Contrato</label><input type="text" id="contrato_nro" name="contrato_nro" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required></div>
+                <div><label for="plan_contratado" class="block text-sm font-medium text-slate-700">Plan Contratado ($)</label><select id="plan_contratado" name="plan_contratado" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required><option value="" disabled selected>-- Seleccione --</option></select></div>
+                <div><label for="inscripcion_monto" class="block text-sm font-medium text-slate-700">Monto Inscripción (16%)</label><input type="text" id="inscripcion_monto" name="inscripcion_monto" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" required readonly></div>
+                <div><label for="cuotas_totales" class="block text-sm font-medium text-slate-700">Total de Cuotas</label><select id="cuotas_totales" name="cuotas_totales" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
+                <div><label for="valor_cuota" class="block text-sm font-medium text-slate-700">Cuota Mensual ($)</label><input type="text" id="valor_cuota" name="valor_cuota" class="mt-1 block w-full rounded-md border-slate-300 bg-slate-100 shadow-sm" required readonly></div>
+                <div><label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required><option value="USD">Divisas (USD)</option><option value="BsBCV">Bolívares (Tasa BCV)</option></select></div>
+            </div>
+        </div>
+
+        <!-- ORDEN CORREGIDO 5: Sección de Beneficiario -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-person-heart text-slate-400"></i>Beneficiario (Opcional)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+                <div><label for="beneficiario_nombre" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label><input type="text" id="beneficiario_nombre" name="beneficiario_nombre" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></div>
+                <div><label for="beneficiario_cedula" class="block text-sm font-medium text-slate-700">Nº Cédula</label><input type="text" id="beneficiario_cedula" name="beneficiario_cedula" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></div>
+                <div><label for="beneficiario_telefono" class="block text-sm font-medium text-slate-700">Teléfono</label><input type="text" id="beneficiario_telefono" name="beneficiario_telefono" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></div>
             </div>
         </div>
         
@@ -259,9 +259,19 @@
             
             const listaAsesores = {{ responsables | tojson | safe }};
             let optionsAsesores = '<option value="" selected disabled>-- Seleccione Asesor --</option>';
-            listaAsesores.forEach(asesor => {
-                optionsAsesores += `<option value="${asesor.nombre_completo}">${asesor.nombre_completo}</option>`;
-            });
+            
+            // --- INICIO DE LA CORRECCIÓN ---
+            // Se verifica que 'listaAsesores' sea un array antes de iterar.
+            if (Array.isArray(listaAsesores)) {
+                listaAsesores.forEach(asesor => {
+                    // Se accede al nombre por índice [1], que es más robusto.
+                    const nombreAsesor = asesor[1]; 
+                    if (nombreAsesor) {
+                        optionsAsesores += `<option value="${nombreAsesor}">${nombreAsesor}</option>`;
+                    }
+                });
+            }
+            // --- FIN DE LA CORRECCIÓN ---
 
             if (escenario === 'Asesor') {
                 asesorContainer.innerHTML = `<label for="asesor-select" class="block text-sm font-medium text-slate-700">2. Asesor</label><select id="asesor-select" class="${baseInputClasses}" required>${optionsAsesores}</select>`;
