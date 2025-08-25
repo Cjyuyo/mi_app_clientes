@@ -4,11 +4,10 @@
 {% block head_extra %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
-    /* Estilos para el video y la imagen capturada */
     #video, #photo-preview { 
-        transform: scaleX(-1); /* Efecto espejo para la cámara frontal */
+        /* Efecto espejo para la cámara frontal para que el usuario se vea de forma natural */
+        transform: scaleX(-1); 
     }
-    /* El canvas no necesita ser visible */
     #canvas { display: none; }
 </style>
 {% endblock %}
@@ -127,59 +126,57 @@
             </button>
         </div>
 
-        <div x-show="isCameraOpen" x-cloak class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div class="bg-white rounded-xl p-6 w-full max-w-2xl text-center" @click.away="closeCamera()">
-                <h3 class="text-xl font-bold mb-4">Tomar Fotografía</h3>
-                
-                <div class="relative w-full rounded-lg bg-slate-200 overflow-hidden">
+        <div x-show="isCameraOpen" x-cloak class="fixed inset-0 bg-black flex flex-col items-center justify-center z-50 p-4">
+            <div class="relative w-full max-w-lg aspect-[3/4] rounded-xl bg-slate-800 overflow-hidden">
+                <template x-if="capturedImageData">
+                    <img id="photo-preview" :src="capturedImageData" class="w-full h-full object-cover">
+                </template>
+                <video x-show="!capturedImageData" id="video" class="w-full h-full object-cover" autoplay playsinline muted></video>
+                <button @click.prevent="closeCamera()" class="absolute top-4 left-4 bg-black/40 text-white rounded-full h-10 w-10 flex items-center justify-center text-xl hover:bg-black/60 transition">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            
+            <div class="w-full max-w-lg mt-6">
+                <div class="flex items-center justify-around">
                     <template x-if="capturedImageData">
-                        <img id="photo-preview" :src="capturedImageData" class="w-full h-auto">
-                    </template>
-                    <template x-if="!capturedImageData">
-                        <video id="video" class="w-full h-auto" autoplay playsinline muted></video>
-                    </template>
-                </div>
-                <canvas id="canvas"></canvas>
+                        <button @click.prevent="retakePhoto()" class="bg-white/20 text-white rounded-full h-16 w-16 flex items-center justify-center text-2xl hover:bg-white/30 transition">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                        <button @click.prevent="acceptPhoto()" class="bg-green-500 text-white rounded-full h-20 w-20 flex items-center justify-center text-4xl hover:bg-green-600 transition ring-4 ring-white/30">
+                            <i class="bi bi-check"></i>
+                        </button>
+                        <div class="w-16 h-16"></div> </template>
 
-                <div class="mt-6 flex gap-4 justify-center flex-wrap">
-                    <template x-if="capturedImageData">
-                        <div class="flex gap-4 justify-center w-full">
-                             <button @click.prevent="retakePhoto()" class="flex-1 bg-slate-200 text-slate-800 font-semibold py-2.5 px-5 rounded-lg flex items-center justify-center gap-2 hover:bg-slate-300 transition-colors">
-                                <i class="bi bi-arrow-counterclockwise"></i> Tomar Otra
-                            </button>
-                            <button @click.prevent="acceptPhoto()" class="flex-1 bg-green-600 text-white font-bold py-2.5 px-5 rounded-lg flex items-center justify-center gap-2 hover:bg-green-700 transition-colors">
-                               <i class="bi bi-check-circle-fill"></i> Aceptar Foto
-                            </button>
-                        </div>
-                    </template>
                     <template x-if="!capturedImageData">
-                        <div class="flex gap-4 justify-center w-full">
-                            <button @click.prevent="closeCamera()" class="bg-slate-200 text-slate-700 font-semibold py-2 px-5 rounded-lg">Cancelar</button>
-                            <button @click.prevent="capturePhoto()" class="bg-blue-600 text-white font-bold py-2 px-8 rounded-lg text-lg"><i class="bi bi-camera-fill"></i></button>
-                            <button @click.prevent="flipCamera()" x-show="hasMultipleCameras" class="bg-slate-200 text-slate-700 font-semibold py-2 px-5 rounded-lg"><i class="bi bi-arrow-repeat"></i></button>
-                        </div>
+                        <button @click.prevent="flipCamera()" x-show="hasMultipleCameras" class="bg-white/20 text-white rounded-full h-16 w-16 flex items-center justify-center text-2xl hover:bg-white/30 transition">
+                            <i class="bi bi-arrow-repeat"></i>
+                        </button>
+                        <button @click.prevent="capturePhoto()" class="bg-white text-blue-600 rounded-full h-20 w-20 flex items-center justify-center text-4xl hover:bg-slate-200 transition ring-4 ring-white/30">
+                            <i class="bi bi-camera-fill"></i>
+                        </button>
+                        <div x-show="!hasMultipleCameras" class="w-16 h-16"></div>
                     </template>
                 </div>
             </div>
         </div>
-        </form>
+        <canvas id="canvas"></canvas>
+    </form>
 </div>
 {% endblock %}
 
 {% block scripts_extra %}
 <script>
-    // INICIO DE LA CORRECCIÓN: Lógica de cámara mejorada
     function cameraHandler() {
         return {
             isCameraOpen: false,
             photoTarget: null,
             photoData: { cliente: '', cedula: '' },
             stream: null,
-            capturedImageData: null, // Almacena la foto temporalmente para revisión
-            facingMode: 'user', // 'user' para frontal, 'environment' para trasera
+            capturedImageData: null,
+            facingMode: 'user',
             hasMultipleCameras: false,
 
-            // Verifica si hay múltiples cámaras al iniciar
             init() {
                 navigator.mediaDevices.enumerateDevices()
                     .then(devices => {
@@ -188,7 +185,6 @@
                     });
             },
             
-            // Inicia o reinicia el stream de la cámara
             startStream() {
                 if (this.stream) {
                     this.stream.getTracks().forEach(track => track.stop());
@@ -208,14 +204,12 @@
                     });
             },
 
-            // Abre el modal y enciende la cámara
             openCamera(target) {
                 this.photoTarget = target;
                 this.isCameraOpen = true;
                 this.$nextTick(() => this.startStream());
             },
 
-            // Captura la imagen actual y la muestra para confirmación
             capturePhoto() {
                 const video = document.getElementById('video');
                 const canvas = document.getElementById('canvas');
@@ -223,7 +217,6 @@
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
 
-                // Si es la cámara frontal, voltea la imagen para que no se vea en modo espejo
                 if (this.facingMode === 'user') {
                     context.translate(canvas.width, 0);
                     context.scale(-1, 1);
@@ -233,40 +226,33 @@
                 this.capturedImageData = canvas.toDataURL('image/jpeg');
             },
 
-            // Acepta la foto capturada, la guarda y cierra el modal
             acceptPhoto() {
                 this.photoData[this.photoTarget] = this.capturedImageData;
                 document.getElementById(`foto_${this.photoTarget}`).dispatchEvent(new Event('input', { bubbles: true }));
                 this.closeCamera();
             },
 
-            // Descarta la foto capturada y vuelve al modo video
             retakePhoto() {
                 this.capturedImageData = null;
             },
             
-            // Cambia entre cámara frontal y trasera
             flipCamera() {
                 this.facingMode = (this.facingMode === 'user') ? 'environment' : 'user';
                 this.startStream();
             },
 
-            // Cierra el modal y apaga la cámara
             closeCamera() {
                 if (this.stream) {
                     this.stream.getTracks().forEach(track => track.stop());
                 }
                 this.isCameraOpen = false;
                 this.stream = null;
-                this.capturedImageData = null; // Limpia la imagen capturada al cerrar
+                this.capturedImageData = null;
             }
         }
     }
-    // FIN DE LA CORRECCIÓN
 
-    // Lógica del formulario (Vanilla JS para compatibilidad)
     document.addEventListener('DOMContentLoaded', function() {
-        // ... (El resto del script de Vanilla JS no necesita cambios) ...
         const form = document.getElementById('registroForm');
         const submitBtn = document.getElementById('submitBtn');
         const planSelect = document.getElementById('plan_contratado');
@@ -280,6 +266,7 @@
         const asesorHiddenInput = document.getElementById('asesor-hidden-input');
         const responsableHiddenInput = document.getElementById('responsable-hidden-input');
         
+        // --- LÓGICA DE CÁLCULO DE PLAN ---
         function calcularValorCuota() {
             const plan = parseFloat(planSelect.value);
             const cuotas = parseInt(cuotasSelect.value);
@@ -312,6 +299,7 @@
         cuotasSelect.addEventListener('change', calcularValorCuota);
         monedaSelect.addEventListener('change', calcularValorCuota);
 
+        // --- LÓGICA DE ESCENARIOS ADMINISTRATIVOS ---
         escenarioSelect.addEventListener('change', function() {
             const escenario = this.value;
             const baseInputClasses = 'mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm';
@@ -372,6 +360,7 @@
             responsableHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
         });
 
+        // --- VALIDACIÓN Y SUBMIT ---
         const validateForm = () => {
             for (const field of form.querySelectorAll('[required]')) {
                 if (!field.value || field.value.trim() === '') return false;
@@ -391,6 +380,7 @@
             submitBtn.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
         });
 
+        // --- INICIALIZACIÓN ---
         document.getElementById('fecha_ingreso').value = new Date().toISOString().split('T')[0];
         popularPlanes();
         updateButtonState();

@@ -71,13 +71,20 @@
     </style>
     {% block head_extra %}{% endblock %}
 </head>
-<body x-data="{ sidebarOpen: false, mobileSearchOpen: false }" class="h-screen flex flex-col bg-slate-100">
+<body x-data="{ sidebarOpen: false, mobileSearchOpen: false, touchStartX: 0, touchEndX: 0 }" class="h-screen flex flex-col bg-slate-100">
 
     <div class="flex h-screen">
         <aside x-cloak
-            class="fixed inset-y-0 left-0 bg-slate-900 text-white w-64 flex-shrink-0 flex flex-col z-40 transform -translate-x-full transition-transform duration-300 ease-in-out md:relative md:translate-x-0"
+            @touchstart="touchStartX = $event.touches[0].clientX; touchEndX = 0"
+            @touchmove="touchEndX = $event.touches[0].clientX"
+            @touchend="if (touchEndX !== 0 && touchStartX - touchEndX > 75) { sidebarOpen = false }"
+            class="fixed inset-y-0 left-0 bg-slate-900 text-white w-64 flex-shrink-0 flex flex-col z-40 transform -translate-x-full md:relative md:translate-x-0"
             :class="{'translate-x-0': sidebarOpen}">
             
+            <button @click="sidebarOpen = false" class="md:hidden absolute top-5 right-5 text-slate-400 hover:text-white text-2xl z-50">
+                <i class="bi bi-x-lg"></i>
+            </button>
+
             <div class="flex items-center justify-center h-20 px-6 flex-shrink-0 border-b border-slate-700/50">
                 <a href="{{ url_for('hub') }}">
                     <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan Motors" class="w-40 h-auto">
@@ -111,8 +118,7 @@
                 </div>
             </nav>
         </aside>
-
-        <div x-show="sidebarOpen" @click="sidebarOpen = false" x-cloak class="fixed inset-0 bg-black/30 z-30 md:hidden"></div>
+        <div x-show="sidebarOpen" @click="sidebarOpen = false" x-cloak class="fixed inset-0 bg-black/40 z-30 md:hidden"></div>
 
         <div class="flex-1 flex flex-col w-full min-w-0">
             <header class="flex-shrink-0 flex items-center justify-between bg-white/80 backdrop-blur-sm border-b border-gray-200 h-20 px-4 sm:px-6 sticky top-0 z-30">
@@ -145,7 +151,7 @@
                     {% if g.admin %}
                     <div x-data="{ open: false }" class="relative">
                         <button @click="open = !open; sidebarOpen = false" class="flex items-center gap-2 p-2 rounded-full hover:bg-gray-100 transition-colors">
-                            <span class="font-semibold text-sm text-gray-700 hidden sm:inline">{{ g.admin.usuario | truncate(10) }}</span>
+                        <span class="font-semibold text-sm text-gray-700 hidden sm:inline">{{ g.admin.usuario | truncate(10) }}</span>
                             <i class="bi bi-person-circle text-2xl text-gray-500"></i>
                         </button>
                         <div x-show="open" @click.away="open = false" x-cloak x-transition class="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg py-2 z-50 border border-gray-200 origin-top-right">
