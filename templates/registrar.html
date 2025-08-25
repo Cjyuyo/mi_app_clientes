@@ -1,4 +1,4 @@
-{% extends 'base_sidebar.html' %}
+{% extends "base_sidebar.html" %}
 
 {% block title %}
     Registrar Nuevo Cliente
@@ -13,32 +13,12 @@
     /* Estilos para la animación del spinner */
     @keyframes spin {
       from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
+      to { { transform: rotate(360deg); }
     }
     .animate-spin {
       animation: spin 1s linear infinite;
       display: inline-block;
     }
-    
-    /* Estilos para el nuevo modal de cámara */
-    #cameraModal { background-color: rgba(0, 0, 0, 0.7); z-index: 1050; }
-    .modal-content-camera { background-color: #2c3e50; color: white; border-radius: 1rem; }
-    .camera-tabs button {
-        flex-grow: 1; padding: 0.75rem; font-size: 1rem; font-weight: 600; text-align: center;
-        border: none; background-color: transparent; color: #95a5a6; border-bottom: 3px solid transparent; transition: all 0.3s ease;
-    }
-    .camera-tabs button.active { color: #ffffff; border-bottom-color: #e67e22; }
-    #videoContainer { position: relative; background-color: #000; border-radius: 0.5rem; overflow: hidden; }
-    #cameraFeed, #photoPreview { width: 100%; height: auto; }
-    #cameraFeed.selfie-mode, #photoPreview.selfie-mode { transform: scaleX(-1); }
-    .camera-controls { display: flex; justify-content: space-around; align-items: center; padding: 1rem 0; }
-    .control-btn {
-        background: none; border: none; color: white; font-size: 2.5rem; cursor: pointer; display: flex;
-        flex-direction: column; align-items: center; gap: 5px; transition: color 0.2s ease, transform 0.2s ease;
-    }
-    .control-btn span { font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
-    .control-btn:hover { transform: scale(1.1); color: #e67e22; }
-    #captureBtn { font-size: 4rem; color: #e67e22; }
 </style>
 {% endblock %}
 
@@ -98,20 +78,16 @@
         
         <div class="bg-white p-6 rounded-xl shadow-md">
             <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-camera"></i>Verificación de Identidad</h3>
-            <div class="grid md:grid-cols-2 gap-6 items-center">
-                <div class="text-center p-4 border border-dashed border-slate-300 rounded-lg">
-                    <p class="font-semibold text-slate-700 mb-2">Foto del Cliente (Selfie)</p>
-                    <img id="preview_cliente" src="https://via.placeholder.com/150?text=Selfie" alt="Vista previa selfie" class="mx-auto h-32 w-32 object-cover rounded-full mb-3">
-                    <button type="button" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 text-sm" onclick="openCamera('cliente')">
-                        <i class="bi bi-camera-fill mr-2"></i>Abrir Cámara
-                    </button>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="text-center">
+                    <h6 class="font-semibold text-slate-700 mb-2">Foto del Cliente</h6>
+                    <img id="preview-cliente" src="https://placehold.co/400x300/e2e8f0/94a3b8?text=Foto+Cliente" class="w-full h-48 object-cover rounded-lg border-2 border-dashed border-slate-300 mb-3">
+                    <button type="button" class="w-full bg-blue-500 text-white font-semibold py-2 px-4 border border-blue-600 rounded-lg shadow-sm hover:bg-blue-600 flex items-center justify-center gap-2" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cliente"><i class="bi bi-person-bounding-box"></i> Tomar Foto Cliente</button>
                 </div>
-                <div class="text-center p-4 border border-dashed border-slate-300 rounded-lg">
-                    <p class="font-semibold text-slate-700 mb-2">Foto de la Cédula</p>
-                    <img id="preview_cedula" src="https://via.placeholder.com/150?text=Documento" alt="Vista previa cédula" class="mx-auto h-32 w-32 object-cover rounded-lg mb-3">
-                    <button type="button" class="bg-gray-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-800 text-sm" onclick="openCamera('cedula')">
-                        <i class="bi bi-person-vcard-fill mr-2"></i>Abrir Cámara
-                    </button>
+                <div class="text-center">
+                    <h6 class="font-semibold text-slate-700 mb-2">Foto de la Cédula</h6>
+                    <img id="preview-cedula" src="https://placehold.co/400x300/e2e8f0/94a3b8?text=Foto+C%C3%A9dula" class="w-full h-48 object-cover rounded-lg border-2 border-dashed border-slate-300 mb-3">
+                    <button type="button" class="w-full bg-gray-700 text-white font-semibold py-2 px-4 border border-gray-800 rounded-lg shadow-sm hover:bg-gray-800 flex items-center justify-center gap-2" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cedula"><i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula</button>
                 </div>
             </div>
         </div>
@@ -150,31 +126,35 @@
     </form>
 </div>
 
-<div class="modal fade" id="cameraModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content modal-content-camera">
-            <div class="camera-tabs flex">
-                <button id="selfieTabBtn" class="active" onclick="setCameraMode('cliente')"><i class="bi bi-person-bounding-box mr-2"></i> Selfie</button>
-                <button id="docTabBtn" onclick="setCameraMode('cedula')"><i class="bi bi-card-heading mr-2"></i> Documento</button>
-            </div>
-            <div class="p-4">
-                <div id="videoContainer">
-                    <video id="cameraFeed" playsinline autoplay muted></video>
-                    <img id="photoPreview" class="hidden absolute top-0 left-0 w-full h-full object-cover" src="">
-                </div>
-                <canvas id="cameraCanvas" class="hidden"></canvas>
-            </div>
-            <div id="initialControls" class="camera-controls">
-                <button class="control-btn" onclick="flipCamera()"><i class="bi bi-arrow-repeat"></i><span>Voltear</span></button>
-                <button id="captureBtn" class="control-btn" onclick="capturePhoto()"><i class="bi bi-camera-fill"></i></button>
-                <button class="control-btn" data-bs-dismiss="modal"><i class="bi bi-x-circle-fill"></i><span>Cerrar</span></button>
-            </div>
-            <div id="previewControls" class="camera-controls hidden">
-                <button class="control-btn" onclick="retakePhoto()"><i class="bi bi-arrow-counterclockwise"></i><span>Repetir</span></button>
-                <button class="control-btn text-green-400" onclick="savePhoto()"><i class="bi bi-check-circle-fill"></i><span>Guardar</span></button>
-            </div>
+<div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cameraModalLabel">Capturar Foto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <div class="live-view">
+            <video id="video-feed" autoplay playsinline muted class="bg-dark rounded w-100"></video>
         </div>
+        <div class="confirmation-view" style="display:none;">
+            <p><strong>¿Desea usar esta foto?</strong></p>
+            <canvas id="capture-canvas" class="rounded w-100"></canvas>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="live-view-footer w-100 d-flex justify-content-between">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" id="flip-camera-btn" class="btn btn-info"><i class="bi bi-arrow-repeat"></i> Cambiar Cámara</button>
+            <button type="button" id="capture-btn" class="btn btn-primary"><i class="bi bi-camera-fill"></i> Capturar</button>
+        </div>
+        <div class="confirmation-view-footer w-100 d-flex justify-content-between" style="display:none;">
+            <button type="button" class="btn btn-secondary" id="retake-btn"><i class="bi bi-arrow-clockwise"></i> Volver a Tomar</button>
+            <button type="button" class="btn btn-success" id="save-photo-btn"><i class="bi bi-check-circle-fill"></i> Guardar Foto</button>
+        </div>
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -188,7 +168,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        // --- LÓGICA DE CÁLCULO AUTOMÁTICO DEL FORMULARIO ---
+        // --- LÓGICA DE CÁLCULO AUTOMÁTICO DEL FORMULARIO (Se mantiene igual) ---
         const planSelect = document.getElementById('plan_contratado');
         const inscripcionInput = document.getElementById('inscripcion_monto');
         const plazoSelect = document.getElementById('cuotas_totales');
@@ -231,7 +211,6 @@
         plazoSelect.addEventListener('change', calcularYActualizarCuota);
         monedaSelect.addEventListener('change', calcularYActualizarCuota);
 
-        // --- LÓGICA PARA ASESOR Y RESPONSABLE ---
         const asesorSelect = document.getElementById('asesor_select');
         const responsableSelect = document.getElementById('responsable_select');
         const asesorHiddenInput = document.getElementById('asesor-hidden-input');
@@ -246,91 +225,110 @@
             responsableHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
         });
 
-        // --- LÓGICA DE LA CÁMARA (NUEVA VERSIÓN) ---
-        const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
-        const video = document.getElementById('cameraFeed');
-        const canvas = document.getElementById('cameraCanvas');
-        const photoPreview = document.getElementById('photoPreview');
-        const selfieTabBtn = document.getElementById('selfieTabBtn');
-        const docTabBtn = document.getElementById('docTabBtn');
-        const initialControls = document.getElementById('initialControls');
-        const previewControls = document.getElementById('previewControls');
+        // --- LÓGICA DE LA CÁMARA (COMPLETAMENTE NUEVA) ---
+        const cameraModalEl = document.getElementById('cameraModal');
+        const video = document.getElementById('video-feed');
+        const canvas = document.getElementById('capture-canvas');
+        const captureBtn = document.getElementById('capture-btn');
+        const retakeBtn = document.getElementById('retake-btn');
+        const savePhotoBtn = document.getElementById('save-photo-btn');
+        const flipCameraBtn = document.getElementById('flip-camera-btn');
 
-        let currentStream, currentMode, facingMode;
+        let stream, currentCaptureType, capturedImageDataUrl;
+        let currentFacingMode = 'user'; // 'user' para selfie, 'environment' para trasera
 
-        window.openCamera = function(mode) {
-            setCameraMode(mode, true);
-            cameraModal.show();
+        // Función para cambiar entre la vista en vivo y la de confirmación
+        function toggleViews(showConfirmation) {
+            cameraModalEl.querySelector('.live-view').style.display = showConfirmation ? 'none' : 'block';
+            cameraModalEl.querySelector('.live-view-footer').style.display = showConfirmation ? 'none' : 'flex';
+            cameraModalEl.querySelector('.confirmation-view').style.display = showConfirmation ? 'block' : 'none';
+            cameraModalEl.querySelector('.confirmation-view-footer').style.display = showConfirmation ? 'flex' : 'none';
         }
 
-        window.setCameraMode = function(mode, forceStart = false) {
-            if (currentMode === mode && !forceStart) return;
-            currentMode = mode;
-            facingMode = (mode === 'cliente') ? 'user' : 'environment';
-            if (mode === 'cliente') {
-                selfieTabBtn.classList.add('active'); docTabBtn.classList.remove('active');
-                video.classList.add('selfie-mode'); photoPreview.classList.add('selfie-mode');
-            } else {
-                docTabBtn.classList.add('active'); selfieTabBtn.classList.remove('active');
-                video.classList.remove('selfie-mode'); photoPreview.classList.remove('selfie-mode');
+        async function startCamera(facingMode) {
+            // Detener cualquier stream anterior
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
             }
-            startCamera();
+            // Iniciar la nueva cámara
+            try {
+                const constraints = { video: { facingMode: facingMode } };
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                await video.play(); // Asegurarse que el video se reproduzca
+                // Espejo para la cámara selfie
+                video.style.transform = (facingMode === 'user') ? 'scaleX(-1)' : 'scaleX(1)';
+            } catch (err) {
+                console.error("Error al iniciar la cámara: ", err);
+                alert("No se pudo acceder a la cámara. Por favor, asegúrese de dar los permisos necesarios.");
+                bootstrap.Modal.getInstance(cameraModalEl).hide();
+            }
         }
         
-        async function startCamera() {
-            if (currentStream) currentStream.getTracks().forEach(track => track.stop());
-            try {
-                const constraints = { video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } } };
-                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-                video.srcObject = currentStream;
-                retakePhoto();
-            } catch (err) {
-                alert("Error al acceder a la cámara. Revisa los permisos.");
-                cameraModal.hide();
+        // Evento que se dispara cuando el modal está a punto de mostrarse
+        cameraModalEl.addEventListener('show.bs.modal', async (event) => {
+            currentCaptureType = event.relatedTarget.getAttribute('data-capture-type');
+            
+            // Configurar el título y la cámara por defecto
+            const modalTitle = cameraModalEl.querySelector('.modal-title');
+            if (currentCaptureType === 'cedula') {
+                modalTitle.textContent = 'Capturar Foto de la Cédula';
+                currentFacingMode = 'environment'; // Cámara trasera para documentos
+            } else {
+                modalTitle.textContent = 'Capturar Foto del Cliente (Selfie)';
+                currentFacingMode = 'user'; // Cámara frontal para selfies
             }
-        }
+            
+            toggleViews(false);
+            await startCamera(currentFacingMode);
+        });
 
-        window.flipCamera = function() {
-            facingMode = (facingMode === 'user') ? 'environment' : 'user';
-            startCamera();
-        }
+        // Evento que se dispara cuando el modal se oculta
+        cameraModalEl.addEventListener('hide.bs.modal', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        });
 
-        window.capturePhoto = function() {
+        // Botón para cambiar de cámara
+        flipCameraBtn.addEventListener('click', () => {
+            currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+            startCamera(currentFacingMode);
+        });
+
+        // Botón para capturar la foto
+        captureBtn.addEventListener('click', () => {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             const context = canvas.getContext('2d');
-            if (facingMode === 'user') {
+            
+            // Si es selfie, voltear la imagen para que se vea correcta
+            if (currentFacingMode === 'user') {
                 context.translate(canvas.width, 0);
                 context.scale(-1, 1);
             }
+            
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            photoPreview.src = canvas.toDataURL('image/jpeg', 0.9);
-            video.classList.add('hidden');
-            photoPreview.classList.remove('hidden');
-            initialControls.classList.add('hidden');
-            previewControls.classList.remove('hidden');
-        }
-
-        window.retakePhoto = function() {
-            photoPreview.classList.add('hidden');
-            video.classList.remove('hidden');
-            previewControls.classList.add('hidden');
-            initialControls.classList.remove('hidden');
-        }
-
-        window.savePhoto = function() {
-            const hiddenInput = document.getElementById(`foto_${currentMode}`);
-            hiddenInput.value = photoPreview.src;
-            document.getElementById(`preview_${currentMode}`).src = photoPreview.src;
-            hiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
-            cameraModal.hide();
-        }
+            capturedImageDataUrl = canvas.toDataURL('image/jpeg', 0.9); // Guardar como JPG de alta calidad
+            toggleViews(true);
+        });
         
-        document.getElementById('cameraModal').addEventListener('hidden.bs.modal', () => {
-            if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+        // Botón para volver a tomar la foto
+        retakeBtn.addEventListener('click', () => toggleViews(false));
+        
+        // Botón para guardar la foto
+        savePhotoBtn.addEventListener('click', () => {
+            if (capturedImageDataUrl && currentCaptureType) {
+                document.getElementById(`preview-${currentCaptureType}`).src = capturedImageDataUrl;
+                const hiddenInput = document.getElementById(`foto_${currentCaptureType}`);
+                hiddenInput.value = capturedImageDataUrl;
+                // Disparar evento para que la validación del formulario se actualice
+                hiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            bootstrap.Modal.getInstance(cameraModalEl).hide();
         });
 
-        // --- LÓGICA DE VALIDACIÓN Y SUBMIT ---
+        // --- LÓGICA DE VALIDACIÓN Y SUBMIT (Se mantiene igual) ---
         const submitBtn = document.getElementById('submitBtn');
         const form = document.getElementById('registroForm');
         
