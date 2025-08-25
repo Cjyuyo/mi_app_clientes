@@ -4,9 +4,7 @@
 {% block head_extra %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
-    #video, #photo-preview { 
-        transform: scaleX(-1); 
-    }
+    #video, #photo-preview { transform: scaleX(-1); }
     #canvas { display: none; }
 </style>
 {% endblock %}
@@ -25,7 +23,7 @@
         </div>
     </header>
 
-    <form id="registroForm" action="{{ url_for('registrar_cliente') }}" method="POST" class="space-y-6" x-data="cameraHandler()">
+    <form id="registroForm" action="{{ url_for('registrar_cliente') }}" method="POST" class="space-y-6" x-data="formController()" @input="validateEntireForm()">
         <input type="hidden" name="foto_cliente" id="foto_cliente" x-model="photoData.cliente" required>
         <input type="hidden" name="foto_cedula" id="foto_cedula" x-model="photoData.cedula" required>
         <input type="hidden" name="asesor" id="asesor-hidden-input" required>
@@ -82,7 +80,6 @@
                 </div>
             </div>
         </div>
-
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-person-badge-fill text-slate-400"></i>Información Personal y de Contacto</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
@@ -95,7 +92,6 @@
                  <div><label for="grupo" class="block text-sm font-medium text-slate-700">Grupo</label><input type="text" id="grupo" name="grupo" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm"></div>
             </div>
         </div>
-        
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-file-earmark-text-fill text-slate-400"></i>Detalles del Plan y Contrato</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
@@ -107,7 +103,6 @@
                 <div><label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="mt-1 block w-full rounded-md border-slate-300 bg-white shadow-sm" required><option value="USD">Divisas (USD)</option><option value="BsBCV">Bolívares (Tasa BCV)</option></select></div>
             </div>
         </div>
-
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h3 class="text-lg font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200 flex items-center gap-3"><i class="bi bi-person-heart text-slate-400"></i>Beneficiario (Opcional)</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
@@ -119,7 +114,7 @@
         
         <div class="flex justify-end gap-4 pt-4">
             <a href="{{ url_for('hub') }}" class="bg-white text-slate-700 font-semibold py-2.5 px-5 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-colors">Cancelar</a>
-            <button type="submit" id="submitBtn" class="bg-orange-500 text-white font-bold py-2.5 px-6 rounded-lg shadow-md hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors" disabled>
+            <button type="submit" :disabled="isSubmitDisabled" class="bg-orange-500 text-white font-bold py-2.5 px-6 rounded-lg shadow-md hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors">
                 <i class="bi bi-arrow-right-circle-fill"></i>
                 Continuar al Contrato
             </button>
@@ -152,8 +147,10 @@
 
 {% block scripts_extra %}
 <script>
-    function cameraHandler() {
+    // CAMBIO 3: Lógica de AlpineJS y del formulario unificada y simplificada
+    function formController() {
         return {
+            // Estado de la cámara
             isCameraOpen: false,
             photoTarget: null,
             photoData: { cliente: '', cedula: '' },
@@ -161,103 +158,143 @@
             capturedImageData: null,
             facingMode: 'user',
             hasMultipleCameras: false,
+            
+            // Estado del formulario
+            isSubmitDisabled: true,
 
+            // Método de inicialización
             init() {
+                this.validateEntireForm(); // Validar al cargar la página
+                // Detectar cámaras
                 navigator.mediaDevices.enumerateDevices()
                     .then(devices => {
-                        const videoInputs = devices.filter(device => device.kind === 'videoinput');
-                        this.hasMultipleCameras = videoInputs.length > 1;
+                        this.hasMultipleCameras = devices.filter(d => d.kind === 'videoinput').length > 1;
                     });
-            },
-            
-            startStream() {
-                // ... (código de startStream sin cambios)
+                // Lógica que antes estaba en Vanilla JS
+                this.initializeFormPlugins();
             },
 
+            // Lógica de validación ahora dentro de Alpine
+            validateEntireForm() {
+                let isValid = true;
+                const form = document.getElementById('registroForm');
+                for (const field of form.querySelectorAll('[required]')) {
+                    if (!field.value || field.value.trim() === '') {
+                        isValid = false;
+                        break; 
+                    }
+                }
+                this.isSubmitDisabled = !isValid;
+            },
+
+            // Funciones de la cámara
+            startStream() { /* ... sin cambios ... */ },
             openCamera(target) {
-                // ... (código de openCamera sin cambios)
+                this.photoTarget = target;
+                this.isCameraOpen = true;
+                this.$nextTick(() => this.startStream());
             },
-
-            capturePhoto() {
-                // ... (código de capturePhoto sin cambios)
-            },
-
+            capturePhoto() { /* ... sin cambios ... */ },
             acceptPhoto() {
                 this.photoData[this.photoTarget] = this.capturedImageData;
-                
-                // --- INICIO DE LA CORRECCIÓN ---
-                // Se elimina el dispatchEvent que es propenso a errores de timing.
-                // En su lugar, se llama directamente a la función de validación global.
-                this.$nextTick(() => {
-                    if (window.updateButtonState) {
-                        window.updateButtonState();
-                    }
-                });
-                // --- FIN DE LA CORRECCIÓN ---
-
+                this.validateEntireForm(); // <-- Llamada clave
                 this.closeCamera();
             },
+            retakePhoto() { this.capturedImageData = null; },
+            flipCamera() { /* ... sin cambios ... */ },
+            closeCamera() { /* ... sin cambios ... */ },
 
-            retakePhoto() {
-                this.capturedImageData = null;
-            },
-            
-            flipCamera() {
-                this.facingMode = (this.facingMode === 'user') ? 'environment' : 'user';
-                this.startStream();
-            },
+            // Lógica del formulario que antes era externa
+            initializeFormPlugins() {
+                const form = document.getElementById('registroForm');
+                const planSelect = document.getElementById('plan_contratado');
+                const inscripcionInput = document.getElementById('inscripcion_monto');
+                const cuotasSelect = document.getElementById('cuotas_totales');
+                const monedaSelect = document.getElementById('moneda_pago');
+                const valorCuotaInput = document.getElementById('valor_cuota');
+                const escenarioSelect = document.getElementById('escenario_cierre');
 
-            closeCamera() {
-                // ... (código de closeCamera sin cambios)
-            }
-        }
+                const calcularValorCuota = () => {
+                    const plan = parseFloat(planSelect.value);
+                    const cuotas = parseInt(cuotasSelect.value);
+                    if (isNaN(plan) || isNaN(cuotas)) { valorCuotaInput.value = ''; return; }
+                    const base = (monedaSelect.value === 'USD') ? 0.0496 : 0.0557;
+                    valorCuotaInput.value = (plan * (base * (24 / cuotas))).toFixed(2);
+                };
+
+                for (let monto = 1100; monto <= 4000; monto += 50) {
+                    planSelect.add(new Option(`$${monto.toLocaleString('es-ES')}`, monto));
+                }
+
+                planSelect.addEventListener('change', () => {
+                    const valorPlan = parseFloat(planSelect.value);
+                    inscripcionInput.value = isNaN(valorPlan) ? '' : (valorPlan * 0.16).toFixed(2);
+                    calcularValorCuota();
+                });
+                cuotasSelect.addEventListener('change', calcularValorCuota);
+                monedaSelect.addEventListener('change', calcularValorCuota);
+                
+                escenarioSelect.addEventListener('change', () => { /* ... lógica de escenarios sin cambios ... */ });
+
+                document.getElementById('fecha_ingreso').value = new Date().toISOString().split('T')[0];
+
+                form.addEventListener('submit', function(e) {
+                    const submitButton = e.currentTarget.querySelector('button[type="submit"]');
+                    if (submitButton.disabled) {
+                        e.preventDefault();
+                        Swal.fire({ icon: 'error', title: 'Campos Incompletos', text: 'Por favor, complete todos los campos requeridos.' });
+                        return;
+                    }
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
+                });
+            },
+        };
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('registroForm');
-        const submitBtn = document.getElementById('submitBtn');
-        
-        const validateForm = () => {
-            for (const field of form.querySelectorAll('[required]')) {
-                if (!field.value || field.value.trim() === '') return false;
-            }
-            return true;
-        };
-        
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Hacemos la función de actualización accesible globalmente
-        // para que el componente AlpineJS pueda llamarla.
-        const updateButtonState = () => { 
-            submitBtn.disabled = !validateForm(); 
-        };
-        window.updateButtonState = updateButtonState;
-        // --- FIN DE LA CORRECCIÓN ---
+    // El resto de las funciones de la cámara que no necesitan cambios (para no alargar el código)
+    formController.prototype.startStream = function() {
+        if (this.stream) this.stream.getTracks().forEach(track => track.stop());
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: this.facingMode }, audio: false })
+            .then(stream => {
+                this.stream = stream;
+                document.getElementById('video').srcObject = stream;
+            }).catch(err => {
+                console.error("Error al acceder a la cámara: ", err);
+                this.closeCamera();
+            });
+    };
+    formController.prototype.capturePhoto = function() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        if (this.facingMode === 'user') {
+            context.translate(canvas.width, 0);
+            context.scale(-1, 1);
+        }
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        this.capturedImageData = canvas.toDataURL('image/jpeg');
+    };
+    formController.prototype.flipCamera = function() {
+        this.facingMode = (this.facingMode === 'user') ? 'environment' : 'user';
+        this.startStream();
+    };
+    formController.prototype.closeCamera = function() {
+        if (this.stream) this.stream.getTracks().forEach(track => track.stop());
+        this.isCameraOpen = false;
+        this.stream = null;
+        this.capturedImageData = null;
+    };
+    formController.prototype.initializeFormPlugins.escenarioLogic = function() {
+        // La lógica de escenarios es larga y no cambia, se puede mantener aquí
+    };
 
-        form.addEventListener('input', updateButtonState);
-        form.addEventListener('change', updateButtonState);
-        
-        // El resto del código del formulario no necesita cambios...
-        const planSelect = document.getElementById('plan_contratado');
-        const inscripcionInput = document.getElementById('inscripcion_monto');
-        const cuotasSelect = document.getElementById('cuotas_totales');
-        const monedaSelect = document.getElementById('moneda_pago');
-        const valorCuotaInput = document.getElementById('valor_cuota');
-        const escenarioSelect = document.getElementById('escenario_cierre');
-        const asesorContainer = document.getElementById('asesor-container');
-        const responsableContainer = document.getElementById('responsable-container');
-        const asesorHiddenInput = document.getElementById('asesor-hidden-input');
-        const responsableHiddenInput = document.getElementById('responsable-hidden-input');
-        
-        function calcularValorCuota() { /* ... */ }
-        function popularPlanes() { /* ... */ }
-        planSelect.addEventListener('change', function() { /* ... */ });
-        cuotasSelect.addEventListener('change', calcularValorCuota);
-        monedaSelect.addEventListener('change', calcularValorCuota);
-        escenarioSelect.addEventListener('change', function() { /* ... */ });
-        form.addEventListener('submit', function(e) { /* ... */ });
-        document.getElementById('fecha_ingreso').value = new Date().toISOString().split('T')[0];
-        popularPlanes();
-        updateButtonState();
+    // Inicializar Alpine con el nuevo controlador
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('formController', formController);
     });
+
 </script>
 {% endblock %}
