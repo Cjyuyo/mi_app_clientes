@@ -2511,7 +2511,7 @@ def get_bulk_detalle(bulk_id):
 @app.route('/agregar_gestion/<int:cliente_id>', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
-def agregar_gestion(cliente_id): # <--- AQUÍ ESTÁ LA CORRECCIÓN
+def agregar_gestion(cliente_id):
     nota = request.form.get('nota')
     tipo_gestion = request.form.get('tipo_gestion')
     if not nota or not nota.strip() or not tipo_gestion:
