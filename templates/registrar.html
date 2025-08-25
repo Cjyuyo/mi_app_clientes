@@ -4,8 +4,15 @@
 {% block head_extra %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
+    /* Estilo para el efecto espejo en la cámara frontal */
     #video, #photo-preview { transform: scaleX(-1); }
-    #canvas { display: none; }
+    .animate-spin {
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
 </style>
 {% endblock %}
 
@@ -36,7 +43,7 @@
                     <h4 class="font-semibold text-slate-700 mb-2">Foto del Cliente</h4>
                     <div class="w-full h-48 bg-slate-100 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-300 mb-3 overflow-hidden">
                         <template x-if="!photoData.cliente"><i class="bi bi-camera-fill text-4xl text-slate-400"></i></template>
-                        <template x-if="photoData.cliente"><img :src="photoData.cliente" class="w-full h-full object-cover"></template>
+                        <template x-if="photoData.cliente"><img :src="photoData.cliente" class="w-full h-full object-cover" style="transform: scaleX(-1);"></template>
                     </div>
                     <button @click.prevent="openCamera('cliente')" type="button" class="w-full bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"><i class="bi bi-camera"></i> Tomar Foto Cliente</button>
                 </div>
@@ -44,7 +51,7 @@
                     <h4 class="font-semibold text-slate-700 mb-2">Foto de la Cédula</h4>
                     <div class="w-full h-48 bg-slate-100 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-300 mb-3 overflow-hidden">
                         <template x-if="!photoData.cedula"><i class="bi bi-person-vcard-fill text-4xl text-slate-400"></i></template>
-                        <template x-if="photoData.cedula"><img :src="photoData.cedula" class="w-full h-full object-cover"></template>
+                        <template x-if="photoData.cedula"><img :src="photoData.cedula" class="w-full h-full object-cover" style="transform: none;"></template>
                     </div>
                     <button @click.prevent="openCamera('cedula')" type="button" class="w-full bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"><i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula</button>
                 </div>
@@ -124,19 +131,42 @@
             <div class="bg-white rounded-xl p-4 w-full max-w-md text-center shadow-2xl">
                 <h3 class="text-lg font-bold mb-4 text-slate-800">Tomar Fotografía</h3>
                 <div class="relative w-full aspect-[4/5] rounded-lg bg-slate-200 overflow-hidden border border-slate-300">
-                    <template x-if="!capturedImageData"><video id="video" class="w-full h-full object-cover" autoplay playsinline muted></video></template>
-                    <template x-if="capturedImageData"><img id="photo-preview" :src="capturedImageData" class="w-full h-full object-cover"></template>
+                    
+                    <template x-if="cameraState === 'loading'">
+                        <div class="absolute inset-0 flex flex-col items-center justify-center bg-slate-200">
+                            <i class="bi bi-arrow-repeat text-4xl text-slate-500 animate-spin"></i>
+                            <p class="mt-2 text-slate-600">Iniciando cámara...</p>
+                        </div>
+                    </template>
+                    
+                    <template x-if="cameraState === 'error'">
+                        <div class="absolute inset-0 flex flex-col items-center justify-center bg-red-50 p-4">
+                            <i class="bi bi-exclamation-triangle-fill text-4xl text-red-500"></i>
+                            <p class="mt-2 text-red-700 font-semibold text-center" x-text="cameraError"></p>
+                        </div>
+                    </template>
+
+                    <div x-show="cameraState === 'streaming' || cameraState === 'captured'">
+                        <video id="video" x-show="cameraState === 'streaming'" class="w-full h-full object-cover" autoplay playsinline muted></video>
+                        <img id="photo-preview" x-show="cameraState === 'captured'" :src="capturedImageData" class="w-full h-full object-cover">
+                    </div>
                 </div>
-                <canvas id="canvas"></canvas>
+                <canvas id="canvas" class="hidden"></canvas>
+                
                 <div class="mt-5">
-                    <div x-show="!capturedImageData" class="flex items-center justify-center gap-4">
+                    <div x-show="cameraState === 'streaming'" class="flex items-center justify-center gap-4">
                         <button @click.prevent="closeCamera()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300 transition-colors">Cancelar</button>
                         <button @click.prevent="capturePhoto()" class="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors flex items-center gap-2"><i class="bi bi-camera-fill"></i>Capturar</button>
                         <button @click.prevent="flipCamera()" x-show="hasMultipleCameras" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-300 transition-colors">Voltear</button>
                     </div>
-                    <div x-show="capturedImageData" x-cloak class="flex items-center justify-center gap-4">
+
+                    <div x-show="cameraState === 'captured'" x-cloak class="flex items-center justify-center gap-4">
                         <button @click.prevent="retakePhoto()" class="px-4 py-2 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition-colors flex items-center gap-2"><i class="bi bi-arrow-counterclockwise"></i>Repetir</button>
                         <button @click.prevent="acceptPhoto()" class="px-6 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors flex items-center gap-2"><i class="bi bi-check-circle-fill"></i>Aceptar</button>
+                    </div>
+
+                    <div x-show="cameraState === 'error'" x-cloak class="flex items-center justify-center">
+                        <button @click.prevent="closeCamera()" class="px-6 py-2 bg-slate-600 text-white rounded-lg font-semibold hover:bg-slate-700 transition-colors">Cerrar</button>
                     </div>
                 </div>
             </div>
@@ -147,11 +177,15 @@
 
 {% block scripts_extra %}
 <script>
-    // CAMBIO 3: Lógica de AlpineJS y del formulario unificada y simplificada
     function formController() {
         return {
-            // Estado de la cámara
+            // --- ESTADO DEL FORMULARIO ---
+            isSubmitDisabled: true,
+
+            // --- ESTADO DE LA CÁMARA ---
             isCameraOpen: false,
+            cameraState: 'idle', // 'idle', 'loading', 'streaming', 'captured', 'error'
+            cameraError: '',
             photoTarget: null,
             photoData: { cliente: '', cedula: '' },
             stream: null,
@@ -159,27 +193,22 @@
             facingMode: 'user',
             hasMultipleCameras: false,
             
-            // Estado del formulario
-            isSubmitDisabled: true,
-
-            // Método de inicialización
+            // --- MÉTODOS ---
             init() {
-                this.validateEntireForm(); // Validar al cargar la página
-                // Detectar cámaras
+                this.validateEntireForm();
+                // Detectar si hay más de una cámara disponible
                 navigator.mediaDevices.enumerateDevices()
                     .then(devices => {
                         this.hasMultipleCameras = devices.filter(d => d.kind === 'videoinput').length > 1;
                     });
-                // Lógica que antes estaba en Vanilla JS
                 this.initializeFormPlugins();
             },
 
-            // Lógica de validación ahora dentro de Alpine
             validateEntireForm() {
-                let isValid = true;
                 const form = document.getElementById('registroForm');
+                let isValid = true;
                 for (const field of form.querySelectorAll('[required]')) {
-                    if (!field.value || field.value.trim() === '') {
+                    if (!field.value || String(field.value).trim() === '') {
                         isValid = false;
                         break; 
                     }
@@ -187,24 +216,89 @@
                 this.isSubmitDisabled = !isValid;
             },
 
-            // Funciones de la cámara
-            startStream() { /* ... sin cambios ... */ },
+            // --- LÓGICA DE LA CÁMARA ---
             openCamera(target) {
                 this.photoTarget = target;
                 this.isCameraOpen = true;
+                this.cameraState = 'loading';
+                // Usar la cámara trasera por defecto para la cédula
+                if (target === 'cedula' && this.hasMultipleCameras) {
+                    this.facingMode = 'environment';
+                } else {
+                    this.facingMode = 'user';
+                }
                 this.$nextTick(() => this.startStream());
             },
-            capturePhoto() { /* ... sin cambios ... */ },
+
+            startStream() {
+                if (this.stream) this.stream.getTracks().forEach(track => track.stop());
+                
+                const constraints = { video: { facingMode: this.facingMode }, audio: false };
+                navigator.mediaDevices.getUserMedia(constraints)
+                    .then(stream => {
+                        this.stream = stream;
+                        let video = document.getElementById('video');
+                        video.srcObject = stream;
+                        this.cameraState = 'streaming';
+                    }).catch(err => {
+                        console.error("Error al acceder a la cámara: ", err);
+                        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                            this.cameraError = 'Permiso denegado. Revisa los permisos de la cámara en tu navegador.';
+                        } else {
+                            this.cameraError = 'No se pudo acceder a la cámara. Inténtalo de nuevo o usa otro dispositivo.';
+                        }
+                        this.cameraState = 'error';
+                    });
+            },
+
+            capturePhoto() {
+                const video = document.getElementById('video');
+                const canvas = document.getElementById('canvas');
+                const context = canvas.getContext('2d'); // Corregido de 'd' a '2d'
+                
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                // Si la cámara es frontal, voltea la imagen para que no salga en modo espejo
+                if (this.facingMode === 'user' && this.photoTarget === 'cliente') {
+                    context.translate(canvas.width, 0);
+                    context.scale(-1, 1);
+                }
+                
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                this.capturedImageData = canvas.toDataURL('image/jpeg');
+                this.cameraState = 'captured';
+            },
+
             acceptPhoto() {
                 this.photoData[this.photoTarget] = this.capturedImageData;
-                this.validateEntireForm(); // <-- Llamada clave
+                this.validateEntireForm();
                 this.closeCamera();
             },
-            retakePhoto() { this.capturedImageData = null; },
-            flipCamera() { /* ... sin cambios ... */ },
-            closeCamera() { /* ... sin cambios ... */ },
 
-            // Lógica del formulario que antes era externa
+            retakePhoto() {
+                this.capturedImageData = null;
+                this.cameraState = 'streaming';
+            },
+
+            flipCamera() {
+                this.facingMode = (this.facingMode === 'user') ? 'environment' : 'user';
+                this.cameraState = 'loading';
+                this.$nextTick(() => this.startStream());
+            },
+
+            closeCamera() {
+                if (this.stream) this.stream.getTracks().forEach(track => track.stop());
+                this.isCameraOpen = false;
+                this.stream = null;
+                this.capturedImageData = null;
+                // Resetear estados al cerrar
+                this.cameraState = 'idle';
+                this.cameraError = '';
+                this.facingMode = 'user';
+            },
+
+            // --- LÓGICA ADICIONAL DEL FORMULARIO ---
             initializeFormPlugins() {
                 const form = document.getElementById('registroForm');
                 const planSelect = document.getElementById('plan_contratado');
@@ -234,7 +328,10 @@
                 cuotasSelect.addEventListener('change', calcularValorCuota);
                 monedaSelect.addEventListener('change', calcularValorCuota);
                 
-                escenarioSelect.addEventListener('change', () => { /* ... lógica de escenarios sin cambios ... */ });
+                // Lógica de escenarios de cierre (sin cambios)
+                escenarioSelect.addEventListener('change', () => { 
+                    // ... Aquí va la lógica para mostrar/ocultar los campos de asesor y responsable ...
+                });
 
                 document.getElementById('fecha_ingreso').value = new Date().toISOString().split('T')[0];
 
@@ -242,7 +339,7 @@
                     const submitButton = e.currentTarget.querySelector('button[type="submit"]');
                     if (submitButton.disabled) {
                         e.preventDefault();
-                        Swal.fire({ icon: 'error', title: 'Campos Incompletos', text: 'Por favor, complete todos los campos requeridos.' });
+                        Swal.fire({ icon: 'error', title: 'Campos Incompletos', text: 'Por favor, complete todos los campos requeridos, incluyendo las fotografías.' });
                         return;
                     }
                     submitButton.disabled = true;
@@ -252,49 +349,8 @@
         };
     }
 
-    // El resto de las funciones de la cámara que no necesitan cambios (para no alargar el código)
-    formController.prototype.startStream = function() {
-        if (this.stream) this.stream.getTracks().forEach(track => track.stop());
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: this.facingMode }, audio: false })
-            .then(stream => {
-                this.stream = stream;
-                document.getElementById('video').srcObject = stream;
-            }).catch(err => {
-                console.error("Error al acceder a la cámara: ", err);
-                this.closeCamera();
-            });
-    };
-    formController.prototype.capturePhoto = function() {
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const context = canvas.getContext('d');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        if (this.facingMode === 'user') {
-            context.translate(canvas.width, 0);
-            context.scale(-1, 1);
-        }
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        this.capturedImageData = canvas.toDataURL('image/jpeg');
-    };
-    formController.prototype.flipCamera = function() {
-        this.facingMode = (this.facingMode === 'user') ? 'environment' : 'user';
-        this.startStream();
-    };
-    formController.prototype.closeCamera = function() {
-        if (this.stream) this.stream.getTracks().forEach(track => track.stop());
-        this.isCameraOpen = false;
-        this.stream = null;
-        this.capturedImageData = null;
-    };
-    formController.prototype.initializeFormPlugins.escenarioLogic = function() {
-        // La lógica de escenarios es larga y no cambia, se puede mantener aquí
-    };
-
-    // Inicializar Alpine con el nuevo controlador
     document.addEventListener('alpine:init', () => {
         Alpine.data('formController', formController);
     });
-
 </script>
 {% endblock %}
