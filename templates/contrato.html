@@ -22,6 +22,8 @@
             body {
                 background-color: #fff;
                 font-size: 10pt;
+                -webkit-print-color-adjust: exact; /* Fuerza la impresión de colores de fondo en Chrome */
+                print-color-adjust: exact;       /* Estándar */
                 position: relative;
             }
             
@@ -31,7 +33,7 @@
                 background-position: center;
                 background-repeat: no-repeat;
                 background-size: contain;
-                opacity: 0.15; 
+                opacity: 0.10; 
                 position: fixed;
                 top: 50%;
                 left: 50%;
@@ -41,16 +43,10 @@
                 z-index: -1;
             }
 
-            section, article, footer {
+            /* --- Reglas para evitar cortes de página --- */
+            section, article, footer, div {
                 page-break-inside: avoid;
                 break-inside: avoid;
-            }
-            footer {
-                page-break-before: auto;
-                break-before: auto;
-            }
-            h1, h2, h3, p, ul, ol, div {
-                page-break-inside: avoid;
             }
         }
     </style>
@@ -60,6 +56,8 @@
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             {% if modo_pre_registro %}
                 <a href="{{ url_for('hub') }}" class="font-semibold hover:text-slate-300"><i class="bi bi-arrow-left"></i> Volver al Panel</a>
+            {% elif g.admin %}
+                <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="font-semibold hover:text-slate-300"><i class="bi bi-arrow-left"></i> Volver al Perfil</a>
             {% else %}
                 <a href="{{ url_for('portal_dashboard') }}" class="font-semibold hover:text-slate-300"><i class="bi bi-arrow-left"></i> Volver a Zona Cliente</a>
             {% endif %}
@@ -83,14 +81,14 @@
     </form>
     {% endif %}
     
-    <div class="hidden print:flex print:fixed print:top-0 print:left-0 print:right-0 print:w-full print:justify-center print:items-center print:p-4 print:border-b print:bg-white">
-        <img src="{{ url_for('static', filename='MOTO PLANcontrato.svg') }}" alt="Logo Moto Plan Motors" class="h-16">
+    <div class="hidden print:block text-center pt-8">
+        <img src="{{ url_for('static', filename='MOTO PLANcontrato.svg') }}" alt="Logo Moto Plan Motors" class="h-20 w-auto mx-auto">
     </div>
 
-    <main class="max-w-4xl mx-auto my-8 p-6 sm:p-10 bg-white rounded-xl shadow-lg print:my-0 print:shadow-none print:border-none print:mt-24">
+    <main class="max-w-4xl mx-auto my-8 p-6 sm:p-10 bg-white rounded-xl shadow-lg print:my-0 print:shadow-none print:border-none">
         
         <header class="text-center mb-6 pb-2 border-b">
-            <img src="{{ url_for('static', filename='MOTO PLANcontrato.svg') }}" alt="Logo Moto Plan Motors" class="h-40 w-auto mx-auto mb-4 print:hidden">
+            <img src="{{ url_for('static', filename='MOTO PLANcontrato.svg') }}" alt="Logo Moto Plan Motors" class="h-40 w-auto mx-auto mb-4 no-print">
             {% if cliente.moneda_pago == 'BsBCV' %}
                 <h1 class="text-xl font-bold text-slate-800">CONTRATO DE ADHESIÓN AL SISTEMA DE PLAN DE AHORRO PROGRAMADO: PAGO EN BOLÍVARES (Bs.), CON OPCIÓN DE DIVISAS SEGÚN LIBRE CONVERTIBILIDAD</h1>
             {% else %}
@@ -98,16 +96,15 @@
             {% endif %}
         </header>
 
-        <section class="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-8">
-            <h2 class="text-xl font-bold text-center text-slate-800 mb-6">Detalles del Plan</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="space-y-4">
-                    <div class="bg-white p-4 rounded-lg shadow-sm border">
+        <section class="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-8 print:bg-transparent print:border-none print:p-0 print:mb-4">
+            <h2 class="text-xl font-bold text-center text-slate-800 mb-6 print:text-lg">Detalles del Plan</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 print:block"> <div class="space-y-4 print:mb-4">
+                    <div class="bg-white p-4 rounded-lg shadow-sm border print:shadow-none">
                         <h3 class="font-semibold text-slate-600 mb-2 flex items-center gap-2"><i class="bi bi-person-badge-fill text-blue-600"></i> Información del Adherente</h3>
                         <p class="text-slate-800 font-medium">{{ cliente.nombre_apellido }}</p>
                         <p class="text-sm text-slate-500">C.I: V-{{ cliente.cedula }}</p>
                     </div>
-                    <div class="bg-white p-4 rounded-lg shadow-sm border">
+                    <div class="bg-white p-4 rounded-lg shadow-sm border print:shadow-none">
                         <h3 class="font-semibold text-slate-600 mb-2 flex items-center gap-2"><i class="bi bi-file-earmark-text-fill text-blue-600"></i> Detalles del Plan</h3>
                         <p class="text-sm text-slate-500">Monto Contratado</p>
                         <p class="text-slate-800 font-medium text-lg">${{ "%.2f"|format(cliente.plan_contratado|float) }}</p>
@@ -115,21 +112,21 @@
                     </div>
                 </div>
                 <div class="space-y-4">
-                    <div class="bg-white p-4 rounded-lg shadow-sm border">
+                    <div class="bg-white p-4 rounded-lg shadow-sm border print:shadow-none">
                         <h3 class="font-semibold text-slate-600 mb-2 flex items-center gap-2"><i class="bi bi-calendar-check-fill text-blue-600"></i> Condiciones de Pago</h3>
                         <p class="text-sm text-slate-500">Plazo del Contrato</p>
                         <p class="text-slate-800 font-medium">{{ cliente.cuotas_totales }} meses</p>
                         <p class="text-sm text-slate-500 mt-2">Cuota Mensual: <strong>${{ "%.2f"|format(cliente.valor_cuota|float) }}</strong></p>
                         <p class="text-sm text-slate-500 mt-2">Total del Contrato: <strong class="text-base">${{ "%.2f"|format((cliente.valor_cuota|float) * (cliente.cuotas_totales|int)) }}</strong></p>
-                        </div>
-                    <div class="bg-white p-4 rounded-lg shadow-sm border">
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border print:shadow-none">
                         <h3 class="font-semibold text-slate-600 mb-2 flex items-center gap-2"><i class="bi bi-currency-dollar text-blue-600"></i> Modalidad de Pago</h3>
                         <p class="text-sm text-slate-500">Moneda de Pago</p>
                         <p class="text-slate-800 font-medium">{% if cliente.moneda_pago == 'BsBCV' %}Bolívares (Tasa BCV){% else %}Divisas (USD){% endif %}</p>
                     </div>
                 </div>
                 {% if cliente.beneficiario_nombre %}
-                <div class="md:col-span-2 bg-white p-4 rounded-lg shadow-sm border">
+                <div class="md:col-span-2 bg-white p-4 rounded-lg shadow-sm border print:shadow-none">
                     <h3 class="font-semibold text-slate-600 mb-2 flex items-center gap-2"><i class="bi bi-person-heart text-blue-600"></i> Información del Beneficiario</h3>
                     <p class="text-slate-800 font-medium">{{ cliente.beneficiario_nombre }}</p>
                     <p class="text-sm text-slate-500">C.I: {{ cliente.beneficiario_cedula }} - Teléfono: {{ cliente.beneficiario_telefono }}</p>
@@ -169,7 +166,7 @@
                 <p><strong>Cláusula 19.</strong> Mientras no haya sido adjudicado, EL CLIENTE podrá: <br> 19.1. Retracto: dentro de los primeros 7 días desde la firma. Después de ese plazo, el contrato es obligatorio. <br> 19.2. Cambio de grupo: a uno de mayor o menor monto. <br> 19.3. Traspaso: a un tercero solvente, con aprobación de LA EMPRESA. <br> 19.4. Rescisión voluntaria: en cualquier momento. Se reintegrarán solo los aportes netos, descontando inscripción, gastos y tributos. El reintegro será cuota a cuota, a medida que el grupo cumpla su ciclo, para no afectar el fondo común y se indicará el cronograma de devolución dentro de 15 días hábiles posteriores a la notificación formal por parte del cliente. <br> 19.5. Designación de beneficiario: para heredar el contrato en caso de fallecimiento. <br> <em>Fundamento Legal: Art. 1161 Código Civil y autonomía contractual.</em></p>
                 <h3>CAPÍTULO VII: DOMICILIO, JURISDICCIÓN Y MEDIOS ELECTRÓNICOS</h3>
                 <p><strong>Cláusula 20.</strong> Las partes se someten a la jurisdicción de los tribunales venezolanos y acuerdan como domicilio el indicado en la solicitud.</p>
-                <p><strong>Cláusula 21. Firma y Documentos Electrónicos.</strong> Este contrato podrá ser firmado electrónicamente. Los recibos, notificaciones y comunicaciones podrán emitirse en formato digital, siendo plenamente válidos y exigibles. <br><em>Fundamento Legal: Ley sobre Mensajes de Datos y Firmas Electrónicas, Artículos 6, 7, 9, 12 y 13.</em></p>
+                <p><strong>Cláusula X. Firma y Documentos Electrónicos.</strong> Este contrato podrá ser firmado electrónicamente. Los recibos, notificaciones y comunicaciones podrán emitirse en formato digital, siendo plenamente válidos y exigibles. <br><em>Fundamento Legal: Ley sobre Mensajes de Datos y Firmas Electrónicas, Artículos 6, 7, 9, 12 y 13.</em></p>
             {% else %}
                 <p>Entre las partes, por un lado, <strong>MOTO PLAN MOTORS, C.A.</strong>, sociedad mercantil constituida bajo las leyes de la República Bolivariana de Venezuela, inscrita en el Registro Mercantil Primero del Estado Portuguesa bajo el número de tomo 66-A RM410, número 18 del año 2023, con RIF J-50408959-1 e inscrita en el RUPDAE, en lo sucesivo denominada “LA EMPRESA”, y por otro lado, el solicitante identificado en la solicitud de inscripción anexa, en lo sucesivo denominado “EL CLIENTE”, convienen en celebrar el presente Contrato de Adhesión, el cual se regirá por las siguientes cláusulas:</p>
                 <h3>CAPÍTULO I: DISPOSICIONES GENERALES Y NATURALEZA DEL CONTRATO</h3>
