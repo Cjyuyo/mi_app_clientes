@@ -2424,46 +2424,69 @@ def perfil_cliente(cliente_id):
 
     try:
         with conn.cursor() as cur:
-            # Paso 1: Obtener los datos principales del cliente
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (cliente_id,))
             cliente = cur.fetchone()
             if not cliente:
                 flash("Cliente no encontrado.", "error")
                 return redirect(url_for('consulta'))
 
-            # Paso 2: Obtener todos los historiales que la plantilla necesita
+            # --- OBTENCIÓN DE DATOS CRUDOS ---
             cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_creacion DESC", (cliente_id,))
-            pagos = cur.fetchall()
+            pagos_raw = cur.fetchall()
 
             cur.execute("SELECT * FROM ofertas WHERE cliente_id = %s ORDER BY fecha_oferta DESC", (cliente_id,))
-            ofertas = cur.fetchall()
+            ofertas_raw = cur.fetchall()
 
             cur.execute("""
-                SELECT g.nota, g.tipo_gestion, g.fecha_creacion, a.usuario as gestor_nombre
-                FROM gestiones_cobranza g
+                SELECT g.*, a.usuario as gestor_nombre FROM gestiones_cobranza g
                 LEFT JOIN administradores a ON g.gestor_id = a.id
                 WHERE g.cliente_id = %s ORDER BY g.fecha_creacion DESC;
             """, (cliente_id,))
-            gestiones = cur.fetchall()
+            gestiones_raw = cur.fetchall()
 
-            # Paso 3: Convertir a diccionario y añadir los conteos
+            # --- PROCESAMIENTO Y LIMPIEZA DE DATOS (LA PARTE CLAVE) ---
+            pagos_procesados = []
+            for pago in pagos_raw:
+                pago_dict = dict(pago)
+                if pago_dict.get('fecha_pago'):
+                    pago_dict['fecha_pago_formateada'] = pago_dict['fecha_pago'].strftime('%d/%m/%Y')
+                else:
+                    pago_dict['fecha_pago_formateada'] = 'Fecha no disponible'
+                pagos_procesados.append(pago_dict)
+
+            ofertas_procesadas = []
+            for oferta in ofertas_raw:
+                oferta_dict = dict(oferta)
+                if oferta_dict.get('fecha_oferta'):
+                    oferta_dict['fecha_oferta_formateada'] = oferta_dict['fecha_oferta'].strftime('%d/%m/%Y')
+                else:
+                    oferta_dict['fecha_oferta_formateada'] = 'Fecha no disponible'
+                ofertas_procesadas.append(oferta_dict)
+
+            gestiones_procesadas = []
+            for gestion in gestiones_raw:
+                gestion_dict = dict(gestion)
+                if gestion_dict.get('fecha_creacion'):
+                    gestion_dict['fecha_creacion_formateada'] = gestion_dict['fecha_creacion'].strftime('%d/%m/%Y a las %I:%M %p')
+                else:
+                    gestion_dict['fecha_creacion_formateada'] = 'Fecha no disponible'
+                gestiones_procesadas.append(gestion_dict)
+
             cliente_dict = dict(cliente)
-            cliente_dict['conteo_pagos'] = len(pagos)
-            cliente_dict['conteo_ofertas'] = len(ofertas)
-            cliente_dict['conteo_gestiones'] = len(gestiones)
-
-            # Paso 4: Renderizar la plantilla correcta con TODOS los datos
+            cliente_dict['conteo_pagos'] = len(pagos_procesados)
+            cliente_dict['conteo_ofertas'] = len(ofertas_procesadas)
+            cliente_dict['conteo_gestiones'] = len(gestiones_procesadas)
+            
             return render_template(
                 'cliente_perfil.html',
                 cliente=cliente_dict,
-                pagos=pagos,
-                ofertas=ofertas,
-                gestiones=gestiones,
+                pagos=pagos_procesados,
+                ofertas=ofertas_procesadas,
+                gestiones=gestiones_procesadas,
                 admin_rol=g.admin['rol']
             )
 
     except Exception as e:
-        # Usamos logging para registrar el error real en la consola del servidor
         logging.error(f"Error CRÍTICO al cargar perfil del cliente {cliente_id}: {e}\n{traceback.format_exc()}")
         flash("Ocurrió un error grave al cargar el perfil del cliente. El problema ha sido registrado.", "error")
         return redirect(url_for('consulta'))
