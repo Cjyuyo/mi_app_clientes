@@ -141,11 +141,40 @@
 
         <div class="p-6">
             <div x-show="activeTab === 'pagos'" class="space-y-3">
-                {% for pago in pagos %}{% include 'partials/_pago_item.html' %}{% else %}<p class="text-slate-500 text-center py-8">No hay pagos registrados.</p>{% endfor %}
+                {% for pago in pagos %}
+                    <div class="border rounded-lg p-3 flex items-center justify-between gap-3">
+                        <div>
+                            <p class="font-semibold text-slate-700">{{ pago.tipo_pago }} - ${{ "%.2f"|format(pago.monto|float) }}</p>
+                            <p class="text-xs text-slate-500">
+                                {{ pago.fecha_pago.strftime('%d/%m/%Y') }} | Ref: {{ pago.referencia or 'N/A' }}
+                            </p>
+                        </div>
+                        <span class="text-xs font-bold py-1 px-2 rounded-full
+                            {% if pago.estado_pago == 'Conciliado' %} bg-green-100 text-green-800
+                            {% elif pago.estado_pago == 'Pendiente' %} bg-yellow-100 text-yellow-800
+                            {% else %} bg-red-100 text-red-800
+                            {% endif %}">
+                            {{ pago.estado_pago }}
+                        </span>
+                    </div>
+                {% else %}
+                    <p class="text-slate-500 text-center py-8">No hay pagos registrados.</p>
+                {% endfor %}
             </div>
+
             <div x-show="activeTab === 'ofertas'" x-cloak class="space-y-3">
-                {% for oferta in ofertas %}{% include 'partials/_oferta_item.html' %}{% else %}<p class="text-slate-500 text-center py-8">No hay ofertas registradas.</p>{% endfor %}
+                {% for oferta in ofertas %}
+                    <div class="border rounded-lg p-3">
+                        <p class="font-semibold text-slate-700">Oferta de {{ oferta.cuotas_ofertadas }} cuota(s)</p>
+                        <p class="text-xs text-slate-500">
+                            Registrada el: {{ oferta.fecha_oferta.strftime('%d/%m/%Y') }} | Estado: <span class="font-bold">{{ oferta.estado_oferta|capitalize }}</span>
+                        </p>
+                    </div>
+                {% else %}
+                    <p class="text-slate-500 text-center py-8">No hay ofertas registradas.</p>
+                {% endfor %}
             </div>
+
             <div x-show="activeTab === 'gestiones'" x-cloak>
                 {% if admin_rol in ['superadmin', 'gerente', 'administradora'] %}
                 <form action="{{ url_for('agregar_gestion', client_id=cliente.id) }}" method="POST" class="mb-6 bg-slate-50 p-4 rounded-lg border">
@@ -158,7 +187,18 @@
                 </form>
                 {% endif %}
                 <div class="space-y-4">
-                    {% for gestion in gestiones %}{% include 'partials/_gestion_item.html' %}{% else %}<p class="text-center text-slate-500 py-8">No hay gestiones registradas.</p>{% endfor %}
+                    {% for gestion in gestiones %}
+                        <div class="border rounded-lg p-4 bg-white">
+                            <div class="flex justify-between items-center mb-1">
+                                <p class="font-bold text-sm text-slate-800">{{ gestion.tipo_gestion }}</p>
+                                <p class="text-xs text-slate-500">{{ gestion.fecha_creacion.strftime('%d/%m/%Y a las %I:%M %p') }}</p>
+                            </div>
+                            <p class="text-sm text-slate-600 mb-2">{{ gestion.nota }}</p>
+                            <p class="text-right text-xs text-slate-500 italic">Por: {{ gestion.gestor_nombre }}</p>
+                        </div>
+                    {% else %}
+                        <p class="text-center text-slate-500 py-8">No hay gestiones registradas.</p>
+                    {% endfor %}
                 </div>
             </div>
         </div>
