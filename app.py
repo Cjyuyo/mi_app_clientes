@@ -1154,7 +1154,8 @@ def reportes_por_revisar():
 
     try:
         with conn.cursor() as cur:
-            # CORRECCIÓN: La consulta ahora busca tanto los pendientes como los que tienen inconsistencias (diferencias)
+            # --- INICIO DE LA CORRECCIÓN ---
+            # La consulta ahora busca tanto los pendientes como los que tienen inconsistencias (diferencias)
             query = """
                 SELECT p.*, c.nombre, c.apellido, c.cedula, c.valor_cuota, c.inscripcion_monto
                 FROM pagos p 
@@ -1163,12 +1164,14 @@ def reportes_por_revisar():
                 ORDER BY p.fecha_creacion ASC;
             """
             cur.execute(query)
+            # --- FIN DE LA CORRECCIÓN ---
             
             todos_los_reportes = cur.fetchall()
 
             for reporte_row in todos_los_reportes:
                 reporte = dict(reporte_row)
                 
+                # Se calcula el monto esperado para mostrarlo en la lista
                 fecha_del_pago = reporte.get('fecha_pago', get_venezuela_current_date())
                 cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
                 tasa_row = cur.fetchone()
@@ -1182,7 +1185,7 @@ def reportes_por_revisar():
                 
                 reporte['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta) if monto_dolares_referencia and tasa_exacta else Decimal('0.0')
                 
-                # Clasifica el reporte en la pestaña correcta
+                # Se clasifica el reporte en la pestaña correcta
                 if reporte['estado_reporte'] == 'Inconsistente':
                     reportes_categorizados['diferencias'].append(reporte)
                 else:
