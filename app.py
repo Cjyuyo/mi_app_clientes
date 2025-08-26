@@ -659,12 +659,35 @@ def hub():
 
     return render_template('hub.html', stats=stats, tasa_ocupacion=tasa_ocupacion, welcome_message=welcome_message)
 
+@app.route('/api/activity_ping', methods=['POST'])
+@admin_required
+def activity_ping():
+    """
+    Endpoint para que el frontend notifique que el admin sigue activo.
+    Actualiza la marca de tiempo 'ultimo_visto'.
+    """
+    conn = get_db()
+    if not conn:
+        return jsonify({'status': 'error', 'message': 'db connection failed'}), 500
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE administradores SET ultimo_visto = NOW() WHERE id = %s",
+                (g.admin['id'],)
+            )
+            conn.commit()
+        return jsonify({'status': 'ok'})
+    except psycopg2.Error as e:
+        conn.rollback()
+        logging.error(f"Error en activity_ping para admin {g.admin['id']}: {e}")
+        return jsonify({'status': 'error', 'message': 'database error'}), 500
+
 @app.route('/api/get_active_sessions')
 @admin_required
 def get_active_sessions():
     """
-    Endpoint de API mejorado para obtener la lista de administradores,
-    su estado de sesión y su estado de actividad actual.
+    Endpoint de API mejorado que ahora incluye los segundos de inactividad
+    para cada usuario, permitiendo al frontend aplicar la lógica de los 5 minutos.
     """
     conn = get_db()
     if not conn:
@@ -673,24 +696,22 @@ def get_active_sessions():
     users_list = []
     try:
         with conn.cursor() as cur:
-            # Se añade la columna 'current_status' a la consulta
+            # CORRECCIÓN: Se añade el cálculo de 'inactivity_seconds'
             cur.execute("""
-                SELECT usuario, ultimo_visto, current_status,
-                       (ultimo_visto > NOW() - INTERVAL '2 minutes') AS is_online
+                SELECT 
+                    usuario, 
+                    ultimo_visto, 
+                    current_status,
+                    EXTRACT(EPOCH FROM (NOW() - ultimo_visto)) AS inactivity_seconds
                 FROM administradores ORDER BY usuario
             """)
             usuarios_db = cur.fetchall()
             for user in usuarios_db:
-                # Se determina el estado final a mostrar
-                final_status = 'Desconectado'
-                if user['is_online']:
-                    final_status = user['current_status'] or 'Disponible'
-
                 users_list.append({
                     "username": user['usuario'],
-                    "is_online": user['is_online'],
-                    "status": final_status,
-                    "last_seen": time_ago(user['ultimo_visto'])
+                    "status": user['current_status'] or 'Disponible',
+                    "last_seen": time_ago(user['ultimo_visto']),
+                    "inactivity_seconds": user['inactivity_seconds']
                 })
     except psycopg2.Error as e:
         logging.error(f"Error en API get_active_sessions: {e}")
