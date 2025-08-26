@@ -268,9 +268,159 @@
     </div>
 </div>
 
-<div class="modal fade" id="ofertaModal" tabindex="-1">...</div>
-<div class="modal fade" id="citaModal" tabindex="-1">...</div>
-<div class="modal fade" id="congelamientoModal" tabindex="-1">...</div>
-<div class="modal fade" id="retiroModal" tabindex="-1">...</div>
+<div class="modal fade" id="ofertaModal" tabindex="-1" aria-labelledby="ofertaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="ofertaModalLabel">Registrar Oferta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Formulario para registrar oferta...</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary">Enviar Oferta</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="citaModal" tabindex="-1" aria-labelledby="citaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="citaModalLabel">Solicitar Cita</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="citaForm" action="{{ url_for('portal_solicitar_cita') }}" method="POST">
+                    <div class="mb-3">
+                        <label for="fecha_cita_input" class="form-label fw-semibold">Fecha deseada</label>
+                        <input type="date" class="form-control" id="fecha_cita_input" name="fecha_cita" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="hora_cita_select" class="form-label fw-semibold">Hora disponible</label>
+                        <select class="form-select" id="hora_cita_select" name="hora_cita" required disabled>
+                            <option>Seleccione una fecha primero</option>
+                        </select>
+                        <div id="cita-availability-message" class="form-text mt-2"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="motivo_cita_select" class="form-label fw-semibold">Motivo</label>
+                        <select class="form-select" id="motivo_cita_select" name="motivo_cita" required>
+                            <option value="" disabled selected>-- Seleccione un motivo --</option>
+                            <option value="Consulta sobre pagos">Consulta sobre pagos</option>
+                            <option value="Información sobre adjudicación">Información sobre adjudicación</option>
+                            <option value="Actualización de datos">Actualización de datos</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="motivo_otro_div" style="display: none;">
+                        <label for="motivo_otro_texto" class="form-label fw-semibold">Especifique el motivo</label>
+                        <input type="text" class="form-control" id="motivo_otro_texto" name="motivo_otro_texto">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="submit" form="citaForm" class="btn btn-primary">Enviar Solicitud</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="congelamientoModal" tabindex="-1">
+    </div>
+<div class="modal fade" id="retiroModal" tabindex="-1">
+    </div>
 
+{% endblock %}
+
+{% block scripts_extra %}
+{{ super() }} {# Importante para heredar el script modalHandler de base_portal.html #}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // --- Lógica para el formulario de citas ---
+    const fechaInput = document.getElementById('fecha_cita_input');
+    const horaSelect = document.getElementById('hora_cita_select');
+    const motivoSelect = document.getElementById('motivo_cita_select');
+    const motivoOtroDiv = document.getElementById('motivo_otro_div');
+    const motivoOtroInput = document.getElementById('motivo_otro_texto');
+    const availabilityMessage = document.getElementById('cita-availability-message');
+
+    // Muestra u oculta el campo de "otro motivo"
+    motivoSelect.addEventListener('change', function() {
+        if (this.value === 'Otro') {
+            motivoOtroDiv.style.display = 'block';
+            motivoOtroInput.required = true;
+        } else {
+            motivoOtroDiv.style.display = 'none';
+            motivoOtroInput.required = false;
+        }
+    });
+
+    // Lógica para actualizar las horas disponibles
+    async function actualizarHorasDisponibles() {
+        const fechaSeleccionada = fechaInput.value;
+        if (!fechaSeleccionada) {
+            horaSelect.disabled = true;
+            horaSelect.innerHTML = '<option>Seleccione una fecha primero</option>';
+            availabilityMessage.textContent = '';
+            return;
+        }
+
+        // Poner el selector en estado de carga
+        horaSelect.disabled = true;
+        horaSelect.innerHTML = '<option>Cargando horas...</option>';
+        availabilityMessage.textContent = '';
+
+        try {
+            const response = await fetch(`/citas/disponibilidad?fecha=${fechaSeleccionada}`);
+            const data = await response.json();
+
+            if (!data.es_habil) {
+                availabilityMessage.textContent = data.mensaje || 'El día seleccionado no es hábil.';
+                availabilityMessage.className = 'form-text text-danger mt-2';
+                horaSelect.innerHTML = '<option>No hay horas disponibles</option>';
+                return;
+            }
+
+            const horarios = [
+                "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
+                "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM"
+            ];
+
+            const horasOcupadas = new Set(data.ocupados);
+            const horasDisponibles = horarios.filter(h => !horasOcupadas.has(h));
+
+            horaSelect.innerHTML = ''; // Limpiar opciones
+            if (horasDisponibles.length > 0) {
+                horasDisponibles.forEach(hora => {
+                    const option = document.createElement('option');
+                    option.value = hora;
+                    option.textContent = hora;
+                    horaSelect.appendChild(option);
+                });
+                horaSelect.disabled = false;
+                availabilityMessage.textContent = 'Seleccione una hora de la lista.';
+                availabilityMessage.className = 'form-text text-success mt-2';
+            } else {
+                horaSelect.innerHTML = '<option>No hay horas disponibles</option>';
+                availabilityMessage.textContent = 'No quedan horas disponibles para este día.';
+                availabilityMessage.className = 'form-text text-warning mt-2';
+            }
+        } catch (error) {
+            console.error('Error al cargar la disponibilidad:', error);
+            horaSelect.innerHTML = '<option>Error al cargar</option>';
+            availabilityMessage.textContent = 'No se pudo verificar la disponibilidad. Intente más tarde.';
+            availabilityMessage.className = 'form-text text-danger mt-2';
+        }
+    }
+
+    fechaInput.addEventListener('change', actualizarHorasDisponibles);
+
+    // Configurar fecha mínima en el input de fecha para que no se puedan seleccionar días pasados
+    const today = new Date().toISOString().split('T')[0];
+    fechaInput.setAttribute('min', today);
+});
+</script>
 {% endblock %}
