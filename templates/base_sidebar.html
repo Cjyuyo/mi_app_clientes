@@ -86,39 +86,13 @@
             <button @click="sidebarOpen = false" class="md:hidden absolute top-5 right-5 text-slate-400 hover:text-white text-2xl z-50">
                 <i class="bi bi-x-lg"></i>
             </button>
-            
             <div class="flex items-center justify-center h-20 px-6 flex-shrink-0 border-b border-slate-700/50">
                 <a href="{{ url_for('hub') }}">
                     <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan Motors" class="w-40 h-auto">
                 </a>
             </div>
             <nav class="flex-1 flex flex-col justify-between overflow-y-auto px-4 py-4">
-                <div>
-                    <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Navegación</h3>
-                    <ul class="space-y-2">
-                        <li><a href="{{ url_for('hub') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-house-door-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Hub Principal</span></a></li>
-                        {% if g.admin.rol in ['superadmin', 'gerente', 'asesor', 'administradora'] %}
-                        <li><a href="{{ url_for('registrar') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-person-plus-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Registrar Cliente</span></a></li>
-                        {% endif %}
-                        {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
-                        <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-briefcase-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Gestión Administrativa</span></a></li>
-                        {% endif %}
-                        {% if g.admin.rol in ['superadmin', 'gerente'] %}
-                        <li><a href="{{ url_for('dashboard_comercial') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-graph-up-arrow text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Dashboard Comercial</span></a></li>
-                        {% endif %}
-                        {% if g.admin.rol == 'superadmin' %}
-                        <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-shield-check text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Auditoría</span></a></li>
-                        {% endif %}
-                    </ul>
-                </div>
-                <div>
-                    <div class="border-t border-slate-700/50 my-4"></div>
-                    <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Externo</h3>
-                    <ul class="space-y-2">
-                        <li><a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-box-arrow-up-right text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Portal Cliente</span></a></li>
-                    </ul>
-                </div>
-            </nav>
+                 </nav>
         </aside>
 
         <div class="hidden md:flex md:flex-shrink-0">
@@ -168,19 +142,19 @@
                 <div class="flex-1 flex justify-center px-4">
                     <form action="{{ url_for('consulta') }}" method="post" class="w-full max-w-2xl hidden md:block" onsubmit="handleFormSubmit(this)">
                         <div class="flex items-center gap-2">
-                            <select name="search_type" class="py-2 text-sm bg-slate-100 border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-colors duration-300">
-                                <option value="cedula">Cédula</option>
-                                <option value="nombre_apellido">Nombre</option>
-                                <option value="contrato">Contrato</option>
+                            <select name="search_type" id="search_type_selector" class="py-2 text-sm bg-slate-100 border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-colors duration-300">
+                                <option value="cedula">Por Cédula</option>
+                                <option value="nombre_apellido">Por Nombre y Apellido</option>
+                                <option value="contrato">Por Nº de Contrato</option>
                             </select>
                             <div class="relative flex-grow">
                                 <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                                <input type="search" name="busqueda" placeholder="Introduce tu búsqueda..." class="w-full pl-11 pr-20 py-2 text-sm text-slate-700 bg-slate-100 border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all duration-300" value="{{ busqueda if busqueda }}">
+                                <input type="search" name="busqueda" id="search_input_field" placeholder="Introduce la Cédula..." class="w-full pl-11 pr-20 py-2 text-sm text-slate-700 bg-slate-100 border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all duration-300" value="{{ busqueda if busqueda }}">
                                 <button type="submit" class="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-16 text-sm font-semibold text-orange-600 bg-orange-100 hover:bg-orange-200 rounded-full transition-colors disabled:opacity-70 disabled:cursor-not-allowed">
                                     <span>Buscar</span>
                                 </button>
                             </div>
-                        </div>
+                            </div>
                     </form>
                 </div>
 
@@ -205,26 +179,6 @@
                         </div>
                     </div>
                     {% endif %}
-                </div>
-
-                <div x-show="mobileSearchOpen" x-cloak
-                     class="absolute top-0 left-0 w-full h-full bg-white flex items-center px-2 z-40 md:hidden"
-                     x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-                     x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
-                    <form action="{{ url_for('consulta') }}" method="post" class="w-full flex items-center gap-2" onsubmit="handleFormSubmit(this)">
-                        <select name="search_type" class="py-2 text-sm bg-slate-100 border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white">
-                            <option value="cedula">Cédula</option>
-                            <option value="nombre_apellido">Nombre</option>
-                            <option value="contrato">Contrato</option>
-                        </select>
-                        <div class="relative flex-grow">
-                            <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                            <input type="search" name="busqueda" placeholder="Búsqueda..." class="w-full pl-11 pr-4 py-2 text-sm bg-slate-100 border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white" autofocus>
-                        </div>
-                        <button type="button" @click.prevent="mobileSearchOpen = false" class="text-2xl text-gray-600 hover:text-gray-900 p-2">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
-                    </form>
                 </div>
             </header>
             
@@ -254,18 +208,42 @@
             sidebarLinks.forEach(link => {
                 const linkPath = new URL(link.href).pathname;
                 if (linkPath === '/hub' && (currentPath === '/' || currentPath === '/hub')) {
-                    link.classList.add('active');
-                    return;
+                    link.classList.add('active'); return;
                 }
                 if (linkPath !== '/hub' && currentPath.startsWith(linkPath)) {
                     link.classList.add('active');
                 }
             });
+
+            // INICIO CORRECCIÓN: SCRIPT PARA BÚSQUEDA INTELIGENTE
+            const searchTypeSelector = document.getElementById('search_type_selector');
+            const searchInputField = document.getElementById('search_input_field');
+            if (searchTypeSelector && searchInputField) {
+                searchTypeSelector.addEventListener('change', function() {
+                    searchInputField.value = ''; // Limpiar el campo al cambiar de tipo
+                    switch(this.value) {
+                        case 'cedula':
+                            searchInputField.type = 'number';
+                            searchInputField.placeholder = 'Introduce la Cédula (solo números)';
+                            break;
+                        case 'nombre_apellido':
+                            searchInputField.type = 'text';
+                            searchInputField.placeholder = 'Introduce Nombre o Apellido';
+                            break;
+                        case 'contrato':
+                            searchInputField.type = 'text';
+                            searchInputField.placeholder = 'Introduce el Nº de Contrato';
+                            break;
+                    }
+                });
+                // Disparar el evento una vez al cargar la página para establecer el estado inicial
+                searchTypeSelector.dispatchEvent(new Event('change'));
+            }
+            // FIN CORRECCIÓN
         });
     </script>
     
     <script>
-        // Este script ahora está fuera del bloque para asegurar que se ejecute en TODAS las páginas.
         setInterval(function() {
             {% if g.admin %}
             fetch("{{ url_for('activity_ping') }}", {
@@ -273,8 +251,9 @@
                 headers: { 'Content-Type': 'application/json' }
             }).catch(error => console.error('Ping de actividad fallido:', error));
             {% endif %}
-        }, 60000); // 60000 milisegundos = 1 minuto
+        }, 60000);
     </script>
+
     {% block scripts_extra %}{% endblock %}
 
 </body>

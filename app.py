@@ -204,6 +204,25 @@ def subir_archivo_a_s3(base64_data, nombre_en_s3):
         logging.error(f"Error al subir archivo a S3: {e}")
         return False
 
+def subir_fileobj_a_s3(file_obj, bucket_name, object_name):
+    """Sube un objeto de archivo a un bucket de S3."""
+    s3_client = boto3.client('s3')
+    try:
+        s3_client.upload_fileobj(
+            file_obj,
+            bucket_name,
+            object_name,
+            ExtraArgs={'ACL': 'public-read', 'ContentType': file_obj.content_type}
+        )
+        logging.info(f"Subida de archivo exitosa a S3: {object_name}")
+        return True
+    except NoCredentialsError:
+        logging.error("Credenciales de AWS no encontradas.")
+        return False
+    except Exception as e:
+        logging.error(f"Error al subir archivo a S3: {e}")
+        return False
+
 def registrar_accion_auditoria(accion, descripcion, cliente_id=None, detalles_adicionales=None):
     """Registra una acción en la tabla de auditoría."""
     conn = get_db()
@@ -2742,11 +2761,72 @@ def finalizar_registro():
     
     return redirect(url_for('registrar'))
 
+@app.route('/subir_documento/<int:cliente_id>', methods=['POST'])
+@admin_required
+def subir_documento(cliente_id):
+    if 'documento' not in request.files:
+        flash('No se seleccionó ningún archivo.', 'danger')
+        return redirect(url_for('consulta'))
+
+    archivo = request.files['documento']
+    descripcion = request.form.get('descripcion', archivo.filename)
+
+    if archivo.filename == '':
+        flash('No se seleccionó ningún archivo.', 'danger')
+        return redirect(url_for('consulta'))
+
+    conn = get_db()
+    if not conn:
+        flash('Error de conexión a la base de datos.', 'danger')
+        return redirect(url_for('consulta'))
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT cedula FROM clientes WHERE id = %s", (cliente_id,))
+            cliente = cur.fetchone()
+            if not cliente:
+                flash('Cliente no encontrado.', 'danger')
+                return redirect(url_for('consulta'))
+
+            # Crear un nombre de archivo seguro y único
+            timestamp = int(get_venezuela_current_datetime().timestamp())
+            nombre_seguro = f"{timestamp}_{archivo.filename.replace(' ', '_')}"
+            ruta_en_s3 = f"documentos/{cliente['cedula']}/{nombre_seguro}"
+            
+            bucket_name = os.environ.get('AWS_STORAGE_BUCKET_NAME')
+            if not bucket_name:
+                 flash("Bucket de S3 no configurado en el servidor.", "danger")
+                 return redirect(url_for('consulta'))
+
+            if subir_fileobj_a_s3(archivo, bucket_name, ruta_en_s3):
+                # Guardar registro en la base de datos
+                cur.execute("""
+                    INSERT INTO documentos_cliente 
+                    (cliente_id, nombre_archivo, ruta_s3, tipo_archivo, subido_por_id)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (cliente_id, descripcion, ruta_en_s3, archivo.content_type, g.admin['id']))
+                
+                conn.commit()
+                registrar_accion_auditoria(
+                    'SUBIDA_DOCUMENTO', 
+                    f"Subió el archivo '{descripcion}' al expediente del cliente.",
+                    cliente_id=cliente_id
+                )
+                flash('¡Archivo subido y añadido al expediente exitosamente!', 'success')
+            else:
+                flash('Error crítico al intentar subir el archivo a S3.', 'danger')
+
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error de base de datos: {e}", "danger")
+    
+    return redirect(url_for('consulta', busqueda=cliente['cedula']))
+# --- FIN DE LA NUEVA RUTA ---
+
 @app.route('/consulta', methods=['GET', 'POST'])
 @admin_required
 def consulta():
     clientes_encontrados = []
-    # Se asegura de obtener el término de búsqueda ya sea por formulario (POST) o por URL (GET)
     termino_busqueda_raw = request.form.get('busqueda', request.args.get('busqueda', ''))
     termino_busqueda = termino_busqueda_raw.strip()
     
@@ -2757,18 +2837,14 @@ def consulta():
         else:
             try:
                 with conn.cursor() as cur:
-                    # Búsqueda mejorada por cédula, nombre/apellido o contrato
                     query_clientes = """
                         SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes 
-                        WHERE cedula = %s 
-                        OR (nombre || ' ' || apellido) ILIKE %s 
-                        OR contrato_nro ILIKE %s
+                        WHERE cedula = %s OR (nombre || ' ' || apellido) ILIKE %s OR contrato_nro ILIKE %s
                         ORDER BY nombre, apellido LIMIT 10;
                     """
                     patron_like = f'%{termino_busqueda}%'
                     cur.execute(query_clientes, (termino_busqueda, patron_like, patron_like))
                     
-                    # Para cada cliente encontrado, ahora también buscamos sus detalles
                     for cliente_row in cur.fetchall():
                         cliente_dict = dict(cliente_row)
                         cliente_id = cliente_dict['id']
@@ -2783,22 +2859,29 @@ def consulta():
                         cliente_dict['ofertas'] = cur.fetchall()
                         cliente_dict['conteo_ofertas'] = len(cliente_dict['ofertas'])
 
-                        # Cargar gestiones (con LEFT JOIN para evitar errores si un gestor es eliminado)
+                        # Cargar gestiones
                         cur.execute("""
-                            SELECT g.*, a.usuario as gestor_nombre
-                            FROM gestiones_cobranza g
+                            SELECT g.*, a.usuario as gestor_nombre FROM gestiones_cobranza g
                             LEFT JOIN administradores a ON g.gestor_id = a.id
                             WHERE g.cliente_id = %s ORDER BY g.fecha_creacion DESC;
                         """, (cliente_id,))
                         cliente_dict['gestiones'] = cur.fetchall()
                         cliente_dict['conteo_gestiones'] = len(cliente_dict['gestiones'])
                         
+                        # Cargar documentos del expediente
+                        cur.execute("""
+                            SELECT d.*, a.usuario as subido_por_nombre
+                            FROM documentos_cliente d
+                            LEFT JOIN administradores a ON d.subido_por_id = a.id
+                            WHERE d.cliente_id = %s ORDER BY d.fecha_subida DESC;
+                        """, (cliente_id,))
+                        cliente_dict['documentos'] = cur.fetchall()
+                        
                         clientes_encontrados.append(cliente_dict)
                         
             except psycopg2.Error as e:
                 flash(f"Error al consultar la base de datos: {e}", "error")
 
-    # Pasa la variable 'busqueda' a la plantilla para que el mensaje de "Sin Resultados" funcione
     return render_template('consulta.html', 
                            clientes=clientes_encontrados, 
                            busqueda=termino_busqueda, 
