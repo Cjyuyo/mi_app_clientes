@@ -39,9 +39,9 @@
         activeTab: 'resumen' 
     }" class="w-full space-y-6">
 
-        <div class="bg-white rounded-xl shadow-md border border-slate-200 p-6">
-            <div class="flex flex-col md:flex-row items-center gap-6">
-                <div class="flex-shrink-0 flex items-center gap-5 w-full md:w-auto">
+        <div class="bg-white rounded-xl shadow-md border border-slate-200 p-4 md:p-6">
+            <div class="flex flex-col md:flex-row items-center gap-4 md:gap-6">
+                <div class="flex-shrink-0 flex items-center gap-4 w-full md:w-auto">
                     {% if cliente.ruta_foto_cliente_s3 %}
                         <img src="{{ bucket_url }}{{ cliente.ruta_foto_cliente_s3 }}" alt="Foto de {{ cliente.nombre_apellido }}" class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg">
                     {% else %}
@@ -50,7 +50,7 @@
                         </div>
                     {% endif %}
                     <div>
-                        <h1 class="text-2xl font-bold text-slate-800 tracking-tight">{{ cliente.nombre_apellido }}</h1>
+                        <h1 class="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">{{ cliente.nombre_apellido }}</h1>
                         <p class="text-slate-500 font-mono text-sm">C.I: {{ cliente.cedula }}</p>
                         <div class="mt-2 flex items-center gap-2">
                             <span class="text-xs font-semibold py-1 px-3 rounded-full bg-blue-100 text-blue-800">{{ cliente.proceso }}</span>
@@ -69,18 +69,18 @@
                 {% set total_pagado = (cliente.inscripcion_pagada|float(0) + total_pagado_cuotas) %}
                 {% set saldo_pendiente = total_financiado - total_pagado_cuotas %}
                 
-                <div class="flex-grow w-full grid grid-cols-3 gap-4 text-center md:border-l md:pl-6 border-slate-200">
+                <div class="flex-grow w-full grid grid-cols-3 gap-2 md:gap-4 text-center pt-4 md:pt-0 border-t md:border-t-0 md:border-l md:pl-6 border-slate-200">
                     <div>
                         <p class="text-xs text-slate-500 uppercase font-semibold">Total Financiado</p>
-                        <p class="text-2xl font-bold text-slate-800">${{ "%.2f"|format(total_financiado) }}</p>
+                        <p class="text-xl md:text-2xl font-bold text-slate-800">${{ "%.2f"|format(total_financiado) }}</p>
                     </div>
                     <div>
                         <p class="text-xs text-slate-500 uppercase font-semibold">Total Pagado</p>
-                        <p class="text-2xl font-bold text-green-600">${{ "%.2f"|format(total_pagado) }}</p>
+                        <p class="text-xl md:text-2xl font-bold text-green-600">${{ "%.2f"|format(total_pagado) }}</p>
                     </div>
                     <div>
                         <p class="text-xs text-slate-500 uppercase font-semibold">Saldo Pendiente</p>
-                        <p class="text-2xl font-bold text-red-600">${{ "%.2f"|format(saldo_pendiente) }}</p>
+                        <p class="text-xl md:text-2xl font-bold text-red-600">${{ "%.2f"|format(saldo_pendiente) }}</p>
                     </div>
                 </div>
 
@@ -110,65 +110,78 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            <div class="lg:col-span-1 space-y-6">
-                <div class="bg-white rounded-xl shadow-md border border-slate-200 p-5 space-y-4">
-                    <h3 class="text-base font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-flag-fill"></i> Progreso Inscripción</h3>
-                    {% set inscripcion_pagada = cliente.inscripcion_pagada|float(0) %}
-                    {% set inscripcion_monto = cliente.inscripcion_monto|float(1) %}
-                    {% set inscripcion_percent = (inscripcion_pagada / inscripcion_monto * 100) if inscripcion_monto > 0 else 0 %}
-                    <div class="pt-1">
-                        <div class="flex justify-between items-center mb-1"><span class="text-sm font-semibold text-slate-600">{{ "%.0f"|format(inscripcion_percent) }}% Completado</span><span class="text-xs font-medium text-slate-500">${{ "%.2f"|format(inscripcion_pagada) }} / ${{ "%.2f"|format(inscripcion_monto) }}</span></div>
-                        <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="bg-yellow-400 h-2.5 rounded-full" style="width: {{ inscripcion_percent }}%"></div></div>
+            <div class="lg:col-span-1 space-y-6" x-data="{ openCards: { progress: true, dossier: false } }">
+                <div class="bg-white rounded-xl shadow-md border border-slate-200">
+                    <button @click="openCards.progress = !openCards.progress" class="w-full p-4 md:p-5 flex justify-between items-center lg:cursor-default">
+                        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-graph-up-arrow"></i> Resumen de Progreso</h3>
+                        <i class="bi bi-chevron-down transition-transform lg:hidden" :class="{ 'rotate-180': openCards.progress }"></i>
+                    </button>
+                    <div x-show="openCards.progress" x-transition class="p-4 md:p-5 pt-0 md:pt-0 lg:block border-t border-slate-200 lg:border-t-0">
+                        <div class="space-y-4 pt-4 lg:pt-0">
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-600 mb-1">Progreso Inscripción</h4>
+                                {% set inscripcion_pagada = cliente.inscripcion_pagada|float(0) %}{% set inscripcion_monto = cliente.inscripcion_monto|float(1) %}
+                                {% set inscripcion_percent = (inscripcion_pagada / inscripcion_monto * 100) if inscripcion_monto > 0 else 0 %}
+                                <div class="pt-1">
+                                    <div class="flex justify-between items-center mb-1"><span class="text-sm font-semibold text-slate-600">{{ "%.0f"|format(inscripcion_percent) }}%</span><span class="text-xs font-medium text-slate-500">${{ "%.2f"|format(inscripcion_pagada) }} / ${{ "%.2f"|format(inscripcion_monto) }}</span></div>
+                                    <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="bg-yellow-400 h-2.5 rounded-full" style="width: {{ inscripcion_percent }}%"></div></div>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-600 mb-1">Progreso del Plan</h4>
+                                {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int(0) %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas|int(0) %}{% set cuotas_totales = cliente.cuotas_totales|int(1) %}
+                                {% set progresivas_percent = (cuotas_progresivas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}{% set regresivas_percent = (cuotas_regresivas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                                <div class="pt-1">
+                                    <div class="flex justify-between items-center text-sm mb-2"><span class="font-semibold text-slate-600">Cuotas: {{ cuotas_progresivas + cuotas_regresivas }} / {{ cuotas_totales }}</span><span class="font-semibold text-slate-500">{{ "%.1f"|format(progresivas_percent + regresivas_percent) }}%</span></div>
+                                    <div class="w-full flex h-3 rounded-full overflow-hidden bg-slate-200"><div class="bg-blue-600" style="width: {{ progresivas_percent }}%"></div><div class="bg-teal-500" style="width: {{ regresivas_percent }}%"></div></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="bg-white rounded-xl shadow-md border border-slate-200 p-5 space-y-4">
-                    <h3 class="text-base font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-graph-up-arrow"></i> Progreso del Plan</h3>
-                    {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int(0) %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas|int(0) %}{% set cuotas_totales = cliente.cuotas_totales|int(1) %}
-                    {% set progresivas_percent = (cuotas_progresivas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}{% set regresivas_percent = (cuotas_regresivas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
-                    <div class="pt-1">
-                        <div class="flex justify-between items-center text-sm mb-2"><span class="font-semibold text-slate-600">Cuotas Pagadas: {{ cuotas_progresivas + cuotas_regresivas }} / {{ cuotas_totales }}</span><span class="font-semibold text-slate-500">{{ "%.1f"|format(progresivas_percent + regresivas_percent) }}%</span></div>
-                        <div class="w-full flex h-3 rounded-full overflow-hidden bg-slate-200"><div class="bg-blue-600" style="width: {{ progresivas_percent }}%"></div><div class="bg-teal-500" style="width: {{ regresivas_percent }}%"></div></div>
-                        <div class="flex justify-between text-xs mt-2 text-slate-500"><span>Inicio</span><span>Fin</span></div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-xl shadow-md border border-slate-200 p-5 space-y-4">
-                    <h3 class="text-base font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-folder-fill"></i> Expediente Digital</h3>
-                    <form action="{{ url_for('subir_documento', cliente_id=cliente.id) }}" method="POST" enctype="multipart/form-data" class="space-y-3 border-b pb-4">
-                        <div>
-                            <input type="text" name="descripcion" class="mt-1 block w-full text-sm rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" placeholder="Descripción del archivo" required>
+                <div class="bg-white rounded-xl shadow-md border border-slate-200">
+                     <button @click="openCards.dossier = !openCards.dossier" class="w-full p-4 md:p-5 flex justify-between items-center lg:cursor-default">
+                        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-folder-fill"></i> Expediente Digital</h3>
+                        <i class="bi bi-chevron-down transition-transform lg:hidden" :class="{ 'rotate-180': openCards.dossier }"></i>
+                    </button>
+                    <div x-show="openCards.dossier" x-transition class="p-4 md:p-5 pt-0 md:pt-0 lg:block border-t border-slate-200 lg:border-t-0">
+                        <div class="space-y-4 pt-4 lg:pt-0">
+                            <form action="{{ url_for('subir_documento', cliente_id=cliente.id) }}" method="POST" enctype="multipart/form-data" class="space-y-3 border-b pb-4">
+                                <div>
+                                    <input type="text" name="descripcion" class="mt-1 block w-full text-sm rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" placeholder="Descripción del archivo" required>
+                                </div>
+                                <div>
+                                    <input type="file" name="documento" class="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required>
+                                </div>
+                                <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg text-sm hover:bg-blue-700 flex items-center justify-center gap-2">
+                                    <i class="bi bi-cloud-arrow-up-fill"></i> Subir Archivo
+                                </button>
+                            </form>
+                            <div class="space-y-2 pt-2">
+                                <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
+                                    <div class="flex items-center gap-3"><i class="bi bi-person-vcard-fill text-slate-400"></i><span class="text-sm font-medium text-slate-700">Foto del Cliente</span></div>
+                                    {% if cliente.ruta_foto_cliente_s3 %}<a href="{{ bucket_url }}{{ cliente.ruta_foto_cliente_s3 }}" target="_blank" class="text-xs bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded-full hover:bg-slate-300">Ver</a>{% else %}<span class="text-xs text-slate-400">N/A</span>{% endif %}
+                                </div>
+                                <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
+                                    <div class="flex items-center gap-3"><i class="bi bi-credit-card-2-front-fill text-slate-400"></i><span class="text-sm font-medium text-slate-700">Documento de Identidad</span></div>
+                                    {% if cliente.ruta_foto_cedula_s3 %}<a href="{{ bucket_url }}{{ cliente.ruta_foto_cedula_s3 }}" target="_blank" class="text-xs bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded-full hover:bg-slate-300">Ver</a>{% else %}<span class="text-xs text-slate-400">N/A</span>{% endif %}
+                                </div>
+                                {% for doc in cliente.documentos %}
+                                <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
+                                    <div class="flex items-center gap-3"><i class="bi bi-file-earmark-text-fill text-slate-400"></i><span class="text-sm font-medium text-slate-700">{{ doc.nombre_archivo }}</span></div>
+                                    <a href="{{ bucket_url }}{{ doc.ruta_s3 }}" target="_blank" class="text-xs bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded-full hover:bg-slate-300">Descargar</a>
+                                </div>
+                                {% endfor %}
+                            </div>
                         </div>
-                        <div>
-                            <input type="file" name="documento" class="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required>
-                        </div>
-                        <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg text-sm hover:bg-blue-700 flex items-center justify-center gap-2">
-                            <i class="bi bi-cloud-arrow-up-fill"></i> Subir Archivo
-                        </button>
-                    </form>
-                    <div class="space-y-2 pt-2">
-                        <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
-                            <div class="flex items-center gap-3"><i class="bi bi-person-vcard-fill text-slate-400"></i><span class="text-sm font-medium text-slate-700">Foto del Cliente</span></div>
-                            {% if cliente.ruta_foto_cliente_s3 %}<a href="{{ bucket_url }}{{ cliente.ruta_foto_cliente_s3 }}" target="_blank" class="text-xs bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded-full hover:bg-slate-300">Ver</a>{% else %}<span class="text-xs text-slate-400">N/A</span>{% endif %}
-                        </div>
-                        <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
-                            <div class="flex items-center gap-3"><i class="bi bi-credit-card-2-front-fill text-slate-400"></i><span class="text-sm font-medium text-slate-700">Documento de Identidad</span></div>
-                            {% if cliente.ruta_foto_cedula_s3 %}<a href="{{ bucket_url }}{{ cliente.ruta_foto_cedula_s3 }}" target="_blank" class="text-xs bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded-full hover:bg-slate-300">Ver</a>{% else %}<span class="text-xs text-slate-400">N/A</span>{% endif %}
-                        </div>
-                        {% for doc in cliente.documentos %}
-                        <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
-                            <div class="flex items-center gap-3"><i class="bi bi-file-earmark-text-fill text-slate-400"></i><span class="text-sm font-medium text-slate-700">{{ doc.nombre_archivo }}</span></div>
-                            <a href="{{ bucket_url }}{{ doc.ruta_s3 }}" target="_blank" class="text-xs bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded-full hover:bg-slate-300">Descargar</a>
-                        </div>
-                        {% endfor %}
                     </div>
                 </div>
             </div>
-
             <div class="lg:col-span-2">
                 <div class="bg-white rounded-xl shadow-md border border-slate-200">
-                    <div x-show="showOfferForm" x-cloak class="p-6 border-b border-slate-200 bg-blue-50"> </div>
-                    <div class="px-6 border-b border-slate-200">
+                    <div x-show="showOfferForm" x-cloak class="p-4 md:p-6 border-b border-slate-200 bg-blue-50"> </div>
+                    <div class="px-4 md:px-6 border-b border-slate-200">
                         <nav class="-mb-px flex space-x-6 overflow-x-auto">
                             <button @click="activeTab = 'resumen'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'resumen' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Resumen Detallado</button>
                             <button @click="activeTab = 'pagos'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'pagos' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Historial de Pagos ({{ cliente.conteo_pagos }})</button>
@@ -176,7 +189,7 @@
                         </nav>
                     </div>
                     
-                    <div class="p-6 bg-slate-50/50 min-h-[20rem]">
+                    <div class="p-4 md:p-6 bg-slate-50/50 min-h-[20rem]">
                         <div x-show="activeTab === 'resumen'" x-cloak class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="bg-white border border-slate-200 rounded-lg p-5">
                                 <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-telephone-fill"></i> Contacto</h3>

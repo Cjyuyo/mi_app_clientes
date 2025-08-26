@@ -180,7 +180,27 @@
                     </div>
                     {% endif %}
                 </div>
-            </header>
+
+                <div x-show="mobileSearchOpen" x-cloak
+                     class="absolute top-0 left-0 w-full h-full bg-white flex items-center px-2 z-40 md:hidden"
+                     x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                     x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+                    <form action="{{ url_for('consulta') }}" method="post" class="w-full flex items-center gap-2" onsubmit="handleFormSubmit(this)">
+                        <select name="search_type" id="search_type_selector_mobile" class="py-2 text-sm bg-slate-100 border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white">
+                            <option value="cedula">Por Cédula</option>
+                            <option value="nombre_apellido">Por Nombre</option>
+                            <option value="contrato">Por Contrato</option>
+                        </select>
+                        <div class="relative flex-grow">
+                            <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="search" name="busqueda" id="search_input_field_mobile" placeholder="Búsqueda..." class="w-full pl-11 pr-4 py-2 text-sm bg-slate-100 border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white" autofocus>
+                        </div>
+                        <button type="button" @click.prevent="mobileSearchOpen = false" class="text-2xl text-gray-600 hover:text-gray-900 p-2">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </form>
+                </div>
+                </header>
             
             <main class="flex-1 overflow-y-auto">
                 <div class="p-4 sm:p-6 lg:p-8">
@@ -215,31 +235,37 @@
                 }
             });
 
-            // INICIO CORRECCIÓN: SCRIPT PARA BÚSQUEDA INTELIGENTE
-            const searchTypeSelector = document.getElementById('search_type_selector');
-            const searchInputField = document.getElementById('search_input_field');
-            if (searchTypeSelector && searchInputField) {
-                searchTypeSelector.addEventListener('change', function() {
-                    searchInputField.value = ''; // Limpiar el campo al cambiar de tipo
-                    switch(this.value) {
-                        case 'cedula':
-                            searchInputField.type = 'number';
-                            searchInputField.placeholder = 'Introduce la Cédula (solo números)';
-                            break;
-                        case 'nombre_apellido':
-                            searchInputField.type = 'text';
-                            searchInputField.placeholder = 'Introduce Nombre o Apellido';
-                            break;
-                        case 'contrato':
-                            searchInputField.type = 'text';
-                            searchInputField.placeholder = 'Introduce el Nº de Contrato';
-                            break;
-                    }
-                });
-                // Disparar el evento una vez al cargar la página para establecer el estado inicial
-                searchTypeSelector.dispatchEvent(new Event('change'));
+            // INICIO DE LA MODIFICACIÓN: SCRIPT PARA BÚSQUEDA INTELIGENTE (ESCRITORIO Y MÓVIL)
+            function setupSearchInput(typeSelectorId, inputFieldId) {
+                const searchTypeSelector = document.getElementById(typeSelectorId);
+                const searchInputField = document.getElementById(inputFieldId);
+                
+                if (searchTypeSelector && searchInputField) {
+                    const updateInputType = () => {
+                        searchInputField.value = ''; // Limpiar el campo al cambiar de tipo
+                        switch(searchTypeSelector.value) {
+                            case 'cedula':
+                                searchInputField.type = 'number';
+                                searchInputField.placeholder = 'Introduce la Cédula (solo números)';
+                                break;
+                            case 'nombre_apellido':
+                                searchInputField.type = 'text';
+                                searchInputField.placeholder = 'Introduce Nombre o Apellido';
+                                break;
+                            case 'contrato':
+                                searchInputField.type = 'text';
+                                searchInputField.placeholder = 'Introduce el Nº de Contrato';
+                                break;
+                        }
+                    };
+                    searchTypeSelector.addEventListener('change', updateInputType);
+                    updateInputType(); // Establecer el estado inicial al cargar
+                }
             }
-            // FIN CORRECCIÓN
+
+            setupSearchInput('search_type_selector', 'search_input_field');
+            setupSearchInput('search_type_selector_mobile', 'search_input_field_mobile');
+            // FIN DE LA MODIFICACIÓN
         });
     </script>
     

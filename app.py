@@ -4193,23 +4193,50 @@ def portal_corregir_reporte(pago_id):
 @app.route('/portal/pagar_inscripcion', methods=['GET', 'POST'])
 @portal_login_required
 def portal_pagar_inscripcion():
-    # ... (lógica inicial sin cambios) ...
-    if request.method == 'POST':
-        pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
-        try:
-            with conn.cursor() as cur:
+    conn = get_db()
+    if not conn:
+        flash('No se pudo conectar con la base de datos.', 'error')
+        return redirect(url_for('portal_dashboard'))
+
+    try:
+        with conn.cursor() as cur:
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Este es el bloque de código que faltaba. Carga los datos del cliente.
+            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
+            cliente = cur.fetchone()
+            if not cliente:
+                flash('No se pudo encontrar tu perfil de cliente.', 'error')
+                return redirect(url_for('portal_logout'))
+            
+            today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
+            cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
+            tasa_hoy = cur.fetchone()
+            # --- FIN DE LA CORRECCIÓN ---
+
+            inscripcion_total = cliente.get('inscripcion_monto', Decimal('0.0')) or Decimal('0.0')
+            inscripcion_pagada = cliente.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
+            monto_restante = inscripcion_total - inscripcion_pagada
+
+            if monto_restante <= 0:
+                flash('Tu inscripción ya ha sido pagada en su totalidad.', 'info')
+                return redirect(url_for('portal_dashboard'))
+
+            tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
+            monto_a_pagar_bs = (monto_restante * tasa_bcv_calculo).quantize(Decimal('0.01'))
+            concepto_pago = f"Pago de Inscripción (Restante)"
+
+            if request.method == 'POST':
+                pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
                 monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
                 monto_usd_a_guardar = monto_restante
                 if pago_form.get('pago_en') == 'USDT':
                      monto_usd_a_guardar = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
 
-                # --- LÓGICA AÑADIDA PARA GUARDAR DETALLES DE PAGO MÓVIL ---
                 detalles_pago = {}
                 if pago_form.get('forma_pago_bs') == 'Pago Móvil':
                     detalles_pago['telefono_emisor'] = pago_form.get('pago_movil_telefono')
                     detalles_pago['cedula_emisor'] = pago_form.get('pago_movil_cedula')
                 detalles_json = json.dumps(detalles_pago) if detalles_pago else None
-                # --- FIN ---
 
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia,
@@ -4226,13 +4253,16 @@ def portal_pagar_inscripcion():
                 conn.commit()
                 flash('✅ ¡Pago de inscripción reportado! Será verificado por un administrador.', 'success')
                 return redirect(url_for('portal_dashboard'))
-        except (psycopg2.Error, ValueError, TypeError) as e:
-            conn.rollback()
-            flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
-    # Se renderiza la plantilla unificada con las variables correctas
+
+    except (psycopg2.Error, KeyError, ValueError) as e:
+        if conn: conn.rollback()
+        logging.error(f"Error en portal_pagar_inscripcion: {traceback.format_exc()}")
+        flash('Ocurrió un error inesperado al procesar tu solicitud de pago.', 'error')
+        return redirect(url_for('portal_dashboard'))
+
     return render_template('portal_pago_unificado.html', 
                            cliente=cliente, 
-                           monto_restante=monto_restante, # Variable clave para que la plantilla sepa que es una inscripción
+                           monto_restante=monto_restante,
                            tasa_hoy=tasa_hoy, 
                            monto_a_pagar_usd=monto_restante,
                            monto_a_pagar_bs=monto_a_pagar_bs,
