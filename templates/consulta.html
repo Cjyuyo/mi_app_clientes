@@ -116,9 +116,139 @@
             <p class="text-xs text-slate-500 mt-2">Nota: El backend debe ser actualizado para guardar el modelo seleccionado.</p>
         </form>
     </div>
-
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-1 space-y-6">
+            <div class="bg-white rounded-xl shadow-md border border-slate-200">
+                <button @click="openCards.progress = !openCards.progress" class="w-full p-4 md:p-5 flex justify-between items-center lg:cursor-default">
+                    <h3 class="text-base font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-graph-up-arrow"></i> Resumen de Progreso</h3>
+                    <i class="bi bi-chevron-down transition-transform lg:hidden" :class="{ 'rotate-180': openCards.progress }"></i>
+                </button>
+                <div x-show="openCards.progress" x-transition class="p-4 md:p-5 pt-0 md:pt-0 lg:block border-t border-slate-200 lg:border-t-0">
+                    <div class="space-y-4 pt-4 lg:pt-0">
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-600 mb-1">Progreso Inscripción</h4>
+                            {% set inscripcion_pagada = cliente.inscripcion_pagada|float(0) %}{% set inscripcion_monto = cliente.inscripcion_monto|float(1) %}
+                            {% set inscripcion_percent = (inscripcion_pagada / inscripcion_monto * 100) if inscripcion_monto > 0 else 0 %}
+                            <div class="pt-1">
+                                <div class="flex justify-between items-center mb-1"><span class="text-sm font-semibold text-slate-600">{{ "%.0f"|format(inscripcion_percent) }}%</span><span class="text-xs font-medium text-slate-500">${{ "%.2f"|format(inscripcion_pagada) }} / ${{ "%.2f"|format(inscripcion_monto) }}</span></div>
+                                <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="bg-yellow-400 h-2.5 rounded-full" style="width: {{ inscripcion_percent }}%"></div></div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-semibold text-slate-600 mb-1">Progreso del Plan</h4>
+                            {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int(0) %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas|int(0) %}{% set cuotas_totales = cliente.cuotas_totales|int(1) %}
+                            {% set progresivas_percent = (cuotas_progresivas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}{% set regresivas_percent = (cuotas_regresivas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                            <div class="pt-1">
+                                <div class="flex justify-between items-center text-sm mb-2"><span class="font-semibold text-slate-600">Cuotas: {{ cuotas_progresivas + cuotas_regresivas }} / {{ cuotas_totales }}</span><span class="font-semibold text-slate-500">{{ "%.1f"|format(progresivas_percent + regresivas_percent) }}%</span></div>
+                                <div class="w-full flex h-3 rounded-full overflow-hidden bg-slate-200"><div class="bg-blue-600" style="width: {{ progresivas_percent }}%"></div><div class="bg-teal-500" style="width: {{ regresivas_percent }}%"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md border border-slate-200">
+                 <button @click="openCards.dossier = !openCards.dossier" class="w-full p-4 md:p-5 flex justify-between items-center lg:cursor-default">
+                    <h3 class="text-base font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-folder-fill"></i> Expediente Digital</h3>
+                    <i class="bi bi-chevron-down transition-transform lg:hidden" :class="{ 'rotate-180': openCards.dossier }"></i>
+                </button>
+                <div x-show="openCards.dossier" x-transition class="p-4 md:p-5 pt-0 md:pt-0 lg:block border-t border-slate-200 lg:border-t-0">
+                    <div class="space-y-4 pt-4 lg:pt-0">
+                        <form action="{{ url_for('subir_documento', cliente_id=cliente.id) }}" method="POST" enctype="multipart/form-data" class="space-y-3 border-b pb-4">
+                            <div>
+                                <input type="text" name="descripcion" class="mt-1 block w-full text-sm rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" placeholder="Descripción del archivo" required>
+                            </div>
+                            <div>
+                                <input type="file" name="documento" class="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required>
+                            </div>
+                            <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg text-sm hover:bg-blue-700 flex items-center justify-center gap-2">
+                                <i class="bi bi-cloud-arrow-up-fill"></i> Subir Archivo
+                            </button>
+                        </form>
+                        <div class="space-y-2 pt-2">
+                            <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
+                                <div class="flex items-center gap-3"><i class="bi bi-person-vcard-fill text-slate-400"></i><span class="text-sm font-medium text-slate-700">Foto del Cliente</span></div>
+                                {% if cliente.ruta_foto_cliente_s3 %}<a href="{{ bucket_url }}{{ cliente.ruta_foto_cliente_s3 }}" target="_blank" class="text-xs bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded-full hover:bg-slate-300">Ver</a>{% else %}<span class="text-xs text-slate-400">N/A</span>{% endif %}
+                            </div>
+                            <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
+                                <div class="flex items-center gap-3"><i class="bi bi-credit-card-2-front-fill text-slate-400"></i><span class="text-sm font-medium text-slate-700">Documento de Identidad</span></div>
+                                {% if cliente.ruta_foto_cedula_s3 %}<a href="{{ bucket_url }}{{ cliente.ruta_foto_cedula_s3 }}" target="_blank" class="text-xs bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded-full hover:bg-slate-300">Ver</a>{% else %}<span class="text-xs text-slate-400">N/A</span>{% endif %}
+                            </div>
+                            {% for doc in cliente.documentos %}
+                            <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
+                                <div class="flex items-center gap-3"><i class="bi bi-file-earmark-text-fill text-slate-400"></i><span class="text-sm font-medium text-slate-700">{{ doc.nombre_archivo }}</span></div>
+                                <a href="{{ bucket_url }}{{ doc.ruta_s3 }}" target="_blank" class="text-xs bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded-full hover:bg-slate-300">Descargar</a>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-xl shadow-md border border-slate-200">
+                <div class="px-4 md:px-6 border-b border-slate-200">
+                    <nav class="-mb-px flex space-x-6 overflow-x-auto">
+                        <button @click="activeTab = 'resumen'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'resumen' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Resumen Detallado</button>
+                        <button @click="activeTab = 'pagos'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'pagos' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Historial de Pagos ({{ cliente.conteo_pagos }})</button>
+                        <button @click="activeTab = 'actividad'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'actividad' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Línea de Tiempo ({{ cliente.conteo_ofertas + cliente.conteo_gestiones }})</button>
+                    </nav>
+                </div>
+                
+                <div class="p-4 md:p-6 bg-slate-50/50 min-h-[20rem]">
+                    <div x-show="activeTab === 'resumen'" x-cloak class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white border border-slate-200 rounded-lg p-5">
+                            <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-telephone-fill"></i> Contacto</h3>
+                            <div class="space-y-3 text-sm">
+                                <div class="flex items-center gap-3 pt-2"><i class="bi bi-whatsapp text-slate-400 w-4 text-center"></i><span class="font-semibold text-slate-700">{{ cliente.telefono or 'N/A' }}</span></div>
+                                <div class="flex items-center gap-3"><i class="bi bi-envelope-fill text-slate-400 w-4 text-center"></i><span class="font-semibold text-slate-700">{{ cliente.email or 'N/A' }}</span></div>
+                                <div class="flex items-start gap-3"><i class="bi bi-geo-alt-fill text-slate-400 w-4 text-center pt-1"></i><span class="text-slate-700">{{ cliente.direccion or 'N/A' }}</span></div>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-slate-200 rounded-lg p-5">
+                             <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-journal-text"></i> Contrato</h3>
+                             <div class="space-y-3 text-sm">
+                                 <div class="flex justify-between items-center pt-2"><span class="text-slate-500">Valor del Bien/Plan:</span><span class="font-bold text-slate-800">${{ "%.2f"|format(cliente.plan_contratado|float) if cliente.plan_contratado else '0.00' }}</span></div>
+                                 <div class="flex justify-between items-center"><span class="text-slate-500">N° Contrato:</span><span class="font-semibold font-mono text-slate-700">{{ cliente.contrato_nro or 'N/A' }}</span></div>
+                                 <div class="flex justify-between items-center"><span class="text-slate-500">Fecha Ingreso:</span><span class="font-semibold text-slate-700">{{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</span></div>
+                                 <div class="flex justify-between items-center"><span class="text-slate-500">Asesor:</span><span class="font-semibold text-slate-700">{{ cliente.asesor or 'N/A' }}</span></div>
+                             </div>
+                        </div>
+                        {% if cliente.beneficiario_nombre %}
+                        <div class="bg-white border border-slate-200 rounded-lg p-5 md:col-span-2">
+                             <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-person-heart"></i> Beneficiario</h3>
+                             <div class="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2 pt-2 text-sm">
+                                <div><p class="text-slate-500">Nombre:</p><p class="font-semibold text-slate-700">{{ cliente.beneficiario_nombre }}</p></div>
+                                <div><p class="text-slate-500">Cédula:</p><p class="font-semibold text-slate-700">{{ cliente.beneficiario_cedula or 'N/A' }}</p></div>
+                                <div><p class="text-slate-500">Teléfono:</p><p class="font-semibold text-slate-700">{{ cliente.beneficiario_telefono or 'N/A' }}</p></div>
+                             </div>
+                        </div>
+                        {% endif %}
+                        </div>
+
+                    <div x-show="activeTab === 'pagos'" x-cloak class="space-y-3">
+                        {% for pago in cliente.pagos %}
+                        <div class="bg-white border rounded-lg p-3 flex items-center justify-between gap-3 hover:shadow-sm transition-shadow">
+                            <div>
+                                <p class="font-semibold text-slate-700">{{ pago.tipo_pago }} - ${{ "%.2f"|format(pago.monto|float) }}</p>
+                                <p class="text-xs text-slate-500">{{ pago.fecha_pago.strftime('%d/%m/%Y') }} | Ref: {{ pago.referencia or 'N/A' }}</p>
+                            </div>
+                            <span class="text-xs font-bold py-1 px-2 rounded-full
+                                {% if pago.estado_pago == 'Conciliado' %} bg-green-100 text-green-800
+                                {% elif pago.estado_pago == 'Pendiente' %} bg-yellow-100 text-yellow-800
+                                {% else %} bg-red-100 text-red-800
+                                {% endif %}">{{ pago.estado_pago }}</span>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-8"><p class="text-slate-500">No hay pagos registrados.</p></div>
+                        {% endfor %}
+                    </div>
+                    <div x-show="activeTab === 'actividad'" x-cloak class="space-y-6">
+                        </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% else %}
 <div class="text-center p-8">
@@ -132,7 +262,7 @@
     function confirmDelete(form) {
         Swal.fire({
             title: '¿Estás seguro?',
-            text: "¡Esta acción no se puede deshacer!",
+            text: "¡Esta acción eliminará al cliente y todos sus datos permanentemente!",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
@@ -149,7 +279,7 @@
     function confirmEdit(url) {
         Swal.fire({
             title: 'Confirmar Edición',
-            text: "¿Deseas continuar a la página de edición?",
+            text: "Vas a ser redirigido a la página de edición. ¿Deseas continuar?",
             icon: 'info',
             showCancelButton: true,
             confirmButtonColor: '#3085d6',
@@ -162,7 +292,7 @@
             }
         });
     }
-
+    
     document.addEventListener('DOMContentLoaded', function() {
         const planModels = {
             1400: ['Bera SBR', 'Bera BRF', 'Águila', 'ES Hero'],

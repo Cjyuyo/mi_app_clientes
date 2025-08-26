@@ -82,6 +82,7 @@
                             <tr>
                                 <th scope="col" class="p-4"><input id="checkbox-all-ahorradores" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"></th>
                                 <th scope="col" class="px-6 py-3">Cliente</th>
+                                <th scope="col" class="px-6 py-3 text-center">Plan Contratado</th>
                                 <th scope="col" class="px-6 py-3 text-center">Cuotas</th>
                             </tr>
                         </thead>
@@ -90,10 +91,11 @@
                             <tr class="bg-white border-b hover:bg-slate-50">
                                 <td class="w-4 p-4"><input id="checkbox-ahorrador-{{ p.id }}" name="seleccion_individual_ahorrador" value="{{ p.id }}" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"></td>
                                 <td class="px-6 py-4 font-medium text-slate-900">{{ p.nombre_apellido }}</td>
+                                <td class="px-6 py-4 text-center">${{ "%.2f"|format(p.plan_contratado|float) }}</td>
                                 <td class="px-6 py-4 text-center font-bold">{{ p.cuotas_pagadas_progresivas }}</td>
                             </tr>
                             {% else %}
-                            <tr><td colspan="3" class="text-center p-4 text-slate-500">No hay ahorradores elegibles.</td></tr>
+                            <tr><td colspan="4" class="text-center p-4 text-slate-500">No hay ahorradores elegibles.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
