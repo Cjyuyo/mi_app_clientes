@@ -34,16 +34,16 @@
     <div x-data="{ 
         showOfferForm: false, 
         activeTab: 'resumen' 
-    }" class="w-full">
+    }" class="w-full space-y-6">
 
-        <div class="bg-white rounded-xl shadow-md border border-slate-200 p-6 mb-6">
+        <div class="bg-white rounded-xl shadow-md border border-slate-200 p-6">
             <div class="flex flex-col md:flex-row items-start gap-6">
                 <div class="flex-shrink-0 flex items-center gap-5">
                     {% if cliente.ruta_foto_cliente_s3 %}
                         <img src="https://motoplan-motors.s3.amazonaws.com/{{ cliente.ruta_foto_cliente_s3 }}" alt="Foto de {{ cliente.nombre_apellido }}" class="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg">
                     {% else %}
-                        <div class="w-24 h-24 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-4xl flex-shrink-0">
-                            {{ cliente.nombre[0]|upper if cliente.nombre }}{{ cliente.apellido[0]|upper if cliente.apellido }}
+                        <div class="w-24 h-24 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center border-4 border-white shadow-lg">
+                            <i class="bi bi-person-fill text-6xl"></i>
                         </div>
                     {% endif %}
                     <div>
@@ -63,40 +63,26 @@
                     </div>
                 </div>
 
-                <div class="flex-grow w-full space-y-4 pt-2">
-                    <div class="grid grid-cols-3 gap-4 text-center">
-                        <div>
-                            <p class="text-xs text-slate-500 uppercase font-semibold">Valor del Plan</p>
-                            <p class="text-lg font-bold text-slate-800">${{ "%.2f"|format(cliente.plan_contratado|float) if cliente.plan_contratado else '0.00' }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-slate-500 uppercase font-semibold">Total Pagado</p>
-                            <p class="text-lg font-bold text-green-600">${{ "%.2f"|format(cliente.inscripcion_pagada|float + (cliente.cuotas_pagadas_progresivas|int * cliente.valor_cuota|float)) }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-slate-500 uppercase font-semibold">Saldo Pendiente</p>
-                            <p class="text-lg font-bold text-red-600">${{ "%.2f"|format(cliente.plan_contratado|float - (cliente.inscripcion_pagada|float + (cliente.cuotas_pagadas_progresivas|int * cliente.valor_cuota|float))) }}</p>
-                        </div>
+                {% set total_financiado = (cliente.valor_cuota|float(0) * cliente.cuotas_totales|int(0)) %}
+                {% set total_pagado = (cliente.inscripcion_pagada|float(0) + (cliente.cuotas_pagadas_progresivas|int(0) * cliente.valor_cuota|float(0))) %}
+                {% set saldo_pendiente = total_financiado - total_pagado %}
+
+                <div class="flex-grow w-full grid grid-cols-3 gap-4 text-center pt-2 border-t md:border-t-0 md:border-l md:pl-6 md:ml-6 border-slate-200">
+                    <div>
+                        <p class="text-xs text-slate-500 uppercase font-semibold">Total Financiado</p>
+                        <p class="text-lg font-bold text-slate-800">${{ "%.2f"|format(total_financiado) }}</p>
                     </div>
-                    <div class="space-y-3">
-                        {% set inscripcion_pagada = cliente.inscripcion_pagada|float if cliente.inscripcion_pagada else 0.0 %}
-                        {% set inscripcion_monto = cliente.inscripcion_monto|float if cliente.inscripcion_monto else 0.0 %}
-                        {% set inscripcion_percent = (inscripcion_pagada / inscripcion_monto * 100) if inscripcion_monto > 0 else 0 %}
-                        <div>
-                            <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-600">Progreso Inscripción</span><span class="text-xs font-medium text-slate-500">{{ "%.0f"|format(inscripcion_percent) }}%</span></div>
-                            <div class="w-full bg-slate-200 rounded-full h-2"><div class="bg-yellow-400 h-2 rounded-full" style="width: {{ inscripcion_percent }}%"></div></div>
-                        </div>
-                        {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int if cliente.cuotas_pagadas_progresivas else 0 %}
-                        {% set cuotas_totales = cliente.cuotas_totales|int if cliente.cuotas_totales else 1 %}
-                        {% set progresivas_percent = (cuotas_progresivas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
-                        <div>
-                            <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-slate-600">Progreso Cuotas</span><span class="text-xs font-medium text-slate-500">{{ cuotas_progresivas }} de {{ cuotas_totales }}</span></div>
-                            <div class="w-full bg-slate-200 rounded-full h-2"><div class="bg-blue-600 h-2 rounded-full" style="width: {{ progresivas_percent }}%"></div></div>
-                        </div>
+                    <div>
+                        <p class="text-xs text-slate-500 uppercase font-semibold">Total Pagado</p>
+                        <p class="text-lg font-bold text-green-600">${{ "%.2f"|format(total_pagado) }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500 uppercase font-semibold">Saldo Pendiente</p>
+                        <p class="text-lg font-bold text-red-600">${{ "%.2f"|format(saldo_pendiente) }}</p>
                     </div>
                 </div>
 
-                <div class="flex-shrink-0 w-full md:w-auto md:border-l md:pl-6 md:ml-6 border-slate-200">
+                <div class="flex-shrink-0 w-full md:w-auto">
                     <div class="flex md:flex-col gap-2">
                         <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="flex-1 text-center text-sm bg-green-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"><i class="bi bi-cash-coin"></i><span class="hidden md:inline">Registrar Pago</span></a>
                         <button @click="showOfferForm = !showOfferForm" class="flex-1 text-center text-sm bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"><i class="bi bi-gem"></i><span class="hidden md:inline">Registrar Oferta</span></button>
@@ -118,6 +104,32 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-md border border-slate-200 p-5 space-y-4">
+            <h3 class="text-base font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-graph-up-arrow"></i> Progreso Financiero</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+                <div>
+                    {% set inscripcion_pagada = cliente.inscripcion_pagada|float(0) %}
+                    {% set inscripcion_monto = cliente.inscripcion_monto|float(0) %}
+                    {% set inscripcion_percent = (inscripcion_pagada / inscripcion_monto * 100) if inscripcion_monto > 0 else 0 %}
+                    <div class="flex justify-between items-center mb-1"><span class="text-sm font-semibold text-slate-600">Inscripción</span><span class="text-xs font-medium text-slate-500">${{ "%.2f"|format(inscripcion_pagada) }} / ${{ "%.2f"|format(inscripcion_monto) }}</span></div>
+                    <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="bg-yellow-400 h-2.5 rounded-full" style="width: {{ inscripcion_percent }}%"></div></div>
+                </div>
+                <div>
+                    {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int(0) %}
+                    {% set cuotas_totales = cliente.cuotas_totales|int(1) %}
+                    {% set progresivas_percent = (cuotas_progresivas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                    <div class="flex justify-between items-center mb-1"><span class="text-sm font-semibold text-slate-600">Cuotas Progresivas</span><span class="text-xs font-medium text-slate-500">{{ cuotas_progresivas }} de {{ cuotas_totales }}</span></div>
+                    <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="bg-blue-600 h-2.5 rounded-full" style="width: {{ progresivas_percent }}%"></div></div>
+                </div>
+                <div>
+                    {% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas|int(0) %}
+                    {% set regresivas_percent = (cuotas_regresivas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                    <div class="flex justify-between items-center mb-1"><span class="text-sm font-semibold text-slate-600">Cuotas Regresivas</span><span class="text-xs font-medium text-slate-500">{{ cuotas_regresivas }} de {{ cuotas_totales }}</span></div>
+                    <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="bg-teal-500 h-2.5 rounded-full" style="width: {{ regresivas_percent }}%"></div></div>
                 </div>
             </div>
         </div>
@@ -162,7 +174,8 @@
                         </div>
                         <div class="space-y-3 text-sm">
                              <h3 class="text-base font-bold text-slate-800 border-b pb-2 flex items-center gap-2"><i class="bi bi-journal-text"></i> Detalles del Contrato</h3>
-                             <div class="flex justify-between items-center pt-2"><span class="text-slate-500">N° Contrato:</span><span class="font-semibold font-mono text-slate-700">{{ cliente.contrato_nro or 'N/A' }}</span></div>
+                             <div class="flex justify-between items-center pt-2"><span class="text-slate-500">Valor del Bien/Plan:</span><span class="font-bold text-slate-800">${{ "%.2f"|format(cliente.plan_contratado|float) if cliente.plan_contratado else '0.00' }}</span></div>
+                             <div class="flex justify-between items-center"><span class="text-slate-500">N° Contrato:</span><span class="font-semibold font-mono text-slate-700">{{ cliente.contrato_nro or 'N/A' }}</span></div>
                              <div class="flex justify-between items-center"><span class="text-slate-500">Fecha Ingreso:</span><span class="font-semibold text-slate-700">{{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</span></div>
                              <div class="flex justify-between items-center"><span class="text-slate-500">Asesor:</span><span class="font-semibold text-slate-700">{{ cliente.asesor or 'N/A' }}</span></div>
                              <div class="flex justify-between items-center"><span class="text-slate-500">Responsable Cierre:</span><span class="font-semibold text-slate-700">{{ cliente.responsable or 'N/A' }}</span></div>
@@ -294,3 +307,4 @@
 </script>
 {% endblock %}
 }
+Quiero los comandos git con el formato de siempre

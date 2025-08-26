@@ -6,7 +6,6 @@
 
 {% block body %}
 <div class="space-y-6">
-    <!-- Encabezado -->
     <div class="bg-white p-6 rounded-xl shadow-sm">
         <div class="flex flex-wrap justify-between items-center gap-4">
             <div>
@@ -20,7 +19,6 @@
         </div>
     </div>
 
-    <!-- Tabla de Usuarios -->
     <div class="bg-white rounded-xl shadow-sm">
         <div class="overflow-x-auto">
             <table class="min-w-full bg-white text-sm">
@@ -51,7 +49,7 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center text-base font-medium">
                             <div class="flex items-center justify-center space-x-4">
-                                <button type="button" onclick="openEditModal({{ usuario.id }}, '{{ usuario.nombre_completo }}', '{{ usuario.usuario }}')" class="text-blue-600 hover:text-blue-900" title="Editar Usuario">
+                                <button type="button" onclick="openEditModal({{ usuario.id }}, '{{ usuario.nombre_completo }}', '{{ usuario.usuario }}', '{{ usuario.rol }}')" class="text-blue-600 hover:text-blue-900" title="Editar Usuario">
                                     <i class="bi bi-pencil-square"></i>
                                 </button>
                                 <form action="{{ url_for('cambiar_estado_usuario', user_id=usuario.id) }}" method="POST" class="inline">
@@ -78,51 +76,9 @@
     </div>
 </div>
 
-<!-- Modal para Agregar Usuario (sin cambios) -->
 <div id="modalAgregarUsuario" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
-        <div class="mt-3 text-center">
-            <h3 class="text-lg leading-6 font-medium text-gray-900">Agregar Nuevo Usuario</h3>
-            <div class="mt-2 px-7 py-3">
-                <form action="{{ url_for('agregar_usuario') }}" method="POST" class="space-y-4 text-left">
-                    <div>
-                        <label for="nombre_completo" class="block text-sm font-medium text-gray-700">Nombre Completo</label>
-                        <input type="text" name="nombre_completo" id="nombre_completo" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
-                    </div>
-                    <div>
-                        <label for="usuario" class="block text-sm font-medium text-gray-700">Nombre de Usuario (para login)</label>
-                        <input type="text" name="usuario" id="usuario" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
-                    </div>
-                    <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700">Contraseña</label>
-                        <input type="password" name="password" id="password" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
-                    </div>
-                    <div>
-                        <label for="rol" class="block text-sm font-medium text-gray-700">Rol</label>
-                        <select name="rol" id="rol" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" required>
-                            <option value="asesor">Asesor</option>
-                            <option value="administradora">Administradora</option>
-                            <option value="gerente">Gerente</option>
-                            <option value="superadmin">Superadmin</option>
-                        </select>
-                    </div>
-                    <div class="items-center px-4 py-3">
-                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            Crear Usuario
-                        </button>
-                    </div>
-                </form>
-            </div>
-            <div class="items-center px-4 py-3">
-                <button onclick="document.getElementById('modalAgregarUsuario').classList.add('hidden')" class="px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500">
-                    Cancelar
-                </button>
-            </div>
-        </div>
     </div>
-</div>
 
-<!-- Modal para Editar Usuario (sin cambios) -->
 <div id="modalEditarUsuario" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
     <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
         <div class="mt-3 text-center">
@@ -137,6 +93,19 @@
                         <label for="usuario_edit" class="block text-sm font-medium text-gray-700">Nombre de Usuario (para login)</label>
                         <input type="text" name="usuario_edit" id="usuario_edit" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
                     </div>
+
+                    {% if g.admin.rol == 'superadmin' %}
+                    <div>
+                        <label for="rol_edit" class="block text-sm font-medium text-gray-700">Rol</label>
+                        <select name="rol_edit" id="rol_edit" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md disabled:bg-gray-200 disabled:cursor-not-allowed" required>
+                            <option value="asesor">Asesor</option>
+                            <option value="administradora">Administradora</option>
+                            <option value="gerente">Gerente</option>
+                            <option value="superadmin">Superadmin</option>
+                        </select>
+                        <p id="rol-edit-notice" class="text-xs text-red-600 mt-1 hidden">El rol de un Superadmin no puede ser modificado.</p>
+                    </div>
+                    {% endif %}
                     <div class="items-center px-4 py-3">
                         <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
                             Guardar Cambios
@@ -154,18 +123,29 @@
 </div>
 
 <script>
-    function openEditModal(userId, nombreCompleto, usuario) {
-        // Establecer la acción del formulario con la URL correcta
+    function openEditModal(userId, nombreCompleto, usuario, rol) {
         const form = document.getElementById('editUserForm');
         form.action = `/admin/editar_usuario/${userId}`;
 
-        // Llenar los campos del formulario con los datos actuales del usuario
         document.getElementById('nombre_completo_edit').value = nombreCompleto;
         document.getElementById('usuario_edit').value = usuario;
 
-        // Mostrar el modal
+        // Lógica para el selector de rol (solo si existe)
+        const rolSelect = document.getElementById('rol_edit');
+        const rolNotice = document.getElementById('rol-edit-notice');
+        if (rolSelect) {
+            rolSelect.value = rol;
+            // Un Superadmin no puede cambiar el rol de otro Superadmin
+            if (rol === 'superadmin') {
+                rolSelect.disabled = true;
+                rolNotice.classList.remove('hidden');
+            } else {
+                rolSelect.disabled = false;
+                rolNotice.classList.add('hidden');
+            }
+        }
+
         document.getElementById('modalEditarUsuario').classList.remove('hidden');
     }
 </script>
-
 {% endblock %}
