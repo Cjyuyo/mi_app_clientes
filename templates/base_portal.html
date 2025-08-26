@@ -41,7 +41,6 @@
 
 <body x-data="{ navOpen: false }" class="h-screen flex flex-col">
 
-    <!-- Mobile Header -->
     <header class="md:hidden bg-slate-800 text-white h-16 px-4 flex justify-between items-center sticky top-0 z-50 shadow-md flex-shrink-0">
         <a href="{{ url_for('portal_dashboard') }}">
             <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan" class="w-32">
@@ -53,28 +52,23 @@
 
     <div class="flex-1 md:flex min-h-0">
 
-        <!-- Sidebar -->
-        <!-- CAMBIO: Se ajustan las clases para que el menú se deslice desde arriba en móvil -->
         <aside 
             class="sidebar bg-slate-800 text-white w-full flex-shrink-0 flex flex-col fixed top-0 left-0 right-0 z-40 transform -translate-y-full transition-transform duration-300 ease-in-out h-auto max-h-[80vh] overflow-y-auto rounded-b-xl shadow-lg md:relative md:w-72 md:h-full md:max-h-none md:translate-y-0 md:rounded-b-none md:shadow-none"
             :class="{'!translate-y-0': navOpen}"
         >
-            <!-- Header interno del sidebar, visible solo en escritorio -->
             <div class="hidden md:flex justify-center items-center h-20 px-4 border-b border-slate-700 flex-shrink-0">
                 <a href="{{ url_for('portal_dashboard') }}">
                     <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan" class="w-40">
                 </a>
             </div>
 
-            <!-- CAMBIO: Se añade padding-top para que el contenido del menú no quede debajo del header en móvil -->
             <nav class="flex-1 flex flex-col p-4 pt-20 md:pt-4">
                 {% block sidebar_actions %}
-                <!-- Top section of links -->
                 <div>
                     <p class="px-4 pt-4 pb-2 text-xs font-medium text-slate-400 uppercase">Acciones</p>
                     <ul>
                         <li>
-                            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled{% endif %}"
+                            <a href="#" @click="navOpen = false" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled{% endif %}"
                                data-bs-toggle="modal" data-bs-target="#ofertaModal"
                                {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}onclick="event.preventDefault()" title="Debes tener tu inscripción y al menos una cuota pagada para ofertar."{% endif %}>
                                 <i class="bi bi-gem"></i>
@@ -82,7 +76,7 @@
                             </a>
                         </li>
                         <li>
-                            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
+                            <a href="#" @click="navOpen = false" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
                                data-bs-toggle="modal" data-bs-target="#citaModal">
                                 <i class="bi bi-calendar-check"></i>
                                 <span>Solicitar Cita</span>
@@ -90,7 +84,7 @@
                         </li>
                         {% if cliente.estatus == 'CONGELADO' %}
                         <li>
-                            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
+                            <a href="#" @click="navOpen = false" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
                                data-bs-toggle="modal" data-bs-target="#descongelamientoModal">
                                 <i class="bi bi-unlock-fill"></i>
                                 <span>Descongelar</span>
@@ -98,7 +92,7 @@
                         </li>
                         {% else %}
                         <li>
-                            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
+                            <a href="#" @click="navOpen = false" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
                                data-bs-toggle="modal" data-bs-target="#congelamientoModal"
                                {% if cliente.estatus != 'ACTIVO' %}onclick="event.preventDefault()"{% endif %}>
                                 <i class="bi bi-snow"></i>
@@ -107,7 +101,7 @@
                         </li>
                         {% endif %}
                         <li>
-                            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
+                            <a href="#" @click="navOpen = false" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
                                data-bs-toggle="modal" data-bs-target="#retiroModal"
                                {% if cliente.estatus != 'ACTIVO' %}onclick="event.preventDefault()"{% endif %}>
                                 <i class="bi bi-box-arrow-left"></i>
@@ -117,7 +111,6 @@
                     </ul>
                 </div>
 
-                <!-- Bottom section of links -->
                 <div class="mt-auto">
                     <p class="px-4 pt-6 pb-2 text-xs font-medium text-slate-400 uppercase">Documentos</p>
                     <ul>
@@ -146,11 +139,9 @@
             </div>
         </aside>
 
-        <!-- Main Content Area -->
         <div class="flex-1 flex flex-col overflow-y-auto">
             <main class="flex-1 p-2 md:p-6">
                 {% block body %}
-                <!-- El contenido del dashboard va aquí -->
                 {% endblock %}
             </main>
             
