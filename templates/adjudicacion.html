@@ -68,6 +68,7 @@
                 </div>
             </div>
 
+            {# --- INICIO DEL BLOQUE CORREGIDO PARA AHORRADORES ELEGIBLES --- #}
             <div class="lg:col-span-1 bg-white rounded-xl shadow-sm">
                 <div class="p-5 border-b border-slate-200 flex justify-between items-center">
                     <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -76,8 +77,10 @@
                     </h2>
                     <span class="py-1 px-2.5 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">{{ clientes_elegibles_ahorro|length }}</span>
                 </div>
-                <div class="overflow-x-auto">
-                     <table class="w-full text-sm text-left text-slate-500">
+
+                {# VISTA DE TABLA PARA ESCRITORIO (md y superior) #}
+                <div class="hidden md:block">
+                    <table class="w-full text-sm text-left text-slate-500">
                         <thead class="text-xs text-slate-700 uppercase bg-slate-50">
                             <tr>
                                 <th scope="col" class="p-4"><input id="checkbox-all-ahorradores" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"></th>
@@ -100,7 +103,34 @@
                         </tbody>
                     </table>
                 </div>
+
+                {# VISTA DE TARJETAS PARA MÓVILES (inferior a md) #}
+                <div class="md:hidden p-4 space-y-3">
+                    {% for p in clientes_elegibles_ahorro|sort(attribute='cuotas_pagadas_progresivas', reverse=True) %}
+                    <div class="p-4 border rounded-lg shadow-sm bg-white">
+                        <div class="flex items-center justify-between pb-3 mb-3 border-b">
+                            <div class="flex items-center gap-3">
+                                <input id="checkbox-ahorrador-movil-{{ p.id }}" name="seleccion_individual_ahorrador" value="{{ p.id }}" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                                <label for="checkbox-ahorrador-movil-{{ p.id }}" class="font-medium text-slate-900">{{ p.nombre_apellido }}</label>
+                            </div>
+                        </div>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-slate-500">Plan Contratado:</span>
+                                <span class="font-semibold text-slate-700">${{ "%.2f"|format(p.plan_contratado|float) }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-500">Cuotas Pagadas:</span>
+                                <span class="font-bold text-slate-900">{{ p.cuotas_pagadas_progresivas }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center p-4 text-slate-500">No hay ahorradores elegibles.</div>
+                    {% endfor %}
+                </div>
             </div>
+            {# --- FIN DEL BLOQUE CORREGIDO --- #}
         </div>
         <div class="flex justify-end p-4 bg-white rounded-xl shadow-sm">
              <button @click="iniciarPreAdjudicacion()" class="font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-lg py-2 px-5 text-base flex items-center gap-2">
