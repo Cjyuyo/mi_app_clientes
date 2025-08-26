@@ -39,7 +39,18 @@
     {% endblock %}
 </head>
 
-<body x-data="{ navOpen: false }" class="h-screen flex flex-col">
+<body x-data="{ 
+    navOpen: false,
+    openModal(selector) {
+        this.navOpen = false;
+        setTimeout(() => {
+            const modalEl = document.querySelector(selector);
+            if (modalEl) {
+                new bootstrap.Modal(modalEl).show();
+            }
+        }, 350);
+    } 
+}" class="h-screen flex flex-col">
 
     <header class="md:hidden bg-slate-800 text-white h-16 px-4 flex justify-between items-center sticky top-0 z-50 shadow-md flex-shrink-0">
         <a href="{{ url_for('portal_dashboard') }}">
@@ -69,7 +80,7 @@
                     <ul>
                         <li>
                             <a href="#" 
-                               @click.prevent="openModalSafely('#ofertaModal')"
+                               @click.prevent="openModal('#ofertaModal')"
                                class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled{% endif %}"
                                {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}onclick="event.preventDefault()" title="Debes tener tu inscripción y al menos una cuota pagada para ofertar."{% endif %}>
                                 <i class="bi bi-gem"></i>
@@ -78,7 +89,7 @@
                         </li>
                         <li>
                             <a href="#" 
-                               @click.prevent="openModalSafely('#citaModal')"
+                               @click.prevent="openModal('#citaModal')"
                                class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700">
                                 <i class="bi bi-calendar-check"></i>
                                 <span>Solicitar Cita</span>
@@ -87,7 +98,7 @@
                         {% if cliente.estatus == 'CONGELADO' %}
                         <li>
                             <a href="#" 
-                               @click.prevent="openModalSafely('#descongelamientoModal')"
+                               @click.prevent="openModal('#descongelamientoModal')"
                                class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700">
                                 <i class="bi bi-unlock-fill"></i>
                                 <span>Descongelar</span>
@@ -96,7 +107,7 @@
                         {% else %}
                         <li>
                             <a href="#" 
-                               @click.prevent="openModalSafely('#congelamientoModal')"
+                               @click.prevent="openModal('#congelamientoModal')"
                                class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
                                {% if cliente.estatus != 'ACTIVO' %}onclick="event.preventDefault()"{% endif %}>
                                 <i class="bi bi-snow"></i>
@@ -106,7 +117,7 @@
                         {% endif %}
                         <li>
                             <a href="#" 
-                               @click.prevent="openModalSafely('#retiroModal')"
+                               @click.prevent="openModal('#retiroModal')"
                                class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
                                {% if cliente.estatus != 'ACTIVO' %}onclick="event.preventDefault()"{% endif %}>
                                 <i class="bi bi-box-arrow-left"></i>
@@ -159,24 +170,6 @@
     <script src="//unpkg.com/alpinejs" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
-    <script>
-        function openModalSafely(modalSelector) {
-            // Cierra el menú de navegación de Alpine.js
-            const alpineComponent = document.querySelector('[x-data]');
-            if (alpineComponent && alpineComponent.__x) {
-                alpineComponent.__x.data.navOpen = false;
-            }
-
-            // Espera a que la animación del menú termine (350ms) antes de mostrar el modal
-            setTimeout(() => {
-                const modalEl = document.querySelector(modalSelector);
-                if (modalEl) {
-                    const modal = new bootstrap.Modal(modalEl);
-                    modal.show();
-                }
-            }, 350);
-        }
-    </script>
     {% endblock %}
 
 </body>
