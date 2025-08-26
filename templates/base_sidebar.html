@@ -96,18 +96,18 @@
                 <div>
                     <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Navegación</h3>
                     <ul class="space-y-2">
-                        <li><a href="{{ url_for('hub') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors duration-200"><i class="bi bi-house-door-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Hub Principal</span></a></li>
+                        <li><a href="{{ url_for('hub') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-house-door-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Hub Principal</span></a></li>
                         {% if g.admin.rol in ['superadmin', 'gerente', 'asesor', 'administradora'] %}
-                        <li><a href="{{ url_for('registrar') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors duration-200"><i class="bi bi-person-plus-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Registrar Cliente</span></a></li>
+                        <li><a href="{{ url_for('registrar') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-person-plus-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Registrar Cliente</span></a></li>
                         {% endif %}
                         {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
-                        <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors duration-200"><i class="bi bi-briefcase-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Gestión Administrativa</span></a></li>
+                        <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-briefcase-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Gestión Administrativa</span></a></li>
                         {% endif %}
                         {% if g.admin.rol in ['superadmin', 'gerente'] %}
-                        <li><a href="{{ url_for('dashboard_comercial') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors duration-200"><i class="bi bi-graph-up-arrow text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Dashboard Comercial</span></a></li>
+                        <li><a href="{{ url_for('dashboard_comercial') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-graph-up-arrow text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Dashboard Comercial</span></a></li>
                         {% endif %}
                         {% if g.admin.rol == 'superadmin' %}
-                        <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors duration-200"><i class="bi bi-shield-check text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Auditoría</span></a></li>
+                        <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-shield-check text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Auditoría</span></a></li>
                         {% endif %}
                     </ul>
                 </div>
@@ -115,7 +115,7 @@
                     <div class="border-t border-slate-700/50 my-4"></div>
                     <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Externo</h3>
                     <ul class="space-y-2">
-                        <li><a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors duration-200"><i class="bi bi-box-arrow-up-right text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Portal Cliente</span></a></li>
+                        <li><a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-box-arrow-up-right text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Portal Cliente</span></a></li>
                     </ul>
                 </div>
             </nav>
@@ -132,18 +132,18 @@
                     <div>
                         <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Navegación</h3>
                         <ul class="space-y-2">
-                            <li><a href="{{ url_for('hub') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors duration-200"><i class="bi bi-house-door-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Hub Principal</span></a></li>
+                            <li><a href="{{ url_for('hub') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-house-door-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Hub Principal</span></a></li>
                             {% if g.admin.rol in ['superadmin', 'gerente', 'asesor', 'administradora'] %}
-                            <li><a href="{{ url_for('registrar') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors duration-200"><i class="bi bi-person-plus-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Registrar Cliente</span></a></li>
+                            <li><a href="{{ url_for('registrar') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-person-plus-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Registrar Cliente</span></a></li>
                             {% endif %}
                             {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
-                            <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors duration-200"><i class="bi bi-briefcase-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Gestión Administrativa</span></a></li>
+                            <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-briefcase-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Gestión Administrativa</span></a></li>
                             {% endif %}
                             {% if g.admin.rol in ['superadmin', 'gerente'] %}
-                            <li><a href="{{ url_for('dashboard_comercial') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors duration-200"><i class="bi bi-graph-up-arrow text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Dashboard Comercial</span></a></li>
+                            <li><a href="{{ url_for('dashboard_comercial') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-graph-up-arrow text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Dashboard Comercial</span></a></li>
                             {% endif %}
                             {% if g.admin.rol == 'superadmin' %}
-                            <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors duration-200"><i class="bi bi-shield-check text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Auditoría</span></a></li>
+                            <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-shield-check text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Auditoría</span></a></li>
                             {% endif %}
                         </ul>
                     </div>
@@ -151,7 +151,7 @@
                         <div class="border-t border-slate-700/50 my-4"></div>
                         <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Externo</h3>
                         <ul class="space-y-2">
-                            <li><a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors duration-200"><i class="bi bi-box-arrow-up-right text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Portal Cliente</span></a></li>
+                            <li><a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-box-arrow-up-right text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Portal Cliente</span></a></li>
                         </ul>
                     </div>
                 </nav>
@@ -263,12 +263,10 @@
             });
         });
     </script>
-    {% block scripts_extra %}
+    
     <script>
-        // ESTE ES EL NUEVO SCRIPT DE PING DE ACTIVIDAD
-        // Se ejecuta cada 60 segundos para mantener tu estado 'online' mientras navegas.
+        // Este script ahora está fuera del bloque para asegurar que se ejecute en TODAS las páginas.
         setInterval(function() {
-            // Solo envía el ping si hay una sesión de admin activa
             {% if g.admin %}
             fetch("{{ url_for('activity_ping') }}", {
                 method: 'POST',
@@ -277,6 +275,7 @@
             {% endif %}
         }, 60000); // 60000 milisegundos = 1 minuto
     </script>
-    {% endblock %}
+    {% block scripts_extra %}{% endblock %}
+
 </body>
 </html>
