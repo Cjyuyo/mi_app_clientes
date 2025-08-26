@@ -19,45 +19,45 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="bg-white p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <div class="bg-white p-4 md:p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
             <div class="flex justify-between items-center">
                 <div class="space-y-1">
                     <p class="text-sm font-semibold text-slate-500">Clientes en Cartera</p>
-                    <p class="text-3xl font-bold text-slate-800">{{ stats.clientes_cartera | default('0') }}</p>
+                    <p class="text-2xl lg:text-3xl font-bold text-slate-800">{{ stats.clientes_cartera | default('0') }}</p>
                 </div>
                 <div class="w-12 h-12 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
                     <i class="bi bi-people-fill text-2xl"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+        <div class="bg-white p-4 md:p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
             <div class="flex justify-between items-center">
                 <div class="space-y-1">
                     <p class="text-sm font-semibold text-slate-500">Recaudado Mes</p>
-                    <p class="text-3xl font-bold text-slate-800">${{ "%.2f"|format(stats.recaudado_mes) if stats.recaudado_mes is not none else '0.00' }}</p>
+                    <p class="text-2xl lg:text-3xl font-bold text-slate-800">${{ "%.2f"|format(stats.recaudado_mes) if stats.recaudado_mes is not none else '0.00' }}</p>
                 </div>
                 <div class="w-12 h-12 flex items-center justify-center rounded-full bg-green-100 text-green-600">
                     <i class="bi bi-cash-stack text-2xl"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+        <div class="bg-white p-4 md:p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
             <div class="flex justify-between items-center">
                 <div class="space-y-1">
                     <p class="text-sm font-semibold text-slate-500">Solicitudes</p>
-                    <p class="text-3xl font-bold text-slate-800">{{ stats.solicitudes_pendientes | default('0') }}</p>
+                    <p class="text-2xl lg:text-3xl font-bold text-slate-800">{{ stats.solicitudes_pendientes | default('0') }}</p>
                 </div>
                 <div class="w-12 h-12 flex items-center justify-center rounded-full bg-orange-100 text-orange-600">
                     <i class="bi bi-clipboard2-check-fill text-2xl"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+        <div class="bg-white p-4 md:p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
             <div class="flex justify-between items-center">
                 <div class="space-y-1">
                     <p class="text-sm font-semibold text-slate-500">Tasa BCV</p>
-                    <p class="text-3xl font-bold text-slate-800">{{ stats.tasa_bcv | default('N/A') }}</p>
+                    <p class="text-2xl lg:text-3xl font-bold text-slate-800 whitespace-nowrap">{{ stats.tasa_bcv | default('N/A') }}</p>
                 </div>
                 <div class="w-12 h-12 flex items-center justify-center rounded-full bg-purple-100 text-purple-600">
                     <i class="bi bi-graph-up-arrow text-2xl"></i>
@@ -125,19 +125,16 @@
                 </div>
                 {% endfor %}
             </div>
-            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts_extra %}
 <script>
-    // INICIO DE LA CORRECCIÓN: LÓGICA DEL WIDGET ACTUALIZADA
     function teamWidget() {
         return {
             sessionsList: document.getElementById('active-sessions-list'),
-            
-            // Función para obtener el color y texto de cada estado
             getStatusInfo(status, isOnline) {
                 if (!isOnline) {
                     return { icon: '<span class="w-3 h-3 bg-slate-400 rounded-full" title="Desconectado"></span>', text: 'Desconectado', textColor: 'text-slate-500' };
@@ -151,8 +148,6 @@
                 };
                 return statuses[status] || statuses['default'];
             },
-
-            // Función principal que busca los datos de la API y actualiza la lista
             async fetchActiveSessions() {
                 try {
                     const response = await fetch("{{ url_for('get_active_sessions') }}");
@@ -166,13 +161,8 @@
 
                     const newContent = users.map(user => {
                         const FIVE_MINUTES_IN_SECONDS = 300;
-                        // Un usuario está online si su inactividad es menor a 5 minutos.
                         const isEffectivelyOnline = user.inactivity_seconds < FIVE_MINUTES_IN_SECONDS;
-
                         const { icon, text, textColor } = this.getStatusInfo(user.status, isEffectivelyOnline);
-                        
-                        // Si está online, mostramos su estado (ej: "Disponible").
-                        // Si no, mostramos el tiempo de su última conexión (ej: "hace 10 minutos").
                         const lastSeenText = isEffectivelyOnline ? text : user.last_seen;
                         
                         return `
@@ -197,8 +187,6 @@
                     this.sessionsList.innerHTML = '<div class="text-center text-red-500 py-4 text-sm">Error al cargar sesiones.</div>';
                 }
             },
-            
-            // Función para cambiar tu propio estado
             async updateStatus(newStatus) {
                 try {
                     const response = await fetch("{{ url_for('update_status') }}", {
@@ -212,17 +200,14 @@
                     console.error('Error updating status:', error);
                 }
             },
-
-            // Función que se ejecuta al iniciar el widget
             init() {
-                this.fetchActiveSessions(); // Carga los datos la primera vez
-                setInterval(() => this.fetchActiveSessions(), 5000); // Actualiza cada 5 segundos
+                this.fetchActiveSessions();
+                setInterval(() => this.fetchActiveSessions(), 5000);
             }
         }
     }
     document.addEventListener('alpine:init', () => {
         Alpine.data('teamWidget', teamWidget);
     });
-    // FIN DE LA CORRECCIÓN: LÓGICA DEL WIDGET ACTUALIZADA
 </script>
 {% endblock %}
