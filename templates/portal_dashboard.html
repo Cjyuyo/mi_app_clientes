@@ -3,9 +3,6 @@
 {% block title %}Mi Portal - Moto Plan{% endblock %}
 
 {% block head_extra %}
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
 <style>
     body {
         background-color: #f1f5f9; /* slate-100 */
@@ -42,70 +39,6 @@
     }
 </style>
 {% endblock %}
-
-{% block sidebar_actions %}
-    <p class="px-4 pt-4 pb-2 text-xs font-medium text-slate-400 uppercase">Acciones</p>
-    <ul>
-        <li>
-            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled{% endif %}" 
-               data-bs-toggle="modal" data-bs-target="#ofertaModal" 
-               {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}onclick="event.preventDefault()" title="Debes tener tu inscripción y al menos una cuota pagada para ofertar."{% endif %}>
-                <i class="bi bi-gem"></i>
-                <span>Registrar Oferta</span>
-            </a>
-        </li>
-        <li>
-            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
-               data-bs-toggle="modal" data-bs-target="#citaModal">
-                <i class="bi bi-calendar-check"></i>
-                <span>Solicitar Cita</span>
-            </a>
-        </li>
-        {% if cliente.estatus == 'CONGELADO' %}
-        <li>
-            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
-               data-bs-toggle="modal" data-bs-target="#descongelamientoModal">
-                <i class="bi bi-unlock-fill"></i>
-                <span>Descongelar</span>
-            </a>
-        </li>
-        {% else %}
-        <li>
-            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
-               data-bs-toggle="modal" data-bs-target="#congelamientoModal"
-               {% if cliente.estatus != 'ACTIVO' %}onclick="event.preventDefault()"{% endif %}>
-                <i class="bi bi-snow"></i>
-                <span>Congelar</span>
-            </a>
-        </li>
-        {% endif %}
-        <li>
-            <a href="#" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
-               data-bs-toggle="modal" data-bs-target="#retiroModal"
-               {% if cliente.estatus != 'ACTIVO' %}onclick="event.preventDefault()"{% endif %}>
-                <i class="bi bi-box-arrow-left"></i>
-                <span>Solicitar Retiro</span>
-            </a>
-        </li>
-    </ul>
-
-    <p class="px-4 pt-6 pb-2 text-xs font-medium text-slate-400 uppercase">Documentos</p>
-    <ul>
-        <li>
-            <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" target="_blank" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700">
-                <i class="bi bi-file-earmark-text"></i>
-                <span>Ver Contrato</span>
-            </a>
-        </li>
-        <li>
-            <a href="{{ url_for('portal_estado_cuenta') }}" target="_blank" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700">
-                <i class="bi bi-journal-text"></i>
-                <span>Estado de Cuenta</span>
-            </a>
-        </li>
-    </ul>
-{% endblock %}
-
 
 {% block body %}
 <div class="p-6 space-y-6">
@@ -340,19 +273,4 @@
 <div class="modal fade" id="congelamientoModal" tabindex="-1">...</div>
 <div class="modal fade" id="retiroModal" tabindex="-1">...</div>
 
-{% endblock %}
-
-{% block scripts_extra %}
-<script src="//unpkg.com/alpinejs" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-    function handleFormSubmit(form) {
-        const submitButtons = form.querySelectorAll('button[type="submit"]');
-        submitButtons.forEach(button => {
-            button.disabled = true;
-            button.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
-        });
-    }
-
-</script>
 {% endblock %}
