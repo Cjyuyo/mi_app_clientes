@@ -39,7 +39,7 @@
     {% endblock %}
 </head>
 
-<body x-data="{ navOpen: false }" class="h-screen flex flex-col">
+<body x-data="modalHandler()" class="h-screen flex flex-col">
 
     <header class="md:hidden bg-slate-800 text-white h-16 px-4 flex justify-between items-center sticky top-0 z-50 shadow-md flex-shrink-0">
         <a href="{{ url_for('portal_dashboard') }}">
@@ -68,7 +68,7 @@
                     <p class="px-4 pt-4 pb-2 text-xs font-medium text-slate-400 uppercase">Acciones</p>
                     <ul>
                         <li>
-                            <a href="#" class="sidebar-link modal-trigger flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled{% endif %}"
+                            <a href="#" @click="openModal($event)" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled{% endif %}"
                                data-modal-id="#ofertaModal"
                                title="{% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}Debes tener tu inscripción y al menos una cuota pagada para ofertar.{% endif %}">
                                 <i class="bi bi-gem"></i>
@@ -76,7 +76,7 @@
                             </a>
                         </li>
                         <li>
-                            <a href="#" class="sidebar-link modal-trigger flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
+                            <a href="#" @click="openModal($event)" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
                                data-modal-id="#citaModal">
                                 <i class="bi bi-calendar-check"></i>
                                 <span>Solicitar Cita</span>
@@ -84,7 +84,7 @@
                         </li>
                         {% if cliente.estatus == 'CONGELADO' %}
                         <li>
-                            <a href="#" class="sidebar-link modal-trigger flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
+                            <a href="#" @click="openModal($event)" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
                                data-modal-id="#descongelamientoModal">
                                 <i class="bi bi-unlock-fill"></i>
                                 <span>Descongelar</span>
@@ -92,7 +92,7 @@
                         </li>
                         {% else %}
                         <li>
-                            <a href="#" class="sidebar-link modal-trigger flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
+                            <a href="#" @click="openModal($event)" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
                                data-modal-id="#congelamientoModal">
                                 <i class="bi bi-snow"></i>
                                 <span>Congelar</span>
@@ -100,7 +100,7 @@
                         </li>
                         {% endif %}
                         <li>
-                            <a href="#" class="sidebar-link modal-trigger flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
+                            <a href="#" @click="openModal($event)" class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
                                data-modal-id="#retiroModal">
                                 <i class="bi bi-box-arrow-left"></i>
                                 <span>Solicitar Retiro</span>
@@ -154,36 +154,30 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const modalTriggers = document.querySelectorAll('.modal-trigger');
-            const alpineComponent = document.querySelector('[x-data]').__x;
-
-            modalTriggers.forEach(trigger => {
-                trigger.addEventListener('click', function(event) {
+        function modalHandler() {
+            return {
+                navOpen: false,
+                openModal(event) {
                     event.preventDefault();
+                    const trigger = event.currentTarget;
 
-                    // No hacer nada si el enlace está deshabilitado
-                    if (this.classList.contains('disabled')) {
+                    if (trigger.classList.contains('disabled')) {
                         return;
                     }
 
-                    // Cerrar el menú de navegación
-                    if (alpineComponent) {
-                        alpineComponent.$data.navOpen = false;
-                    }
-
-                    // Esperar a que la animación del menú termine para mostrar el modal
-                    const modalId = this.dataset.modalId;
+                    this.navOpen = false;
+                    
+                    const modalId = trigger.dataset.modalId;
                     setTimeout(() => {
                         const modalElement = document.querySelector(modalId);
                         if (modalElement) {
                             const modal = new bootstrap.Modal(modalElement);
                             modal.show();
                         }
-                    }, 350); // Un poco más de la duración de la animación (300ms)
-                });
-            });
-        });
+                    }, 350);
+                }
+            }
+        }
     </script>
     {% endblock %}
 
