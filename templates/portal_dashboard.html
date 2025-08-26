@@ -110,7 +110,6 @@
 {% block body %}
 <div class="p-6 space-y-6">
     
-    <!-- CABECERA PRINCIPAL DEL DASHBOARD -->
     <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
         <div>
             <h1 class="text-3xl font-bold text-slate-800">¡Hola de nuevo, {{ cliente.nombre }}!</h1>
@@ -118,10 +117,8 @@
         </div>
     </div>
 
-    <!-- Contenedor principal que incluye notificaciones y el resto del contenido -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        <!-- SECCIÓN DE NOTIFICACIONES (REDİSEÑADA) -->
         <div class="lg:col-span-2">
             {% set has_notifications = get_flashed_messages() or ordenes_pendientes or estado_principal or cita_confirmada or ciclo_cobranza_activo %}
             
@@ -134,7 +131,6 @@
                 </div>
                 <div class="p-5 space-y-4">
                     
-                    <!-- Lógica de notificaciones -->
                     {% with messages = get_flashed_messages(with_categories=true) %}
                         {% if messages %}
                             {% for category, message in messages %}
@@ -145,7 +141,6 @@
                         {% endif %}
                     {% endwith %}
 
-                    <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
                     {% if ordenes_pendientes %}
                         {% for orden in ordenes_pendientes %}
                         <div class="bg-red-100 border-l-4 border-red-500 text-red-800 p-4 rounded-lg">
@@ -167,8 +162,6 @@
                         </div>
                         {% endfor %}
                     {% endif %}
-                    <!-- ===== FIN DE LA CORRECCIÓN ===== -->
-
                     {% if estado_principal %}
                     <div class="bg-white p-4 rounded-lg border">
                         <h3 class="text-md font-bold text-slate-800">{{ estado_principal.titulo }}</h3>
@@ -223,7 +216,6 @@
             </div>
         </div>
         
-        <!-- CONTENIDO PRINCIPAL -->
         <div class="bg-white rounded-xl shadow-md card-lift flex flex-col">
             <div class="p-5 border-b border-slate-200">
                 <h2 class="text-lg font-bold text-slate-800">Resumen de mi Plan</h2>
@@ -343,7 +335,6 @@
     </div>
 </div>
 
-<!-- Modals -->
 <div class="modal fade" id="ofertaModal" tabindex="-1">...</div>
 <div class="modal fade" id="citaModal" tabindex="-1">...</div>
 <div class="modal fade" id="congelamientoModal" tabindex="-1">...</div>
@@ -363,8 +354,5 @@
         });
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
-        // ... (resto del script de la cita)
-    });
 </script>
 {% endblock %}
