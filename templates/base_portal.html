@@ -154,24 +154,34 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        function openModalAndCloseNav(modalId) {
-            // Encuentra el componente Alpine.js y establece navOpen a false para cerrar el menú.
-            let alpineComponent = document.querySelector('[x-data]').__x;
-            if (alpineComponent) {
-                alpineComponent.$data.navOpen = false;
-            }
+        <script>
+    function openModalAndCloseNav(modalId) {
+        // --- INICIO DE LA PRUEBA ---
+        alert('PRUEBA 1: La función se ha iniciado.'); 
+        // ---------------------------
 
-            // Espera 400ms para que la animación del menú finalice.
-            setTimeout(() => {
-                const modalElement = document.querySelector(modalId);
-                if (modalElement) {
-                    const modal = new bootstrap.Modal(modalElement);
-                    modal.show();
-                }
-            }, 400);
+        let alpineComponent = document.querySelector('[x-data]').__x;
+        if (alpineComponent) {
+            alpineComponent.$data.navOpen = false;
         }
-    </script>
-    {% endblock %}
 
+        setTimeout(() => {
+            // --- INICIO DE LA PRUEBA ---
+            alert('PRUEBA 2: Intentando mostrar el modal: ' + modalId); 
+            // ---------------------------
+
+            const modalElement = document.querySelector(modalId);
+            if (modalElement) {
+                const modal = new bootstrap.Modal(modalElement);
+                modal.show();
+            } else {
+                // --- INICIO DE LA PRUEBA ---
+                alert('ERROR: No se encontró el elemento del modal: ' + modalId);
+                // ---------------------------
+            }
+        }, 400);
+    }
+</script>
+    {% endblock %}
 </body>
 </html>
