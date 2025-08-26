@@ -1,7 +1,7 @@
 {% extends 'base_sidebar.html' %}
 
 {% block title %}
-    Perfil de Cliente
+    Resultados de Búsqueda
 {% endblock %}
 
 {% block head_extra %}
@@ -9,12 +9,18 @@
 {% endblock %}
 
 {% block body %}
-{% if cliente %}
+
+{# 
+  PRINCIPAL CORRECCIÓN: Se cambió {% if cliente %} por {% for cliente in clientes %}.
+  Ahora la plantilla itera sobre la lista de 'clientes' enviada desde Python
+  y renderiza un bloque de perfil para cada uno.
+#}
+{% for cliente in clientes %}
 <div x-data="{ 
     showOfferForm: false, 
     activeTab: 'resumen',
     openCards: { progress: true, dossier: false } 
-}" class="w-full space-y-6">
+}" class="w-full space-y-6 mb-8"> {# Se añade un margen inferior para separar los perfiles si hay varios resultados #}
 
     {% set bucket_url = 'https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/' %}
 
@@ -251,10 +257,15 @@
     </div>
 </div>
 {% else %}
+{# 
+  Este bloque se muestra cuando la lista 'clientes' está vacía, 
+  es decir, cuando no se encontraron resultados.
+#}
 <div class="text-center p-8">
-    <p class="text-slate-500">No se ha encontrado información para este cliente.</p>
+    <p class="text-slate-500">No se encontraron resultados para tu búsqueda.</p>
+    <p class="text-sm text-slate-400 mt-1">Intenta con una cédula, nombre completo o número de contrato diferente.</p>
 </div>
-{% endif %}
+{% endfor %} {# Se cierra el bucle for #}
 {% endblock %}
 
 {% block scripts_extra %}
