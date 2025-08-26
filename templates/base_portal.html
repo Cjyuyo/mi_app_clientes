@@ -39,76 +39,77 @@
     {% endblock %}
 </head>
 
-<body x-data="{ 
-    navOpen: false,
-    openModal(selector) {
-        this.navOpen = false;
-        setTimeout(() => {
-            const modalEl = document.querySelector(selector);
-            if (modalEl) {
-                new bootstrap.Modal(modalEl).show();
-            }
-        }, 350);
-    } 
-}" class="h-screen flex flex-col">
+<body x-data="{ navOpen: false }" class="h-screen flex flex-col">
 
-    <header class="md:hidden bg-slate-800 text-white h-16 px-4 flex justify-between items-center sticky top-0 z-50 shadow-md flex-shrink-0">
-        <a href="{{ url_for('portal_dashboard') }}">
+    <header class="bg-slate-800 text-white h-16 px-4 flex justify-between items-center sticky top-0 z-50 shadow-md flex-shrink-0">
+        <button @click="navOpen = !navOpen" class="md:hidden text-2xl" aria-label="Toggle menu">
+            <i class="bi bi-list"></i>
+        </button>
+
+        <a href="{{ url_for('portal_dashboard') }}" class="flex-grow md:flex-grow-0 flex justify-center md:justify-start">
             <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan" class="w-32">
         </a>
-        <button @click="navOpen = !navOpen" class="text-2xl" aria-label="Toggle menu">
-            <i class="bi" :class="navOpen ? 'bi-x-lg' : 'bi-list'"></i>
-        </button>
+        
+        <div class="md:hidden w-8"></div> 
     </header>
 
     <div class="flex-1 md:flex min-h-0">
+        
+        <div x-show="navOpen" x-cloak class="fixed inset-0 bg-black/60 z-30 md:hidden" @click="navOpen = false"
+             x-transition:enter="transition-opacity ease-linear duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition-opacity ease-linear duration-300"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0">
+        </div>
 
         <aside 
-            class="sidebar bg-slate-800 text-white w-full flex-shrink-0 flex flex-col fixed top-0 left-0 right-0 z-40 transform -translate-y-full transition-transform duration-300 ease-in-out h-auto max-h-[80vh] overflow-y-auto rounded-b-xl shadow-lg md:relative md:w-72 md:h-full md:max-h-none md:translate-y-0 md:rounded-b-none md:shadow-none"
-            :class="{'!translate-y-0': navOpen}"
+            class="sidebar bg-slate-800 text-white w-72 flex-shrink-0 flex flex-col fixed top-0 left-0 h-full z-40 transform -translate-x-full transition-transform duration-300 ease-in-out md:relative md:translate-x-0"
+            :class="{'!translate-x-0': navOpen}"
         >
-            <div class="hidden md:flex justify-center items-center h-20 px-4 border-b border-slate-700 flex-shrink-0">
-                <a href="{{ url_for('portal_dashboard') }}">
-                    <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan" class="w-40">
-                </a>
+            <div class="h-16 flex justify-end items-center px-4 md:hidden">
+                 <button @click="navOpen = false" class="text-2xl text-slate-300 hover:text-white" aria-label="Cerrar menú">
+                    <i class="bi bi-x-lg"></i>
+                </button>
             </div>
 
-            <nav class="flex-1 flex flex-col p-4 pt-20 md:pt-4">
+            <nav class="flex-1 flex flex-col p-4 md:pt-4">
                 {% block sidebar_actions %}
                 <div>
                     <p class="px-4 pt-4 pb-2 text-xs font-medium text-slate-400 uppercase">Acciones</p>
                     <ul>
                         <li>
-                            <a href="#" 
-                               @click.prevent="openModal('#ofertaModal')"
+                            <a href="#" @click="navOpen = false"
                                class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}disabled{% endif %}"
+                               data-bs-toggle="modal" data-bs-target="#ofertaModal"
                                {% if not puede_registrar_oferta or cliente.estatus == 'CONGELADO' %}onclick="event.preventDefault()" title="Debes tener tu inscripción y al menos una cuota pagada para ofertar."{% endif %}>
                                 <i class="bi bi-gem"></i>
                                 <span>Registrar Oferta</span>
                             </a>
                         </li>
                         <li>
-                            <a href="#" 
-                               @click.prevent="openModal('#citaModal')"
-                               class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700">
+                            <a href="#" @click="navOpen = false"
+                               class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
+                               data-bs-toggle="modal" data-bs-target="#citaModal">
                                 <i class="bi bi-calendar-check"></i>
                                 <span>Solicitar Cita</span>
                             </a>
                         </li>
                         {% if cliente.estatus == 'CONGELADO' %}
                         <li>
-                            <a href="#" 
-                               @click.prevent="openModal('#descongelamientoModal')"
-                               class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700">
+                            <a href="#" @click="navOpen = false"
+                               class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700"
+                               data-bs-toggle="modal" data-bs-target="#descongelamientoModal">
                                 <i class="bi bi-unlock-fill"></i>
                                 <span>Descongelar</span>
                             </a>
                         </li>
                         {% else %}
                         <li>
-                            <a href="#" 
-                               @click.prevent="openModal('#congelamientoModal')"
+                            <a href="#" @click="navOpen = false"
                                class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
+                               data-bs-toggle="modal" data-bs-target="#congelamientoModal"
                                {% if cliente.estatus != 'ACTIVO' %}onclick="event.preventDefault()"{% endif %}>
                                 <i class="bi bi-snow"></i>
                                 <span>Congelar</span>
@@ -116,9 +117,9 @@
                         </li>
                         {% endif %}
                         <li>
-                            <a href="#" 
-                               @click.prevent="openModal('#retiroModal')"
+                            <a href="#" @click="navOpen = false"
                                class="sidebar-link flex items-center gap-3 w-full text-left py-2 px-4 rounded-md text-slate-100 hover:bg-slate-700 {% if cliente.estatus != 'ACTIVO' %}disabled{% endif %}"
+                               data-bs-toggle="modal" data-bs-target="#retiroModal"
                                {% if cliente.estatus != 'ACTIVO' %}onclick="event.preventDefault()"{% endif %}>
                                 <i class="bi bi-box-arrow-left"></i>
                                 <span>Solicitar Retiro</span>
@@ -153,7 +154,6 @@
                 </a>
             </div>
         </aside>
-
         <div class="flex-1 flex flex-col overflow-y-auto">
             <main class="flex-1 p-2 md:p-6">
                 {% block body %}
@@ -169,7 +169,6 @@
     {% block scripts_extra %}
     <script src="//unpkg.com/alpinejs" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    
     {% endblock %}
 
 </body>
