@@ -193,7 +193,6 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        // --- LÓGICA DE CÁLCULO AUTOMÁTICO DEL FORMULARIO (Se mantiene igual) ---
         const planSelect = document.getElementById('plan_contratado');
         const inscripcionInput = document.getElementById('inscripcion_monto');
         const plazoSelect = document.getElementById('cuotas_totales');
@@ -201,13 +200,16 @@
         const cuotaInput = document.getElementById('valor_cuota');
         const cuotaLabel = document.querySelector('label[for="valor_cuota"]');
 
-        const montoInicial = 1100, montoFinal = 4000, incremento = 50;
-        for (let monto = montoInicial; monto <= montoFinal; monto += incremento) {
+        // --- INICIO DE LA MODIFICACIÓN ---
+        const planMontos = [1400, 1500, 1600, 1700, 1800, 1900, 2000, 2100, 2300, 2400, 2500, 2700, 2800, 2900, 3200, 3300, 3500, 3800, 4500, 5200, 5600, 5900, 6300];
+        
+        planMontos.forEach(monto => {
             const option = document.createElement('option');
             option.value = monto;
             option.textContent = `$${monto.toLocaleString('es-CO')}`;
             planSelect.appendChild(option);
-        }
+        });
+        // --- FIN DE LA MODIFICACIÓN ---
 
         function calcularYActualizarCuota() {
             const montoPlan = parseFloat(planSelect.value);
@@ -250,7 +252,7 @@
             responsableHiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
         });
 
-        // --- LÓGICA DE LA CÁMARA (COMPLETAMENTE NUEVA) ---
+        // --- LÓGICA DE LA CÁMARA ---
         const cameraModalEl = document.getElementById('cameraModal');
         const video = document.getElementById('video-feed');
         const canvas = document.getElementById('capture-canvas');
@@ -260,9 +262,8 @@
         const flipCameraBtn = document.getElementById('flip-camera-btn');
 
         let stream, currentCaptureType, capturedImageDataUrl;
-        let currentFacingMode = 'user'; // 'user' para selfie, 'environment' para trasera
+        let currentFacingMode = 'user'; 
 
-        // Función para cambiar entre la vista en vivo y la de confirmación
         function toggleViews(showConfirmation) {
             cameraModalEl.querySelector('.live-view').style.display = showConfirmation ? 'none' : 'block';
             cameraModalEl.querySelector('.live-view-footer').style.display = showConfirmation ? 'none' : 'flex';
@@ -271,17 +272,14 @@
         }
 
         async function startCamera(facingMode) {
-            // Detener cualquier stream anterior
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
             }
-            // Iniciar la nueva cámara
             try {
                 const constraints = { video: { facingMode: facingMode } };
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = stream;
-                await video.play(); // Asegurarse que el video se reproduzca
-                // Espejo para la cámara selfie
+                await video.play();
                 video.style.transform = (facingMode === 'user') ? 'scaleX(-1)' : 'scaleX(1)';
             } catch (err) {
                 console.error("Error al iniciar la cámara: ", err);
@@ -290,70 +288,61 @@
             }
         }
         
-        // Evento que se dispara cuando el modal está a punto de mostrarse
         cameraModalEl.addEventListener('show.bs.modal', async (event) => {
             currentCaptureType = event.relatedTarget.getAttribute('data-capture-type');
             
-            // Configurar el título y la cámara por defecto
             const modalTitle = cameraModalEl.querySelector('.modal-title');
             if (currentCaptureType === 'cedula') {
                 modalTitle.textContent = 'Capturar Foto de la Cédula';
-                currentFacingMode = 'environment'; // Cámara trasera para documentos
+                currentFacingMode = 'environment';
             } else {
                 modalTitle.textContent = 'Capturar Foto del Cliente (Selfie)';
-                currentFacingMode = 'user'; // Cámara frontal para selfies
+                currentFacingMode = 'user';
             }
             
             toggleViews(false);
             await startCamera(currentFacingMode);
         });
 
-        // Evento que se dispara cuando el modal se oculta
         cameraModalEl.addEventListener('hide.bs.modal', () => {
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
             }
         });
 
-        // Botón para cambiar de cámara
         flipCameraBtn.addEventListener('click', () => {
             currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
             startCamera(currentFacingMode);
         });
 
-        // Botón para capturar la foto
         captureBtn.addEventListener('click', () => {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             const context = canvas.getContext('2d');
             
-            // Si es selfie, voltear la imagen para que se vea correcta
             if (currentFacingMode === 'user') {
                 context.translate(canvas.width, 0);
                 context.scale(-1, 1);
             }
             
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            capturedImageDataUrl = canvas.toDataURL('image/jpeg', 0.9); // Guardar como JPG de alta calidad
+            capturedImageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
             toggleViews(true);
         });
         
-        // Botón para volver a tomar la foto
         retakeBtn.addEventListener('click', () => toggleViews(false));
         
-        // Botón para guardar la foto
         savePhotoBtn.addEventListener('click', () => {
             if (capturedImageDataUrl && currentCaptureType) {
                 document.getElementById(`preview-${currentCaptureType}`).src = capturedImageDataUrl;
                 const hiddenInput = document.getElementById(`foto_${currentCaptureType}`);
                 hiddenInput.value = capturedImageDataUrl;
-                // Disparar evento para que la validación del formulario se actualice
                 hiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
             }
             bootstrap.Modal.getInstance(cameraModalEl).hide();
         });
 
-        // --- LÓGICA DE VALIDACIÓN Y SUBMIT (Se mantiene igual) ---
+        // --- LÓGICA DE VALIDACIÓN Y SUBMIT ---
         const submitBtn = document.getElementById('submitBtn');
         const form = document.getElementById('registroForm');
         

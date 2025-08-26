@@ -276,15 +276,39 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p>Formulario para registrar oferta...</p>
+                <form id="ofertaForm" action="{{ url_for('portal_guardar_oferta') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tu Plan Contratado</label>
+                        <input type="text" class="form-control" value="{{ cliente.plan_contratado | default('N/A', true) }} $" disabled readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modelo_ofertado_select" class="form-label fw-semibold">Modelo a Ofertar</label>
+                        <select class="form-select" id="modelo_ofertado_select" name="modelo_ofertado" required>
+                            <option value="">Cargando modelos...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="cuotas_ofertadas_select" class="form-label fw-semibold">Cuotas a Ofertar</label>
+                        <select class="form-select" id="cuotas_ofertadas_select" name="cuotas_ofertadas" required>
+                            <option value="">--</option>
+                            {% for i in range(1, (cliente.cuotas_totales or 0) + 1) %}
+                                <option value="{{ i }}">{{ i }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-text text-muted small">
+                        Nota: La selección del modelo requiere que un desarrollador actualice el sistema para guardar este dato.
+                    </div>
+                </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-primary">Enviar Oferta</button>
+                <button type="submit" form="ofertaForm" class="btn btn-primary">Enviar Oferta</button>
             </div>
         </div>
     </div>
 </div>
+
 <div class="modal fade" id="citaModal" tabindex="-1" aria-labelledby="citaModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -328,10 +352,71 @@
         </div>
     </div>
 </div>
-<div class="modal fade" id="congelamientoModal" tabindex="-1">
+
+<div class="modal fade" id="congelamientoModal" tabindex="-1" aria-labelledby="congelamientoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="congelamientoModalLabel">Solicitar Congelamiento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3 small">Selecciona el tiempo que deseas congelar tu plan y explica brevemente el motivo de tu solicitud.</p>
+                <form id="congelamientoForm" action="{{ url_for('portal_solicitar_congelamiento') }}" method="POST">
+                    <div class="mb-3">
+                        <label for="tiempo_congelamiento" class="form-label fw-semibold">Tiempo de Congelamiento</label>
+                        <select class="form-select" id="tiempo_congelamiento" name="tiempo_congelamiento" required>
+                            <option value="1 mes">1 mes</option>
+                            <option value="2 meses">2 meses</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="motivo_congelamiento" class="form-label fw-semibold">Motivo de la Solicitud</label>
+                        <textarea class="form-control" id="motivo_congelamiento" name="motivo" rows="3" required placeholder="Ej: Motivos de viaje, situación personal, etc."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="congelamientoForm" class="btn btn-primary">Enviar Solicitud</button>
+            </div>
+        </div>
     </div>
-<div class="modal fade" id="retiroModal" tabindex="-1">
+</div>
+
+<div class="modal fade" id="retiroModal" tabindex="-1" aria-labelledby="retiroModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="retiroModalLabel">Solicitar Retiro del Plan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                    <h6 class="fw-bold text-blue-800">Paso 1: Notificación por Correo</h6>
+                    <p class="text-muted small mb-0">Para iniciar tu solicitud de retiro, primero debes enviar un correo electrónico a <a href="mailto:motoplan.dptolegal@gmail.com"><strong>motoplan.dptolegal@gmail.com</strong></a> especificando tus motivos.</p>
+                </div>
+                
+                <h6 class="fw-bold">Paso 2: Confirma el Envío</h6>
+                <p class="text-muted mb-3 small">Una vez hayas enviado el correo, completa el siguiente formulario para que nuestros asesores puedan dar seguimiento a tu caso.</p>
+                <form id="retiroForm" action="{{ url_for('portal_solicitar_retiro') }}" method="POST">
+                    <div class="mb-3">
+                        <label for="email_origen_retiro" class="form-label fw-semibold">Correo desde el que enviaste la solicitud</label>
+                        <input type="email" class="form-control" id="email_origen_retiro" name="email_origen_retiro" required placeholder="ejemplo@correo.com">
+                    </div>
+                    <div class="mb-3">
+                        <label for="fecha_correo_retiro" class="form-label fw-semibold">Fecha de envío del correo</label>
+                        <input type="date" class="form-control" id="fecha_correo_retiro" name="fecha_correo_retiro" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="retiroForm" class="btn btn-primary">Confirmar Envío de Correo</button>
+            </div>
+        </div>
     </div>
+</div>
 
 {% endblock %}
 
@@ -339,7 +424,7 @@
 {{ super() }} {# Importante para heredar el script modalHandler de base_portal.html #}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // --- Lógica para el formulario de citas ---
+    // --- Lógica para el formulario de citas (existente) ---
     const fechaInput = document.getElementById('fecha_cita_input');
     const horaSelect = document.getElementById('hora_cita_select');
     const motivoSelect = document.getElementById('motivo_cita_select');
@@ -347,18 +432,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const motivoOtroInput = document.getElementById('motivo_otro_texto');
     const availabilityMessage = document.getElementById('cita-availability-message');
 
-    // Muestra u oculta el campo de "otro motivo"
-    motivoSelect.addEventListener('change', function() {
-        if (this.value === 'Otro') {
-            motivoOtroDiv.style.display = 'block';
-            motivoOtroInput.required = true;
-        } else {
-            motivoOtroDiv.style.display = 'none';
-            motivoOtroInput.required = false;
-        }
-    });
-
-    // Lógica para actualizar las horas disponibles
+    if (motivoSelect) {
+        motivoSelect.addEventListener('change', function() {
+            if (this.value === 'Otro') {
+                motivoOtroDiv.style.display = 'block';
+                motivoOtroInput.required = true;
+            } else {
+                motivoOtroDiv.style.display = 'none';
+                motivoOtroInput.required = false;
+            }
+        });
+    }
+    
     async function actualizarHorasDisponibles() {
         const fechaSeleccionada = fechaInput.value;
         if (!fechaSeleccionada) {
@@ -368,7 +453,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Poner el selector en estado de carga
         horaSelect.disabled = true;
         horaSelect.innerHTML = '<option>Cargando horas...</option>';
         availabilityMessage.textContent = '';
@@ -392,7 +476,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const horasOcupadas = new Set(data.ocupados);
             const horasDisponibles = horarios.filter(h => !horasOcupadas.has(h));
 
-            horaSelect.innerHTML = ''; // Limpiar opciones
+            horaSelect.innerHTML = ''; 
             if (horasDisponibles.length > 0) {
                 horasDisponibles.forEach(hora => {
                     const option = document.createElement('option');
@@ -416,11 +500,67 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    fechaInput.addEventListener('change', actualizarHorasDisponibles);
+    if (fechaInput) {
+        fechaInput.addEventListener('change', actualizarHorasDisponibles);
+        const today = new Date().toISOString().split('T')[0];
+        fechaInput.setAttribute('min', today);
+    }
 
-    // Configurar fecha mínima en el input de fecha para que no se puedan seleccionar días pasados
-    const today = new Date().toISOString().split('T')[0];
-    fechaInput.setAttribute('min', today);
+    // --- Lógica para el formulario de Ofertas ---
+    const planModels = {
+        1400: ['Bera SBR', 'Bera BRF', 'Águila', 'ES Hero'],
+        1500: ['Ávila', 'X1', 'Cardenal', 'TR Jaguar', 'New Jog'],
+        1600: ['Milan', 'Xpress', 'Colibrí', 'Cuervo', 'Canario', 'Cóndor II', 'Tucán II', 'Tauro'],
+        1700: ['Bera León', 'Bera Tezo', 'Adventure'],
+        1800: ['New Horsen', 'New Owen', 'Fénix', 'Toro León'],
+        1900: ['Runner', 'Horse RL', 'Horse II', 'Abeja'],
+        2000: ['Kavak', 'BWS', 'BR', 'Cobra', 'Owen 200', 'Fénix', 'Power', 'Extreme'],
+        2100: ['TR Tank'],
+        2300: ['EK Foton', 'TX 150cc', 'TX 200cc'],
+        2400: ['Antiking', 'Optimus', 'Arsen II', 'RK 200'],
+        2500: ['Bera GBR', 'Matrix II', 'Cruiser', 'Lechuza'],
+        2700: ['RK 250', 'Thunder 180', 'Lechuza II', 'Falco'],
+        2800: ['Bera DTx', 'Toro Rex', 'ES EM200'],
+        2900: ['Outlook II'],
+        3200: ['TX GT 250', 'Superlight'],
+        3300: ['TR R3X 250'],
+        3500: ['BRZ 250', 'GR 250', 'TX GS 250'],
+        3800: ['Kiwi'],
+        4500: ['EK Atlas'],
+        5200: ['Carguero'],
+        5600: ['Outlook XL'],
+        5900: ['Carguero Transporte', 'Carguero Cava'],
+        6300: ['Zontes 350']
+    };
+
+    const clientPlan = parseFloat("{{ cliente.plan_contratado | default(0, true) }}");
+    const modeloSelect = document.getElementById('modelo_ofertado_select');
+    const ofertaModal = document.getElementById('ofertaModal');
+
+    function populateModels() {
+        if (!modeloSelect) return;
+        modeloSelect.innerHTML = ''; 
+        const models = planModels[clientPlan];
+
+        if (models && models.length > 0) {
+            modeloSelect.appendChild(new Option('-- Seleccione un modelo --', '', true, true));
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                modeloSelect.appendChild(option);
+            });
+        } else {
+            const option = document.createElement('option');
+            option.textContent = 'No hay modelos disponibles para tu plan';
+            option.disabled = true;
+            modeloSelect.appendChild(option);
+        }
+    }
+
+    if (ofertaModal) {
+        ofertaModal.addEventListener('show.bs.modal', populateModels);
+    }
 });
 </script>
 {% endblock %}

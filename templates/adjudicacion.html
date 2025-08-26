@@ -4,20 +4,20 @@
     Sistema de Adjudicación
 {% endblock %}
 
-{% block head_extra %}
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-{% endblock %}
-
 {% block body %}
-<!-- INICIO CAMBIO HOJA DE RUTA PUNTO 8 -->
-<div class="space-y-8" x-data="adjudicacion()">
-    <!-- Encabezado de la página -->
+<div class="space-y-6" x-data="adjudicacion()">
     <div class="bg-white p-6 rounded-xl shadow-sm">
-        <h1 class="text-3xl font-bold text-slate-800">Sistema de Adjudicación</h1>
-        <p class="text-slate-500 mt-1">Realiza la adjudicación mensual por ahorro y oferta.</p>
+        <div class="flex items-center gap-4">
+            <div class="bg-orange-100 text-orange-600 p-3 rounded-full">
+                <i class="bi bi-trophy-fill text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-3xl font-bold text-slate-800">Sistema de Adjudicación</h1>
+                <p class="text-slate-500 mt-1">Selecciona los participantes y confirma la adjudicación mensual.</p>
+            </div>
+        </div>
     </div>
 
-    <!-- Mensajes Flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -28,150 +28,115 @@
         {% endif %}
     {% endwith %}
 
-    <!-- Vista Principal: Antes de la Pre-adjudicación -->
-    <div x-show="!preAdjudicacionIniciada">
-        <div class="bg-white rounded-xl shadow-sm" x-data="{ activeTab: 'ofertas' }">
-            <div class="px-5 border-b border-slate-200">
-                <nav class="-mb-px flex space-x-6">
-                    <button @click="activeTab = 'ahorradores'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'ahorradores', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ahorradores' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ahorradores ({{ clientes_elegibles_ahorro|length }})</button>
-                    <button @click="activeTab = 'ofertas'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'ofertas', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'ofertas' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Ofertas Activas ({{ ofertas_activas|length }})</button>
-                </nav>
-            </div>
-            <div class="p-5">
-                <!-- Pestaña Ahorradores -->
-                <div x-show="activeTab === 'ahorradores'">
-                   <div class="overflow-x-auto">
-                        <table class="w-full text-sm text-left text-slate-500">
-                            <thead class="text-xs text-slate-700 uppercase bg-slate-50">
-                                <tr>
-                                    <th scope="col" class="p-4">
-                                        <div class="flex items-center">
-                                            <input id="checkbox-all-ahorradores" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
-                                            <label for="checkbox-all-ahorradores" class="sr-only">checkbox</label>
-                                        </div>
-                                    </th>
-                                    <th scope="col" class="px-6 py-3">Cliente</th>
-                                    <th scope="col" class="px-6 py-3">Cédula</th>
-                                    <th scope="col" class="px-6 py-3 text-center">Plan Contratado</th>
-                                    <th scope="col" class="px-6 py-3 text-center">Cuotas Pagadas</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for p in clientes_elegibles_ahorro|sort(attribute='cuotas_pagadas_progresivas', reverse=True) %}
-                                <tr class="bg-white border-b hover:bg-slate-50">
-                                    <td class="w-4 p-4">
-                                        <div class="flex items-center">
-                                            <input id="checkbox-ahorrador-{{ p.id }}" name="seleccion_individual_ahorrador" value="{{ p.id }}" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
-                                            <label for="checkbox-ahorrador-{{ p.id }}" class="sr-only">checkbox</label>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4 font-medium text-slate-900">{{ p.nombre_apellido }}</td>
-                                    <td class="px-6 py-4">{{ p.cedula }}</td>
-                                    <td class="px-6 py-4 text-center font-semibold text-slate-600">${{ "%.2f"|format(p.plan_contratado|float) if p.plan_contratado else 'N/A' }}</td>
-                                    <td class="px-6 py-4 text-center font-bold">{{ p.cuotas_pagadas_progresivas }}</td>
-                                </tr>
-                                {% else %}
-                                <tr><td colspan="5" class="text-center p-4 text-slate-500">No hay ahorradores elegibles.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+    <div x-show="!preAdjudicacionIniciada" class="space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-white rounded-xl shadow-sm">
+                <div class="p-5 border-b border-slate-200 flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i class="bi bi-gem text-orange-500"></i>
+                        Ofertas Activas
+                    </h2>
+                    <span class="py-1 px-2.5 bg-orange-100 text-orange-800 text-xs font-semibold rounded-full">{{ ofertas_activas|length }}</span>
                 </div>
-                <!-- Pestaña Ofertas -->
-                <div x-show="activeTab === 'ofertas'">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm text-left text-slate-500">
-                            <thead class="text-xs text-slate-700 uppercase bg-slate-50">
-                                <tr>
-                                    <th scope="col" class="p-4">
-                                        <div class="flex items-center">
-                                            <input id="checkbox-all" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
-                                            <label for="checkbox-all" class="sr-only">checkbox</label>
-                                        </div>
-                                    </th>
-                                    <th scope="col" class="px-6 py-3 text-center">Pos.</th>
-                                    <th scope="col" class="px-6 py-3">Cliente</th>
-                                    <th scope="col" class="px-6 py-3 text-center">Plan Contratado</th>
-                                    <th scope="col" class="px-6 py-3 text-center">Cuotas Pagadas</th>
-                                    <th scope="col" class="px-6 py-3 text-center">Frecuencia Ofertas</th>
-                                    <th scope="col" class="px-6 py-3 text-center">Cuotas Ofertadas</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for oferta in ofertas_activas|sort(attribute='cuotas_ofertadas', reverse=True) %}
-                                <tr class="border-b hover:bg-slate-50 {% if loop.first %} bg-green-50 {% endif %}">
-                                    <td class="w-4 p-4">
-                                        <div class="flex items-center">
-                                            <input id="checkbox-table-{{ oferta.id }}" name="seleccion_individual" value="{{ oferta.id }}" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
-                                            <label for="checkbox-table-{{ oferta.id }}" class="sr-only">checkbox</label>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4 font-bold text-slate-900 text-center">
-                                        {% if loop.first %}<i class="bi bi-trophy-fill text-yellow-500"></i>{% endif %} {{ loop.index }}
-                                    </td>
-                                    <td class="px-6 py-4 font-medium text-slate-900">{{ oferta.nombre_apellido }}</td>
-                                    <td class="px-6 py-4 text-center font-semibold text-slate-600">${{ "%.2f"|format(oferta.plan_contratado|float) if oferta.plan_contratado else 'N/A' }}</td>
-                                    <td class="px-6 py-4 text-center font-semibold text-slate-600">{{ oferta.cuotas_pagadas }}</td>
-                                    <td class="px-6 py-4 text-center font-semibold text-slate-600">{{ oferta.frecuencia_ofertas }}</td>
-                                    <td class="px-6 py-4 text-center font-bold text-lg">{{ oferta.cuotas_ofertadas }}</td>
-                                </tr>
-                                {% else %}
-                                <tr><td colspan="7" class="text-center p-4 text-slate-500">No hay ofertas activas.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left text-slate-500">
+                        <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+                            <tr>
+                                <th scope="col" class="p-4"><input id="checkbox-all-ofertas" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"></th>
+                                <th scope="col" class="px-4 py-3 text-center">Pos.</th>
+                                <th scope="col" class="px-6 py-3">Cliente</th>
+                                <th scope="col" class="px-6 py-3">Modelo Ofertado</th>
+                                <th scope="col" class="px-6 py-3 text-center">Cuotas Pagadas</th>
+                                <th scope="col" class="px-6 py-3 text-center">Cuotas Ofertadas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for oferta in ofertas_activas|sort(attribute='cuotas_ofertadas', reverse=True) %}
+                            <tr class="border-b hover:bg-slate-50 {% if loop.first %} bg-green-50 font-semibold {% endif %}">
+                                <td class="w-4 p-4"><input id="checkbox-oferta-{{ oferta.id }}" name="seleccion_individual" value="{{ oferta.id }}" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"></td>
+                                <td class="px-4 py-4 text-center">{% if loop.first %}<i class="bi bi-trophy-fill text-yellow-500"></i>{% endif %} {{ loop.index }}</td>
+                                <td class="px-6 py-4 text-slate-900">{{ oferta.nombre_apellido }}</td>
+                                <td class="px-6 py-4 text-slate-600">{{ oferta.modelo_ofertado or 'N/A' }}</td>
+                                <td class="px-6 py-4 text-center">{{ oferta.cuotas_pagadas }}</td>
+                                <td class="px-6 py-4 text-center text-lg">{{ oferta.cuotas_ofertadas }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="6" class="text-center p-4 text-slate-500">No hay ofertas activas.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-            <div class="p-5 border-t border-slate-200 text-right">
-                 <button @click="iniciarPreAdjudicacion()" class="font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-lg py-2 px-4">
-                    Iniciar Pre-adjudicación Manual
-                </button>
+
+            <div class="lg:col-span-1 bg-white rounded-xl shadow-sm">
+                <div class="p-5 border-b border-slate-200 flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i class="bi bi-piggy-bank-fill text-blue-500"></i>
+                        Ahorradores Elegibles
+                    </h2>
+                    <span class="py-1 px-2.5 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">{{ clientes_elegibles_ahorro|length }}</span>
+                </div>
+                <div class="overflow-x-auto">
+                     <table class="w-full text-sm text-left text-slate-500">
+                        <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+                            <tr>
+                                <th scope="col" class="p-4"><input id="checkbox-all-ahorradores" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"></th>
+                                <th scope="col" class="px-6 py-3">Cliente</th>
+                                <th scope="col" class="px-6 py-3 text-center">Cuotas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in clientes_elegibles_ahorro|sort(attribute='cuotas_pagadas_progresivas', reverse=True) %}
+                            <tr class="bg-white border-b hover:bg-slate-50">
+                                <td class="w-4 p-4"><input id="checkbox-ahorrador-{{ p.id }}" name="seleccion_individual_ahorrador" value="{{ p.id }}" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"></td>
+                                <td class="px-6 py-4 font-medium text-slate-900">{{ p.nombre_apellido }}</td>
+                                <td class="px-6 py-4 text-center font-bold">{{ p.cuotas_pagadas_progresivas }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="3" class="text-center p-4 text-slate-500">No hay ahorradores elegibles.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
+        </div>
+        <div class="flex justify-end p-4 bg-white rounded-xl shadow-sm">
+             <button @click="iniciarPreAdjudicacion()" class="font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-lg py-2 px-5 text-base flex items-center gap-2">
+                <i class="bi bi-card-checklist"></i>
+                Iniciar Pre-adjudicación Manual
+            </button>
         </div>
     </div>
 
-    <!-- Vista de Pre-adjudicación Manual -->
-    <!-- >>> CAMBIO ESPECIFICO: Flujo de pre-adjudicación con selección final -->
     <div x-show="preAdjudicacionIniciada" x-cloak>
-        <div class="bg-white rounded-xl shadow-sm p-5">
-            <h3 class="text-xl font-bold text-slate-800 mb-4">Pre-adjudicación: Selección Final</h3>
-            <p class="text-sm text-slate-600 mb-4">Confirma los participantes que serán adjudicados en este ciclo. Solo los clientes marcados serán procesados.</p>
+        <div class="bg-white rounded-xl shadow-sm p-6">
+            <h3 class="text-2xl font-bold text-slate-800 mb-2">Pre-adjudicación: Selección Final</h3>
+            <p class="text-slate-600 mb-6">Confirma los participantes que serán adjudicados en este ciclo. Solo los clientes marcados con ✓ serán procesados.</p>
             
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto border rounded-lg">
                 <table class="w-full text-sm text-left text-slate-500">
                     <thead class="text-xs text-slate-700 uppercase bg-slate-50">
                         <tr>
-                            <th scope="col" class="p-4">
-                                <div class="flex items-center">
-                                    <input id="checkbox-final-all" type="checkbox" @change="seleccionarTodosFinal($event)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
-                                    <label for="checkbox-final-all" class="sr-only">checkbox</label>
-                                </div>
-                            </th>
+                            <th scope="col" class="p-4"><input id="checkbox-final-all" type="checkbox" @change="seleccionarTodosFinal($event)" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"></th>
                             <th scope="col" class="px-6 py-3">Cliente</th>
-                            <th scope="col" class="px-6 py-3">Tipo</th>
+                            <th scope="col" class="px-6 py-3">Tipo de Adjudicación</th>
                             <th scope="col" class="px-6 py-3">Detalle</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="cliente in participantes" :key="cliente.id">
+                        <template x-for="cliente in participantes.sort((a, b) => b.cuotas_ofertadas - a.cuotas_ofertadas)" :key="cliente.id">
                             <tr class="bg-white border-b hover:bg-slate-50">
-                                <td class="w-4 p-4">
-                                    <div class="flex items-center">
-                                        <input :id="'checkbox-final-' + cliente.id" type="checkbox" x-model="cliente.seleccionado" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
-                                        <label :for="'checkbox-final-' + cliente.id" class="sr-only">checkbox</label>
-                                    </div>
-                                </td>
+                                <td class="w-4 p-4"><input :id="'checkbox-final-' + cliente.id" type="checkbox" x-model="cliente.seleccionado" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"></td>
                                 <td class="px-6 py-4 font-medium text-slate-900" x-text="cliente.nombre_apellido"></td>
                                 <td class="px-6 py-4">
-                                    <span class="font-semibold py-1 px-2.5 rounded-md text-xs" :class="{ 'bg-blue-100 text-blue-800': cliente.tipo === 'Ahorrador', 'bg-orange-100 text-orange-800': cliente.tipo === 'Oferta' }" x-text="cliente.tipo"></span>
+                                    <span class="font-semibold py-1 px-2.5 rounded-full text-xs" :class="{ 'bg-blue-100 text-blue-800': cliente.tipo === 'Ahorrador', 'bg-orange-100 text-orange-800': cliente.tipo === 'Oferta' }" x-text="cliente.tipo"></span>
                                 </td>
-                                <td class="px-6 py-4 text-xs text-slate-600">
+                                <td class="px-6 py-4 text-sm text-slate-700 font-medium">
                                     <template x-if="cliente.tipo === 'Oferta'">
-                                        <span class="font-semibold" x-text="`Ofertó ${cliente.cuotas_ofertadas} cuotas`"></span>
+                                        <span x-text="`Ofertó ${cliente.cuotas_ofertadas} cuotas por ${cliente.modelo_ofertado || 'Modelo no especificado'}`"></span>
                                     </template>
                                     <template x-if="cliente.tipo === 'Ahorrador'">
-                                        <span class="font-semibold" x-text="`Pagadas: ${cliente.cuotas_pagadas_progresivas}`"></span>
+                                        <span x-text="`Elegible por ${cliente.cuotas_pagadas_progresivas} cuotas pagadas`"></span>
                                     </template>
                                 </td>
                             </tr>
@@ -180,19 +145,17 @@
                 </table>
             </div>
             
-            <!-- Botones de Acción Final -->
             <div class="mt-6 flex justify-end gap-4">
-                <button @click="cancelarPreAdjudicacion()" class="font-semibold text-slate-600 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg py-2 px-4">Cancelar</button>
+                <button @click="cancelarPreAdjudicacion()" class="font-semibold text-slate-700 bg-slate-100 border border-slate-300 hover:bg-slate-200 rounded-lg py-2 px-4">Cancelar</button>
                 <form action="{{ url_for('realizar_adjudicacion') }}" method="POST" onsubmit="return confirmarAdjudicacionFinal(this)">
                     <input type="hidden" name="ganadores_json" :value="JSON.stringify(participantes.filter(c => c.seleccionado).map(c => c.id))">
-                    <button type="submit" class="font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg py-2 px-6">
-                        <i class="bi bi-check-circle-fill mr-2"></i> Confirmar Adjudicación Final
+                    <button type="submit" class="font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg py-2 px-6 flex items-center gap-2">
+                        <i class="bi bi-check-circle-fill"></i> Confirmar Adjudicación Final
                     </button>
                 </form>
             </div>
         </div>
     </div>
-    <!-- <<< FIN CAMBIO -->
 </div>
 
 <script>
@@ -202,7 +165,6 @@ function adjudicacion() {
         participantes: [],
         
         iniciarPreAdjudicacion() {
-            // >>> CAMBIO ESPECIFICO: Cargar solo participantes seleccionados
             const seleccionAhorradores = Array.from(document.querySelectorAll('input[name="seleccion_individual_ahorrador"]:checked')).map(cb => parseInt(cb.value));
             const seleccionOfertas = Array.from(document.querySelectorAll('input[name="seleccion_individual"]:checked')).map(cb => parseInt(cb.value));
 
@@ -218,7 +180,6 @@ function adjudicacion() {
                 ...todosAhorradores.filter(c => seleccionAhorradores.includes(c.id)).map(c => ({ ...c, tipo: 'Ahorrador', seleccionado: true })),
                 ...todasOfertas.filter(o => seleccionOfertas.includes(o.id)).map(o => ({ ...o, tipo: 'Oferta', seleccionado: true }))
             ];
-            // <<< FIN CAMBIO
             
             this.participantes = listaInicial;
             this.preAdjudicacionIniciada = true;
@@ -237,13 +198,16 @@ function adjudicacion() {
 
 function confirmarAdjudicacionFinal(form) {
     const ganadoresInput = form.querySelector('input[name="ganadores_json"]');
+    if (!ganadoresInput.value) {
+        alert('Error: No se encontró el input de ganadores.');
+        return false;
+    }
     const ganadores = JSON.parse(ganadoresInput.value);
     if (ganadores.length === 0) {
         alert('Debe seleccionar al menos un participante para confirmar la adjudicación.');
         return false;
     }
-    return true;
+    return confirm(`¿Está seguro de que desea adjudicar a ${ganadores.length} participante(s)? Esta acción no se puede deshacer.`);
 }
 </script>
-<!-- FIN CAMBIO HOJA DE RUTA PUNTO 8 -->
 {% endblock %}
