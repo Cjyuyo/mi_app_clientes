@@ -42,11 +42,11 @@
 <body x-data="{ 
     navOpen: false,
     openModal(selector) {
-        if (!document.querySelector(selector)) return; // No hace nada si el modal no existe
-        this.navOpen = false; // 1. Cierra el menú inmediatamente
-        setTimeout(() => { // 2. Espera a que la animación del menú termine
+        if (!document.querySelector(selector)) return;
+        this.navOpen = false;
+        setTimeout(() => {
             const modal = new bootstrap.Modal(document.querySelector(selector));
-            modal.show(); // 3. Muestra el modal de forma segura
+            modal.show();
         }, 350);
     } 
 }" class="h-screen flex flex-col">
