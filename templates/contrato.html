@@ -98,7 +98,8 @@
 
         <section class="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-8 print:bg-transparent print:border-none print:p-0 print:mb-4">
             <h2 class="text-xl font-bold text-center text-slate-800 mb-6 print:text-lg">Detalles del Plan</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 print:block"> <div class="space-y-4 print:mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 print:block">
+                <div class="space-y-4 print:mb-4">
                     <div class="bg-white p-4 rounded-lg shadow-sm border print:shadow-none">
                         <h3 class="font-semibold text-slate-600 mb-2 flex items-center gap-2"><i class="bi bi-person-badge-fill text-blue-600"></i> Información del Adherente</h3>
                         <p class="text-slate-800 font-medium">{{ cliente.nombre_apellido }}</p>
@@ -125,14 +126,15 @@
                         <p class="text-slate-800 font-medium">{% if cliente.moneda_pago == 'BsBCV' %}Bolívares (Tasa BCV){% else %}Divisas (USD){% endif %}</p>
                     </div>
                 </div>
-                {% if cliente.beneficiario_nombre %}
+
+                {% if cliente.beneficiario_nombre_apellido %}
                 <div class="md:col-span-2 bg-white p-4 rounded-lg shadow-sm border print:shadow-none">
                     <h3 class="font-semibold text-slate-600 mb-2 flex items-center gap-2"><i class="bi bi-person-heart text-blue-600"></i> Información del Beneficiario</h3>
-                    <p class="text-slate-800 font-medium">{{ cliente.beneficiario_nombre }}</p>
+                    <p class="text-slate-800 font-medium">{{ cliente.beneficiario_nombre_apellido }}</p>
                     <p class="text-sm text-slate-500">C.I: {{ cliente.beneficiario_cedula }} - Teléfono: {{ cliente.beneficiario_telefono }}</p>
                 </div>
                 {% endif %}
-            </div>
+                </div>
         </section>
 
         <article class="prose prose-sm max-w-none text-justify">
@@ -300,4 +302,3 @@
     </script>
 </body>
 </html>
-}

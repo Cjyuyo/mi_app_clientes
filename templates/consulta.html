@@ -15,17 +15,21 @@
 {% block body %}
 <div class="space-y-8">
     
+    {# --- MENSAJE CUANDO NO SE ENCUENTRA UN CLIENTE --- #}
     {% if not clientes and busqueda %}
         <div class="bg-white p-8 rounded-xl shadow-sm text-center border border-slate-200 mt-8">
-            <div class="inline-block bg-slate-100 p-4 rounded-full mb-4"><i class="bi bi-person-x-fill text-4xl text-slate-400"></i></div>
+            <div class="inline-block bg-slate-100 p-4 rounded-full mb-4">
+                <i class="bi bi-person-x-fill text-4xl text-slate-400"></i>
+            </div>
             <h2 class="text-xl font-bold text-slate-800">Cliente No Encontrado</h2>
             <p class="text-slate-500 mt-1">No se encontraron clientes para: <strong class="text-slate-700">"{{ busqueda }}"</strong>.</p>
-            <a href="{{ url_for('registrar') }}" class="mt-4 inline-flex items-center gap-2 bg-orange-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-orange-600">
+            <a href="{{ url_for('registrar') }}" class="mt-4 inline-flex items-center gap-2 bg-orange-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-orange-600 transition-colors">
                 <i class="bi bi-plus-circle-fill"></i> Registrar Nuevo Cliente
             </a>
         </div>
     {% endif %}
 
+    {# --- VISTA HORIZONTAL "BREAKTHROUGH" DEL PERFIL --- #}
     {% for cliente in clientes %}
     
     {% set bucket_url = 'https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/' %}
@@ -191,7 +195,7 @@
                                  </div>
                             </div>
                             {% endif %}
-                        </div>
+                            </div>
 
                         <div x-show="activeTab === 'pagos'" x-cloak class="space-y-3">
                             {% for pago in cliente.pagos %}

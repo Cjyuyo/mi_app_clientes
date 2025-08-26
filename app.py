@@ -2666,8 +2666,6 @@ def finalizar_registro():
     ruta_s3_cedula = None
     cedula_cliente_limpia = form_data.get('cedula', '').replace(' ', '').replace('.', '')
 
-    # --- INICIO DE LA CORRECCIÓN ---
-    # Se añade un timestamp al nombre del archivo para garantizar que sea único y no se sobrescriba.
     if foto_cliente_base64 and foto_cliente_base64.startswith('data:image'):
         nombre_archivo_s3 = f"documentos/{cedula_cliente_limpia}/foto_cliente_{int(datetime.now().timestamp())}.jpg"
         if subir_archivo_a_s3(foto_cliente_base64, nombre_archivo_s3):
@@ -2683,7 +2681,6 @@ def finalizar_registro():
         else:
             flash("Error crítico al subir la foto de la cédula a S3. El registro ha sido cancelado.", "danger")
             return redirect(url_for('registrar'))
-    # --- FIN DE LA CORRECCIÓN ---
 
     try:
         firma_cliente, firma_empresa = form_data.get('firma_cliente'), form_data.get('firma_empresa')
@@ -2722,12 +2719,16 @@ def finalizar_registro():
                 'estatus': 'PENDIENTE'
             }
             
+            # --- INICIO DE LA MODIFICACIÓN ---
+            # Se añaden los nuevos campos del beneficiario a la lista
             optional_fields = [
                 'contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso', 'grupo', 
                 'plan_contratado', 'cuotas_totales', 'moneda_pago', 'valor_cuota', 
                 'inscripcion_monto', 'ciclo_cobranza', 'direccion', 'email', 
-                'beneficiario_nombre', 'beneficiario_cedula', 'beneficiario_telefono'
+                'beneficiario_nombre_apellido', 'beneficiario_cedula', 'beneficiario_telefono',
+                'beneficiario_email', 'beneficiario_direccion'
             ]
+            # --- FIN DE LA MODIFICACIÓN ---
 
             for field in optional_fields:
                 if form_data.get(field): insert_dict[field] = form_data[field]
