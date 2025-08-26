@@ -177,12 +177,31 @@
     </div>
 </div>
 
-<div id="modal-detalle-comision" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+<div id="modal-detalle-comision" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center pb-3 border-b">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Detalles de la Comisión</h3>
+            <button id="cerrar-modal-comision" class="text-gray-400 hover:text-gray-600">
+                <span class="text-2xl">&times;</span>
+            </button>
+        </div>
+        <div id="contenido-modal-comision" class="mt-3">
+            </div>
+    </div>
 </div>
 
-<div id="modal-detalle-lote" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+<div id="modal-detalle-lote" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+     <div class="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center pb-3 border-b">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Detalles del Lote de Pago</h3>
+            <button id="cerrar-modal-lote" class="text-gray-400 hover:text-gray-600">
+                <span class="text-2xl">&times;</span>
+            </button>
+        </div>
+        <div id="contenido-modal-lote" class="mt-3">
+            </div>
+    </div>
 </div>
-
 {% endblock %}
 
 {% block scripts_extra %}

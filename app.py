@@ -1177,18 +1177,35 @@ def reportes_por_revisar():
             """
             cur.execute(query)
             todos_los_reportes = cur.fetchall()
+
             for reporte_row in todos_los_reportes:
                 reporte = dict(reporte_row)
-                # ... (lógica de cálculo de monto esperado sin cambios) ...
+                
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se añade la lógica que faltaba para calcular el monto esperado.
+                fecha_del_pago = reporte.get('fecha_pago', get_venezuela_current_date())
+                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
+                tasa_row = cur.fetchone()
+                tasa_exacta = tasa_row['tasa'] if tasa_row and tasa_row['tasa'] else reporte.get('tasa_dia')
+
+                monto_dolares_referencia = Decimal('0.0')
+                if 'Cuota' in reporte.get('tipo_pago', ''):
+                    monto_dolares_referencia = reporte.get('valor_cuota', Decimal('0.0'))
+                elif 'Inscripción' in reporte.get('tipo_pago', ''):
+                    monto_dolares_referencia = reporte.get('inscripcion_monto', Decimal('0.0'))
+                
+                reporte['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta) if monto_dolares_referencia and tasa_exacta else Decimal('0.0')
+                # --- FIN DE LA CORRECCIÓN ---
+
                 if reporte['estado_reporte'] == 'Inconsistente':
                     reportes_categorizados['diferencias'].append(reporte)
                 else:
                     reportes_categorizados['pendientes'].append(reporte)
+
     except psycopg2.Error as e:
-        flash("Error al cargar la lista de reportes.", "danger")
+        flash(f"Error al cargar la lista de reportes: {e}", "danger")
 
     return render_template('reportes_por_revisar.html', reportes=reportes_categorizados)
-
 
  # --- INICIO DE LA CORRECCIÓN ---
 # Esta es una función auxiliar que contiene la lógica pura de conciliación.
