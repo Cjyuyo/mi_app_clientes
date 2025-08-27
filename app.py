@@ -899,7 +899,7 @@ def ver_reporte_cita(solicitud_id):
 
 @app.route('/gestion_administrativa')
 @admin_required
-@rol_requerido('superadmin', 'gerente')
+@rol_requerido('superadmin', 'gerente', 'administradora', 'asistente')
 def gestion_administrativa():
     conn = get_db()
     counts = { 'pagos_pendientes': 0, 'reportes_pendientes': 0, 'citas': 0, 'congelamientos': 0, 'retiros': 0 }
@@ -925,7 +925,7 @@ def gestion_administrativa():
 
 @app.route('/solicitudes/hub')
 @admin_required
-@rol_requerido('superadmin', 'gerente', 'administradora')
+@rol_requerido('superadmin', 'gerente', 'administradora', 'asistente')
 def solicitudes_hub():
     conn = get_db()
     counts = {'citas': 0, 'congelamientos': 0, 'retiros': 0}
@@ -1014,7 +1014,7 @@ def gestion_congelamientos():
 
 @app.route('/procesar_solicitud/<int:solicitud_id>', methods=['POST'])
 @admin_required
-@rol_requerido('superadmin', 'gerente', 'administradora')
+@rol_requerido('superadmin', 'gerente', 'administradora', 'asistente')
 def procesar_solicitud(solicitud_id):
     conn = get_db()
     accion = request.form.get('accion')
@@ -1346,7 +1346,7 @@ def procesar_reporte(pago_id):
 
 @app.route('/pagos_por_conciliar')
 @admin_required
-@rol_requerido('superadmin', 'gerente', 'administradora')
+@rol_requerido('superadmin', 'gerente', 'administradora', 'asistente')
 def pagos_por_conciliar():
     conn = get_db()
     pagos_a_conciliar = []
@@ -1396,7 +1396,7 @@ def pagos_por_conciliar():
 
 @app.route('/tesoreria/rebalanceo', methods=['GET', 'POST'])
 @admin_required
-@rol_requerido('superadmin', 'gerente')
+@rol_requerido('superadmin', 'gerente', 'administradora', 'asistente')
 def tesoreria_rebalanceo():
     conn = get_db()
     balances_actuales = calcular_balances_tesoreria() 
@@ -2544,7 +2544,7 @@ def get_bulk_detalle(bulk_id):
 
 @app.route('/agregar_gestion/<int:cliente_id>', methods=['POST'])
 @admin_required
-@rol_requerido('superadmin', 'gerente', 'administradora')
+@rol_requerido('superadmin', 'gerente', 'administradora', 'asistente')
 def agregar_gestion(cliente_id):
     nota = request.form.get('nota')
     tipo_gestion = request.form.get('tipo_gestion')
@@ -2575,7 +2575,7 @@ def agregar_gestion(cliente_id):
 
 @app.route('/registrar')
 @admin_required
-@rol_requerido('superadmin', 'gerente', 'asesor')
+@rol_requerido('superadmin', 'gerente', 'asesor', 'asistente')
 def registrar():
     conn = get_db()
     lista_completa = []
@@ -2603,7 +2603,7 @@ def registrar():
 
 @app.route('/registrar_cliente', methods=['POST'])
 @admin_required
-@rol_requerido('superadmin', 'gerente', 'asesor')
+@rol_requerido('superadmin', 'gerente', 'asesor', 'asistente')
 def registrar_cliente():
     form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
     if not all(form_data.get(key) for key in ['nombre_apellido', 'cedula', 'contrato_nro']):

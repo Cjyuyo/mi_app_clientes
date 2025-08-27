@@ -6,13 +6,11 @@
 
 {% block body %}
 <div class="space-y-8">
-    <!-- Encabezado de la página -->
     <div class="bg-white p-6 rounded-xl shadow-sm">
         <h1 class="text-3xl font-bold text-slate-800">Rebalanceo de Tesorería</h1>
         <p class="text-slate-500 mt-1">Registro de movimientos entre cajas y tipos de moneda.</p>
     </div>
 
-    <!-- Mensajes Flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -23,16 +21,19 @@
         {% endif %}
     {% endwith %}
 
-    <!-- Balances Actuales -->
+    {# --- INICIO DE LA MODIFICACIÓN --- #}
+    {# Esta sección solo será visible para los roles de superadmin y gerente #}
+    {% if g.admin.rol in ['superadmin', 'gerente'] %}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-sm font-medium text-slate-500">Efectivo USD</div><div class="text-2xl font-bold text-green-600 mt-1">${{ "{:,.2f}".format(balances.EFECTIVO_USD) }}</div></div>
         <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-sm font-medium text-slate-500">Binance USDT</div><div class="text-2xl font-bold text-yellow-600 mt-1">${{ "{:,.2f}".format(balances.BINANCE_USDT) }}</div></div>
         <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-sm font-medium text-slate-500">Caja Bs (USD Ref)</div><div class="text-2xl font-bold text-blue-600 mt-1">Bs. {{ "{:,.2f}".format(balances.CAJA_BS_USD) }}</div></div>
         <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-sm font-medium text-slate-500">Caja Bs (EUR Ref)</div><div class="text-2xl font-bold text-blue-600 mt-1">Bs. {{ "{:,.2f}".format(balances.CAJA_BS_EUR) }}</div></div>
     </div>
+    {% endif %}
+    {# --- FIN DE LA MODIFICACIÓN --- #}
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Columna del Formulario -->
         <div class="lg:col-span-1">
             <div class="bg-white rounded-xl shadow-sm">
                 <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Registrar Nuevo Movimiento</h2></div>
@@ -85,7 +86,6 @@
                 </div>
             </div>
         </div>
-        <!-- Columna de Historial -->
         <div class="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
             <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Historial de Movimientos Recientes</h2></div>
             <div class="overflow-x-auto">

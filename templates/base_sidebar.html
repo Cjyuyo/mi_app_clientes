@@ -96,11 +96,14 @@
                 <div>
                     <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Navegación</h3>
                     <ul class="space-y-2">
+                        {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
                         <li><a href="{{ url_for('hub') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-house-door-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Hub Principal</span></a></li>
-                        {% if g.admin.rol in ['superadmin', 'gerente', 'asesor', 'administradora'] %}
+                        {% endif %}
+                        <li><a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-person-workspace text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Mi HUB de Tareas</span></a></li>
+                        {% if g.admin.rol in ['superadmin', 'gerente', 'asesor', 'asistente'] %}
                         <li><a href="{{ url_for('registrar') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-person-plus-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Registrar Cliente</span></a></li>
                         {% endif %}
-                        {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
+                        {% if g.admin.rol in ['superadmin', 'gerente', 'administradora', 'asistente'] %}
                         <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-briefcase-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Gestión Administrativa</span></a></li>
                         {% endif %}
                         {% if g.admin.rol in ['superadmin', 'gerente'] %}
@@ -110,7 +113,7 @@
                         <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-shield-check text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Auditoría</span></a></li>
                         {% endif %}
                     </ul>
-                </div>
+                    </div>
                 <div>
                     <div class="border-t border-slate-700/50 my-4"></div>
                     <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Externo</h3>
@@ -119,7 +122,7 @@
                     </ul>
                 </div>
             </nav>
-            </aside>
+        </aside>
 
         <div class="hidden md:flex md:flex-shrink-0">
             <div class="flex flex-col w-64 bg-slate-900 text-white">
@@ -132,11 +135,14 @@
                     <div>
                         <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Navegación</h3>
                         <ul class="space-y-2">
+                            {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
                             <li><a href="{{ url_for('hub') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-house-door-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Hub Principal</span></a></li>
-                            {% if g.admin.rol in ['superadmin', 'gerente', 'asesor', 'administradora'] %}
+                            {% endif %}
+                            <li><a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-person-workspace text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Mi HUB de Tareas</span></a></li>
+                            {% if g.admin.rol in ['superadmin', 'gerente', 'asesor', 'asistente'] %}
                             <li><a href="{{ url_for('registrar') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-person-plus-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Registrar Cliente</span></a></li>
                             {% endif %}
-                            {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
+                            {% if g.admin.rol in ['superadmin', 'gerente', 'administradora', 'asistente'] %}
                             <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-briefcase-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Gestión Administrativa</span></a></li>
                             {% endif %}
                             {% if g.admin.rol in ['superadmin', 'gerente'] %}
@@ -146,7 +152,7 @@
                             <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-shield-check text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Auditoría</span></a></li>
                             {% endif %}
                         </ul>
-                    </div>
+                        </div>
                     <div>
                         <div class="border-t border-slate-700/50 my-4"></div>
                         <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Externo</h3>
@@ -253,9 +259,13 @@
             const sidebarLinks = document.querySelectorAll('.sidebar-link');
             sidebarLinks.forEach(link => {
                 const linkPath = new URL(link.href).pathname;
+                // Manejo especial para el HUB principal, que también puede ser la raíz.
                 if (linkPath === '/hub' && (currentPath === '/' || currentPath === '/hub')) {
-                    link.classList.add('active'); return;
+                    link.classList.add('active'); 
+                    return;
                 }
+                // Para el resto de las rutas, verifica si la URL actual comienza con la ruta del enlace.
+                // Esto hace que los sub-menús (ej. /gestion/citas) activen el link padre (/gestion).
                 if (linkPath !== '/hub' && currentPath.startsWith(linkPath)) {
                     link.classList.add('active');
                 }
