@@ -5155,6 +5155,32 @@ def get_pago_detalle(pago_id):
 
 # --- MÓDULO DE GESTIÓN DE USUARIOS UNIFICADO ---
 
+@app.route('/admin/gestion_usuarios')
+@admin_required
+@rol_requerido('superadmin', 'gerente') # Asegúrate que estos roles son los correctos
+def gestion_usuarios():
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", "danger")
+        # Redirigir a una página segura como el hub si falla la conexión
+        return redirect(url_for('hub'))
+    try:
+        with conn.cursor() as cur:
+            # Cargar administradores
+            cur.execute("SELECT id, nombre_completo, usuario, rol, estatus FROM administradores ORDER BY nombre_completo")
+            admins = cur.fetchall()
+            
+            # Cargar contadores
+            cur.execute("SELECT id, nombre_completo, usuario, estatus FROM contadores ORDER BY nombre_completo")
+            contadores = cur.fetchall()
+
+    except psycopg2.Error as e:
+        flash(f"Error al consultar la lista de usuarios: {e}", "danger")
+        admins = []
+        contadores = []
+    
+    return render_template('gestion_usuarios.html', admins=admins, contadores=contadores)
+
 @app.route('/admin/agregar_usuario_unificado', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
