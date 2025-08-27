@@ -2,14 +2,14 @@
 {% block title %} Dashboard Comercial {% endblock %} 
 
 {% block body %}
-<div x-data="{ actionsOpen: false, exportOpen: false }" class="container mx-auto px-4 py-6">
+<div x-data="{ actionsOpen: false, exportOpen: false }" class="container mx-auto">
     
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-slate-100">Dashboard de Comisiones</h1>
-        <p class="text-slate-400 mt-1">Gestiona, aprueba y paga las comisiones de los asesores.</p>
+        <h1 class="text-3xl font-bold text-slate-800">Dashboard de Comisiones</h1>
+        <p class="text-slate-500 mt-1">Gestiona, aprueba y paga las comisiones de los asesores.</p>
     </div>
 
-    <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
+    <div class="bg-white p-6 rounded-xl shadow-sm mb-8 border border-slate-200">
         <form method="GET" action="{{ url_for('dashboard_comercial') }}">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 <div>
@@ -47,28 +47,28 @@
     </div>
 
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-        <div class="bg-yellow-100 p-4 rounded-xl shadow-md">
+        <div class="bg-yellow-100 p-4 rounded-xl shadow">
             <h3 class="font-bold text-yellow-800">Pendiente</h3>
             <p class="text-2xl font-semibold text-yellow-900">${{ "{:,.2f}".format(stats.pendiente.monto) }}</p>
             <p class="text-sm text-yellow-700">{{ stats.pendiente.conteo }} items</p>
         </div>
-        <div class="bg-green-100 p-4 rounded-xl shadow-md">
+        <div class="bg-green-100 p-4 rounded-xl shadow">
             <h3 class="font-bold text-green-800">Aprobado</h3>
             <p class="text-2xl font-semibold text-green-900">${{ "{:,.2f}".format(stats.aprobado.monto) }}</p>
             <p class="text-sm text-green-700">{{ stats.aprobado.conteo }} items</p>
         </div>
-        <div class="bg-blue-100 p-4 rounded-xl shadow-md">
+        <div class="bg-blue-100 p-4 rounded-xl shadow">
             <h3 class="font-bold text-blue-800">Pagado</h3>
             <p class="text-2xl font-semibold text-blue-900">${{ "{:,.2f}".format(stats.pagado.monto) }}</p>
             <p class="text-sm text-blue-700">{{ stats.pagado.conteo }} items</p>
         </div>
-        <div class="bg-gray-100 p-4 rounded-xl shadow-md">
+        <div class="bg-gray-100 p-4 rounded-xl shadow">
             <h3 class="font-bold text-gray-800">Ajustes / Rebalanceos</h3>
             <p class="text-2xl font-semibold text-gray-900">${{ "{:,.2f}".format(stats.rebalanceos.monto) }}</p>
         </div>
     </div>
 
-    <div class="bg-white p-6 rounded-xl shadow-lg">
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4">
             <h2 class="text-xl font-bold text-gray-800">Detalle de Comisiones</h2>
             <div class="hidden md:flex space-x-2">
@@ -102,7 +102,7 @@
 
         <div class="overflow-x-auto">
             <table class="w-full">
-                <thead class="bg-gray-50 hidden md:table-header-group">
+                <thead class="bg-slate-50 hidden md:table-header-group">
                     <tr>
                         <th class="p-3 text-sm font-semibold tracking-wide text-left w-10"><input type="checkbox" id="seleccionar-todo"></th>
                         <th class="p-3 text-sm font-semibold tracking-wide text-left">Fecha Origen</th>
@@ -117,27 +117,27 @@
                 <tbody class="divide-y divide-gray-100 md:divide-y-0">
                     {% for comision in comisiones %}
                     <tr class="block mb-4 border rounded-lg md:table-row md:mb-0 md:border-none shadow-sm md:shadow-none bg-white md:bg-transparent">
-                        <td class="p-3 flex justify-between items-center md:table-cell md:w-10">
+                        <td class="p-3 flex justify-between items-center md:table-cell md:w-10 border-b md:border-none">
                             <span class="font-bold text-gray-500 md:hidden">Seleccionar:</span>
                             <input type="checkbox" class="comision-checkbox" data-id="{{ comision.id }}">
                         </td>
-                        <td class="p-3 flex justify-between items-center md:table-cell">
+                        <td class="p-3 flex justify-between items-center md:table-cell border-b md:border-none">
                             <span class="font-bold text-gray-500 md:hidden">Fecha:</span>
                             <span class="whitespace-nowrap">{{ comision.fecha_origen|format_date }}</span>
                         </td>
-                        <td class="p-3 flex justify-between items-center md:table-cell">
+                        <td class="p-3 flex justify-between items-center md:table-cell border-b md:border-none">
                             <span class="font-bold text-gray-500 md:hidden">Asesor:</span>
                             <span class="whitespace-nowrap">{{ comision.asesor }}</span>
                         </td>
-                        <td class="p-3 flex justify-between items-center md:table-cell">
+                        <td class="p-3 flex justify-between items-center md:table-cell border-b md:border-none">
                             <span class="font-bold text-gray-500 md:hidden">Cliente:</span>
                             <span>{{ comision.cliente or 'N/A' }}</span>
                         </td>
-                        <td class="p-3 flex justify-between items-center md:table-cell">
+                        <td class="p-3 flex justify-between items-center md:table-cell border-b md:border-none">
                             <span class="font-bold text-gray-500 md:hidden">Monto:</span>
                             <span class="font-bold whitespace-nowrap">${{ "{:,.2f}".format(comision.monto) }}</span>
                         </td>
-                        <td class="p-3 flex justify-between items-center md:table-cell">
+                        <td class="p-3 flex justify-between items-center md:table-cell border-b md:border-none">
                             <span class="font-bold text-gray-500 md:hidden">Estado:</span>
                             <span class="whitespace-nowrap">
                                 {% if comision.estado == 'pendiente' %}
@@ -151,7 +151,7 @@
                                 {% endif %}
                             </span>
                         </td>
-                        <td class="p-3 flex justify-between items-center md:table-cell">
+                        <td class="p-3 flex justify-between items-center md:table-cell border-b md:border-none">
                              <span class="font-bold text-gray-500 md:hidden">Lote:</span>
                             {% if comision.payment_batch_id %}
                                 <a href="#" class="text-blue-500 hover:underline" onclick="mostrarDetalleLote({{ comision.payment_batch_id }})">#{{ comision.payment_batch_id }}</a>

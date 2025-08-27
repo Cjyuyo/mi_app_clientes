@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="preload" as="image" href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/NEGRO_Mesa+de+trabajo+1.png">
+    <link rel="preload" as="image" href="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCO_Mesa+de+trabajo+1.png">
 
     <style>
         :root {
@@ -19,18 +19,15 @@
         }
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #111827;
-            background-image: 
-                radial-gradient(at 0% 0%, hsla(214, 47%, 23%, 0.5) 0px, transparent 50%),
-                radial-gradient(at 95% 90%, hsla(33, 94%, 53%, 0.3) 0px, transparent 50%);
+            background-color: #f8fafc;
         }
         .sidebar-link {
             transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
             border-left: 3px solid transparent;
         }
         .sidebar-link:hover {
-            background-color: #cbd5e1; /* slate-300 */
-            color: #0f172a; /* slate-900 */
+            background-color: rgba(255, 255, 255, 0.05);
+            border-left-color: var(--color-naranja-corp);
         }
         .sidebar-link.active {
             background-color: var(--color-naranja-corp);
@@ -38,10 +35,28 @@
             font-weight: 600;
             border-left-color: var(--color-naranja-corp);
         }
-        .sidebar-link.active i { color: #ffffff !important; }
-
+        .sidebar-link.active i { color: #ffffff; }
         [x-cloak] { display: none !important; }
 
+        @media (min-width: 768px) {
+            body::before {
+                content: '';
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: radial-gradient(circle at 15% 25%, rgba(43, 58, 85, 0.08), transparent 40%),
+                            radial-gradient(circle at 85% 75%, rgba(249, 148, 23, 0.06), transparent 40%);
+                z-index: -1;
+                animation: subtle-pan 40s linear infinite alternate;
+                will-change: transform;
+            }
+            @keyframes subtle-pan {
+                from { transform: translate(-10%, -5%); }
+                to { transform: translate(10%, 5%); }
+            }
+        }
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
@@ -53,14 +68,14 @@
     </style>
     {% block head_extra %}{% endblock %}
 </head>
-<body x-data="{ sidebarOpen: false, mobileSearchOpen: false }">
+<body x-data="{ sidebarOpen: false, mobileSearchOpen: false }" class="bg-slate-100">
 
     <div class="flex h-screen">
         <aside 
             x-show="sidebarOpen" 
             @click.away="sidebarOpen = false"
             x-cloak
-            class="fixed inset-y-0 left-0 bg-slate-200 text-slate-800 w-64 flex-shrink-0 flex flex-col z-40 transform md:hidden border-r border-slate-300"
+            class="fixed inset-y-0 left-0 bg-slate-900 text-white w-64 flex-shrink-0 flex flex-col z-40 transform md:hidden border-r border-slate-700"
             x-transition:enter="transition ease-out duration-300"
             x-transition:enter-start="-translate-x-full"
             x-transition:enter-end="translate-x-0"
@@ -68,13 +83,13 @@
             x-transition:leave-start="translate-x-0"
             x-transition:leave-end="-translate-x-full">
             
-            <button @click="sidebarOpen = false" class="md:hidden absolute top-4 right-4 text-slate-500 hover:text-slate-800 text-xl z-50 p-2">
+            <button @click="sidebarOpen = false" class="md:hidden absolute top-4 right-4 text-slate-400 hover:text-white text-xl z-50 p-2">
                 <i class="bi bi-x"></i>
             </button>
 
-            <div class="flex items-center justify-center h-20 px-6 flex-shrink-0 border-b border-slate-300">
+            <div class="flex items-center justify-center h-20 px-6 flex-shrink-0 border-b border-slate-700">
                 <a href="{{ url_for('hub') }}">
-                    <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/NEGRO_Mesa+de+trabajo+1.png" alt="Logo Moto Plan Motors" class="w-40 h-auto">
+                    <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCO_Mesa+de+trabajo+1.png" alt="Logo Moto Plan Motors" class="w-40 h-auto">
                 </a>
             </div>
             <nav class="flex-1 flex flex-col justify-between overflow-y-auto px-4 py-4">
@@ -82,67 +97,67 @@
                     <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Navegación</h3>
                     <ul class="space-y-2">
                         {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
-                        <li><a href="{{ url_for('hub') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-600"><i class="bi bi-house-door-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Hub Principal</span></a></li>
+                        <li><a href="{{ url_for('hub') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-house-door-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Hub Principal</span></a></li>
                         {% endif %}
-                        <li><a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-600"><i class="bi bi-person-workspace text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Mi HUB de Tareas</span></a></li>
+                        <li><a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-person-workspace text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Mi HUB de Tareas</span></a></li>
                         {% if g.admin.rol in ['superadmin', 'gerente', 'asesor', 'asistente'] %}
-                        <li><a href="{{ url_for('registrar') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-600"><i class="bi bi-person-plus-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Registrar Cliente</span></a></li>
+                        <li><a href="{{ url_for('registrar') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-person-plus-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Registrar Cliente</span></a></li>
                         {% endif %}
                         {% if g.admin.rol in ['superadmin', 'gerente', 'administradora', 'asistente'] %}
-                        <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-600"><i class="bi bi-briefcase-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Gestión Administrativa</span></a></li>
+                        <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-briefcase-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Gestión Administrativa</span></a></li>
                         {% endif %}
                         {% if g.admin.rol in ['superadmin', 'gerente'] %}
-                        <li><a href="{{ url_for('dashboard_comercial') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-600"><i class="bi bi-graph-up-arrow text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Dashboard Comercial</span></a></li>
+                        <li><a href="{{ url_for('dashboard_comercial') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-graph-up-arrow text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Dashboard Comercial</span></a></li>
                         {% endif %}
                         {% if g.admin.rol == 'superadmin' %}
-                        <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-600"><i class="bi bi-shield-check text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Auditoría</span></a></li>
+                        <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-shield-check text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Auditoría</span></a></li>
                         {% endif %}
                     </ul>
                 </div>
                 <div>
-                    <div class="border-t border-slate-300 my-4"></div>
+                    <div class="border-t border-slate-700 my-4"></div>
                     <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Externo</h3>
                     <ul class="space-y-2">
-                        <li><a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-600"><i class="bi bi-box-arrow-up-right text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Portal Cliente</span></a></li>
+                        <li><a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-box-arrow-up-right text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Portal Cliente</span></a></li>
                     </ul>
                 </div>
             </nav>
         </aside>
 
         <div class="hidden md:flex md:flex-shrink-0">
-            <div class="flex flex-col w-64 bg-slate-200 text-slate-800 border-r border-slate-300">
-                <div class="flex items-center justify-center h-20 px-6 flex-shrink-0 border-b border-slate-300">
+            <div class="flex flex-col w-64 bg-slate-900 text-white border-r border-slate-700">
+                <div class="flex items-center justify-center h-20 px-6 flex-shrink-0 border-b border-slate-700">
                     <a href="{{ url_for('hub') }}">
-                        <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/NEGRO_Mesa+de+trabajo+1.png" alt="Logo Moto Plan Motors" class="w-40 h-auto">
+                        <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCO_Mesa+de+trabajo+1.png" alt="Logo Moto Plan Motors" class="w-40 h-auto">
                     </a>
                 </div>
                 <nav class="flex-1 flex flex-col justify-between overflow-y-auto px-4 py-4">
-                     <div>
+                    <div>
                         <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Navegación</h3>
                         <ul class="space-y-2">
                             {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
-                            <li><a href="{{ url_for('hub') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-600"><i class="bi bi-house-door-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Hub Principal</span></a></li>
+                            <li><a href="{{ url_for('hub') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-house-door-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Hub Principal</span></a></li>
                             {% endif %}
-                            <li><a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-600"><i class="bi bi-person-workspace text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Mi HUB de Tareas</span></a></li>
+                            <li><a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-person-workspace text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Mi HUB de Tareas</span></a></li>
                             {% if g.admin.rol in ['superadmin', 'gerente', 'asesor', 'asistente'] %}
-                            <li><a href="{{ url_for('registrar') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-600"><i class="bi bi-person-plus-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Registrar Cliente</span></a></li>
+                            <li><a href="{{ url_for('registrar') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-person-plus-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Registrar Cliente</span></a></li>
                             {% endif %}
                             {% if g.admin.rol in ['superadmin', 'gerente', 'administradora', 'asistente'] %}
-                            <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-600"><i class="bi bi-briefcase-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Gestión Administrativa</span></a></li>
+                            <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-briefcase-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Gestión Administrativa</span></a></li>
                             {% endif %}
                             {% if g.admin.rol in ['superadmin', 'gerente'] %}
-                            <li><a href="{{ url_for('dashboard_comercial') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-600"><i class="bi bi-graph-up-arrow text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Dashboard Comercial</span></a></li>
+                            <li><a href="{{ url_for('dashboard_comercial') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-graph-up-arrow text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Dashboard Comercial</span></a></li>
                             {% endif %}
                             {% if g.admin.rol == 'superadmin' %}
-                            <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-600"><i class="bi bi-shield-check text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Auditoría</span></a></li>
+                            <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-shield-check text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Auditoría</span></a></li>
                             {% endif %}
                         </ul>
                     </div>
                     <div>
-                        <div class="border-t border-slate-300 my-4"></div>
+                        <div class="border-t border-slate-700 my-4"></div>
                         <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Externo</h3>
                         <ul class="space-y-2">
-                            <li><a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-600"><i class="bi bi-box-arrow-up-right text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Portal Cliente</span></a></li>
+                            <li><a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-box-arrow-up-right text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Portal Cliente</span></a></li>
                         </ul>
                     </div>
                 </nav>
@@ -150,16 +165,16 @@
         </div>
 
         <div class="flex-1 flex flex-col w-full min-w-0">
-            <header class="flex-shrink-0 flex items-center justify-between bg-slate-200 border-b border-slate-300 h-20 px-4 sm:px-6 sticky top-0 z-30">
+            <header class="flex-shrink-0 flex items-center justify-between bg-white border-b border-slate-200 h-20 px-4 sm:px-6 sticky top-0 z-30">
                 <div class="flex items-center gap-4">
-                    <button @click="sidebarOpen = !sidebarOpen" class="md:hidden text-2xl text-gray-600 hover:text-gray-900" aria-label="Toggle menu"><i class="bi bi-list"></i></button>
-                    <h1 x-show="!mobileSearchOpen" class="text-xl font-semibold text-gray-900 whitespace-nowrap">{% block page_title %}Panel de Control{% endblock %}</h1>
+                    <button @click="sidebarOpen = !sidebarOpen" class="md:hidden text-2xl text-slate-600 hover:text-slate-900" aria-label="Toggle menu"><i class="bi bi-list"></i></button>
+                    <h1 x-show="!mobileSearchOpen" class="text-xl font-semibold text-slate-900 whitespace-nowrap">{% block page_title %}Panel de Control{% endblock %}</h1>
                 </div>
                 
                 <div class="flex-1 flex justify-center px-4">
                     <form action="{{ url_for('consulta') }}" method="post" class="w-full max-w-2xl hidden md:block" onsubmit="handleFormSubmit(this)">
                         <div class="flex items-center gap-2">
-                            <select name="search_type" id="search_type_selector" class="py-2 text-sm bg-white border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 transition-colors duration-300">
+                            <select name="search_type" id="search_type_selector" class="py-2 text-sm bg-slate-100 border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 transition-colors duration-300">
                                 <option value="cedula">Por Cédula</option>
                                 <option value="nombre_apellido">Por Nombre y Apellido</option>
                                 <option value="contrato">Por Nº de Contrato</option>
@@ -171,22 +186,22 @@
                                     <span>Buscar</span>
                                 </button>
                             </div>
-                            </div>
+                        </div>
                     </form>
                 </div>
 
                 <div class="flex items-center justify-end gap-2">
-                    <button @click="mobileSearchOpen = !mobileSearchOpen" class="md:hidden text-2xl text-gray-600 hover:text-gray-900 p-2"><i class="bi bi-search"></i></button>
+                    <button @click="mobileSearchOpen = !mobileSearchOpen" class="md:hidden text-2xl text-slate-600 hover:text-slate-900 p-2"><i class="bi bi-search"></i></button>
                     {% if g.admin %}
                     <div x-data="{ open: false }" class="relative">
-                        <button @click="open = !open; sidebarOpen = false" class="flex items-center gap-2 p-2 rounded-full hover:bg-slate-300 transition-colors">
-                        <span class="font-semibold text-sm text-gray-700 hidden sm:inline">{{ g.admin.usuario | truncate(10) }}</span>
-                            <i class="bi bi-person-circle text-2xl text-gray-500"></i>
+                        <button @click="open = !open; sidebarOpen = false" class="flex items-center gap-2 p-2 rounded-full hover:bg-slate-200 transition-colors">
+                            <span class="font-semibold text-sm text-slate-700 hidden sm:inline">{{ g.admin.usuario | truncate(10) }}</span>
+                            <i class="bi bi-person-circle text-2xl text-slate-500"></i>
                         </button>
                         <div x-show="open" @click.away="open = false" x-cloak x-transition class="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg py-2 z-50 border border-slate-200 origin-top-right">
                             <div class="px-4 py-2 border-b border-slate-200">
-                                <p class="text-sm font-semibold text-gray-800 truncate">{{ g.admin.usuario }}</p>
-                                <p class="text-xs text-gray-500">{{ g.admin.rol | capitalize }}</p>
+                                <p class="text-sm font-semibold text-slate-800 truncate">{{ g.admin.usuario }}</p>
+                                <p class="text-xs text-slate-500">{{ g.admin.rol | capitalize }}</p>
                             </div>
                             <div class="py-1">
                                 <a href="{{ url_for('admin_logout') }}" class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">
@@ -199,11 +214,11 @@
                 </div>
 
                 <div x-show="mobileSearchOpen" x-cloak
-                     class="absolute top-0 left-0 w-full h-full bg-slate-200 flex items-center px-2 z-40 md:hidden"
+                     class="absolute top-0 left-0 w-full h-full bg-white flex items-center px-2 z-40 md:hidden"
                      x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
                      x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
                     <form action="{{ url_for('consulta') }}" method="post" class="w-full flex items-center gap-2" onsubmit="handleFormSubmit(this)">
-                        <select name="search_type" id="search_type_selector_mobile" class="py-2 text-sm bg-white border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500">
+                        <select name="search_type" id="search_type_selector_mobile" class="py-2 text-sm bg-slate-100 border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500">
                             <option value="cedula">Por Cédula</option>
                             <option value="nombre_apellido">Por Nombre</option>
                             <option value="contrato">Por Contrato</option>
@@ -212,7 +227,7 @@
                             <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
                             <input type="search" name="busqueda" id="search_input_field_mobile" placeholder="Búsqueda..." class="w-full pl-11 pr-4 py-2 text-sm bg-white border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500" autofocus>
                         </div>
-                        <button type="button" @click.prevent="mobileSearchOpen = false" class="text-2xl text-gray-600 hover:text-gray-900 p-2">
+                        <button type="button" @click.prevent="mobileSearchOpen = false" class="text-2xl text-slate-600 hover:text-slate-900 p-2">
                             <i class="bi bi-x-lg"></i>
                         </button>
                     </form>
@@ -225,8 +240,8 @@
                 </div>
             </main>
 
-            <footer class="flex-shrink-0 text-center py-4 px-6 border-t border-slate-300 bg-slate-200 text-sm">
-                <small class="text-gray-600">&copy; {{ g.anio_actual | default('2024') }} - Sistema de Gestión.</small>
+            <footer class="flex-shrink-0 text-center py-4 px-6 border-t border-slate-200 bg-white text-sm">
+                <small class="text-slate-600">&copy; {{ g.anio_actual | default('2024') }} - Sistema de Gestión.</small>
             </footer>
         </div>
     </div>
@@ -247,7 +262,10 @@
                 if (linkPath === '/hub' && (currentPath === '/' || currentPath === '/hub')) {
                     link.classList.add('active'); return;
                 }
-                if (link.href.endsWith(currentPath) && linkPath !== '/') {
+                if (linkPath === '/hub_asesor' && currentPath.startsWith('/hub_asesor')) {
+                    link.classList.add('active'); return;
+                }
+                if (link.href.endsWith(currentPath) && !['/', '/hub', '/hub_asesor'].includes(linkPath)) {
                     link.classList.add('active');
                 }
             });
