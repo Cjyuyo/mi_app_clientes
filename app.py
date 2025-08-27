@@ -5153,12 +5153,13 @@ def get_pago_detalle(pago_id):
         logging.error(f"Error en API get_pago_detalle: {e}")
         return jsonify({'error': 'Error interno del servidor al consultar el pago.'}), 500
 
-        # --- INICIO DEL NUEVO MÓDULO DE GESTIÓN DE USUARIOS ---
+# --- MÓDULO DE GESTIÓN DE USUARIOS UNIFICADO ---
 
 @app.route('/admin/agregar_usuario_unificado', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def agregar_usuario_unificado():
+    # ... (Esta función ya manejaba ambos tipos, se mantiene igual)
     tipo_usuario = request.form.get('tipo_usuario')
     nombre_completo = request.form.get('nombre_completo')
     usuario = request.form.get('usuario')
@@ -5212,122 +5213,144 @@ def agregar_usuario_unificado():
 
     return redirect(url_for('gestion_usuarios'))
 
-@app.route('/admin/cambiar_estado_usuario/<int:user_id>', methods=['POST'])
+
+@app.route('/admin/cambiar_estado_usuario/<string:user_type>/<int:user_id>', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
-def cambiar_estado_usuario(user_id):
+def cambiar_estado_usuario(user_type, user_id):
+    if user_type not in ['admin', 'contador']:
+        flash("Tipo de usuario no válido.", "danger")
+        return redirect(url_for('gestion_usuarios'))
+
+    table_name = 'administradores' if user_type == 'admin' else 'contadores'
+    
     conn = get_db()
     if not conn:
         flash("Error de conexión.", "danger")
         return redirect(url_for('gestion_usuarios'))
+
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT rol, usuario, estatus FROM administradores WHERE id = %s", (user_id,))
+            # Obtiene el estado actual del usuario
+            cur.execute(f"SELECT usuario, estatus, rol FROM {table_name} WHERE id = %s" if user_type == 'admin' else f"SELECT usuario, estatus FROM {table_name} WHERE id = %s", (user_id,))
             user = cur.fetchone()
+
             if not user:
                 flash("Usuario no encontrado.", "danger")
                 return redirect(url_for('gestion_usuarios'))
             
-            # Un gerente no puede cambiar el estado de un superadmin
-            if user['rol'] == 'superadmin' and g.admin['rol'] != 'superadmin':
+            # Lógica de seguridad específica para administradores
+            if user_type == 'admin' and user['rol'] == 'superadmin' and g.admin['rol'] != 'superadmin':
                 flash("No tienes permisos para cambiar el estado de un Superadmin.", "danger")
                 return redirect(url_for('gestion_usuarios'))
 
+            # Cambia el estado
             nuevo_estatus = 'Inactivo' if user['estatus'] == 'Activo' else 'Activo'
-            cur.execute("UPDATE administradores SET estatus = %s WHERE id = %s", (nuevo_estatus, user_id))
+            cur.execute(f"UPDATE {table_name} SET estatus = %s WHERE id = %s", (nuevo_estatus, user_id))
             conn.commit()
-            registrar_accion_auditoria('CAMBIO_ESTADO_USUARIO', f"Cambió el estado del usuario '{user['usuario']}' a '{nuevo_estatus}'.")
+            
+            registrar_accion_auditoria('CAMBIO_ESTADO_USUARIO', f"Cambió el estado del usuario {user_type} '{user['usuario']}' a '{nuevo_estatus}'.")
             flash(f"El estado del usuario '{user['usuario']}' ha sido actualizado a '{nuevo_estatus}'.", "success")
+
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"Error al cambiar el estado del usuario: {e}", "danger")
+        
     return redirect(url_for('gestion_usuarios'))
 
-@app.route('/admin/editar_usuario/<int:user_id>', methods=['POST'])
+
+@app.route('/admin/editar_usuario/<string:user_type>/<int:user_id>', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
-def editar_usuario(user_id):
-    # Obtiene los datos del formulario de edición
-    nombre_completo = request.form.get('nombre_completo_edit')
-    usuario = request.form.get('usuario_edit')
+def editar_usuario(user_type, user_id):
+    if user_type not in ['admin', 'contador']:
+        flash("Tipo de usuario no válido.", "danger")
+        return redirect(url_for('gestion_usuarios'))
 
-    # Validación básica para asegurarse de que los campos no estén vacíos
+    table_name = 'administradores' if user_type == 'admin' else 'contadores'
+    nombre_completo = request.form.get(f'nombre_completo_edit_{user_type}_{user_id}')
+    usuario = request.form.get(f'usuario_edit_{user_type}_{user_id}')
+
     if not nombre_completo or not usuario:
         flash("El nombre completo y el usuario no pueden estar vacíos.", "danger")
         return redirect(url_for('gestion_usuarios'))
 
-    # Obtiene la conexión a la base de datos
-    conn = get_db()
-    if not conn:
-        flash("Error de conexión a la base de datos.", "danger")
-        return redirect(url_for('gestion_usuarios'))
-
-    try:
-        with conn.cursor() as cur:
-            # Medida de seguridad: Un gerente no puede editar a un superadmin
-            cur.execute("SELECT rol FROM administradores WHERE id = %s", (user_id,))
-            user_to_edit = cur.fetchone()
-            if user_to_edit and user_to_edit['rol'] == 'superadmin' and g.admin['rol'] != 'superadmin':
-                flash("No tienes permisos para editar a un Superadmin.", "danger")
-                return redirect(url_for('gestion_usuarios'))
-
-            # Ejecuta la actualización en la base de datos
-            cur.execute(
-                "UPDATE administradores SET nombre_completo = %s, usuario = %s WHERE id = %s",
-                (nombre_completo, usuario, user_id)
-            )
-            
-            # Confirma los cambios
-            conn.commit()
-            
-            # Registra la acción en la auditoría para mantener un historial de cambios
-            registrar_accion_auditoria('EDICION_USUARIO_ADMIN', f"Editó al usuario ID {user_id}. Nuevo nombre: '{nombre_completo}', nuevo usuario: '{usuario}'.")
-            
-            flash(f"Usuario '{usuario}' actualizado exitosamente.", "success")
-            
-    except psycopg2.IntegrityError:
-        # Maneja el caso en que el nuevo 'usuario' ya exista en la base de datos
-        conn.rollback()
-        flash(f"El nombre de usuario '{usuario}' ya existe. Por favor, elija otro.", "danger")
-    except psycopg2.Error as e:
-        # Maneja cualquier otro error de la base de datos
-        conn.rollback()
-        flash(f"Error al actualizar el usuario: {e}", "danger")
-
-    # Redirige de vuelta a la página de gestión de usuarios
-    return redirect(url_for('gestion_usuarios'))
-
-@app.route('/admin/resetear_password/<int:user_id>', methods=['POST'])
-@admin_required
-@rol_requerido('superadmin', 'gerente')
-def resetear_password(user_id):
     conn = get_db()
     if not conn:
         flash("Error de conexión.", "danger")
         return redirect(url_for('gestion_usuarios'))
+
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT rol, usuario FROM administradores WHERE id = %s", (user_id,))
+            # Lógica de seguridad específica para administradores
+            if user_type == 'admin':
+                cur.execute("SELECT rol FROM administradores WHERE id = %s", (user_id,))
+                user_to_edit = cur.fetchone()
+                if user_to_edit and user_to_edit['rol'] == 'superadmin' and g.admin['rol'] != 'superadmin':
+                    flash("No tienes permisos para editar a un Superadmin.", "danger")
+                    return redirect(url_for('gestion_usuarios'))
+            
+            # Actualiza el usuario
+            cur.execute(f"UPDATE {table_name} SET nombre_completo = %s, usuario = %s WHERE id = %s", (nombre_completo, usuario, user_id))
+            conn.commit()
+            
+            registrar_accion_auditoria(f'EDICION_USUARIO_{user_type.upper()}', f"Editó al usuario {user_type} ID {user_id}. Nuevo nombre: '{nombre_completo}', nuevo usuario: '{usuario}'.")
+            flash(f"Usuario '{usuario}' actualizado exitosamente.", "success")
+            
+    except psycopg2.IntegrityError:
+        conn.rollback()
+        flash(f"El nombre de usuario '{usuario}' ya existe. Por favor, elija otro.", "danger")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error al actualizar el usuario: {e}", "danger")
+
+    return redirect(url_for('gestion_usuarios'))
+
+
+@app.route('/admin/resetear_password/<string:user_type>/<int:user_id>', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def resetear_password(user_type, user_id):
+    if user_type not in ['admin', 'contador']:
+        flash("Tipo de usuario no válido.", "danger")
+        return redirect(url_for('gestion_usuarios'))
+
+    table_name = 'administradores' if user_type == 'admin' else 'contadores'
+    
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión.", "danger")
+        return redirect(url_for('gestion_usuarios'))
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"SELECT usuario, rol FROM {table_name} WHERE id = %s" if user_type == 'admin' else f"SELECT usuario FROM {table_name} WHERE id = %s", (user_id,))
             user = cur.fetchone()
+
             if not user:
                 flash("Usuario no encontrado.", "danger")
                 return redirect(url_for('gestion_usuarios'))
             
-            # Un gerente no puede resetear la contraseña de un superadmin
-            if user['rol'] == 'superadmin' and g.admin['rol'] != 'superadmin':
+            # Lógica de seguridad específica para administradores
+            if user_type == 'admin' and user['rol'] == 'superadmin' and g.admin['rol'] != 'superadmin':
                 flash("No tienes permisos para resetear la contraseña de un Superadmin.", "danger")
                 return redirect(url_for('gestion_usuarios'))
 
+            # Genera y actualiza la nueva contraseña
             caracteres = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
             nueva_password = "".join(random.choice(caracteres) for i in range(10))
             hashed_password = generate_password_hash(nueva_password)
-            cur.execute("UPDATE administradores SET password_hash = %s WHERE id = %s", (hashed_password, user_id))
+            
+            cur.execute(f"UPDATE {table_name} SET password_hash = %s WHERE id = %s", (hashed_password, user_id))
             conn.commit()
-            registrar_accion_auditoria('RESETEO_PASSWORD', f"Reseteó la contraseña para el usuario '{user['usuario']}'.")
+            
+            registrar_accion_auditoria('RESETEO_PASSWORD', f"Reseteó la contraseña para el usuario {user_type} '{user['usuario']}'.")
             flash(f"¡Contraseña reseteada! La nueva contraseña temporal para '{user['usuario']}' es: {nueva_password}", "success")
+
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"Error al resetear la contraseña: {e}", "danger")
+
     return redirect(url_for('gestion_usuarios'))
 
 # --- FIN DEL NUEVO MÓDULO ---

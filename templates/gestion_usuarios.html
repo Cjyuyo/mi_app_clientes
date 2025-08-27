@@ -19,7 +19,6 @@
         </div>
     </div>
 
-    <!-- Pestañas de Navegación -->
     <div class="border-b border-gray-200">
         <nav class="-mb-px flex space-x-8" aria-label="Tabs">
             <button @click="tab = 'admins'" :class="{ 'border-orange-500 text-orange-600': tab === 'admins', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': tab !== 'admins' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
@@ -31,7 +30,6 @@
         </nav>
     </div>
 
-    <!-- Tabla de Administradores -->
     <div x-show="tab === 'admins'" class="bg-white rounded-xl shadow-sm mt-6">
         <div class="overflow-x-auto">
             <table class="min-w-full bg-white text-sm">
@@ -56,8 +54,40 @@
                         <td class="px-6 py-4 whitespace-nowrap text-center">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ 'bg-green-100 text-green-800' if admin.estatus == 'Activo' else 'bg-red-100 text-red-800' }}">{{ admin.estatus }}</span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-center text-base font-medium">
-                            <!-- Acciones para admins -->
+                        <td class="px-6 py-4 whitespace-nowrap text-center text-base font-medium space-x-2">
+                            <button @click="document.getElementById('modalEditAdmin{{ admin.id }}').classList.remove('hidden')" class="text-indigo-600 hover:text-indigo-900" title="Editar">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                            <form action="{{ url_for('cambiar_estado_usuario', user_type='admin', user_id=admin.id) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de que deseas cambiar el estado de este usuario?');">
+                                <button type="submit" class="text-gray-500 hover:text-gray-800" title="{{ 'Desactivar' if admin.estatus == 'Activo' else 'Activar' }}">
+                                    <i class="bi {{ 'bi-toggle-on' if admin.estatus == 'Activo' else 'bi-toggle-off' }}"></i>
+                                </button>
+                            </form>
+                            <form action="{{ url_for('resetear_password', user_type='admin', user_id=admin.id) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de que deseas resetear la contraseña de este usuario? Se generará una nueva contraseña temporal.');">
+                                <button type="submit" class="text-red-600 hover:text-red-900" title="Resetear Contraseña">
+                                    <i class="bi bi-key-fill"></i>
+                                </button>
+                            </form>
+                        
+                            <div id="modalEditAdmin{{ admin.id }}" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+                                <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+                                    <h3 class="text-lg font-medium text-gray-900 text-center mb-4">Editar Administrador</h3>
+                                    <form action="{{ url_for('editar_usuario', user_type='admin', user_id=admin.id) }}" method="POST" class="space-y-4 text-left">
+                                        <div>
+                                            <label for="nombre_completo_edit_admin_{{ admin.id }}" class="block text-sm font-medium text-gray-700">Nombre Completo</label>
+                                            <input type="text" name="nombre_completo_edit_admin_{{ admin.id }}" value="{{ admin.nombre_completo }}" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" required>
+                                        </div>
+                                        <div>
+                                            <label for="usuario_edit_admin_{{ admin.id }}" class="block text-sm font-medium text-gray-700">Usuario (Login)</label>
+                                            <input type="text" name="usuario_edit_admin_{{ admin.id }}" value="{{ admin.usuario }}" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" required>
+                                        </div>
+                                        <div class="pt-4 space-x-2 text-right">
+                                            <button type="button" @click="document.getElementById('modalEditAdmin{{ admin.id }}').classList.add('hidden')" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
+                                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Guardar Cambios</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -66,7 +96,6 @@
         </div>
     </div>
 
-    <!-- Tabla de Contadores -->
     <div x-show="tab === 'contadores'" class="bg-white rounded-xl shadow-sm mt-6" x-cloak>
         <div class="overflow-x-auto">
             <table class="min-w-full bg-white text-sm">
@@ -86,8 +115,40 @@
                         <td class="px-6 py-4 whitespace-nowrap text-center">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ 'bg-green-100 text-green-800' if contador.estatus == 'Activo' else 'bg-red-100 text-red-800' }}">{{ contador.estatus }}</span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-center text-base font-medium">
-                            <!-- Acciones para contadores -->
+                        <td class="px-6 py-4 whitespace-nowrap text-center text-base font-medium space-x-2">
+                            <button @click="document.getElementById('modalEditContador{{ contador.id }}').classList.remove('hidden')" class="text-indigo-600 hover:text-indigo-900" title="Editar">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                            <form action="{{ url_for('cambiar_estado_usuario', user_type='contador', user_id=contador.id) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de que deseas cambiar el estado de este usuario?');">
+                                <button type="submit" class="text-gray-500 hover:text-gray-800" title="{{ 'Desactivar' if contador.estatus == 'Activo' else 'Activar' }}">
+                                    <i class="bi {{ 'bi-toggle-on' if contador.estatus == 'Activo' else 'bi-toggle-off' }}"></i>
+                                </button>
+                            </form>
+                            <form action="{{ url_for('resetear_password', user_type='contador', user_id=contador.id) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de que deseas resetear la contraseña de este usuario? Se generará una nueva contraseña temporal.');">
+                                <button type="submit" class="text-red-600 hover:text-red-900" title="Resetear Contraseña">
+                                    <i class="bi bi-key-fill"></i>
+                                </button>
+                            </form>
+                        
+                            <div id="modalEditContador{{ contador.id }}" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+                                <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+                                    <h3 class="text-lg font-medium text-gray-900 text-center mb-4">Editar Contador</h3>
+                                    <form action="{{ url_for('editar_usuario', user_type='contador', user_id=contador.id) }}" method="POST" class="space-y-4 text-left">
+                                        <div>
+                                            <label for="nombre_completo_edit_contador_{{ contador.id }}" class="block text-sm font-medium text-gray-700">Nombre Completo</label>
+                                            <input type="text" name="nombre_completo_edit_contador_{{ contador.id }}" value="{{ contador.nombre_completo }}" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" required>
+                                        </div>
+                                        <div>
+                                            <label for="usuario_edit_contador_{{ contador.id }}" class="block text-sm font-medium text-gray-700">Usuario (Login)</label>
+                                            <input type="text" name="usuario_edit_contador_{{ contador.id }}" value="{{ contador.usuario }}" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" required>
+                                        </div>
+                                        <div class="pt-4 space-x-2 text-right">
+                                            <button type="button" @click="document.getElementById('modalEditContador{{ contador.id }}').classList.add('hidden')" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
+                                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Guardar Cambios</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -97,7 +158,6 @@
     </div>
 </div>
 
-<!-- Modal para Agregar Usuario Unificado -->
 <div id="modalAgregarUsuario" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50" x-data="{ userType: 'admin' }">
     <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
         <div class="mt-3">
