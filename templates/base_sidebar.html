@@ -113,7 +113,7 @@
                         <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-shield-check text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Auditoría</span></a></li>
                         {% endif %}
                     </ul>
-                    </div>
+                </div>
                 <div>
                     <div class="border-t border-slate-700/50 my-4"></div>
                     <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Externo</h3>
@@ -152,7 +152,7 @@
                             <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white"><i class="bi bi-shield-check text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Auditoría</span></a></li>
                             {% endif %}
                         </ul>
-                        </div>
+                    </div>
                     <div>
                         <div class="border-t border-slate-700/50 my-4"></div>
                         <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Externo</h3>
@@ -259,14 +259,10 @@
             const sidebarLinks = document.querySelectorAll('.sidebar-link');
             sidebarLinks.forEach(link => {
                 const linkPath = new URL(link.href).pathname;
-                // Manejo especial para el HUB principal, que también puede ser la raíz.
                 if (linkPath === '/hub' && (currentPath === '/' || currentPath === '/hub')) {
-                    link.classList.add('active'); 
-                    return;
+                    link.classList.add('active'); return;
                 }
-                // Para el resto de las rutas, verifica si la URL actual comienza con la ruta del enlace.
-                // Esto hace que los sub-menús (ej. /gestion/citas) activen el link padre (/gestion).
-                if (linkPath !== '/hub' && currentPath.startsWith(linkPath)) {
+                if (link.href.endsWith(currentPath) && linkPath !== '/') {
                     link.classList.add('active');
                 }
             });

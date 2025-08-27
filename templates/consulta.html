@@ -65,16 +65,18 @@
 
             <div class="flex-shrink-0 w-full md:w-auto border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-6 border-slate-200">
                 <div class="flex md:flex-col gap-2">
+                    {% if g.admin.rol != 'asesor' %}
                     <a href="{{ url_for('registrar_pago', client_id=cliente.id) }}" class="flex-1 text-center text-sm bg-green-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"><i class="bi bi-cash-coin"></i><span class="hidden xl:inline">Registrar Pago</span></a>
                     <button @click="showOfferForm = !showOfferForm" class="flex-1 text-center text-sm bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"><i class="bi bi-gem"></i><span class="hidden xl:inline">Oferta</span></button>
+                    {% endif %}
                     <div x-data="{ open: false }" class="relative flex-1">
                         <button @click="open = !open" class="w-full text-center text-sm bg-slate-100 text-slate-700 font-semibold py-2 px-3 rounded-lg hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"><i class="bi bi-three-dots"></i> <span class="hidden xl:inline">Más</span></button>
                         <div x-show="open" @click.away="open = false" x-cloak x-transition class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50 border border-slate-200 origin-top-right">
                             <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" target="_blank" class="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"><i class="bi bi-file-earmark-pdf-fill mr-3"></i>Contrato</a>
-                            {% if admin_rol in ['superadmin', 'gerente', 'administradora'] %}
+                            {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
                             <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"><i class="bi bi-pencil-square mr-3"></i>Editar</a>
                             {% endif %}
-                            {% if admin_rol == 'superadmin' %}
+                            {% if g.admin.rol == 'superadmin' %}
                             <div class="border-t my-1"></div>
                             <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="event.preventDefault(); confirmDelete(this);">
                                 <button type="submit" class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"><i class="bi bi-trash-fill mr-3"></i>Eliminar</button>
@@ -87,6 +89,7 @@
         </div>
     </div>
 
+    {% if g.admin.rol != 'asesor' %}
     <div x-show="showOfferForm" x-cloak x-transition class="bg-white rounded-xl shadow-md border border-slate-200 p-4 md:p-6">
         <h3 class="font-bold mb-4 text-lg text-slate-800 flex items-center gap-2"><i class="bi bi-gem text-blue-600"></i>Registrar Nueva Oferta para {{ cliente.nombre_apellido }}</h3>
         <form class="oferta-form-admin" 
@@ -115,6 +118,8 @@
             </div>
         </form>
     </div>
+    {% endif %}
+    
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-1 space-y-6">
             <div class="bg-white rounded-xl shadow-md border border-slate-200">
@@ -147,13 +152,10 @@
             </div>
 
             <div class="bg-white rounded-xl shadow-md border border-slate-200">
-                {# --- INICIO CORRECCIÓN 2: INDICADOR VISUAL --- #}
                 <button @click="openCards.dossier = !openCards.dossier" class="w-full p-4 md:p-5 flex justify-between items-center">
                     <h3 class="text-base font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-folder-fill"></i> Expediente Digital</h3>
-                    {# Se elimina 'lg:hidden' y 'lg:cursor-default' para que la flecha sea siempre visible y el cursor sea una mano #}
                     <i class="bi bi-chevron-down transition-transform" :class="{ 'rotate-180': openCards.dossier }"></i>
                 </button>
-                {# --- FIN CORRECCIÓN 2 --- #}
                 <div x-show="openCards.dossier" x-transition class="p-4 md:p-5 pt-0 md:pt-0 border-t border-slate-200">
                     <div class="space-y-4 pt-4">
                         <form action="{{ url_for('subir_documento', cliente_id=cliente.id) }}" method="POST" enctype="multipart/form-data" class="space-y-3 border-b pb-4">
@@ -246,8 +248,8 @@
                         {% endfor %}
                     </div>
                     
-                    {# --- INICIO CORRECCIÓN 1: PESTAÑA DE ACTIVIDAD --- #}
                     <div x-show="activeTab === 'actividad'" x-cloak class="space-y-4">
+                        {% if g.admin.rol != 'asesor' %}
                         <form action="{{ url_for('agregar_gestion', cliente_id=cliente.id) }}" method="POST">
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div class="md:col-span-2">
@@ -265,6 +267,7 @@
                                 </div>
                             </div>
                         </form>
+                        {% endif %}
                         <div class="border-t pt-4 space-y-3">
                             {% set sorted_activity = (cliente.gestiones + cliente.ofertas)|sort(attribute='fecha_creacion' if 'fecha_creacion' in item else 'fecha_oferta', reverse=true) %}
                             {% for item in sorted_activity %}
@@ -297,7 +300,6 @@
                             {% endfor %}
                         </div>
                     </div>
-                    {# --- FIN CORRECCIÓN 1 --- #}
                 </div>
             </div>
         </div>
@@ -331,7 +333,6 @@
     }
 
     function confirmEdit(url) {
-        // La URL se pasa directamente al método, no es necesario construirla aquí
         window.location.href = url;
     }
     
