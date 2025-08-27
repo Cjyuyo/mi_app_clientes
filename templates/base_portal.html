@@ -13,28 +13,24 @@
     
     {% block head_extra %}
     <style>
-        .card-lift {
-            transition: transform 0.25s ease, box-shadow 0.25s ease;
-        }
-        .card-lift:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1);
-        }
-        .progress-bar {
-            transition: width .6s ease;
-            background-color: #f97316 !important;
-        }
-        .tab-button.active {
-            background-color: #f97316;
-            color: white;
-        }
-        .disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
+        .card-lift { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+        .card-lift:hover { transform: translateY(-4px); box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1); }
+        .progress-bar { transition: width .6s ease; background-color: #f97316 !important; }
+        .tab-button.active { background-color: #f97316; color: white; }
+        .disabled { opacity: 0.5; cursor: not-allowed; }
         [x-cloak] { display: none !important; }
         .horizontal-scroll::-webkit-scrollbar { height: 4px; }
         .horizontal-scroll::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 20px; }
+        
+        /* --- INICIO DE LA MODIFICACIÓN: Estilos para el spinner --- */
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+          animation: spin 1s linear infinite;
+        }
+        /* --- FIN DE LA MODIFICACIÓN --- */
     </style>
     {% endblock %}
 </head>
@@ -178,6 +174,37 @@
                 }
             }
         }
+
+        // --- INICIO DE LA MODIFICACIÓN: Lógica para manejar el estado de envío ---
+        function handleFormSubmit(form) {
+            const submitBtn = document.querySelector(`button[type="submit"][form="${form.id}"]`) || form.querySelector('button[type="submit"]');
+            
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                
+                // Usamos clases de Bootstrap para el spinner y el texto
+                const spinnerIcon = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>';
+                submitBtn.innerHTML = `${spinnerIcon} Procesando...`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('form').forEach(form => {
+                form.addEventListener('submit', function(event) {
+                    const confirmMessage = this.dataset.confirm;
+                    if (confirmMessage) {
+                        if (!confirm(confirmMessage)) {
+                            event.preventDefault(); // Detiene el envío si el usuario cancela
+                        } else {
+                            handleFormSubmit(this); // Activa el estado "procesando" si confirma
+                        }
+                    } else {
+                        handleFormSubmit(this); // Activa el estado "procesando" para formularios sin confirmación
+                    }
+                });
+            });
+        });
+        // --- FIN DE LA MODIFICACIÓN ---
     </script>
     {% endblock %}
 

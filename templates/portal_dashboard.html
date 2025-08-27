@@ -29,14 +29,6 @@
         opacity: 0.5;
         cursor: not-allowed;
     }
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-    .animate-spin {
-      animation: spin 1s linear infinite;
-      display: inline-block;
-    }
 </style>
 {% endblock %}
 
@@ -128,10 +120,10 @@
                                     <li><strong>Fecha:</strong> {{ cita_confirmada.detalles.fecha_cita | format_date('%d/%m/%Y') }}</li>
                                     <li><strong>Hora:</strong> {{ cita_confirmada.detalles.hora_cita }}</li>
                                 </ul>
-                                <form action="{{ url_for('cancelar_cita_cliente', solicitud_id=cita_confirmada.id) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas cancelar?');" class="mt-3">
+                                <form action="{{ url_for('cancelar_cita_cliente', solicitud_id=cita_confirmada.id) }}" method="POST" data-confirm="¿Seguro que deseas cancelar?" class="mt-3">
                                     <button type="submit" class="text-xs bg-red-100 text-red-800 font-semibold py-1 px-2 rounded-md hover:bg-red-200">Cancelar Cita</button>
                                 </form>
-                            </div>
+                                </div>
                         </div>
                     </div>
                     {% endif %}
@@ -296,9 +288,6 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="form-text text-muted small">
-                        Nota: La selección del modelo requiere que un desarrollador actualice el sistema para guardar este dato.
-                    </div>
                 </form>
             </div>
             <div class="modal-footer">
@@ -421,10 +410,9 @@
 {% endblock %}
 
 {% block scripts_extra %}
-{{ super() }} {# Importante para heredar el script modalHandler de base_portal.html #}
+{{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // --- Lógica para el formulario de citas (existente) ---
     const fechaInput = document.getElementById('fecha_cita_input');
     const horaSelect = document.getElementById('hora_cita_select');
     const motivoSelect = document.getElementById('motivo_cita_select');
@@ -506,31 +494,8 @@ document.addEventListener('DOMContentLoaded', function() {
         fechaInput.setAttribute('min', today);
     }
 
-    // --- Lógica para el formulario de Ofertas ---
     const planModels = {
-        1400: ['Bera SBR', 'Bera BRF', 'Águila', 'ES Hero'],
-        1500: ['Ávila', 'X1', 'Cardenal', 'TR Jaguar', 'New Jog'],
-        1600: ['Milan', 'Xpress', 'Colibrí', 'Cuervo', 'Canario', 'Cóndor II', 'Tucán II', 'Tauro'],
-        1700: ['Bera León', 'Bera Tezo', 'Adventure'],
-        1800: ['New Horsen', 'New Owen', 'Fénix', 'Toro León'],
-        1900: ['Runner', 'Horse RL', 'Horse II', 'Abeja'],
-        2000: ['Kavak', 'BWS', 'BR', 'Cobra', 'Owen 200', 'Fénix', 'Power', 'Extreme'],
-        2100: ['TR Tank'],
-        2300: ['EK Foton', 'TX 150cc', 'TX 200cc'],
-        2400: ['Antiking', 'Optimus', 'Arsen II', 'RK 200'],
-        2500: ['Bera GBR', 'Matrix II', 'Cruiser', 'Lechuza'],
-        2700: ['RK 250', 'Thunder 180', 'Lechuza II', 'Falco'],
-        2800: ['Bera DTx', 'Toro Rex', 'ES EM200'],
-        2900: ['Outlook II'],
-        3200: ['TX GT 250', 'Superlight'],
-        3300: ['TR R3X 250'],
-        3500: ['BRZ 250', 'GR 250', 'TX GS 250'],
-        3800: ['Kiwi'],
-        4500: ['EK Atlas'],
-        5200: ['Carguero'],
-        5600: ['Outlook XL'],
-        5900: ['Carguero Transporte', 'Carguero Cava'],
-        6300: ['Zontes 350']
+        1400: ['Bera SBR', 'Bera BRF', 'Águila', 'ES Hero'], 1500: ['Ávila', 'X1', 'Cardenal', 'TR Jaguar', 'New Jog'], 1600: ['Milan', 'Xpress', 'Colibrí', 'Cuervo', 'Canario', 'Cóndor II', 'Tucán II', 'Tauro'], 1700: ['Bera León', 'Bera Tezo', 'Adventure'], 1800: ['New Horsen', 'New Owen', 'Fénix', 'Toro León'], 1900: ['Runner', 'Horse RL', 'Horse II', 'Abeja'], 2000: ['Kavak', 'BWS', 'BR', 'Cobra', 'Owen 200', 'Fénix', 'Power', 'Extreme'], 2100: ['TR Tank'], 2300: ['EK Foton', 'TX 150cc', 'TX 200cc'], 2400: ['Antiking', 'Optimus', 'Arsen II', 'RK 200'], 2500: ['Bera GBR', 'Matrix II', 'Cruiser', 'Lechuza'], 2700: ['RK 250', 'Thunder 180', 'Lechuza II', 'Falco'], 2800: ['Bera DTx', 'Toro Rex', 'ES EM200'], 2900: ['Outlook II'], 3200: ['TX GT 250', 'Superlight'], 3300: ['TR R3X 250'], 3500: ['BRZ 250', 'GR 250', 'TX GS 250'], 3800: ['Kiwi'], 4500: ['EK Atlas'], 5200: ['Carguero'], 5600: ['Outlook XL'], 5900: ['Carguero Transporte', 'Carguero Cava'], 6300: ['Zontes 350']
     };
 
     const clientPlan = parseFloat("{{ cliente.plan_contratado | default(0, true) }}");
@@ -564,3 +529,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+}

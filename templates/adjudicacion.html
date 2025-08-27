@@ -68,7 +68,6 @@
                 </div>
             </div>
 
-            {# --- INICIO DEL BLOQUE CORREGIDO PARA AHORRADORES ELEGIBLES --- #}
             <div class="lg:col-span-1 bg-white rounded-xl shadow-sm">
                 <div class="p-5 border-b border-slate-200 flex justify-between items-center">
                     <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -84,18 +83,22 @@
                         <thead class="text-xs text-slate-700 uppercase bg-slate-50">
                             <tr>
                                 <th scope="col" class="p-4"><input id="checkbox-all-ahorradores" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"></th>
-                                <th scope="col" class="px-6 py-3">Cliente</th>
-                                <th scope="col" class="px-6 py-3 text-center">Plan Contratado</th>
-                                <th scope="col" class="px-6 py-3 text-center">Cuotas</th>
+                                {# --- INICIO CORRECCIÓN --- #}
+                                <th scope="col" class="px-4 py-3">Cliente</th>
+                                <th scope="col" class="px-2 lg:px-4 py-3 text-center">Plan Contratado</th>
+                                <th scope="col" class="px-2 lg:px-4 py-3 text-center">Cuotas</th>
+                                {# --- FIN CORRECCIÓN --- #}
                             </tr>
                         </thead>
                         <tbody>
                             {% for p in clientes_elegibles_ahorro|sort(attribute='cuotas_pagadas_progresivas', reverse=True) %}
                             <tr class="bg-white border-b hover:bg-slate-50">
                                 <td class="w-4 p-4"><input id="checkbox-ahorrador-{{ p.id }}" name="seleccion_individual_ahorrador" value="{{ p.id }}" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"></td>
-                                <td class="px-6 py-4 font-medium text-slate-900">{{ p.nombre_apellido }}</td>
-                                <td class="px-6 py-4 text-center">${{ "%.2f"|format(p.plan_contratado|float) }}</td>
-                                <td class="px-6 py-4 text-center font-bold">{{ p.cuotas_pagadas_progresivas }}</td>
+                                {# --- INICIO CORRECCIÓN --- #}
+                                <td class="px-4 py-4 font-medium text-slate-900">{{ p.nombre_apellido }}</td>
+                                <td class="px-2 lg:px-4 py-4 text-center">${{ "%.2f"|format(p.plan_contratado|float) }}</td>
+                                <td class="px-2 lg:px-4 py-4 text-center font-bold">{{ p.cuotas_pagadas_progresivas }}</td>
+                                {# --- FIN CORRECCIÓN --- #}
                             </tr>
                             {% else %}
                             <tr><td colspan="4" class="text-center p-4 text-slate-500">No hay ahorradores elegibles.</td></tr>
@@ -130,7 +133,6 @@
                     {% endfor %}
                 </div>
             </div>
-            {# --- FIN DEL BLOQUE CORREGIDO --- #}
         </div>
         <div class="flex justify-end p-4 bg-white rounded-xl shadow-sm">
              <button @click="iniciarPreAdjudicacion()" class="font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-lg py-2 px-5 text-base flex items-center gap-2">
