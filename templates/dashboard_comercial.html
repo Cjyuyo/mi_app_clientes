@@ -4,12 +4,12 @@
 {% block body %}
 <div x-data="{ actionsOpen: false, exportOpen: false }" class="container mx-auto px-4 py-6">
     
-    <div class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-800">Dashboard de Comisiones</h1>
-        <p class="text-gray-500 mt-1">Gestiona, aprueba y paga las comisiones de los asesores.</p>
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-slate-100">Dashboard de Comisiones</h1>
+        <p class="text-slate-400 mt-1">Gestiona, aprueba y paga las comisiones de los asesores.</p>
     </div>
 
-    <div class="bg-white p-4 rounded-lg shadow-sm mb-6">
+    <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
         <form method="GET" action="{{ url_for('dashboard_comercial') }}">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 <div>
@@ -46,29 +46,29 @@
         </form>
     </div>
 
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
-        <div class="bg-yellow-100 p-4 rounded-lg shadow">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+        <div class="bg-yellow-100 p-4 rounded-xl shadow-md">
             <h3 class="font-bold text-yellow-800">Pendiente</h3>
             <p class="text-2xl font-semibold text-yellow-900">${{ "{:,.2f}".format(stats.pendiente.monto) }}</p>
             <p class="text-sm text-yellow-700">{{ stats.pendiente.conteo }} items</p>
         </div>
-        <div class="bg-green-100 p-4 rounded-lg shadow">
+        <div class="bg-green-100 p-4 rounded-xl shadow-md">
             <h3 class="font-bold text-green-800">Aprobado</h3>
             <p class="text-2xl font-semibold text-green-900">${{ "{:,.2f}".format(stats.aprobado.monto) }}</p>
             <p class="text-sm text-green-700">{{ stats.aprobado.conteo }} items</p>
         </div>
-        <div class="bg-blue-100 p-4 rounded-lg shadow">
+        <div class="bg-blue-100 p-4 rounded-xl shadow-md">
             <h3 class="font-bold text-blue-800">Pagado</h3>
             <p class="text-2xl font-semibold text-blue-900">${{ "{:,.2f}".format(stats.pagado.monto) }}</p>
             <p class="text-sm text-blue-700">{{ stats.pagado.conteo }} items</p>
         </div>
-        <div class="bg-gray-100 p-4 rounded-lg shadow">
+        <div class="bg-gray-100 p-4 rounded-xl shadow-md">
             <h3 class="font-bold text-gray-800">Ajustes / Rebalanceos</h3>
             <p class="text-2xl font-semibold text-gray-900">${{ "{:,.2f}".format(stats.rebalanceos.monto) }}</p>
         </div>
     </div>
 
-    <div class="bg-white p-4 rounded-lg shadow-sm">
+    <div class="bg-white p-6 rounded-xl shadow-lg">
         <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4">
             <h2 class="text-xl font-bold text-gray-800">Detalle de Comisiones</h2>
             <div class="hidden md:flex space-x-2">
@@ -116,7 +116,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100 md:divide-y-0">
                     {% for comision in comisiones %}
-                    <tr class="block mb-4 border rounded-lg md:table-row md:mb-0 md:border-none shadow-sm md:shadow-none">
+                    <tr class="block mb-4 border rounded-lg md:table-row md:mb-0 md:border-none shadow-sm md:shadow-none bg-white md:bg-transparent">
                         <td class="p-3 flex justify-between items-center md:table-cell md:w-10">
                             <span class="font-bold text-gray-500 md:hidden">Seleccionar:</span>
                             <input type="checkbox" class="comision-checkbox" data-id="{{ comision.id }}">
@@ -166,7 +166,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="8" class="px-3 py-4 text-center text-gray-500">
+                        <td colspan="8" class="px-3 py-4 text-center text-gray-500 bg-white rounded-lg">
                             No se encontraron comisiones con los filtros aplicados.
                         </td>
                     </tr>
@@ -207,7 +207,7 @@
 {% block scripts_extra %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // ... (El script existente no necesita cambios) ...
+    // El script existente no necesita cambios
 });
 </script>
 {% endblock %}
