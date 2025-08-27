@@ -76,7 +76,6 @@ def time_ago(time_value):
     days = hours / 24
     return f"hace {int(days)} día{'s' if int(days) > 1 else ''}"
 
-# --- CORRECCIÓN: El bloque de registro se mueve aquí, DESPUÉS de definir las funciones. ---
 app.jinja_env.filters['format_decimal'] = format_decimal_smart
 app.jinja_env.filters['time_ago'] = time_ago
 
@@ -89,7 +88,6 @@ def get_proximo_dia_habil(fecha):
 
 @app.template_filter('format_datetime')
 def format_datetime_filter(value, format='%d/%m/%Y %I:%M %p'):
-    # ... (código de la función sin cambios) ...
     return value
 
 def get_nombre_mes(month_number):
@@ -99,7 +97,6 @@ def get_nombre_mes(month_number):
 
 @app.template_filter('format_date')
 def format_date_filter(value, format='%d/%m/%Y'):
-    # ... (código de la función sin cambios) ...
     return value
 
 # =================================================================================
@@ -134,9 +131,13 @@ def setup_session_and_user():
     app.permanent_session_lifetime = timedelta(minutes=60)
     g.admin = None
     g.cliente = None
+    g.contador = None
     g.anio_actual = get_venezuela_current_date().year
+    
     admin_id = session.get('admin_id')
     cliente_id = session.get('cliente_id')
+    contador_id = session.get('contador_id')
+
     db = get_db()
     if db:
         with db.cursor() as cur:
@@ -146,6 +147,9 @@ def setup_session_and_user():
             elif cliente_id:
                 cur.execute("SELECT id, nombre, apellido, estatus FROM clientes WHERE id = %s", (cliente_id,))
                 g.cliente = cur.fetchone()
+            elif contador_id:
+                cur.execute("SELECT id, usuario, nombre_completo FROM contadores WHERE id = %s", (contador_id,))
+                g.contador = cur.fetchone()
 
 def admin_required(f):
     @wraps(f)
@@ -178,6 +182,362 @@ def portal_login_required(f):
             return redirect(url_for('portal_login'))
         return f(*args, **kwargs)
     return decorated_function
+
+def contador_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if g.contador is None:
+            flash('Acceso denegado. Debes iniciar sesión en el portal de contabilidad.', 'warning')
+            return redirect(url_for('portal_contabilidad_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# =================================================================================
+# ===== INICIO: NUEVAS RUTAS DEL PORTAL DE CONTABILIDAD (FASE 1) =====
+# =================================================================================
+
+# === Autenticación del Contador ===
+@app.route('/portal/contabilidad/login', methods=['GET', 'POST'])
+def portal_contabilidad_login():
+    if g.contador:
+        return redirect(url_for('portal_contabilidad_hub'))
+    if request.method == 'POST':
+        usuario = request.form.get('usuario')
+        password = request.form.get('password')
+        conn = get_db()
+        if not conn:
+            flash('Error de conexión con la base de datos.', 'danger')
+            return render_template('contabilidad_login.html')
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM contadores WHERE usuario = %s", (usuario,))
+            contador = cur.fetchone()
+            if contador and check_password_hash(contador['password_hash'], password):
+                if contador['estatus'] != 'Activo':
+                    flash('Tu cuenta de contador está inactiva. Contacta a un administrador.', 'danger')
+                    return redirect(url_for('portal_contabilidad_login'))
+                session.clear()
+                session['contador_id'] = contador['id']
+                cur.execute("UPDATE contadores SET ultimo_login = NOW() WHERE id = %s", (contador['id'],))
+                conn.commit()
+                flash(f"¡Bienvenido, {contador['nombre_completo']}!", 'success')
+                return redirect(url_for('portal_contabilidad_hub'))
+            else:
+                flash('Usuario o contraseña incorrectos.', 'danger')
+    return render_template('contabilidad_login.html', anio_actual=get_venezuela_current_date().year)
+
+@app.route('/portal/contabilidad/logout')
+def portal_contabilidad_logout():
+    session.pop('contador_id', None)
+    flash('Has cerrado la sesión del portal de contabilidad.', 'info')
+    return redirect(url_for('portal_contabilidad_login'))
+
+@app.route('/portal/contabilidad/hub')
+@contador_required
+def portal_contabilidad_hub():
+    return render_template('contabilidad_hub.html')
+
+@app.route('/portal/contabilidad/peticiones', methods=['GET', 'POST'])
+@contador_required
+def portal_contabilidad_peticiones():
+    conn = get_db()
+    if request.method == 'POST':
+        try:
+            titulo = request.form.get('titulo')
+            descripcion = request.form.get('descripcion')
+            monto_str = request.form.get('monto', '0').replace(',', '.')
+            monto = Decimal(monto_str)
+            moneda = request.form.get('moneda')
+            if not all([titulo, monto > 0, moneda]):
+                flash('El título, monto y moneda son obligatorios.', 'danger')
+                return redirect(url_for('portal_contabilidad_peticiones'))
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO peticiones_pago (solicitante_id, titulo, descripcion, monto, moneda)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (g.contador['id'], titulo, descripcion, monto, moneda))
+            conn.commit()
+            flash('¡Petición de pago creada exitosamente! Será revisada por un administrador.', 'success')
+        except (psycopg2.Error, InvalidOperation) as e:
+            conn.rollback()
+            flash(f'Error al crear la petición: {e}', 'danger')
+        return redirect(url_for('portal_contabilidad_peticiones'))
+    peticiones = []
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT p.*, a_rev.usuario as revisado_por, a_pag.usuario as pagado_por
+                    FROM peticiones_pago p
+                    LEFT JOIN administradores a_rev ON p.revisado_por_id = a_rev.id
+                    LEFT JOIN administradores a_pag ON p.pagado_por_id = a_pag.id
+                    WHERE p.solicitante_id = %s 
+                    ORDER BY p.fecha_peticion DESC
+                """, (g.contador['id'],))
+                peticiones = cur.fetchall()
+        except psycopg2.Error as e:
+            flash(f"Error al cargar tus peticiones: {e}", "danger")
+    return render_template('contabilidad_peticiones.html', peticiones=peticiones)
+
+# =================================================================================
+# ===== INICIO: PORTAL DE CONTABILIDAD (FASE 3 - REPORTES) =====
+# =================================================================================
+
+class PDF(FPDF):
+    def header(self):
+        self.image('https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/ColorLargo.svg', 10, 8, 50)
+        self.set_font('Arial', 'B', 15)
+        self.cell(80)
+        self.cell(30, 10, 'Reporte Financiero Mensual', 0, 0, 'C')
+        self.ln(20)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        self.cell(0, 10, f'Pagina {self.page_no()}', 0, 0, 'C')
+
+@app.route('/portal/contabilidad/reportes', methods=['GET', 'POST'])
+@contador_required
+def portal_contabilidad_reportes():
+    conn = get_db()
+    reporte_data = None
+    mes_param = request.args.get('mes', type=int) or request.form.get('mes', type=int)
+    anio_param = request.args.get('anio', type=int) or request.form.get('anio', type=int)
+    descargar_formato = request.args.get('descargar')
+
+    if mes_param and anio_param:
+        try:
+            _, ultimo_dia = monthrange(anio_param, mes_param)
+            fecha_inicio = date(anio_param, mes_param, 1)
+            fecha_fin = date(anio_param, mes_param, ultimo_dia)
+
+            with conn.cursor() as cur:
+                # --- Lógica de cálculo (se mantiene igual) ---
+                cur.execute("SELECT COALESCE(SUM(CASE WHEN moneda_referencia = 'USD' THEN monto ELSE 0 END), 0) as total_usd, COALESCE(SUM(monto_bs), 0) as total_ves FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (fecha_inicio, fecha_fin))
+                ingresos = cur.fetchone()
+                cur.execute("SELECT COALESCE(SUM(CASE WHEN moneda = 'USD' THEN monto ELSE 0 END), 0) as total_usd, COALESCE(SUM(CASE WHEN moneda = 'VES' THEN monto ELSE 0 END), 0) as total_ves FROM peticiones_pago WHERE estado = 'Pagada' AND fecha_pago BETWEEN %s AND %s", (fecha_inicio, fecha_fin))
+                egresos = cur.fetchone()
+                cur.execute("SELECT AVG(tasa) as tasa_promedio FROM historial_tasas_bcv WHERE fecha BETWEEN %s AND %s", (fecha_inicio, fecha_fin))
+                tasa_promedio = cur.fetchone()['tasa_promedio'] or Decimal('0.0')
+                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_fin,))
+                tasa_fin_mes_row = cur.fetchone()
+                tasa_fin_mes = tasa_fin_mes_row['tasa'] if tasa_fin_mes_row else Decimal('0.0')
+                cur.execute("SELECT monto_bs, tasa_dia FROM pagos WHERE estado_pago = 'Conciliado' AND monto_bs > 0 AND fecha_pago BETWEEN %s AND %s", (fecha_inicio, fecha_fin))
+                pagos_en_ves = cur.fetchall()
+                perdida_devaluacion = Decimal('0.0')
+                if tasa_fin_mes > 0:
+                    for pago in pagos_en_ves:
+                        tasa_dia_pago = pago['tasa_dia'] or tasa_promedio
+                        if tasa_dia_pago > 0:
+                            valor_usd_inicial = pago['monto_bs'] / tasa_dia_pago
+                            valor_usd_final = pago['monto_bs'] / tasa_fin_mes
+                            perdida_devaluacion += (valor_usd_inicial - valor_usd_final)
+                
+                reporte_data = {
+                    "mes": mes_param, "anio": anio_param,
+                    "periodo": f"{get_nombre_mes(mes_param)} {anio_param}",
+                    "ingresos_usd": ingresos['total_usd'], "ingresos_ves": ingresos['total_ves'],
+                    "egresos_usd": egresos['total_usd'], "egresos_ves": egresos['total_ves'],
+                    "balance_usd": ingresos['total_usd'] - egresos['total_usd'], "balance_ves": ingresos['total_ves'] - egresos['total_ves'],
+                    "tasa_promedio": tasa_promedio, "perdida_devaluacion_usd": perdida_devaluacion
+                }
+
+                # --- Lógica de Descarga ---
+                if descargar_formato:
+                    cur.execute("""
+                        SELECT p.fecha_pago, (c.nombre || ' ' || c.apellido) as cliente, p.por_concepto_de, p.monto, p.monto_bs, p.tasa_dia
+                        FROM pagos p JOIN clientes c ON p.cliente_id = c.id
+                        WHERE p.estado_pago = 'Conciliado' AND p.fecha_pago BETWEEN %s AND %s ORDER BY p.fecha_pago ASC
+                    """, (fecha_inicio, fecha_fin))
+                    recibos = cur.fetchall()
+
+                    if descargar_formato == 'pdf':
+                        pdf = PDF('L', 'mm', 'A4')
+                        pdf.add_page()
+                        pdf.set_font('Arial', 'B', 12)
+                        pdf.cell(0, 10, f"Detalle de Recibos para {reporte_data['periodo']}", 0, 1, 'C')
+                        pdf.set_font('Arial', 'B', 9)
+                        pdf.cell(30, 7, 'Fecha', 1)
+                        pdf.cell(70, 7, 'Cliente', 1)
+                        pdf.cell(80, 7, 'Concepto', 1)
+                        pdf.cell(30, 7, 'Monto USD', 1)
+                        pdf.cell(30, 7, 'Monto Bs', 1)
+                        pdf.cell(30, 7, 'Tasa Dia', 1)
+                        pdf.ln()
+                        pdf.set_font('Arial', '', 9)
+                        for recibo in recibos:
+                            pdf.cell(30, 6, recibo['fecha_pago'].strftime('%d/%m/%Y'), 1)
+                            pdf.cell(70, 6, recibo['cliente'], 1)
+                            pdf.cell(80, 6, recibo['por_concepto_de'], 1)
+                            pdf.cell(30, 6, f"${recibo['monto']:,.2f}", 1)
+                            pdf.cell(30, 6, f"{recibo['monto_bs']:,.2f} Bs", 1)
+                            pdf.cell(30, 6, f"{recibo['tasa_dia']:,.2f}" if recibo['tasa_dia'] else 'N/A', 1)
+                            pdf.ln()
+                        
+                        return Response(pdf.output(dest='S').encode('latin-1'), mimetype='application/pdf', headers={'Content-Disposition': f'attachment;filename=recibos_{mes_param}_{anio_param}.pdf'})
+
+        except (psycopg2.Error, ValueError) as e:
+            flash(f"Error al generar el reporte: {e}", "danger")
+            logging.error(f"Error en reporte contable: {e}")
+
+    # Lógica para GET
+    anio_actual = get_venezuela_current_date().year
+    anios_disponibles = [anio_actual - i for i in range(5)]
+    meses_disponibles = [{"valor": i, "nombre": get_nombre_mes(i)} for i in range(1, 13)]
+
+    return render_template('contabilidad_reportes.html', anios=anios_disponibles, meses=meses_disponibles, reporte=reporte_data)
+
+# =================================================================================
+# ===== FIN: PORTAL DE CONTABILIDAD (FASE 3) =====
+# =================================================================================
+
+# === VISTA DEL ADMIN: Gestionar peticiones de contabilidad ===
+@app.route('/admin/peticiones')
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora', 'asistente')
+def admin_peticiones():
+    conn = get_db()
+    peticiones = []
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT p.*, c.nombre_completo as solicitante_nombre
+                    FROM peticiones_pago p
+                    JOIN contadores c ON p.solicitante_id = c.id
+                    ORDER BY CASE p.estado WHEN 'Pendiente' THEN 1 WHEN 'Aprobada' THEN 2 WHEN 'Rechazada' THEN 3 WHEN 'Pagada' THEN 4 ELSE 5 END, p.fecha_peticion DESC
+                """)
+                peticiones = cur.fetchall()
+        except psycopg2.Error as e:
+            flash(f"Error al cargar las peticiones: {e}", "danger")
+    return render_template('admin_peticiones.html', peticiones=peticiones)
+
+# =================================================================================
+# ===== FIN: NUEVAS RUTAS DEL PORTAL DE CONTABILIDAD (FASE 1) =====
+# =================================================================================
+
+# =================================================================================
+# ===== INICIO: PORTAL DE CONTABILIDAD (FASE 2 - Lógica de Gestión Admin) =====
+# =================================================================================
+
+@app.route('/admin/peticiones/detalle/<int:peticion_id>')
+@admin_required
+def get_peticion_detalle(peticion_id):
+    conn = get_db()
+    if not conn:
+        return jsonify({'error': 'Error de conexión'}), 500
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT p.*, c.nombre_completo as solicitante_nombre, a_rev.usuario as revisado_por, a_pag.usuario as pagado_por
+                FROM peticiones_pago p
+                JOIN contadores c ON p.solicitante_id = c.id
+                LEFT JOIN administradores a_rev ON p.revisado_por_id = a_rev.id
+                LEFT JOIN administradores a_pag ON p.pagado_por_id = a_pag.id
+                WHERE p.id = %s
+            """, (peticion_id,))
+            peticion = cur.fetchone()
+            if not peticion:
+                return jsonify({'error': 'Petición no encontrada'}), 404
+            
+            cur.execute("""
+                SELECT s.*, a.usuario as subido_por_usuario
+                FROM soportes_pago s
+                LEFT JOIN administradores a ON s.subido_por_id = a.id
+                WHERE s.peticion_id = %s ORDER BY s.fecha_subida DESC
+            """, (peticion_id,))
+            soportes_raw = cur.fetchall()
+            soportes = [{k: str(v) if isinstance(v, (Decimal, datetime, date)) else v for k, v in dict(s).items()} for s in soportes_raw]
+            
+            peticion_dict = {k: str(v) if isinstance(v, (Decimal, datetime, date)) else v for k, v in dict(peticion).items()}
+            peticion_dict['soportes'] = soportes
+            
+            # Añadir la URL base de S3 para construir los enlaces en el frontend
+            bucket_name = os.environ.get('AWS_STORAGE_BUCKET_NAME')
+            peticion_dict['s3_base_url'] = f"https://{bucket_name}.s3.amazonaws.com"
+
+            return jsonify(peticion_dict)
+    except psycopg2.Error as e:
+        logging.error(f"Error en API get_peticion_detalle: {e}")
+        return jsonify({'error': str(e)}), 500
+
+app.route('/admin/peticiones/procesar/<int:peticion_id>', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora', 'asistente')
+def procesar_peticion(peticion_id):
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", "danger")
+        return redirect(url_for('admin_peticiones'))
+    
+    accion = request.form.get('accion')
+    notas = request.form.get('notas_admin')
+    
+    try:
+        with conn.cursor() as cur:
+            if accion == 'aprobar':
+                cur.execute("""
+                    UPDATE peticiones_pago SET estado = 'Aprobada', revisado_por_id = %s, fecha_revision = NOW(), notas_adicionales = %s
+                    WHERE id = %s AND estado = 'Pendiente'
+                """, (g.admin['id'], notas, peticion_id))
+                flash('Petición aprobada. Ahora puede ser marcada como pagada.', 'success')
+
+            elif accion == 'rechazar':
+                if not notas:
+                    flash('Debe proporcionar un motivo para rechazar la petición.', 'danger')
+                    return redirect(url_for('admin_peticiones'))
+                cur.execute("""
+                    UPDATE peticiones_pago SET estado = 'Rechazada', revisado_por_id = %s, fecha_revision = NOW(), notas_adicionales = %s
+                    WHERE id = %s AND estado = 'Pendiente'
+                """, (g.admin['id'], notas, peticion_id))
+                flash('Petición rechazada exitosamente.', 'warning')
+
+            elif accion == 'pagar':
+                soporte_pago = request.files.get('soporte_pago')
+                if not soporte_pago or soporte_pago.filename == '':
+                    flash('Debe adjuntar un comprobante de pago para marcar la petición como pagada.', 'danger')
+                    return redirect(url_for('admin_peticiones'))
+
+                cur.execute("""
+                    SELECT c.usuario FROM peticiones_pago pp JOIN contadores c ON pp.solicitante_id = c.id WHERE pp.id = %s
+                """, (peticion_id,))
+                contador = cur.fetchone()
+                if not contador:
+                    flash('No se encontró el solicitante de la petición.', 'danger')
+                    return redirect(url_for('admin_peticiones'))
+
+                bucket_name = os.environ.get('AWS_STORAGE_BUCKET_NAME')
+                timestamp = int(datetime.now().timestamp())
+                nombre_seguro = f"{timestamp}_{soporte_pago.filename.replace(' ', '_')}"
+                ruta_en_s3 = f"soportes_pago/{contador['usuario']}/{nombre_seguro}"
+
+                if not subir_fileobj_a_s3(soporte_pago, bucket_name, ruta_en_s3):
+                    flash('Error crítico al subir el comprobante a S3. La operación fue cancelada.', 'danger')
+                    return redirect(url_for('admin_peticiones'))
+                
+                cur.execute("""
+                    UPDATE peticiones_pago SET estado = 'Pagada', pagado_por_id = %s, fecha_pago = NOW(), notas_adicionales = %s
+                    WHERE id = %s AND estado = 'Aprobada'
+                """, (g.admin['id'], notas, peticion_id))
+                
+                cur.execute("""
+                    INSERT INTO soportes_pago (peticion_id, ruta_s3, nombre_archivo, subido_por_id)
+                    VALUES (%s, %s, %s, %s)
+                """, (peticion_id, ruta_en_s3, soporte_pago.filename, g.admin['id']))
+
+                flash('Petición marcada como pagada y comprobante adjuntado.', 'success')
+            
+            else:
+                flash('Acción no válida.', 'danger')
+
+        conn.commit()
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error al procesar la petición: {e}", "danger")
+
+    return redirect(url_for('admin_peticiones'))
+# =================================================================================
+# ===== FIN: PORTAL DE CONTABILIDAD (FASE 2 - Lógica de Gestión Admin) =====
+# =================================================================================
 
 # =================================================================================
 # ===== FUNCIONES AUXILIARES (AUDITORÍA, COMISIONES, TESORERÍA) =====
@@ -241,7 +601,6 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None, detalles_ad
         conn.rollback()
         logging.error(f"AUDITORIA-FALLO-INSERCION: {e}")
         conn.rollback()
-
 
 def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_dueno, responsable_cierre):
     """Calcula y guarda las comisiones basadas en el escenario de venta."""

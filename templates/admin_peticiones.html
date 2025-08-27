@@ -1,0 +1,161 @@
+{% extends "base_sidebar.html" %}
+
+{% block title %}Gestión de Peticiones de Pago{% endblock %}
+
+{% block page_title %}Gestión de Peticiones de Pago{% endblock %}
+
+{% block body %}
+<div x-data="peticionesManager()">
+    <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200/80 transition-all duration-300 hover:shadow-2xl">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b border-slate-200 pb-4">
+            <div class="mb-4 sm:mb-0">
+                <h2 class="text-2xl font-bold text-slate-800">Peticiones Fiscales y Parafiscales</h2>
+                <p class="text-sm text-slate-500 mt-1">Revisa, aprueba o rechaza las solicitudes para el pago de impuestos y contribuciones.</p>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">ID</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Concepto de la Petición</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Monto</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Solicitante</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Estado</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+                    {% for peticion in peticiones %}
+                    <tr class="hover:bg-slate-50 transition-colors duration-150">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">#{{ peticion.id }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                            <div class="font-medium text-slate-800">{{ peticion.titulo }}</div>
+                            <div class="text-xs text-slate-500">{{ peticion.fecha_peticion.strftime('%d/%m/%Y') }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-800">{{ "%.2f"|format(peticion.monto) }} <span class="text-slate-500 font-normal">{{ peticion.moneda }}</span></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ peticion.solicitante_nombre }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            {% if peticion.estado == 'Pendiente' %}
+                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800 border border-yellow-200">Pendiente</span>
+                            {% elif peticion.estado == 'Aprobada' %}
+                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-200">Aprobada</span>
+                            {% elif peticion.estado == 'Pagada' %}
+                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 border border-green-200">Pagada</span>
+                            {% elif peticion.estado == 'Rechazada' %}
+                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800 border border-red-200">Rechazada</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                            <button @click="openModal({{ peticion.id }})" class="py-1 px-3 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition">Gestionar</button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-10 text-slate-500">
+                            <i class="bi bi-inbox text-4xl mb-2"></i>
+                            <p>No hay peticiones por gestionar.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div x-show="modalOpen" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" x-cloak>
+        <div @click.away="modalOpen = false" class="bg-white rounded-xl shadow-2xl w-full max-w-2xl transform transition-all"
+             x-show="modalOpen" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 scale-90" x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-90">
+            
+            <div class="p-6 border-b border-slate-200">
+                <h3 class="text-xl font-bold text-slate-800" x-text="`Gestionar Petición #${peticion.id}`"></h3>
+            </div>
+
+            <form :action="`/admin/peticiones/procesar/${peticion.id}`" method="POST">
+                <div class="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div class="bg-slate-50 p-3 rounded-lg">
+                            <label class="font-semibold text-slate-500 block">Solicitante</label>
+                            <span class="text-slate-800" x-text="peticion.solicitante_nombre"></span>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-lg">
+                            <label class="font-semibold text-slate-500 block">Fecha Solicitud</label>
+                            <span class="text-slate-800" x-text="formatDate(peticion.fecha_peticion)"></span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-3 rounded-lg text-sm">
+                        <label class="font-semibold text-slate-500 block">Concepto</label>
+                        <span class="text-slate-800 text-base font-medium" x-text="peticion.titulo"></span>
+                    </div>
+
+                    <div class="bg-slate-50 p-3 rounded-lg text-sm" x-show="peticion.descripcion">
+                        <label class="font-semibold text-slate-500 block">Descripción</label>
+                        <p class="text-slate-700 whitespace-pre-wrap" x-text="peticion.descripcion"></p>
+                    </div>
+
+                    <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg text-center">
+                        <label class="font-semibold text-blue-600 block text-sm">Monto Solicitado</label>
+                        <p class="text-3xl font-bold text-blue-800" x-text="`${formatCurrency(peticion.monto)} ${peticion.moneda}`"></p>
+                    </div>
+                    
+                    <div x-show="peticion.estado !== 'Pagada' && peticion.estado !== 'Rechazada'">
+                        <label for="notas_admin" class="block text-sm font-medium text-slate-700 mb-1">Notas (Opcional, pero requerido para rechazar)</label>
+                        <textarea id="notas_admin" name="notas_admin" rows="3" placeholder="Añade un comentario sobre la aprobación, pago o motivo de rechazo."
+                                  class="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"></textarea>
+                    </div>
+
+                     <div class="bg-slate-50 p-3 rounded-lg text-sm" x-show="peticion.notas_adicionales">
+                        <label class="font-semibold text-slate-500 block">Notas Adicionales</label>
+                        <p class="text-slate-700 whitespace-pre-wrap" x-text="peticion.notas_adicionales"></p>
+                    </div>
+                </div>
+
+                <div class="p-6 bg-slate-50 rounded-b-xl flex flex-wrap justify-end items-center gap-3">
+                    <button type="button" @click="modalOpen = false" class="py-2 px-4 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition">Cancelar</button>
+                    
+                    <button x-show="peticion.estado === 'Pendiente'" type="submit" name="accion" value="rechazar" class="py-2 px-4 text-sm font-semibold bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition">Rechazar</button>
+                    <button x-show="peticion.estado === 'Pendiente'" type="submit" name="accion" value="aprobar" class="py-2 px-4 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Aprobar</button>
+                    <button x-show="peticion.estado === 'Aprobada'" type="submit" name="accion" value="pagar" class="py-2 px-4 text-sm font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 transition">Marcar como Pagada</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+    function peticionesManager() {
+        return {
+            modalOpen: false,
+            peticion: {},
+            async openModal(peticionId) {
+                if (!peticionId) return;
+                try {
+                    const response = await fetch(`/admin/peticiones/detalle/${peticionId}`);
+                    if (!response.ok) {
+                        throw new Error('No se pudo cargar la información de la petición.');
+                    }
+                    this.peticion = await response.json();
+                    this.modalOpen = true;
+                } catch (error) {
+                    console.error(error);
+                    alert(error.message);
+                }
+            },
+            formatDate(dateString) {
+                if (!dateString) return 'N/A';
+                const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+                return new Date(dateString).toLocaleDateString('es-VE', options);
+            },
+            formatCurrency(amount) {
+                if (amount === null || amount === undefined) return '0.00';
+                return parseFloat(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+        }
+    }
+</script>
+{% endblock %}
