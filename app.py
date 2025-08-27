@@ -5155,37 +5155,18 @@ def get_pago_detalle(pago_id):
 
         # --- INICIO DEL NUEVO MÓDULO DE GESTIÓN DE USUARIOS ---
 
-@app.route('/admin/gestion_usuarios')
-@admin_required
-@rol_requerido('superadmin', 'gerente') 
-def gestion_usuarios():
-    """Muestra la página de gestión de usuarios administradores."""
-    conn = get_db()
-    if not conn:
-        flash("Error de conexión a la base de datos.", "danger")
-        return redirect(url_for('hub'))
-    
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, nombre_completo, usuario, rol, estatus FROM administradores ORDER BY nombre_completo")
-            usuarios = cur.fetchall()
-    except psycopg2.Error as e:
-        flash(f"Error al cargar la lista de usuarios: {e}", "danger")
-        usuarios = []
-        
-    return render_template('gestion_usuarios.html', usuarios=usuarios)
-
-@app.route('/admin/agregar_usuario', methods=['POST'])
+@app.route('/admin/agregar_usuario_unificado', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
-def agregar_usuario():
+def agregar_usuario_unificado():
+    tipo_usuario = request.form.get('tipo_usuario')
     nombre_completo = request.form.get('nombre_completo')
     usuario = request.form.get('usuario')
     password = request.form.get('password')
-    rol = request.form.get('rol')
-    # Solo un superadmin puede crear otro superadmin
-    if rol == 'superadmin' and g.admin['rol'] != 'superadmin':
-        flash("Solo un Superadmin puede asignar el rol de Superadmin.", "danger")
+    rol = request.form.get('rol') # Solo para admins
+
+    if not all([tipo_usuario, nombre_completo, usuario, password]):
+        flash("Todos los campos son obligatorios.", "danger")
         return redirect(url_for('gestion_usuarios'))
 
     conn = get_db()
@@ -5196,13 +5177,32 @@ def agregar_usuario():
     try:
         with conn.cursor() as cur:
             hashed_password = generate_password_hash(password)
-            cur.execute(
-                "INSERT INTO administradores (nombre_completo, usuario, password_hash, rol, estatus) VALUES (%s, %s, %s, %s, 'Activo')",
-                (nombre_completo, usuario, hashed_password, rol)
-            )
+            
+            if tipo_usuario == 'admin':
+                if not rol:
+                    flash("El rol es obligatorio para un administrador.", "danger")
+                    return redirect(url_for('gestion_usuarios'))
+                
+                cur.execute(
+                    "INSERT INTO administradores (nombre_completo, usuario, password_hash, rol, estatus) VALUES (%s, %s, %s, %s, 'Activo')",
+                    (nombre_completo, usuario, hashed_password, rol)
+                )
+                registrar_accion_auditoria('CREACION_USUARIO_ADMIN', f"Creó al usuario admin '{usuario}' ({nombre_completo}).")
+                flash(f"Usuario administrador '{usuario}' creado exitosamente.", "success")
+
+            elif tipo_usuario == 'contador':
+                cur.execute(
+                    "INSERT INTO contadores (nombre_completo, usuario, password_hash, estatus) VALUES (%s, %s, %s, 'Activo')",
+                    (nombre_completo, usuario, hashed_password)
+                )
+                registrar_accion_auditoria('CREACION_USUARIO_CONTADOR', f"Creó al usuario contador '{usuario}' ({nombre_completo}).")
+                flash(f"Usuario contador '{usuario}' creado exitosamente.", "success")
+            
+            else:
+                flash("Tipo de usuario no válido.", "danger")
+
             conn.commit()
-            registrar_accion_auditoria('CREACION_USUARIO_ADMIN', f"Creó al usuario '{usuario}' ({nombre_completo}) con el rol '{rol}'.")
-            flash(f"Usuario '{usuario}' creado exitosamente.", "success")
+
     except psycopg2.IntegrityError:
         conn.rollback()
         flash(f"El nombre de usuario '{usuario}' ya existe. Por favor, elija otro.", "danger")
