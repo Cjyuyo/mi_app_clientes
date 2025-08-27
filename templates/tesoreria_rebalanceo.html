@@ -21,7 +21,6 @@
         {% endif %}
     {% endwith %}
 
-    {# --- INICIO DE LA MODIFICACIÓN --- #}
     {# Esta sección solo será visible para los roles de superadmin y gerente #}
     {% if g.admin.rol in ['superadmin', 'gerente'] %}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -31,7 +30,6 @@
         <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-sm font-medium text-slate-500">Caja Bs (EUR Ref)</div><div class="text-2xl font-bold text-blue-600 mt-1">Bs. {{ "{:,.2f}".format(balances.CAJA_BS_EUR) }}</div></div>
     </div>
     {% endif %}
-    {# --- FIN DE LA MODIFICACIÓN --- #}
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-1">
