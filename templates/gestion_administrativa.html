@@ -111,14 +111,20 @@
                     <p class="text-sm text-slate-500 mt-1">Administra cuentas y permisos del sistema.</p>
                 </div>
             </a>
+            {% endif %}
+            
+            {# --- INICIO DE LA MODIFICACIÓN --- #}
+            {# Ahora visible para todos los roles que pueden acceder a Tesorería #}
+            {% if g.admin.rol in ['superadmin', 'gerente', 'administradora', 'asistente'] %}
             <a href="{{ url_for('tesoreria_rebalanceo') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex items-start space-x-4">
                 <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-pink-100 text-pink-600"><i class="bi bi-wallet2 text-2xl"></i></div>
                 <div>
-                    <h3 class="font-bold text-slate-800 group-hover:text-pink-600 transition-colors">Tesorería y Balances</h3>
+                    <h3 class="font-bold text-slate-800 group-hover:text-pink-600 transition-colors">Tesorería</h3>
                     <p class="text-sm text-slate-500 mt-1">Mueve fondos entre cajas y registra egresos.</p>
                 </div>
             </a>
             {% endif %}
+            {# --- FIN DE LA MODIFICACIÓN --- #}
             
             <a href="{{ url_for('admin_tasa_bcv') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex items-start space-x-4">
                 <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-cyan-100 text-cyan-600"><i class="bi bi-coin text-2xl"></i></div>
