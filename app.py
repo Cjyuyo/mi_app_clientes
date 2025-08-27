@@ -203,11 +203,13 @@ def portal_contabilidad_login():
         return redirect(url_for('portal_contabilidad_hub'))
     
     if request.method == 'POST':
-        # --- INICIO DE LA CORRECCIÓN ---
-        # Se usa .strip() para eliminar espacios y se prepara para una búsqueda insensible a mayúsculas.
         usuario = request.form.get('usuario', '').strip()
-        password = request.form.get('password')
-        # --- FIN DE LA CORRECCIÓN ---
+        password = request.form.get('password', '')
+
+        # --- INICIO: LOGS DE DIAGNÓSTICO ---
+        logging.info(f"Intento de login para usuario: '{usuario}'")
+        logging.info(f"Contraseña recibida: {'*' * len(password) if password else 'NINGUNA'}")
+        # --- FIN: LOGS DE DIAGNÓSTICO ---
 
         conn = get_db()
 
@@ -216,29 +218,39 @@ def portal_contabilidad_login():
             return render_template('contabilidad_login.html')
 
         with conn.cursor() as cur:
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Se usa lower() para que la búsqueda de usuario no sea sensible a mayúsculas.
             cur.execute("SELECT * FROM contadores WHERE lower(usuario) = lower(%s)", (usuario,))
-            # --- FIN DE LA CORRECCIÓN ---
             contador = cur.fetchone()
 
-            if contador and check_password_hash(contador['password_hash'], password):
-                if contador['estatus'] != 'Activo':
-                    flash('Tu cuenta de contador está inactiva. Contacta a un administrador.', 'danger')
-                    return redirect(url_for('portal_contabilidad_login'))
+            # --- INICIO: LOGS DE DIAGNÓSTICO ---
+            logging.info(f"Usuario encontrado en BD: {contador['usuario'] if contador else 'No encontrado'}")
+            # --- FIN: LOGS DE DIAGNÓSTICO ---
 
-                session.clear()
-                session['contador_id'] = contador['id']
-                cur.execute("UPDATE contadores SET ultimo_login = NOW() WHERE id = %s", (contador['id'],))
-                conn.commit()
-                
-                flash(f"¡Bienvenido, {contador['nombre_completo']}!", 'success')
-                return redirect(url_for('portal_contabilidad_hub'))
-            else:
-                flash('Usuario o contraseña incorrectos.', 'danger')
+            if contador:
+                # --- INICIO: LOGS DE DIAGNÓSTICO ---
+                is_password_correct = check_password_hash(contador['password_hash'], password)
+                logging.info(f"Verificación de contraseña para '{contador['usuario']}': {is_password_correct}")
+                # --- FIN: LOGS DE DIAGNÓSTICO ---
+
+                if is_password_correct:
+                    if contador['estatus'] != 'Activo':
+                        flash('Tu cuenta de contador está inactiva. Contacta a un administrador.', 'danger')
+                        return redirect(url_for('portal_contabilidad_login'))
+
+                    session.clear()
+                    session['contador_id'] = contador['id']
+                    cur.execute("UPDATE contadores SET ultimo_login = NOW() WHERE id = %s", (contador['id'],))
+                    conn.commit()
+                    
+                    flash(f"¡Bienvenido, {contador['nombre_completo']}!", 'success')
+                    return redirect(url_for('portal_contabilidad_hub'))
+
+            # Si el contador no existe o la contraseña es incorrecta, llega aquí.
+            flash('Usuario o contraseña incorrectos.', 'danger')
+            return redirect(url_for('portal_contabilidad_login'))
+
 
     return render_template('contabilidad_login.html', anio_actual=get_venezuela_current_date().year)
-    
+
 @app.route('/portal/contabilidad/logout')
 def portal_contabilidad_logout():
     session.pop('contador_id', None)
