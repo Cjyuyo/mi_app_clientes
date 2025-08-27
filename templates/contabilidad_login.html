@@ -15,15 +15,19 @@
     <style>
         :root {
             --azul-corporativo: #2B3A55;
-            --azul-hover: #1e2a40;
             --naranja-corporativo: #F99417;
+            --naranja-hover: #e08515;
             --blanco-tarjetas: #FFFFFF;
             --texto-claro: #6c757d;
+            --fondo-oscuro: #111827;
         }
         body {
             font-family: 'Roboto', sans-serif;
-            background-color: var(--azul-corporativo);
-            background-image: linear-gradient(160deg, var(--azul-corporativo) 0%, #1a2233 100%);
+            background-color: var(--fondo-oscuro);
+            /* Fondo creativo y único */
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(214, 47%, 23%, 0.5) 0px, transparent 50%),
+                radial-gradient(at 95% 90%, hsla(33, 94%, 53%, 0.3) 0px, transparent 50%);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -34,15 +38,33 @@
             background-color: var(--blanco-tarjetas);
             padding: 2.5rem;
             border-radius: 1rem;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4);
             width: 100%;
             max-width: 420px;
             text-align: center;
-            border-top: 5px solid var(--azul-corporativo);
+            position: relative;
+            overflow: hidden;
         }
+        /* Borde superior con gradiente animado */
+        .login-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -50%;
+            width: 200%;
+            height: 6px;
+            background-image: linear-gradient(to right, var(--azul-corporativo), var(--naranja-corporativo), var(--azul-corporativo));
+            animation: slide-gradient 6s linear infinite;
+        }
+
+        @keyframes slide-gradient {
+            0% { transform: translateX(0%); }
+            100% { transform: translateX(-50%); }
+        }
+
         .login-header .icon {
             font-size: 3rem;
-            color: var(--azul-corporativo);
+            color: var(--naranja-corporativo); /* Icono naranja para distinguir */
             margin-bottom: 1rem;
         }
         .login-header h1 {
@@ -54,6 +76,10 @@
             margin-bottom: 2rem;
             color: var(--texto-claro);
         }
+        .form-control:focus {
+            border-color: var(--naranja-corporativo);
+            box-shadow: 0 0 0 0.25rem rgba(249, 148, 23, 0.25);
+        }
         .form-control {
             border-radius: 0.5rem;
             padding: 0.85rem 1rem;
@@ -62,24 +88,26 @@
              border-radius: 0.5rem 0 0 0.5rem;
         }
         .btn-primary {
-            background-color: var(--azul-corporativo);
-            border-color: var(--azul-corporativo);
+            background-color: var(--naranja-corporativo);
+            border-color: var(--naranja-corporativo);
+            color: white;
             font-weight: 600;
             padding: 0.85rem;
             border-radius: 0.5rem;
             transition: all 0.2s ease-in-out;
         }
         .btn-primary:hover {
-            background-color: var(--azul-hover);
-            border-color: var(--azul-hover);
+            background-color: var(--naranja-hover);
+            border-color: var(--naranja-hover);
             transform: scale(1.02);
+            box-shadow: 0 4px 15px rgba(249, 148, 23, 0.4);
         }
     </style>
 </head>
 <body>
     <div class="login-card">
         <div class="login-header">
-            <div class="icon"><i class="bi bi-journal-check"></i></div>
+            <div class="icon"><i class="bi bi-calculator-fill"></i></div>
             <h1>Portal de Contabilidad</h1>
             <p>Ingresa tus credenciales de acceso.</p>
         </div>
