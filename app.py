@@ -5153,7 +5153,7 @@ def get_pago_detalle(pago_id):
         logging.error(f"Error en API get_pago_detalle: {e}")
         return jsonify({'error': 'Error interno del servidor al consultar el pago.'}), 500
 
-# --- MÓDULO DE GESTIÓN DE USUARIOS UNIFICADO ---
+# --- MÓDULO DE GESTIÓN DE USUARIOS UNIFICADO --
 
 @app.route('/admin/gestion_usuarios')
 @admin_required
