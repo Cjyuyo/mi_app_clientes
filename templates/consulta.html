@@ -10,17 +10,12 @@
 
 {% block body %}
 
-{# 
-  PRINCIPAL CORRECCIÓN: Se cambió {% if cliente %} por {% for cliente in clientes %}.
-  Ahora la plantilla itera sobre la lista de 'clientes' enviada desde Python
-  y renderiza un bloque de perfil para cada uno.
-#}
 {% for cliente in clientes %}
 <div x-data="{ 
     showOfferForm: false, 
     activeTab: 'resumen',
-    openCards: { progress: true, dossier: false } 
-}" class="w-full space-y-6 mb-8"> {# Se añade un margen inferior para separar los perfiles si hay varios resultados #}
+    openCards: { progress: true, dossier: true } 
+}" class="w-full space-y-6 mb-8">
 
     {% set bucket_url = 'https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/' %}
 
@@ -50,9 +45,8 @@
             </div>
 
             {% set total_financiado = (cliente.valor_cuota|float(0) * cliente.cuotas_totales|int(0)) %}
-            {% set total_pagado_cuotas = (cliente.cuotas_pagadas_progresivas|int(0) * cliente.valor_cuota|float(0)) %}
-            {% set total_pagado = (cliente.inscripcion_pagada|float(0) + total_pagado_cuotas) %}
-            {% set saldo_pendiente = total_financiado - total_pagado_cuotas %}
+            {% set total_pagado_plan = (cliente.cuotas_pagadas_progresivas|int(0) * cliente.valor_cuota|float(0)) %}
+            {% set saldo_pendiente = total_financiado - total_pagado_plan %}
             
             <div class="flex-grow w-full grid grid-cols-3 gap-2 md:gap-4 text-center pt-4 md:pt-0 border-t md:border-t-0 md:border-l md:pl-6 border-slate-200">
                 <div>
@@ -60,8 +54,8 @@
                     <p class="text-xl md:text-2xl font-bold text-slate-800">${{ "%.2f"|format(total_financiado) }}</p>
                 </div>
                 <div>
-                    <p class="text-xs text-slate-500 uppercase font-semibold">Total Pagado</p>
-                    <p class="text-xl md:text-2xl font-bold text-green-600">${{ "%.2f"|format(total_pagado) }}</p>
+                    <p class="text-xs text-slate-500 uppercase font-semibold">Pagado al Plan</p>
+                    <p class="text-xl md:text-2xl font-bold text-green-600">${{ "%.2f"|format(total_pagado_plan) }}</p>
                 </div>
                 <div>
                     <p class="text-xs text-slate-500 uppercase font-semibold">Saldo Pendiente</p>
@@ -78,7 +72,7 @@
                         <div x-show="open" @click.away="open = false" x-cloak x-transition class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50 border border-slate-200 origin-top-right">
                             <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" target="_blank" class="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"><i class="bi bi-file-earmark-pdf-fill mr-3"></i>Contrato</a>
                             {% if admin_rol in ['superadmin', 'gerente', 'administradora'] %}
-                            <a href="#" onclick="confirmEdit('{{ url_for('edit_client', client_id=cliente.id) }}')" class="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"><i class="bi bi-pencil-square mr-3"></i>Editar</a>
+                            <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"><i class="bi bi-pencil-square mr-3"></i>Editar</a>
                             {% endif %}
                             {% if admin_rol == 'superadmin' %}
                             <div class="border-t my-1"></div>
@@ -86,7 +80,7 @@
                                 <button type="submit" class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"><i class="bi bi-trash-fill mr-3"></i>Eliminar</button>
                             </form>
                             {% endif %}
-                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -119,18 +113,17 @@
                     <button @click="showOfferForm = false" type="button" class="w-full bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded-lg text-sm">Cancelar</button>
                 </div>
             </div>
-            <p class="text-xs text-slate-500 mt-2">Nota: El backend debe ser actualizado para guardar el modelo seleccionado.</p>
         </form>
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-1 space-y-6">
             <div class="bg-white rounded-xl shadow-md border border-slate-200">
-                <button @click="openCards.progress = !openCards.progress" class="w-full p-4 md:p-5 flex justify-between items-center lg:cursor-default">
+                <button @click="openCards.progress = !openCards.progress" class="w-full p-4 md:p-5 flex justify-between items-center">
                     <h3 class="text-base font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-graph-up-arrow"></i> Resumen de Progreso</h3>
-                    <i class="bi bi-chevron-down transition-transform lg:hidden" :class="{ 'rotate-180': openCards.progress }"></i>
+                    <i class="bi bi-chevron-down transition-transform" :class="{ 'rotate-180': openCards.progress }"></i>
                 </button>
-                <div x-show="openCards.progress" x-transition class="p-4 md:p-5 pt-0 md:pt-0 lg:block border-t border-slate-200 lg:border-t-0">
-                    <div class="space-y-4 pt-4 lg:pt-0">
+                <div x-show="openCards.progress" x-transition class="p-4 md:p-5 pt-0 md:pt-0 border-t border-slate-200">
+                    <div class="space-y-4 pt-4">
                         <div>
                             <h4 class="text-sm font-semibold text-slate-600 mb-1">Progreso Inscripción</h4>
                             {% set inscripcion_pagada = cliente.inscripcion_pagada|float(0) %}{% set inscripcion_monto = cliente.inscripcion_monto|float(1) %}
@@ -154,12 +147,15 @@
             </div>
 
             <div class="bg-white rounded-xl shadow-md border border-slate-200">
-                 <button @click="openCards.dossier = !openCards.dossier" class="w-full p-4 md:p-5 flex justify-between items-center lg:cursor-default">
+                {# --- INICIO CORRECCIÓN 2: INDICADOR VISUAL --- #}
+                <button @click="openCards.dossier = !openCards.dossier" class="w-full p-4 md:p-5 flex justify-between items-center">
                     <h3 class="text-base font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-folder-fill"></i> Expediente Digital</h3>
-                    <i class="bi bi-chevron-down transition-transform lg:hidden" :class="{ 'rotate-180': openCards.dossier }"></i>
+                    {# Se elimina 'lg:hidden' y 'lg:cursor-default' para que la flecha sea siempre visible y el cursor sea una mano #}
+                    <i class="bi bi-chevron-down transition-transform" :class="{ 'rotate-180': openCards.dossier }"></i>
                 </button>
-                <div x-show="openCards.dossier" x-transition class="p-4 md:p-5 pt-0 md:pt-0 lg:block border-t border-slate-200 lg:border-t-0">
-                    <div class="space-y-4 pt-4 lg:pt-0">
+                {# --- FIN CORRECCIÓN 2 --- #}
+                <div x-show="openCards.dossier" x-transition class="p-4 md:p-5 pt-0 md:pt-0 border-t border-slate-200">
+                    <div class="space-y-4 pt-4">
                         <form action="{{ url_for('subir_documento', cliente_id=cliente.id) }}" method="POST" enctype="multipart/form-data" class="space-y-3 border-b pb-4">
                             <div>
                                 <input type="text" name="descripcion" class="mt-1 block w-full text-sm rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" placeholder="Descripción del archivo" required>
@@ -224,7 +220,7 @@
                         <div class="bg-white border border-slate-200 rounded-lg p-5 md:col-span-2">
                              <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-person-heart"></i> Beneficiario</h3>
                              <div class="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2 pt-2 text-sm">
-                                <div><p class="text-slate-500">Nombre:</p><p class="font-semibold text-slate-700">{{ cliente.beneficiario_nombre }}</p></div>
+                                <div><p class="text-slate-500">Nombre:</p><p class="font-semibold text-slate-700">{{ cliente.beneficiario_nombre }} {{ cliente.beneficiario_apellido }}</p></div>
                                 <div><p class="text-slate-500">Cédula:</p><p class="font-semibold text-slate-700">{{ cliente.beneficiario_cedula or 'N/A' }}</p></div>
                                 <div><p class="text-slate-500">Teléfono:</p><p class="font-semibold text-slate-700">{{ cliente.beneficiario_telefono or 'N/A' }}</p></div>
                              </div>
@@ -236,8 +232,8 @@
                         {% for pago in cliente.pagos %}
                         <div class="bg-white border rounded-lg p-3 flex items-center justify-between gap-3 hover:shadow-sm transition-shadow">
                             <div>
-                                <p class="font-semibold text-slate-700">{{ pago.tipo_pago }} - ${{ "%.2f"|format(pago.monto|float) }}</p>
-                                <p class="text-xs text-slate-500">{{ pago.fecha_pago.strftime('%d/%m/%Y') }} | Ref: {{ pago.referencia or 'N/A' }}</p>
+                                <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" target="_blank" class="font-semibold text-slate-700 hover:text-blue-600">{{ pago.tipo_pago }} - ${{ "%.2f"|format(pago.monto|float) }}</a>
+                                <p class="text-xs text-slate-500">{{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }} | Ref: {{ pago.referencia or 'N/A' }}</p>
                             </div>
                             <span class="text-xs font-bold py-1 px-2 rounded-full
                                 {% if pago.estado_pago == 'Conciliado' %} bg-green-100 text-green-800
@@ -249,23 +245,70 @@
                         <div class="text-center py-8"><p class="text-slate-500">No hay pagos registrados.</p></div>
                         {% endfor %}
                     </div>
-                    <div x-show="activeTab === 'actividad'" x-cloak class="space-y-6">
+                    
+                    {# --- INICIO CORRECCIÓN 1: PESTAÑA DE ACTIVIDAD --- #}
+                    <div x-show="activeTab === 'actividad'" x-cloak class="space-y-4">
+                        <form action="{{ url_for('agregar_gestion', cliente_id=cliente.id) }}" method="POST">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="md:col-span-2">
+                                    <textarea name="nota" rows="2" class="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="Añadir nota de gestión..." required></textarea>
+                                </div>
+                                <div class="flex flex-col gap-2">
+                                    <select name="tipo_gestion" class="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                                        <option value="Llamada">Llamada</option>
+                                        <option value="Mensaje">Mensaje</option>
+                                        <option value="Visita">Visita</option>
+                                        <option value="Acuerdo de Pago">Acuerdo de Pago</option>
+                                        <option value="Otro">Otro</option>
+                                    </select>
+                                    <button type="submit" class="w-full bg-slate-700 text-white font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-800">Guardar Gestión</button>
+                                </div>
+                            </div>
+                        </form>
+                        <div class="border-t pt-4 space-y-3">
+                            {% set sorted_activity = (cliente.gestiones + cliente.ofertas)|sort(attribute='fecha_creacion' if 'fecha_creacion' in item else 'fecha_oferta', reverse=true) %}
+                            {% for item in sorted_activity %}
+                            <div class="p-3 rounded-lg flex items-start gap-3 {% if item.cuotas_ofertadas is defined %} bg-blue-50 border border-blue-200 {% else %} bg-slate-50 border border-slate-200 {% endif %}">
+                                <div class="text-xl pt-1">
+                                    {% if item.cuotas_ofertadas is defined %} <i class="bi bi-gem text-blue-500"></i> {% else %} <i class="bi bi-chat-dots-fill text-slate-500"></i> {% endif %}
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-800">
+                                        {% if item.cuotas_ofertadas is defined %}
+                                            Oferta de Adjudicación
+                                        {% else %}
+                                            Gestión: {{ item.tipo_gestion }} ({{ item.gestor_nombre or 'N/A' }})
+                                        {% endif %}
+                                    </p>
+                                    <p class="text-sm text-slate-600">
+                                        {% if item.cuotas_ofertadas is defined %}
+                                            Ofertó {{ item.cuotas_ofertadas }} cuotas por el modelo '{{ item.modelo_ofertado }}'. Estado: <span class="font-semibold">{{ item.estado_oferta }}</span>
+                                        {% else %}
+                                            {{ item.nota }}
+                                        {% endif %}
+                                    </p>
+                                    <p class="text-xs text-slate-400 mt-1">
+                                        {{ (item.fecha_oferta or item.fecha_creacion)|time_ago }}
+                                    </p>
+                                </div>
+                            </div>
+                            {% else %}
+                                <p class="text-center text-sm text-slate-500 py-4">No hay actividad registrada.</p>
+                            {% endfor %}
                         </div>
+                    </div>
+                    {# --- FIN CORRECCIÓN 1 --- #}
                 </div>
             </div>
         </div>
     </div>
 </div>
 {% else %}
-{# 
-  Este bloque se muestra cuando la lista 'clientes' está vacía, 
-  es decir, cuando no se encontraron resultados.
-#}
 <div class="text-center p-8">
     <p class="text-slate-500">No se encontraron resultados para tu búsqueda.</p>
     <p class="text-sm text-slate-400 mt-1">Intenta con una cédula, nombre completo o número de contrato diferente.</p>
 </div>
-{% endfor %} {# Se cierra el bucle for #}
+{% endfor %}
 {% endblock %}
 
 {% block scripts_extra %}
@@ -288,51 +331,16 @@
     }
 
     function confirmEdit(url) {
-        Swal.fire({
-            title: 'Confirmar Edición',
-            text: "Vas a ser redirigido a la página de edición. ¿Deseas continuar?",
-            icon: 'info',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Sí, continuar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = url;
-            }
-        });
+        // La URL se pasa directamente al método, no es necesario construirla aquí
+        window.location.href = url;
     }
     
     document.addEventListener('DOMContentLoaded', function() {
-        const planModels = {
-            1400: ['Bera SBR', 'Bera BRF', 'Águila', 'ES Hero'],
-            1500: ['Ávila', 'X1', 'Cardenal', 'TR Jaguar', 'New Jog'],
-            1600: ['Milan', 'Xpress', 'Colibrí', 'Cuervo', 'Canario', 'Cóndor II', 'Tucán II', 'Tauro'],
-            1700: ['Bera León', 'Bera Tezo', 'Adventure'],
-            1800: ['New Horsen', 'New Owen', 'Fénix', 'Toro León'],
-            1900: ['Runner', 'Horse RL', 'Horse II', 'Abeja'],
-            2000: ['Kavak', 'BWS', 'BR', 'Cobra', 'Owen 200', 'Fénix', 'Power', 'Extreme'],
-            2100: ['TR Tank'],
-            2300: ['EK Foton', 'TX 150cc', 'TX 200cc'],
-            2400: ['Antiking', 'Optimus', 'Arsen II', 'RK 200'],
-            2500: ['Bera GBR', 'Matrix II', 'Cruiser', 'Lechuza'],
-            2700: ['RK 250', 'Thunder 180', 'Lechuza II', 'Falco'],
-            2800: ['Bera DTx', 'Toro Rex', 'ES EM200'],
-            2900: ['Outlook II'],
-            3200: ['TX GT 250', 'Superlight'],
-            3300: ['TR R3X 250'],
-            3500: ['BRZ 250', 'GR 250', 'TX GS 250'],
-            3800: ['Kiwi'],
-            4500: ['EK Atlas'],
-            5200: ['Carguero'],
-            5600: ['Outlook XL'],
-            5900: ['Carguero Transporte', 'Carguero Cava'],
-            6300: ['Zontes 350']
-        };
+        document.querySelectorAll('.oferta-form-admin').forEach(offerForm => {
+            const planModels = {
+                1400: ['Bera SBR', 'Bera BRF', 'Águila', 'ES Hero'], 1500: ['Ávila', 'X1', 'Cardenal', 'TR Jaguar', 'New Jog'], 1600: ['Milan', 'Xpress', 'Colibrí', 'Cuervo', 'Canario', 'Cóndor II', 'Tucán II', 'Tauro'], 1700: ['Bera León', 'Bera Tezo', 'Adventure'], 1800: ['New Horsen', 'New Owen', 'Fénix', 'Toro León'], 1900: ['Runner', 'Horse RL', 'Horse II', 'Abeja'], 2000: ['Kavak', 'BWS', 'BR', 'Cobra', 'Owen 200', 'Fénix', 'Power', 'Extreme'], 2100: ['TR Tank'], 2300: ['EK Foton', 'TX 150cc', 'TX 200cc'], 2400: ['Antiking', 'Optimus', 'Arsen II', 'RK 200'], 2500: ['Bera GBR', 'Matrix II', 'Cruiser', 'Lechuza'], 2700: ['RK 250', 'Thunder 180', 'Lechuza II', 'Falco'], 2800: ['Bera DTx', 'Toro Rex', 'ES EM200'], 2900: ['Outlook II'], 3200: ['TX GT 250', 'Superlight'], 3300: ['TR R3X 250'], 3500: ['BRZ 250', 'GR 250', 'TX GS 250'], 3800: ['Kiwi'], 4500: ['EK Atlas'], 5200: ['Carguero'], 5600: ['Outlook XL'], 5900: ['Carguero Transporte', 'Carguero Cava'], 6300: ['Zontes 350']
+            };
 
-        const offerForm = document.querySelector('.oferta-form-admin');
-        if (offerForm) {
             const clientPlan = parseFloat(offerForm.dataset.plan);
             const modeloSelect = offerForm.querySelector('.modelo-select');
 
@@ -351,7 +359,7 @@
                     modeloSelect.appendChild(option);
                 }
             }
-        }
+        });
     });
 </script>
 {% endblock %}
