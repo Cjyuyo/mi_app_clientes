@@ -5185,7 +5185,7 @@ def gestion_usuarios():
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def agregar_usuario_unificado():
-    # ... (Esta función ya manejaba ambos tipos, se mantiene igual)
+    # ... (Implementation for adding users)
     tipo_usuario = request.form.get('tipo_usuario')
     nombre_completo = request.form.get('nombre_completo')
     usuario = request.form.get('usuario')
@@ -5244,6 +5244,7 @@ def agregar_usuario_unificado():
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def cambiar_estado_usuario(user_type, user_id):
+    # ... (Implementation for changing user status)
     if user_type not in ['admin', 'contador']:
         flash("Tipo de usuario no válido.", "danger")
         return redirect(url_for('gestion_usuarios'))
@@ -5289,6 +5290,7 @@ def cambiar_estado_usuario(user_type, user_id):
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def editar_usuario(user_type, user_id):
+    # ... (Implementation for editing user details)
     if user_type not in ['admin', 'contador']:
         flash("Tipo de usuario no válido.", "danger")
         return redirect(url_for('gestion_usuarios'))
@@ -5337,6 +5339,7 @@ def editar_usuario(user_type, user_id):
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def resetear_password(user_type, user_id):
+    # ... (Implementation for resetting passwords)
     if user_type not in ['admin', 'contador']:
         flash("Tipo de usuario no válido.", "danger")
         return redirect(url_for('gestion_usuarios'))
