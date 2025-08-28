@@ -3924,25 +3924,32 @@ def portal_dashboard():
             
             cliente_dict = dict(cliente)
             
-            cur.execute("SELECT * FROM pagos WHERE cliente_id = %s AND estado_pago != 'Anulado' ORDER BY fecha_pago DESC, id DESC LIMIT 5;", (session['cliente_id'],))
+            # --- INICIO DEL CAMBIO ---
+            # Se obtienen los 5 pagos más recientes (incluyendo los que están en proceso de revisión)
+            # para que el cliente pueda verlos inmediatamente después de reportarlos.
+            cur.execute("""
+                SELECT * FROM pagos 
+                WHERE cliente_id = %s AND estado_pago != 'Anulado' 
+                ORDER BY fecha_creacion DESC LIMIT 5;
+            """, (session['cliente_id'],))
             cliente_dict['pagos'] = cur.fetchall()
 
+            # Se verifica si hay algún pago pendiente de revisión en general para desactivar botones.
             cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
             hay_pago_pendiente_general = cur.fetchone() is not None
-
-            # --- LÓGICA CORREGIDA PARA LAS NOTIFICACIONES DE DIFERENCIA ---
-            # Se busca el ID del reporte original para cada orden de pago pendiente.
+            
+            # Se buscan órdenes de pago por diferencia que estén pendientes.
             cur.execute("SELECT * FROM payment_orders WHERE cliente_id = %s AND status = 'ISSUED'", (session['cliente_id'],))
             ordenes_pendientes_raw = cur.fetchall()
+            # --- FIN DEL CAMBIO ---
+
             ordenes_pendientes = []
             for orden_raw in ordenes_pendientes_raw:
                 orden = dict(orden_raw)
-                # Esta consulta busca correctamente en la tabla 'pagos' el origen de la diferencia.
                 cur.execute("SELECT id FROM pagos WHERE bulk_id = %s AND estado_reporte = 'Inconsistente' ORDER BY fecha_creacion ASC LIMIT 1", (orden['bulk_id'],))
                 pago_original = cur.fetchone()
                 orden['pago_original_id'] = pago_original['id'] if pago_original else None
                 ordenes_pendientes.append(orden)
-            # --- FIN DE LA CORRECCIÓN ---
 
             reportes_rechazados = [] 
             estado_principal = {} 
