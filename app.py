@@ -4240,6 +4240,12 @@ def portal_diferencia_reportar(bulk_id, order_id):
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (session['cliente_id'],))
             cliente = cur.fetchone()
 
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se añade la verificación de pagos pendientes para controlar el estado de los botones en la barra lateral.
+            cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
+            hay_pago_pendiente_general = cur.fetchone() is not None
+            # --- FIN DE LA CORRECCIÓN ---
+
             today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
             cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
             tasa_hoy = cur.fetchone()
@@ -4315,11 +4321,9 @@ def portal_diferencia_reportar(bulk_id, order_id):
                            concepto_pago=concepto_pago,
                            is_enrollment_payment=False,
                            is_difference_payment=True,
-                           # --- INICIO DE LA CORRECCIÓN 2 ---
-                           # Se pasan las variables que faltaban a la plantilla.
                            bulk_id=bulk_id,
-                           order_id=order_id
-                           # --- FIN DE LA CORRECCIÓN 2 ---
+                           order_id=order_id,
+                           hay_pago_pendiente_general=hay_pago_pendiente_general # Se pasa la variable a la plantilla
                            )
 
 @app.route('/admin/pagos/por-revisar')
@@ -5215,13 +5219,10 @@ def ver_reporte(pago_id):
             
             pago = dict(pago_row)
             
-            # --- INICIO DE LA CORRECCIÓN 1 ---
-            # Se obtiene el objeto 'cliente' completo para pasarlo a la plantilla base del portal.
             cliente_para_plantilla = None
             if is_client_view:
                 cur.execute("SELECT * FROM clientes WHERE id = %s", (session['cliente_id'],))
                 cliente_para_plantilla = cur.fetchone()
-            # --- FIN DE LA CORRECCIÓN 1 ---
 
             monto_dolares_referencia = Decimal('0.0')
             if 'Cuota' in pago.get('tipo_pago', ''):
@@ -5254,7 +5255,7 @@ def ver_reporte(pago_id):
             return render_template(
                 'ver_reporte.html',
                 pago=pago,
-                cliente=cliente_para_plantilla, # Se pasa el objeto cliente a la plantilla
+                cliente=cliente_para_plantilla, 
                 is_client_view=is_client_view,
                 is_admin_view=is_admin_view,
                 pagos_del_mismo_bulk=pagos_del_mismo_bulk,
