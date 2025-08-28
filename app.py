@@ -3976,7 +3976,7 @@ def portal_dashboard():
             
             cliente_dict = dict(cliente)
             
-            # --- INICIO DEL CAMBIO ---
+            # --- INICIO DE LA CORRECCIÓN 2 ---
             # Se obtienen los 5 pagos más recientes (incluyendo los que están en proceso de revisión)
             # para que el cliente pueda verlos inmediatamente después de reportarlos.
             cur.execute("""
@@ -3993,7 +3993,7 @@ def portal_dashboard():
             # Se buscan órdenes de pago por diferencia que estén pendientes.
             cur.execute("SELECT * FROM payment_orders WHERE cliente_id = %s AND status = 'ISSUED'", (session['cliente_id'],))
             ordenes_pendientes_raw = cur.fetchall()
-            # --- FIN DEL CAMBIO ---
+            # --- FIN DE LA CORRECCIÓN 2 ---
 
             ordenes_pendientes = []
             for orden_raw in ordenes_pendientes_raw:
@@ -5173,7 +5173,6 @@ def ver_reporte(pago_id):
         flash("Error de conexión a la base de datos.", "error")
         return redirect(url_for('home'))
 
-    # --- INICIO DEL CAMBIO: Añadir cálculo de contadores ---
     counts = { 'pagos_pendientes': 0, 'reportes_pendientes': 0, 'citas': 0, 'congelamientos': 0, 'retiros': 0 }
     if is_admin_view:
         try:
@@ -5191,10 +5190,11 @@ def ver_reporte(pago_id):
                     elif row['tipo_solicitud'] == 'Retiro': counts['retiros'] = row['total']
         except psycopg2.Error as e:
             logging.error(f"Error al contar pendientes en ver_reporte: {e}")
-    # --- FIN DEL CAMBIO ---
 
     try:
         with conn.cursor() as cur:
+            # --- INICIO DE LA CORRECCIÓN 1 ---
+            # Se añade p.bulk_id a la consulta para que esté disponible en la plantilla.
             query = """
                 SELECT p.*, c.nombre || ' ' || c.apellido as nombre_apellido, c.cedula, 
                        c.valor_cuota, c.inscripcion_monto, c.id as cliente_id, c.moneda_pago,
@@ -5206,6 +5206,7 @@ def ver_reporte(pago_id):
                 LEFT JOIN payment_bulks b ON p.bulk_id = b.id
                 WHERE p.id = %s
             """
+            # --- FIN DE LA CORRECCIÓN 1 ---
             cur.execute(query, (pago_id,))
             pago_row = cur.fetchone()
 
@@ -5248,7 +5249,7 @@ def ver_reporte(pago_id):
                 is_client_view=is_client_view,
                 is_admin_view=is_admin_view,
                 pagos_del_mismo_bulk=pagos_del_mismo_bulk,
-                counts=counts  # <-- INICIO DEL CAMBIO: Pasar la variable a la plantilla
+                counts=counts
             )
 
     except (psycopg2.Error, json.JSONDecodeError, KeyError) as e:
