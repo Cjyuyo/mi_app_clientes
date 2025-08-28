@@ -17,13 +17,16 @@
 
     <section class="my-6 print:my-3">
         <h2 class="text-xl font-bold text-slate-800 mb-4 print:mb-2 print:text-black">Resumen Financiero del Plan</h2>
+        
+        {% set cuotas_pagadas = (total_pagado_plan / cliente.valor_cuota)|round|int if cliente.valor_cuota > 0 else 0 %}
+        {% set cuotas_pendientes = (cliente.cuotas_totales|int) - cuotas_pagadas %}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 print:gap-2 text-sm">
 
             <div class="bg-slate-50 p-4 print:p-2 rounded-lg border border-slate-200 flex flex-col justify-between print:bg-white print:border-gray-300">
                 <div>
                     <div class="flex items-center gap-3 text-slate-600 font-medium mb-2 print:mb-1 print:text-black">
                         <i class="bi bi-receipt-cutoff text-lg"></i>
-                        <span>Cupo del Plan (Valor de la Moto)</span>
+                        <span>Plan - Cupo máximo de compra</span>
                     </div>
                     <p class="text-3xl print:text-xl font-bold text-slate-800 mb-3 print:mb-1 print:text-black">${{ "%.2f"|format(valor_plan|float) }}</p>
                 </div>
@@ -36,10 +39,11 @@
             <div class="bg-slate-50 p-4 print:p-2 rounded-lg border border-slate-200 print:bg-white print:border-gray-300">
                 <div class="flex items-center gap-3 text-slate-600 font-medium mb-2 print:mb-1 print:text-black">
                     <i class="bi bi-wallet2 text-lg text-green-600 print:text-black"></i>
-                    <span>Total Pagado al Plan (Cuotas)</span>
-                </div>
+                    <span>Total Pagado al Plan</span>
+                    </div>
                 <p class="text-3xl print:text-xl font-bold text-green-600 print:text-black">${{ "%.2f"|format(total_pagado_plan|float) }}</p>
-            </div>
+                <p class="text-xs text-slate-500 mt-1 print:text-black">{{ cuotas_pagadas }} de {{ cliente.cuotas_totales }} cuotas pagadas</p>
+                </div>
 
             <div class="bg-slate-50 p-4 print:p-2 rounded-lg border border-slate-200 print:bg-white print:border-gray-300">
                 <div class="flex items-center gap-3 text-slate-600 font-medium mb-2 print:mb-1 print:text-black">
@@ -47,7 +51,8 @@
                     <span>Saldo Pendiente del Plan</span>
                 </div>
                 <p class="text-3xl print:text-xl font-bold text-red-600 print:text-black">${{ "%.2f"|format(saldo_pendiente_plan|float) }}</p>
-            </div>
+                <p class="text-xs text-slate-500 mt-1 print:text-black">{{ cuotas_pendientes }} cuotas pendientes</p>
+                </div>
             
             <div class="bg-indigo-50 p-4 print:p-2 rounded-lg border border-indigo-200 print:bg-white print:border-gray-300">
                 <div class="flex items-center gap-3 text-indigo-800 font-medium mb-2 print:mb-1 print:text-black">
