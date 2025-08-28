@@ -3976,9 +3976,6 @@ def portal_dashboard():
             
             cliente_dict = dict(cliente)
             
-            # --- INICIO DE LA CORRECCIÓN 2 ---
-            # Se obtienen los 5 pagos más recientes (incluyendo los que están en proceso de revisión)
-            # para que el cliente pueda verlos inmediatamente después de reportarlos.
             cur.execute("""
                 SELECT * FROM pagos 
                 WHERE cliente_id = %s AND estado_pago != 'Anulado' 
@@ -3986,14 +3983,11 @@ def portal_dashboard():
             """, (session['cliente_id'],))
             cliente_dict['pagos'] = cur.fetchall()
 
-            # Se verifica si hay algún pago pendiente de revisión en general para desactivar botones.
             cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
             hay_pago_pendiente_general = cur.fetchone() is not None
             
-            # Se buscan órdenes de pago por diferencia que estén pendientes.
             cur.execute("SELECT * FROM payment_orders WHERE cliente_id = %s AND status = 'ISSUED'", (session['cliente_id'],))
             ordenes_pendientes_raw = cur.fetchall()
-            # --- FIN DE LA CORRECCIÓN 2 ---
 
             ordenes_pendientes = []
             for orden_raw in ordenes_pendientes_raw:
@@ -4067,7 +4061,17 @@ def portal_dashboard():
 
             historial_gestiones = []
 
-            if cliente_dict.get('proceso') == 'RESERVA' and not ordenes_pendientes:
+            # --- INICIO DE LA CORRECCIÓN 2 ---
+            # Se prioriza mostrar el estado de "Pago en Verificación" si existe un pago pendiente.
+            if hay_pago_pendiente_general and not ordenes_pendientes:
+                estado_principal = {
+                    'titulo': 'Pago en Proceso de Verificación',
+                    'mensaje': 'Hemos recibido tu reporte de pago. Nuestro equipo lo está verificando y te notificaremos una vez sea procesado. Puedes ver el estado en la sección "Últimos Pagos".',
+                    'boton_texto': None,
+                    'boton_url': None,
+                    'boton_activo': False
+                }
+            elif cliente_dict.get('proceso') == 'RESERVA' and not ordenes_pendientes:
                 inscripcion_pagada = cliente_dict.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
                 inscripcion_total = cliente_dict.get('inscripcion_monto', Decimal('0.0')) or Decimal('0.0')
                 
@@ -4089,6 +4093,7 @@ def portal_dashboard():
                     'boton_url': url_for('portal_reportar_pago'),
                     'boton_activo': not hay_pago_pendiente_general
                 }
+            # --- FIN DE LA CORRECCIÓN 2 ---
             
             return render_template('portal_dashboard.html', 
                                    cliente=cliente_dict, 
@@ -5194,9 +5199,9 @@ def ver_reporte(pago_id):
     try:
         with conn.cursor() as cur:
             # --- INICIO DE LA CORRECCIÓN 1 ---
-            # Se añade p.bulk_id a la consulta para que esté disponible en la plantilla.
+            # Se añade p.bulk_id explícitamente a la consulta para asegurar que siempre se obtenga.
             query = """
-                SELECT p.*, c.nombre || ' ' || c.apellido as nombre_apellido, c.cedula, 
+                SELECT p.*, p.bulk_id, c.nombre || ' ' || c.apellido as nombre_apellido, c.cedula, 
                        c.valor_cuota, c.inscripcion_monto, c.id as cliente_id, c.moneda_pago,
                        b.expected_amount as bulk_expected_amount,
                        b.total_verified as bulk_total_verified,
@@ -5257,6 +5262,7 @@ def ver_reporte(pago_id):
             return redirect(url_for('portal_dashboard'))
         else:
             return redirect(url_for('hub'))
+
 # =================================================================================
 # ===== RUTA 3: NUEVA RUTA PARA VALIDAR PAGOS INDIVIDUALES DENTRO DE UN BULK =====
 # =================================================================================
