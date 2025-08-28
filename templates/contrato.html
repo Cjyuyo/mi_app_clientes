@@ -57,7 +57,11 @@
             {% if modo_pre_registro %}
                 <a href="{{ url_for('hub') }}" class="font-semibold hover:text-slate-300"><i class="bi bi-arrow-left"></i> Volver al Panel</a>
             {% elif g.admin %}
-                <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="font-semibold hover:text-slate-300"><i class="bi bi-arrow-left"></i> Volver al Perfil</a>
+                {% if origin == 'consulta' %}
+                    <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="font-semibold hover:text-slate-300"><i class="bi bi-arrow-left"></i> Volver a la Consulta</a>
+                {% else %}
+                    <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="font-semibold hover:text-slate-300"><i class="bi bi-arrow-left"></i> Volver al Perfil</a>
+                {% endif %}
             {% else %}
                 <a href="{{ url_for('portal_dashboard') }}" class="font-semibold hover:text-slate-300"><i class="bi bi-arrow-left"></i> Volver a Zona Cliente</a>
             {% endif %}
@@ -151,7 +155,7 @@
                 <p><strong>Cláusula 6.</strong> Los grupos se conforman por 54 personas y se activan al alcanzar al menos el 85% de integración.</p>
                 <p><strong>Cláusula 7.</strong> Duración máxima del plan: 24 meses. <br><em>Fundamento Legal: Autonomía de la voluntad contractual.</em></p>
                 <p><strong>Cláusula 8.</strong> El monto adjudicado se ajusta al precio del bien. LA EMPRESA no garantiza disponibilidad de modelos.</p>
-                <h3>CAPÍTULO III: DE LA CUOTA MENSUAL Y LOS PAGOS</h3>
+                <h3>CAPÍTULO III: DE LA CUOTA MENSUAL E OS PAGOS</h3>
                 <p><strong>Cláusula 9.</strong> La cuota mensual incluye: <br> 9.1. Aporte neto al fondo. <br> 9.2. Costos operativos y utilidad (hasta 30%). <br> 9.3. Penalidad por atraso. <br> 9.4. Impuestos (como el IVA del 16%). <br> <em>Fundamento Legal: Código de Comercio Art. 127, Ley del IVA, Constitución Art. 316.</em></p>
                 <p><strong>Cláusula 10.</strong> Se exige el pago completo y puntual de 24 cuotas mensuales, sin interrupciones ni fraccionamientos. <br><em>Fundamento Legal: Art. 115 Código de Comercio.</em></p>
                 <p><strong>Cláusula 11.</strong> Los pagos deben realizarse preferentemente en Bolívares (Bs.), al valor equivalente según la tasa oficial del BCV. También se aceptan pagos en divisas convertibles, bajo el principio de libre convertibilidad. <br> <em>Fundamento Legal: Ley del BCV (Art. 3 y 121), Convenio Cambiario N.º 1, Código de Comercio (Art. 115 y 128), TSJ Sala Civil N.º 703/2016.</em></p>
@@ -168,7 +172,7 @@
                 <p><strong>Cláusula 19.</strong> Mientras no haya sido adjudicado, EL CLIENTE podrá: <br> 19.1. Retracto: dentro de los primeros 7 días desde la firma. Después de ese plazo, el contrato es obligatorio. <br> 19.2. Cambio de grupo: a uno de mayor o menor monto. <br> 19.3. Traspaso: a un tercero solvente, con aprobación de LA EMPRESA. <br> 19.4. Rescisión voluntaria: en cualquier momento. Se reintegrarán solo los aportes netos, descontando inscripción, gastos y tributos. El reintegro será cuota a cuota, a medida que el grupo cumpla su ciclo, para no afectar el fondo común y se indicará el cronograma de devolución dentro de 15 días hábiles posteriores a la notificación formal por parte del cliente. <br> 19.5. Designación de beneficiario: para heredar el contrato en caso de fallecimiento. <br> <em>Fundamento Legal: Art. 1161 Código Civil y autonomía contractual.</em></p>
                 <h3>CAPÍTULO VII: DOMICILIO, JURISDICCIÓN Y MEDIOS ELECTRÓNICOS</h3>
                 <p><strong>Cláusula 20.</strong> Las partes se someten a la jurisdicción de los tribunales venezolanos y acuerdan como domicilio el indicado en la solicitud.</p>
-                <p><strong>Cláusula X. Firma y Documentos Electrónicos.</strong> Este contrato podrá ser firmado electrónicamente. Los recibos, notificaciones y comunicaciones podrán emitirse en formato digital, siendo plenamente válidos y exigibles. <br><em>Fundamento Legal: Ley sobre Mensajes de Datos y Firmas Electrónicas, Artículos 6, 7, 9, 12 y 13.</em></p>
+                <p><strong>Cláusula 21. Firma y Documentos Electrónicos.</strong> Este contrato podrá ser firmado electrónicamente. Los recibos, notificaciones y comunicaciones podrán emitirse en formato digital, siendo plenamente válidos y exigibles. <br><em>Fundamento Legal: Ley sobre Mensajes de Datos y Firmas Electrónicas, Artículos 6, 7, 9, 12 y 13.</em></p>
             {% else %}
                 <p>Entre las partes, por un lado, <strong>MOTO PLAN MOTORS, C.A.</strong>, sociedad mercantil constituida bajo las leyes de la República Bolivariana de Venezuela, inscrita en el Registro Mercantil Primero del Estado Portuguesa bajo el número de tomo 66-A RM410, número 18 del año 2023, con RIF J-50408959-1 e inscrita en el RUPDAE, en lo sucesivo denominada “LA EMPRESA”, y por otro lado, el solicitante identificado en la solicitud de inscripción anexa, en lo sucesivo denominado “EL CLIENTE”, convienen en celebrar el presente Contrato de Adhesión, el cual se regirá por las siguientes cláusulas:</p>
                 <h3>CAPÍTULO I: DISPOSICIONES GENERALES Y NATURALEZA DEL CONTRATO</h3>
@@ -301,4 +305,4 @@
     });
     </script>
 </body>
-</html>
+</html

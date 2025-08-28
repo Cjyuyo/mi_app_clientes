@@ -4487,6 +4487,12 @@ def generar_contrato(client_id):
         flash('Acceso no autorizado.', 'error')
         return redirect(url_for('home'))
 
+    # --- INICIO DE LA CORRECCIÓN ---
+    # Se obtiene el parámetro 'origin' de la URL para saber de dónde vino el usuario.
+    # Si no se proporciona, se asume 'perfil' como valor por defecto.
+    origin = request.args.get('origin', 'perfil')
+    # --- FIN DE LA CORRECCIÓN ---
+
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", 'error')
@@ -4501,8 +4507,15 @@ def generar_contrato(client_id):
             flash('Cliente no encontrado.', 'error')
             return redirect(url_for('home'))
 
-        # Renderiza la plantilla del contrato
-        return render_template('contrato.html', cliente=cliente, modo_pre_registro=False, anio_actual=get_venezuela_current_date().year)
+        # --- INICIO DE LA CORRECCIÓN ---
+        # Se pasa la variable 'origin' a la plantilla para que el botón de "Volver" funcione correctamente.
+        return render_template('contrato.html', 
+                               cliente=cliente, 
+                               modo_pre_registro=False, 
+                               anio_actual=get_venezuela_current_date().year,
+                               origin=origin)
+        # --- FIN DE LA CORRECCIÓN ---
+        
     except psycopg2.Error as e:
         flash(f"Error al generar el contrato: {e}", "error")
         return redirect(url_for('home'))
