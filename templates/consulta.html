@@ -232,13 +232,12 @@
 
                     <div x-show="activeTab === 'pagos'" x-cloak class="space-y-3">
                         {% for pago in cliente.pagos %}
-                        <div class="bg-white border rounded-lg p-3 flex items-center justify-between gap-3 hover:shadow-sm transition-shadow">
-                            <div>
+                        <div class="bg-white border rounded-lg p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:shadow-sm transition-shadow">
+                            <div class="flex-grow">
                                 <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" target="_blank" class="font-semibold text-slate-700 hover:text-blue-600">{{ pago.por_concepto_de or pago.tipo_pago }} - ${{ "%.2f"|format(pago.monto|float) }}</a>
                                 <p class="text-xs text-slate-500">{{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }} | Ref: {{ pago.referencia or 'N/A' }}</p>
                             </div>
-                            <!-- INICIO DEL CAMBIO: Botón de anulación y lógica de estado mejorada -->
-                            <div class="flex items-center gap-2 flex-shrink-0">
+                            <div class="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
                                 <span class="text-xs font-bold py-1 px-2 rounded-full whitespace-nowrap
                                     {% if pago.estado_pago == 'Conciliado' %} bg-green-100 text-green-800
                                     {% elif pago.estado_pago == 'Anulado' or pago.estado_reporte == 'Anulado por Admin' %} bg-slate-100 text-slate-800
@@ -255,13 +254,14 @@
                                     {% else %}{{ pago.estado_pago or 'N/A' }}
                                     {% endif %}
                                 </span>
+                                <!-- INICIO DEL CAMBIO: Botón de anulación mejorado -->
                                 {% if pago.estado_reporte == 'Pendiente de Revision' and g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
-                                <button onclick="openAnnulModal({{ pago.id }})" class="text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded-full hover:bg-red-200 transition-colors" title="Anular este reporte">
-                                    <i class="bi bi-x-circle"></i>
+                                <button onclick="openAnnulModal({{ pago.id }})" class="text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded-lg hover:bg-red-200 transition-colors" title="Anular este reporte">
+                                    Anular
                                 </button>
                                 {% endif %}
+                                <!-- FIN DEL CAMBIO -->
                             </div>
-                            <!-- FIN DEL CAMBIO -->
                         </div>
                         {% else %}
                         <div class="text-center py-8"><p class="text-slate-500">No hay pagos registrados.</p></div>
@@ -332,7 +332,6 @@
 </div>
 {% endfor %}
 
-<!-- INICIO DEL CAMBIO: Modal de Anulación -->
 <div id="annulModal" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900/60 hidden" style="display: none;">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
@@ -354,7 +353,6 @@
         </div>
     </div>
 </div>
-<!-- FIN DEL CAMBIO -->
 {% endblock %}
 
 {% block scripts_extra %}
@@ -407,7 +405,6 @@
         });
     });
 
-    // INICIO DEL CAMBIO: Funciones para el modal de anulación
     function openAnnulModal(pagoId) {
         document.getElementById('pagoIdToAnnul').value = pagoId;
         document.getElementById('annulModal').classList.remove('hidden');
@@ -462,6 +459,5 @@
             }
         });
     }
-    // FIN DEL CAMBIO
 </script>
 {% endblock %}
