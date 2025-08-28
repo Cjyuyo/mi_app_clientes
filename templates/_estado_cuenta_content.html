@@ -1,5 +1,5 @@
-<div class="p-6 sm:p-8">
-    <header class="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6 border-b border-slate-200">
+<div class="p-4 sm:p-6">
+    <header class="flex flex-col sm:flex-row justify-between items-start gap-4 pb-4 border-b border-slate-200">
         <div>
             <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">Estado de Cuenta</h1>
             <p class="text-slate-500 mt-1">Cliente: <strong class="text-slate-700">{{ cliente.nombre_apellido }}</strong></p>
@@ -11,42 +11,62 @@
         </div>
     </header>
 
-    <section class="my-8">
+    <section class="my-6">
         <h2 class="text-xl font-bold text-slate-800 mb-4">Resumen Financiero del Plan</h2>
-        <div class="space-y-3 text-sm">
-            <div class="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
-                <span class="font-medium text-slate-600">Cupo del Plan (Valor de la Moto):</span>
-                <span class="font-bold text-slate-800 text-base">${{ "%.2f"|format(valor_plan|float) }}</span>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+
+            <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center gap-3 text-slate-600 font-medium mb-2">
+                        <i class="bi bi-receipt-cutoff text-lg"></i>
+                        <span>Cupo del Plan (Valor de la Moto)</span>
+                    </div>
+                    <p class="text-3xl font-bold text-slate-800 mb-3">${{ "%.2f"|format(valor_plan|float) }}</p>
+                </div>
+                <div class="text-xs border-t border-slate-200 pt-2 space-y-1">
+                    <p class="flex justify-between text-slate-500"><span>Cuota Mensual:</span> <span class="font-medium text-slate-700">${{cliente.valor_cuota|float}}</span></p>
+                    <p class="flex justify-between text-slate-500"><span>Plazo del Contrato:</span> <span class="font-medium text-slate-700">{{cliente.cuotas_totales}} meses</span></p>
+                </div>
             </div>
-            <div class="flex justify-between items-center p-3">
-                <span class="text-slate-600">Cuota Mensual x Plazo ({{cliente.valor_cuota|float}} x {{cliente.cuotas_totales}} meses):</span>
-                <span class="font-mono text-slate-800">${{ "%.2f"|format(total_a_pagar_plan|float) }}</span>
+
+            <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                <div class="flex items-center gap-3 text-green-800 font-medium mb-2">
+                    <i class="bi bi-wallet2 text-lg"></i>
+                    <span>Total Pagado al Plan (Cuotas)</span>
+                </div>
+                <p class="text-3xl font-bold text-green-700">${{ "%.2f"|format(total_pagado_plan|float) }}</p>
             </div>
-            <div class="flex justify-between items-center p-3">
-                <span class="text-slate-600">Sobrecosto Administrativo:</span>
-                <span class="font-mono text-slate-800">${{ "%.2f"|format(sobrecosto_administrativo|float) }}</span>
+
+            <div class="bg-red-50 p-4 rounded-lg border border-red-200">
+                <div class="flex items-center gap-3 text-red-800 font-medium mb-2">
+                    <i class="bi bi-hourglass-split text-lg"></i>
+                    <span>Saldo Pendiente del Plan</span>
+                </div>
+                <p class="text-3xl font-bold text-red-700">${{ "%.2f"|format(saldo_pendiente_plan|float) }}</p>
             </div>
-            <div class="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <span class="font-medium text-blue-800">Total a Pagar del Plan:</span>
-                <span class="font-bold text-blue-800 text-base">${{ "%.2f"|format(total_a_pagar_plan|float) }}</span>
+            
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <div class="flex items-center gap-3 text-blue-800 font-medium mb-2">
+                    <i class="bi bi-file-earmark-spreadsheet-fill text-lg"></i>
+                    <span>Total a Pagar del Plan</span>
+                </div>
+                <p class="text-2xl font-bold text-blue-700">${{ "%.2f"|format(total_a_pagar_plan|float) }}</p>
+                 <p class="text-xs text-blue-600 mt-1">Sobrecosto Admin: ${{ "%.2f"|format(sobrecosto_administrativo|float) }}</p>
             </div>
-            <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
-                <span class="font-medium text-green-800">Total Pagado al Plan (Cuotas):</span>
-                <span class="font-bold text-green-800 text-base">${{ "%.2f"|format(total_pagado_plan|float) }}</span>
+
+            <div class="bg-amber-50 p-4 rounded-lg border border-amber-200 col-span-1 md:col-span-2 lg:col-span-2">
+                <div class="flex items-center gap-3 text-amber-800 font-medium mb-2">
+                    <i class="bi bi-calendar-check-fill text-lg"></i>
+                    <span>Monto de Inscripción (Pago único)</span>
+                </div>
+                <p class="text-2xl font-bold text-amber-700">${{ "%.2f"|format(total_inscripcion_pagada|float) }}</p>
+                 <p class="text-xs text-amber-600 mt-1">(No devolutivo según Cláusula 19.4 del contrato)</p>
             </div>
-            <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg border border-red-200">
-                <span class="font-medium text-red-800">Saldo Pendiente del Plan:</span>
-                <span class="font-bold text-red-800 text-base">${{ "%.2f"|format(saldo_pendiente_plan|float) }}</span>
-            </div>
-        </div>
-        <div class="mt-6 p-3 bg-amber-50 rounded-lg border border-amber-200 text-center">
-            <p class="text-sm font-medium text-amber-800">Monto de Inscripción: <strong class="text-base">${{ "%.2f"|format(total_inscripcion_pagada|float) }}</strong></p>
-            <p class="text-xs text-amber-700 mt-1">(Pago único, no devolutivo según Cláusula 19.4 del contrato)</p>
         </div>
     </section>
 
-    <section>
-        <h2 class="text-xl font-bold text-slate-800 mb-4">Historial de Movimientos</h2>
+    <section class="mt-8">
+        <h2 class="text-xl font-bold text-slate-800 mb-3">Historial de Movimientos</h2>
         <div class="border rounded-lg overflow-hidden">
             <table class="w-full text-sm text-left text-slate-500">
                 <thead class="text-xs text-slate-700 uppercase bg-slate-100">
