@@ -1,0 +1,73 @@
+<div class="printable-section p-6 sm:p-8">
+    <header class="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6 border-b border-slate-200">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-slate-800 print-text-black">Estado de Cuenta</h1>
+            <p class="text-slate-500 mt-1">Cliente: <strong class="text-slate-700 print-text-black">{{ cliente.nombre_apellido }}</strong></p>
+            <p class="text-sm text-slate-500">C.I: {{ cliente.cedula }} | Contrato N°: {{ cliente.contrato_nro }}</p>
+        </div>
+        <div class="text-left sm:text-right">
+            <p class="text-sm text-slate-500">Fecha de Emisión</p>
+            <p class="font-semibold text-slate-700 print-text-black">{{ get_venezuela_current_date().strftime('%d/%m/%Y') }}</p>
+        </div>
+    </header>
+
+    <section class="grid grid-cols-1 sm:grid-cols-3 gap-6 my-8">
+        <div class="bg-slate-50 p-4 rounded-lg text-center border">
+            <p class="text-sm font-medium text-slate-500">Valor del Plan</p>
+            <p class="text-2xl font-bold text-slate-800 print-text-black">${{ "%.2f"|format(valor_plan|float) }}</p>
+        </div>
+        <div class="bg-green-50 p-4 rounded-lg text-center border border-green-200">
+            <p class="text-sm font-medium text-green-600">Total Pagado</p>
+            <p class="text-2xl font-bold text-green-800 print-text-black">${{ "%.2f"|format(total_pagado|float) }}</p>
+        </div>
+        <div class="bg-red-50 p-4 rounded-lg text-center border border-red-200">
+            <p class="text-sm font-medium text-red-600">Saldo Pendiente</p>
+            <p class="text-2xl font-bold text-red-800 print-text-black">${{ "%.2f"|format(saldo_pendiente|float) }}</p>
+        </div>
+    </section>
+
+    <section>
+        <h2 class="text-xl font-bold text-slate-800 print-text-black mb-4">Historial de Movimientos</h2>
+        <div class="border rounded-lg overflow-hidden">
+            <table class="w-full text-sm text-left text-slate-500">
+                <thead class="text-xs text-slate-700 uppercase bg-slate-100 print-text-black">
+                    <tr>
+                        <th scope="col" class="px-6 py-3">Fecha</th>
+                        <th scope="col" class="px-6 py-3">Tipo</th>
+                        <th scope="col" class="px-6 py-3">Descripción</th>
+                        <th scope="col" class="px-6 py-3 text-right">Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in historial %}
+                    <tr class="bg-white border-b hover:bg-slate-50">
+                        <td class="px-6 py-4 font-medium text-slate-900 print-text-black whitespace-nowrap">{{ item.fecha.strftime('%d/%m/%Y') }}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full {{ item.clase_css }}">{{ item.tipo }}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <p class="font-medium text-slate-800 print-text-black">{{ item.descripcion }}</p>
+                            {% if item.detalles %}
+                            <p class="text-xs text-slate-500">{{ item.detalles }}</p>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-right font-mono">
+                            {% if item.monto is not none %}
+                                <span class="{{ 'text-green-600' if item.es_credito else 'text-red-600' }} font-semibold">
+                                    {{ '+' if item.es_credito else '-' }}${{ "%.2f"|format(item.monto|float) }}
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center py-10 text-slate-500">
+                            No hay movimientos registrados en el historial.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
