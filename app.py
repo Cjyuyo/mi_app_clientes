@@ -5117,10 +5117,28 @@ def ver_reporte(pago_id):
         flash("Error de conexión a la base de datos.", "error")
         return redirect(url_for('home'))
 
+    # --- INICIO DEL CAMBIO: Añadir cálculo de contadores ---
+    counts = { 'pagos_pendientes': 0, 'reportes_pendientes': 0, 'citas': 0, 'congelamientos': 0, 'retiros': 0 }
+    if is_admin_view:
+        try:
+            with conn.cursor() as cur_counts:
+                cur_counts.execute("SELECT COUNT(*) FROM pagos WHERE estado_pago = 'Pendiente' AND (reportado_por_cliente = FALSE OR estado_reporte = 'Aprobado')")
+                counts['pagos_pendientes'] = cur_counts.fetchone()[0]
+                
+                cur_counts.execute("SELECT COUNT(*) FROM pagos WHERE reportado_por_cliente = TRUE AND estado_reporte = 'Pendiente de Revision'")
+                counts['reportes_pendientes'] = cur_counts.fetchone()[0]
+                
+                cur_counts.execute("SELECT tipo_solicitud, COUNT(*) as total FROM solicitudes WHERE estado = 'Pendiente' GROUP BY tipo_solicitud")
+                for row in cur_counts.fetchall():
+                    if row['tipo_solicitud'] == 'Cita': counts['citas'] = row['total']
+                    elif row['tipo_solicitud'] == 'Congelamiento': counts['congelamientos'] = row['total']
+                    elif row['tipo_solicitud'] == 'Retiro': counts['retiros'] = row['total']
+        except psycopg2.Error as e:
+            logging.error(f"Error al contar pendientes en ver_reporte: {e}")
+    # --- FIN DEL CAMBIO ---
+
     try:
         with conn.cursor() as cur:
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Se añade c.moneda_pago a la consulta para tomar decisiones lógicas.
             query = """
                 SELECT p.*, c.nombre || ' ' || c.apellido as nombre_apellido, c.cedula, 
                        c.valor_cuota, c.inscripcion_monto, c.id as cliente_id, c.moneda_pago,
@@ -5132,7 +5150,6 @@ def ver_reporte(pago_id):
                 LEFT JOIN payment_bulks b ON p.bulk_id = b.id
                 WHERE p.id = %s
             """
-            # --- FIN DE LA CORRECCIÓN ---
             cur.execute(query, (pago_id,))
             pago_row = cur.fetchone()
 
@@ -5148,13 +5165,9 @@ def ver_reporte(pago_id):
                 monto_dolares_referencia = pago.get('inscripcion_monto', Decimal('0.0'))
             
             pago['monto_dolares_referencia'] = monto_dolares_referencia
-
-            # --- INICIO DE LA CORRECCIÓN LÓGICA ---
-            # Se inicializan las variables para evitar errores si el contrato es en USD.
             pago['monto_esperado_bs'] = Decimal('0.0')
             pago['tasa_efectiva_cliente'] = Decimal('0.0')
 
-            # Si el contrato es BsBCV, se ejecuta la lógica de conversión.
             if pago['moneda_pago'] == 'BsBCV':
                 fecha_del_pago = pago.get('fecha_pago', get_venezuela_current_date())
                 cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
@@ -5167,7 +5180,6 @@ def ver_reporte(pago_id):
                 monto_bs_decimal = pago.get('monto_bs') or Decimal('0.0')
                 if monto_dolares_referencia > 0 and monto_bs_decimal > 0:
                     pago['tasa_efectiva_cliente'] = (monto_bs_decimal / monto_dolares_referencia).quantize(Decimal('0.0001'))
-            # --- FIN DE LA CORRECCIÓN LÓGICA ---
 
             pagos_del_mismo_bulk = []
             if pago.get('bulk_id'):
@@ -5179,7 +5191,8 @@ def ver_reporte(pago_id):
                 pago=pago,
                 is_client_view=is_client_view,
                 is_admin_view=is_admin_view,
-                pagos_del_mismo_bulk=pagos_del_mismo_bulk
+                pagos_del_mismo_bulk=pagos_del_mismo_bulk,
+                counts=counts  # <-- INICIO DEL CAMBIO: Pasar la variable a la plantilla
             )
 
     except (psycopg2.Error, json.JSONDecodeError, KeyError) as e:
