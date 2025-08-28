@@ -4689,7 +4689,7 @@ def portal_pagar_inscripcion():
             if not cliente:
                 flash('No se pudo encontrar tu perfil de cliente.', 'error')
                 return redirect(url_for('portal_logout'))
-
+            
             inscripcion_total = cliente.get('inscripcion_monto', Decimal('0.0')) or Decimal('0.0')
             inscripcion_pagada = cliente.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
             monto_restante = inscripcion_total - inscripcion_pagada
@@ -4698,37 +4698,42 @@ def portal_pagar_inscripcion():
                 flash('Tu inscripción ya ha sido pagada en su totalidad.', 'info')
                 return redirect(url_for('portal_dashboard'))
 
-            # --- INICIO DE LA CORRECCIÓN LÓGICA ---
+            if inscripcion_pagada > 0:
+                concepto_pago = "Abono a Inscripción"
+            else:
+                concepto_pago = "Pago de Inscripción"
+
             tasa_hoy = None
             monto_a_pagar_bs = Decimal('0.0')
             tasa_bcv_calculo = None
 
-            # Solo se realizan cálculos en Bs. si el contrato es con convertibilidad
             if cliente['moneda_pago'] == 'BsBCV':
                 today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
                 cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
                 tasa_hoy = cur.fetchone()
                 tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
                 monto_a_pagar_bs = (monto_restante * tasa_bcv_calculo).quantize(Decimal('0.01'))
-            # --- FIN DE LA CORRECCIÓN LÓGICA ---
-
-            concepto_pago = f"Pago de Inscripción (Restante)"
 
             if request.method == 'POST':
                 pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
                 
-                # --- INICIO DE LA CORRECCIÓN LÓGICA (POST) ---
-                monto_reportado_bs = Decimal('0.0')
+                # --- INICIO DE LA NUEVA LÓGICA DE PROCESAMIENTO ---
+                tipo_pago_inscripcion = pago_form.get('tipo_pago_inscripcion') # 'completo' o 'abono'
                 monto_usd_a_guardar = Decimal('0.0')
+                monto_reportado_bs = Decimal('0.0')
 
-                if cliente['moneda_pago'] == 'BsBCV':
-                    monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                    monto_usd_a_guardar = monto_restante # El monto en USD es el de referencia
-                else: # Contrato en USD
-                    monto_usd_a_guardar = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
-                    monto_reportado_bs = Decimal('0.0') # No hay monto en Bs
-                    tasa_bcv_calculo = None # No hay tasa
-                # --- FIN DE LA CORRECCIÓN LÓGICA (POST) ---
+                if tipo_pago_inscripcion == 'abono':
+                    monto_abono_usd_str = pago_form.get('monto_abono_usd', '0.00').replace(',', '.')
+                    monto_usd_a_guardar = Decimal(monto_abono_usd_str)
+                else: # 'completo'
+                    monto_usd_a_guardar = monto_restante
+
+                if cliente['moneda_pago'] == 'BsBCV' and pago_form.get('pago_en') == 'Dolar/BCV':
+                    monto_reportado_bs = (monto_usd_a_guardar * tasa_bcv_calculo).quantize(Decimal('0.01'))
+                elif pago_form.get('pago_en') == 'USDT':
+                    monto_usd_a_guardar = Decimal(pago_form.get('monto_usdt', '0.00').replace(',', '.'))
+                    monto_reportado_bs = Decimal('0.0')
+                # --- FIN DE LA NUEVA LÓGICA DE PROCESAMIENTO ---
 
                 detalles_pago = {}
                 if pago_form.get('forma_pago_bs') == 'Pago Móvil':
@@ -4802,7 +4807,6 @@ def _get_estado_cuenta_data(cliente_id):
                 return None
             
             # --- INICIO DE LA CORRECCIÓN LÓGICA ---
-            # Se obtienen todos los pagos, incluyendo la inscripción, para el historial.
             cur.execute("""
                 SELECT id, fecha_creacion as fecha, 'Pago' as tipo_base, 
                        json_build_object(
@@ -4817,33 +4821,30 @@ def _get_estado_cuenta_data(cliente_id):
             """, (cliente_id, cliente_id))
             historial_raw = cur.fetchall()
             
-            # Se calcula el total pagado EXCLUYENDO la inscripción.
             cur.execute("""
                 SELECT COALESCE(SUM(monto), 0) FROM pagos 
                 WHERE cliente_id = %s AND estado_pago = 'Conciliado' AND tipo_pago != 'Inscripción'
             """, (cliente_id,))
             total_pagado_plan = cur.fetchone()[0]
 
-            # Se obtiene el monto de la inscripción por separado.
             cur.execute("""
                 SELECT COALESCE(SUM(monto), 0) FROM pagos 
                 WHERE cliente_id = %s AND estado_pago = 'Conciliado' AND tipo_pago = 'Inscripción'
             """, (cliente_id,))
             total_inscripcion_pagada = cur.fetchone()[0]
             
-            # Cálculos financieros adicionales
             valor_cuota = cliente.get('valor_cuota', Decimal('0.0')) or Decimal('0.0')
             cuotas_totales = cliente.get('cuotas_totales', 0) or 0
-            plan_contratado = cliente.get('plan_contratado', Decimal('0.0')) or Decimal('0.0')
+            plan_contratado = Decimal(cliente.get('plan_contratado') or '0.0')
 
             total_a_pagar_plan = valor_cuota * cuotas_totales
             sobrecosto_administrativo = total_a_pagar_plan - plan_contratado
             saldo_pendiente_plan = total_a_pagar_plan - total_pagado_plan
+        
             # --- FIN DE LA CORRECCIÓN LÓGICA ---
 
             historial_unificado = []
             for item in historial_raw:
-                # ... (La lógica para procesar el historial se mantiene igual) ...
                 data = item['data']
                 if isinstance(data, str):
                     try: data = json.loads(data)
@@ -4860,7 +4861,6 @@ def _get_estado_cuenta_data(cliente_id):
                     
                     evento['descripcion'] = data.get('concepto', 'Pago general')
                     evento['monto'] = data.get('monto')
-                    evento['es_credito'] = True # Todos los pagos son créditos
                     if estado == 'Conciliado':
                         evento['url'] = url_for('generar_recibo_pago', pago_id=item['id'])
 
