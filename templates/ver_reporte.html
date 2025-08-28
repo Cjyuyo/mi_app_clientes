@@ -30,122 +30,142 @@
         {% endif %}
     </header>
 
-    {% set diferencia_bs = (pago.monto_bs or 0) - (pago.monto_esperado_bs or 0) %}
-    {% set status = {'text': 'Pendiente de Revisión', 'icon': 'bi-hourglass-split', 'color': 'amber'} %}
-    {% if pago.estado_reporte == 'Aprobado' %}
-        {% set status = {'text': 'Aprobado', 'icon': 'bi-check-circle-fill', 'color': 'green'} %}
-    {% elif pago.estado_reporte == 'Inconsistente' or diferencia_bs < -0.01 %}
-        {% set status = {'text': 'Diferencia Encontrada', 'icon': 'bi-exclamation-triangle-fill', 'color': 'red'} %}
-    {% endif %}
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        <div class="lg:col-span-2 space-y-6">
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                <div class="bg-white p-5 rounded-xl shadow-sm border">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-100 text-slate-500"><i class="bi bi-bullseye text-xl"></i></div>
-                        <div>
-                            <h3 class="font-semibold text-slate-800">Monto Esperado</h3>
-                            <p class="text-xs text-slate-500">Cálculo del sistema</p>
-                        </div>
-                    </div>
-                    <div class="mt-4 text-center">
-                        <!-- INICIO DEL CAMBIO: Lógica de moneda corregida -->
-                        {% if pago.pago_en == 'Dolar/BCV' %}
-                            <p class="text-3xl font-bold text-slate-800 tracking-tight">{{ "%.2f"|format(pago.monto_esperado_bs|float) }} <span class="text-lg font-medium text-slate-500">Bs.</span></p>
-                            <p class="text-xs text-slate-500 mt-1">Tasa BCV Oficial: <span class="font-mono">{{ pago.tasa_dia | format_decimal }}</span></p>
-                        {% else %}
-                            <p class="text-3xl font-bold text-slate-800 tracking-tight">${{ "%.2f"|format(pago.monto|float) }} <span class="text-lg font-medium text-slate-500">{{ pago.pago_en or 'USD' }}</span></p>
-                            <p class="text-xs text-slate-500 mt-1">Pago directo en divisas</p>
-                        {% endif %}
-                        <!-- FIN DEL CAMBIO -->
-                    </div>
-                </div>
-
-                <div class="bg-white p-5 rounded-xl shadow-sm border">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-blue-100 text-blue-600"><i class="bi bi-file-earmark-text-fill text-xl"></i></div>
-                        <div>
-                            <h3 class="font-semibold text-slate-800">Monto Reportado</h3>
-                            <p class="text-xs text-slate-500">Enviado por el cliente</p>
-                        </div>
-                    </div>
-                    <div class="mt-4 text-center">
-                        <!-- INICIO DEL CAMBIO: Lógica de moneda corregida -->
-                        {% if pago.pago_en == 'Dolar/BCV' %}
-                            <p class="text-3xl font-bold text-blue-600 tracking-tight">{{ "%.2f"|format(pago.monto_bs|float) }} <span class="text-lg font-medium text-slate-500">Bs.</span></p>
-                            <p class="text-xs text-slate-500 mt-1">Tasa Cliente (Efectiva): <span class="font-mono">{{ pago.tasa_efectiva_cliente | format_decimal }}</span></p>
-                        {% else %}
-                            <p class="text-3xl font-bold text-blue-600 tracking-tight">${{ "%.2f"|format(pago.monto|float) }} <span class="text-lg font-medium text-slate-500">{{ pago.pago_en or 'USD' }}</span></p>
-                            <p class="text-xs text-slate-500 mt-1">Reportado vía {{ pago.forma_pago or 'Digital' }}</p>
-                        {% endif %}
-                        <!-- FIN DEL CAMBIO -->
-                    </div>
-                </div>
-                </div>
-
-            <div class="bg-white p-6 rounded-xl shadow-sm border">
-                <h3 class="text-lg font-bold text-slate-800 mb-4">Detalles de la Transacción</h3>
-                <dl class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4 text-sm">
+    {% if pago.estado_reporte == 'Anulado por Admin' %}
+        <div class="bg-white p-6 rounded-xl shadow-sm border">
+            <div class="text-center">
+                <i class="bi bi-x-octagon-fill text-6xl text-slate-400"></i>
+                <h2 class="mt-4 text-2xl font-bold text-slate-800">Reporte Anulado</h2>
+                <p class="mt-2 text-slate-600">Este reporte de pago fue anulado y no puede ser procesado.</p>
+            </div>
+            <div class="mt-6 border-t pt-6">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">Detalles de la Anulación</h3>
+                <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
                     <div>
-                        <dt class="text-slate-500">Concepto</dt>
-                        <dd class="font-semibold text-slate-700">{{ pago.por_concepto_de or pago.tipo_pago }}</dd>
+                        <dt class="text-slate-500">Anulado por</dt>
+                        <dd class="font-semibold text-slate-700">{{ pago.detalles_reporte.anulado_por or 'No especificado' }}</dd>
                     </div>
                     <div>
-                        <dt class="text-slate-500">Fecha del Pago</dt>
-                        <dd class="font-semibold text-slate-700">{{ pago.fecha_pago | format_date }}</dd>
+                        <dt class="text-slate-500">Fecha de Anulación</dt>
+                        {# La fecha está en formato ISO. Se puede crear un filtro en Flask para formatearla mejor. #}
+                        <dd class="font-semibold text-slate-700 font-mono">{{ pago.detalles_reporte.fecha_anulacion or 'No especificada' }}</dd> 
                     </div>
-                    <div>
-                        <dt class="text-slate-500">Forma de Pago</dt>
-                        <dd class="font-semibold text-slate-700">{{ pago.forma_pago or pago.pago_en }}</dd>
+                    <div class="md:col-span-2">
+                        <dt class="text-slate-500">Motivo</dt>
+                        <dd class="font-semibold text-slate-700 mt-1 p-3 bg-slate-50 rounded-lg border">{{ pago.detalles_reporte.motivo_anulacion or 'No especificado' }}</dd>
                     </div>
-                    <div>
-                        <dt class="text-slate-500">Referencia / ID</dt>
-                        <dd class="font-semibold text-slate-700 font-mono">{{ pago.referencia or 'N/A' }}</dd>
-                    </div>
-                    {% if pago.pago_en == 'Dolar/BCV' %}
-                    <div>
-                        <dt class="text-slate-500">Banco</dt>
-                        <dd class="font-semibold text-slate-700">{{ pago.banco or 'N/A' }}</dd>
-                    </div>
-                    {% endif %}
                 </dl>
             </div>
-
         </div>
+    {% else %}
+        {# --- VISTA NORMAL PARA REPORTES NO ANULADOS --- #}
+        {% set diferencia_bs = (pago.monto_bs or 0) - (pago.monto_esperado_bs or 0) %}
+        {% set status = {'text': 'Pendiente de Revisión', 'icon': 'bi-hourglass-split', 'color': 'amber'} %}
+        {% if pago.estado_reporte == 'Aprobado' %}
+            {% set status = {'text': 'Aprobado', 'icon': 'bi-check-circle-fill', 'color': 'green'} %}
+        {% elif pago.estado_reporte == 'Inconsistente' or diferencia_bs < -0.01 %}
+            {% set status = {'text': 'Diferencia Encontrada', 'icon': 'bi-exclamation-triangle-fill', 'color': 'red'} %}
+        {% endif %}
 
-        <div class="lg:col-span-1 space-y-6">
-            
-            <div class="bg-{{ status.color }}-50 text-{{ status.color }}-800 p-5 rounded-xl border border-{{ status.color }}-200 text-center">
-                <i class="bi {{ status.icon }} text-4xl"></i>
-                <h3 class="text-xl font-bold mt-2">{{ status.text }}</h3>
-                {% if status.color == 'red' and pago.pago_en == 'Dolar/BCV' %}
-                <p class="text-sm mt-1">Diferencia de <strong class="font-mono">{{ (diferencia_bs * -1) | format_decimal }} Bs.</strong></p>
-                {% endif %}
-            </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-100 text-slate-500"><i class="bi bi-bullseye text-xl"></i></div>
+                            <div>
+                                <h3 class="font-semibold text-slate-800">Monto Esperado</h3>
+                                <p class="text-xs text-slate-500">Cálculo del sistema</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-center">
+                            {% if pago.pago_en == 'Dolar/BCV' %}
+                                <p class="text-3xl font-bold text-slate-800 tracking-tight">{{ "%.2f"|format(pago.monto_esperado_bs|float) }} <span class="text-lg font-medium text-slate-500">Bs.</span></p>
+                                <p class="text-xs text-slate-500 mt-1">Tasa BCV Oficial: <span class="font-mono">{{ pago.tasa_dia | format_decimal }}</span></p>
+                            {% else %}
+                                <p class="text-3xl font-bold text-slate-800 tracking-tight">${{ "%.2f"|format(pago.monto|float) }} <span class="text-lg font-medium text-slate-500">{{ pago.pago_en or 'USD' }}</span></p>
+                                <p class="text-xs text-slate-500 mt-1">Pago directo en divisas</p>
+                            {% endif %}
+                        </div>
+                    </div>
 
-            {% if is_admin_view and pago.estado_reporte == 'Pendiente de Revision' %}
-            <div class="bg-white p-5 rounded-xl shadow-sm border">
-                <h3 class="text-lg font-bold text-slate-800 mb-4">Acciones de Validación</h3>
-                <div class="space-y-3">
-                    <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST">
-                        <button type="submit" name="accion" value="aprobar_para_conciliar" class="w-full inline-flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-semibold rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors">
-                            <i class="bi bi-check-lg mr-2"></i> Aprobar y Enviar a Conciliación
-                        </button>
-                    </form>
-                    {% if pago.pago_en == 'Dolar/BCV' %}
-                    <button type="button" @click="$dispatch('open-modal', 'diferencia-modal')" class="w-full inline-flex items-center justify-center px-4 py-2.5 border border-amber-300 text-sm font-semibold rounded-md text-amber-800 bg-amber-100 hover:bg-amber-200 transition-colors">
-                        <i class="bi bi-calculator mr-2"></i> Procesar con Diferencia
-                    </button>
-                    {% endif %}
+                    <div class="bg-white p-5 rounded-xl shadow-sm border">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-blue-100 text-blue-600"><i class="bi bi-file-earmark-text-fill text-xl"></i></div>
+                            <div>
+                                <h3 class="font-semibold text-slate-800">Monto Reportado</h3>
+                                <p class="text-xs text-slate-500">Enviado por el cliente</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-center">
+                            {% if pago.pago_en == 'Dolar/BCV' %}
+                                <p class="text-3xl font-bold text-blue-600 tracking-tight">{{ "%.2f"|format(pago.monto_bs|float) }} <span class="text-lg font-medium text-slate-500">Bs.</span></p>
+                                <p class="text-xs text-slate-500 mt-1">Tasa Cliente (Efectiva): <span class="font-mono">{{ pago.tasa_efectiva_cliente | format_decimal }}</span></p>
+                            {% else %}
+                                <p class="text-3xl font-bold text-blue-600 tracking-tight">${{ "%.2f"|format(pago.monto|float) }} <span class="text-lg font-medium text-slate-500">{{ pago.pago_en or 'USD' }}</span></p>
+                                <p class="text-xs text-slate-500 mt-1">Reportado vía {{ pago.forma_pago or 'Digital' }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">Detalles de la Transacción</h3>
+                    <dl class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4 text-sm">
+                        <div>
+                            <dt class="text-slate-500">Concepto</dt>
+                            <dd class="font-semibold text-slate-700">{{ pago.por_concepto_de or pago.tipo_pago }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-slate-500">Fecha del Pago</dt>
+                            <dd class="font-semibold text-slate-700">{{ pago.fecha_pago | format_date }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-slate-500">Forma de Pago</dt>
+                            <dd class="font-semibold text-slate-700">{{ pago.forma_pago or pago.pago_en }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-slate-500">Referencia / ID</dt>
+                            <dd class="font-semibold text-slate-700 font-mono">{{ pago.referencia or 'N/A' }}</dd>
+                        </div>
+                        {% if pago.pago_en == 'Dolar/BCV' %}
+                        <div>
+                            <dt class="text-slate-500">Banco</dt>
+                            <dd class="font-semibold text-slate-700">{{ pago.banco or 'N/A' }}</dd>
+                        </div>
+                        {% endif %}
+                    </dl>
                 </div>
             </div>
-            {% endif %}
+
+            <div class="lg:col-span-1 space-y-6">
+                <div class="bg-{{ status.color }}-50 text-{{ status.color }}-800 p-5 rounded-xl border border-{{ status.color }}-200 text-center">
+                    <i class="bi {{ status.icon }} text-4xl"></i>
+                    <h3 class="text-xl font-bold mt-2">{{ status.text }}</h3>
+                    {% if status.color == 'red' and pago.pago_en == 'Dolar/BCV' %}
+                    <p class="text-sm mt-1">Diferencia de <strong class="font-mono">{{ (diferencia_bs * -1) | format_decimal }} Bs.</strong></p>
+                    {% endif %}
+                </div>
+
+                {% if is_admin_view and pago.estado_reporte == 'Pendiente de Revision' %}
+                <div class="bg-white p-5 rounded-xl shadow-sm border">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">Acciones de Validación</h3>
+                    <div class="space-y-3">
+                        <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST">
+                            <button type="submit" name="accion" value="aprobar_para_conciliar" class="w-full inline-flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-semibold rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors">
+                                <i class="bi bi-check-lg mr-2"></i> Aprobar y Enviar a Conciliación
+                            </button>
+                        </form>
+                        {% if pago.pago_en == 'Dolar/BCV' %}
+                        <button type="button" @click="$dispatch('open-modal', 'diferencia-modal')" class="w-full inline-flex items-center justify-center px-4 py-2.5 border border-amber-300 text-sm font-semibold rounded-md text-amber-800 bg-amber-100 hover:bg-amber-200 transition-colors">
+                            <i class="bi bi-calculator mr-2"></i> Procesar con Diferencia
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
         </div>
-    </div>
+    {% endif %}
 
     <div x-data="{ show: false }" @open-modal.window="show = ($event.detail === 'diferencia-modal')" x-show="show" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900/60" style="display: none;">
         <div class="flex items-center justify-center min-h-screen p-4">
