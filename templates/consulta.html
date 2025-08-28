@@ -14,7 +14,9 @@
 <div x-data="{ 
     showOfferForm: false, 
     activeTab: 'pagos',
-    openCards: { progress: true, dossier: true } 
+    openCards: { progress: true, dossier: true },
+    isAnnulModalOpen: false,
+    pagoIdToAnnul: null
 }" class="w-full space-y-6 mb-8">
 
     {% set bucket_url = 'https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/' %}
@@ -254,13 +256,11 @@
                                     {% else %}{{ pago.estado_pago or 'N/A' }}
                                     {% endif %}
                                 </span>
-                                <!-- INICIO DEL CAMBIO: Botón de anulación mejorado -->
                                 {% if pago.estado_reporte == 'Pendiente de Revision' and g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
-                                <button onclick="openAnnulModal({{ pago.id }})" class="text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded-lg hover:bg-red-200 transition-colors" title="Anular este reporte">
+                                <button @click="pagoIdToAnnul = {{ pago.id }}; isAnnulModalOpen = true" class="text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded-lg hover:bg-red-200 transition-colors" title="Anular este reporte">
                                     Anular
                                 </button>
                                 {% endif %}
-                                <!-- FIN DEL CAMBIO -->
                             </div>
                         </div>
                         {% else %}
@@ -332,10 +332,10 @@
 </div>
 {% endfor %}
 
-<div id="annulModal" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900/60 hidden" style="display: none;">
+<div x-show="isAnnulModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-gray-900/60">
     <div class="flex items-center justify-center min-h-screen p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <form id="annulForm" onsubmit="event.preventDefault(); confirmAnnulment(this);">
+        <div x-show="isAnnulModalOpen" @click.away="isAnnulModalOpen = false" x-transition class="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <form id="annulForm" onsubmit="event.preventDefault(); confirmAnnulment(this, pagoIdToAnnul);">
                 <div class="p-6">
                     <h3 class="text-lg font-bold text-slate-800">Anular Reporte de Pago</h3>
                     <p class="text-sm text-slate-500 mt-1">El cliente será notificado y deberá reportar el pago nuevamente.</p>
@@ -345,8 +345,7 @@
                     </div>
                 </div>
                 <div class="bg-slate-50 px-6 py-3 flex justify-end gap-3 rounded-b-lg">
-                    <input type="hidden" name="pago_id" id="pagoIdToAnnul">
-                    <button type="button" onclick="closeAnnulModal()" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Cancelar</button>
+                    <button type="button" @click="isAnnulModalOpen = false; document.getElementById('annulForm').reset();" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Cancelar</button>
                     <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700">Confirmar Anulación</button>
                 </div>
             </form>
@@ -405,18 +404,7 @@
         });
     });
 
-    function openAnnulModal(pagoId) {
-        document.getElementById('pagoIdToAnnul').value = pagoId;
-        document.getElementById('annulModal').classList.remove('hidden');
-    }
-
-    function closeAnnulModal() {
-        document.getElementById('annulModal').classList.add('hidden');
-        document.getElementById('annulForm').reset();
-    }
-
-    function confirmAnnulment(form) {
-        const pagoId = form.pago_id.value;
+    function confirmAnnulment(form, pagoId) {
         const motivo = form.motivo.value;
 
         if (!motivo.trim()) {
