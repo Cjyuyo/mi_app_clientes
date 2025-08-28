@@ -1528,24 +1528,25 @@ def reportes_por_revisar():
         return render_template('reportes_por_revisar.html', reportes=reportes_categorizados)
     try:
         with conn.cursor() as cur:
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se añade c.moneda_pago a la consulta para poder diferenciar los contratos.
             query = """
-                SELECT p.*, c.nombre, c.apellido, c.cedula, c.valor_cuota, c.inscripcion_monto
+                SELECT p.*, c.nombre, c.apellido, c.cedula, c.valor_cuota, c.inscripcion_monto, c.moneda_pago
                 FROM pagos p JOIN clientes c ON p.cliente_id = c.id
                 WHERE p.estado_reporte IN ('Pendiente de Revision', 'Inconsistente')
                 ORDER BY p.fecha_creacion ASC;
             """
+            # --- FIN DE LA CORRECCIÓN ---
             cur.execute(query)
             todos_los_reportes = cur.fetchall()
 
             for reporte_row in todos_los_reportes:
                 reporte = dict(reporte_row)
                 
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se añade la lógica que faltaba para calcular el monto esperado.
-                fecha_del_pago = reporte.get('fecha_pago', get_venezuela_current_date())
-                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
-                tasa_row = cur.fetchone()
-                tasa_exacta = tasa_row['tasa'] if tasa_row and tasa_row['tasa'] else reporte.get('tasa_dia')
+                # --- INICIO DE LA CORRECCIÓN LÓGICA ---
+                # Se inicializan ambos montos esperados.
+                reporte['monto_esperado_bs'] = Decimal('0.0')
+                reporte['monto_esperado_usd'] = Decimal('0.0')
 
                 monto_dolares_referencia = Decimal('0.0')
                 if 'Cuota' in reporte.get('tipo_pago', ''):
@@ -1553,8 +1554,18 @@ def reportes_por_revisar():
                 elif 'Inscripción' in reporte.get('tipo_pago', ''):
                     monto_dolares_referencia = reporte.get('inscripcion_monto', Decimal('0.0'))
                 
-                reporte['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta) if monto_dolares_referencia and tasa_exacta else Decimal('0.0')
-                # --- FIN DE LA CORRECCIÓN ---
+                reporte['monto_esperado_usd'] = monto_dolares_referencia
+
+                # Solo se calcula el monto esperado en Bs. si el contrato es de tipo BsBCV.
+                if reporte['moneda_pago'] == 'BsBCV':
+                    fecha_del_pago = reporte.get('fecha_pago', get_venezuela_current_date())
+                    cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
+                    tasa_row = cur.fetchone()
+                    tasa_exacta = tasa_row['tasa'] if tasa_row and tasa_row['tasa'] else reporte.get('tasa_dia')
+                    
+                    if monto_dolares_referencia and tasa_exacta:
+                        reporte['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta).quantize(Decimal('0.01'))
+                # --- FIN DE LA CORRECCIÓN LÓGICA ---
 
                 if reporte['estado_reporte'] == 'Inconsistente':
                     reportes_categorizados['diferencias'].append(reporte)
@@ -4010,23 +4021,56 @@ def portal_dashboard():
 @app.route('/portal/reportar_pago', methods=['GET', 'POST'])
 @portal_login_required
 def portal_reportar_pago():
-    # ... (lógica inicial de la función sin cambios) ...
-    if request.method == 'POST':
-        pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
-        try:
-            with conn.cursor() as cur:
-                monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                monto_usd_a_guardar = cliente.get('valor_cuota') or Decimal('0.0')
-                if pago_form.get('pago_en') == 'USDT':
-                     monto_usd_a_guardar = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
+    conn = get_db()
+    if not conn:
+        flash('No se pudo conectar con la base de datos.', 'error')
+        return redirect(url_for('portal_dashboard'))
+    
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
+            cliente = cur.fetchone()
+            if not cliente:
+                flash('No se pudo encontrar tu perfil de cliente.', 'error')
+                return redirect(url_for('portal_logout'))
 
-                # --- LÓGICA AÑADIDA PARA GUARDAR DETALLES DE PAGO MÓVIL ---
+            monto_a_pagar_usd = cliente.get('valor_cuota') or Decimal('0.0')
+            concepto_pago = f"Pago de Cuota Mensual"
+
+            # --- INICIO DE LA CORRECCIÓN LÓGICA ---
+            tasa_hoy = None
+            monto_a_pagar_bs = Decimal('0.0')
+            tasa_bcv_calculo = None
+
+            if cliente['moneda_pago'] == 'BsBCV':
+                today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
+                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
+                tasa_hoy = cur.fetchone()
+                tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
+                monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv_calculo).quantize(Decimal('0.01'))
+            # --- FIN DE LA CORRECCIÓN LÓGICA ---
+
+            if request.method == 'POST':
+                pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
+                
+                # --- INICIO DE LA CORRECCIÓN LÓGICA (POST) ---
+                monto_reportado_bs = Decimal('0.0')
+                monto_usd_a_guardar = Decimal('0.0')
+
+                if cliente['moneda_pago'] == 'BsBCV':
+                    monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
+                    monto_usd_a_guardar = cliente.get('valor_cuota') or Decimal('0.0')
+                else: # Contrato en USD
+                    monto_usd_a_guardar = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
+                    monto_reportado_bs = Decimal('0.0')
+                    tasa_bcv_calculo = None
+                # --- FIN DE LA CORRECCIÓN LÓGICA (POST) ---
+
                 detalles_pago = {}
                 if pago_form.get('forma_pago_bs') == 'Pago Móvil':
                     detalles_pago['telefono_emisor'] = pago_form.get('pago_movil_telefono')
                     detalles_pago['cedula_emisor'] = pago_form.get('pago_movil_cedula')
                 detalles_json = json.dumps(detalles_pago) if detalles_pago else None
-                # --- FIN ---
 
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
@@ -4035,7 +4079,7 @@ def portal_reportar_pago():
                 """
                 cur.execute(pago_query, (
                     cliente['id'], monto_usd_a_guardar, monto_reportado_bs,
-                    pago_form.get('forma_pago_bs') or pago_form.get('pago_en'), # Guarda el método específico de Bs
+                    pago_form.get('forma_pago_bs') or pago_form.get('pago_en'),
                     pago_form.get('fecha_pago'), pago_form.get('referencia'), 
                     pago_form.get('banco'), tasa_bcv_calculo,
                     get_venezuela_current_datetime(), concepto_pago, detalles_json
@@ -4044,11 +4088,12 @@ def portal_reportar_pago():
                 flash('✅ ¡Pago de cuota reportado! Será verificado por un administrador.', 'success')
                 conn.commit()
                 return redirect(url_for('portal_dashboard'))
-        except (psycopg2.Error, ValueError, InvalidOperation) as e:
-            conn.rollback()
-            flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
 
-    # Se renderiza la plantilla unificada con las variables correctas
+    except (psycopg2.Error, ValueError, InvalidOperation) as e:
+        if conn: conn.rollback()
+        flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
+        return redirect(url_for('portal_dashboard'))
+
     return render_template('portal_pago_unificado.html', 
                            cliente=cliente, 
                            tasa_hoy=tasa_hoy, 
@@ -4585,18 +4630,11 @@ def portal_pagar_inscripcion():
 
     try:
         with conn.cursor() as cur:
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Este es el bloque de código que faltaba. Carga los datos del cliente.
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
             cliente = cur.fetchone()
             if not cliente:
                 flash('No se pudo encontrar tu perfil de cliente.', 'error')
                 return redirect(url_for('portal_logout'))
-            
-            today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
-            cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
-            tasa_hoy = cur.fetchone()
-            # --- FIN DE LA CORRECCIÓN ---
 
             inscripcion_total = cliente.get('inscripcion_monto', Decimal('0.0')) or Decimal('0.0')
             inscripcion_pagada = cliente.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
@@ -4606,16 +4644,37 @@ def portal_pagar_inscripcion():
                 flash('Tu inscripción ya ha sido pagada en su totalidad.', 'info')
                 return redirect(url_for('portal_dashboard'))
 
-            tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
-            monto_a_pagar_bs = (monto_restante * tasa_bcv_calculo).quantize(Decimal('0.01'))
+            # --- INICIO DE LA CORRECCIÓN LÓGICA ---
+            tasa_hoy = None
+            monto_a_pagar_bs = Decimal('0.0')
+            tasa_bcv_calculo = None
+
+            # Solo se realizan cálculos en Bs. si el contrato es con convertibilidad
+            if cliente['moneda_pago'] == 'BsBCV':
+                today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
+                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
+                tasa_hoy = cur.fetchone()
+                tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
+                monto_a_pagar_bs = (monto_restante * tasa_bcv_calculo).quantize(Decimal('0.01'))
+            # --- FIN DE LA CORRECCIÓN LÓGICA ---
+
             concepto_pago = f"Pago de Inscripción (Restante)"
 
             if request.method == 'POST':
                 pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
-                monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                monto_usd_a_guardar = monto_restante
-                if pago_form.get('pago_en') == 'USDT':
-                     monto_usd_a_guardar = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
+                
+                # --- INICIO DE LA CORRECCIÓN LÓGICA (POST) ---
+                monto_reportado_bs = Decimal('0.0')
+                monto_usd_a_guardar = Decimal('0.0')
+
+                if cliente['moneda_pago'] == 'BsBCV':
+                    monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
+                    monto_usd_a_guardar = monto_restante # El monto en USD es el de referencia
+                else: # Contrato en USD
+                    monto_usd_a_guardar = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
+                    monto_reportado_bs = Decimal('0.0') # No hay monto en Bs
+                    tasa_bcv_calculo = None # No hay tasa
+                # --- FIN DE LA CORRECCIÓN LÓGICA (POST) ---
 
                 detalles_pago = {}
                 if pago_form.get('forma_pago_bs') == 'Pago Móvil':
@@ -5026,9 +5085,11 @@ def ver_reporte(pago_id):
 
     try:
         with conn.cursor() as cur:
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se añade c.moneda_pago a la consulta para tomar decisiones lógicas.
             query = """
                 SELECT p.*, c.nombre || ' ' || c.apellido as nombre_apellido, c.cedula, 
-                       c.valor_cuota, c.inscripcion_monto, c.id as cliente_id,
+                       c.valor_cuota, c.inscripcion_monto, c.id as cliente_id, c.moneda_pago,
                        b.expected_amount as bulk_expected_amount,
                        b.total_verified as bulk_total_verified,
                        b.status as bulk_status
@@ -5037,6 +5098,7 @@ def ver_reporte(pago_id):
                 LEFT JOIN payment_bulks b ON p.bulk_id = b.id
                 WHERE p.id = %s
             """
+            # --- FIN DE LA CORRECCIÓN ---
             cur.execute(query, (pago_id,))
             pago_row = cur.fetchone()
 
@@ -5045,12 +5107,6 @@ def ver_reporte(pago_id):
             
             pago = dict(pago_row)
             
-            # REGLA: JAMÁS SE BORRA LA SUBCONSULTA DE LA TASA.
-            fecha_del_pago = pago.get('fecha_pago', get_venezuela_current_date())
-            cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
-            tasa_row = cur.fetchone()
-            tasa_exacta = tasa_row['tasa'] if tasa_row and tasa_row['tasa'] else pago.get('tasa_dia')
-
             monto_dolares_referencia = Decimal('0.0')
             if 'Cuota' in pago.get('tipo_pago', ''):
                 monto_dolares_referencia = pago.get('valor_cuota', Decimal('0.0'))
@@ -5058,17 +5114,26 @@ def ver_reporte(pago_id):
                 monto_dolares_referencia = pago.get('inscripcion_monto', Decimal('0.0'))
             
             pago['monto_dolares_referencia'] = monto_dolares_referencia
-            pago['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta) if monto_dolares_referencia and tasa_exacta else Decimal('0.0')
 
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Se calcula la tasa de cambio efectiva que utilizó el cliente.
-            # Esto se hace dividiendo el monto en bolívares que reportó entre el monto de referencia en USD.
+            # --- INICIO DE LA CORRECCIÓN LÓGICA ---
+            # Se inicializan las variables para evitar errores si el contrato es en USD.
+            pago['monto_esperado_bs'] = Decimal('0.0')
             pago['tasa_efectiva_cliente'] = Decimal('0.0')
-            monto_bs_decimal = pago.get('monto_bs') or Decimal('0.0')
-            if monto_dolares_referencia > 0 and monto_bs_decimal > 0:
-                # Se usa quantize para redondear a 4 decimales y obtener una vista precisa.
-                pago['tasa_efectiva_cliente'] = (monto_bs_decimal / monto_dolares_referencia).quantize(Decimal('0.0001'))
-            # --- FIN DE LA CORRECCIÓN ---
+
+            # Si el contrato es BsBCV, se ejecuta la lógica de conversión.
+            if pago['moneda_pago'] == 'BsBCV':
+                fecha_del_pago = pago.get('fecha_pago', get_venezuela_current_date())
+                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
+                tasa_row = cur.fetchone()
+                tasa_exacta = tasa_row['tasa'] if tasa_row and tasa_row['tasa'] else pago.get('tasa_dia')
+
+                if monto_dolares_referencia and tasa_exacta:
+                    pago['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta).quantize(Decimal('0.01'))
+
+                monto_bs_decimal = pago.get('monto_bs') or Decimal('0.0')
+                if monto_dolares_referencia > 0 and monto_bs_decimal > 0:
+                    pago['tasa_efectiva_cliente'] = (monto_bs_decimal / monto_dolares_referencia).quantize(Decimal('0.0001'))
+            # --- FIN DE LA CORRECCIÓN LÓGICA ---
 
             pagos_del_mismo_bulk = []
             if pago.get('bulk_id'):
