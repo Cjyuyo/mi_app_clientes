@@ -4086,30 +4086,26 @@ def portal_reportar_pago():
             monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv_calculo).quantize(Decimal('0.01'))
 
             if request.method == 'POST':
-                pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
-                payment_method = pago_form.get('pago_en')
-
+                pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
+                
+                pago_en_final = pago_form.get('pago_en')
                 monto_reportado_bs = Decimal('0.0')
                 monto_usd_a_guardar = Decimal('0.0')
                 forma_pago_final = None
-                pago_en_final = None
-                referencia_final = None
+                referencia_final = pago_form.get('referencia')
                 banco_final = None
                 fecha_pago_final = pago_form.get('fecha_pago')
 
-                if payment_method == 'USDT':
+                if pago_en_final == 'USDT':
                     monto_usd_a_guardar = Decimal(pago_form.get('monto_usdt', '0.00').replace(',', '.'))
                     forma_pago_final = 'Binance'
-                    pago_en_final = 'USDT'
-                    referencia_final = pago_form.get('referencia')
                     tasa_bcv_calculo = None
-                else: # Dolar/BCV
+                else: 
+                    pago_en_final = 'Dolar/BCV'
                     monto_bs_str = pago_form.get('monto_bs', '0.00').replace(',', '.')
                     monto_reportado_bs = Decimal(monto_bs_str).quantize(Decimal('0.02'))
-                    monto_usd_a_guardar = cliente.get('valor_cuota') or Decimal('0.0')
+                    monto_usd_a_guardar = cliente.get('valor_cuota') or Decimal('0.0') 
                     forma_pago_final = pago_form.get('forma_pago_bs')
-                    pago_en_final = 'Dolar/BCV'
-                    referencia_final = pago_form.get('referencia')
                     banco_final = pago_form.get('banco')
 
                 pago_query = """
@@ -4708,35 +4704,32 @@ def portal_pagar_inscripcion():
             if request.method == 'POST':
                 pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
                 
-                payment_method = pago_form.get('pago_en')
+                pago_en_final = pago_form.get('pago_en')
                 tipo_pago_inscripcion = pago_form.get('tipo_pago_inscripcion')
                 monto_usd_a_guardar = Decimal('0.0')
                 monto_reportado_bs = Decimal('0.0')
                 forma_pago_final = None
-                pago_en_final = None
                 referencia_final = pago_form.get('referencia')
-                banco_final = pago_form.get('banco')
+                banco_final = None
                 fecha_pago_final = pago_form.get('fecha_pago')
 
-                if payment_method == 'USDT':
+                if pago_en_final == 'USDT':
                     if tipo_pago_inscripcion == 'abono':
                         monto_usd_a_guardar = Decimal(pago_form.get('monto_abono_usd', '0.00').replace(',', '.'))
-                    else: # completo
+                    else:
                         monto_usd_a_guardar = monto_restante
                     forma_pago_final = 'Binance'
-                    pago_en_final = 'USDT'
                     tasa_bcv_calculo = None
-                else: # Dolar/BCV
+                else:
+                    pago_en_final = 'Dolar/BCV'
                     monto_bs_str = pago_form.get('monto_bs', '0.00').replace(',', '.')
                     monto_reportado_bs = Decimal(monto_bs_str).quantize(Decimal('0.02'))
-
-                    if tipo_pago_inscripcion == 'abono':
-                        monto_usd_a_guardar = (monto_reportado_bs / tasa_bcv_calculo) if tasa_bcv_calculo > 0 else Decimal('0.0')
-                    else: # completo
-                        monto_usd_a_guardar = monto_restante
-
+                    if tasa_bcv_calculo > 0:
+                        monto_usd_a_guardar = (monto_reportado_bs / tasa_bcv_calculo).quantize(Decimal('0.02'))
+                    else:
+                        monto_usd_a_guardar = Decimal('0.0')
                     forma_pago_final = pago_form.get('forma_pago_bs')
-                    pago_en_final = 'Dolar/BCV'
+                    banco_final = pago_form.get('banco')
 
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia,
