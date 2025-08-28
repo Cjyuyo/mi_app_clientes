@@ -1637,7 +1637,7 @@ def _conciliar_pago_logica(pago_id, cur):
     
     return flash_msg, cliente['cedula']
 
-    @app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
+@app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def procesar_reporte(pago_id):
