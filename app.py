@@ -4160,17 +4160,23 @@ def portal_reportar_pago():
                     forma_pago_final = pago_form.get('forma_pago_bs')
                     banco_final = pago_form.get('banco')
 
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se define que un pago de cuota (sea de activación o mensual) cubre 1 cuota.
+                cuotas_a_cubrir = 1
+
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, pago_en)
-                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s);
+                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, pago_en, cuotas_cubiertas)
+                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, %s);
                 """
                 cur.execute(pago_query, (
                     cliente['id'], monto_usd_a_guardar, monto_reportado_bs,
                     forma_pago_final, fecha_pago_final, referencia_final, 
                     banco_final, tasa_bcv_calculo,
-                    get_venezuela_current_datetime(), concepto_pago, pago_en_final
+                    get_venezuela_current_datetime(), concepto_pago, pago_en_final,
+                    cuotas_a_cubrir  # Se añade el valor a la consulta
                 ))
+                # --- FIN DE LA CORRECCIÓN ---
                 
                 flash('✅ ¡Pago de cuota reportado! Será verificado por un administrador.', 'success')
                 conn.commit()
