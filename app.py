@@ -4223,34 +4223,27 @@ def portal_reportar_pago():
 def portal_diferencia_reportar(bulk_id, order_id):
     """
     Gestiona el reporte de pago de una diferencia generada por una inconsistencia.
-    Esta ruta es segura en términos de concurrencia gracias a la lógica de bloqueo
-    en la función 'recalcular_totales_bulk'.
     """
     conn = get_db()
     if not conn: 
         flash("Error de conexión.", "error")
         return redirect(url_for('portal_dashboard'))
     
-    # --- 1. Carga de datos para la vista (método GET) ---
     try:
         with conn.cursor() as cur:
-            # Valida que la orden de pago exista, pertenezca al cliente y esté pendiente.
             cur.execute("SELECT * FROM payment_orders WHERE id = %s AND bulk_id = %s AND cliente_id = %s AND status = 'ISSUED'", (order_id, bulk_id, session['cliente_id']))
             order = cur.fetchone()
             if not order: 
                 flash("Orden de pago no encontrada o ya procesada.", "error")
                 return redirect(url_for('portal_dashboard'))
             
-            # Carga los datos del cliente.
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (session['cliente_id'],))
             cliente = cur.fetchone()
 
-            # Obtiene la tasa del día para los cálculos.
             today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
             cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
             tasa_hoy = cur.fetchone()
 
-            # Calcula los montos a mostrar en la página.
             tasa_bcv = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
             monto_diferencia = order['amount']
             moneda_orden = order['currency']
@@ -4262,50 +4255,27 @@ def portal_diferencia_reportar(bulk_id, order_id):
                 monto_a_pagar_bs = monto_diferencia
                 if tasa_bcv > 0:
                     monto_a_pagar_usd = (monto_a_pagar_bs / tasa_bcv)
-            else: # Moneda es USD
+            else:
                 monto_a_pagar_usd = monto_diferencia
                 monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv)
             
             concepto_pago = f"Pago de diferencia (Orden #{order_id})"
-            
             monto_restante = monto_diferencia
 
     except psycopg2.Error as e:
         flash(f"Error al cargar la página de reporte: {e}", "error")
         return redirect(url_for('portal_dashboard'))
 
-    # --- 2. Procesamiento del formulario (método POST) ---
     if request.method == 'POST':
         pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
         try:
             with conn.cursor() as cur:
-                # --- INICIO DE LA CORRECCIÓN ---
-                pago_en_final = pago_form.get('pago_en')
-                monto_bs_reportado = Decimal('0.0')
-                monto_usd_reportado = Decimal('0.0')
-                forma_pago_final = None
-                banco_final = None
-                
+                monto_bs_reportado = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
                 tasa_bcv_dia = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
-
-                if pago_en_final == 'USDT':
-                    monto_usd_reportado = Decimal(pago_form.get('monto_usdt', '0.00').replace(',', '.'))
-                    forma_pago_final = 'Binance'
-                    if tasa_bcv_dia > 0:
-                        monto_bs_reportado = (monto_usd_reportado * tasa_bcv_dia).quantize(Decimal('0.02'))
-                else:
-                    pago_en_final = 'Dolar/BCV'
-                    monto_bs_reportado = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                    if tasa_bcv_dia > 0:
-                        monto_usd_reportado = (monto_bs_reportado / tasa_bcv_dia).quantize(Decimal('0.02'))
-                    else:
-                        monto_usd_reportado = order['amount']
-                    
-                    forma_pago_final = pago_form.get('forma_pago_bs')
-                    banco_final = pago_form.get('banco')
+                monto_usd_calculado = (monto_bs_reportado / tasa_bcv_dia) if tasa_bcv_dia > 0 else Decimal('0.0')
 
                 detalles_pago = {}
-                if forma_pago_final == 'Pago Móvil':
+                if pago_form.get('forma_pago_bs') == 'Pago Móvil':
                     detalles_pago['telefono_emisor'] = pago_form.get('pago_movil_telefono')
                     detalles_pago['cedula_emisor'] = pago_form.get('pago_movil_cedula')
                 detalles_json = json.dumps(detalles_pago) if detalles_pago else None
@@ -4313,16 +4283,15 @@ def portal_diferencia_reportar(bulk_id, order_id):
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
                                     estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
-                                    bulk_id, is_diferencia, cuotas_cubiertas, detalles_reporte, pago_en)
-                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, TRUE, 0, %s, %s);
+                                    bulk_id, is_diferencia, cuotas_cubiertas, detalles_reporte)
+                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, TRUE, 0, %s);
                 """
                 cur.execute(pago_query, (
-                    cliente['id'], monto_usd_reportado, monto_bs_reportado, 
-                    forma_pago_final, 
-                    pago_form.get('fecha_pago'), pago_form.get('referencia'), banco_final, tasa_bcv_dia,
-                    get_venezuela_current_datetime(), concepto_pago, bulk_id, detalles_json, pago_en_final
+                    cliente['id'], monto_usd_calculado, monto_bs_reportado, 
+                    pago_form.get('forma_pago_bs') or pago_form.get('pago_en'), 
+                    pago_form.get('fecha_pago'), pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_dia,
+                    get_venezuela_current_datetime(), concepto_pago, bulk_id, detalles_json
                 ))
-                # --- FIN DE LA CORRECCIÓN ---
                 
                 cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
                 
@@ -4334,11 +4303,9 @@ def portal_diferencia_reportar(bulk_id, order_id):
                 return redirect(url_for('portal_dashboard'))
         except (psycopg2.Error, ValueError, InvalidOperation) as e:
             conn.rollback()
-            logging.error(f"Error al reportar pago de diferencia: {e}\n{traceback.format_exc()}")
             flash(f'Ocurrió un error al reportar el pago de la diferencia.', 'error')
             return redirect(url_for('portal_dashboard'))
 
-    # --- 3. Renderizado de la plantilla (método GET) ---
     return render_template('portal_pago_unificado.html', 
                            cliente=cliente, 
                            monto_restante=monto_restante,
@@ -4347,7 +4314,13 @@ def portal_diferencia_reportar(bulk_id, order_id):
                            monto_a_pagar_bs=monto_a_pagar_bs,
                            concepto_pago=concepto_pago,
                            is_enrollment_payment=False,
-                           is_difference_payment=True)
+                           is_difference_payment=True,
+                           # --- INICIO DE LA CORRECCIÓN 2 ---
+                           # Se pasan las variables que faltaban a la plantilla.
+                           bulk_id=bulk_id,
+                           order_id=order_id
+                           # --- FIN DE LA CORRECCIÓN 2 ---
+                           )
 
 @app.route('/admin/pagos/por-revisar')
 @admin_required
@@ -5223,8 +5196,6 @@ def ver_reporte(pago_id):
 
     try:
         with conn.cursor() as cur:
-            # --- INICIO DE LA CORRECCIÓN 1 ---
-            # Se añade p.bulk_id explícitamente a la consulta para asegurar que siempre se obtenga.
             query = """
                 SELECT p.*, p.bulk_id, c.nombre || ' ' || c.apellido as nombre_apellido, c.cedula, 
                        c.valor_cuota, c.inscripcion_monto, c.id as cliente_id, c.moneda_pago,
@@ -5236,7 +5207,6 @@ def ver_reporte(pago_id):
                 LEFT JOIN payment_bulks b ON p.bulk_id = b.id
                 WHERE p.id = %s
             """
-            # --- FIN DE LA CORRECCIÓN 1 ---
             cur.execute(query, (pago_id,))
             pago_row = cur.fetchone()
 
@@ -5245,6 +5215,14 @@ def ver_reporte(pago_id):
             
             pago = dict(pago_row)
             
+            # --- INICIO DE LA CORRECCIÓN 1 ---
+            # Se obtiene el objeto 'cliente' completo para pasarlo a la plantilla base del portal.
+            cliente_para_plantilla = None
+            if is_client_view:
+                cur.execute("SELECT * FROM clientes WHERE id = %s", (session['cliente_id'],))
+                cliente_para_plantilla = cur.fetchone()
+            # --- FIN DE LA CORRECCIÓN 1 ---
+
             monto_dolares_referencia = Decimal('0.0')
             if 'Cuota' in pago.get('tipo_pago', ''):
                 monto_dolares_referencia = pago.get('valor_cuota', Decimal('0.0'))
@@ -5276,6 +5254,7 @@ def ver_reporte(pago_id):
             return render_template(
                 'ver_reporte.html',
                 pago=pago,
+                cliente=cliente_para_plantilla, # Se pasa el objeto cliente a la plantilla
                 is_client_view=is_client_view,
                 is_admin_view=is_admin_view,
                 pagos_del_mismo_bulk=pagos_del_mismo_bulk,
