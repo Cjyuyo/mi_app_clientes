@@ -4140,7 +4140,8 @@ def portal_reportar_pago():
                            tasa_hoy=tasa_hoy, 
                            monto_a_pagar_usd=monto_a_pagar_usd,
                            monto_a_pagar_bs=monto_a_pagar_bs,
-                           concepto_pago=concepto_pago)
+                           concepto_pago=concepto_pago,
+                           monto_restante=Decimal('0.0'))
 
 # NUEVO: Esta es la nueva ruta completa para manejar el pago de diferencias.
 @app.route('/portal/diferencia/reportar/<int:bulk_id>/<int:order_id>', methods=['GET', 'POST'])
