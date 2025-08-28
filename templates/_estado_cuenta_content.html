@@ -1,11 +1,11 @@
-<div class="p-4 sm:p-6">
-    <div class="hidden print:block mb-6">
+<div class="p-4 sm:p-6 print:p-2">
+    <div class="hidden print:block mb-6 print:mb-4">
         <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/NEGRO_Mesa+de+trabajo+1.png" alt="Logo Moto Plan Motors" class="h-16">
     </div>
 
-    <header class="flex flex-col sm:flex-row justify-between items-start gap-4 pb-4 border-b border-slate-200 print:border-gray-300">
+    <header class="flex flex-col sm:flex-row justify-between items-start gap-4 pb-4 print:pb-2 border-b border-slate-200 print:border-gray-300">
         <div>
-            <h1 class="text-2xl sm:text-3xl font-bold text-slate-800 print:text-black">Estado de Cuenta</h1>
+            <h1 class="text-2xl sm:text-3xl font-bold text-slate-800 print:text-2xl print:text-black">Estado de Cuenta</h1>
             <p class="text-slate-500 mt-1 print:text-black">Cliente: <strong class="text-slate-700 print:text-black">{{ cliente.nombre_apellido }}</strong></p>
             <p class="text-sm text-slate-500 print:text-black">C.I: {{ cliente.cedula }} | Contrato N°: {{ cliente.contrato_nro }}</p>
         </div>
@@ -15,17 +15,17 @@
         </div>
     </header>
 
-    <section class="my-6">
-        <h2 class="text-xl font-bold text-slate-800 mb-4 print:text-black">Resumen Financiero del Plan</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+    <section class="my-6 print:my-3">
+        <h2 class="text-xl font-bold text-slate-800 mb-4 print:mb-2 print:text-black">Resumen Financiero del Plan</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 print:gap-2 text-sm">
 
-            <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 flex flex-col justify-between print:bg-white print:border-gray-300">
+            <div class="bg-slate-50 p-4 print:p-2 rounded-lg border border-slate-200 flex flex-col justify-between print:bg-white print:border-gray-300">
                 <div>
-                    <div class="flex items-center gap-3 text-slate-600 font-medium mb-2 print:text-black">
+                    <div class="flex items-center gap-3 text-slate-600 font-medium mb-2 print:mb-1 print:text-black">
                         <i class="bi bi-receipt-cutoff text-lg"></i>
                         <span>Cupo del Plan (Valor de la Moto)</span>
                     </div>
-                    <p class="text-3xl font-bold text-slate-800 mb-3 print:text-black">${{ "%.2f"|format(valor_plan|float) }}</p>
+                    <p class="text-3xl print:text-xl font-bold text-slate-800 mb-3 print:mb-1 print:text-black">${{ "%.2f"|format(valor_plan|float) }}</p>
                 </div>
                 <div class="text-xs border-t border-slate-200 pt-2 space-y-1 print:border-gray-300">
                     <p class="flex justify-between text-slate-500 print:text-black"><span>Cuota Mensual:</span> <span class="font-medium text-slate-700 print:text-black">${{cliente.valor_cuota|float}}</span></p>
@@ -33,65 +33,65 @@
                 </div>
             </div>
 
-            <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 print:bg-white print:border-gray-300">
-                <div class="flex items-center gap-3 text-slate-600 font-medium mb-2 print:text-black">
+            <div class="bg-slate-50 p-4 print:p-2 rounded-lg border border-slate-200 print:bg-white print:border-gray-300">
+                <div class="flex items-center gap-3 text-slate-600 font-medium mb-2 print:mb-1 print:text-black">
                     <i class="bi bi-wallet2 text-lg text-green-600 print:text-black"></i>
                     <span>Total Pagado al Plan (Cuotas)</span>
                 </div>
-                <p class="text-3xl font-bold text-green-600 print:text-black">${{ "%.2f"|format(total_pagado_plan|float) }}</p>
+                <p class="text-3xl print:text-xl font-bold text-green-600 print:text-black">${{ "%.2f"|format(total_pagado_plan|float) }}</p>
             </div>
 
-            <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 print:bg-white print:border-gray-300">
-                <div class="flex items-center gap-3 text-slate-600 font-medium mb-2 print:text-black">
+            <div class="bg-slate-50 p-4 print:p-2 rounded-lg border border-slate-200 print:bg-white print:border-gray-300">
+                <div class="flex items-center gap-3 text-slate-600 font-medium mb-2 print:mb-1 print:text-black">
                     <i class="bi bi-hourglass-split text-lg text-red-600 print:text-black"></i>
                     <span>Saldo Pendiente del Plan</span>
                 </div>
-                <p class="text-3xl font-bold text-red-600 print:text-black">${{ "%.2f"|format(saldo_pendiente_plan|float) }}</p>
+                <p class="text-3xl print:text-xl font-bold text-red-600 print:text-black">${{ "%.2f"|format(saldo_pendiente_plan|float) }}</p>
             </div>
             
-            <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-200 print:bg-white print:border-gray-300">
-                <div class="flex items-center gap-3 text-indigo-800 font-medium mb-2 print:text-black">
+            <div class="bg-indigo-50 p-4 print:p-2 rounded-lg border border-indigo-200 print:bg-white print:border-gray-300">
+                <div class="flex items-center gap-3 text-indigo-800 font-medium mb-2 print:mb-1 print:text-black">
                     <i class="bi bi-file-earmark-spreadsheet-fill text-lg"></i>
                     <span>Total a Pagar del Plan</span>
                 </div>
-                <p class="text-2xl font-bold text-indigo-700 print:text-black">${{ "%.2f"|format(total_a_pagar_plan|float) }}</p>
+                <p class="text-2xl print:text-lg font-bold text-indigo-700 print:text-black">${{ "%.2f"|format(total_a_pagar_plan|float) }}</p>
                  <p class="text-xs text-indigo-600 mt-1 print:text-black">Sobrecosto Admin: ${{ "%.2f"|format(sobrecosto_administrativo|float) }}</p>
             </div>
 
-            <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 col-span-1 md:col-span-2 lg:col-span-2 print:bg-white print:border-gray-300">
-                <div class="flex items-center gap-3 text-slate-600 font-medium mb-2 print:text-black">
+            <div class="bg-slate-50 p-4 print:p-2 rounded-lg border border-slate-200 col-span-1 md:col-span-2 lg:col-span-2 print:bg-white print:border-gray-300">
+                <div class="flex items-center gap-3 text-slate-600 font-medium mb-2 print:mb-1 print:text-black">
                     <i class="bi bi-calendar-check-fill text-lg"></i>
                     <span>Monto de Inscripción (Pago único)</span>
                 </div>
-                <p class="text-2xl font-bold text-slate-900 print:text-black">${{ "%.2f"|format(total_inscripcion_pagada|float) }}</p>
+                <p class="text-2xl print:text-lg font-bold text-slate-900 print:text-black">${{ "%.2f"|format(total_inscripcion_pagada|float) }}</p>
                  <p class="text-xs text-slate-500 mt-1 print:text-black">(No devolutivo según Cláusula 19.4 del contrato)</p>
             </div>
         </div>
     </section>
 
-    <section class="mt-8">
-        <h2 class="text-xl font-bold text-slate-800 mb-3 print:text-black">Historial de Movimientos</h2>
+    <section class="mt-8 print:mt-4">
+        <h2 class="text-xl font-bold text-slate-800 mb-3 print:mb-2 print:text-black">Historial de Movimientos</h2>
         <div class="border rounded-lg overflow-hidden print:border-gray-300">
             <table class="w-full text-sm text-left text-slate-500 print:text-black">
                 <thead class="text-xs text-slate-700 uppercase bg-slate-100 print:bg-white print:text-black">
                     <tr>
-                        <th scope="col" class="px-6 py-3 border-b print:border-gray-300">Fecha</th>
-                        <th scope="col" class="px-6 py-3 border-b print:border-gray-300">Tipo</th>
-                        <th scope="col" class="px-6 py-3 border-b print:border-gray-300">Descripción</th>
-                        <th scope="col" class="px-6 py-3 border-b print:border-gray-300 text-right">Monto</th>
+                        <th scope="col" class="px-6 py-3 print:py-1 border-b print:border-gray-300">Fecha</th>
+                        <th scope="col" class="px-6 py-3 print:py-1 border-b print:border-gray-300">Tipo</th>
+                        <th scope="col" class="px-6 py-3 print:py-1 border-b print:border-gray-300">Descripción</th>
+                        <th scope="col" class="px-6 py-3 print:py-1 border-b print:border-gray-300 text-right">Monto</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in historial %}
                     <tr class="bg-white border-b hover:bg-slate-50 print:border-gray-300">
-                        <td class="px-6 py-4 font-medium text-slate-900 whitespace-nowrap print:text-black">{{ item.fecha.strftime('%d/%m/%Y') }}</td>
-                        <td class="px-6 py-4">
+                        <td class="px-6 py-4 print:py-1 font-medium text-slate-900 whitespace-nowrap print:text-black">{{ item.fecha.strftime('%d/%m/%Y') }}</td>
+                        <td class="px-6 py-4 print:py-1">
                             <span class="px-2 py-1 text-xs font-semibold rounded-full {{ item.clase_css }} print:bg-white print:text-black print:border print:border-gray-300">{{ item.tipo }}</span>
                         </td>
-                        <td class="px-6 py-4">
+                        <td class="px-6 py-4 print:py-1">
                             <p class="font-medium text-slate-800 print:text-black">{{ item.descripcion }}</p>
                         </td>
-                        <td class="px-6 py-4 text-right font-mono">
+                        <td class="px-6 py-4 print:py-1 text-right font-mono">
                             {% if item.monto is not none %}
                                 <span class="text-green-600 font-semibold print:text-black">+${{ "%.2f"|format(item.monto|float) }}</span>
                             {% endif %}
@@ -99,7 +99,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="4" class="text-center py-10 text-slate-500 print:text-black">
+                        <td colspan="4" class="text-center py-10 print:py-2 text-slate-500 print:text-black">
                             No hay movimientos registrados en el historial.
                         </td>
                     </tr>
