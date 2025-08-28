@@ -4160,22 +4160,31 @@ def portal_reportar_pago():
                     forma_pago_final = pago_form.get('forma_pago_bs')
                     banco_final = pago_form.get('banco')
 
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se define que un pago de cuota (sea de activación o mensual) cubre 1 cuota.
                 cuotas_a_cubrir = 1
 
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se modifica la consulta para obtener el ID del nuevo pago
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
                                     estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, pago_en, cuotas_cubiertas)
-                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, %s);
+                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, %s)
+                    RETURNING id;
                 """
                 cur.execute(pago_query, (
                     cliente['id'], monto_usd_a_guardar, monto_reportado_bs,
                     forma_pago_final, fecha_pago_final, referencia_final, 
                     banco_final, tasa_bcv_calculo,
                     get_venezuela_current_datetime(), concepto_pago, pago_en_final,
-                    cuotas_a_cubrir  # Se añade el valor a la consulta
+                    cuotas_a_cubrir
                 ))
+                
+                # Se obtiene el ID del pago recién insertado
+                new_pago_id = cur.fetchone()[0]
+
+                # Si el pago es en USDT o Dolar/BCV, se establece su propio ID como el bulk_id inicial.
+                # Esto permite que los administradores puedan generar pagos de diferencia vinculados a este.
+                if pago_en_final in ['Dolar/BCV', 'USDT']:
+                    cur.execute("UPDATE pagos SET bulk_id = %s WHERE id = %s", (new_pago_id, new_pago_id))
                 # --- FIN DE LA CORRECCIÓN ---
                 
                 flash('✅ ¡Pago de cuota reportado! Será verificado por un administrador.', 'success')
