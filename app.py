@@ -4141,7 +4141,8 @@ def portal_reportar_pago():
                            monto_a_pagar_usd=monto_a_pagar_usd,
                            monto_a_pagar_bs=monto_a_pagar_bs,
                            concepto_pago=concepto_pago,
-                           monto_restante=Decimal('0.0'))
+                           monto_restante=Decimal('0.0'),
+                           is_enrollment_payment=False)
 
 # NUEVO: Esta es la nueva ruta completa para manejar el pago de diferencias.
 @app.route('/portal/diferencia/reportar/<int:bulk_id>/<int:order_id>', methods=['GET', 'POST'])
@@ -4250,13 +4251,12 @@ def portal_diferencia_reportar(bulk_id, order_id):
     # --- 3. Renderizado de la plantilla (método GET) ---
     return render_template('portal_pago_unificado.html', 
                            cliente=cliente, 
+                           monto_restante=monto_restante,
                            tasa_hoy=tasa_hoy, 
-                           is_diferencia=True,
-                           bulk_id=bulk_id, 
-                           order_id=order_id, 
-                           monto_a_pagar_bs=monto_a_pagar_bs, 
-                           monto_a_pagar_usd=monto_a_pagar_usd,
-                           concepto_pago=concepto_pago)
+                           monto_a_pagar_usd=monto_restante,
+                           monto_a_pagar_bs=monto_a_pagar_bs,
+                           concepto_pago=concepto_pago,
+                           is_enrollment_payment=True)
 
 @app.route('/admin/pagos/por-revisar')
 @admin_required

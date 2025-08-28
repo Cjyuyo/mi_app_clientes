@@ -12,6 +12,13 @@
             font-family: 'Inter', sans-serif; 
             background-color: #f1f5f9; /* slate-100 */
         }
+
+        /* --- INICIO DEL CAMBIO --- */
+        .print-only {
+            display: none; /* Oculto por defecto en la pantalla */
+        }
+        /* --- FIN DEL CAMBIO --- */
+
         @media print {
             body { 
                 background: #fff !important; 
@@ -19,6 +26,13 @@
             .no-print { 
                 display: none !important; 
             }
+
+            /* --- INICIO DEL CAMBIO --- */
+            .print-only {
+                display: block; /* Visible solo al imprimir */
+            }
+            /* --- FIN DEL CAMBIO --- */
+            
             .printable-section { 
                 box-shadow: none !important; 
                 border: 1px solid #e5e7eb !important; 
