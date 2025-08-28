@@ -196,7 +196,13 @@
                             </div>
 
                             <div class="mt-3 sm:mt-0 text-left sm:text-right">
-                                <p class="font-bold text-slate-800">${{ "%.2f"|format(pago.monto) }}</p>
+                                <!-- INICIO DEL CAMBIO: Lógica de monto condicional -->
+                                {% if pago.monto_bs and pago.monto_bs > 0 %}
+                                    <p class="font-bold text-slate-800">{{ "%.2f"|format(pago.monto_bs) }} <span class="text-sm font-normal text-slate-500">Bs.</span></p>
+                                {% else %}
+                                    <p class="font-bold text-slate-800">${{ "%.2f"|format(pago.monto) }}</p>
+                                {% endif %}
+                                <!-- FIN DEL CAMBIO: Lógica de monto condicional -->
                                 
                                 <!-- INICIO DEL CAMBIO: Lógica de estados y botones mejorada -->
                                 <div class="mt-1">

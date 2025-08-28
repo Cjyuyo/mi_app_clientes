@@ -19,6 +19,25 @@
          monedaContrato: '{{ cliente.moneda_pago }}'
      })">
 
+        <!-- INICIO DEL CAMBIO: Se reemplaza el dropdown por pestañas de selección -->
+        {% if cliente.moneda_pago == 'BsBCV' %}
+        <div class="p-2 bg-slate-50 border-x border-slate-200">
+            <nav class="flex space-x-2">
+                <button @click="pagoEn = 'Dolar/BCV'" 
+                        :class="{ 'bg-orange-500 text-white': pagoEn === 'Dolar/BCV', 'text-slate-600 hover:bg-orange-100': pagoEn !== 'Dolar/BCV' }"
+                        class="flex-1 text-sm font-semibold py-2 px-4 rounded-md transition-colors">
+                    Pagar en Bolívares (Bs.)
+                </button>
+                <button @click="pagoEn = 'USDT'" 
+                        :class="{ 'bg-orange-500 text-white': pagoEn === 'USDT', 'text-slate-600 hover:bg-orange-100': pagoEn !== 'USDT' }"
+                        class="flex-1 text-sm font-semibold py-2 px-4 rounded-md transition-colors">
+                    Pagar con Cripto (USDT)
+                </button>
+            </nav>
+        </div>
+        {% endif %}
+        <!-- FIN DEL CAMBIO -->
+
         <form action="{{ url_for('portal_pagar_inscripcion') if is_enrollment_payment else url_for('portal_reportar_pago') }}" 
               method="POST" class="bg-white p-6 space-y-8 rounded-b-xl border-x border-b border-slate-200" 
               onsubmit="handleFormSubmit(this)">
@@ -80,23 +99,7 @@
                         <input type="date" id="fecha_pago" name="fecha_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" required>
                     </div>
     
-                    {% if cliente.moneda_pago == 'BsBCV' %}
-                    <div>
-                        <label for="pago_en" class="block text-sm font-medium text-slate-700">Moneda de Pago</label>
-                        <select id="pago_en" name="pago_en" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" x-model="pagoEn">
-                            <option value="Dolar/BCV">Bolívares (Bs.)</option>
-                            <option value="USDT">Binance Pay (USDT)</option>
-                        </select>
-                    </div>
-                    {% else %}
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700">Método de Pago</label>
-                        <div class="mt-1 p-2 bg-slate-100 rounded-md border border-slate-300">
-                            <p class="font-semibold text-slate-800">Binance Pay (USDT)</p>
-                        </div>
-                        <input type="hidden" name="pago_en" value="USDT">
-                    </div>
-                    {% endif %}
+                    <input type="hidden" name="pago_en" :value="pagoEn">
     
                     <div x-show="pagoEn === 'Dolar/BCV'" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                         <div class="md:col-span-2 bg-blue-50 p-3 rounded-lg border border-blue-200">

@@ -4074,63 +4074,54 @@ def portal_reportar_pago():
 
             monto_a_pagar_usd = cliente.get('valor_cuota') or Decimal('0.0')
             
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Se cuenta cuántas cuotas han sido conciliadas para determinar el concepto.
-            cur.execute("""
-                SELECT COUNT(*) FROM pagos 
-                WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'
-            """, (session['cliente_id'],))
+            cur.execute("SELECT COUNT(*) FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'", (session['cliente_id'],))
             cuotas_pagadas_conciliadas = cur.fetchone()[0]
 
-            # Se establece el concepto del pago dinámicamente.
-            if cuotas_pagadas_conciliadas == 0:
-                concepto_pago = "Pago de Cuota de Activación"
-            else:
-                concepto_pago = "Pago de Cuota Mensual"
-            # --- FIN DE LA CORRECCIÓN ---
+            concepto_pago = "Pago de Cuota de Activación" if cuotas_pagadas_conciliadas == 0 else "Pago de Cuota Mensual"
 
-            tasa_hoy = None
-            monto_a_pagar_bs = Decimal('0.0')
-            tasa_bcv_calculo = None
-
-            if cliente['moneda_pago'] == 'BsBCV':
-                today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
-                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
-                tasa_hoy = cur.fetchone()
-                tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
-                monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv_calculo).quantize(Decimal('0.01'))
+            today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
+            cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
+            tasa_hoy = cur.fetchone()
+            tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
+            monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv_calculo).quantize(Decimal('0.01'))
 
             if request.method == 'POST':
                 pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
-                
+                payment_method = pago_form.get('pago_en')
+
                 monto_reportado_bs = Decimal('0.0')
                 monto_usd_a_guardar = Decimal('0.0')
+                forma_pago_final = None
+                pago_en_final = None
+                referencia_final = None
+                banco_final = None
+                fecha_pago_final = pago_form.get('fecha_pago')
 
-                if cliente['moneda_pago'] == 'BsBCV':
-                    monto_reportado_bs = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                    monto_usd_a_guardar = cliente.get('valor_cuota') or Decimal('0.0')
-                else: # Contrato en USD
-                    monto_usd_a_guardar = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
-                    monto_reportado_bs = Decimal('0.0')
+                if payment_method == 'USDT':
+                    monto_usd_a_guardar = Decimal(pago_form.get('monto_usdt', '0.00').replace(',', '.'))
+                    forma_pago_final = 'Binance'
+                    pago_en_final = 'USDT'
+                    referencia_final = pago_form.get('referencia')
                     tasa_bcv_calculo = None
-
-                detalles_pago = {}
-                if pago_form.get('forma_pago_bs') == 'Pago Móvil':
-                    detalles_pago['telefono_emisor'] = pago_form.get('pago_movil_telefono')
-                    detalles_pago['cedula_emisor'] = pago_form.get('pago_movil_cedula')
-                detalles_json = json.dumps(detalles_pago) if detalles_pago else None
+                else: # Dolar/BCV
+                    monto_bs_str = pago_form.get('monto_bs', '0.00').replace(',', '.')
+                    monto_reportado_bs = Decimal(monto_bs_str).quantize(Decimal('0.02'))
+                    monto_usd_a_guardar = cliente.get('valor_cuota') or Decimal('0.0')
+                    forma_pago_final = pago_form.get('forma_pago_bs')
+                    pago_en_final = 'Dolar/BCV'
+                    referencia_final = pago_form.get('referencia')
+                    banco_final = pago_form.get('banco')
 
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, cuotas_cubiertas, detalles_reporte)
-                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, 0, %s) RETURNING id;
+                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, pago_en)
+                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s);
                 """
                 cur.execute(pago_query, (
                     cliente['id'], monto_usd_a_guardar, monto_reportado_bs,
-                    pago_form.get('forma_pago_bs') or pago_form.get('pago_en'),
-                    pago_form.get('fecha_pago'), pago_form.get('referencia'), 
-                    pago_form.get('banco'), tasa_bcv_calculo,
-                    get_venezuela_current_datetime(), concepto_pago, detalles_json
+                    forma_pago_final, fecha_pago_final, referencia_final, 
+                    banco_final, tasa_bcv_calculo,
+                    get_venezuela_current_datetime(), concepto_pago, pago_en_final
                 ))
                 
                 flash('✅ ¡Pago de cuota reportado! Será verificado por un administrador.', 'success')
@@ -4148,8 +4139,8 @@ def portal_reportar_pago():
                            monto_a_pagar_usd=monto_a_pagar_usd,
                            monto_a_pagar_bs=monto_a_pagar_bs,
                            concepto_pago=concepto_pago,
-                           monto_restante=Decimal('0.0'),
-                           is_enrollment_payment=False)
+                           is_enrollment_payment=False,
+                           monto_restante=Decimal('0.0'))
 
 # NUEVO: Esta es la nueva ruta completa para manejar el pago de diferencias.
 @app.route('/portal/diferencia/reportar/<int:bulk_id>/<int:order_id>', methods=['GET', 'POST'])
@@ -4706,66 +4697,63 @@ def portal_pagar_inscripcion():
                 flash('Tu inscripción ya ha sido pagada en su totalidad.', 'info')
                 return redirect(url_for('portal_dashboard'))
 
-            if inscripcion_pagada > 0:
-                concepto_pago = "Abono a Inscripción"
-            else:
-                concepto_pago = "Pago de Inscripción"
+            concepto_pago = "Abono a Inscripción" if inscripcion_pagada > 0 else "Pago de Inscripción"
 
-            tasa_hoy = None
-            monto_a_pagar_bs = Decimal('0.0')
-            tasa_bcv_calculo = None
-
-            if cliente['moneda_pago'] == 'BsBCV':
-                today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
-                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
-                tasa_hoy = cur.fetchone()
-                tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
-                monto_a_pagar_bs = (monto_restante * tasa_bcv_calculo).quantize(Decimal('0.01'))
+            today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
+            cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
+            tasa_hoy = cur.fetchone()
+            tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
+            monto_a_pagar_bs = (monto_restante * tasa_bcv_calculo).quantize(Decimal('0.01'))
 
             if request.method == 'POST':
                 pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
                 
-                # --- INICIO DE LA NUEVA LÓGICA DE PROCESAMIENTO ---
-                tipo_pago_inscripcion = pago_form.get('tipo_pago_inscripcion') # 'completo' o 'abono'
+                payment_method = pago_form.get('pago_en')
+                tipo_pago_inscripcion = pago_form.get('tipo_pago_inscripcion')
                 monto_usd_a_guardar = Decimal('0.0')
                 monto_reportado_bs = Decimal('0.0')
+                forma_pago_final = None
+                pago_en_final = None
+                referencia_final = pago_form.get('referencia')
+                banco_final = pago_form.get('banco')
+                fecha_pago_final = pago_form.get('fecha_pago')
 
-                if tipo_pago_inscripcion == 'abono':
-                    monto_abono_usd_str = pago_form.get('monto_abono_usd', '0.00').replace(',', '.')
-                    monto_usd_a_guardar = Decimal(monto_abono_usd_str)
-                else: # 'completo'
-                    monto_usd_a_guardar = monto_restante
+                if payment_method == 'USDT':
+                    if tipo_pago_inscripcion == 'abono':
+                        monto_usd_a_guardar = Decimal(pago_form.get('monto_abono_usd', '0.00').replace(',', '.'))
+                    else: # completo
+                        monto_usd_a_guardar = monto_restante
+                    forma_pago_final = 'Binance'
+                    pago_en_final = 'USDT'
+                    tasa_bcv_calculo = None
+                else: # Dolar/BCV
+                    monto_bs_str = pago_form.get('monto_bs', '0.00').replace(',', '.')
+                    monto_reportado_bs = Decimal(monto_bs_str).quantize(Decimal('0.02'))
 
-                if cliente['moneda_pago'] == 'BsBCV' and pago_form.get('pago_en') == 'Dolar/BCV':
-                    monto_reportado_bs = (monto_usd_a_guardar * tasa_bcv_calculo).quantize(Decimal('0.01'))
-                elif pago_form.get('pago_en') == 'USDT':
-                    monto_usd_a_guardar = Decimal(pago_form.get('monto_usdt', '0.00').replace(',', '.'))
-                    monto_reportado_bs = Decimal('0.0')
-                # --- FIN DE LA NUEVA LÓGICA DE PROCESAMIENTO ---
+                    if tipo_pago_inscripcion == 'abono':
+                        monto_usd_a_guardar = (monto_reportado_bs / tasa_bcv_calculo) if tasa_bcv_calculo > 0 else Decimal('0.0')
+                    else: # completo
+                        monto_usd_a_guardar = monto_restante
 
-                detalles_pago = {}
-                if pago_form.get('forma_pago_bs') == 'Pago Móvil':
-                    detalles_pago['telefono_emisor'] = pago_form.get('pago_movil_telefono')
-                    detalles_pago['cedula_emisor'] = pago_form.get('pago_movil_cedula')
-                detalles_json = json.dumps(detalles_pago) if detalles_pago else None
+                    forma_pago_final = pago_form.get('forma_pago_bs')
+                    pago_en_final = 'Dolar/BCV'
 
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia,
-                                       estado_pago, cuotas_cubiertas, reportado_por_cliente, estado_reporte, fecha_creacion, detalles_reporte) 
-                    VALUES (%s, %s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, 'Pendiente', 0, TRUE, 'Pendiente de Revision', %s, %s);
+                                       estado_reporte, fecha_creacion, reportado_por_cliente) 
+                    VALUES (%s, %s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE);
                 """
                 cur.execute(pago_query, (
                     session['cliente_id'], monto_usd_a_guardar, monto_reportado_bs,
-                    pago_form.get('forma_pago_bs') or pago_form.get('pago_en'),
-                    pago_form['fecha_pago'], pago_form.get('pago_en'), 
-                    concepto_pago, pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_calculo, 
-                    get_venezuela_current_datetime(), detalles_json
+                    forma_pago_final, fecha_pago_final, pago_en_final, 
+                    concepto_pago, referencia_final, banco_final, tasa_bcv_calculo, 
+                    get_venezuela_current_datetime()
                 ))
                 conn.commit()
                 flash('✅ ¡Pago de inscripción reportado! Será verificado por un administrador.', 'success')
                 return redirect(url_for('portal_dashboard'))
 
-    except (psycopg2.Error, KeyError, ValueError) as e:
+    except (psycopg2.Error, KeyError, ValueError, InvalidOperation) as e:
         if conn: conn.rollback()
         logging.error(f"Error en portal_pagar_inscripcion: {traceback.format_exc()}")
         flash('Ocurrió un error inesperado al procesar tu solicitud de pago.', 'error')
@@ -4777,7 +4765,8 @@ def portal_pagar_inscripcion():
                            tasa_hoy=tasa_hoy, 
                            monto_a_pagar_usd=monto_restante,
                            monto_a_pagar_bs=monto_a_pagar_bs,
-                           concepto_pago=concepto_pago)
+                           concepto_pago=concepto_pago,
+                           is_enrollment_payment=True)
 
 @app.route('/portal/estado_cuenta')
 @portal_login_required

@@ -53,13 +53,15 @@
                         </div>
                     </div>
                     <div class="mt-4 text-center">
-                        {% if pago.pago_en == 'USDT' %}
-                            <p class="text-3xl font-bold text-slate-800 tracking-tight">${{ "%.2f"|format(pago.monto|float) }} <span class="text-lg font-medium text-slate-500">USD</span></p>
-                            <p class="text-xs text-slate-500 mt-1">Pago directo en divisas</p>
-                        {% else %}
+                        <!-- INICIO DEL CAMBIO: Lógica de moneda corregida -->
+                        {% if pago.pago_en == 'Dolar/BCV' %}
                             <p class="text-3xl font-bold text-slate-800 tracking-tight">{{ "%.2f"|format(pago.monto_esperado_bs|float) }} <span class="text-lg font-medium text-slate-500">Bs.</span></p>
                             <p class="text-xs text-slate-500 mt-1">Tasa BCV Oficial: <span class="font-mono">{{ pago.tasa_dia | format_decimal }}</span></p>
+                        {% else %}
+                            <p class="text-3xl font-bold text-slate-800 tracking-tight">${{ "%.2f"|format(pago.monto|float) }} <span class="text-lg font-medium text-slate-500">{{ pago.pago_en or 'USD' }}</span></p>
+                            <p class="text-xs text-slate-500 mt-1">Pago directo en divisas</p>
                         {% endif %}
+                        <!-- FIN DEL CAMBIO -->
                     </div>
                 </div>
 
@@ -72,13 +74,15 @@
                         </div>
                     </div>
                     <div class="mt-4 text-center">
-                        {% if pago.pago_en == 'USDT' %}
-                            <p class="text-3xl font-bold text-blue-600 tracking-tight">${{ "%.2f"|format(pago.monto|float) }} <span class="text-lg font-medium text-slate-500">USDT</span></p>
-                            <p class="text-xs text-slate-500 mt-1">Reportado vía Binance Pay</p>
-                        {% else %}
+                        <!-- INICIO DEL CAMBIO: Lógica de moneda corregida -->
+                        {% if pago.pago_en == 'Dolar/BCV' %}
                             <p class="text-3xl font-bold text-blue-600 tracking-tight">{{ "%.2f"|format(pago.monto_bs|float) }} <span class="text-lg font-medium text-slate-500">Bs.</span></p>
                             <p class="text-xs text-slate-500 mt-1">Tasa Cliente (Efectiva): <span class="font-mono">{{ pago.tasa_efectiva_cliente | format_decimal }}</span></p>
+                        {% else %}
+                            <p class="text-3xl font-bold text-blue-600 tracking-tight">${{ "%.2f"|format(pago.monto|float) }} <span class="text-lg font-medium text-slate-500">{{ pago.pago_en or 'USD' }}</span></p>
+                            <p class="text-xs text-slate-500 mt-1">Reportado vía {{ pago.forma_pago or 'Digital' }}</p>
                         {% endif %}
+                        <!-- FIN DEL CAMBIO -->
                     </div>
                 </div>
                 </div>
@@ -102,7 +106,7 @@
                         <dt class="text-slate-500">Referencia / ID</dt>
                         <dd class="font-semibold text-slate-700 font-mono">{{ pago.referencia or 'N/A' }}</dd>
                     </div>
-                    {% if pago.pago_en != 'USDT' %}
+                    {% if pago.pago_en == 'Dolar/BCV' %}
                     <div>
                         <dt class="text-slate-500">Banco</dt>
                         <dd class="font-semibold text-slate-700">{{ pago.banco or 'N/A' }}</dd>
@@ -118,7 +122,7 @@
             <div class="bg-{{ status.color }}-50 text-{{ status.color }}-800 p-5 rounded-xl border border-{{ status.color }}-200 text-center">
                 <i class="bi {{ status.icon }} text-4xl"></i>
                 <h3 class="text-xl font-bold mt-2">{{ status.text }}</h3>
-                {% if status.color == 'red' %}
+                {% if status.color == 'red' and pago.pago_en == 'Dolar/BCV' %}
                 <p class="text-sm mt-1">Diferencia de <strong class="font-mono">{{ (diferencia_bs * -1) | format_decimal }} Bs.</strong></p>
                 {% endif %}
             </div>
@@ -132,7 +136,7 @@
                             <i class="bi bi-check-lg mr-2"></i> Aprobar y Enviar a Conciliación
                         </button>
                     </form>
-                    {% if pago.pago_en != 'USDT' %}
+                    {% if pago.pago_en == 'Dolar/BCV' %}
                     <button type="button" @click="$dispatch('open-modal', 'diferencia-modal')" class="w-full inline-flex items-center justify-center px-4 py-2.5 border border-amber-300 text-sm font-semibold rounded-md text-amber-800 bg-amber-100 hover:bg-amber-200 transition-colors">
                         <i class="bi bi-calculator mr-2"></i> Procesar con Diferencia
                     </button>
