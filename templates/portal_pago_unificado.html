@@ -4,6 +4,10 @@
     {{ concepto_pago }}
 {% endblock %}
 
+{% block head_extra %}
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% endblock %}
+
 {% block body %}
 <div class="max-w-4xl mx-auto font-sans">
     <div class="bg-slate-800 text-white p-5 rounded-t-xl">
@@ -19,7 +23,6 @@
          monedaContrato: '{{ cliente.moneda_pago }}'
      })">
 
-        <!-- INICIO DEL CAMBIO: Se reemplaza el dropdown por pestañas de selección -->
         {% if cliente.moneda_pago == 'BsBCV' %}
         <div class="p-2 bg-slate-50 border-x border-slate-200">
             <nav class="flex space-x-2">
@@ -36,11 +39,11 @@
             </nav>
         </div>
         {% endif %}
-        <!-- FIN DEL CAMBIO -->
 
-        <form action="{{ url_for('portal_pagar_inscripcion') if is_enrollment_payment else url_for('portal_reportar_pago') }}" 
+        <form id="payment-form"
+              action="{{ url_for('portal_pagar_inscripcion') if is_enrollment_payment else (url_for('portal_diferencia_reportar', bulk_id=bulk_id, order_id=order_id) if is_difference_payment else url_for('portal_reportar_pago')) }}" 
               method="POST" class="bg-white p-6 space-y-8 rounded-b-xl border-x border-b border-slate-200" 
-              onsubmit="handleFormSubmit(this)">
+              @submit.prevent="validateAndSubmit">
 
             <template x-if="isEnrollment">
                 <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
@@ -96,7 +99,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                     <div>
                         <label for="fecha_pago" class="block text-sm font-medium text-slate-700">Fecha del Pago</label>
-                        <input type="date" id="fecha_pago" name="fecha_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" required>
+                        <input type="date" id="fecha_pago" name="fecha_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
                     </div>
     
                     <input type="hidden" name="pago_en" :value="pagoEn">
@@ -121,15 +124,15 @@
                             <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
                                 <div>
                                     <label for="pago_movil_telefono" class="block text-sm font-medium text-slate-700">Teléfono Emisor</label>
-                                    <input type="text" id="pago_movil_telefono" name="pago_movil_telefono" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm font-mono" :required="pagoEn === 'Dolar/BCV' && formaPagoBs === 'Pago Móvil'">
+                                    <input type="text" id="pago_movil_telefono" name="pago_movil_telefono" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm font-mono">
                                 </div>
                                 <div>
                                     <label for="pago_movil_cedula" class="block text-sm font-medium text-slate-700">Cédula del Emisor</label>
-                                    <input type="text" id="pago_movil_cedula" name="pago_movil_cedula" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm font-mono" :required="pagoEn === 'Dolar/BCV' && formaPagoBs === 'Pago Móvil'">
+                                    <input type="text" id="pago_movil_cedula" name="pago_movil_cedula" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm font-mono">
                                 </div>
                                 <div>
                                     <label for="banco_pm" class="block text-sm font-medium text-slate-700">Banco Emisor</label>
-                                    <select id="banco_pm" name="banco" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" :required="pagoEn === 'Dolar/BCV' && formaPagoBs === 'Pago Móvil'">
+                                    <select id="banco_pm" name="banco" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
                                         <option value="" disabled selected>Seleccione...</option>
                                         <option value="0102-Banco de Venezuela">0102 - Banco de Venezuela</option>
                                         <option value="0104-Venezolano de Crédito">0104 - Venezolano de Crédito</option>
@@ -165,13 +168,13 @@
                         
                         <div class="md:col-span-2">
                              <label for="referencia_bs" class="block text-sm font-medium text-slate-700">N° de Referencia</label>
-                             <input type="text" id="referencia_bs" name="referencia" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm font-mono" :required="pagoEn === 'Dolar/BCV'">
+                             <input type="text" id="referencia_bs" name="referencia" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm font-mono">
                         </div>
                         
                         <template x-if="formaPagoBs === 'Transferencia Bancaria'">
                             <div class="md:col-span-2">
                                 <label for="banco_tr" class="block text-sm font-medium text-slate-700">Banco Emisor</label>
-                                <select id="banco_tr" name="banco" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" :required="pagoEn === 'Dolar/BCV' && formaPagoBs === 'Transferencia Bancaria'">
+                                <select id="banco_tr" name="banco" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
                                     <option value="" disabled selected>Seleccione...</option>
                                     <option value="0102-Banco de Venezuela">0102 - Banco de Venezuela</option>
                                     <option value="0104-Venezolano de Crédito">0104 - Venezolano de Crédito</option>
@@ -213,7 +216,7 @@
                             </div>
                             <div>
                                 <label for="referencia_usdt" class="block text-sm font-medium text-slate-700">ID de Transacción / Pay ID</label>
-                                <input type="text" id="referencia_usdt" name="referencia" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm font-mono" :required="pagoEn === 'USDT'">
+                                <input type="text" id="referencia_usdt" name="referencia" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm font-mono">
                             </div>
                         </div>
                     </template>
@@ -236,14 +239,6 @@
 {% block scripts_extra %}
 <script src="//unpkg.com/alpinejs" defer></script>
 <script>
-    function handleFormSubmit(form) {
-        const submitButton = form.querySelector('#submit-button');
-        if (submitButton) {
-            submitButton.disabled = true;
-            submitButton.innerHTML = `<i class="bi bi-arrow-repeat animate-spin mr-2"></i> Procesando...`;
-        }
-    }
-
     document.addEventListener('alpine:init', () => {
         Alpine.data('paymentController', (config) => ({
             // --- ESTADO ---
@@ -267,7 +262,54 @@
             },
             get montoCalculadoBs() {
                 return (this.montoFinalUSD * this.tasaBcv).toFixed(2);
+            },
+
+            // --- INICIO DE LA CORRECCIÓN: Lógica de validación ---
+            validateAndSubmit() {
+                const form = document.getElementById('payment-form');
+                const fieldsToValidate = {
+                    'fecha_pago': 'Fecha del Pago'
+                };
+
+                if (this.pagoEn === 'Dolar/BCV') {
+                    fieldsToValidate['referencia_bs'] = 'N° de Referencia';
+                    if (this.formaPagoBs === 'Pago Móvil') {
+                        fieldsToValidate['pago_movil_telefono'] = 'Teléfono Emisor';
+                        fieldsToValidate['pago_movil_cedula'] = 'Cédula del Emisor';
+                        fieldsToValidate['banco_pm'] = 'Banco Emisor (Pago Móvil)';
+                    } else { // Transferencia
+                        fieldsToValidate['banco_tr'] = 'Banco Emisor (Transferencia)';
+                    }
+                } else { // USDT
+                    fieldsToValidate['referencia_usdt'] = 'ID de Transacción / Pay ID';
+                }
+
+                let missingFields = [];
+                for (const [id, name] of Object.entries(fieldsToValidate)) {
+                    const field = form.querySelector(`#${id}`);
+                    if (!field || !field.value.trim()) {
+                        missingFields.push(name);
+                    }
+                }
+
+                if (missingFields.length > 0) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Campos Incompletos',
+                        html: 'Por favor, complete los siguientes campos:<br><ul class="text-left list-disc list-inside mt-2">' + missingFields.map(f => `<li>${f}</li>`).join('') + '</ul>',
+                    });
+                    return;
+                }
+
+                // Si la validación es exitosa, se deshabilita el botón y se envía el formulario.
+                const submitButton = form.querySelector('#submit-button');
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = `<i class="bi bi-arrow-repeat animate-spin mr-2"></i> Procesando...`;
+                }
+                form.submit();
             }
+            // --- FIN DE LA CORRECCIÓN ---
         }));
     });
 
