@@ -1637,7 +1637,7 @@ def _conciliar_pago_logica(pago_id, cur):
     
     return flash_msg, cliente['cedula']
 
-@app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
+    @app.route('/procesar_reporte/<int:pago_id>', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def procesar_reporte(pago_id):
@@ -1653,10 +1653,8 @@ def procesar_reporte(pago_id):
         return redirect(url_for('reportes_por_revisar'))
 
     try:
-        # La transacción comienza aquí. Todas las operaciones son atómicas.
         with conn.cursor() as cur:
-            # Se obtiene el pago para asegurar que existe y está pendiente
-            cur.execute("SELECT * FROM pagos WHERE id = %s AND estado_reporte = 'Pendiente de Revision'", (pago_id,))
+            cur.execute("SELECT * FROM pagos WHERE id = %s AND estado_reporte = 'Pendiente de Revision' FOR UPDATE", (pago_id,))
             pago = cur.fetchone()
             if not pago:
                 flash("El reporte de pago no se encontró o ya fue procesado.", "warning")
@@ -1664,8 +1662,6 @@ def procesar_reporte(pago_id):
 
             cliente_id = pago['cliente_id']
 
-            # --- INICIO DE LA CORRECCIÓN DE INDENTACIÓN ---
-            # La lógica 'if/elif' ahora está correctamente indentada dentro del bloque 'with'.
             if accion == 'aprobar_para_conciliar':
                 cur.execute(
                     "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
@@ -1674,16 +1670,28 @@ def procesar_reporte(pago_id):
                 flash('Reporte aprobado. Ahora puede ser procesado desde la sección de Conciliar Pagos.', 'success')
             
             elif accion == 'corregir_y_generar_diferencia':
-                monto_real_recibido_str = request.form.get('monto_real_recibido')
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se determina la moneda y se obtiene el monto del formulario correcto.
                 motivo_cliente = request.form.get('motivo_cliente')
-                if not monto_real_recibido_str or not motivo_cliente:
+                monto_real_recibido = None
+                currency = None
+
+                if pago.get('pago_en') == 'USDT':
+                    monto_real_recibido_str = request.form.get('monto_real_recibido_usdt')
+                    currency = 'USD'
+                    if monto_real_recibido_str:
+                        monto_real_recibido = Decimal(monto_real_recibido_str)
+                else:  # Asume 'Dolar/BCV'
+                    monto_real_recibido_str = request.form.get('monto_real_recibido')
+                    currency = 'VES'
+                    if monto_real_recibido_str:
+                        monto_real_recibido = Decimal(monto_real_recibido_str)
+
+                if monto_real_recibido is None or not motivo_cliente:
                     flash("Debe ingresar el monto real y el motivo para el cliente.", "error")
                     return redirect(url_for('ver_reporte', pago_id=pago_id))
+                # --- FIN DE LA CORRECCIÓN ---
                 
-                monto_real_recibido = Decimal(monto_real_recibido_str)
-                currency = 'VES' if pago.get('pago_en') == 'Dolar/BCV' else 'USD'
-                
-                # Se obtienen los datos del cliente para calcular el monto esperado
                 cur.execute("SELECT valor_cuota, inscripcion_monto FROM clientes WHERE id = %s", (cliente_id,))
                 cliente_datos = cur.fetchone()
                 base_amount_usd = cliente_datos['valor_cuota'] if pago['tipo_pago'] == 'Cuota' else cliente_datos['inscripcion_monto']
@@ -1733,7 +1741,6 @@ def procesar_reporte(pago_id):
             else:
                 flash('Acción no válida.', 'error')
                 return redirect(url_for('ver_reporte', pago_id=pago_id))
-            # --- FIN DE LA CORRECCIÓN DE INDENTACIÓN ---
 
             conn.commit()
 
