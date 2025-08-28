@@ -99,6 +99,11 @@ def get_nombre_mes(month_number):
 def format_date_filter(value, format='%d/%m/%Y'):
     return value
 
+@app.context_processor
+def inject_utility_functions():
+    """Hace que ciertas funciones de Python estén disponibles en todas las plantillas Jinja."""
+    return dict(get_venezuela_current_date=get_venezuela_current_date)
+
 # =================================================================================
 # ===== CONEXIÓN A LA BASE DE DATOS =====
 # =================================================================================
