@@ -4061,9 +4061,22 @@ def portal_reportar_pago():
                 return redirect(url_for('portal_logout'))
 
             monto_a_pagar_usd = cliente.get('valor_cuota') or Decimal('0.0')
-            concepto_pago = f"Pago de Cuota Mensual"
+            
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se cuenta cuántas cuotas han sido conciliadas para determinar el concepto.
+            cur.execute("""
+                SELECT COUNT(*) FROM pagos 
+                WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'
+            """, (session['cliente_id'],))
+            cuotas_pagadas_conciliadas = cur.fetchone()[0]
 
-            # --- INICIO DE LA CORRECCIÓN LÓGICA ---
+            # Se establece el concepto del pago dinámicamente.
+            if cuotas_pagadas_conciliadas == 0:
+                concepto_pago = "Pago de Cuota de Activación"
+            else:
+                concepto_pago = "Pago de Cuota Mensual"
+            # --- FIN DE LA CORRECCIÓN ---
+
             tasa_hoy = None
             monto_a_pagar_bs = Decimal('0.0')
             tasa_bcv_calculo = None
@@ -4074,12 +4087,10 @@ def portal_reportar_pago():
                 tasa_hoy = cur.fetchone()
                 tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
                 monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv_calculo).quantize(Decimal('0.01'))
-            # --- FIN DE LA CORRECCIÓN LÓGICA ---
 
             if request.method == 'POST':
                 pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
                 
-                # --- INICIO DE LA CORRECCIÓN LÓGICA (POST) ---
                 monto_reportado_bs = Decimal('0.0')
                 monto_usd_a_guardar = Decimal('0.0')
 
@@ -4090,7 +4101,6 @@ def portal_reportar_pago():
                     monto_usd_a_guardar = Decimal(pago_form.get('monto', '0.00').replace(',', '.'))
                     monto_reportado_bs = Decimal('0.0')
                     tasa_bcv_calculo = None
-                # --- FIN DE LA CORRECCIÓN LÓGICA (POST) ---
 
                 detalles_pago = {}
                 if pago_form.get('forma_pago_bs') == 'Pago Móvil':
