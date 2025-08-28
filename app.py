@@ -4267,6 +4267,9 @@ def portal_diferencia_reportar(bulk_id, order_id):
                 monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv)
             
             concepto_pago = f"Pago de diferencia (Orden #{order_id})"
+            
+            # Se añade esta línea para que la variable monto_restante esté definida para la plantilla
+            monto_restante = monto_diferencia
 
     except psycopg2.Error as e:
         flash(f"Error al cargar la página de reporte: {e}", "error")
@@ -4303,20 +4306,13 @@ def portal_diferencia_reportar(bulk_id, order_id):
                 
                 cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
                 
-                # --- LLAMADA A LA FUNCIÓN CORREGIDA ---
-                # Aquí se invoca la función que contiene la corrección de sincronización.
-                # 'recalcular_totales_bulk' bloqueará la fila del 'payment_bulk' en la
-                # base de datos, asegurando que el cálculo del total sea correcto y
-                # evitando cualquier condición de carrera (race condition).
                 recalcular_totales_bulk(bulk_id)
                 
                 flash('✅ ¡Pago de diferencia reportado! Será verificado por un administrador.', 'success')
                 
-                # Solo si todas las operaciones anteriores son exitosas, se confirman los cambios.
                 conn.commit()
                 return redirect(url_for('portal_dashboard'))
         except (psycopg2.Error, ValueError, InvalidOperation) as e:
-            # Si ocurre cualquier error, se revierten todos los cambios de la transacción.
             conn.rollback()
             flash(f'Ocurrió un error al reportar el pago de la diferencia.', 'error')
             return redirect(url_for('portal_dashboard'))
@@ -4326,10 +4322,11 @@ def portal_diferencia_reportar(bulk_id, order_id):
                            cliente=cliente, 
                            monto_restante=monto_restante,
                            tasa_hoy=tasa_hoy, 
-                           monto_a_pagar_usd=monto_restante,
+                           monto_a_pagar_usd=monto_a_pagar_usd,
                            monto_a_pagar_bs=monto_a_pagar_bs,
                            concepto_pago=concepto_pago,
-                           is_enrollment_payment=True)
+                           is_enrollment_payment=False, # Se asume que no es pago de inscripción
+                           is_difference_payment=True)
 
 @app.route('/admin/pagos/por-revisar')
 @admin_required
