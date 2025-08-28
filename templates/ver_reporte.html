@@ -1,4 +1,4 @@
-{% extends 'base_sidebar.html' %}
+{% extends 'base_portal.html' if is_client_view else 'base_sidebar.html' %}
 
 {% block title %}Detalle de Reporte de Pago N° {{ pago.id }}{% endblock %}
 
@@ -19,7 +19,12 @@
                 {% endif %}
             </h1>
             <p class="text-slate-500 mt-1">
-                Cliente: <a href="{{ url_for('perfil_cliente', cliente_id=pago.cliente_id) }}" class="font-semibold text-blue-600 hover:underline">{{ pago.nombre_apellido }}</a>
+                Cliente: 
+                {% if is_admin_view %}
+                    <a href="{{ url_for('perfil_cliente', cliente_id=pago.cliente_id) }}" class="font-semibold text-blue-600 hover:underline">{{ pago.nombre_apellido }}</a>
+                {% else %}
+                    <span class="font-semibold">{{ pago.nombre_apellido }}</span>
+                {% endif %}
             </p>
         </div>
         {% if is_admin_view %}
@@ -46,7 +51,6 @@
                     </div>
                     <div>
                         <dt class="text-slate-500">Fecha de Anulación</dt>
-                        {# La fecha está en formato ISO. Se puede crear un filtro en Flask para formatearla mejor. #}
                         <dd class="font-semibold text-slate-700 font-mono">{{ pago.detalles_reporte.fecha_anulacion or 'No especificada' }}</dd> 
                     </div>
                     <div class="md:col-span-2">
@@ -57,12 +61,11 @@
             </div>
         </div>
     {% else %}
-        {# --- VISTA NORMAL PARA REPORTES NO ANULADOS --- #}
         {% set diferencia_bs = (pago.monto_bs or 0) - (pago.monto_esperado_bs or 0) %}
         {% set status = {'text': 'Pendiente de Revisión', 'icon': 'bi-hourglass-split', 'color': 'amber'} %}
         {% if pago.estado_reporte == 'Aprobado' %}
             {% set status = {'text': 'Aprobado', 'icon': 'bi-check-circle-fill', 'color': 'green'} %}
-        {% elif pago.estado_reporte == 'Inconsistente' or diferencia_bs < -0.01 %}
+        {% elif pago.estado_reporte == 'Inconsistente' %}
             {% set status = {'text': 'Diferencia Encontrada', 'icon': 'bi-exclamation-triangle-fill', 'color': 'red'} %}
         {% endif %}
 
@@ -166,6 +169,68 @@
             </div>
         </div>
     {% endif %}
+    
+    {% if pago.bulk_id and pagos_del_mismo_bulk %}
+    <div class="bg-white p-6 rounded-xl shadow-sm border">
+        <h3 class="text-xl font-bold text-slate-800 mb-4">Historial del Proceso de Pago #{{ pago.bulk_id }}</h3>
+        
+        {% if pago.estado_reporte == 'Inconsistente' and pago.detalles_reporte %}
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+            <h4 class="font-bold text-amber-800">Detalles de la Revisión</h4>
+            <dl class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div>
+                    <dt class="text-slate-500">Monto Verificado por Admin</dt>
+                    <dd class="font-semibold text-slate-700 font-mono">
+                        {{ pago.detalles_reporte.monto_recibido_real }} 
+                        {{ 'Bs.' if 'Bs.' in pago.detalles_reporte.monto_original_reportado else 'USDT' }}
+                    </dd>
+                </div>
+                <div class="md:col-span-2">
+                    <dt class="text-slate-500">Motivo para el Cliente</dt>
+                    <dd class="font-semibold text-slate-700">{{ pago.detalles_reporte.motivo_para_cliente }}</dd>
+                </div>
+            </dl>
+        </div>
+        {% endif %}
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-600">
+                    <tr>
+                        <th class="p-3 text-left font-semibold">ID Pago</th>
+                        <th class="p-3 text-left font-semibold">Fecha</th>
+                        <th class="p-3 text-left font-semibold">Concepto</th>
+                        <th class="p-3 text-left font-semibold">Monto</th>
+                        <th class="p-3 text-left font-semibold">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pago_item in pagos_del_mismo_bulk %}
+                    <tr class="border-b hover:bg-slate-50">
+                        <td class="p-3 font-mono">#{{ pago_item.id }}</td>
+                        <td class="p-3">{{ pago_item.fecha_creacion | format_datetime }}</td>
+                        <td class="p-3">{{ pago_item.por_concepto_de }}</td>
+                        <td class="p-3 font-semibold text-slate-800">
+                            {{ "%.2f"|format(pago_item.monto_bs|float) }} Bs. / ${{ "%.2f"|format(pago_item.monto|float) }}
+                        </td>
+                        <td class="p-3">
+                            <span class="p-1.5 text-xs font-medium uppercase tracking-wider rounded-lg 
+                                {% if pago_item.estado_reporte == 'Inconsistente' %} text-red-800 bg-red-100
+                                {% elif pago_item.estado_reporte == 'Pendiente de Revision' %} text-amber-800 bg-amber-100
+                                {% elif pago_item.estado_reporte == 'Aprobado' %} text-cyan-800 bg-cyan-100
+                                {% elif pago_item.estado_pago == 'Conciliado' %} text-green-800 bg-green-100
+                                {% else %} text-gray-800 bg-gray-100
+                                {% endif %}">
+                                {{ pago_item.estado_reporte if pago_item.estado_pago != 'Conciliado' else 'Conciliado' }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 
     <div x-data="{ show: false }" @open-modal.window="show = ($event.detail === 'diferencia-modal')" x-show="show" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900/60" style="display: none;">
         <div class="flex items-center justify-center min-h-screen p-4">
@@ -175,7 +240,6 @@
                         <h3 class="text-lg font-bold text-slate-800">Procesar con Diferencia</h3>
                         <p class="text-sm text-slate-500 mt-1">Ingresa el monto real y un motivo para el cliente.</p>
                         <div class="mt-4 space-y-4">
-                            {# --- INICIO DE LA CORRECCIÓN --- #}
                             {% if pago.pago_en == 'USDT' %}
                             <div>
                                 <label for="monto_real_recibido_usdt" class="block text-sm font-medium text-slate-700">Monto Real Recibido (en USDT)</label>
@@ -187,7 +251,6 @@
                                 <input type="number" step="0.01" name="monto_real_recibido" id="monto_real_recibido" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500" placeholder="Ej: 15380.00" required>
                             </div>
                             {% endif %}
-                            {# --- FIN DE LA CORRECCIÓN --- #}
                             <div>
                                 <label for="motivo_cliente" class="block text-sm font-medium text-slate-700">Motivo para el cliente</label>
                                 <textarea name="motivo_cliente" id="motivo_cliente" rows="3" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500" placeholder="Ej: El monto recibido es menor al reportado." required></textarea>
