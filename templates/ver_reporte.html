@@ -155,11 +155,13 @@
                                 <i class="bi bi-check-lg mr-2"></i> Aprobar y Enviar a Conciliación
                             </button>
                         </form>
-                        {% if pago.pago_en == 'Dolar/BCV' %}
+                        {# --- INICIO DE LA CORRECCIÓN --- #}
+                        {% if pago.pago_en in ['Dolar/BCV', 'USDT'] %}
                         <button type="button" @click="$dispatch('open-modal', 'diferencia-modal')" class="w-full inline-flex items-center justify-center px-4 py-2.5 border border-amber-300 text-sm font-semibold rounded-md text-amber-800 bg-amber-100 hover:bg-amber-200 transition-colors">
                             <i class="bi bi-calculator mr-2"></i> Procesar con Diferencia
                         </button>
                         {% endif %}
+                        {# --- FIN DE LA CORRECCIÓN --- #}
                     </div>
                 </div>
                 {% endif %}
