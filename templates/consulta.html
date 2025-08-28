@@ -13,7 +13,7 @@
 {% for cliente in clientes %}
 <div x-data="{ 
     showOfferForm: false, 
-    activeTab: 'resumen',
+    activeTab: 'pagos',
     openCards: { progress: true, dossier: true } 
 }" class="w-full space-y-6 mb-8">
 
@@ -234,14 +234,34 @@
                         {% for pago in cliente.pagos %}
                         <div class="bg-white border rounded-lg p-3 flex items-center justify-between gap-3 hover:shadow-sm transition-shadow">
                             <div>
-                                <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" target="_blank" class="font-semibold text-slate-700 hover:text-blue-600">{{ pago.tipo_pago }} - ${{ "%.2f"|format(pago.monto|float) }}</a>
+                                <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" target="_blank" class="font-semibold text-slate-700 hover:text-blue-600">{{ pago.por_concepto_de or pago.tipo_pago }} - ${{ "%.2f"|format(pago.monto|float) }}</a>
                                 <p class="text-xs text-slate-500">{{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }} | Ref: {{ pago.referencia or 'N/A' }}</p>
                             </div>
-                            <span class="text-xs font-bold py-1 px-2 rounded-full
-                                {% if pago.estado_pago == 'Conciliado' %} bg-green-100 text-green-800
-                                {% elif pago.estado_pago == 'Pendiente' %} bg-yellow-100 text-yellow-800
-                                {% else %} bg-red-100 text-red-800
-                                {% endif %}">{{ pago.estado_pago }}</span>
+                            <!-- INICIO DEL CAMBIO: Botón de anulación y lógica de estado mejorada -->
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <span class="text-xs font-bold py-1 px-2 rounded-full whitespace-nowrap
+                                    {% if pago.estado_pago == 'Conciliado' %} bg-green-100 text-green-800
+                                    {% elif pago.estado_pago == 'Anulado' or pago.estado_reporte == 'Anulado por Admin' %} bg-slate-100 text-slate-800
+                                    {% elif pago.estado_reporte == 'Inconsistente' %} bg-red-100 text-red-800
+                                    {% elif pago.estado_reporte == 'Pendiente de Revision' %} bg-cyan-100 text-cyan-800
+                                    {% elif pago.estado_reporte == 'Aprobado' and pago.estado_pago == 'Pendiente' %} bg-yellow-100 text-yellow-800
+                                    {% else %} bg-gray-100 text-gray-800
+                                    {% endif %}">
+                                    {% if pago.estado_pago == 'Conciliado' %}Conciliado
+                                    {% elif pago.estado_pago == 'Anulado' or pago.estado_reporte == 'Anulado por Admin' %}Anulado
+                                    {% elif pago.estado_reporte == 'Inconsistente' %}Inconsistente
+                                    {% elif pago.estado_reporte == 'Pendiente de Revision' %}En Verificación
+                                    {% elif pago.estado_reporte == 'Aprobado' and pago.estado_pago == 'Pendiente' %}Por Conciliar
+                                    {% else %}{{ pago.estado_pago or 'N/A' }}
+                                    {% endif %}
+                                </span>
+                                {% if pago.estado_reporte == 'Pendiente de Revision' and g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
+                                <button onclick="openAnnulModal({{ pago.id }})" class="text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded-full hover:bg-red-200 transition-colors" title="Anular este reporte">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            <!-- FIN DEL CAMBIO -->
                         </div>
                         {% else %}
                         <div class="text-center py-8"><p class="text-slate-500">No hay pagos registrados.</p></div>
@@ -311,6 +331,30 @@
     <p class="text-sm text-slate-400 mt-1">Intenta con una cédula, nombre completo o número de contrato diferente.</p>
 </div>
 {% endfor %}
+
+<!-- INICIO DEL CAMBIO: Modal de Anulación -->
+<div id="annulModal" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900/60 hidden" style="display: none;">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <form id="annulForm" onsubmit="event.preventDefault(); confirmAnnulment(this);">
+                <div class="p-6">
+                    <h3 class="text-lg font-bold text-slate-800">Anular Reporte de Pago</h3>
+                    <p class="text-sm text-slate-500 mt-1">El cliente será notificado y deberá reportar el pago nuevamente.</p>
+                    <div class="mt-4">
+                        <label for="annulReason" class="block text-sm font-medium text-slate-700">Motivo de la Anulación</label>
+                        <textarea name="motivo" id="annulReason" rows="4" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500" placeholder="Ej: El monto reportado es incorrecto, la referencia no coincide, etc." required></textarea>
+                    </div>
+                </div>
+                <div class="bg-slate-50 px-6 py-3 flex justify-end gap-3 rounded-b-lg">
+                    <input type="hidden" name="pago_id" id="pagoIdToAnnul">
+                    <button type="button" onclick="closeAnnulModal()" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700">Confirmar Anulación</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- FIN DEL CAMBIO -->
 {% endblock %}
 
 {% block scripts_extra %}
@@ -362,5 +406,62 @@
             }
         });
     });
+
+    // INICIO DEL CAMBIO: Funciones para el modal de anulación
+    function openAnnulModal(pagoId) {
+        document.getElementById('pagoIdToAnnul').value = pagoId;
+        document.getElementById('annulModal').classList.remove('hidden');
+    }
+
+    function closeAnnulModal() {
+        document.getElementById('annulModal').classList.add('hidden');
+        document.getElementById('annulForm').reset();
+    }
+
+    function confirmAnnulment(form) {
+        const pagoId = form.pago_id.value;
+        const motivo = form.motivo.value;
+
+        if (!motivo.trim()) {
+            Swal.fire('Error', 'Debe proporcionar un motivo para la anulación.', 'error');
+            return;
+        }
+
+        Swal.fire({
+            title: '¿Confirmar Anulación?',
+            text: "Esta acción no se puede deshacer. El cliente deberá reportar el pago de nuevo.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, anular',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const formData = new FormData();
+                formData.append('motivo', motivo);
+
+                fetch(`/admin/anular_reporte/${pagoId}`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        Swal.fire('¡Anulado!', data.message, 'success').then(() => {
+                            window.location.reload();
+                        });
+                    } else {
+                        Swal.fire('Error', data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire('Error', 'Ocurrió un problema al comunicarse con el servidor.', 'error');
+                });
+            }
+        });
+    }
+    // FIN DEL CAMBIO
 </script>
 {% endblock %}

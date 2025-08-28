@@ -1745,6 +1745,58 @@ def procesar_reporte(pago_id):
     
     return redirect(url_for('reportes_por_revisar'))
 
+@app.route('/admin/anular_reporte/<int:pago_id>', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora')
+def anular_reporte_admin(pago_id):
+    conn = get_db()
+    motivo = request.form.get('motivo')
+
+    if not conn:
+        return jsonify({'status': 'error', 'message': 'Error de conexión a la base de datos.'}), 500
+    
+    if not motivo or not motivo.strip():
+        return jsonify({'status': 'error', 'message': 'El motivo de la anulación es obligatorio.'}), 400
+
+    try:
+        with conn.cursor() as cur:
+            # 1. Buscar el pago y asegurarse de que se puede anular
+            cur.execute("SELECT cliente_id, estado_reporte FROM pagos WHERE id = %s FOR UPDATE", (pago_id,))
+            pago = cur.fetchone()
+
+            if not pago:
+                return jsonify({'status': 'error', 'message': 'El reporte de pago no fue encontrado.'}), 404
+            
+            if pago['estado_reporte'] != 'Pendiente de Revision':
+                return jsonify({'status': 'error', 'message': 'Este reporte no se puede anular porque ya fue procesado.'}), 400
+
+            # 2. Actualizar el estado y guardar los detalles de la anulación
+            detalles_anulacion = {
+                'motivo_anulacion': motivo.strip(),
+                'anulado_por': g.admin['usuario'],
+                'fecha_anulacion': get_venezuela_current_datetime().isoformat()
+            }
+            
+            cur.execute("""
+                UPDATE pagos 
+                SET estado_reporte = 'Anulado por Admin', 
+                    estado_pago = 'Anulado',
+                    detalles_reporte = %s::jsonb
+                WHERE id = %s
+            """, (json.dumps(detalles_anulacion), pago_id))
+
+            # 3. Registrar en la auditoría
+            descripcion_audit = f"Anuló el reporte de pago #{pago_id}. Motivo: {motivo.strip()}"
+            registrar_accion_auditoria('ANULACION_REPORTE', descripcion_audit, pago['cliente_id'], {'pago_id': pago_id})
+            
+            conn.commit()
+            return jsonify({'status': 'success', 'message': 'El reporte ha sido anulado exitosamente.'})
+
+    except psycopg2.Error as e:
+        conn.rollback()
+        logging.error(f"Error al anular reporte {pago_id}: {e}")
+        return jsonify({'status': 'error', 'message': f'Error de base de datos: {e}'}), 500
+
 @app.route('/pagos_por_conciliar')
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora', 'asistente')
