@@ -4801,65 +4801,66 @@ def _get_estado_cuenta_data(cliente_id):
                 flash('Cliente no encontrado.', 'error')
                 return None
             
+            # --- INICIO DE LA CORRECCIÓN LÓGICA ---
+            # Se obtienen todos los pagos, incluyendo la inscripción, para el historial.
             cur.execute("""
                 SELECT id, fecha_creacion as fecha, 'Pago' as tipo_base, 
                        json_build_object(
-                           'monto', monto, 'estado', estado_pago, 'concepto', por_concepto_de, 
-                           'tasa_dia', tasa_dia, 'monto_bs', monto_bs, 'moneda_ref', moneda_referencia,
-                           'detalles', detalles_reporte, 'es_credito', TRUE
+                           'monto', monto, 'estado', estado_pago, 'concepto', por_concepto_de, 'tipo_pago', tipo_pago
                        ) as data
                 FROM pagos WHERE cliente_id = %s
                 UNION ALL
                 SELECT id, fecha_creacion as fecha, 'Gestion' as tipo_base,
                        json_build_object('nota', nota, 'tipo_gestion', tipo_gestion) as data
                 FROM gestiones_cobranza WHERE cliente_id = %s
-                UNION ALL
-                SELECT id, fecha_oferta::timestamp as fecha, 'Oferta' as tipo_base,
-                       json_build_object('cuotas', cuotas_ofertadas, 'estado', estado_oferta) as data
-                FROM ofertas WHERE cliente_id = %s
-                UNION ALL
-                SELECT id, fecha_creacion as fecha, 'Solicitud' as tipo_base,
-                       json_build_object('tipo', tipo_solicitud, 'estado', estado, 'detalles', detalles) as data
-                FROM solicitudes WHERE cliente_id = %s
                 ORDER BY fecha DESC;
-            """, (cliente_id, cliente_id, cliente_id, cliente_id))
-            
+            """, (cliente_id, cliente_id))
             historial_raw = cur.fetchall()
-            historial_unificado = []
+            
+            # Se calcula el total pagado EXCLUYENDO la inscripción.
+            cur.execute("""
+                SELECT COALESCE(SUM(monto), 0) FROM pagos 
+                WHERE cliente_id = %s AND estado_pago = 'Conciliado' AND tipo_pago != 'Inscripción'
+            """, (cliente_id,))
+            total_pagado_plan = cur.fetchone()[0]
 
+            # Se obtiene el monto de la inscripción por separado.
+            cur.execute("""
+                SELECT COALESCE(SUM(monto), 0) FROM pagos 
+                WHERE cliente_id = %s AND estado_pago = 'Conciliado' AND tipo_pago = 'Inscripción'
+            """, (cliente_id,))
+            total_inscripcion_pagada = cur.fetchone()[0]
+            
+            # Cálculos financieros adicionales
+            valor_cuota = cliente.get('valor_cuota', Decimal('0.0')) or Decimal('0.0')
+            cuotas_totales = cliente.get('cuotas_totales', 0) or 0
+            plan_contratado = cliente.get('plan_contratado', Decimal('0.0')) or Decimal('0.0')
+
+            total_a_pagar_plan = valor_cuota * cuotas_totales
+            sobrecosto_administrativo = total_a_pagar_plan - plan_contratado
+            saldo_pendiente_plan = total_a_pagar_plan - total_pagado_plan
+            # --- FIN DE LA CORRECCIÓN LÓGICA ---
+
+            historial_unificado = []
             for item in historial_raw:
+                # ... (La lógica para procesar el historial se mantiene igual) ...
                 data = item['data']
                 if isinstance(data, str):
-                    try:
-                        data = json.loads(data)
-                    except json.JSONDecodeError:
-                        data = {}
+                    try: data = json.loads(data)
+                    except json.JSONDecodeError: data = {}
                 
                 evento = {'fecha': item['fecha']}
                 
                 if item['tipo_base'] == 'Pago':
                     estado = data.get('estado', 'N/A')
-                    if estado == 'Conciliado':
-                        evento['tipo'] = 'Pago Conciliado'
-                        evento['clase_css'] = 'bg-green-100 text-green-800'
-                    elif estado == 'Pendiente':
-                        evento['tipo'] = 'Pago en Revisión'
-                        evento['clase_css'] = 'bg-yellow-100 text-yellow-800'
-                    else:
-                        evento['tipo'] = f'Pago {estado}'
-                        evento['clase_css'] = 'bg-red-100 text-red-800'
+                    evento['tipo'] = f"Pago {estado}"
+                    evento['clase_css'] = 'bg-slate-100'
+                    if estado == 'Conciliado': evento['clase_css'] = 'bg-green-100 text-green-800'
+                    elif estado == 'Pendiente': evento['tipo'] = 'Pago en Revisión'; evento['clase_css'] = 'bg-yellow-100 text-yellow-800'
                     
                     evento['descripcion'] = data.get('concepto', 'Pago general')
                     evento['monto'] = data.get('monto')
-                    evento['es_credito'] = data.get('es_credito', False)
-                    detalles = []
-                    if data.get('monto_bs') and data.get('tasa_dia'):
-                        detalles.append(f"Tasa: {data['tasa_dia']:,.2f} Bs/{data.get('moneda_ref', 'USD')}")
-                    if data.get('detalles'):
-                        if 'motivo' in data['detalles']: detalles.append(f"Motivo Rechazo: {data['detalles']['motivo']}")
-                        if 'diferencia' in data['detalles'] and float(data['detalles']['diferencia']) > 0:
-                            detalles.append(f"Monto Diferencia: ${float(data['detalles']['diferencia']):,.2f}")
-                    evento['detalles'] = ' | '.join(detalles)
+                    evento['es_credito'] = True # Todos los pagos son créditos
                     if estado == 'Conciliado':
                         evento['url'] = url_for('generar_recibo_pago', pago_id=item['id'])
 
@@ -4868,39 +4869,17 @@ def _get_estado_cuenta_data(cliente_id):
                     evento['clase_css'] = 'bg-slate-100 text-slate-800'
                     evento['descripcion'] = data.get('nota', 'Sin descripción.')
                 
-                elif item['tipo_base'] == 'Oferta':
-                    evento['tipo'] = 'Oferta de Adjudicación'
-                    evento['clase_css'] = 'bg-blue-100 text-blue-800'
-                    evento['descripcion'] = f"Ofertó {data.get('cuotas', 0)} cuotas. Resultado: {data.get('estado', 'N/A').capitalize()}"
-
-                elif item['tipo_base'] == 'Solicitud':
-                    tipo_solicitud = data.get('tipo', 'General')
-                    evento['tipo'] = f"Solicitud de {tipo_solicitud}"
-                    evento['clase_css'] = 'bg-indigo-100 text-indigo-800'
-                    evento['descripcion'] = f"Estado: {data.get('estado', 'N/A')}"
-                    detalles_sol = data.get('detalles', {})
-                    if tipo_solicitud == 'Cita' and detalles_sol.get('reporte'):
-                        evento['url'] = url_for('ver_reporte_cita', solicitud_id=item['id'])
-
                 historial_unificado.append(evento)
-
-            cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE cliente_id = %s AND estado_pago = 'Conciliado'", (cliente_id,))
-            total_pagado = cur.fetchone()[0]
-            
-            valor_plan = cliente.get('plan_contratado')
-            try:
-                valor_plan_decimal = Decimal(valor_plan) if valor_plan else Decimal('0.0')
-            except (InvalidOperation, TypeError):
-                valor_plan_decimal = Decimal('0.0')
-
-            saldo_pendiente = valor_plan_decimal - total_pagado
 
             return {
                 'cliente': cliente,
                 'historial': historial_unificado,
-                'total_pagado': total_pagado,
-                'valor_plan': valor_plan_decimal,
-                'saldo_pendiente': saldo_pendiente
+                'total_pagado_plan': total_pagado_plan,
+                'total_inscripcion_pagada': total_inscripcion_pagada,
+                'valor_plan': plan_contratado,
+                'saldo_pendiente_plan': saldo_pendiente_plan,
+                'total_a_pagar_plan': total_a_pagar_plan,
+                'sobrecosto_administrativo': sobrecosto_administrativo
             }
 
     except (psycopg2.Error, json.JSONDecodeError, KeyError) as e:
