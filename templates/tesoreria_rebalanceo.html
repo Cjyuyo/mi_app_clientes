@@ -1,126 +1,132 @@
 {% extends 'base_sidebar.html' %}
 
 {% block title %}
-    Rebalanceo de Tesorería
+    Gestión Administrativa
+{% endblock %}
+
+{% block page_title %}
+    Gestión Administrativa
 {% endblock %}
 
 {% block body %}
 <div class="space-y-8">
-    <div class="bg-white p-6 rounded-xl shadow-sm">
-        <h1 class="text-3xl font-bold text-slate-800">Rebalanceo de Tesorería</h1>
-        <p class="text-slate-500 mt-1">Registro de movimientos entre cajas y tipos de moneda.</p>
+    <header class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                <i class="bi bi-briefcase-fill text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Gestión Administrativa</h1>
+                <p class="text-slate-500 mt-1">Herramientas centralizadas para la toma de decisiones y optimización de procesos.</p>
+            </div>
+        </div>
+    </header>
+
+    <div>
+        <h2 class="text-lg font-semibold text-slate-600 mb-4 px-1">Operaciones Principales</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
+            <a href="{{ url_for('reportes_por_revisar') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex items-start space-x-4 relative">
+                {% if counts.reportes_pendientes > 0 %}
+                <span class="absolute top-3 right-3 h-6 w-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center shadow">{{ counts.reportes_pendientes }}</span>
+                {% endif %}
+                <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-blue-100 text-blue-600"><i class="bi bi-file-earmark-check-fill text-2xl"></i></div>
+                <div>
+                    <h3 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Reportes por Revisar</h3>
+                    <p class="text-sm text-slate-500 mt-1">Valida los pagos reportados por los clientes.</p>
+                </div>
+            </a>
+            {% endif %}
+
+            <a href="{{ url_for('pagos_por_conciliar') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex items-start space-x-4 relative">
+                {% if counts.pagos_pendientes > 0 %}
+                <span class="absolute top-3 right-3 h-6 w-6 rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center shadow">{{ counts.pagos_pendientes }}</span>
+                {% endif %}
+                <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-green-100 text-green-600"><i class="bi bi-bank2 text-2xl"></i></div>
+                <div>
+                    <h3 class="font-bold text-slate-800 group-hover:text-green-600 transition-colors">Centro de Conciliación</h3>
+                    <p class="text-sm text-slate-500 mt-1">Confirma pagos y actualiza los saldos.</p>
+                </div>
+            </a>
+            
+            <a href="{{ url_for('solicitudes_hub') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex items-start space-x-4 relative">
+                {% set total_solicitudes = counts.citas + counts.congelamientos + counts.retiros %}
+                {% if total_solicitudes > 0 %}
+                <span class="absolute top-3 right-3 h-6 w-6 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center shadow">{{ total_solicitudes }}</span>
+                {% endif %}
+                <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-indigo-100 text-indigo-600"><i class="bi bi-journal-check text-2xl"></i></div>
+                <div>
+                    <h3 class="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">Gestión de Solicitudes</h3>
+                    <p class="text-sm text-slate-500 mt-1">Administra citas, congelamientos y retiros.</p>
+                </div>
+            </a>
+        </div>
     </div>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-            <div class="p-4 rounded-md {% if category == 'error' %} bg-red-100 text-red-800 {% else %} bg-green-100 text-green-800 {% endif %}" role="alert">
-                {{ message }}
-            </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    {# Esta sección solo será visible para los roles de superadmin y gerente #}
     {% if g.admin.rol in ['superadmin', 'gerente'] %}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-sm font-medium text-slate-500">Efectivo USD</div><div class="text-2xl font-bold text-green-600 mt-1">${{ "{:,.2f}".format(balances.EFECTIVO_USD) }}</div></div>
-        <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-sm font-medium text-slate-500">Binance USDT</div><div class="text-2xl font-bold text-yellow-600 mt-1">${{ "{:,.2f}".format(balances.BINANCE_USDT) }}</div></div>
-        <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-sm font-medium text-slate-500">Caja Bs (USD Ref)</div><div class="text-2xl font-bold text-blue-600 mt-1">Bs. {{ "{:,.2f}".format(balances.CAJA_BS_USD) }}</div></div>
-        <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-sm font-medium text-slate-500">Caja Bs (EUR Ref)</div><div class="text-2xl font-bold text-blue-600 mt-1">Bs. {{ "{:,.2f}".format(balances.CAJA_BS_EUR) }}</div></div>
+    <div>
+        <h2 class="text-lg font-semibold text-slate-600 mb-4 px-1">Análisis y Reportes</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <a href="{{ url_for('reporte_flujo_caja') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex items-start space-x-4">
+                <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-teal-100 text-teal-600"><i class="bi bi-graph-up-arrow text-2xl"></i></div>
+                <div>
+                    <h3 class="font-bold text-slate-800 group-hover:text-teal-600 transition-colors">Flujo de Caja</h3>
+                    <p class="text-sm text-slate-500 mt-1">Analiza ingresos, egresos y balances.</p>
+                </div>
+            </a>
+            <a href="{{ url_for('reporte_morosidad') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex items-start space-x-4">
+                <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-red-100 text-red-600"><i class="bi bi-person-x-fill text-2xl"></i></div>
+                <div>
+                    <h3 class="font-bold text-slate-800 group-hover:text-red-600 transition-colors">Reporte de Morosidad</h3>
+                    <p class="text-sm text-slate-500 mt-1">Consulta clientes con pagos vencidos.</p>
+                </div>
+            </a>
+            <a href="{{ url_for('reporte_metricas') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex items-start space-x-4">
+                <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-purple-100 text-purple-600"><i class="bi bi-bar-chart-line-fill text-2xl"></i></div>
+                <div>
+                    <h3 class="font-bold text-slate-800 group-hover:text-purple-600 transition-colors">Métricas del Negocio</h3>
+                    <p class="text-sm text-slate-500 mt-1">Visualiza los indicadores clave (KPIs).</p>
+                </div>
+            </a>
+        </div>
     </div>
     {% endif %}
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-1">
-            <div class="bg-white rounded-xl shadow-sm">
-                <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Registrar Nuevo Movimiento</h2></div>
-                <div class="p-5">
-                    <form action="{{ url_for('tesoreria_rebalanceo') }}" method="POST" id="rebalanceo-form" class="space-y-4" x-data="{ tipoOperacion: '', monedaOrigen: '', monedaDestino: '' }">
-                        <div>
-                            <label for="tipo_operacion" class="block text-sm font-medium text-slate-700">1. Tipo de Operación</label>
-                            <select id="tipo_operacion" name="tipo_operacion" x-model="tipoOperacion" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
-                                <option value="" selected disabled>-- Seleccione --</option>
-                                <option value="TRANSFERENCIA_INTERNA">Transferencia Interna</option>
-                                <option value="COMPRA_DIVISAS">Compra/Venta de Divisas</option>
-                                <option value="PAGO_GASTO">Pago de Gasto / Egreso</option>
-                                <option value="PAGO_NOMINA">Pago de Nómina</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="nota" class="block text-sm font-medium text-slate-700">2. Nota / Descripción</label>
-                            <input type="text" id="nota" name="nota" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required placeholder="Ej: Pago de servicios, Compra de USD...">
-                        </div>
-                        
-                        <hr class="pt-2">
-                        <h3 class="text-md font-bold text-slate-800">3. Origen de los Fondos</h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div class="sm:col-span-2"><label for="caja_origen" class="block text-sm font-medium text-slate-700">Desde (Caja Origen)</label><select id="caja_origen" name="caja_origen" @change="monedaOrigen = $event.target.options[$event.target.selectedIndex].dataset.moneda" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="" data-moneda="">-- Seleccione --</option><option value="EFECTIVO_USD" data-moneda="USD">Efectivo USD</option><option value="BINANCE_USDT" data-moneda="USDT">Binance USDT</option><option value="CAJA_BS_USD" data-moneda="BS">Caja Bs (USD Ref)</option><option value="CAJA_BS_EUR" data-moneda="BS">Caja Bs (EUR Ref)</option></select></div>
-                            <div><label for="monto_origen" class="block text-sm font-medium text-slate-700">Monto que Sale</label><input type="text" inputmode="decimal" id="monto_origen" name="monto_origen" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
-                            <div><label for="moneda_origen" class="block text-sm font-medium text-slate-700">Moneda</label><input type="text" id="moneda_origen" name="moneda_origen" x-model="monedaOrigen" class="mt-1 block w-full rounded-md border-slate-200 bg-slate-100" readonly></div>
-                        </div>
-
-                        <div x-show="tipoOperacion === 'TRANSFERENCIA_INTERNA' || tipoOperacion === 'COMPRA_DIVISAS'" x-transition class="space-y-4 pt-2">
-                            <hr>
-                            <h3 class="text-md font-bold text-slate-800">4. Destino de los Fondos</h3>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="sm:col-span-2"><label for="caja_destino" class="block text-sm font-medium text-slate-700">Hacia (Caja Destino)</label><select id="caja_destino" name="caja_destino" @change="monedaDestino = $event.target.options[$event.target.selectedIndex].dataset.moneda" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" :required="tipoOperacion === 'TRANSFERENCIA_INTERNA' || tipoOperacion === 'COMPRA_DIVISAS'"><option value="" data-moneda="">-- Seleccione --</option><option value="EFECTIVO_USD" data-moneda="USD">Efectivo USD</option><option value="BINANCE_USDT" data-moneda="USDT">Binance USDT</option><option value="CAJA_BS_USD" data-moneda="BS">Caja Bs (USD Ref)</option><option value="CAJA_BS_EUR" data-moneda="BS">Caja Bs (EUR Ref)</option></select></div>
-                                <div><label for="monto_destino" class="block text-sm font-medium text-slate-700">Monto que Llega</label><input type="text" inputmode="decimal" id="monto_destino" name="monto_destino" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" :required="tipoOperacion === 'TRANSFERENCIA_INTERNA' || tipoOperacion === 'COMPRA_DIVISAS'"></div>
-                                <div><label for="moneda_destino" class="block text-sm font-medium text-slate-700">Moneda</label><input type="text" id="moneda_destino" name="moneda_destino" x-model="monedaDestino" class="mt-1 block w-full rounded-md border-slate-200 bg-slate-100" readonly></div>
-                            </div>
-                        </div>
-                        
-                        <div x-show="monedaOrigen && monedaDestino && monedaOrigen !== monedaDestino" x-transition class="pt-2">
-                            <label for="tasa_aplicada" class="block text-sm font-medium text-slate-700">Tasa de Cambio Aplicada</label>
-                            <input type="text" inputmode="decimal" id="tasa_aplicada" name="tasa_aplicada" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                        </div>
-
-                        <div class="pt-4">
-                            <button type="submit" class="w-full justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                <i class="bi bi-check-circle-fill mr-2"></i>Registrar Movimiento
-                            </button>
-                        </div>
-                    </form>
+    <div>
+        <h2 class="text-lg font-semibold text-slate-600 mb-4 px-1">Configuración y Sistema</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% if g.admin.rol in ['superadmin', 'gerente'] %}
+            <a href="{{ url_for('adjudicacion') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex items-start space-x-4">
+                <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-amber-100 text-amber-600"><i class="bi bi-trophy-fill text-2xl"></i></div>
+                <div>
+                    <h3 class="font-bold text-slate-800 group-hover:text-amber-600 transition-colors">Sistema de Adjudicación</h3>
+                    <p class="text-sm text-slate-500 mt-1">Gestiona el proceso de selección de ganadores.</p>
                 </div>
-            </div>
-        </div>
-        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
-            <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Historial de Movimientos Recientes</h2></div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm text-left text-slate-500">
-                    <thead class="text-xs text-slate-700 uppercase bg-slate-50">
-                        <tr>
-                            <th scope="col" class="px-6 py-3">Fecha</th>
-                            <th scope="col" class="px-6 py-3">Tipo</th>
-                            <th scope="col" class="px-6 py-3">Flujo</th>
-                            <th scope="col" class="px-6 py-3">Monto</th>
-                            <th scope="col" class="px-6 py-3">Nota</th>
-                            <th scope="col" class="px-6 py-3">Usuario</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-200">
-                       {% for mov in historial %}
-                         <tr>
-                             <td class="px-6 py-4 whitespace-nowrap">{{ mov.fecha_operacion.strftime('%d/%m %H:%M') }}</td>
-                             <td class="px-6 py-4"><span class="py-1 px-2.5 bg-slate-100 text-slate-800 text-xs font-medium rounded-md">{{ (mov.tipo_operacion or 'N/A').replace('_', ' ')|title }}</span></td>
-                             <td class="px-6 py-4 text-xs">{{ (mov.caja_origen or 'N/A').replace('_', ' ')|title }} &rarr; {{ (mov.caja_destino or 'N/A').replace('_', ' ')|title }}</td>
-                             <td class="px-6 py-4 font-semibold text-red-600">-{{ mov.moneda_origen }} {{ "{:,.2f}".format(mov.monto_origen or 0) }}</td>
-                             <td class="px-6 py-4 text-xs">{{ mov.nota }}</td>
-                             <td class="px-6 py-4">{{ mov.nombre_admin }}</td>
-                         </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="6" class="text-center text-slate-500 p-8">
-                                <div class="flex flex-col items-center">
-                                    <i class="bi bi-journal-x text-4xl text-slate-400"></i>
-                                    <p class="mt-3 font-medium">No hay movimientos registrados.</p>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+            </a>
+            <a href="{{ url_for('gestion_usuarios') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex items-start space-x-4">
+                <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-gray-100 text-gray-600"><i class="bi bi-people-fill text-2xl"></i></div>
+                <div>
+                    <h3 class="font-bold text-slate-800 group-hover:text-gray-800 transition-colors">Gestión de Usuarios</h3>
+                    <p class="text-sm text-slate-500 mt-1">Administra cuentas y permisos del sistema.</p>
+                </div>
+            </a>
+            {% endif %}
+            
+            <a href="{{ url_for('tesoreria_rebalanceo') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex items-start space-x-4">
+                <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-pink-100 text-pink-600"><i class="bi bi-wallet2 text-2xl"></i></div>
+                <div>
+                    <h3 class="font-bold text-slate-800 group-hover:text-pink-600 transition-colors">Tesorería y Balances</h3>
+                    <p class="text-sm text-slate-500 mt-1">Mueve fondos entre cajas y registra egresos.</p>
+                </div>
+            </a>
+            <a href="{{ url_for('admin_tasa_bcv') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex items-start space-x-4">
+                <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-cyan-100 text-cyan-600"><i class="bi bi-coin text-2xl"></i></div>
+                <div>
+                    <h3 class="font-bold text-slate-800 group-hover:text-cyan-600 transition-colors">Tasa de Cambio (BCV)</h3>
+                    <p class="text-sm text-slate-500 mt-1">Establece y consulta la tasa del día.</p>
+                </div>
+            </a>
         </div>
     </div>
 </div>
