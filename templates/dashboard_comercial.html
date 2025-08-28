@@ -1,17 +1,29 @@
 {% extends 'base_sidebar.html' %} 
 {% block title %} Dashboard Comercial {% endblock %} 
 
+{% block head_extra %}
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+{% endblock %}
+
 {% block body %}
-<div x-data="{ actionsOpen: false, exportOpen: false }" class="container mx-auto">
+<div x-data="{ actionsOpen: false, exportOpen: false }" class="container mx-auto space-y-6">
     
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-slate-800">Dashboard de Comisiones</h1>
-        <p class="text-slate-500 mt-1">Gestiona, aprueba y paga las comisiones de los asesores.</p>
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div class="bg-indigo-100 text-indigo-600 p-3 rounded-full flex-shrink-0">
+                <i class="bi bi-wallet-fill text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">Dashboard de Comisiones</h1>
+                <p class="text-slate-500 mt-1">Gestiona, aprueba y paga las comisiones de los asesores.</p>
+            </div>
+        </div>
     </div>
 
-    <div class="bg-white p-6 rounded-xl shadow-sm mb-8 border border-slate-200">
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
         <form method="GET" action="{{ url_for('dashboard_comercial') }}">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
                 <div>
                     <label for="fecha_desde_origen" class="block text-sm font-medium text-gray-700">Desde (Origen)</label>
                     <input type="date" name="fecha_desde_origen" id="fecha_desde_origen" value="{{ filters.fecha_desde_origen or '' }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
@@ -38,135 +50,124 @@
                         <option value="pagado" {% if filters.estado == 'pagado' %}selected{% endif %}>Pagado</option>
                     </select>
                 </div>
-                <div class="flex items-end space-x-2">
+                <div class="flex items-center space-x-2">
                     <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Filtrar</button>
-                    <a href="{{ url_for('dashboard_comercial') }}" class="w-full inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Limpiar</a>
+                    <a href="{{ url_for('dashboard_comercial') }}" class="w-full inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Limpiar</a>
                 </div>
             </div>
         </form>
     </div>
 
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-        <div class="bg-yellow-100 p-4 rounded-xl shadow">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <div class="bg-yellow-100 p-4 rounded-xl border border-yellow-200">
             <h3 class="font-bold text-yellow-800">Pendiente</h3>
             <p class="text-2xl font-semibold text-yellow-900">${{ "{:,.2f}".format(stats.pendiente.monto) }}</p>
             <p class="text-sm text-yellow-700">{{ stats.pendiente.conteo }} items</p>
         </div>
-        <div class="bg-green-100 p-4 rounded-xl shadow">
+        <div class="bg-green-100 p-4 rounded-xl border border-green-200">
             <h3 class="font-bold text-green-800">Aprobado</h3>
             <p class="text-2xl font-semibold text-green-900">${{ "{:,.2f}".format(stats.aprobado.monto) }}</p>
             <p class="text-sm text-green-700">{{ stats.aprobado.conteo }} items</p>
         </div>
-        <div class="bg-blue-100 p-4 rounded-xl shadow">
+        <div class="bg-blue-100 p-4 rounded-xl border border-blue-200">
             <h3 class="font-bold text-blue-800">Pagado</h3>
             <p class="text-2xl font-semibold text-blue-900">${{ "{:,.2f}".format(stats.pagado.monto) }}</p>
             <p class="text-sm text-blue-700">{{ stats.pagado.conteo }} items</p>
         </div>
-        <div class="bg-gray-100 p-4 rounded-xl shadow">
+        <div class="bg-gray-100 p-4 rounded-xl border border-gray-200">
             <h3 class="font-bold text-gray-800">Ajustes / Rebalanceos</h3>
             <p class="text-2xl font-semibold text-gray-900">${{ "{:,.2f}".format(stats.rebalanceos.monto) }}</p>
         </div>
     </div>
 
-    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4">
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+        <div class="p-5 border-b flex flex-col md:flex-row md:justify-between md:items-center gap-4">
             <h2 class="text-xl font-bold text-gray-800">Detalle de Comisiones</h2>
-            <div class="hidden md:flex space-x-2">
-                <button id="btn-aprobar-desktop" class="bg-green-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-600 disabled:bg-gray-300">Aprobar</button>
-                <button id="btn-generar-lote-desktop" class="bg-blue-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-600 disabled:bg-gray-300">Generar Lote</button>
+            <div class="flex items-center gap-2">
+                <button id="btn-aprobar" class="bg-green-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-600 disabled:bg-gray-300 text-sm font-semibold flex items-center gap-2">
+                    <i class="bi bi-check-lg"></i> Aprobar
+                </button>
+                <button id="btn-generar-lote" class="bg-blue-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-600 disabled:bg-gray-300 text-sm font-semibold flex items-center gap-2">
+                    <i class="bi bi-box-seam"></i> Generar Lote
+                </button>
                 <div class="relative">
-                    <button @click="exportOpen = !exportOpen" class="bg-gray-700 text-white px-4 py-2 rounded-md shadow-sm hover:bg-gray-800 flex items-center">
-                        Exportar <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    <button @click="exportOpen = !exportOpen" class="bg-gray-700 text-white px-4 py-2 rounded-md shadow-sm hover:bg-gray-800 flex items-center text-sm font-semibold">
+                        Exportar <i class="bi bi-chevron-down ml-2"></i>
                     </button>
-                    <div x-show="exportOpen" @click.away="exportOpen = false" x-cloak class="absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg z-10">
+                    <div x-show="exportOpen" @click.away="exportOpen = false" x-cloak class="absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg z-10 border">
                         <a href="#" class="data-export-btn block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" data-formato="pdf">PDF</a>
                         <a href="#" class="data-export-btn block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" data-formato="xlsx">Excel</a>
                         <a href="#" class="data-export-btn block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" data-formato="csv">CSV</a>
                     </div>
                 </div>
             </div>
-            <div class="relative md:hidden">
-                <button @click="actionsOpen = !actionsOpen" class="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center gap-2">
-                    <i class="bi bi-gear-fill"></i> Acciones
-                </button>
-                <div x-show="actionsOpen" @click.away="actionsOpen = false" x-cloak class="absolute right-0 mt-2 w-full bg-white rounded-md shadow-lg z-10 border">
-                    <button id="btn-aprobar-mobile" class="w-full text-left block px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 disabled:bg-gray-200 disabled:text-gray-400">Aprobar Seleccionados</button>
-                    <button id="btn-generar-lote-mobile" class="w-full text-left block px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 disabled:bg-gray-200 disabled:text-gray-400">Generar Lote</button>
-                    <div class="border-t"></div>
-                    <a href="#" class="data-export-btn block px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-formato="pdf">Exportar a PDF</a>
-                    <a href="#" class="data-export-btn block px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-formato="xlsx">Exportar a Excel</a>
-                    <a href="#" class="data-export-btn block px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-formato="csv">Exportar a CSV</a>
-                </div>
-            </div>
         </div>
 
         <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead class="bg-slate-50 hidden md:table-header-group">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-600 hidden md:table-header-group">
                     <tr>
-                        <th class="p-3 text-sm font-semibold tracking-wide text-left w-10"><input type="checkbox" id="seleccionar-todo"></th>
-                        <th class="p-3 text-sm font-semibold tracking-wide text-left">Fecha Origen</th>
-                        <th class="p-3 text-sm font-semibold tracking-wide text-left">Asesor</th>
-                        <th class="p-3 text-sm font-semibold tracking-wide text-left">Cliente / Origen</th>
-                        <th class="p-3 text-sm font-semibold tracking-wide text-left">Monto</th>
-                        <th class="p-3 text-sm font-semibold tracking-wide text-left">Estado</th>
-                        <th class="p-3 text-sm font-semibold tracking-wide text-left">Lote</th>
-                        <th class="p-3 text-sm font-semibold tracking-wide text-left">Acciones</th>
+                        <th class="p-3 text-left w-10"><input type="checkbox" id="seleccionar-todo"></th>
+                        <th class="p-3 text-left font-semibold">Fecha Origen</th>
+                        <th class="p-3 text-left font-semibold">Asesor</th>
+                        <th class="p-3 text-left font-semibold">Cliente / Origen</th>
+                        <th class="p-3 text-left font-semibold">Monto</th>
+                        <th class="p-3 text-left font-semibold">Estado</th>
+                        <th class="p-3 text-left font-semibold">Lote</th>
+                        <th class="p-3 text-left font-semibold"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 md:divide-y-0">
+                <tbody class="md:divide-y md:divide-gray-200">
                     {% for comision in comisiones %}
-                    <tr class="block mb-4 border rounded-lg md:table-row md:mb-0 md:border-none shadow-sm md:shadow-none bg-white md:bg-transparent">
-                        <td class="p-3 flex justify-between items-center md:table-cell md:w-10 border-b md:border-none">
-                            <span class="font-bold text-gray-500 md:hidden">Seleccionar:</span>
+                    <tr class="block md:table-row mb-4 md:mb-0 border md:border-none rounded-lg shadow-sm md:shadow-none bg-white">
+                        <td class="p-3 md:w-10 md:text-left border-b md:border-none flex justify-between items-center">
+                             <span class="font-semibold text-slate-600 md:hidden">Seleccionar</span>
                             <input type="checkbox" class="comision-checkbox" data-id="{{ comision.id }}">
                         </td>
-                        <td class="p-3 flex justify-between items-center md:table-cell border-b md:border-none">
-                            <span class="font-bold text-gray-500 md:hidden">Fecha:</span>
+                        <td class="p-3 border-b md:border-none flex justify-between items-center md:table-cell">
+                            <span class="font-semibold text-slate-600 md:hidden">Fecha:</span>
                             <span class="whitespace-nowrap">{{ comision.fecha_origen|format_date }}</span>
                         </td>
-                        <td class="p-3 flex justify-between items-center md:table-cell border-b md:border-none">
-                            <span class="font-bold text-gray-500 md:hidden">Asesor:</span>
-                            <span class="whitespace-nowrap">{{ comision.asesor }}</span>
+                        <td class="p-3 border-b md:border-none flex justify-between items-center md:table-cell">
+                            <span class="font-semibold text-slate-600 md:hidden">Asesor:</span>
+                            <span class="whitespace-nowrap font-medium text-slate-800">{{ comision.asesor }}</span>
                         </td>
-                        <td class="p-3 flex justify-between items-center md:table-cell border-b md:border-none">
-                            <span class="font-bold text-gray-500 md:hidden">Cliente:</span>
+                        <td class="p-3 border-b md:border-none flex justify-between items-center md:table-cell">
+                            <span class="font-semibold text-slate-600 md:hidden">Cliente:</span>
                             <span>{{ comision.cliente or 'N/A' }}</span>
                         </td>
-                        <td class="p-3 flex justify-between items-center md:table-cell border-b md:border-none">
-                            <span class="font-bold text-gray-500 md:hidden">Monto:</span>
-                            <span class="font-bold whitespace-nowrap">${{ "{:,.2f}".format(comision.monto) }}</span>
+                        <td class="p-3 border-b md:border-none flex justify-between items-center md:table-cell">
+                            <span class="font-semibold text-slate-600 md:hidden">Monto:</span>
+                            <span class="font-bold text-slate-800">${{ "{:,.2f}".format(comision.monto) }}</span>
                         </td>
-                        <td class="p-3 flex justify-between items-center md:table-cell border-b md:border-none">
-                            <span class="font-bold text-gray-500 md:hidden">Estado:</span>
-                            <span class="whitespace-nowrap">
-                                {% if comision.estado == 'pendiente' %}
-                                    <span class="p-1.5 text-xs font-medium uppercase tracking-wider text-yellow-800 bg-yellow-200 rounded-lg bg-opacity-50">Pendiente</span>
-                                {% elif comision.estado == 'aprobado' %}
-                                    <span class="p-1.5 text-xs font-medium uppercase tracking-wider text-green-800 bg-green-200 rounded-lg bg-opacity-50">Aprobado</span>
-                                {% elif comision.estado == 'pagado' %}
-                                    <span class="p-1.5 text-xs font-medium uppercase tracking-wider text-blue-800 bg-blue-200 rounded-lg bg-opacity-50">Pagado</span>
+                        <td class="p-3 border-b md:border-none flex justify-between items-center md:table-cell">
+                            <span class="font-semibold text-slate-600 md:hidden">Estado:</span>
+                            <span class="p-1.5 text-xs font-medium uppercase tracking-wider rounded-lg 
+                                {% if comision.estado == 'pendiente' %} text-yellow-800 bg-yellow-100
+                                {% elif comision.estado == 'aprobado' %} text-green-800 bg-green-100
+                                {% elif comision.estado == 'pagado' %} text-blue-800 bg-blue-100
+                                {% else %} text-gray-800 bg-gray-100
+                                {% endif %}">
+                                {{ comision.estado }}
+                            </span>
+                        </td>
+                        <td class="p-3 border-b md:border-none flex justify-between items-center md:table-cell">
+                            <span class="font-semibold text-slate-600 md:hidden">Lote:</span>
+                            <span>
+                                {% if comision.payment_batch_id %}
+                                    <a href="#" class="text-blue-600 hover:underline font-semibold" onclick="mostrarDetalleLote({{ comision.payment_batch_id }})">#{{ comision.payment_batch_id }}</a>
                                 {% else %}
-                                    <span class="p-1.5 text-xs font-medium uppercase tracking-wider text-gray-800 bg-gray-200 rounded-lg bg-opacity-50">{{ comision.estado }}</span>
+                                    -
                                 {% endif %}
                             </span>
                         </td>
-                        <td class="p-3 flex justify-between items-center md:table-cell border-b md:border-none">
-                             <span class="font-bold text-gray-500 md:hidden">Lote:</span>
-                            {% if comision.payment_batch_id %}
-                                <a href="#" class="text-blue-500 hover:underline" onclick="mostrarDetalleLote({{ comision.payment_batch_id }})">#{{ comision.payment_batch_id }}</a>
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td class="p-3 flex justify-between items-center md:table-cell">
-                            <span class="font-bold text-gray-500 md:hidden">Acciones:</span>
-                            <button class="text-blue-500 hover:underline" onclick="mostrarDetalleComision({{ comision.id }})">Detalles</button>
+                        <td class="p-3 flex justify-end items-center md:table-cell">
+                            <button class="text-indigo-600 hover:underline font-semibold" onclick="mostrarDetalleComision({{ comision.id }})">Detalles</button>
                         </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="8" class="px-3 py-4 text-center text-gray-500 bg-white rounded-lg">
+                        <td colspan="8" class="p-6 text-center text-gray-500">
                             No se encontraron comisiones con los filtros aplicados.
                         </td>
                     </tr>
@@ -177,6 +178,7 @@
     </div>
 </div>
 
+<!-- Modales (sin cambios en su estructura, solo para mantener la funcionalidad) -->
 <div id="modal-detalle-comision" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
     <div class="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
         <div class="flex justify-between items-center pb-3 border-b">
@@ -185,8 +187,7 @@
                 <span class="text-2xl">&times;</span>
             </button>
         </div>
-        <div id="contenido-modal-comision" class="mt-3">
-            </div>
+        <div id="contenido-modal-comision" class="mt-3"></div>
     </div>
 </div>
 
@@ -198,8 +199,7 @@
                 <span class="text-2xl">&times;</span>
             </button>
         </div>
-        <div id="contenido-modal-lote" class="mt-3">
-            </div>
+        <div id="contenido-modal-lote" class="mt-3"></div>
     </div>
 </div>
 {% endblock %}
@@ -207,7 +207,9 @@
 {% block scripts_extra %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // El script existente no necesita cambios
+    // El script existente para manejar la selección y las acciones
+    // no necesita cambios funcionales, solo se asegura de que los IDs
+    // de los botones (btn-aprobar, btn-generar-lote) coincidan.
 });
 </script>
 {% endblock %}
