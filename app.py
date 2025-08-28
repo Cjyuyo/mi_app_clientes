@@ -3404,13 +3404,10 @@ def conciliar_pago(pago_id):
                     return redirect(url_for('pagos_por_conciliar'))
 
                 if pago_inicial['tipo_pago'] == 'Inscripción':
-                    # --- INICIO DE LA CORRECCIÓN ---
-                    # Se añade la actualización de la nueva columna 'fecha_conciliacion'.
                     cur.execute(
                         "UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE id = %s",
                         (admin_id, pago_id)
                     )
-                    # --- FIN DE LA CORRECCIÓN ---
                     cur.execute(
                         "UPDATE clientes SET inscripcion_pagada = inscripcion_pagada + %s WHERE id = %s RETURNING inscripcion_pagada, inscripcion_monto",
                         (pago_inicial['monto'], cliente['id'])
@@ -3425,10 +3422,39 @@ def conciliar_pago(pago_id):
                     else:
                         flash_msg = f"¡Abono de inscripción de ${pago_inicial['monto']} conciliado exitosamente!"
                 
-                elif pago_inicial['tipo_pago'] == 'Cuota':
-                    # (La lógica para conciliar cuotas también debería incluir la fecha de conciliación)
-                    # Se asume que la lógica completa iría aquí.
-                    pass
+                elif pago_inicial['tipo_pago'] in ['Cuota', 'Pago Oferta']:
+                    # --- INICIO DE LA CORRECCIÓN ---
+                    # Se añade la lógica completa para conciliar cuotas y otros pagos.
+                    cur.execute(
+                        "UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE id = %s",
+                        (admin_id, pago_id)
+                    )
+                    
+                    monto_pago = pago_inicial.get('monto') or Decimal('0.0')
+                    valor_cuota = cliente.get('valor_cuota') or Decimal('0.0')
+                    balance_actual = cliente.get('balance_regresivo') or Decimal('0.0')
+
+                    if valor_cuota > 0:
+                        nuevo_balance_total = balance_actual + monto_pago
+                        cuotas_regresivas_cubiertas = int(nuevo_balance_total // valor_cuota)
+                        balance_restante = nuevo_balance_total % valor_cuota
+                        
+                        nuevas_cuotas_regresivas = (cliente.get('cuotas_pagadas_regresivas') or 0) + cuotas_regresivas_cubiertas
+
+                        cur.execute(
+                            "UPDATE clientes SET balance_regresivo = %s, cuotas_pagadas_regresivas = %s WHERE id = %s",
+                            (balance_restante, nuevas_cuotas_regresivas, cliente['id'])
+                        )
+                        cur.execute(
+                            "UPDATE pagos SET regresivas_cubiertas = %s WHERE id = %s",
+                            (cuotas_regresivas_cubiertas, pago_id)
+                        )
+                    
+                    if cliente['proceso'] == 'INSCRITO':
+                        cur.execute("UPDATE clientes SET proceso = 'AHORRADOR' WHERE id = %s", (cliente['id'],))
+
+                    flash_msg = f"¡Pago de {pago_inicial['tipo_pago']} de ${pago_inicial['monto']} conciliado exitosamente!"
+                    # --- FIN DE LA CORRECCIÓN ---
 
             conn.commit()
             flash(flash_msg, 'success')
