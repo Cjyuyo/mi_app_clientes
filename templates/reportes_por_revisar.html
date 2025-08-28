@@ -7,17 +7,14 @@
 {% block body %}
 <div class="max-w-7xl mx-auto space-y-6 lg:space-y-8 font-sans">
 
-    <!-- Encabezado Principal -->
     <header>
         <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Reportes de Pago por Revisar</h1>
         <p class="text-slate-500 mt-1">Gestiona los pagos reportados por los clientes que requieren tu atención.</p>
     </header>
 
-    <!-- Pestañas de Navegación con Alpine.js para la interactividad -->
     <div x-data="{ activeTab: 'pendientes' }">
         <div class="border-b border-slate-200">
             <nav class="-mb-px flex space-x-6" aria-label="Tabs">
-                <!-- Pestaña Pendientes -->
                 <a href="#" @click.prevent="activeTab = 'pendientes'"
                    :class="{ 'border-blue-600 text-blue-600': activeTab === 'pendientes', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'pendientes' }"
                    class="whitespace-nowrap py-3 px-1 border-b-2 font-semibold text-sm transition-colors">
@@ -27,7 +24,6 @@
                         {{ reportes.pendientes|length }}
                     </span>
                 </a>
-                <!-- Pestaña Con Diferencia (si aplica en tu lógica) -->
                 <a href="#" @click.prevent="activeTab = 'diferencias'"
                    :class="{ 'border-amber-500 text-amber-600': activeTab === 'diferencias', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'diferencias' }"
                    class="whitespace-nowrap py-3 px-1 border-b-2 font-semibold text-sm transition-colors">
@@ -40,14 +36,11 @@
             </nav>
         </div>
 
-        <!-- Contenido de las Pestañas -->
         <div class="mt-6">
-            <!-- Contenido Pestaña: Pendientes -->
             <div x-show="activeTab === 'pendientes'" class="space-y-4">
                 {% for reporte in reportes.pendientes %}
                 <div class="bg-white rounded-xl shadow-md border border-slate-200 hover:border-blue-400 transition-all duration-300">
                     <div class="p-4 grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                        <!-- Información del Cliente -->
                         <div class="sm:col-span-1">
                             <a href="{{ url_for('perfil_cliente', cliente_id=reporte.cliente_id) }}" class="font-bold text-slate-800 hover:underline">{{ reporte.nombre }} {{ reporte.apellido }}</a>
                             <p class="text-sm text-slate-500 font-mono">C.I. {{ reporte.cedula }}</p>
@@ -56,19 +49,27 @@
                             </p>
                         </div>
                         
-                        <!-- Comparación de Montos -->
                         <div class="sm:col-span-2 grid grid-cols-2 gap-4 text-center">
-                            <div>
-                                <p class="text-xs text-slate-500">Monto Esperado</p>
-                                <p class="font-semibold text-slate-700 font-mono text-lg">{{ "%.2f"|format(reporte.monto_esperado_bs|float) }} Bs</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-slate-500">Monto Reportado</p>
-                                <p class="font-bold text-blue-600 font-mono text-lg">{{ "%.2f"|format(reporte.monto_bs|float) }} Bs</p>
-                            </div>
+                            {% if reporte.monto_bs > 0 %}
+                                <div>
+                                    <p class="text-xs text-slate-500">Monto Esperado</p>
+                                    <p class="font-semibold text-slate-700 font-mono text-lg">{{ "%.2f"|format(reporte.monto_esperado_bs|float) }} Bs</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-slate-500">Monto Reportado</p>
+                                    <p class="font-bold text-blue-600 font-mono text-lg">{{ "%.2f"|format(reporte.monto_bs|float) }} Bs</p>
+                                </div>
+                            {% else %}
+                                <div>
+                                    <p class="text-xs text-slate-500">Monto Esperado</p>
+                                    <p class="font-semibold text-slate-700 font-mono text-lg">${{ "%.2f"|format(reporte.monto_esperado_usd|float) }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-slate-500">Monto Reportado</p>
+                                    <p class="font-bold text-blue-600 font-mono text-lg">${{ "%.2f"|format(reporte.monto|float) }}</p>
+                                </div>
+                            {% endif %}
                         </div>
-
-                        <!-- Botón de Acción -->
                         <div class="sm:col-span-1 w-full sm:w-auto sm:justify-self-end">
                             <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="w-full inline-flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-semibold rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm">
                                 <i class="bi bi-search mr-2"></i> Revisar Reporte
@@ -77,7 +78,6 @@
                     </div>
                 </div>
                 {% else %}
-                <!-- Estado Vacío para Pendientes -->
                 <div class="text-center py-16 text-slate-500 border-2 border-dashed rounded-xl">
                     <div class="inline-block bg-green-100 p-4 rounded-full">
                         <i class="bi bi-check2-all text-4xl text-green-500"></i>
@@ -88,30 +88,36 @@
                 {% endfor %}
             </div>
 
-            <!-- Contenido Pestaña: Con Diferencia -->
             <div x-show="activeTab === 'diferencias'" class="space-y-4" style="display: none;">
                 {% for reporte in reportes.diferencias %}
                 <div class="bg-amber-50 rounded-xl shadow-md border border-amber-200 hover:border-amber-400 transition-all duration-300">
                     <div class="p-4 grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
-                        <!-- Información del Cliente -->
                         <div class="sm:col-span-1">
                             <a href="{{ url_for('perfil_cliente', cliente_id=reporte.cliente_id) }}" class="font-bold text-slate-800 hover:underline">{{ reporte.nombre }} {{ reporte.apellido }}</a>
                             <p class="text-sm text-slate-500 font-mono">C.I. {{ reporte.cedula }}</p>
                         </div>
                         
-                        <!-- Comparación de Montos -->
                         <div class="sm:col-span-2 grid grid-cols-2 gap-4 text-center">
-                            <div>
-                                <p class="text-xs text-slate-500">Monto Esperado</p>
-                                <p class="font-semibold text-slate-700 font-mono text-lg">{{ "%.2f"|format(reporte.monto_esperado_bs|float) }} Bs</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-amber-600">Monto Reportado</p>
-                                <p class="font-bold text-amber-600 font-mono text-lg">{{ "%.2f"|format(reporte.monto_bs|float) }} Bs</p>
-                            </div>
+                            {% if reporte.monto_bs > 0 %}
+                                <div>
+                                    <p class="text-xs text-slate-500">Monto Esperado</p>
+                                    <p class="font-semibold text-slate-700 font-mono text-lg">{{ "%.2f"|format(reporte.monto_esperado_bs|float) }} Bs</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-amber-600">Monto Reportado</p>
+                                    <p class="font-bold text-amber-600 font-mono text-lg">{{ "%.2f"|format(reporte.monto_bs|float) }} Bs</p>
+                                </div>
+                            {% else %}
+                                <div>
+                                    <p class="text-xs text-slate-500">Monto Esperado</p>
+                                    <p class="font-semibold text-slate-700 font-mono text-lg">${{ "%.2f"|format(reporte.monto_esperado_usd|float) }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-amber-600">Monto Reportado</p>
+                                    <p class="font-bold text-amber-600 font-mono text-lg">${{ "%.2f"|format(reporte.monto|float) }}</p>
+                                </div>
+                            {% endif %}
                         </div>
-
-                        <!-- Botón de Acción -->
                         <div class="sm:col-span-1 w-full sm:w-auto sm:justify-self-end">
                             <a href="{{ url_for('ver_reporte', pago_id=reporte.id) }}" class="w-full inline-flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-semibold rounded-md text-white bg-amber-500 hover:bg-amber-600 transition-colors shadow-sm">
                                 <i class="bi bi-calculator mr-2"></i> Ver Diferencia
@@ -120,7 +126,6 @@
                     </div>
                 </div>
                 {% else %}
-                <!-- Estado Vacío para Diferencias -->
                 <div class="text-center py-16 text-slate-500 border-2 border-dashed rounded-xl">
                     <div class="inline-block bg-slate-100 p-4 rounded-full">
                         <i class="bi bi-files text-4xl text-slate-400"></i>
