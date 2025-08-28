@@ -16,6 +16,62 @@
     pagoIdToAnnul: null,
     annulReason: '',
     isLoading: false,
+    // --- INICIO DE LA MODIFICACIÓN: Lógica para anular proceso ---
+    isAnnulProcessModalOpen: false,
+    bulkIdToAnnul: null,
+    processAnnulReason: '',
+    openAnnulProcessModal(id) {
+        this.bulkIdToAnnul = id;
+        this.processAnnulReason = '';
+        this.isAnnulProcessModalOpen = true;
+        this.$nextTick(() => {
+            document.getElementById('processAnnulReason').focus();
+        });
+    },
+    closeAnnulProcessModal() {
+        this.isAnnulProcessModalOpen = false;
+    },
+    submitProcessAnnulment() {
+        if (!this.processAnnulReason.trim()) {
+            Swal.fire('Error', 'Debe proporcionar un motivo para la anulación del proceso.', 'error');
+            return;
+        }
+        this.isLoading = true;
+        
+        const formData = new FormData();
+        formData.append('motivo', this.processAnnulReason.trim());
+
+        fetch(`/admin/anular_proceso_pago/${this.bulkIdToAnnul}`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                this.closeAnnulProcessModal();
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Proceso Anulado!',
+                    text: data.message,
+                    timer: 2500,
+                    showConfirmButton: false,
+                    timerProgressBar: true
+                }).then(() => {
+                    window.location.reload();
+                });
+            } else {
+                Swal.fire('Error', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire('Error', 'Ocurrió un problema al comunicarse con el servidor.', 'error');
+        })
+        .finally(() => {
+            this.isLoading = false;
+        });
+    },
+    // --- FIN DE LA MODIFICACIÓN ---
     openAnnulModal(id) {
         this.pagoIdToAnnul = id;
         this.annulReason = '';
@@ -337,11 +393,19 @@
                                         {% else %}{{ pago.estado_pago or 'N/A' }}
                                         {% endif %}
                                     </span>
-                                    {% if pago.estado_reporte == 'Pendiente de Revision' and g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
-                                    <button @click="openAnnulModal({{ pago.id }})" class="text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded-lg hover:bg-red-200 transition-colors" title="Anular este reporte">
-                                        Anular
-                                    </button>
+                                    <!-- --- INICIO DE LA MODIFICACIÓN: Botones de anulación --- -->
+                                    {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
+                                        {% if pago.estado_reporte == 'Pendiente de Revision' %}
+                                        <button @click="openAnnulModal({{ pago.id }})" class="text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded-lg hover:bg-red-200 transition-colors" title="Anular este reporte">
+                                            Anular
+                                        </button>
+                                        {% elif pago.estado_reporte == 'Inconsistente' and pago.bulk_id %}
+                                        <button @click="openAnnulProcessModal({{ pago.bulk_id }})" class="text-xs bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded-lg hover:bg-slate-300 transition-colors" title="Anular todo el proceso de pago">
+                                            Anular Proceso
+                                        </button>
+                                        {% endif %}
                                     {% endif %}
+                                    <!-- --- FIN DE LA MODIFICACIÓN --- -->
                                 </div>
                             </div>
                             {% else %}
@@ -483,6 +547,65 @@
             </form>
         </div>
     </div>
+    
+    <!-- --- INICIO DE LA MODIFICACIÓN: Modal de Anulación de Proceso --- -->
+    <div x-show="isAnnulProcessModalOpen" 
+         x-cloak 
+         x-transition:enter="ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        
+        <div @click.away="closeAnnulProcessModal()"
+             x-show="isAnnulProcessModalOpen"
+             x-transition
+             class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto overflow-hidden transform">
+            
+            <form @submit.prevent="submitProcessAnnulment()">
+                <div class="bg-slate-50 p-5 border-b border-slate-200">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="bi bi-trash3-fill text-2xl text-slate-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800">Anular Proceso de Pago</h3>
+                            <p class="text-sm text-slate-600">Esto anulará todos los pagos y órdenes asociados.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="p-6 space-y-4">
+                    <p class="text-sm text-slate-600">
+                        Estás a punto de anular todo el proceso de pago. El cliente deberá iniciar el reporte desde cero.
+                    </p>
+                    <div>
+                        <label for="processAnnulReason" class="block text-sm font-medium text-slate-700 mb-1">Motivo de la anulación</label>
+                        <textarea x-model="processAnnulReason" 
+                                  id="processAnnulReason" 
+                                  rows="4" 
+                                  class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500" 
+                                  placeholder="Ej: El cliente reportó un monto incorrecto y se reiniciará el proceso." 
+                                  required></textarea>
+                    </div>
+                </div>
+                
+                <div class="bg-slate-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-lg">
+                    <button type="button" @click="closeAnnulProcessModal()" class="px-5 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100">
+                        Cancelar
+                    </button>
+                    <button type="submit" 
+                            :disabled="isLoading || !processAnnulReason.trim()"
+                            class="inline-flex items-center justify-center px-5 py-2 text-sm font-semibold text-white bg-slate-700 hover:bg-slate-800 rounded-lg disabled:bg-slate-400">
+                        <span x-text="isLoading ? 'Anulando...' : 'Confirmar Anulación de Proceso'"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- --- FIN DE LA MODIFICACIÓN --- -->
 
 </div>
 {% endblock %}
