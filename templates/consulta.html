@@ -42,9 +42,9 @@
         // Nota: Si usas protección CSRF en Flask, descomenta y ajusta la línea de 'headers'.
         fetch(`/admin/anular_reporte/${this.pagoIdToAnnul}`, {
             method: 'POST',
-            // headers: {
-            //     'X-CSRF-TOKEN': '{{ csrf_token() }}' 
-            // },
+            {# headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}' 
+            }, #}
             body: formData
         })
         .then(response => response.json())
@@ -91,7 +91,7 @@
                         <img src="{{ bucket_url }}{{ cliente.ruta_foto_cliente_s3 }}" alt="Foto de {{ cliente.nombre_apellido }}" class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg">
                     {% else %}
                         <div class="w-20 h-20 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center border-4 border-white shadow-lg flex-shrink-0">
-                            <svg class="w-14 h-14" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                            <svg class="w-14 h-14" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 9a3 3 S0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
                         </div>
                     {% endif %}
                     <div>
