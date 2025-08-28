@@ -6,6 +6,7 @@
 
 {% block head_extra %}
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 {% endblock %}
 
 {% block body %}
@@ -13,9 +14,64 @@
 <div x-data="{
     isAnnulModalOpen: false,
     pagoIdToAnnul: null,
+    annulReason: '',
+    isLoading: false,
     openAnnulModal(id) {
         this.pagoIdToAnnul = id;
+        this.annulReason = '';
+        this.isLoading = false;
         this.isAnnulModalOpen = true;
+        // Enfocar el textarea después de que el modal se abra
+        this.$nextTick(() => {
+            document.getElementById('annulReason').focus();
+        });
+    },
+    closeAnnulModal() {
+        this.isAnnulModalOpen = false;
+    },
+    submitAnnulment() {
+        if (!this.annulReason.trim()) {
+            Swal.fire('Error', 'Debe proporcionar un motivo para la anulación.', 'error');
+            return;
+        }
+        this.isLoading = true;
+        
+        const formData = new FormData();
+        formData.append('motivo', this.annulReason.trim());
+
+        // Nota: Si usas protección CSRF en Flask, descomenta y ajusta la línea de 'headers'.
+        fetch(`/admin/anular_reporte/${this.pagoIdToAnnul}`, {
+            method: 'POST',
+            // headers: {
+            //     'X-CSRF-TOKEN': '{{ csrf_token() }}' 
+            // },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                this.closeAnnulModal();
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Anulado!',
+                    text: data.message,
+                    timer: 2500,
+                    showConfirmButton: false,
+                    timerProgressBar: true
+                }).then(() => {
+                    window.location.reload();
+                });
+            } else {
+                Swal.fire('Error', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire('Error', 'Ocurrió un problema al comunicarse con el servidor.', 'error');
+        })
+        .finally(() => {
+            this.isLoading = false;
+        });
     }
 }">
 
@@ -98,6 +154,7 @@
             </div>
         </div>
 
+        <!-- Resto del código del cliente (sin cambios)... -->
         {% if g.admin.rol != 'asesor' %}
         <div x-show="showOfferForm" x-cloak x-transition class="bg-white rounded-xl shadow-md border border-slate-200 p-4 md:p-6">
             <h3 class="font-bold mb-4 text-lg text-slate-800 flex items-center gap-2"><i class="bi bi-gem text-blue-600"></i>Registrar Nueva Oferta para {{ cliente.nombre_apellido }}</h3>
@@ -339,26 +396,77 @@
     </div>
     {% endfor %}
 
-    <div x-show="isAnnulModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-gray-900/60">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div x-show="isAnnulModalOpen" @click.away="isAnnulModalOpen = false" x-transition class="bg-white rounded-lg shadow-xl w-full max-w-md">
-                <form id="annulForm" onsubmit="event.preventDefault(); confirmAnnulment(this, pagoIdToAnnul);">
-                    <div class="p-6">
-                        <h3 class="text-lg font-bold text-slate-800">Anular Reporte de Pago</h3>
-                        <p class="text-sm text-slate-500 mt-1">El cliente será notificado y deberá reportar el pago nuevamente.</p>
-                        <div class="mt-4">
-                            <label for="annulReason" class="block text-sm font-medium text-slate-700">Motivo de la Anulación</label>
-                            <textarea name="motivo" id="annulReason" rows="4" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500" placeholder="Ej: El monto reportado es incorrecto, la referencia no coincide, etc." required></textarea>
+    <!-- Modal de Anulación Rediseñado -->
+    <div x-show="isAnnulModalOpen" 
+         x-cloak 
+         x-transition:enter="ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        
+        <div @click.away="closeAnnulModal()"
+             x-show="isAnnulModalOpen"
+             x-transition:enter="ease-out duration-300"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="ease-in duration-200"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95"
+             class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto overflow-hidden transform">
+            
+            <form @submit.prevent="submitAnnulment()">
+                <!-- Cabecera del Modal -->
+                <div class="bg-red-50 p-5 border-b border-red-200">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="bi bi-exclamation-triangle-fill text-2xl text-red-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-red-800">Anular Reporte de Pago</h3>
+                            <p class="text-sm text-red-600">Esta acción es irreversible.</p>
                         </div>
                     </div>
-                    <div class="bg-slate-50 px-6 py-3 flex justify-end gap-3 rounded-b-lg">
-                        <button type="button" @click="isAnnulModalOpen = false; document.getElementById('annulForm').reset();" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Cancelar</button>
-                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700">Confirmar Anulación</button>
+                </div>
+                
+                <!-- Cuerpo del Modal -->
+                <div class="p-6 space-y-4">
+                    <p class="text-sm text-slate-600">
+                        Estás a punto de anular este reporte. El cliente será notificado y deberá registrar el pago nuevamente. Por favor, especifica el motivo.
+                    </p>
+                    <div>
+                        <label for="annulReason" class="block text-sm font-medium text-slate-700 mb-1">Motivo de la anulación</label>
+                        <textarea x-model="annulReason" 
+                                  name="motivo" 
+                                  id="annulReason" 
+                                  rows="4" 
+                                  class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring focus:ring-red-500 focus:ring-opacity-50 transition" 
+                                  placeholder="Ej: El monto reportado es incorrecto, la referencia no coincide, etc." 
+                                  required></textarea>
                     </div>
-                </form>
-            </div>
+                </div>
+                
+                <!-- Pie del Modal -->
+                <div class="bg-slate-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-lg">
+                    <button type="button" @click="closeAnnulModal()" class="px-5 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition">
+                        Cancelar
+                    </button>
+                    <button type="submit" 
+                            :disabled="isLoading || !annulReason.trim()"
+                            class="inline-flex items-center justify-center px-5 py-2 text-sm font-semibold text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition disabled:bg-red-300 disabled:cursor-not-allowed">
+                        <svg x-show="isLoading" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span x-text="isLoading ? 'Anulando...' : 'Confirmar Anulación'"></span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
+
 </div>
 {% endblock %}
 
@@ -412,48 +520,7 @@
         });
     });
 
-    function confirmAnnulment(form, pagoId) {
-        const motivo = form.motivo.value;
-
-        if (!motivo.trim()) {
-            Swal.fire('Error', 'Debe proporcionar un motivo para la anulación.', 'error');
-            return;
-        }
-
-        Swal.fire({
-            title: '¿Confirmar Anulación?',
-            text: "Esta acción no se puede deshacer. El cliente deberá reportar el pago de nuevo.",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Sí, anular',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                const formData = new FormData();
-                formData.append('motivo', motivo);
-
-                fetch(`/admin/anular_reporte/${pagoId}`, {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        Swal.fire('¡Anulado!', data.message, 'success').then(() => {
-                            window.location.reload();
-                        });
-                    } else {
-                        Swal.fire('Error', data.message, 'error');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    Swal.fire('Error', 'Ocurrió un problema al comunicarse con el servidor.', 'error');
-                });
-            }
-        });
-    }
+    // La función confirmAnnulment ya no es necesaria aquí,
+    // porque su lógica se ha movido al componente Alpine.js
 </script>
 {% endblock %}
