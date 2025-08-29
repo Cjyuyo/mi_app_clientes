@@ -16,7 +16,6 @@
     pagoIdToAnnul: null,
     annulReason: '',
     isLoading: false,
-    // --- INICIO DE LA MODIFICACIÓN: Lógica para anular proceso ---
     isAnnulProcessModalOpen: false,
     bulkIdToAnnul: null,
     processAnnulReason: '',
@@ -71,13 +70,11 @@
             this.isLoading = false;
         });
     },
-    // --- FIN DE LA MODIFICACIÓN ---
     openAnnulModal(id) {
         this.pagoIdToAnnul = id;
         this.annulReason = '';
         this.isLoading = false;
         this.isAnnulModalOpen = true;
-        // Enfocar el textarea después de que el modal se abra
         this.$nextTick(() => {
             document.getElementById('annulReason').focus();
         });
@@ -95,12 +92,8 @@
         const formData = new FormData();
         formData.append('motivo', this.annulReason.trim());
 
-        // Nota: Si usas protección CSRF en Flask, descomenta y ajusta la línea de 'headers'.
         fetch(`/admin/anular_reporte/${this.pagoIdToAnnul}`, {
             method: 'POST',
-            {# headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}' 
-            }, #}
             body: formData
         })
         .then(response => response.json())
@@ -115,14 +108,15 @@
                     showConfirmButton: false,
                     timerProgressBar: true
                 }).then(() => {
-                    // Redirigir a la misma búsqueda para refrescar los datos sin perder el contexto
+                    // --- CORRECCIÓN APLICADA AQUÍ ---
                     const searchParams = new URLSearchParams(window.location.search);
-                    const busqueda = searchParams.get('busqueda') || '{{ busqueda }}';
+                    const busqueda = searchParams.get('busqueda');
                     if (busqueda) {
                         window.location.href = `/consulta?busqueda=${encodeURIComponent(busqueda)}`;
                     } else {
                         window.location.reload();
                     }
+                    // --- FIN DE LA CORRECCIÓN ---
                 });
             } else {
                 Swal.fire('Error', data.message, 'error');
@@ -393,7 +387,6 @@
                                         {% else %}{{ pago.estado_pago or 'N/A' }}
                                         {% endif %}
                                     </span>
-                                    <!-- --- INICIO DE LA MODIFICACIÓN: Botones de anulación --- -->
                                     {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
                                         {% if pago.estado_reporte == 'Pendiente de Revision' %}
                                         <button @click="openAnnulModal({{ pago.id }})" class="text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded-lg hover:bg-red-200 transition-colors" title="Anular este reporte">
@@ -405,7 +398,6 @@
                                         </button>
                                         {% endif %}
                                     {% endif %}
-                                    <!-- --- FIN DE LA MODIFICACIÓN --- -->
                                 </div>
                             </div>
                             {% else %}
@@ -659,8 +651,5 @@
             }
         });
     });
-
-    // La función confirmAnnulment ya no es necesaria aquí,
-    // porque su lógica se ha movido al componente Alpine.js
 </script>
 {% endblock %}
