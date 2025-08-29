@@ -1833,6 +1833,11 @@ def anular_proceso_pago(bulk_id):
             if bulk['status'] not in ['OPEN', 'UNDER_REVIEW']:
                 return jsonify({'status': 'error', 'message': 'Este proceso ya no se puede anular porque ha sido procesado.'}), 400
 
+            # OBTENER CÉDULA PARA LA REDIRECCIÓN
+            cur.execute("SELECT cedula FROM clientes WHERE id = %s", (bulk['cliente_id'],))
+            cliente = cur.fetchone()
+            cedula_para_redirect = cliente['cedula'] if cliente else None
+
             # 2. Preparar los detalles de la anulación
             detalles_anulacion = {
                 'motivo_anulacion': motivo.strip(),
@@ -1861,7 +1866,12 @@ def anular_proceso_pago(bulk_id):
             registrar_accion_auditoria('ANULACION_PROCESO_PAGO', descripcion_audit, bulk['cliente_id'], {'bulk_id': bulk_id})
             
             conn.commit()
-            return jsonify({'status': 'success', 'message': 'El proceso de pago y todos sus reportes asociados han sido anulados.'})
+            # AÑADIR CÉDULA A LA RESPUESTA JSON
+            return jsonify({
+                'status': 'success', 
+                'message': 'El proceso de pago y todos sus reportes asociados han sido anulados.',
+                'cedula': cedula_para_redirect
+            })
 
     except psycopg2.Error as e:
         conn.rollback()

@@ -56,7 +56,13 @@
                     showConfirmButton: false,
                     timerProgressBar: true
                 }).then(() => {
-                    window.location.reload();
+                    // --- CORRECCIÓN APLICADA AQUÍ ---
+                    // Redirige a la consulta usando la cédula devuelta por el servidor
+                    if (data.cedula) {
+                        window.location.href = `/consulta?busqueda=${encodeURIComponent(data.cedula)}`;
+                    } else {
+                        window.location.reload();
+                    }
                 });
             } else {
                 Swal.fire('Error', data.message, 'error');
@@ -108,7 +114,6 @@
                     showConfirmButton: false,
                     timerProgressBar: true
                 }).then(() => {
-                    // --- CORRECCIÓN APLICADA AQUÍ ---
                     const searchParams = new URLSearchParams(window.location.search);
                     const busqueda = searchParams.get('busqueda');
                     if (busqueda) {
@@ -116,7 +121,6 @@
                     } else {
                         window.location.reload();
                     }
-                    // --- FIN DE LA CORRECCIÓN ---
                 });
             } else {
                 Swal.fire('Error', data.message, 'error');
