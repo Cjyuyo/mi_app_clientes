@@ -1804,6 +1804,70 @@ def anular_reporte_admin(pago_id):
         logging.error(f"Error al anular reporte {pago_id}: {e}")
         return jsonify({'status': 'error', 'message': f'Error de base de datos: {e}'}), 500
 
+@app.route('/admin/anular_proceso_pago/<int:bulk_id>', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora')
+def anular_proceso_pago(bulk_id):
+    """
+    Anula un proceso de pago completo (bulk), incluyendo el pago original
+    inconsistente y cualquier orden de pago de diferencia asociada.
+    """
+    conn = get_db()
+    motivo = request.form.get('motivo')
+
+    if not conn:
+        return jsonify({'status': 'error', 'message': 'Error de conexión a la base de datos.'}), 500
+    
+    if not motivo or not motivo.strip():
+        return jsonify({'status': 'error', 'message': 'El motivo de la anulación es obligatorio.'}), 400
+
+    try:
+        with conn.cursor() as cur:
+            # 1. Verificar que el proceso (bulk) existe y se puede anular
+            cur.execute("SELECT cliente_id, status FROM payment_bulks WHERE id = %s FOR UPDATE", (bulk_id,))
+            bulk = cur.fetchone()
+
+            if not bulk:
+                return jsonify({'status': 'error', 'message': 'El proceso de pago no fue encontrado.'}), 404
+            
+            if bulk['status'] not in ['OPEN', 'UNDER_REVIEW']:
+                return jsonify({'status': 'error', 'message': 'Este proceso ya no se puede anular porque ha sido procesado.'}), 400
+
+            # 2. Preparar los detalles de la anulación
+            detalles_anulacion = {
+                'motivo_anulacion': motivo.strip(),
+                'anulado_por': g.admin['usuario'],
+                'fecha_anulacion': get_venezuela_current_datetime().isoformat()
+            }
+            detalles_json = json.dumps(detalles_anulacion)
+
+            # 3. Anular todos los pagos asociados al bulk
+            cur.execute("""
+                UPDATE pagos 
+                SET estado_reporte = 'Anulado por Admin', 
+                    estado_pago = 'Anulado',
+                    detalles_reporte = COALESCE(detalles_reporte, '{}'::jsonb) || %s::jsonb
+                WHERE bulk_id = %s
+            """, (detalles_json, bulk_id))
+
+            # 4. Anular las órdenes de pago pendientes
+            cur.execute("UPDATE payment_orders SET status = 'CANCELLED' WHERE bulk_id = %s", (bulk_id,))
+
+            # 5. Anular el bulk en sí
+            cur.execute("UPDATE payment_bulks SET status = 'CANCELLED' WHERE id = %s", (bulk_id,))
+
+            # 6. Registrar en la auditoría
+            descripcion_audit = f"Anuló el proceso de pago completo (Bulk ID #{bulk_id}). Motivo: {motivo.strip()}"
+            registrar_accion_auditoria('ANULACION_PROCESO_PAGO', descripcion_audit, bulk['cliente_id'], {'bulk_id': bulk_id})
+            
+            conn.commit()
+            return jsonify({'status': 'success', 'message': 'El proceso de pago y todos sus reportes asociados han sido anulados.'})
+
+    except psycopg2.Error as e:
+        conn.rollback()
+        logging.error(f"Error al anular el proceso de pago (bulk) {bulk_id}: {e}")
+        return jsonify({'status': 'error', 'message': f'Error de base de datos: {e}'}), 500
+
 @app.route('/pagos_por_conciliar')
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora', 'asistente')
