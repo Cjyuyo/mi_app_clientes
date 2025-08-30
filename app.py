@@ -1649,8 +1649,14 @@ def procesar_reporte(pago_id):
 
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM pagos WHERE id = %s AND estado_reporte = 'Pendiente de Revision' FOR UPDATE", (pago_id,))
+            # --- CORRECCIÓN SUTIL: Ahora también obtenemos moneda_pago del cliente para usarla de fallback ---
+            cur.execute("""
+                SELECT p.*, c.moneda_pago 
+                FROM pagos p JOIN clientes c ON p.cliente_id = c.id
+                WHERE p.id = %s AND p.estado_reporte = 'Pendiente de Revision' FOR UPDATE
+            """, (pago_id,))
             pago = cur.fetchone()
+
             if not pago:
                 flash("El reporte de pago no se encontró o ya fue procesado.", "warning")
                 return redirect(url_for('reportes_por_revisar'))
@@ -1658,25 +1664,27 @@ def procesar_reporte(pago_id):
             cliente_id = pago['cliente_id']
 
             if accion == 'aprobar_para_conciliar':
-                # --- INICIO DE LA CORRECCIÓN: Al aprobar, se establece el monto verificado ---
                 monto_a_verificar = pago['monto_bs'] if pago['monto_bs'] and pago['monto_bs'] > 0 else pago['monto']
                 detalles_aprobacion = json.dumps({'monto_verificado': str(monto_a_verificar)})
                 cur.execute(
                     "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s WHERE id = %s",
                     (g.admin['id'], detalles_aprobacion, pago_id)
                 )
-                # --- FIN DE LA CORRECCIÓN ---
                 flash('Reporte aprobado. Ahora puede ser procesado desde la sección de Conciliar Pagos.', 'success')
             
             elif accion == 'corregir_y_generar_diferencia':
+                # --- INICIO DE LA CORRECCIÓN DEFINITIVA ---
                 motivo_cliente = request.form.get('motivo_cliente')
                 monto_real_recibido, currency = (None, None)
-
-                if pago.get('moneda_pago') == 'USD':
-                    monto_real_recibido = Decimal(request.form.get('monto_real_recibido_usdt'))
+                
+                # La condición ahora se basa en pago.pago_en, que es la moneda del reporte actual.
+                if pago.get('pago_en') == 'USDT':
+                    monto_real_recibido_str = request.form.get('monto_real_recibido_usdt', '0.00')
+                    monto_real_recibido = Decimal(monto_real_recibido_str)
                     currency = 'USD'
-                else:
-                    monto_real_recibido = Decimal(request.form.get('monto_real_recibido'))
+                else:  # Asume 'Dolar/BCV'
+                    monto_real_recibido_str = request.form.get('monto_real_recibido', '0.00')
+                    monto_real_recibido = Decimal(monto_real_recibido_str)
                     currency = 'VES'
 
                 if monto_real_recibido is None or not motivo_cliente:
@@ -1694,14 +1702,14 @@ def procesar_reporte(pago_id):
                     VALUES (%s, %s, %s, 'UNDER_REVIEW') RETURNING id
                 """, (cliente_id, currency, monto_esperado))
                 bulk_id = cur.fetchone()[0]
-                
-                # --- INICIO DE LA CORRECCIÓN: Guardar el monto verificado en el pago original ---
+
                 detalles_inconsistencia = {
                     'motivo': 'Discrepancia Verificada por Admin',
                     'monto_original_reportado': str(pago['monto_bs'] if currency == 'VES' else pago['monto']),
-                    'monto_verificado': str(monto_real_recibido), # ¡NUEVO!
+                    'monto_verificado': str(monto_real_recibido),
                     'motivo_para_cliente': motivo_cliente 
                 }
+
                 cur.execute(
                     """
                     UPDATE pagos SET estado_reporte = 'Inconsistente', revisado_por_id = %s, 
@@ -1710,7 +1718,6 @@ def procesar_reporte(pago_id):
                     """,
                     (g.admin['id'], json.dumps(detalles_inconsistencia), bulk_id, pago_id)
                 )
-                # --- FIN DE LA CORRECCIÓN ---
 
                 monto_pendiente = monto_esperado - monto_real_recibido
                 if monto_pendiente > 0:
@@ -1722,6 +1729,7 @@ def procesar_reporte(pago_id):
                 descripcion_audit = f"Corrigió reporte #{pago_id}. Monto verificado: {monto_real_recibido}. Se generó orden por {monto_pendiente:,.2f} {currency}."
                 registrar_accion_auditoria('CORRECCION_REPORTE_ADMIN', descripcion_audit, cliente_id, {'pago_id': pago_id})
                 flash("El monto verificado ha sido registrado. Se generó una orden de pago para el cliente por la diferencia.", "success")
+                # --- FIN DE LA CORRECCIÓN DEFINITIVA ---
             
             else:
                 flash('Acción no válida.', 'error')
