@@ -27,9 +27,6 @@
             </h2>
         </div>
 
-        <!-- Contenedor para Vistas Móvil y Escritorio -->
-        
-        <!-- Mensaje si no hay nada que conciliar -->
         {% if not pagos and not bulks %}
         <div class="text-center text-slate-500 p-8">
             <div class="flex flex-col items-center">
@@ -39,65 +36,19 @@
             </div>
         </div>
         {% else %}
-            <!-- Vista para Móvil -->
-            <div class="divide-y divide-slate-200 md:hidden">
-                <!-- Pagos Individuales (Móvil) -->
-                {% for pago in pagos %}
-                <div class="p-4 space-y-3">
-                    <div class="flex justify-between items-center">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Pago Individual</span>
-                        <form action="{{ url_for('conciliar_pago', pago_id=pago.id) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas conciliar este pago?');">
-                            <button type="submit" class="btn btn-primary btn-sm">
-                                <i class="bi bi-check-lg"></i> Conciliar
-                            </button>
-                        </form>
-                    </div>
-                    <div>
-                        <p class="font-medium text-slate-800">{{ pago.nombre }} {{ pago.apellido }}</p>
-                        <p class="text-xs text-slate-500">{{ pago.fecha_creacion | format_datetime }}</p>
-                    </div>
-                    <div class="bg-slate-50 p-2 rounded-md text-center">
-                        <p class="text-xs text-slate-500">Monto (USD)</p>
-                        <p class="font-semibold text-green-600">${{ "%.2f"|format(pago.monto) }}</p>
-                    </div>
-                </div>
-                {% endfor %}
-
-                <!-- Bulks (Móvil) -->
-                {% for bulk in bulks %}
-                <div class="p-4 space-y-3">
-                    <div class="flex justify-between items-center">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Lote por Diferencia</span>
-                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#detalleBulkModal" data-bulk-id="{{ bulk.id }}">
-                            <i class="bi bi-receipt"></i> Conciliar
-                        </button>
-                    </div>
-                    <div>
-                        <p class="font-medium text-slate-800">{{ bulk.nombre }} {{ bulk.apellido }}</p>
-                        <p class="text-xs text-slate-500">{{ bulk.updated_at | format_datetime }}</p>
-                    </div>
-                    <div class="bg-slate-50 p-2 rounded-md text-center">
-                        <p class="text-xs text-slate-500">Monto Verificado ({{ bulk.currency }})</p>
-                        <p class="font-semibold text-green-600">{{ "%.2f"|format(bulk.total_verified) }}</p>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-
             <!-- Tabla para Escritorio -->
-            <div class="overflow-x-auto hidden md:block">
+            <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left text-slate-500">
                     <thead class="text-xs text-slate-700 uppercase bg-slate-50">
                         <tr>
                             <th scope="col" class="px-6 py-3">Tipo</th>
                             <th scope="col" class="px-6 py-3">Cliente</th>
                             <th scope="col" class="px-6 py-3">Monto</th>
-                            <th scope="col" class="px-6 py-3">Fecha Reporte</th>
+                            <th scope="col" class="px-6 py-3">Fecha de Actualización</th>
                             <th scope="col" class="px-6 py-3 text-right">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Pagos Individuales (Escritorio) -->
                         {% for pago in pagos %}
                         <tr class="bg-white border-b hover:bg-slate-50">
                             <td class="px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Pago Individual</span></td>
@@ -114,7 +65,6 @@
                         </tr>
                         {% endfor %}
                         
-                        <!-- Bulks (Escritorio) -->
                         {% for bulk in bulks %}
                         <tr class="bg-white border-b hover:bg-slate-50">
                             <td class="px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Lote por Diferencia</span></td>
@@ -135,25 +85,23 @@
     </div>
 </div>
 
-<!-- Modal para Detalle de Conciliación (SOLO PARA BULKS) -->
+<!-- Modal para Detalle de Conciliación -->
 <div class="modal fade" id="detalleBulkModal" tabindex="-1" aria-labelledby="detalleBulkModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content rounded-xl">
       <div class="modal-header">
-        <h5 class="modal-title font-bold text-slate-800" id="detalleBulkModalLabel">Detalle de Conciliación - Bulk #<span id="modalBulkId"></span></h5>
+        <h5 class="modal-title font-bold text-slate-800" id="detalleBulkModalLabel">Detalle de Conciliación - Lote #<span id="modalBulkId"></span></h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body p-4">
         <div id="modal-loading" class="text-center p-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
+            <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
         </div>
         <div id="modal-content-wrapper" class="hidden">
-            <h6 class="font-semibold">Resumen del Bulk</h6>
+            <h6 class="font-semibold">Resumen del Lote</h6>
             <p class="text-sm">
-              <strong>Monto Esperado ({{ '{{ currency }}' }}):</strong> <span id="modalExpectedAmount"></span><br>
-              <strong>Monto Total Verificado ({{ '{{ currency }}' }}):</strong> <span id="modalVerifiedAmount" class="fw-bold text-success"></span>
+              <strong>Monto Esperado (<span class="modal-currency"></span>):</strong> <span id="modalExpectedAmount"></span><br>
+              <strong>Monto Total Verificado (<span class="modal-currency"></span>):</strong> <span id="modalVerifiedAmount" class="fw-bold text-success"></span>
             </p>
             <hr class="my-3">
             <h6 class="font-semibold">Líneas de Pago Asociadas</h6>
@@ -161,23 +109,18 @@
                 <table class="table table-sm table-striped">
                   <thead>
                     <tr>
-                      <th>ID Pago</th>
-                      <th>Tipo</th>
-                      <th>Fecha</th>
-                      <th>Referencia</th>
-                      <th class="text-end">Monto Verificado ({{ '{{ currency }}' }})</th>
+                      <th>ID Pago</th><th>Tipo</th><th>Fecha</th><th>Referencia</th>
+                      <th class="text-end">Monto Verificado (<span class="modal-currency"></span>)</th>
                     </tr>
                   </thead>
-                  <tbody id="modalLineasBody">
-                    <!-- Las filas se insertarán aquí dinámicamente con JavaScript -->
-                  </tbody>
+                  <tbody id="modalLineasBody"></tbody>
                 </table>
             </div>
         </div>
       </div>
       <div class="modal-footer bg-slate-50">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-        <form id="formConciliar" method="POST" action="" onsubmit="return confirm('¿Estás seguro de conciliar este bulk y generar el recibo final? Esta acción no se puede deshacer.');">
+        <form id="formConciliar" method="POST" action="" onsubmit="return confirm('¿Estás seguro de conciliar este lote y generar el recibo final? Esta acción no se puede deshacer.');">
             <button type="submit" class="btn btn-primary">Conciliar y Generar Recibo</button>
         </form>
       </div>
@@ -204,6 +147,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const button = event.relatedTarget;
             const bulkId = button.getAttribute('data-bulk-id');
             
+            // Reset state
             modalLoading.style.display = 'block';
             modalContent.classList.add('hidden');
             modalLineasBody.innerHTML = '';
@@ -211,39 +155,49 @@ document.addEventListener('DOMContentLoaded', function () {
 
             try {
                 const response = await fetch(`/api/admin/conciliacion/${bulkId}`);
-                if (!response.ok) throw new Error('Network response was not ok');
+                if (!response.ok) throw new Error('La respuesta del servidor no fue exitosa');
                 const data = await response.json();
+                if (data.error) throw new Error(data.error);
 
-                if (data.error) {
-                    alert(data.error);
-                    return;
-                }
-
+                // Populate header
                 modalBulkId.textContent = data.bulk.id;
                 modalExpected.textContent = parseFloat(data.bulk.expected_amount).toFixed(2);
                 modalVerified.textContent = parseFloat(data.bulk.total_verified).toFixed(2);
-                formConciliar.action = `/admin/conciliacion/${bulkId}/conciliar`;
+                formConciliar.action = `/admin/conciliacion/${data.bulk.id}/conciliar`;
                 
-                // Actualizar dinámicamente la moneda en el modal
                 document.querySelectorAll('.modal-currency').forEach(el => el.textContent = data.bulk.currency);
 
+                // Populate table rows
                 data.lineas.forEach(linea => {
+                    let detalles = linea.detalles_reporte || {};
+                    if (typeof detalles === 'string') {
+                        try { detalles = JSON.parse(detalles); } catch (e) { detalles = {}; }
+                    }
+                    
+                    let montoVerificado = 0;
+                    if (linea.estado_reporte === 'Inconsistente' && detalles.monto_verificado) {
+                        montoVerificado = parseFloat(detalles.monto_verificado);
+                    } else {
+                        montoVerificado = parseFloat(data.bulk.currency === 'VES' ? linea.monto_bs : linea.monto);
+                    }
+                    
                     let row = `<tr>
                         <td>#${linea.id}</td>
                         <td>${linea.is_diferencia ? '<span class="badge bg-info-subtle text-info-emphasis rounded-pill">Diferencia</span>' : '<span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">Inicial</span>'}</td>
                         <td>${new Date(linea.fecha_pago).toLocaleDateString('es-VE')}</td>
                         <td>${linea.referencia || 'N/A'}</td>
-                        <td class="text-end font-monospace">${parseFloat(linea.verified_amount).toFixed(2)}</td>
+                        <td class="text-end font-monospace">${montoVerificado.toFixed(2)}</td>
                     </tr>`;
                     modalLineasBody.innerHTML += row;
                 });
 
+                // Show content
                 modalLoading.style.display = 'none';
                 modalContent.classList.remove('hidden');
 
             } catch (error) {
-                console.error('Error fetching bulk details:', error);
-                modalLoading.innerHTML = '<p class="text-danger">Error al cargar los detalles.</p>';
+                console.error('Error al obtener detalles del lote:', error);
+                modalLoading.innerHTML = `<p class="text-danger p-4">Error al cargar los detalles: ${error.message}</p>`;
             }
         });
     }
