@@ -13,7 +13,7 @@
         <div>
             <h1 class="text-3xl font-bold text-slate-800 tracking-tight">
                 {% if pago.bulk_id %}
-                    Proceso de Diferencia #{{ pago.bulk_id }}
+                    Proceso de Pago #{{ pago.bulk_id }}
                 {% else %}
                     Revisión de Reporte #{{ pago.id }}
                 {% endif %}
@@ -42,130 +42,103 @@
                 <h2 class="mt-4 text-2xl font-bold text-slate-800">Reporte Anulado</h2>
                 <p class="mt-2 text-slate-600">Este reporte de pago fue anulado y no puede ser procesado.</p>
             </div>
-            <div class="mt-6 border-t pt-6">
-                <h3 class="text-lg font-bold text-slate-800 mb-4">Detalles de la Anulación</h3>
-                <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                    <div>
-                        <dt class="text-slate-500">Anulado por</dt>
-                        <dd class="font-semibold text-slate-700">{{ pago.detalles_reporte.anulado_por or 'No especificado' }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-slate-500">Fecha de Anulación</dt>
-                        <dd class="font-semibold text-slate-700 font-mono">{{ pago.detalles_reporte.fecha_anulacion or 'No especificada' }}</dd> 
-                    </div>
-                    <div class="md:col-span-2">
-                        <dt class="text-slate-500">Motivo</dt>
-                        <dd class="font-semibold text-slate-700 mt-1 p-3 bg-slate-50 rounded-lg border">{{ pago.detalles_reporte.motivo_anulacion or 'No especificado' }}</dd>
-                    </div>
-                </dl>
-            </div>
         </div>
     {% else %}
-        {% set diferencia_bs = (pago.monto_bs or 0) - (pago.monto_esperado_bs or 0) %}
-        {% set status = {'text': 'Pendiente de Revisión', 'icon': 'bi-hourglass-split', 'color': 'amber'} %}
-        {% if pago.estado_reporte == 'Aprobado' %}
-            {% set status = {'text': 'Aprobado', 'icon': 'bi-check-circle-fill', 'color': 'green'} %}
-        {% elif pago.estado_reporte == 'Inconsistente' %}
-            {% set status = {'text': 'Diferencia Encontrada', 'icon': 'bi-exclamation-triangle-fill', 'color': 'red'} %}
-        {% endif %}
-
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2 space-y-6">
+                
+                <!-- ===== INICIO DE LA CORRECCIÓN: NUEVAS TARJETAS DE ESTADO ===== -->
+                {% if bulk_totals %}
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {% set currency_symbol = 'Bs.' if bulk_totals.currency == 'VES' else '$' %}
+                    <div class="bg-white p-4 rounded-xl shadow-sm border text-center">
+                        <h3 class="text-sm font-semibold text-slate-500">Monto Esperado</h3>
+                        <p class="text-2xl font-bold text-slate-800 mt-2">{{ "%.2f"|format(bulk_totals.esperado|float) }} {{ currency_symbol }}</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border text-center">
+                        <h3 class="text-sm font-semibold text-slate-500">Monto Reportado</h3>
+                        <p class="text-2xl font-bold text-blue-600 mt-2">{{ "%.2f"|format(bulk_totals.reportado|float) }} {{ currency_symbol }}</p>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-xl shadow-sm border border-green-200 text-center">
+                        <h3 class="text-sm font-semibold text-green-600">Monto Verificado</h3>
+                        <p class="text-2xl font-bold text-green-700 mt-2">{{ "%.2f"|format(bulk_totals.verificado|float) }} {{ currency_symbol }}</p>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-xl shadow-sm border border-red-200 text-center">
+                        <h3 class="text-sm font-semibold text-red-600">Diferencia Pendiente</h3>
+                        <p class="text-2xl font-bold text-red-700 mt-2">{{ "%.2f"|format(bulk_totals.pendiente|float) }} {{ currency_symbol }}</p>
+                    </div>
+                </div>
+                {% else %} {# Fallback para pagos simples sin bulk #}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-100 text-slate-500"><i class="bi bi-bullseye text-xl"></i></div>
-                            <div>
-                                <h3 class="font-semibold text-slate-800">Monto Esperado</h3>
-                                <p class="text-xs text-slate-500">Cálculo del sistema</p>
-                            </div>
-                        </div>
-                        <div class="mt-4 text-center">
+                        <h3 class="font-semibold text-slate-800 text-center">Monto Esperado</h3>
+                        <div class="mt-2 text-center">
                             {% if pago.pago_en == 'Dolar/BCV' %}
-                                <p class="text-3xl font-bold text-slate-800 tracking-tight">{{ "%.2f"|format(pago.monto_esperado_bs|float) }} <span class="text-lg font-medium text-slate-500">Bs.</span></p>
-                                <p class="text-xs text-slate-500 mt-1">Tasa BCV Oficial: <span class="font-mono">{{ pago.tasa_dia | format_decimal }}</span></p>
+                                <p class="text-3xl font-bold text-slate-800">{{ "%.2f"|format(pago.monto_esperado_bs|float) }} <span class="text-lg font-medium">Bs.</span></p>
                             {% else %}
-                                <p class="text-3xl font-bold text-slate-800 tracking-tight">${{ "%.2f"|format(pago.monto|float) }} <span class="text-lg font-medium text-slate-500">{{ pago.pago_en or 'USD' }}</span></p>
-                                <p class="text-xs text-slate-500 mt-1">Pago directo en divisas</p>
+                                <p class="text-3xl font-bold text-slate-800">${{ "%.2f"|format(pago.monto_dolares_referencia|float) }} <span class="text-lg font-medium">{{ pago.pago_en or 'USD' }}</span></p>
                             {% endif %}
                         </div>
                     </div>
-
                     <div class="bg-white p-5 rounded-xl shadow-sm border">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-blue-100 text-blue-600"><i class="bi bi-file-earmark-text-fill text-xl"></i></div>
-                            <div>
-                                <h3 class="font-semibold text-slate-800">Monto Reportado</h3>
-                                <p class="text-xs text-slate-500">Enviado por el cliente</p>
-                            </div>
-                        </div>
-                        <div class="mt-4 text-center">
+                        <h3 class="font-semibold text-slate-800 text-center">Monto Reportado</h3>
+                        <div class="mt-2 text-center">
                             {% if pago.pago_en == 'Dolar/BCV' %}
-                                <p class="text-3xl font-bold text-blue-600 tracking-tight">{{ "%.2f"|format(pago.monto_bs|float) }} <span class="text-lg font-medium text-slate-500">Bs.</span></p>
-                                <p class="text-xs text-slate-500 mt-1">Tasa Cliente (Efectiva): <span class="font-mono">{{ pago.tasa_efectiva_cliente | format_decimal }}</span></p>
+                                <p class="text-3xl font-bold text-blue-600">{{ "%.2f"|format(pago.monto_bs|float) }} <span class="text-lg font-medium">Bs.</span></p>
                             {% else %}
-                                <p class="text-3xl font-bold text-blue-600 tracking-tight">${{ "%.2f"|format(pago.monto|float) }} <span class="text-lg font-medium text-slate-500">{{ pago.pago_en or 'USD' }}</span></p>
-                                <p class="text-xs text-slate-500 mt-1">Reportado vía {{ pago.forma_pago or 'Digital' }}</p>
+                                <p class="text-3xl font-bold text-blue-600">${{ "%.2f"|format(pago.monto|float) }} <span class="text-lg font-medium">{{ pago.pago_en or 'USD' }}</span></p>
                             {% endif %}
                         </div>
                     </div>
                 </div>
+                {% endif %}
+                <!-- ===== FIN DE LA CORRECCIÓN ===== -->
 
                 <div class="bg-white p-6 rounded-xl shadow-sm border">
-                    <h3 class="text-lg font-bold text-slate-800 mb-4">Detalles de la Transacción</h3>
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">Detalles de la Transacción Principal (#{{pago.id}})</h3>
                     <dl class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4 text-sm">
-                        <div>
-                            <dt class="text-slate-500">Concepto</dt>
-                            <dd class="font-semibold text-slate-700">{{ pago.por_concepto_de or pago.tipo_pago }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-slate-500">Fecha del Pago</dt>
-                            <dd class="font-semibold text-slate-700">{{ pago.fecha_pago | format_date }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-slate-500">Forma de Pago</dt>
-                            <dd class="font-semibold text-slate-700">{{ pago.forma_pago or pago.pago_en }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-slate-500">Referencia / ID</dt>
-                            <dd class="font-semibold text-slate-700 font-mono">{{ pago.referencia or 'N/A' }}</dd>
-                        </div>
+                        <div><dt class="text-slate-500">Concepto</dt><dd class="font-semibold">{{ pago.por_concepto_de }}</dd></div>
+                        <div><dt class="text-slate-500">Fecha del Pago</dt><dd class="font-semibold">{{ pago.fecha_pago | format_date }}</dd></div>
+                        <div><dt class="text-slate-500">Forma de Pago</dt><dd class="font-semibold">{{ pago.forma_pago }}</dd></div>
+                        <div><dt class="text-slate-500">Referencia / ID</dt><dd class="font-semibold font-mono">{{ pago.referencia }}</dd></div>
                         {% if pago.pago_en == 'Dolar/BCV' %}
-                        <div>
-                            <dt class="text-slate-500">Banco</dt>
-                            <dd class="font-semibold text-slate-700">{{ pago.banco or 'N/A' }}</dd>
-                        </div>
+                        <div><dt class="text-slate-500">Banco</dt><dd class="font-semibold">{{ pago.banco }}</dd></div>
                         {% endif %}
                     </dl>
                 </div>
             </div>
 
             <div class="lg:col-span-1 space-y-6">
+                 {% set p_accion = pago_pendiente_para_acciones or pago %}
+                 {% set status = {'text': p_accion.estado_reporte, 'icon': 'bi-question-circle', 'color': 'slate'} %}
+                 {% if p_accion.estado_reporte == 'Pendiente de Revision' %}{% set status = {'text': 'Pendiente de Revisión', 'icon': 'bi-hourglass-split', 'color': 'amber'} %}{% endif %}
+                 {% if p_accion.estado_reporte == 'Aprobado' %}{% set status = {'text': 'Aprobado', 'icon': 'bi-check-circle-fill', 'color': 'green'} %}{% endif %}
+                 {% if p_accion.estado_reporte == 'Inconsistente' %}{% set status = {'text': 'Diferencia Encontrada', 'icon': 'bi-exclamation-triangle-fill', 'color': 'red'} %}{% endif %}
+                
                 <div class="bg-{{ status.color }}-50 text-{{ status.color }}-800 p-5 rounded-xl border border-{{ status.color }}-200 text-center">
                     <i class="bi {{ status.icon }} text-4xl"></i>
                     <h3 class="text-xl font-bold mt-2">{{ status.text }}</h3>
-                    {% if status.color == 'red' and pago.pago_en == 'Dolar/BCV' %}
-                    <p class="text-sm mt-1">Diferencia de <strong class="font-mono">{{ (diferencia_bs * -1) | format_decimal }} Bs.</strong></p>
-                    {% endif %}
                 </div>
 
-                {% if is_admin_view and pago.estado_reporte == 'Pendiente de Revision' %}
+                <!-- ===== INICIO DE LA CORRECCIÓN: Lógica de botones actualizada ===== -->
+                {% if is_admin_view and p_accion.estado_reporte == 'Pendiente de Revision' %}
                 <div class="bg-white p-5 rounded-xl shadow-sm border">
-                    <h3 class="text-lg font-bold text-slate-800 mb-4">Acciones de Validación</h3>
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">Acciones (sobre Pago #{{p_accion.id}})</h3>
                     <div class="space-y-3">
-                        <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST">
-                            <button type="submit" name="accion" value="aprobar_para_conciliar" class="w-full inline-flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-semibold rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors">
+                        <form action="{{ url_for('procesar_reporte', pago_id=p_accion.id) }}" method="POST">
+                            <button type="submit" name="accion" value="aprobar_para_conciliar" class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-md text-white bg-green-600 hover:bg-green-700">
                                 <i class="bi bi-check-lg mr-2"></i> Aprobar y Enviar a Conciliación
                             </button>
                         </form>
-                        {% if pago.pago_en in ['Dolar/BCV', 'USDT'] %}
-                        <button type="button" @click="$dispatch('open-modal', 'diferencia-modal')" class="w-full inline-flex items-center justify-center px-4 py-2.5 border border-amber-300 text-sm font-semibold rounded-md text-amber-800 bg-amber-100 hover:bg-amber-200 transition-colors">
+                        {% if p_accion.pago_en in ['Dolar/BCV', 'USDT'] %}
+                        <button type="button" @click="$dispatch('open-modal', 'diferencia-modal-{{p_accion.id}}')" class="w-full inline-flex items-center justify-center px-4 py-2.5 border border-amber-300 text-sm font-semibold rounded-md text-amber-800 bg-amber-100 hover:bg-amber-200">
                             <i class="bi bi-calculator mr-2"></i> Procesar con Diferencia
                         </button>
                         {% endif %}
                     </div>
                 </div>
                 {% endif %}
+                <!-- ===== FIN DE LA CORRECCIÓN ===== -->
             </div>
         </div>
     {% endif %}
@@ -173,26 +146,6 @@
     {% if pago.bulk_id and pagos_del_mismo_bulk %}
     <div class="bg-white p-6 rounded-xl shadow-sm border">
         <h3 class="text-xl font-bold text-slate-800 mb-4">Historial del Proceso de Pago #{{ pago.bulk_id }}</h3>
-        
-        {% if pago.estado_reporte == 'Inconsistente' and pago.detalles_reporte %}
-        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-            <h4 class="font-bold text-amber-800">Detalles de la Revisión</h4>
-            <dl class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                <div>
-                    <dt class="text-slate-500">Monto Verificado por Admin</dt>
-                    <dd class="font-semibold text-slate-700 font-mono">
-                        {{ pago.detalles_reporte.monto_recibido_real }} 
-                        {{ 'Bs.' if 'Bs.' in pago.detalles_reporte.monto_original_reportado else 'USDT' }}
-                    </dd>
-                </div>
-                <div class="md:col-span-2">
-                    <dt class="text-slate-500">Motivo para el Cliente</dt>
-                    <dd class="font-semibold text-slate-700">{{ pago.detalles_reporte.motivo_para_cliente }}</dd>
-                </div>
-            </dl>
-        </div>
-        {% endif %}
-
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 text-slate-600">
@@ -211,11 +164,13 @@
                         <td class="p-3">{{ pago_item.fecha_creacion | format_datetime }}</td>
                         <td class="p-3">{{ pago_item.por_concepto_de }}</td>
                         <td class="p-3 font-semibold text-slate-800">
-                            {% if pago_item.monto_bs and pago_item.monto_bs > 0 %}
+                            <!-- ===== INICIO DE LA CORRECCIÓN: Lógica de moneda en tabla ===== -->
+                            {% if pago_item.pago_en == 'Dolar/BCV' %}
                                 {{ "%.2f"|format(pago_item.monto_bs|float) }} Bs.
                             {% else %}
                                 ${{ "%.2f"|format(pago_item.monto|float) }}
                             {% endif %}
+                            <!-- ===== FIN DE LA CORRECCIÓN ===== -->
                         </td>
                         <td class="p-3">
                             <span class="p-1.5 text-xs font-medium uppercase tracking-wider rounded-lg 
@@ -236,28 +191,30 @@
     </div>
     {% endif %}
 
-    <div x-data="{ show: false }" @open-modal.window="show = ($event.detail === 'diferencia-modal')" x-show="show" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900/60" style="display: none;">
+    <!-- ===== INICIO DE LA CORRECCIÓN: Modal de diferencia actualizado ===== -->
+    {% set p_accion = pago_pendiente_para_acciones or pago %}
+    <div x-data="{ show: false }" @open-modal.window="show = ($event.detail === 'diferencia-modal-{{p_accion.id}}')" x-show="show" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900/60" style="display: none;">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div @click.away="show = false" class="bg-white rounded-lg shadow-xl w-full max-w-md" x-show="show" x-transition>
-                <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST">
+                <form action="{{ url_for('procesar_reporte', pago_id=p_accion.id) }}" method="POST">
                     <div class="p-6">
-                        <h3 class="text-lg font-bold text-slate-800">Procesar con Diferencia</h3>
-                        <p class="text-sm text-slate-500 mt-1">Ingresa el monto real y un motivo para el cliente.</p>
+                        <h3 class="text-lg font-bold text-slate-800">Procesar con Diferencia (Pago #{{p_accion.id}})</h3>
+                        <p class="text-sm text-slate-500 mt-1">Ingresa el monto que sí pudiste verificar.</p>
                         <div class="mt-4 space-y-4">
-                            {% if pago.pago_en == 'USDT' %}
+                            {% if p_accion.pago_en == 'USDT' %}
                             <div>
-                                <label for="monto_real_recibido_usdt" class="block text-sm font-medium text-slate-700">Monto Real Recibido (en USDT)</label>
-                                <input type="number" step="0.01" name="monto_real_recibido_usdt" id="monto_real_recibido_usdt" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500" placeholder="Ej: 310.50" required>
+                                <label for="monto_real_recibido_usdt" class="block text-sm font-medium text-slate-700">Monto Verificado (en USDT)</label>
+                                <input type="number" step="0.01" name="monto_real_recibido_usdt" id="monto_real_recibido_usdt" class="mt-1 block w-full rounded-md border-slate-300" placeholder="Ej: 310.50" required>
                             </div>
                             {% else %}
                             <div>
-                                <label for="monto_real_recibido" class="block text-sm font-medium text-slate-700">Monto Real Recibido (en Bs.)</label>
-                                <input type="number" step="0.01" name="monto_real_recibido" id="monto_real_recibido" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500" placeholder="Ej: 15380.00" required>
+                                <label for="monto_real_recibido" class="block text-sm font-medium text-slate-700">Monto Verificado (en Bs.)</label>
+                                <input type="number" step="0.01" name="monto_real_recibido" id="monto_real_recibido" class="mt-1 block w-full rounded-md border-slate-300" placeholder="Ej: 15380.00" required>
                             </div>
                             {% endif %}
                             <div>
                                 <label for="motivo_cliente" class="block text-sm font-medium text-slate-700">Motivo para el cliente</label>
-                                <textarea name="motivo_cliente" id="motivo_cliente" rows="3" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500" placeholder="Ej: El monto recibido es menor al reportado." required></textarea>
+                                <textarea name="motivo_cliente" id="motivo_cliente" rows="3" class="mt-1 block w-full rounded-md border-slate-300" placeholder="Ej: El monto recibido es menor al reportado." required></textarea>
                             </div>
                         </div>
                     </div>
@@ -270,5 +227,6 @@
             </div>
         </div>
     </div>
+    <!-- ===== FIN DE LA CORRECCIÓN ===== -->
 </div>
 {% endblock %}

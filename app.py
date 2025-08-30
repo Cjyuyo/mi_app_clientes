@@ -1641,11 +1641,6 @@ def _conciliar_pago_logica(pago_id, cur):
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def procesar_reporte(pago_id):
-    """
-    Procesa un reporte de pago enviado por un cliente. Puede aprobarlo para
-    conciliación o marcarlo como inconsistente y generar una orden de pago
-    por la diferencia.
-    """
     conn = get_db()
     accion = request.form.get('accion')
     if not conn or not accion:
@@ -1663,34 +1658,30 @@ def procesar_reporte(pago_id):
             cliente_id = pago['cliente_id']
 
             if accion == 'aprobar_para_conciliar':
+                # --- INICIO DE LA CORRECCIÓN: Al aprobar, se establece el monto verificado ---
+                monto_a_verificar = pago['monto_bs'] if pago['monto_bs'] and pago['monto_bs'] > 0 else pago['monto']
+                detalles_aprobacion = json.dumps({'monto_verificado': str(monto_a_verificar)})
                 cur.execute(
-                    "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW() WHERE id = %s",
-                    (g.admin['id'], pago_id)
+                    "UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id = %s, fecha_revision = NOW(), detalles_reporte = %s WHERE id = %s",
+                    (g.admin['id'], detalles_aprobacion, pago_id)
                 )
+                # --- FIN DE LA CORRECCIÓN ---
                 flash('Reporte aprobado. Ahora puede ser procesado desde la sección de Conciliar Pagos.', 'success')
             
             elif accion == 'corregir_y_generar_diferencia':
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se determina la moneda y se obtiene el monto del formulario correcto.
                 motivo_cliente = request.form.get('motivo_cliente')
-                monto_real_recibido = None
-                currency = None
+                monto_real_recibido, currency = (None, None)
 
-                if pago.get('pago_en') == 'USDT':
-                    monto_real_recibido_str = request.form.get('monto_real_recibido_usdt')
+                if pago.get('moneda_pago') == 'USD':
+                    monto_real_recibido = Decimal(request.form.get('monto_real_recibido_usdt'))
                     currency = 'USD'
-                    if monto_real_recibido_str:
-                        monto_real_recibido = Decimal(monto_real_recibido_str)
-                else:  # Asume 'Dolar/BCV'
-                    monto_real_recibido_str = request.form.get('monto_real_recibido')
+                else:
+                    monto_real_recibido = Decimal(request.form.get('monto_real_recibido'))
                     currency = 'VES'
-                    if monto_real_recibido_str:
-                        monto_real_recibido = Decimal(monto_real_recibido_str)
 
                 if monto_real_recibido is None or not motivo_cliente:
                     flash("Debe ingresar el monto real y el motivo para el cliente.", "error")
                     return redirect(url_for('ver_reporte', pago_id=pago_id))
-                # --- FIN DE LA CORRECCIÓN ---
                 
                 cur.execute("SELECT valor_cuota, inscripcion_monto FROM clientes WHERE id = %s", (cliente_id,))
                 cliente_datos = cur.fetchone()
@@ -1698,34 +1689,28 @@ def procesar_reporte(pago_id):
                 
                 monto_esperado = (base_amount_usd * pago['tasa_dia']).quantize(Decimal('0.01')) if currency == 'VES' and pago['tasa_dia'] else base_amount_usd
                 
-                evento_inicial = {
-                    "timestamp": get_venezuela_current_datetime().isoformat(),
-                    "usuario": g.admin['usuario'],
-                    "accion": f"Se generó orden de pago por diferencia de {monto_esperado - monto_real_recibido:,.2f} {currency}.",
-                    "detalles": f"Motivo para el cliente: {motivo_cliente}"
-                }
-                
                 cur.execute("""
-                    INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified, event_log)
-                    VALUES (%s, %s, %s, 'UNDER_REVIEW', %s, %s) RETURNING id
-                """, (cliente_id, currency, monto_esperado, monto_real_recibido, json.dumps([evento_inicial])))
+                    INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status)
+                    VALUES (%s, %s, %s, 'UNDER_REVIEW') RETURNING id
+                """, (cliente_id, currency, monto_esperado))
                 bulk_id = cur.fetchone()[0]
-
-                detalles = {
+                
+                # --- INICIO DE LA CORRECCIÓN: Guardar el monto verificado en el pago original ---
+                detalles_inconsistencia = {
                     'motivo': 'Discrepancia Verificada por Admin',
                     'monto_original_reportado': str(pago['monto_bs'] if currency == 'VES' else pago['monto']),
-                    'monto_recibido_real': str(monto_real_recibido),
+                    'monto_verificado': str(monto_real_recibido), # ¡NUEVO!
                     'motivo_para_cliente': motivo_cliente 
                 }
-
                 cur.execute(
                     """
                     UPDATE pagos SET estado_reporte = 'Inconsistente', revisado_por_id = %s, 
                            fecha_revision = NOW(), detalles_reporte = %s, bulk_id = %s
                     WHERE id = %s
                     """,
-                    (g.admin['id'], json.dumps(detalles), bulk_id, pago_id)
+                    (g.admin['id'], json.dumps(detalles_inconsistencia), bulk_id, pago_id)
                 )
+                # --- FIN DE LA CORRECCIÓN ---
 
                 monto_pendiente = monto_esperado - monto_real_recibido
                 if monto_pendiente > 0:
@@ -5337,7 +5322,8 @@ def ver_reporte(pago_id):
                        c.valor_cuota, c.inscripcion_monto, c.id as cliente_id, c.moneda_pago,
                        b.expected_amount as bulk_expected_amount,
                        b.total_verified as bulk_total_verified,
-                       b.status as bulk_status
+                       b.status as bulk_status,
+                       b.currency as bulk_currency
                 FROM pagos p 
                 JOIN clientes c ON p.cliente_id = c.id 
                 LEFT JOIN payment_bulks b ON p.bulk_id = b.id
@@ -5366,7 +5352,7 @@ def ver_reporte(pago_id):
             pago['monto_esperado_bs'] = Decimal('0.0')
             pago['tasa_efectiva_cliente'] = Decimal('0.0')
 
-            if pago['moneda_pago'] == 'BsBCV':
+            if pago['moneda_pago'] == 'BsBCV' and pago.get('pago_en') != 'USDT':
                 fecha_del_pago = pago.get('fecha_pago', get_venezuela_current_date())
                 cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
                 tasa_row = cur.fetchone()
@@ -5380,9 +5366,48 @@ def ver_reporte(pago_id):
                     pago['tasa_efectiva_cliente'] = (monto_bs_decimal / monto_dolares_referencia).quantize(Decimal('0.0001'))
 
             pagos_del_mismo_bulk = []
+            bulk_totals = None
+            pago_pendiente_para_acciones = pago # Por defecto, la acción es sobre el pago principal
+
             if pago.get('bulk_id'):
                 cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
                 pagos_del_mismo_bulk = cur.fetchall()
+
+                if pagos_del_mismo_bulk:
+                    # Identificar el último pago pendiente para dirigir las acciones del admin
+                    for p_item in reversed(pagos_del_mismo_bulk):
+                        if p_item['estado_reporte'] == 'Pendiente de Revision':
+                            pago_pendiente_para_acciones = p_item
+                            break
+
+                    monto_esperado_bulk = pago['bulk_expected_amount'] or Decimal('0.0')
+                    
+                    # Calcular el monto total reportado basado en la moneda del bulk
+                    monto_reportado_total = sum(
+                        (p.get('monto_bs') or Decimal('0.0')) if pago.get('bulk_currency') == 'VES' else (p.get('monto') or Decimal('0.0'))
+                        for p in pagos_del_mismo_bulk
+                    )
+                    
+                    # Calcular el monto total verificado a partir de los detalles
+                    monto_verificado_total = Decimal('0.0')
+                    for p_item in pagos_del_mismo_bulk:
+                        detalles = p_item.get('detalles_reporte')
+                        if isinstance(detalles, str):
+                            try: detalles = json.loads(detalles)
+                            except json.JSONDecodeError: detalles = {}
+                        
+                        if detalles and detalles.get('monto_verificado'):
+                            monto_verificado_total += Decimal(detalles['monto_verificado'])
+                    
+                    diferencia_pendiente = monto_esperado_bulk - monto_verificado_total
+                    
+                    bulk_totals = {
+                        'esperado': monto_esperado_bulk,
+                        'reportado': monto_reportado_total,
+                        'verificado': monto_verificado_total,
+                        'pendiente': diferencia_pendiente if diferencia_pendiente > 0 else Decimal('0.0'),
+                        'currency': pago['bulk_currency'] or 'USD'
+                    }
             
             return render_template(
                 'ver_reporte.html',
@@ -5391,10 +5416,14 @@ def ver_reporte(pago_id):
                 is_client_view=is_client_view,
                 is_admin_view=is_admin_view,
                 pagos_del_mismo_bulk=pagos_del_mismo_bulk,
+                pago_pendiente_para_acciones=pago_pendiente_para_acciones,
+                bulk_totals=bulk_totals,
                 counts=counts
             )
 
     except (psycopg2.Error, json.JSONDecodeError, KeyError) as e:
+        logging.error(f"Error CRÍTICO en ver_reporte para pago_id {pago_id}: {traceback.format_exc()}")
+        flash('Ocurrió un error grave al cargar el reporte. El problema ha sido registrado.', 'danger')
         if is_client_view:
             return redirect(url_for('portal_dashboard'))
         else:
