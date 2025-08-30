@@ -230,91 +230,97 @@
                 <div x-show="activeTab === 'pagos'" class="space-y-4">
                     {% if cliente.pagos %}
                         {% for pago in cliente.pagos %}
-                        <!-- INICIO DE LA MODIFICACIÓN: Componente de Seguimiento de Pago -->
-                        <div class="bg-white border rounded-lg p-4 hover:shadow-sm transition-shadow">
-                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start pb-3 border-b border-slate-200">
-                                <div>
-                                    <p class="font-bold text-slate-800">{{ pago.por_concepto_de or pago.tipo_pago }}</p>
-                                    <p class="text-xs text-slate-500 mt-1">Reportado el: {{ pago.fecha_creacion | format_datetime('%d/%m/%Y a las %I:%M %p') }}</p>
+                        <div x-data="{ expanded: false }" class="bg-white border rounded-lg hover:shadow-sm transition-shadow">
+                            
+                            <button @click="expanded = !expanded" class="w-full text-left p-4 focus:outline-none">
+                                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start">
+                                    <div>
+                                        <p class="font-bold text-slate-800">{{ pago.por_concepto_de or pago.tipo_pago }}</p>
+                                        <p class="text-xs text-slate-500 mt-1">Reportado el: {{ pago.fecha_creacion | format_datetime('%d/%m/%Y a las %I:%M %p') }}</p>
+                                    </div>
+                                    <div class="mt-2 sm:mt-0 flex items-center gap-4">
+                                        <div class="text-left sm:text-right">
+                                            {% if pago.monto_bs and pago.monto_bs > 0 %}
+                                                <p class="text-lg font-bold text-slate-800">{{ "%.2f"|format(pago.monto_bs) }} <span class="text-sm font-normal text-slate-500">Bs.</span></p>
+                                            {% else %}
+                                                <p class="text-lg font-bold text-slate-800">${{ "%.2f"|format(pago.monto) }}</p>
+                                            {% endif %}
+                                        </div>
+                                        <i class="bi bi-chevron-down text-slate-500 transition-transform" :class="{ 'rotate-180': expanded }"></i>
+                                    </div>
                                 </div>
-                                <div class="mt-2 sm:mt-0 text-left sm:text-right">
-                                    {% if pago.monto_bs and pago.monto_bs > 0 %}
-                                        <p class="text-lg font-bold text-slate-800">{{ "%.2f"|format(pago.monto_bs) }} <span class="text-sm font-normal text-slate-500">Bs.</span></p>
+                            </button>
+                            
+                            <div x-show="expanded" x-transition class="px-4 pb-4">
+                                <div class="pt-4 border-t border-slate-200">
+                                    {% if pago.estado_pago == 'Anulado' or pago.estado_reporte == 'Anulado por Admin' %}
+                                    <div class="flex items-center gap-3 p-3 bg-slate-100 rounded-md">
+                                        <i class="bi bi-x-circle-fill text-2xl text-slate-500"></i>
+                                        <div>
+                                            <p class="font-semibold text-slate-800">Reporte Anulado</p>
+                                            <p class="text-xs text-slate-600">Este reporte fue anulado por un administrador.</p>
+                                        </div>
+                                    </div>
                                     {% else %}
-                                        <p class="text-lg font-bold text-slate-800">${{ "%.2f"|format(pago.monto) }}</p>
+                                    <ol>
+                                        {% set step1_complete = True %}
+                                        {% set step2_active = pago.estado_reporte == 'Pendiente de Revision' %}
+                                        {% set step2_complete = not step2_active %}
+                                        {% set step3_active = pago.estado_reporte == 'Aprobado' and pago.estado_pago == 'Pendiente' %}
+                                        {% set step3_error = pago.estado_reporte == 'Inconsistente' %}
+                                        {% set step3_complete = pago.estado_pago == 'Conciliado' %}
+                                        {% set step4_active = pago.estado_pago == 'Conciliado' %}
+    
+                                        <li class="timeline-step is-complete">
+                                            <div class="timeline-icon"><i class="bi bi-send-check-fill"></i></div>
+                                            <h4 class="font-semibold text-sm text-slate-800">Reporte Enviado</h4>
+                                            <p class="text-xs text-slate-500">Recibimos tu reporte de pago exitosamente.</p>
+                                        </li>
+                                        <li class="timeline-step 
+                                            {% if step2_active %}is-active{% elif step2_complete %}is-complete{% else %}is-pending{% endif %}">
+                                            <div class="timeline-icon">
+                                                {% if step2_active %}<i class="bi bi-hourglass-split"></i>{% elif step2_complete %}<i class="bi bi-check-lg"></i>{% else %}<i class="bi bi-clock-history"></i>{% endif %}
+                                            </div>
+                                            <h4 class="font-semibold text-sm text-slate-800">En Verificación</h4>
+                                            <p class="text-xs text-slate-500">Nuestro equipo está verificando la información de tu pago.</p>
+                                        </li>
+                                        <li class="timeline-step 
+                                            {% if step3_active %}is-active{% elif step3_complete %}is-complete{% elif step3_error %}is-error{% else %}is-pending{% endif %}">
+                                            <div class="timeline-icon">
+                                                {% if step3_active %}<i class="bi bi-hourglass-split"></i>{% elif step3_complete %}<i class="bi bi-check-lg"></i>{% elif step3_error %}<i class="bi bi-exclamation-triangle-fill"></i>{% else %}<i class="bi bi-card-checklist"></i>{% endif %}
+                                            </div>
+                                            <h4 class="font-semibold text-sm text-slate-800">Procesado por Administración</h4>
+                                            {% if step3_error %}
+                                                <p class="text-xs text-red-600">Se encontró una inconsistencia. Revisa tus notificaciones.</p>
+                                            {% else %}
+                                                <p class="text-xs text-slate-500">El pago fue aprobado y está en espera de conciliación final.</p>
+                                            {% endif %}
+                                        </li>
+                                        <li class="timeline-step 
+                                            {% if step4_active %}is-complete{% else %}is-pending{% endif %}">
+                                            <div class="timeline-icon">
+                                                {% if step4_active %}<i class="bi bi-patch-check-fill"></i>{% else %}<i class="bi bi-patch-check"></i>{% endif %}
+                                            </div>
+                                            <h4 class="font-semibold text-sm text-slate-800">Conciliado</h4>
+                                            <p class="text-xs text-slate-500">¡Listo! Tu pago ha sido aplicado a tu cuenta.</p>
+                                        </li>
+                                    </ol>
+                                    {% endif %}
+                                </div>
+    
+                                <div class="mt-4 pt-3 border-t border-slate-200 text-right">
+                                    {% if pago.estado_pago == 'Conciliado' %}
+                                        <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-orange-500 hover:text-orange-600">
+                                            <i class="bi bi-receipt"></i> Ver Recibo
+                                        </a>
+                                    {% else %}
+                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-blue-600 hover:text-blue-700">
+                                            <i class="bi bi-eye-fill"></i> Ver Detalles del Reporte
+                                        </a>
                                     {% endif %}
                                 </div>
                             </div>
-                            
-                            <div class="pt-4">
-                                {% if pago.estado_pago == 'Anulado' or pago.estado_reporte == 'Anulado por Admin' %}
-                                <div class="flex items-center gap-3 p-3 bg-slate-100 rounded-md">
-                                    <i class="bi bi-x-circle-fill text-2xl text-slate-500"></i>
-                                    <div>
-                                        <p class="font-semibold text-slate-800">Reporte Anulado</p>
-                                        <p class="text-xs text-slate-600">Este reporte fue anulado por un administrador.</p>
-                                    </div>
-                                </div>
-                                {% else %}
-                                <ol>
-                                    {% set step1_complete = True %}
-                                    {% set step2_active = pago.estado_reporte == 'Pendiente de Revision' %}
-                                    {% set step2_complete = not step2_active %}
-                                    {% set step3_active = pago.estado_reporte == 'Aprobado' and pago.estado_pago == 'Pendiente' %}
-                                    {% set step3_error = pago.estado_reporte == 'Inconsistente' %}
-                                    {% set step3_complete = pago.estado_pago == 'Conciliado' %}
-                                    {% set step4_active = pago.estado_pago == 'Conciliado' %}
-
-                                    <li class="timeline-step is-complete">
-                                        <div class="timeline-icon"><i class="bi bi-send-check-fill"></i></div>
-                                        <h4 class="font-semibold text-sm text-slate-800">Reporte Enviado</h4>
-                                        <p class="text-xs text-slate-500">Recibimos tu reporte de pago exitosamente.</p>
-                                    </li>
-                                    <li class="timeline-step 
-                                        {% if step2_active %}is-active{% elif step2_complete %}is-complete{% else %}is-pending{% endif %}">
-                                        <div class="timeline-icon">
-                                            {% if step2_active %}<i class="bi bi-hourglass-split"></i>{% elif step2_complete %}<i class="bi bi-check-lg"></i>{% else %}<i class="bi bi-clock-history"></i>{% endif %}
-                                        </div>
-                                        <h4 class="font-semibold text-sm text-slate-800">En Verificación</h4>
-                                        <p class="text-xs text-slate-500">Nuestro equipo está verificando la información de tu pago.</p>
-                                    </li>
-                                    <li class="timeline-step 
-                                        {% if step3_active %}is-active{% elif step3_complete %}is-complete{% elif step3_error %}is-error{% else %}is-pending{% endif %}">
-                                        <div class="timeline-icon">
-                                            {% if step3_active %}<i class="bi bi-hourglass-split"></i>{% elif step3_complete %}<i class="bi bi-check-lg"></i>{% elif step3_error %}<i class="bi bi-exclamation-triangle-fill"></i>{% else %}<i class="bi bi-card-checklist"></i>{% endif %}
-                                        </div>
-                                        <h4 class="font-semibold text-sm text-slate-800">Procesado por Administración</h4>
-                                        {% if step3_error %}
-                                            <p class="text-xs text-red-600">Se encontró una inconsistencia. Revisa tus notificaciones.</p>
-                                        {% else %}
-                                            <p class="text-xs text-slate-500">El pago fue aprobado y está en espera de conciliación final.</p>
-                                        {% endif %}
-                                    </li>
-                                    <li class="timeline-step 
-                                        {% if step4_active %}is-complete{% else %}is-pending{% endif %}">
-                                        <div class="timeline-icon">
-                                            {% if step4_active %}<i class="bi bi-patch-check-fill"></i>{% else %}<i class="bi bi-patch-check"></i>{% endif %}
-                                        </div>
-                                        <h4 class="font-semibold text-sm text-slate-800">Conciliado</h4>
-                                        <p class="text-xs text-slate-500">¡Listo! Tu pago ha sido aplicado a tu cuenta.</p>
-                                    </li>
-                                </ol>
-                                {% endif %}
-                            </div>
-
-                            <div class="mt-4 pt-3 border-t border-slate-200 text-right">
-                                {% if pago.estado_pago == 'Conciliado' %}
-                                    <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-orange-500 hover:text-orange-600">
-                                        <i class="bi bi-receipt"></i> Ver Recibo
-                                    </a>
-                                {% else %}
-                                    <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-blue-600 hover:text-blue-700">
-                                        <i class="bi bi-eye-fill"></i> Ver Detalles del Reporte
-                                    </a>
-                                {% endif %}
-                            </div>
                         </div>
-                        <!-- FIN DE LA MODIFICACIÓN -->
                         {% endfor %}
                     {% else %}
                         <div class="text-center text-slate-500 py-6 text-sm">

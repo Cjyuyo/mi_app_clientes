@@ -4305,8 +4305,26 @@ def portal_diferencia_reportar(bulk_id, order_id):
     
     try:
         with conn.cursor() as cur:
+            # --- INICIO DE LA CORRECCIÓN APLICADA ---
+            # Se verifica que el bulk y la orden son válidos ANTES de mostrar el formulario.
+            cur.execute("""
+                SELECT b.status as bulk_status, o.status as order_status
+                FROM payment_orders o
+                JOIN payment_bulks b ON o.bulk_id = b.id
+                WHERE o.id = %s AND o.bulk_id = %s AND o.cliente_id = %s
+            """, (order_id, bulk_id, session['cliente_id']))
+            
+            estado_actual = cur.fetchone()
+
+            # Si no se encuentra, o si el bulk fue cancelado, o si la orden ya no está emitida
+            if not estado_actual or estado_actual['bulk_status'] == 'CANCELLED' or estado_actual['order_status'] != 'ISSUED':
+                flash("Esta orden de pago ya no es válida o ha sido procesada. Si cree que es un error, contacte a soporte.", "error")
+                return redirect(url_for('portal_dashboard'))
+            # --- FIN DE LA CORRECCIÓN APLICADA ---
+
             cur.execute("SELECT * FROM payment_orders WHERE id = %s AND bulk_id = %s AND cliente_id = %s AND status = 'ISSUED'", (order_id, bulk_id, session['cliente_id']))
             order = cur.fetchone()
+            # Esta comprobación es ahora redundante por la de arriba, pero la dejamos por seguridad.
             if not order: 
                 flash("Orden de pago no encontrada o ya procesada.", "error")
                 return redirect(url_for('portal_dashboard'))
@@ -4314,11 +4332,8 @@ def portal_diferencia_reportar(bulk_id, order_id):
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (session['cliente_id'],))
             cliente = cur.fetchone()
 
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Se añade la verificación de pagos pendientes para controlar el estado de los botones en la barra lateral.
             cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
             hay_pago_pendiente_general = cur.fetchone() is not None
-            # --- FIN DE LA CORRECCIÓN ---
 
             today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
             cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
@@ -4397,7 +4412,7 @@ def portal_diferencia_reportar(bulk_id, order_id):
                            is_difference_payment=True,
                            bulk_id=bulk_id,
                            order_id=order_id,
-                           hay_pago_pendiente_general=hay_pago_pendiente_general # Se pasa la variable a la plantilla
+                           hay_pago_pendiente_general=hay_pago_pendiente_general
                            )
 
 @app.route('/admin/pagos/por-revisar')
