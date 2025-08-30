@@ -4305,28 +4305,17 @@ def portal_diferencia_reportar(bulk_id, order_id):
     
     try:
         with conn.cursor() as cur:
-            # --- INICIO DE LA CORRECCIÓN APLICADA ---
-            # Se verifica que el bulk y la orden son válidos ANTES de mostrar el formulario.
             cur.execute("""
-                SELECT b.status as bulk_status, o.status as order_status
+                SELECT b.status as bulk_status, o.status as order_status, o.currency, o.amount
                 FROM payment_orders o
                 JOIN payment_bulks b ON o.bulk_id = b.id
                 WHERE o.id = %s AND o.bulk_id = %s AND o.cliente_id = %s
             """, (order_id, bulk_id, session['cliente_id']))
             
-            estado_actual = cur.fetchone()
-
-            # Si no se encuentra, o si el bulk fue cancelado, o si la orden ya no está emitida
-            if not estado_actual or estado_actual['bulk_status'] == 'CANCELLED' or estado_actual['order_status'] != 'ISSUED':
-                flash("Esta orden de pago ya no es válida o ha sido procesada. Si cree que es un error, contacte a soporte.", "error")
-                return redirect(url_for('portal_dashboard'))
-            # --- FIN DE LA CORRECCIÓN APLICADA ---
-
-            cur.execute("SELECT * FROM payment_orders WHERE id = %s AND bulk_id = %s AND cliente_id = %s AND status = 'ISSUED'", (order_id, bulk_id, session['cliente_id']))
             order = cur.fetchone()
-            # Esta comprobación es ahora redundante por la de arriba, pero la dejamos por seguridad.
-            if not order: 
-                flash("Orden de pago no encontrada o ya procesada.", "error")
+
+            if not order or order['bulk_status'] == 'CANCELLED' or order['order_status'] != 'ISSUED':
+                flash("Esta orden de pago ya no es válida o ha sido procesada. Si cree que es un error, contacte a soporte.", "error")
                 return redirect(url_for('portal_dashboard'))
             
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (session['cliente_id'],))
@@ -4350,7 +4339,7 @@ def portal_diferencia_reportar(bulk_id, order_id):
                 monto_a_pagar_bs = monto_diferencia
                 if tasa_bcv > 0:
                     monto_a_pagar_usd = (monto_a_pagar_bs / tasa_bcv)
-            else:
+            else: # Asume USD
                 monto_a_pagar_usd = monto_diferencia
                 monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv)
             
@@ -4366,27 +4355,28 @@ def portal_diferencia_reportar(bulk_id, order_id):
         try:
             with conn.cursor() as cur:
                 monto_bs_reportado = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                tasa_bcv_dia = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
-                monto_usd_calculado = (monto_bs_reportado / tasa_bcv_dia) if tasa_bcv_dia > 0 else Decimal('0.0')
+                monto_usdt_reportado = Decimal(pago_form.get('monto_usdt', '0.00').replace(',', '.'))
 
-                detalles_pago = {}
-                if pago_form.get('forma_pago_bs') == 'Pago Móvil':
-                    detalles_pago['telefono_emisor'] = pago_form.get('pago_movil_telefono')
-                    detalles_pago['cedula_emisor'] = pago_form.get('pago_movil_cedula')
-                detalles_json = json.dumps(detalles_pago) if detalles_pago else None
+                tasa_bcv_dia = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
+
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se añaden las columnas 'estado_pago' y 'pago_en' para corregir los 3 problemas.
+                pago_en_final = 'USDT' if order['currency'] == 'USD' else 'Dolar/BCV'
+                monto_final_usd = monto_usdt_reportado if pago_en_final == 'USDT' else ((monto_bs_reportado / tasa_bcv_dia) if tasa_bcv_dia > 0 else Decimal('0.0'))
 
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
                                     estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, 
-                                    bulk_id, is_diferencia, cuotas_cubiertas, detalles_reporte)
-                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, TRUE, 0, %s);
+                                    bulk_id, is_diferencia, cuotas_cubiertas, estado_pago, pago_en)
+                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, TRUE, 0, 'Pendiente', %s);
                 """
                 cur.execute(pago_query, (
-                    cliente['id'], monto_usd_calculado, monto_bs_reportado, 
-                    pago_form.get('forma_pago_bs') or pago_form.get('pago_en'), 
+                    cliente['id'], monto_final_usd, monto_bs_reportado, 
+                    pago_form.get('forma_pago_bs') or 'Binance', 
                     pago_form.get('fecha_pago'), pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_dia,
-                    get_venezuela_current_datetime(), concepto_pago, bulk_id, detalles_json
+                    get_venezuela_current_datetime(), concepto_pago, bulk_id, pago_en_final
                 ))
+                # --- FIN DE LA CORRECCIÓN ---
                 
                 cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
                 

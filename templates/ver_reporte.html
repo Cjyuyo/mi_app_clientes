@@ -211,60 +211,7 @@
                         <td class="p-3">{{ pago_item.fecha_creacion | format_datetime }}</td>
                         <td class="p-3">{{ pago_item.por_concepto_de }}</td>
                         <td class="p-3 font-semibold text-slate-800">
-                            {{ "%.2f"|format(pago_item.monto_bs|float) }} Bs. / ${{ "%.2f"|format(pago_item.monto|float) }}
-                        </td>
-                        <td class="p-3">
-                            <span class="p-1.5 text-xs font-medium uppercase tracking-wider rounded-lg 
-                                {% if pago_item.estado_reporte == 'Inconsistente' %} text-red-800 bg-red-100
-                                {% elif pago_item.estado_reporte == 'Pendiente de Revision' %} text-amber-800 bg-amber-100
-                                {% elif pago_item.estado_reporte == 'Aprobado' %} text-cyan-800 bg-cyan-100
-                                {% elif pago_item.estado_pago == 'Conciliado' %} text-green-800 bg-green-100
-                                {% else %} text-gray-800 bg-gray-100
-                                {% endif %}">
-                                {{ pago_item.estado_reporte if pago_item.estado_pago != 'Conciliado' else 'Conciliado' }}
-                            </span>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    {% endif %}
-
-    <div x-data="{ show: false }" @open-modal.window="show = ($event.detail === 'diferencia-modal')" x-show="show" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900/60" style="display: none;">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div @click.away="show = false" class="bg-white rounded-lg shadow-xl w-full max-w-md" x-show="show" x-transition>
-                <form action="{{ url_for('procesar_reporte', pago_id=pago.id) }}" method="POST">
-                    <div class="p-6">
-                        <h3 class="text-lg font-bold text-slate-800">Procesar con Diferencia</h3>
-                        <p class="text-sm text-slate-500 mt-1">Ingresa el monto real y un motivo para el cliente.</p>
-                        <div class="mt-4 space-y-4">
-                            {% if pago.pago_en == 'USDT' %}
-                            <div>
-                                <label for="monto_real_recibido_usdt" class="block text-sm font-medium text-slate-700">Monto Real Recibido (en USDT)</label>
-                                <input type="number" step="0.01" name="monto_real_recibido_usdt" id="monto_real_recibido_usdt" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500" placeholder="Ej: 310.50" required>
-                            </div>
+                            {% if pago_item.monto_bs and pago_item.monto_bs > 0 %}
+                                {{ "%.2f"|format(pago_item.monto_bs|float) }} Bs.
                             {% else %}
-                            <div>
-                                <label for="monto_real_recibido" class="block text-sm font-medium text-slate-700">Monto Real Recibido (en Bs.)</label>
-                                <input type="number" step="0.01" name="monto_real_recibido" id="monto_real_recibido" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500" placeholder="Ej: 15380.00" required>
-                            </div>
-                            {% endif %}
-                            <div>
-                                <label for="motivo_cliente" class="block text-sm font-medium text-slate-700">Motivo para el cliente</label>
-                                <textarea name="motivo_cliente" id="motivo_cliente" rows="3" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500" placeholder="Ej: El monto recibido es menor al reportado." required></textarea>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-slate-50 px-6 py-3 flex justify-end gap-3 rounded-b-lg">
-                        <input type="hidden" name="accion" value="corregir_y_generar_diferencia">
-                        <button type="button" @click="show = false" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Cancelar</button>
-                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700">Confirmar y Enviar Orden</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
+                                ${{ "%.2f"|format(p
