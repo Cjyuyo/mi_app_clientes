@@ -4081,7 +4081,7 @@ def portal_dashboard():
             
             # --- INICIO DE LA LÓGICA DE AGRUPACIÓN DE PAGOS ---
             cur.execute("""
-                SELECT p.*, b.status as bulk_status
+                SELECT p.*, b.status as bulk_status, b.expected_amount as bulk_expected_amount, b.currency as bulk_currency
                 FROM pagos p
                 LEFT JOIN payment_bulks b ON p.bulk_id = b.id
                 WHERE p.cliente_id = %s AND p.estado_pago != 'Anulado'
@@ -4102,35 +4102,46 @@ def portal_dashboard():
                         'concepto_principal': pago['por_concepto_de'] or pago['tipo_pago'],
                         'estado_general': '',
                         'monto_total': Decimal('0.0'),
-                        'moneda': 'USD' if (pago.get('monto_bs') is None or pago.get('monto_bs') == 0) else 'Bs.'
+                        'moneda': 'USD'
                     }
                 
                 procesos_agrupados[id_proceso]['pagos'].append(dict(pago))
 
-            lista_procesos = sorted(procesos_agrupados.values(), key=lambda p: p['fecha_inicio'], reverse=True)
-
-            # Determinar el estado general de cada proceso
-            for proceso in lista_procesos:
-                ultimo_pago = proceso['pagos'][0] # Ya están ordenados por fecha desc
-                proceso['monto_total'] = sum(p['monto_bs'] if proceso['moneda'] == 'Bs.' else p['monto'] for p in proceso['pagos'])
-
-                if ultimo_pago['bulk_status'] == 'RECONCILED' or ultimo_pago['estado_pago'] == 'Conciliado':
-                    proceso['estado_general'] = 'Conciliado'
-                elif ultimo_pago['estado_reporte'] == 'Inconsistente':
-                    proceso['estado_general'] = 'Inconsistente'
-                elif ultimo_pago['estado_reporte'] == 'Pendiente de Revision':
-                    proceso['estado_general'] = 'Pendiente de Revision'
-                elif ultimo_pago['estado_reporte'] == 'Aprobado':
-                    proceso['estado_general'] = 'Aprobado'
+            for id_proceso, proceso in procesos_agrupados.items():
+                proceso['pagos'].sort(key=lambda p: p['fecha_creacion'], reverse=True)
+                
+                if isinstance(id_proceso, str) and id_proceso.startswith('solo_'):
+                    pago_unico = proceso['pagos'][0]
+                    proceso['moneda'] = 'Bs.' if pago_unico.get('pago_en') == 'Dolar/BCV' else 'USD'
+                    proceso['monto_total'] = pago_unico['monto_bs'] if proceso['moneda'] == 'Bs.' else pago_unico['monto']
+                    if pago_unico['estado_pago'] == 'Conciliado':
+                        proceso['estado_general'] = 'Conciliado'
+                    else:
+                        proceso['estado_general'] = pago_unico['estado_reporte']
                 else:
-                    proceso['estado_general'] = 'En Proceso'
+                    primer_pago_del_grupo = sorted(proceso['pagos'], key=lambda p: p['fecha_creacion'])[0]
+                    proceso['monto_total'] = primer_pago_del_grupo['bulk_expected_amount'] or Decimal('0.0')
+                    proceso['moneda'] = 'Bs.' if primer_pago_del_grupo['bulk_currency'] == 'VES' else 'USD'
+                    proceso['concepto_principal'] = primer_pago_del_grupo['por_concepto_de']
+                    
+                    bulk_status = primer_pago_del_grupo['bulk_status']
+                    if bulk_status == 'RECONCILED':
+                        proceso['estado_general'] = 'Conciliado'
+                    elif any(p['estado_reporte'] == 'Inconsistente' for p in proceso['pagos']):
+                        proceso['estado_general'] = 'Inconsistente'
+                    elif any(p['estado_reporte'] == 'Pendiente de Revision' for p in proceso['pagos']):
+                        proceso['estado_general'] = 'Pendiente de Revision'
+                    elif bulk_status == 'READY_TO_RECONCILE' or all(p.get('estado_reporte') == 'Aprobado' for p in proceso['pagos']):
+                        proceso['estado_general'] = 'Aprobado'
+                    else:
+                        proceso['estado_general'] = 'En Proceso'
 
+            lista_procesos = sorted(procesos_agrupados.values(), key=lambda p: p['fecha_inicio'], reverse=True)
             cliente_dict['procesos_de_pago'] = lista_procesos
             # --- FIN DE LA LÓGICA DE AGRUPACIÓN ---
 
             cur.execute("SELECT * FROM payment_orders WHERE cliente_id = %s AND status = 'ISSUED'", (session['cliente_id'],))
             ordenes_pendientes_raw = cur.fetchall()
-            # ... (el resto de la función sigue igual) ...
             
             ordenes_pendientes = []
             for orden_raw in ordenes_pendientes_raw:
@@ -4151,83 +4162,31 @@ def portal_dashboard():
 
             es_periodo_de_cobranza = False
             if ciclo_cliente == '15 al 02':
-                if today.day >= 15 or today.day <= 2:
-                    es_periodo_de_cobranza = True
+                if today.day >= 15 or today.day <= 2: es_periodo_de_cobranza = True
             elif ciclo_cliente == '20 al 10':
-                if today.day >= 20 or today.day <= 10:
-                    es_periodo_de_cobranza = True
+                if today.day >= 20 or today.day <= 10: es_periodo_de_cobranza = True
 
-            if es_periodo_de_cobranza:
-                if cuotas_pagadas_total > 1:
-                    ciclo_cobranza_activo = True
-                elif cuotas_pagadas_total == 1:
-                    cur.execute("""
-                        SELECT fecha_pago FROM pagos 
-                        WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' 
-                        ORDER BY fecha_pago ASC LIMIT 1
-                    """, (session['cliente_id'],))
-                    primer_pago = cur.fetchone()
-                    
-                    if primer_pago:
-                        fecha_primer_pago = primer_pago['fecha_pago']
-                        if today.year > fecha_primer_pago.year or (today.year == fecha_primer_pago.year and today.month > fecha_primer_pago.month):
-                            ciclo_cobranza_activo = True
+            if es_periodo_de_cobranza and cuotas_pagadas_total > 0:
+                ciclo_cobranza_activo = True
 
             CUOTAS_MINIMAS_PARA_OFERTAR = 1
             cuotas_pagadas = cliente_dict.get('cuotas_pagadas_progresivas', 0) or 0
-            puede_registrar_oferta = False
-
-            if cuotas_pagadas >= CUOTAS_MINIMAS_PARA_OFERTAR:
-                if cuotas_pagadas == 1:
-                    puede_registrar_oferta = True
-                else:
-                    fecha_vencimiento_ciclo = None
-                    if ciclo_cliente == '15 al 02':
-                        fecha_vencimiento_ciclo = today.replace(day=2)
-                    elif ciclo_cliente == '20 al 10':
-                        fecha_vencimiento_ciclo = today.replace(day=10)
-
-                    pago_impuntual_mes_actual = False
-                    if fecha_vencimiento_ciclo:
-                        cur.execute("""
-                            SELECT 1 FROM pagos 
-                            WHERE cliente_id = %s 
-                            AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'
-                            AND fecha_pago > %s
-                            AND EXTRACT(MONTH FROM fecha_pago) = %s
-                            AND EXTRACT(YEAR FROM fecha_pago) = %s
-                            LIMIT 1
-                        """, (session['cliente_id'], fecha_vencimiento_ciclo, today.month, today.year))
-                        pago_impuntual_mes_actual = cur.fetchone() is not None
-                    
-                    puede_registrar_oferta = not pago_impuntual_mes_actual
+            puede_registrar_oferta = cuotas_pagadas >= CUOTAS_MINIMAS_PARA_OFERTAR
 
             historial_gestiones = []
 
             hay_pago_pendiente_general = any(p['estado_general'] == 'Pendiente de Revision' for p in cliente_dict['procesos_de_pago'])
             
             if hay_pago_pendiente_general and not ordenes_pendientes:
-                estado_principal = {
-                    'titulo': 'Pago en Proceso de Verificación',
-                    'mensaje': 'Hemos recibido tu reporte de pago. Nuestro equipo lo está verificando y te notificaremos una vez sea procesado. Puedes ver el estado en la sección "Últimos Pagos".',
-                    'boton_texto': None, 'boton_url': None, 'boton_activo': False
-                }
+                estado_principal = { 'titulo': 'Pago en Proceso de Verificación', 'mensaje': 'Hemos recibido tu reporte de pago. Nuestro equipo lo está verificando y te notificaremos una vez sea procesado. Puedes ver el estado en la sección "Últimos Pagos".' }
             elif cliente_dict.get('proceso') == 'RESERVA' and not ordenes_pendientes:
                 inscripcion_pagada = cliente_dict.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
                 inscripcion_total = cliente_dict.get('inscripcion_monto', Decimal('0.0')) or Decimal('0.0')
                 if inscripcion_pagada < inscripcion_total:
                     monto_restante = inscripcion_total - inscripcion_pagada
-                    estado_principal = {
-                        'titulo': 'Completa tu Inscripción',
-                        'mensaje': f"¡Bienvenido a Moto Plan! Para activar tu plan, por favor completa el pago de tu inscripción. Monto restante: ${monto_restante:,.2f}",
-                        'boton_texto': 'Pagar Inscripción', 'boton_url': url_for('portal_pagar_inscripcion'), 'boton_activo': not hay_pago_pendiente_general
-                    }
+                    estado_principal = { 'titulo': 'Completa tu Inscripción', 'mensaje': f"¡Bienvenido a Moto Plan! Para activar tu plan, por favor completa el pago de tu inscripción. Monto restante: ${monto_restante:,.2f}", 'boton_texto': 'Pagar Inscripción', 'boton_url': url_for('portal_pagar_inscripcion'), 'boton_activo': not hay_pago_pendiente_general }
             elif cliente_dict.get('proceso') == 'INSCRITO' and not ordenes_pendientes:
-                estado_principal = {
-                    'titulo': '¡Felicitaciones! Es hora de activar tu plan',
-                    'mensaje': f"Tu inscripción ha sido completada. Para comenzar a sumar cuotas a tu plan, por favor realiza el pago de tu primera cuota por un monto de ${cliente_dict.get('valor_cuota', 0):,.2f}.",
-                    'boton_texto': 'Pagar Primera Cuota', 'boton_url': url_for('portal_reportar_pago'), 'boton_activo': not hay_pago_pendiente_general
-                }
+                estado_principal = { 'titulo': '¡Felicitaciones! Es hora de activar tu plan', 'mensaje': f"Tu inscripción ha sido completada. Para comenzar a sumar cuotas a tu plan, por favor realiza el pago de tu primera cuota por un monto de ${cliente_dict.get('valor_cuota', 0):,.2f}.", 'boton_texto': 'Pagar Primera Cuota', 'boton_url': url_for('portal_reportar_pago'), 'boton_activo': not hay_pago_pendiente_general }
             
             return render_template('portal_dashboard.html', 
                                    cliente=cliente_dict, 

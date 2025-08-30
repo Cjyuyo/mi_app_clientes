@@ -47,25 +47,43 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2 space-y-6">
                 
-                <!-- ===== INICIO DE LA CORRECCIÓN: NUEVAS TARJETAS DE ESTADO ===== -->
                 {% if bulk_totals %}
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {% set currency_symbol = 'Bs.' if bulk_totals.currency == 'VES' else '$' %}
-                    <div class="bg-white p-4 rounded-xl shadow-sm border text-center">
-                        <h3 class="text-sm font-semibold text-slate-500">Monto Esperado</h3>
-                        <p class="text-2xl font-bold text-slate-800 mt-2">{{ "%.2f"|format(bulk_totals.esperado|float) }} {{ currency_symbol }}</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm border text-center">
-                        <h3 class="text-sm font-semibold text-slate-500">Monto Reportado</h3>
-                        <p class="text-2xl font-bold text-blue-600 mt-2">{{ "%.2f"|format(bulk_totals.reportado|float) }} {{ currency_symbol }}</p>
-                    </div>
-                    <div class="bg-green-50 p-4 rounded-xl shadow-sm border border-green-200 text-center">
-                        <h3 class="text-sm font-semibold text-green-600">Monto Verificado</h3>
-                        <p class="text-2xl font-bold text-green-700 mt-2">{{ "%.2f"|format(bulk_totals.verificado|float) }} {{ currency_symbol }}</p>
-                    </div>
-                    <div class="bg-red-50 p-4 rounded-xl shadow-sm border border-red-200 text-center">
-                        <h3 class="text-sm font-semibold text-red-600">Diferencia Pendiente</h3>
-                        <p class="text-2xl font-bold text-red-700 mt-2">{{ "%.2f"|format(bulk_totals.pendiente|float) }} {{ currency_symbol }}</p>
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">Resumen del Proceso Completo</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {% set currency_symbol = 'Bs.' if bulk_totals.currency == 'VES' else '$' %}
+                        <div class="bg-white p-4 rounded-xl shadow-sm border text-center">
+                            <h3 class="text-sm font-semibold text-slate-500">Monto Esperado</h3>
+                            <p class="text-2xl font-bold text-slate-800 mt-2 flex items-baseline justify-center">
+                                {% if currency_symbol == '$' %}<span class="text-lg font-normal mr-0.5">{{ currency_symbol }}</span>{% endif %}
+                                <span>{{ "%.2f"|format(bulk_totals.esperado|float) }}</span>
+                                {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1">{{ currency_symbol }}</span>{% endif %}
+                            </p>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl shadow-sm border text-center">
+                            <h3 class="text-sm font-semibold text-slate-500">Total Reportado</h3>
+                            <p class="text-2xl font-bold text-blue-600 mt-2 flex items-baseline justify-center">
+                                {% if currency_symbol == '$' %}<span class="text-lg font-normal mr-0.5">{{ currency_symbol }}</span>{% endif %}
+                                <span>{{ "%.2f"|format(bulk_totals.reportado|float) }}</span>
+                                {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1">{{ currency_symbol }}</span>{% endif %}
+                            </p>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-xl shadow-sm border border-green-200 text-center">
+                            <h3 class="text-sm font-semibold text-green-600">Total Verificado</h3>
+                            <p class="text-2xl font-bold text-green-700 mt-2 flex items-baseline justify-center">
+                                {% if currency_symbol == '$' %}<span class="text-lg font-normal mr-0.5">{{ currency_symbol }}</span>{% endif %}
+                                <span>{{ "%.2f"|format(bulk_totals.verificado|float) }}</span>
+                                {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1">{{ currency_symbol }}</span>{% endif %}
+                            </p>
+                        </div>
+                        <div class="bg-red-50 p-4 rounded-xl shadow-sm border border-red-200 text-center">
+                            <h3 class="text-sm font-semibold text-red-600">Diferencia Pendiente</h3>
+                            <p class="text-2xl font-bold text-red-700 mt-2 flex items-baseline justify-center">
+                                {% if currency_symbol == '$' %}<span class="text-lg font-normal mr-0.5">{{ currency_symbol }}</span>{% endif %}
+                                <span>{{ "%.2f"|format(bulk_totals.pendiente|float) }}</span>
+                                {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1">{{ currency_symbol }}</span>{% endif %}
+                            </p>
+                        </div>
                     </div>
                 </div>
                 {% else %} {# Fallback para pagos simples sin bulk #}
@@ -92,10 +110,8 @@
                     </div>
                 </div>
                 {% endif %}
-                <!-- ===== FIN DE LA CORRECCIÓN ===== -->
-
                 <div class="bg-white p-6 rounded-xl shadow-sm border">
-                    <h3 class="text-lg font-bold text-slate-800 mb-4">Detalles de la Transacción Principal (#{{pago.id}})</h3>
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">Detalles del Reporte Actual (#{{pago.id}})</h3>
                     <dl class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4 text-sm">
                         <div><dt class="text-slate-500">Concepto</dt><dd class="font-semibold">{{ pago.por_concepto_de }}</dd></div>
                         <div><dt class="text-slate-500">Fecha del Pago</dt><dd class="font-semibold">{{ pago.fecha_pago | format_date }}</dd></div>
@@ -113,14 +129,13 @@
                  {% set status = {'text': p_accion.estado_reporte, 'icon': 'bi-question-circle', 'color': 'slate'} %}
                  {% if p_accion.estado_reporte == 'Pendiente de Revision' %}{% set status = {'text': 'Pendiente de Revisión', 'icon': 'bi-hourglass-split', 'color': 'amber'} %}{% endif %}
                  {% if p_accion.estado_reporte == 'Aprobado' %}{% set status = {'text': 'Aprobado', 'icon': 'bi-check-circle-fill', 'color': 'green'} %}{% endif %}
-                 {% if p_accion.estado_reporte == 'Inconsistente' %}{% set status = {'text': 'Diferencia Encontrada', 'icon': 'bi-exclamation-triangle-fill', 'color': 'red'} %}{% endif %}
+                 {% if p_accion.estado_reporte == 'Inconsistente' %}{% set status = {'text': 'Inconsistente', 'icon': 'bi-exclamation-triangle-fill', 'color': 'red'} %}{% endif %}
                 
                 <div class="bg-{{ status.color }}-50 text-{{ status.color }}-800 p-5 rounded-xl border border-{{ status.color }}-200 text-center">
                     <i class="bi {{ status.icon }} text-4xl"></i>
                     <h3 class="text-xl font-bold mt-2">{{ status.text }}</h3>
                 </div>
 
-                <!-- ===== INICIO DE LA CORRECCIÓN: Lógica de botones actualizada ===== -->
                 {% if is_admin_view and p_accion.estado_reporte == 'Pendiente de Revision' %}
                 <div class="bg-white p-5 rounded-xl shadow-sm border">
                     <h3 class="text-lg font-bold text-slate-800 mb-4">Acciones (sobre Pago #{{p_accion.id}})</h3>
@@ -138,7 +153,6 @@
                     </div>
                 </div>
                 {% endif %}
-                <!-- ===== FIN DE LA CORRECCIÓN ===== -->
             </div>
         </div>
     {% endif %}
@@ -164,13 +178,11 @@
                         <td class="p-3">{{ pago_item.fecha_creacion | format_datetime }}</td>
                         <td class="p-3">{{ pago_item.por_concepto_de }}</td>
                         <td class="p-3 font-semibold text-slate-800">
-                            <!-- ===== INICIO DE LA CORRECCIÓN: Lógica de moneda en tabla ===== -->
                             {% if pago_item.pago_en == 'Dolar/BCV' %}
                                 {{ "%.2f"|format(pago_item.monto_bs|float) }} Bs.
                             {% else %}
                                 ${{ "%.2f"|format(pago_item.monto|float) }}
                             {% endif %}
-                            <!-- ===== FIN DE LA CORRECCIÓN ===== -->
                         </td>
                         <td class="p-3">
                             <span class="p-1.5 text-xs font-medium uppercase tracking-wider rounded-lg 
@@ -191,7 +203,6 @@
     </div>
     {% endif %}
 
-    <!-- ===== INICIO DE LA CORRECCIÓN: Modal de diferencia actualizado ===== -->
     {% set p_accion = pago_pendiente_para_acciones or pago %}
     <div x-data="{ show: false }" @open-modal.window="show = ($event.detail === 'diferencia-modal-{{p_accion.id}}')" x-show="show" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900/60" style="display: none;">
         <div class="flex items-center justify-center min-h-screen p-4">
@@ -227,6 +238,5 @@
             </div>
         </div>
     </div>
-    <!-- ===== FIN DE LA CORRECCIÓN ===== -->
 </div>
 {% endblock %}

@@ -241,11 +241,11 @@
                                     </div>
                                     <div class="mt-2 sm:mt-0 flex items-center gap-4">
                                         <div class="text-left sm:text-right">
-                                            <p class="text-lg font-bold text-slate-800">
+                                            <p class="text-lg font-bold text-slate-800 flex items-baseline justify-end">
                                                 {% if proceso.moneda == 'Bs.' %}
-                                                    {{ "%.2f"|format(proceso.monto_total) }} <span class="text-sm font-normal text-slate-500">Bs.</span>
+                                                    {{ "%.2f"|format(proceso.monto_total) }} <span class="text-sm font-normal text-slate-500 ml-1">Bs.</span>
                                                 {% else %}
-                                                    ${{ "%.2f"|format(proceso.monto_total) }}
+                                                    <span class="text-sm font-normal text-slate-500 mr-0.5">$</span>{{ "%.2f"|format(proceso.monto_total) }}
                                                 {% endif %}
                                             </p>
                                         </div>
@@ -264,20 +264,24 @@
                                             <h4 class="font-semibold text-sm text-slate-800">Reporte Enviado</h4>
                                             <p class="text-xs text-slate-500">Recibimos tu reporte inicial.</p>
                                         </li>
-                                        <li class="timeline-step {% if estado == 'Pendiente de Revision' %}is-active{% else %}is-complete{% endif %}">
-                                            <div class="timeline-icon"><i class="bi bi-check-lg"></i></div>
+                                        <li class="timeline-step {% if estado == 'Pendiente de Revision' %}is-active{% elif estado in ['Aprobado', 'Conciliado', 'Inconsistente'] %}is-complete{% else %}is-pending{% endif %}">
+                                            <div class="timeline-icon">
+                                                {% if estado == 'Pendiente de Revision' %}<i class="bi bi-hourglass-split"></i>{% else %}<i class="bi bi-check-lg"></i>{% endif %}
+                                            </div>
                                             <h4 class="font-semibold text-sm text-slate-800">En Verificación</h4>
                                             <p class="text-xs text-slate-500">Nuestro equipo está verificando la información.</p>
                                         </li>
                                         <li class="timeline-step {% if estado == 'Inconsistente' %}is-error{% elif estado in ['Aprobado', 'Conciliado'] %}is-complete{% else %}is-pending{% endif %}">
                                             <div class="timeline-icon">
-                                                {% if estado == 'Inconsistente' %}<i class="bi bi-exclamation-triangle-fill"></i>{% else %}<i class="bi bi-check-lg"></i>{% endif %}
+                                                {% if estado == 'Inconsistente' %}<i class="bi bi-exclamation-triangle-fill"></i>{% elif estado in ['Aprobado', 'Conciliado'] %}<i class="bi bi-check-lg"></i>{% else %}<i class="bi bi-card-checklist"></i>{% endif %}
                                             </div>
                                             <h4 class="font-semibold text-sm text-slate-800">Procesado por Administración</h4>
                                             {% if estado == 'Inconsistente' %}<p class="text-xs text-red-600">Se encontró una inconsistencia. Revisa tus notificaciones.</p>{% else %}<p class="text-xs text-slate-500">El pago fue aprobado.</p>{% endif %}
                                         </li>
                                         <li class="timeline-step {% if estado == 'Conciliado' %}is-complete{% else %}is-pending{% endif %}">
-                                            <div class="timeline-icon"><i class="bi bi-patch-check-fill"></i></div>
+                                            <div class="timeline-icon">
+                                                {% if estado == 'Conciliado' %}<i class="bi bi-patch-check-fill"></i>{% else %}<i class="bi bi-patch-check"></i>{% endif %}
+                                            </div>
                                             <h4 class="font-semibold text-sm text-slate-800">Conciliado</h4>
                                             <p class="text-xs text-slate-500">¡Listo! Tu pago ha sido aplicado a tu cuenta.</p>
                                         </li>
@@ -293,12 +297,13 @@
                                                 <span class="text-xs font-medium uppercase tracking-wider rounded-md p-1 
                                                     {% if pago_item.estado_reporte == 'Inconsistente' %} text-red-800 bg-red-100
                                                     {% elif pago_item.estado_reporte == 'Pendiente de Revision' %} text-amber-800 bg-amber-100
+                                                    {% elif pago_item.estado_reporte == 'Aprobado' %} text-cyan-800 bg-cyan-100
                                                     {% else %} text-green-800 bg-green-100 {% endif %}">
                                                     {{ pago_item.estado_reporte }}
                                                 </span>
                                             </div>
-                                            <span class="font-semibold font-mono">
-                                                {% if pago_item.monto_bs and pago_item.monto_bs > 0 %}{{ "%.2f"|format(pago_item.monto_bs) }} Bs.{% else %}${{ "%.2f"|format(pago_item.monto) }}{% endif %}
+                                            <span class="font-semibold font-mono flex items-baseline">
+                                                {% if pago_item.pago_en == 'Dolar/BCV' %}{{ "%.2f"|format(pago_item.monto_bs|float) }}<span class="text-xs font-normal text-slate-500 ml-1">Bs.</span>{% else %}<span class="text-xs font-normal text-slate-500 mr-0.5">$</span>{{ "%.2f"|format(pago_item.monto|float) }}{% endif %}
                                             </span>
                                         </li>
                                         {% endfor %}
@@ -306,7 +311,7 @@
 
                                 </div>
                                 <div class="mt-4 pt-3 border-t border-slate-200 text-right">
-                                    <a href="{{ url_for('ver_reporte', pago_id=proceso.pagos[0].id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-blue-600 hover:text-blue-700">
+                                    <a href="{{ url_for('ver_reporte', pago_id=proceso.pagos[-1].id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-blue-600 hover:text-blue-700">
                                         <i class="bi bi-eye-fill"></i> Ver Detalles del Proceso
                                     </a>
                                 </div>
