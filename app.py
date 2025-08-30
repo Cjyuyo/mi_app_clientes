@@ -1937,16 +1937,17 @@ def pagos_por_conciliar():
             """)
             pagos_a_conciliar = cur.fetchall()
 
-            # Busca bulks que contienen diferencias y están listos para ser CONSOLIDADOS.
-            # Un bulk está listo si el monto total verificado es igual o mayor al esperado.
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Ahora busca bulks que están explícitamente listos O que, estando en revisión, ya tienen el monto completo.
             cur.execute("""
                 SELECT b.*, c.nombre, c.apellido
                 FROM payment_bulks b JOIN clientes c ON b.cliente_id = c.id
-                WHERE b.status = 'UNDER_REVIEW' 
-                AND b.total_verified >= b.expected_amount
+                WHERE b.status = 'READY_TO_RECONCILE' 
+                OR (b.status = 'UNDER_REVIEW' AND b.total_verified >= b.expected_amount)
                 ORDER BY b.updated_at ASC;
             """)
             bulks_a_conciliar = cur.fetchall()
+            # --- FIN DE LA CORRECCIÓN ---
 
     except psycopg2.Error as e:
         logging.error(f"Error al obtener datos para conciliar: {e}")
@@ -5437,8 +5438,7 @@ def validar_pago_individual(pago_id):
 
     try:
         with conn.cursor() as cur:
-            # Obtenemos el pago y su bulk_id
-            cur.execute("SELECT id, bulk_id FROM pagos WHERE id = %s AND estado_reporte = 'Pendiente de Revision'", (pago_id,))
+            cur.execute("SELECT id, bulk_id, cliente_id FROM pagos WHERE id = %s AND estado_reporte = 'Pendiente de Revision' FOR UPDATE", (pago_id,))
             pago = cur.fetchone()
 
             if not pago or not pago['bulk_id']:
@@ -5447,20 +5447,23 @@ def validar_pago_individual(pago_id):
 
             bulk_id = pago['bulk_id']
             
-            # Actualizamos el estado del pago individual
-            cur.execute("UPDATE pagos SET estado_reporte = 'Aprobado' WHERE id = %s", (pago_id,))
+            cur.execute("UPDATE pagos SET estado_reporte = 'Aprobado', revisado_por_id=%s, fecha_revision=NOW() WHERE id = %s", (g.admin['id'], pago_id))
             
-            # Recalculamos el total verificado del bulk
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se llama a la función recalcular_totales_bulk que ya contiene la lógica
+            # para actualizar el estado del bulk si los montos coinciden.
             recalcular_totales_bulk(bulk_id)
+            # --- FIN DE LA CORRECCIÓN ---
             
+            registrar_accion_auditoria('VALIDACION_PAGO_INDIVIDUAL', f"Validó el reporte de pago #{pago_id} del proceso #{bulk_id}.", pago['cliente_id'])
             conn.commit()
             flash(f"Pago #{pago_id} validado correctamente. El total del bulk ha sido actualizado.", "success")
 
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"Error al validar el pago: {e}", "danger")
+        logging.error(f"Error en validar_pago_individual para pago_id {pago_id}: {traceback.format_exc()}")
 
-    # Redirigimos de vuelta a la página anterior para que el admin vea el cambio
     return redirect(request.referrer or url_for('reportes_por_revisar'))
 
 @app.route('/api/pago_detalle/<int:pago_id>')
