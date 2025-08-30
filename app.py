@@ -853,59 +853,69 @@ def guardar_oferta(client_id):
 
 def recalcular_totales_bulk(bulk_id):
     """
-    Recalcula los totales de un bulk basado en sus líneas de pago APROBADAS.
+    Recalcula los totales de un bulk basado en sus líneas de pago.
+    CORRECCIÓN: Ahora suma correctamente los montos verificados de pagos 'Inconsistente'
+    y los montos de pagos 'Aprobado', y actualiza el estado del bulk si los totales coinciden.
     NOTA: Esta función NO gestiona la transacción (commit/rollback).
     """
     conn = get_db()
     if not conn:
-        logging.error(f"BULK_RECALC: Falla de conexión para bulk_id {bulk_id}")
+        logging.error(f"BULK_RECALC_V2: Falla de conexión para bulk_id {bulk_id}")
         return
+
     try:
         with conn.cursor() as cur:
-            # Obtiene la moneda del bulk para saber qué columna sumar
-            cur.execute("SELECT currency FROM payment_bulks WHERE id = %s FOR UPDATE", (bulk_id,))
+            # Bloquea el bulk para evitar condiciones de carrera
+            cur.execute("SELECT currency, expected_amount FROM payment_bulks WHERE id = %s FOR UPDATE", (bulk_id,))
             bulk = cur.fetchone()
-            if not bulk: return
+            if not bulk:
+                logging.warning(f"BULK_RECALC_V2: No se encontró el bulk_id {bulk_id} para recalcular.")
+                return
 
-            sum_column = 'monto_bs' if bulk['currency'] == 'VES' else 'monto'
-
-            # Suma los montos de todos los pagos APROBADOS asociados al bulk
-            cur.execute(f"""
-                SELECT COALESCE(SUM({sum_column}), 0) as total_verified
+            # Obtiene todos los pagos asociados que no estén anulados
+            cur.execute("""
+                SELECT estado_reporte, monto, monto_bs, detalles_reporte
                 FROM pagos
-                WHERE bulk_id = %s AND estado_reporte = 'Aprobado' AND estado_pago != 'Anulado'
+                WHERE bulk_id = %s AND estado_pago != 'Anulado'
             """, (bulk_id,))
-            total_verificado = cur.fetchone()['total_verified'] or Decimal('0.0')
+            pagos_asociados = cur.fetchall()
 
-            # Actualiza la tabla payment_bulks
+            total_verificado = Decimal('0.0')
+            for pago in pagos_asociados:
+                # Si el reporte fue aprobado, se suma el monto reportado completo.
+                if pago['estado_reporte'] == 'Aprobado':
+                    if bulk['currency'] == 'VES':
+                        total_verificado += pago['monto_bs'] or Decimal('0.0')
+                    else:
+                        total_verificado += pago['monto'] or Decimal('0.0')
+                
+                # Si es inconsistente, se busca el monto que el admin verificó.
+                elif pago['estado_reporte'] == 'Inconsistente':
+                    detalles = pago['detalles_reporte'] or {}
+                    if isinstance(detalles, str):
+                        try: detalles = json.loads(detalles)
+                        except json.JSONDecodeError: detalles = {}
+                    
+                    if 'monto_verificado' in detalles:
+                        total_verificado += Decimal(detalles['monto_verificado'])
+
+            # Actualiza la tabla payment_bulks con el nuevo total
             cur.execute("""
                 UPDATE payment_bulks SET total_verified = %s, updated_at = NOW() WHERE id = %s
             """, (total_verificado, bulk_id))
             
-            logging.info(f"BULK_RECALC: Total verificado actualizado a {total_verificado} para bulk_id {bulk_id}")
-    except psycopg2.Error as e:
-        logging.error(f"BULK_RECALC: Error recalculando totales para bulk_id {bulk_id}: {e}")
-        # Re-lanza la excepción para que la función que llama pueda manejar el rollback.
-        raise e
+            logging.info(f"BULK_RECALC_V2: Total verificado actualizado a {total_verificado} para bulk_id {bulk_id}")
 
-def registrar_accion_auditoria(accion, descripcion, cliente_id=None, detalles_adicionales=None):
-    """
-    Registra una acción en la tabla de auditoría.
-    NOTA: Esta función NO gestiona la transacción (commit/rollback).
-    """
-    conn = get_db()
-    if not conn: return
-    usuario_id = g.admin['id'] if g.admin else None
-    usuario_nombre = g.admin['usuario'] if g.admin else f"Cliente ID {session.get('cliente_id')}"
-    detalles_json = json.dumps(detalles_adicionales) if detalles_adicionales else None
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO registros_auditoria (usuario_id, usuario_nombre, accion, descripcion, cliente_afectado_id, detalles, ip_address) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                (usuario_id, usuario_nombre, accion, descripcion, cliente_id, detalles_json, request.remote_addr)
-            )
-    except Exception as e:
-        logging.error(f"AUDITORIA-FALLO-INSERCION: {e}")
+            # --- LÓGICA CRÍTICA DE TRANSICIÓN DE ESTADO ---
+            # Si el total verificado ya cubre lo esperado, se marca como listo para conciliar.
+            if total_verificado >= bulk['expected_amount']:
+                cur.execute("""
+                    UPDATE payment_bulks SET status = 'READY_TO_RECONCILE' WHERE id = %s
+                """, (bulk_id,))
+                logging.info(f"BULK_RECALC_V2: Bulk #{bulk_id} actualizado a READY_TO_RECONCILE.")
+
+    except (psycopg2.Error, InvalidOperation, json.JSONDecodeError) as e:
+        logging.error(f"BULK_RECALC_V2: Error recalculando totales para bulk_id {bulk_id}: {e}")
         # Re-lanza la excepción para que la función que llama pueda manejar el rollback.
         raise e
 
@@ -5340,13 +5350,18 @@ def ver_reporte(pago_id):
                 cur.execute("SELECT * FROM clientes WHERE id = %s", (session['cliente_id'],))
                 cliente_para_plantilla = cur.fetchone()
 
+            # --- INICIO DE LA MODIFICACIÓN ---
             pagos_del_mismo_bulk = []
             bulk_totals = None
-            pago_pendiente_para_acciones = pago 
+            pago_pendiente_para_acciones = pago
+            is_complex_process = False # Variable para controlar la vista en la plantilla
 
             if pago.get('bulk_id'):
                 cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
                 pagos_del_mismo_bulk = cur.fetchall()
+
+                # Un proceso se considera "complejo" si ya contiene al menos un pago marcado como 'Inconsistente'.
+                is_complex_process = any(p['estado_reporte'] == 'Inconsistente' for p in pagos_del_mismo_bulk)
 
                 if pagos_del_mismo_bulk:
                     ultimo_pago_pendiente = next((p for p in reversed(pagos_del_mismo_bulk) if p['estado_reporte'] == 'Pendiente de Revision'), None)
@@ -5366,9 +5381,17 @@ def ver_reporte(pago_id):
                         if isinstance(detalles, str):
                             try: detalles = json.loads(detalles)
                             except json.JSONDecodeError: detalles = {}
+                        
+                        # Sumamos el monto verificado si existe en los detalles
                         if detalles and detalles.get('monto_verificado'):
                             monto_verificado_total += Decimal(detalles['monto_verificado'])
-                    
+                        # Si el pago está aprobado pero no es inconsistente, se suma su monto total.
+                        elif p_item['estado_reporte'] == 'Aprobado':
+                             if pago.get('bulk_currency') == 'VES':
+                                monto_verificado_total += p_item.get('monto_bs') or Decimal('0.0')
+                             else:
+                                monto_verificado_total += p_item.get('monto') or Decimal('0.0')
+
                     diferencia_pendiente = monto_esperado_bulk - monto_verificado_total
                     
                     bulk_totals = {
@@ -5388,8 +5411,10 @@ def ver_reporte(pago_id):
                 pagos_del_mismo_bulk=pagos_del_mismo_bulk,
                 pago_pendiente_para_acciones=pago_pendiente_para_acciones,
                 bulk_totals=bulk_totals,
+                is_complex_process=is_complex_process,  # Pasamos la nueva variable a la plantilla
                 counts=counts
             )
+            # --- FIN DE LA MODIFICACIÓN ---
 
     except (psycopg2.Error, json.JSONDecodeError, KeyError) as e:
         logging.error(f"Error CRÍTICO en ver_reporte para pago_id {pago_id}: {traceback.format_exc()}")

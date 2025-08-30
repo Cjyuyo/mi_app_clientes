@@ -47,12 +47,15 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2 space-y-6">
                 
-                <!-- ===== INICIO DE LA CORRECCIÓN: LÓGICA DE TARJETAS CONDICIONAL ===== -->
-                {% if bulk_totals %}
+                <!-- ===== INICIO DE LA NUEVA LÓGICA DE TARJETAS ===== -->
+                {% if bulk_totals and is_complex_process %}
+                {# VISTA PARA PROCESOS COMPLEJOS (CON DIFERENCIAS) #}
                 <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
                     <h3 class="text-lg font-bold text-slate-800 mb-4">Resumen del Proceso Completo</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {% set currency_symbol = 'Bs.' if bulk_totals.currency == 'VES' else '$' %}
+                        
+                        <!-- Tarjeta: Monto Esperado -->
                         <div class="bg-white p-4 rounded-xl shadow-sm border text-center">
                             <h3 class="text-sm font-semibold text-slate-500">Monto Esperado</h3>
                             <p class="text-2xl font-bold text-slate-800 mt-2 flex items-baseline justify-center">
@@ -61,6 +64,7 @@
                                 {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1">{{ currency_symbol }}</span>{% endif %}
                             </p>
                         </div>
+                        <!-- Tarjeta: Total Reportado -->
                         <div class="bg-white p-4 rounded-xl shadow-sm border text-center">
                             <h3 class="text-sm font-semibold text-slate-500">Total Reportado</h3>
                             <p class="text-2xl font-bold text-blue-600 mt-2 flex items-baseline justify-center">
@@ -69,6 +73,7 @@
                                 {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1">{{ currency_symbol }}</span>{% endif %}
                             </p>
                         </div>
+                        <!-- Tarjeta: Total Verificado -->
                         <div class="bg-green-50 p-4 rounded-xl shadow-sm border border-green-200 text-center">
                             <h3 class="text-sm font-semibold text-green-600">Total Verificado</h3>
                             <p class="text-2xl font-bold text-green-700 mt-2 flex items-baseline justify-center">
@@ -77,6 +82,7 @@
                                 {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1">{{ currency_symbol }}</span>{% endif %}
                             </p>
                         </div>
+                        <!-- Tarjeta: Diferencia Pendiente -->
                         <div class="bg-red-50 p-4 rounded-xl shadow-sm border border-red-200 text-center">
                             <h3 class="text-sm font-semibold text-red-600">Diferencia Pendiente</h3>
                             <p class="text-2xl font-bold text-red-700 mt-2 flex items-baseline justify-center">
@@ -87,27 +93,37 @@
                         </div>
                     </div>
                 </div>
-                {% else %} {# Fallback para pagos simples sin bulk: se mantiene la vista original #}
+
+                {% else %}
+                {# VISTA PARA PAGOS SIMPLES (PENDIENTES DE PRIMERA REVISIÓN) #}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Tarjeta: Monto de la Cuota -->
                     <div class="bg-white p-5 rounded-xl shadow-sm border">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-100 text-slate-500"><i class="bi bi-bullseye text-xl"></i></div>
                             <div>
-                                <h3 class="font-semibold text-slate-800">Monto Esperado</h3>
-                                <p class="text-xs text-slate-500">Cálculo del sistema</p>
+                                <h3 class="font-semibold text-slate-800">Monto de la Cuota</h3>
+                                <p class="text-xs text-slate-500">Valor según plan del cliente</p>
                             </div>
                         </div>
                         <div class="mt-4 text-center">
-                             {% if pago.pago_en == 'Dolar/BCV' %}
-                                <p class="text-3xl font-bold text-slate-800 tracking-tight">{{ "%.2f"|format(pago.monto_esperado_bs|float) }} <span class="text-lg font-medium text-slate-500">Bs.</span></p>
-                                <p class="text-xs text-slate-500 mt-1">Tasa BCV Oficial: <span class="font-mono">{{ pago.tasa_dia | format_decimal }}</span></p>
+                             {% if pago.moneda_pago == 'BsBCV' %}
+                                <p class="text-3xl font-bold text-slate-800 tracking-tight flex items-baseline justify-center">
+                                    <span class="text-lg font-normal mr-0.5">$</span>
+                                    <span>{{ "%.2f"|format(pago.valor_cuota|float) }}</span>
+                                </p>
+                                <p class="text-xs text-slate-500 mt-1">(Referencia en USD)</p>
                             {% else %}
-                                <p class="text-3xl font-bold text-slate-800 tracking-tight">${{ "%.2f"|format(pago.monto_dolares_referencia|float) }} <span class="text-lg font-medium text-slate-500">{{ pago.pago_en or 'USD' }}</span></p>
+                                <p class="text-3xl font-bold text-slate-800 tracking-tight flex items-baseline justify-center">
+                                    <span class="text-lg font-normal mr-0.5">$</span>
+                                    <span>{{ "%.2f"|format(pago.valor_cuota|float) }}</span>
+                                </p>
                                 <p class="text-xs text-slate-500 mt-1">Pago directo en divisas</p>
                             {% endif %}
                         </div>
                     </div>
 
+                    <!-- Tarjeta: Monto Reportado por Cliente -->
                     <div class="bg-white p-5 rounded-xl shadow-sm border">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-blue-100 text-blue-600"><i class="bi bi-file-earmark-text-fill text-xl"></i></div>
@@ -118,17 +134,24 @@
                         </div>
                         <div class="mt-4 text-center">
                             {% if pago.pago_en == 'Dolar/BCV' %}
-                                <p class="text-3xl font-bold text-blue-600 tracking-tight">{{ "%.2f"|format(pago.monto_bs|float) }} <span class="text-lg font-medium text-slate-500">Bs.</span></p>
-                                <p class="text-xs text-slate-500 mt-1">Tasa Cliente (Efectiva): <span class="font-mono">{{ pago.tasa_efectiva_cliente | format_decimal }}</span></p>
+                                <p class="text-3xl font-bold text-blue-600 tracking-tight flex items-baseline justify-center">
+                                    <span>{{ "%.2f"|format(pago.monto_bs|float) }}</span>
+                                    <span class="text-lg font-normal ml-1">Bs.</span>
+                                </p>
+                                <p class="text-xs text-slate-500 mt-1">Tasa BCV del día del pago: <span class="font-mono">{{ pago.tasa_dia | format_decimal }}</span></p>
                             {% else %}
-                                <p class="text-3xl font-bold text-blue-600 tracking-tight">${{ "%.2f"|format(pago.monto|float) }} <span class="text-lg font-medium text-slate-500">{{ pago.pago_en or 'USD' }}</span></p>
+                                <p class="text-3xl font-bold text-blue-600 tracking-tight flex items-baseline justify-center">
+                                    <span class="text-lg font-normal mr-0.5">$</span>
+                                    <span>{{ "%.2f"|format(pago.monto|float) }}</span>
+                                </p>
                                 <p class="text-xs text-slate-500 mt-1">Reportado vía {{ pago.forma_pago or 'Digital' }}</p>
                             {% endif %}
                         </div>
                     </div>
                 </div>
                 {% endif %}
-                <!-- ===== FIN DE LA CORRECCIÓN ===== -->
+                <!-- ===== FIN DE LA NUEVA LÓGICA DE TARJETAS ===== -->
+
 
                 <div class="bg-white p-6 rounded-xl shadow-sm border">
                     <h3 class="text-lg font-bold text-slate-800 mb-4">Detalles de la Transacción Principal (#{{pago.id}})</h3>
@@ -145,24 +168,57 @@
             </div>
 
             <div class="lg:col-span-1 space-y-6">
+                 <!-- ===== INICIO DE LA CORRECCIÓN DE ESTADO ===== -->
                  {% set p_accion = pago_pendiente_para_acciones or pago %}
-                 {% set status = {'text': p_accion.estado_reporte, 'icon': 'bi-question-circle', 'color': 'slate'} %}
-                 {% if p_accion.estado_reporte == 'Pendiente de Revision' %}{% set status = {'text': 'Pendiente de Revisión', 'icon': 'bi-hourglass-split', 'color': 'amber'} %}{% endif %}
-                 {% if p_accion.estado_reporte == 'Aprobado' %}{% set status = {'text': 'Aprobado', 'icon': 'bi-check-circle-fill', 'color': 'green'} %}{% endif %}
-                 {% if p_accion.estado_reporte == 'Inconsistente' %}{% set status = {'text': 'Inconsistente', 'icon': 'bi-exclamation-triangle-fill', 'color': 'red'} %}{% endif %}
-                
-                <div class="bg-{{ status.color }}-50 text-{{ status.color }}-800 p-5 rounded-xl border border-{{ status.color }}-200 text-center">
-                    <i class="bi {{ status.icon }} text-4xl"></i>
-                    <h3 class="text-xl font-bold mt-2">{{ status.text }}</h3>
+                 {% set status_text = p_accion.estado_reporte %}
+                 {% set status_icon = 'bi-question-circle' %}
+                 {% set status_color = 'slate' %}
+                 
+                 {# Si es un proceso bulk, el estado del bulk tiene prioridad #}
+                 {% if pago.bulk_id %}
+                    {% if pago.bulk_status == 'UNDER_REVIEW' or pago.bulk_status == 'OPEN' %}
+                        {% if bulk_totals and bulk_totals.pendiente > 0 %}
+                            {% set status_text = 'Diferencia Pendiente' %}
+                            {% set status_icon = 'bi-exclamation-triangle-fill' %}
+                            {% set status_color = 'red' %}
+                        {% else %}
+                            {% set status_text = 'Pendiente de Revisión' %}
+                            {% set status_icon = 'bi-hourglass-split' %}
+                            {% set status_color = 'amber' %}
+                        {% endif %}
+                    {% elif pago.bulk_status == 'READY_TO_RECONCILE' %}
+                        {% set status_text = 'Listo para Conciliar' %}
+                        {% set status_icon = 'bi-check-circle-fill' %}
+                        {% set status_color = 'cyan' %}
+                    {% elif pago.bulk_status == 'RECONCILED' %}
+                        {% set status_text = 'Conciliado' %}
+                        {% set status_icon = 'bi-patch-check-fill' %}
+                        {% set status_color = 'green' %}
+                    {% elif pago.bulk_status == 'CANCELLED' %}
+                        {% set status_text = 'Anulado' %}
+                        {% set status_icon = 'bi-x-octagon-fill' %}
+                        {% set status_color = 'slate' %}
+                    {% endif %}
+                 {% else %} {# Lógica anterior para pagos simples #}
+                    {% if p_accion.estado_reporte == 'Pendiente de Revision' %}{% set status_text = 'Pendiente de Revisión' %}{% set status_icon = 'bi-hourglass-split' %}{% set status_color = 'amber' %}{% endif %}
+                    {% if p_accion.estado_reporte == 'Aprobado' %}{% set status_text = 'Aprobado' %}{% set status_icon = 'bi-check-circle-fill' %}{% set status_color = 'green' %}{% endif %}
+                    {% if p_accion.estado_reporte == 'Inconsistente' %}{% set status_text = 'Inconsistente' %}{% set status_icon = 'bi-exclamation-triangle-fill' %}{% set status_color = 'red' %}{% endif %}
+                 {% endif %}
+
+                <div class="bg-{{ status_color }}-50 text-{{ status_color }}-800 p-5 rounded-xl border border-{{ status_color }}-200 text-center">
+                    <i class="bi {{ status_icon }} text-4xl"></i>
+                    <h3 class="text-xl font-bold mt-2">{{ status_text }}</h3>
                 </div>
+                <!-- ===== FIN DE LA CORRECCIÓN DE ESTADO ===== -->
+
 
                 {% if is_admin_view and p_accion.estado_reporte == 'Pendiente de Revision' %}
                 <div class="bg-white p-5 rounded-xl shadow-sm border">
                     <h3 class="text-lg font-bold text-slate-800 mb-4">Acciones (sobre Pago #{{p_accion.id}})</h3>
                     <div class="space-y-3">
-                        <form action="{{ url_for('procesar_reporte', pago_id=p_accion.id) }}" method="POST">
-                            <button type="submit" name="accion" value="aprobar_para_conciliar" class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-md text-white bg-green-600 hover:bg-green-700">
-                                <i class="bi bi-check-lg mr-2"></i> Aprobar y Enviar a Conciliación
+                        <form action="{{ url_for('validar_pago_individual', pago_id=p_accion.id) }}" method="POST">
+                             <button type="submit" class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-md text-white bg-green-600 hover:bg-green-700">
+                                <i class="bi bi-check-lg mr-2"></i> Validar este Reporte
                             </button>
                         </form>
                         {% if p_accion.pago_en in ['Dolar/BCV', 'USDT'] %}
@@ -209,10 +265,15 @@
                                 {% if pago_item.estado_reporte == 'Inconsistente' %} text-red-800 bg-red-100
                                 {% elif pago_item.estado_reporte == 'Pendiente de Revision' %} text-amber-800 bg-amber-100
                                 {% elif pago_item.estado_reporte == 'Aprobado' %} text-cyan-800 bg-cyan-100
+                                {% elif pago_item.estado_reporte == 'RECONCILED' %} text-green-800 bg-green-100
                                 {% elif pago_item.estado_pago == 'Conciliado' %} text-green-800 bg-green-100
                                 {% else %} text-gray-800 bg-gray-100
                                 {% endif %}">
-                                {{ pago_item.estado_reporte if pago_item.estado_pago != 'Conciliado' else 'Conciliado' }}
+                                {% if pago_item.estado_reporte == 'RECONCILED' %}
+                                    Conciliado
+                                {% else %}
+                                    {{ pago_item.estado_reporte }}
+                                {% endif %}
                             </span>
                         </td>
                     </tr>
