@@ -15,22 +15,21 @@
         <p class="text-sm text-slate-300 mt-1">Cliente: {{ cliente.nombre_apellido }}</p>
     </div>
 
-    <div class="bg-white p-6 border-x border-slate-200">
-        <button type="button" class="w-full text-left p-4 focus:outline-none bg-slate-50 hover:bg-slate-100 border rounded-lg flex justify-between items-center" data-bs-toggle="modal" data-bs-target="#paymentDataModal">
-            <span class="font-semibold text-slate-700"><i class="bi bi-wallet2 mr-2"></i>Ver Datos para Realizar el Pago</span>
-            <i class="bi bi-box-arrow-up-right text-slate-500"></i>
-        </button>
-    </div>
-
-
     <div x-data="paymentController({
          isEnrollment: {{ is_enrollment_payment|tojson }},
          montoRestante: {{ monto_restante|float }},
          montoAPagar: {{ monto_a_pagar_usd|float }},
          tasaBcv: {{ (tasa_hoy.tasa if tasa_hoy else 0)|float }},
-         monedaContrato: '{{ cliente.moneda_pago }}'
+         monedaContrato: '{{ cliente.moneda_pago }}',
+         isModalOpen: false
      })">
 
+        <div class="bg-white p-6 border-x border-slate-200">
+            <button type="button" @click="isModalOpen = true" class="w-full text-left p-4 focus:outline-none bg-slate-50 hover:bg-slate-100 border rounded-lg flex justify-between items-center transition-colors">
+                <span class="font-semibold text-slate-700"><i class="bi bi-wallet2 mr-2"></i>Ver Datos para Realizar el Pago</span>
+                <i class="bi bi-box-arrow-up-right text-slate-500"></i>
+            </button>
+        </div>
         {% if cliente.moneda_pago == 'BsBCV' %}
         <div class="p-2 bg-slate-50 border-x border-slate-200">
             <nav class="flex space-x-2">
@@ -239,112 +238,80 @@
                 </button>
             </div>
         </form>
-    </div>
-</div>
 
-<div class="modal fade" id="paymentDataModal" tabindex="-1" aria-labelledby="paymentDataModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="paymentDataModalLabel">Datos para Realizar tu Pago</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        
-        <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
-          <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="pills-pagomovil-tab" data-bs-toggle="pill" data-bs-target="#pills-pagomovil" type="button" role="tab" aria-controls="pills-pagomovil" aria-selected="true">Pago Móvil</button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button class="nav-link" id="pills-transferencia-tab" data-bs-toggle="pill" data-bs-target="#pills-transferencia" type="button" role="tab" aria-controls="pills-transferencia" aria-selected="false">Transferencia Bs.</button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button class="nav-link" id="pills-binance-tab" data-bs-toggle="pill" data-bs-target="#pills-binance" type="button" role="tab" aria-controls="pills-binance" aria-selected="false">Binance (USDT)</button>
-          </li>
-        </ul>
+        <div x-show="isModalOpen" 
+             x-transition:enter="ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 p-4"
+             style="display: none;">
+            
+            <div @click.away="isModalOpen = false" 
+                 x-show="isModalOpen"
+                 x-transition:enter="ease-out duration-300"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="ease-in duration-200"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95"
+                 class="bg-white rounded-xl shadow-xl w-full max-w-2xl"
+                 x-data="{ activeTab: 'pagomovil' }">
+                
+                <div class="flex justify-between items-center p-4 border-b">
+                    <h3 class="text-lg font-bold text-slate-800">Datos para Realizar tu Pago</h3>
+                    <button @click="isModalOpen = false" class="text-slate-500 hover:text-slate-800">&times;</button>
+                </div>
 
-        <div class="tab-content" id="pills-tabContent">
-          
-          <div class="tab-pane fade show active" id="pills-pagomovil" role="tabpanel" aria-labelledby="pills-pagomovil-tab">
-            <h6 class="fw-bold">Datos para Pago Móvil</h6>
-            <table class="table table-bordered">
-                <tbody>
-                    <tr>
-                        <th scope="row" class="bg-light">Banco</th>
-                        <td>Banesco</td>
-                    </tr>
-                    <tr>
-                        <th scope="row" class="bg-light">Teléfono</th>
-                        <td>0412-1234567</td>
-                    </tr>
-                    <tr>
-                        <th scope="row" class="bg-light">RIF</th>
-                        <td>J-12345678-9</td>
-                    </tr>
-                     <tr>
-                        <th scope="row" class="bg-light">Monto</th>
-                        <td class="text-danger">El equivalente a la tasa BCV del día.</td>
-                    </tr>
-                </tbody>
-            </table>
-          </div>
+                <div class="p-4 border-b">
+                    <div class="flex space-x-1 bg-slate-100 p-1 rounded-lg">
+                        <button @click="activeTab = 'pagomovil'" :class="{'bg-white shadow': activeTab === 'pagomovil'}" class="flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors">Pago Móvil</button>
+                        <button @click="activeTab = 'transferencia'" :class="{'bg-white shadow': activeTab === 'transferencia'}" class="flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors">Transferencia Bs.</button>
+                        <button @click="activeTab = 'binance'" :class="{'bg-white shadow': activeTab === 'binance'}" class="flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors">Binance (USDT)</button>
+                    </div>
+                </div>
 
-          <div class="tab-pane fade" id="pills-transferencia" role="tabpanel" aria-labelledby="pills-transferencia-tab">
-            <h6 class="fw-bold">Datos para Transferencia en Bolívares</h6>
-            <table class="table table-bordered">
-                <tbody>
-                    <tr>
-                        <th scope="row" class="bg-light">Banco</th>
-                        <td>Banesco</td>
-                    </tr>
-                    <tr>
-                        <th scope="row" class="bg-light">Titular</th>
-                        <td>Moto Plan Motors C.A.</td>
-                    </tr>
-                    <tr>
-                        <th scope="row" class="bg-light">RIF</th>
-                        <td>J-12345678-9</td>
-                    </tr>
-                    <tr>
-                        <th scope="row" class="bg-light">N° de Cuenta</th>
-                        <td>0134-0000-00-0000123456</td>
-                    </tr>
-                    <tr>
-                        <th scope="row" class="bg-light">Tipo</th>
-                        <td>Cuenta Corriente</td>
-                    </tr>
-                </tbody>
-            </table>
-          </div>
+                <div class="p-6">
+                    <div x-show="activeTab === 'pagomovil'">
+                        <h4 class="font-bold mb-3 text-slate-700">Datos para Pago Móvil</h4>
+                        <dl class="divide-y divide-slate-200 border rounded-lg">
+                            <div class="px-4 py-3 grid grid-cols-3 gap-4"><dt class="text-sm font-medium text-slate-500">Banco</dt><dd class="text-sm text-slate-900 col-span-2 font-mono">Banesco</dd></div>
+                            <div class="px-4 py-3 grid grid-cols-3 gap-4"><dt class="text-sm font-medium text-slate-500">Teléfono</dt><dd class="text-sm text-slate-900 col-span-2 font-mono">0412-1234567</dd></div>
+                            <div class="px-4 py-3 grid grid-cols-3 gap-4"><dt class="text-sm font-medium text-slate-500">RIF</dt><dd class="text-sm text-slate-900 col-span-2 font-mono">J-12345678-9</dd></div>
+                            <div class="px-4 py-3 grid grid-cols-3 gap-4"><dt class="text-sm font-medium text-slate-500">Monto</dt><dd class="text-sm text-red-600 col-span-2">El equivalente a la tasa BCV del día.</dd></div>
+                        </dl>
+                    </div>
+                    <div x-show="activeTab === 'transferencia'" style="display: none;">
+                        <h4 class="font-bold mb-3 text-slate-700">Datos para Transferencia en Bolívares</h4>
+                        <dl class="divide-y divide-slate-200 border rounded-lg">
+                            <div class="px-4 py-3 grid grid-cols-3 gap-4"><dt class="text-sm font-medium text-slate-500">Banco</dt><dd class="text-sm text-slate-900 col-span-2 font-mono">Banesco</dd></div>
+                            <div class="px-4 py-3 grid grid-cols-3 gap-4"><dt class="text-sm font-medium text-slate-500">Titular</dt><dd class="text-sm text-slate-900 col-span-2 font-mono">Moto Plan Motors C.A.</dd></div>
+                            <div class="px-4 py-3 grid grid-cols-3 gap-4"><dt class="text-sm font-medium text-slate-500">RIF</dt><dd class="text-sm text-slate-900 col-span-2 font-mono">J-12345678-9</dd></div>
+                            <div class="px-4 py-3 grid grid-cols-3 gap-4"><dt class="text-sm font-medium text-slate-500">N° de Cuenta</dt><dd class="text-sm text-slate-900 col-span-2 font-mono">0134-0000-00-0000123456</dd></div>
+                            <div class="px-4 py-3 grid grid-cols-3 gap-4"><dt class="text-sm font-medium text-slate-500">Tipo</dt><dd class="text-sm text-slate-900 col-span-2 font-mono">Cuenta Corriente</dd></div>
+                        </dl>
+                    </div>
+                    <div x-show="activeTab === 'binance'" style="display: none;">
+                        <h4 class="font-bold mb-3 text-slate-700">Datos para Pago en Binance (USDT)</h4>
+                        <div class="p-3 text-sm bg-yellow-50 text-yellow-800 border-l-4 border-yellow-400 mb-4">
+                            <strong>Importante:</strong> Asegúrate de enviar el monto exacto y cubrir las comisiones de la red.
+                        </div>
+                        <dl class="divide-y divide-slate-200 border rounded-lg">
+                            <div class="px-4 py-3 grid grid-cols-3 gap-4"><dt class="text-sm font-medium text-slate-500">Correo (Pay ID)</dt><dd class="text-sm text-slate-900 col-span-2 font-mono">pagos@motoplan.com</dd></div>
+                            <div class="px-4 py-3 grid grid-cols-3 gap-4"><dt class="text-sm font-medium text-slate-500">Red</dt><dd class="text-sm text-slate-900 col-span-2 font-mono">BSC / BEP20 (Recomendada)</dd></div>
+                        </dl>
+                    </div>
+                </div>
 
-          <div class="tab-pane fade" id="pills-binance" role="tabpanel" aria-labelledby="pills-binance-tab">
-            <h6 class="fw-bold">Datos para Pago en Binance (USDT)</h6>
-             <div class="alert alert-warning small">
-                <strong>Importante:</strong> Asegúrate de enviar el monto exacto en USDT y cubrir las comisiones de la red para que recibamos el importe completo.
+                <div class="p-4 bg-slate-50 border-t text-right">
+                    <button @click="isModalOpen = false" class="bg-white text-slate-700 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-100">Cerrar</button>
+                </div>
             </div>
-            <table class="table table-bordered">
-                <tbody>
-                    <tr>
-                        <th scope="row" class="bg-light">Correo (Pay ID)</th>
-                        <td>pagos@motoplan.com</td>
-                    </tr>
-                    <tr>
-                        <th scope="row" class="bg-light">Red</th>
-                        <td>BSC / BEP20 (Recomendada)</td>
-                    </tr>
-                </tbody>
-            </table>
-          </div>
         </div>
-
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-      </div>
-    </div>
-  </div>
+        </div>
 </div>
-
 {% endblock %}
 
 
@@ -360,6 +327,7 @@
             pagoEn: config.monedaContrato === 'USD' ? 'USDT' : 'Dolar/BCV',
             formaPagoBs: 'Transferencia Bancaria',
             tasaBcv: config.tasaBcv,
+            isModalOpen: config.isModalOpen,
             
             // --- MONTOS BASE (DEL BACKEND) ---
             montoRestante: config.montoRestante,

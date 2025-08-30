@@ -4224,7 +4224,6 @@ def portal_reportar_pago():
             monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv_calculo).quantize(Decimal('0.01'))
 
             if request.method == 'POST':
-                # --- INICIO DE LA CORRECCIÓN ---
                 pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
                 
                 pago_en_final = pago_form.get('pago_en')
@@ -4250,7 +4249,6 @@ def portal_reportar_pago():
                     banco_final = pago_form.get('banco')
                     currency_bulk = 'VES'
 
-                # PASO 1: Crear el registro en payment_bulks para obtener un ID válido.
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
                     VALUES (%s, %s, %s, 'OPEN', 0) RETURNING id
@@ -4258,12 +4256,14 @@ def portal_reportar_pago():
                 
                 new_bulk_id = cur.fetchone()[0]
 
-                # PASO 2: Insertar el pago en la tabla 'pagos' usando el new_bulk_id válido.
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se añade 'estado_pago' con el valor 'Pendiente' a la inserción.
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, pago_en, cuotas_cubiertas, bulk_id)
-                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, 1, %s);
+                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, pago_en, cuotas_cubiertas, bulk_id, estado_pago)
+                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, 1, %s, 'Pendiente');
                 """
+                # --- FIN DE LA CORRECCIÓN ---
                 cur.execute(pago_query, (
                     cliente['id'], monto_usd_a_guardar, monto_reportado_bs,
                     forma_pago_final, fecha_pago_final, referencia_final, 
@@ -4271,7 +4271,6 @@ def portal_reportar_pago():
                     get_venezuela_current_datetime(), concepto_pago, pago_en_final,
                     new_bulk_id
                 ))
-                # --- FIN DE LA CORRECCIÓN ---
                 
                 flash('✅ ¡Pago de cuota reportado! Será verificado por un administrador.', 'success')
                 conn.commit()
@@ -4280,7 +4279,7 @@ def portal_reportar_pago():
     except (psycopg2.Error, ValueError, InvalidOperation) as e:
         if conn: conn.rollback()
         flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
-        traceback.print_exc() # Imprime el error detallado en la consola del servidor para depuración
+        traceback.print_exc()
         return redirect(url_for('portal_dashboard'))
 
     return render_template('portal_pago_unificado.html', 
@@ -4894,12 +4893,15 @@ def portal_pagar_inscripcion():
                         monto_usd_a_guardar = Decimal('0.0')
                     forma_pago_final = pago_form.get('forma_pago_bs')
                     banco_final = pago_form.get('banco')
-
+                
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se añade 'estado_pago' con el valor 'Pendiente' a la inserción.
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia,
-                                       estado_reporte, fecha_creacion, reportado_por_cliente) 
-                    VALUES (%s, %s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE);
+                                       estado_reporte, fecha_creacion, reportado_por_cliente, estado_pago) 
+                    VALUES (%s, %s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, 'Pendiente');
                 """
+                # --- FIN DE LA CORRECCIÓN ---
                 cur.execute(pago_query, (
                     session['cliente_id'], monto_usd_a_guardar, monto_reportado_bs,
                     forma_pago_final, fecha_pago_final, pago_en_final, 
