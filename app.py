@@ -1809,8 +1809,9 @@ def anular_reporte_admin(pago_id):
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def anular_proceso_pago(bulk_id):
     """
-    Anula un proceso de pago completo (bulk), incluyendo el pago original
-    inconsistente y cualquier orden de pago de diferencia asociada.
+    Anula un proceso de pago de forma inteligente.
+    - Si es un proceso de diferencia, anula la diferencia y revierte el pago original.
+    - Si es un proceso simple, anula todos los pagos asociados.
     """
     conn = get_db()
     motivo = request.form.get('motivo')
@@ -1823,22 +1824,20 @@ def anular_proceso_pago(bulk_id):
 
     try:
         with conn.cursor() as cur:
-            # 1. Verificar que el proceso (bulk) existe y se puede anular
             cur.execute("SELECT cliente_id, status FROM payment_bulks WHERE id = %s FOR UPDATE", (bulk_id,))
             bulk = cur.fetchone()
 
             if not bulk:
                 return jsonify({'status': 'error', 'message': 'El proceso de pago no fue encontrado.'}), 404
             
-            if bulk['status'] not in ['OPEN', 'UNDER_REVIEW']:
-                return jsonify({'status': 'error', 'message': 'Este proceso ya no se puede anular porque ha sido procesado.'}), 400
+            # La anulación ahora se permite en más estados iniciales.
+            if bulk['status'] not in ['OPEN', 'UNDER_REVIEW', 'READY_TO_RECONCILE']:
+                return jsonify({'status': 'error', 'message': 'Este proceso ya no se puede anular porque ha sido procesado o conciliado.'}), 400
 
-            # OBTENER CÉDULA PARA LA REDIRECCIÓN
             cur.execute("SELECT cedula FROM clientes WHERE id = %s", (bulk['cliente_id'],))
             cliente = cur.fetchone()
             cedula_para_redirect = cliente['cedula'] if cliente else None
 
-            # 2. Preparar los detalles de la anulación
             detalles_anulacion = {
                 'motivo_anulacion': motivo.strip(),
                 'anulado_por': g.admin['usuario'],
@@ -1846,30 +1845,64 @@ def anular_proceso_pago(bulk_id):
             }
             detalles_json = json.dumps(detalles_anulacion)
 
-            # 3. Anular todos los pagos asociados al bulk
+            # --- INICIO DE LA LÓGICA UNIVERSAL ---
+
+            # 1. Identificar el tipo de proceso: Contamos cuántos pagos originales y de diferencia hay.
             cur.execute("""
-                UPDATE pagos 
-                SET estado_reporte = 'Anulado por Admin', 
-                    estado_pago = 'Anulado',
-                    detalles_reporte = COALESCE(detalles_reporte, '{}'::jsonb) || %s::jsonb
+                SELECT
+                    COUNT(*) FILTER (WHERE is_diferencia = TRUE) as count_diferencia,
+                    COUNT(*) FILTER (WHERE is_diferencia = FALSE OR is_diferencia IS NULL) as count_original
+                FROM pagos
                 WHERE bulk_id = %s
-            """, (detalles_json, bulk_id))
+            """, (bulk_id,))
+            counts = cur.fetchone()
 
-            # 4. Anular las órdenes de pago pendientes
+            # 2. Aplicar la lógica de anulación según el tipo de proceso
+            if counts and counts['count_diferencia'] > 0 and counts['count_original'] > 0:
+                # Escenario A: Es un Proceso de Diferencia (tiene original y diferencia)
+                # Anulamos solo los pagos de diferencia
+                cur.execute("""
+                    UPDATE pagos 
+                    SET estado_reporte = 'Anulado por Admin', estado_pago = 'Anulado',
+                        detalles_reporte = COALESCE(detalles_reporte, '{}'::jsonb) || %s::jsonb
+                    WHERE bulk_id = %s AND is_diferencia = TRUE
+                """, (detalles_json, bulk_id))
+
+                # Revertimos el pago original a pendiente y lo desvinculamos
+                cur.execute("""
+                    UPDATE pagos
+                    SET estado_reporte = 'Pendiente de Revision', bulk_id = NULL, detalles_reporte = NULL
+                    WHERE bulk_id = %s AND (is_diferencia = FALSE OR is_diferencia IS NULL)
+                """, (bulk_id,))
+                
+                message = 'El proceso de diferencia ha sido anulado. El pago original está nuevamente pendiente de revisión.'
+
+            else:
+                # Escenario B: Es un Proceso Simple (solo pago/s original/es)
+                # Anulamos todos los pagos dentro del bulk
+                cur.execute("""
+                    UPDATE pagos 
+                    SET estado_reporte = 'Anulado por Admin', estado_pago = 'Anulado',
+                        detalles_reporte = COALESCE(detalles_reporte, '{}'::jsonb) || %s::jsonb
+                    WHERE bulk_id = %s
+                """, (detalles_json, bulk_id))
+                
+                message = 'El proceso de pago y todos sus reportes asociados han sido anulados.'
+
+            # --- FIN DE LA LÓGICA UNIVERSAL ---
+
+            # 3. Anular las órdenes y el bulk (común para ambos escenarios)
             cur.execute("UPDATE payment_orders SET status = 'CANCELLED' WHERE bulk_id = %s", (bulk_id,))
-
-            # 5. Anular el bulk en sí
             cur.execute("UPDATE payment_bulks SET status = 'CANCELLED' WHERE id = %s", (bulk_id,))
 
-            # 6. Registrar en la auditoría
-            descripcion_audit = f"Anuló el proceso de pago completo (Bulk ID #{bulk_id}). Motivo: {motivo.strip()}"
+            descripcion_audit = f"Anuló el proceso de pago (Bulk ID #{bulk_id}). Motivo: {motivo.strip()}"
             registrar_accion_auditoria('ANULACION_PROCESO_PAGO', descripcion_audit, bulk['cliente_id'], {'bulk_id': bulk_id})
             
             conn.commit()
-            # AÑADIR CÉDULA A LA RESPUESTA JSON
+
             return jsonify({
                 'status': 'success', 
-                'message': 'El proceso de pago y todos sus reportes asociados han sido anulados.',
+                'message': message,
                 'cedula': cedula_para_redirect
             })
 
