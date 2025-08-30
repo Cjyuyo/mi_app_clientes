@@ -4351,18 +4351,31 @@ def portal_diferencia_reportar(bulk_id, order_id):
         return redirect(url_for('portal_dashboard'))
 
     if request.method == 'POST':
-        pago_form = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
+        pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
         try:
             with conn.cursor() as cur:
-                monto_bs_reportado = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
-                monto_usdt_reportado = Decimal(pago_form.get('monto_usdt', '0.00').replace(',', '.'))
-
+                # --- INICIO DE LA CORRECCIÓN DEFINITIVA ---
                 tasa_bcv_dia = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
+                moneda_orden = order['currency']
+                
+                monto_bs_final = Decimal('0.0')
+                monto_usd_final = Decimal('0.0')
+                pago_en_final = ''
+                forma_pago_final = ''
 
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se añaden las columnas 'estado_pago' y 'pago_en' para corregir los 3 problemas.
-                pago_en_final = 'USDT' if order['currency'] == 'USD' else 'Dolar/BCV'
-                monto_final_usd = monto_usdt_reportado if pago_en_final == 'USDT' else ((monto_bs_reportado / tasa_bcv_dia) if tasa_bcv_dia > 0 else Decimal('0.0'))
+                if moneda_orden == 'USD':
+                    monto_usd_final = Decimal(pago_form.get('monto_usdt', '0.00').replace(',', '.'))
+                    monto_bs_final = Decimal('0.0') # Forzamos Bs a 0 para integridad de datos
+                    pago_en_final = 'USDT'
+                    forma_pago_final = 'Binance'
+                else: # VES
+                    monto_bs_final = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
+                    if tasa_bcv_dia > 0:
+                        monto_usd_final = (monto_bs_final / tasa_bcv_dia).quantize(Decimal('0.01'))
+                    else:
+                        monto_usd_final = Decimal('0.0')
+                    pago_en_final = 'Dolar/BCV'
+                    forma_pago_final = pago_form.get('forma_pago_bs')
 
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
@@ -4371,12 +4384,12 @@ def portal_diferencia_reportar(bulk_id, order_id):
                     VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, TRUE, 0, 'Pendiente', %s);
                 """
                 cur.execute(pago_query, (
-                    cliente['id'], monto_final_usd, monto_bs_reportado, 
-                    pago_form.get('forma_pago_bs') or 'Binance', 
-                    pago_form.get('fecha_pago'), pago_form.get('referencia'), pago_form.get('banco'), tasa_bcv_dia,
-                    get_venezuela_current_datetime(), concepto_pago, bulk_id, pago_en_final
+                    cliente['id'], monto_usd_final, monto_bs_final, 
+                    forma_pago_final, pago_form.get('fecha_pago'), pago_form.get('referencia'), 
+                    pago_form.get('banco'), tasa_bcv_dia, get_venezuela_current_datetime(), 
+                    concepto_pago, bulk_id, pago_en_final
                 ))
-                # --- FIN DE LA CORRECCIÓN ---
+                # --- FIN DE LA CORRECCIÓN DEFINITIVA ---
                 
                 cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
                 
@@ -4388,7 +4401,7 @@ def portal_diferencia_reportar(bulk_id, order_id):
                 return redirect(url_for('portal_dashboard'))
         except (psycopg2.Error, ValueError, InvalidOperation) as e:
             conn.rollback()
-            flash(f'Ocurrió un error al reportar el pago de la diferencia.', 'error')
+            flash(f'Ocurrió un error al reportar el pago de la diferencia: {e}', 'error')
             return redirect(url_for('portal_dashboard'))
 
     return render_template('portal_pago_unificado.html', 
