@@ -228,7 +228,6 @@
 
             <div class="p-4">
                 <div x-show="activeTab === 'pagos'" class="space-y-4">
-                    <!-- ===== INICIO DE LA MODIFICACIÓN: Lógica de Procesos de Pago ===== -->
                     {% if cliente.procesos_de_pago %}
                         {% for proceso in cliente.procesos_de_pago %}
                         <div x-data="{ expanded: false }" class="bg-white border rounded-lg hover:shadow-sm transition-shadow">
@@ -297,7 +296,6 @@
                                                 <span class="text-xs font-medium uppercase tracking-wider rounded-md p-1 
                                                     {% if pago_item.estado_reporte == 'Inconsistente' %} text-red-800 bg-red-100
                                                     {% elif pago_item.estado_reporte == 'Pendiente de Revision' %} text-amber-800 bg-amber-100
-                                                    {% elif pago_item.estado_reporte == 'Aprobado' %} text-cyan-800 bg-cyan-100
                                                     {% else %} text-green-800 bg-green-100 {% endif %}">
                                                     {{ pago_item.estado_reporte }}
                                                 </span>
@@ -324,8 +322,7 @@
                             <p class="mt-2">Aún no tienes pagos registrados.</p>
                         </div>
                     {% endif %}
-                    <!-- ===== FIN DE LA MODIFICACIÓN ===== -->
-                </div>
+                    </div>
                 <div x-show="activeTab === 'gestiones'" class="space-y-4">
                     {% if historial_gestiones %}
                         <ul class="space-y-4">
@@ -363,7 +360,6 @@
         </div>
     </div>
 </div>
-
 <div class="modal fade" id="ofertaModal" tabindex="-1" aria-labelledby="ofertaModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -510,7 +506,6 @@
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block scripts_extra %}

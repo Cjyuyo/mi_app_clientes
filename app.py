@@ -4075,7 +4075,7 @@ def portal_dashboard():
             if not cliente:
                 session.clear()
                 flash('Cliente no encontrado.', 'error')
-                return redirect(url_for('portal_login'))
+                return redirect(url_for('portal_logout'))
             
             cliente_dict = dict(cliente)
             
@@ -4107,10 +4107,12 @@ def portal_dashboard():
                 
                 procesos_agrupados[id_proceso]['pagos'].append(dict(pago))
 
+            # Segunda pasada para calcular los totales y estados correctamente
             for id_proceso, proceso in procesos_agrupados.items():
-                proceso['pagos'].sort(key=lambda p: p['fecha_creacion'], reverse=True)
+                proceso['pagos'].sort(key=lambda p: p['fecha_creacion'], reverse=True) # El más reciente primero
                 
                 if isinstance(id_proceso, str) and id_proceso.startswith('solo_'):
+                    # Es un pago simple, sin bulk
                     pago_unico = proceso['pagos'][0]
                     proceso['moneda'] = 'Bs.' if pago_unico.get('pago_en') == 'Dolar/BCV' else 'USD'
                     proceso['monto_total'] = pago_unico['monto_bs'] if proceso['moneda'] == 'Bs.' else pago_unico['monto']
@@ -4119,11 +4121,13 @@ def portal_dashboard():
                     else:
                         proceso['estado_general'] = pago_unico['estado_reporte']
                 else:
+                    # Es un proceso complejo (bulk)
                     primer_pago_del_grupo = sorted(proceso['pagos'], key=lambda p: p['fecha_creacion'])[0]
                     proceso['monto_total'] = primer_pago_del_grupo['bulk_expected_amount'] or Decimal('0.0')
                     proceso['moneda'] = 'Bs.' if primer_pago_del_grupo['bulk_currency'] == 'VES' else 'USD'
                     proceso['concepto_principal'] = primer_pago_del_grupo['por_concepto_de']
                     
+                    # Determinar estado general del bulk
                     bulk_status = primer_pago_del_grupo['bulk_status']
                     if bulk_status == 'RECONCILED':
                         proceso['estado_general'] = 'Conciliado'
@@ -5291,7 +5295,6 @@ def ver_reporte(pago_id):
         flash("Error de conexión a la base de datos.", "error")
         return redirect(url_for('home'))
 
-    # ... (código para obtener 'counts' sin cambios) ...
     counts = { 'pagos_pendientes': 0, 'reportes_pendientes': 0, 'citas': 0, 'congelamientos': 0, 'retiros': 0 }
     if is_admin_view:
         try:
@@ -5309,7 +5312,6 @@ def ver_reporte(pago_id):
                     elif row['tipo_solicitud'] == 'Retiro': counts['retiros'] = row['total']
         except psycopg2.Error as e:
             logging.error(f"Error al contar pendientes en ver_reporte: {e}")
-
 
     try:
         with conn.cursor() as cur:
@@ -5338,15 +5340,9 @@ def ver_reporte(pago_id):
                 cur.execute("SELECT * FROM clientes WHERE id = %s", (session['cliente_id'],))
                 cliente_para_plantilla = cur.fetchone()
 
-            # --- LÓGICA DE VISUALIZACIÓN POR NIVELES ---
-            # Por defecto, las tarjetas muestran los datos de este pago individual
-            pago['monto_dolares_referencia'] = pago.get('monto')
-            if pago.get('pago_en') == 'Dolar/BCV' and pago.get('tasa_dia') and pago.get('tasa_dia') > 0:
-                 pago['monto_esperado_bs'] = (pago.get('monto', Decimal('0.0')) * pago.get('tasa_dia')).quantize(Decimal('0.01'))
-
             pagos_del_mismo_bulk = []
             bulk_totals = None
-            pago_pendiente_para_acciones = pago
+            pago_pendiente_para_acciones = pago 
 
             if pago.get('bulk_id'):
                 cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
@@ -5356,7 +5352,6 @@ def ver_reporte(pago_id):
                     ultimo_pago_pendiente = next((p for p in reversed(pagos_del_mismo_bulk) if p['estado_reporte'] == 'Pendiente de Revision'), None)
                     pago_pendiente_para_acciones = dict(ultimo_pago_pendiente) if ultimo_pago_pendiente else pago
 
-                    # Calcular totales para las tarjetas de resumen del PROCESO COMPLETO
                     monto_esperado_bulk = pago['bulk_expected_amount'] or Decimal('0.0')
                     
                     monto_reportado_total = sum(
@@ -5365,14 +5360,15 @@ def ver_reporte(pago_id):
                     )
                     
                     monto_verificado_total = Decimal('0.0')
-                    for p_item in pagos_del_mismo_bulk:
+                    for p_item_raw in pagos_del_mismo_bulk:
+                        p_item = dict(p_item_raw)
                         detalles = p_item.get('detalles_reporte') or {}
                         if isinstance(detalles, str):
                             try: detalles = json.loads(detalles)
                             except json.JSONDecodeError: detalles = {}
                         if detalles and detalles.get('monto_verificado'):
                             monto_verificado_total += Decimal(detalles['monto_verificado'])
-
+                    
                     diferencia_pendiente = monto_esperado_bulk - monto_verificado_total
                     
                     bulk_totals = {
@@ -5382,7 +5378,7 @@ def ver_reporte(pago_id):
                         'pendiente': diferencia_pendiente if diferencia_pendiente > 0 else Decimal('0.0'),
                         'currency': pago.get('bulk_currency') or 'USD'
                     }
-
+            
             return render_template(
                 'ver_reporte.html',
                 pago=pago,
