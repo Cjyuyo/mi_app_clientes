@@ -1537,14 +1537,14 @@ def cancelar_cita_admin(solicitud_id):
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def reportes_por_revisar():
     conn = get_db()
-    reportes_pendientes_final = []
+    # Se inicializa la estructura que la plantilla HTML espera
+    reportes_categorizados = {'pendientes': [], 'diferencias': []}
     if not conn:
         flash("Error de conexión con la base de datos.", "danger")
-        return render_template('reportes_por_revisar.html', reportes_pendientes=reportes_pendientes_final)
+        return render_template('reportes_por_revisar.html', reportes=reportes_categorizados)
     try:
         with conn.cursor() as cur:
-            # --- INICIO DE LA CORRECCIÓN ---
-            # La consulta ahora solo busca reportes genuinamente pendientes de una primera revisión.
+            # La consulta ahora solo trae los reportes que necesitan una primera revisión.
             query = """
                 SELECT p.*, c.nombre, c.apellido, c.cedula, c.valor_cuota, c.inscripcion_monto, c.moneda_pago
                 FROM pagos p JOIN clientes c ON p.cliente_id = c.id
@@ -1552,12 +1552,13 @@ def reportes_por_revisar():
                 ORDER BY p.fecha_creacion ASC;
             """
             cur.execute(query)
-            todos_los_reportes = cur.fetchall()
+            reportes_pendientes = cur.fetchall()
 
-            for reporte_row in todos_los_reportes:
+            # Se sigue necesitando este bucle para calcular los montos esperados para la vista
+            lista_final_pendientes = []
+            for reporte_row in reportes_pendientes:
                 reporte = dict(reporte_row)
                 
-                # Se inicializan ambos montos esperados para la visualización.
                 reporte['monto_esperado_bs'] = Decimal('0.0')
                 reporte['monto_esperado_usd'] = Decimal('0.0')
 
@@ -1578,13 +1579,18 @@ def reportes_por_revisar():
                     if monto_dolares_referencia and tasa_exacta:
                         reporte['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta).quantize(Decimal('0.01'))
                 
-                reportes_pendientes_final.append(reporte)
-            # --- FIN DE LA CORRECCIÓN ---
+                lista_final_pendientes.append(reporte)
+            
+            # --- CORRECCIÓN CLAVE ---
+            # Se asigna la lista procesada a la llave 'pendientes' del diccionario.
+            reportes_categorizados['pendientes'] = lista_final_pendientes
+            # La llave 'diferencias' se queda como una lista vacía, logrando el objetivo.
 
     except psycopg2.Error as e:
         flash(f"Error al cargar la lista de reportes: {e}", "danger")
 
-    return render_template('reportes_por_revisar.html', reportes_pendientes=reportes_pendientes_final)
+    # Se pasa el diccionario completo con el nombre 'reportes' que la plantilla espera.
+    return render_template('reportes_por_revisar.html', reportes=reportes_categorizados)
 
  # --- INICIO DE LA CORRECCIÓN ---
 # Esta es una función auxiliar que contiene la lógica pura de conciliación.
