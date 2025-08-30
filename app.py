@@ -1918,7 +1918,6 @@ def pagos_por_conciliar():
     
     try:
         with conn.cursor() as cur:
-            # --- CAMBIO: OBTENER PAGOS INDIVIDUALES ---
             # Busca pagos normales que fueron aprobados y están listos.
             cur.execute("""
                 SELECT p.*, c.nombre, c.apellido, c.cedula
@@ -1928,12 +1927,13 @@ def pagos_por_conciliar():
             """)
             pagos_a_conciliar = cur.fetchall()
 
-            # --- CAMBIO: OBTENER BULKS ---
-            # Busca bulks que contienen diferencias y están listos.
+            # Busca bulks que contienen diferencias y están listos para ser CONSOLIDADOS.
+            # Un bulk está listo si el monto total verificado es igual o mayor al esperado.
             cur.execute("""
                 SELECT b.*, c.nombre, c.apellido
                 FROM payment_bulks b JOIN clientes c ON b.cliente_id = c.id
-                WHERE b.status = 'READY_TO_RECONCILE' 
+                WHERE b.status = 'UNDER_REVIEW' 
+                AND b.total_verified >= b.expected_amount
                 ORDER BY b.updated_at ASC;
             """)
             bulks_a_conciliar = cur.fetchall()
@@ -1942,14 +1942,10 @@ def pagos_por_conciliar():
         logging.error(f"Error al obtener datos para conciliar: {e}")
         flash("Error al cargar la lista de pagos y lotes por conciliar.", "danger")
     
-    # Se envían ambas listas a la plantilla.
     return render_template('pagos_por_conciliar.html', 
                            pagos=pagos_a_conciliar, 
                            bulks=bulks_a_conciliar, 
                            anio_actual=get_venezuela_current_date().year)
-
-
-
 # =================================================================================
 # ===== MÓDULO DE TESORERÍA, COMERCIAL Y REPORTES =====
 # =================================================================================
@@ -4083,19 +4079,59 @@ def portal_dashboard():
             
             cliente_dict = dict(cliente)
             
+            # --- INICIO DE LA LÓGICA DE AGRUPACIÓN DE PAGOS ---
             cur.execute("""
-                SELECT * FROM pagos 
-                WHERE cliente_id = %s AND estado_pago != 'Anulado' 
-                ORDER BY fecha_creacion DESC LIMIT 5;
+                SELECT p.*, b.status as bulk_status
+                FROM pagos p
+                LEFT JOIN payment_bulks b ON p.bulk_id = b.id
+                WHERE p.cliente_id = %s AND p.estado_pago != 'Anulado'
+                ORDER BY p.fecha_creacion DESC;
             """, (session['cliente_id'],))
-            cliente_dict['pagos'] = cur.fetchall()
+            todos_los_pagos = cur.fetchall()
 
-            cur.execute("SELECT 1 FROM pagos WHERE cliente_id = %s AND estado_reporte = 'Pendiente de Revision' LIMIT 1", (session['cliente_id'],))
-            hay_pago_pendiente_general = cur.fetchone() is not None
-            
+            procesos_agrupados = {}
+            for pago in todos_los_pagos:
+                bulk_id = pago.get('bulk_id')
+                id_proceso = bulk_id if bulk_id else f"solo_{pago['id']}"
+
+                if id_proceso not in procesos_agrupados:
+                    procesos_agrupados[id_proceso] = {
+                        'id_proceso': id_proceso,
+                        'pagos': [],
+                        'fecha_inicio': pago['fecha_creacion'],
+                        'concepto_principal': pago['por_concepto_de'] or pago['tipo_pago'],
+                        'estado_general': '',
+                        'monto_total': Decimal('0.0'),
+                        'moneda': 'USD' if (pago.get('monto_bs') is None or pago.get('monto_bs') == 0) else 'Bs.'
+                    }
+                
+                procesos_agrupados[id_proceso]['pagos'].append(dict(pago))
+
+            lista_procesos = sorted(procesos_agrupados.values(), key=lambda p: p['fecha_inicio'], reverse=True)
+
+            # Determinar el estado general de cada proceso
+            for proceso in lista_procesos:
+                ultimo_pago = proceso['pagos'][0] # Ya están ordenados por fecha desc
+                proceso['monto_total'] = sum(p['monto_bs'] if proceso['moneda'] == 'Bs.' else p['monto'] for p in proceso['pagos'])
+
+                if ultimo_pago['bulk_status'] == 'RECONCILED' or ultimo_pago['estado_pago'] == 'Conciliado':
+                    proceso['estado_general'] = 'Conciliado'
+                elif ultimo_pago['estado_reporte'] == 'Inconsistente':
+                    proceso['estado_general'] = 'Inconsistente'
+                elif ultimo_pago['estado_reporte'] == 'Pendiente de Revision':
+                    proceso['estado_general'] = 'Pendiente de Revision'
+                elif ultimo_pago['estado_reporte'] == 'Aprobado':
+                    proceso['estado_general'] = 'Aprobado'
+                else:
+                    proceso['estado_general'] = 'En Proceso'
+
+            cliente_dict['procesos_de_pago'] = lista_procesos
+            # --- FIN DE LA LÓGICA DE AGRUPACIÓN ---
+
             cur.execute("SELECT * FROM payment_orders WHERE cliente_id = %s AND status = 'ISSUED'", (session['cliente_id'],))
             ordenes_pendientes_raw = cur.fetchall()
-
+            # ... (el resto de la función sigue igual) ...
+            
             ordenes_pendientes = []
             for orden_raw in ordenes_pendientes_raw:
                 orden = dict(orden_raw)
@@ -4168,39 +4204,30 @@ def portal_dashboard():
 
             historial_gestiones = []
 
-            # --- INICIO DE LA CORRECCIÓN 2 ---
-            # Se prioriza mostrar el estado de "Pago en Verificación" si existe un pago pendiente.
+            hay_pago_pendiente_general = any(p['estado_general'] == 'Pendiente de Revision' for p in cliente_dict['procesos_de_pago'])
+            
             if hay_pago_pendiente_general and not ordenes_pendientes:
                 estado_principal = {
                     'titulo': 'Pago en Proceso de Verificación',
                     'mensaje': 'Hemos recibido tu reporte de pago. Nuestro equipo lo está verificando y te notificaremos una vez sea procesado. Puedes ver el estado en la sección "Últimos Pagos".',
-                    'boton_texto': None,
-                    'boton_url': None,
-                    'boton_activo': False
+                    'boton_texto': None, 'boton_url': None, 'boton_activo': False
                 }
             elif cliente_dict.get('proceso') == 'RESERVA' and not ordenes_pendientes:
                 inscripcion_pagada = cliente_dict.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
                 inscripcion_total = cliente_dict.get('inscripcion_monto', Decimal('0.0')) or Decimal('0.0')
-                
                 if inscripcion_pagada < inscripcion_total:
                     monto_restante = inscripcion_total - inscripcion_pagada
                     estado_principal = {
                         'titulo': 'Completa tu Inscripción',
                         'mensaje': f"¡Bienvenido a Moto Plan! Para activar tu plan, por favor completa el pago de tu inscripción. Monto restante: ${monto_restante:,.2f}",
-                        'boton_texto': 'Pagar Inscripción',
-                        'boton_url': url_for('portal_pagar_inscripcion'),
-                        'boton_activo': not hay_pago_pendiente_general
+                        'boton_texto': 'Pagar Inscripción', 'boton_url': url_for('portal_pagar_inscripcion'), 'boton_activo': not hay_pago_pendiente_general
                     }
-            
             elif cliente_dict.get('proceso') == 'INSCRITO' and not ordenes_pendientes:
                 estado_principal = {
                     'titulo': '¡Felicitaciones! Es hora de activar tu plan',
                     'mensaje': f"Tu inscripción ha sido completada. Para comenzar a sumar cuotas a tu plan, por favor realiza el pago de tu primera cuota por un monto de ${cliente_dict.get('valor_cuota', 0):,.2f}.",
-                    'boton_texto': 'Pagar Primera Cuota',
-                    'boton_url': url_for('portal_reportar_pago'),
-                    'boton_activo': not hay_pago_pendiente_general
+                    'boton_texto': 'Pagar Primera Cuota', 'boton_url': url_for('portal_reportar_pago'), 'boton_activo': not hay_pago_pendiente_general
                 }
-            # --- FIN DE LA CORRECCIÓN 2 ---
             
             return render_template('portal_dashboard.html', 
                                    cliente=cliente_dict, 
@@ -5305,6 +5332,7 @@ def ver_reporte(pago_id):
         flash("Error de conexión a la base de datos.", "error")
         return redirect(url_for('home'))
 
+    # ... (código para obtener 'counts' sin cambios) ...
     counts = { 'pagos_pendientes': 0, 'reportes_pendientes': 0, 'citas': 0, 'congelamientos': 0, 'retiros': 0 }
     if is_admin_view:
         try:
@@ -5322,6 +5350,7 @@ def ver_reporte(pago_id):
                     elif row['tipo_solicitud'] == 'Retiro': counts['retiros'] = row['total']
         except psycopg2.Error as e:
             logging.error(f"Error al contar pendientes en ver_reporte: {e}")
+
 
     try:
         with conn.cursor() as cur:
@@ -5350,63 +5379,41 @@ def ver_reporte(pago_id):
                 cur.execute("SELECT * FROM clientes WHERE id = %s", (session['cliente_id'],))
                 cliente_para_plantilla = cur.fetchone()
 
-            monto_dolares_referencia = Decimal('0.0')
-            if 'Cuota' in pago.get('tipo_pago', ''):
-                monto_dolares_referencia = pago.get('valor_cuota', Decimal('0.0'))
-            elif 'Inscripción' in pago.get('tipo_pago', ''):
-                monto_dolares_referencia = pago.get('inscripcion_monto', Decimal('0.0'))
-            
-            pago['monto_dolares_referencia'] = monto_dolares_referencia
-            pago['monto_esperado_bs'] = Decimal('0.0')
-            pago['tasa_efectiva_cliente'] = Decimal('0.0')
-
-            if pago['moneda_pago'] == 'BsBCV' and pago.get('pago_en') != 'USDT':
-                fecha_del_pago = pago.get('fecha_pago', get_venezuela_current_date())
-                cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
-                tasa_row = cur.fetchone()
-                tasa_exacta = tasa_row['tasa'] if tasa_row and tasa_row['tasa'] else pago.get('tasa_dia')
-
-                if monto_dolares_referencia and tasa_exacta:
-                    pago['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta).quantize(Decimal('0.01'))
-
-                monto_bs_decimal = pago.get('monto_bs') or Decimal('0.0')
-                if monto_dolares_referencia > 0 and monto_bs_decimal > 0:
-                    pago['tasa_efectiva_cliente'] = (monto_bs_decimal / monto_dolares_referencia).quantize(Decimal('0.0001'))
+            # --- LÓGICA DE VISUALIZACIÓN POR NIVELES ---
+            # Por defecto, las tarjetas muestran los datos de este pago individual
+            pago['monto_dolares_referencia'] = pago.get('monto')
+            if pago.get('pago_en') == 'Dolar/BCV' and pago.get('tasa_dia') and pago.get('tasa_dia') > 0:
+                 pago['monto_esperado_bs'] = (pago.get('monto', Decimal('0.0')) * pago.get('tasa_dia')).quantize(Decimal('0.01'))
 
             pagos_del_mismo_bulk = []
             bulk_totals = None
-            pago_pendiente_para_acciones = pago # Por defecto, la acción es sobre el pago principal
+            pago_pendiente_para_acciones = pago
 
             if pago.get('bulk_id'):
                 cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
                 pagos_del_mismo_bulk = cur.fetchall()
 
                 if pagos_del_mismo_bulk:
-                    # Identificar el último pago pendiente para dirigir las acciones del admin
-                    for p_item in reversed(pagos_del_mismo_bulk):
-                        if p_item['estado_reporte'] == 'Pendiente de Revision':
-                            pago_pendiente_para_acciones = p_item
-                            break
+                    ultimo_pago_pendiente = next((p for p in reversed(pagos_del_mismo_bulk) if p['estado_reporte'] == 'Pendiente de Revision'), None)
+                    pago_pendiente_para_acciones = dict(ultimo_pago_pendiente) if ultimo_pago_pendiente else pago
 
+                    # Calcular totales para las tarjetas de resumen del PROCESO COMPLETO
                     monto_esperado_bulk = pago['bulk_expected_amount'] or Decimal('0.0')
                     
-                    # Calcular el monto total reportado basado en la moneda del bulk
                     monto_reportado_total = sum(
                         (p.get('monto_bs') or Decimal('0.0')) if pago.get('bulk_currency') == 'VES' else (p.get('monto') or Decimal('0.0'))
                         for p in pagos_del_mismo_bulk
                     )
                     
-                    # Calcular el monto total verificado a partir de los detalles
                     monto_verificado_total = Decimal('0.0')
                     for p_item in pagos_del_mismo_bulk:
-                        detalles = p_item.get('detalles_reporte')
+                        detalles = p_item.get('detalles_reporte') or {}
                         if isinstance(detalles, str):
                             try: detalles = json.loads(detalles)
                             except json.JSONDecodeError: detalles = {}
-                        
                         if detalles and detalles.get('monto_verificado'):
                             monto_verificado_total += Decimal(detalles['monto_verificado'])
-                    
+
                     diferencia_pendiente = monto_esperado_bulk - monto_verificado_total
                     
                     bulk_totals = {
@@ -5414,9 +5421,9 @@ def ver_reporte(pago_id):
                         'reportado': monto_reportado_total,
                         'verificado': monto_verificado_total,
                         'pendiente': diferencia_pendiente if diferencia_pendiente > 0 else Decimal('0.0'),
-                        'currency': pago['bulk_currency'] or 'USD'
+                        'currency': pago.get('bulk_currency') or 'USD'
                     }
-            
+
             return render_template(
                 'ver_reporte.html',
                 pago=pago,
@@ -5436,7 +5443,6 @@ def ver_reporte(pago_id):
             return redirect(url_for('portal_dashboard'))
         else:
             return redirect(url_for('hub'))
-
 # =================================================================================
 # ===== RUTA 3: NUEVA RUTA PARA VALIDAR PAGOS INDIVIDUALES DENTRO DE UN BULK =====
 # =================================================================================
