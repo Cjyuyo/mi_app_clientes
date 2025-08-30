@@ -15,6 +15,14 @@
         <p class="text-sm text-slate-300 mt-1">Cliente: {{ cliente.nombre_apellido }}</p>
     </div>
 
+    <div class="bg-white p-6 border-x border-slate-200">
+        <button type="button" class="w-full text-left p-4 focus:outline-none bg-slate-50 hover:bg-slate-100 border rounded-lg flex justify-between items-center" data-bs-toggle="modal" data-bs-target="#paymentDataModal">
+            <span class="font-semibold text-slate-700"><i class="bi bi-wallet2 mr-2"></i>Ver Datos para Realizar el Pago</span>
+            <i class="bi bi-box-arrow-up-right text-slate-500"></i>
+        </button>
+    </div>
+
+
     <div x-data="paymentController({
          isEnrollment: {{ is_enrollment_payment|tojson }},
          montoRestante: {{ monto_restante|float }},
@@ -233,6 +241,110 @@
         </form>
     </div>
 </div>
+
+<div class="modal fade" id="paymentDataModal" tabindex="-1" aria-labelledby="paymentDataModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="paymentDataModalLabel">Datos para Realizar tu Pago</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        
+        <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="pills-pagomovil-tab" data-bs-toggle="pill" data-bs-target="#pills-pagomovil" type="button" role="tab" aria-controls="pills-pagomovil" aria-selected="true">Pago Móvil</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="pills-transferencia-tab" data-bs-toggle="pill" data-bs-target="#pills-transferencia" type="button" role="tab" aria-controls="pills-transferencia" aria-selected="false">Transferencia Bs.</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="pills-binance-tab" data-bs-toggle="pill" data-bs-target="#pills-binance" type="button" role="tab" aria-controls="pills-binance" aria-selected="false">Binance (USDT)</button>
+          </li>
+        </ul>
+
+        <div class="tab-content" id="pills-tabContent">
+          
+          <div class="tab-pane fade show active" id="pills-pagomovil" role="tabpanel" aria-labelledby="pills-pagomovil-tab">
+            <h6 class="fw-bold">Datos para Pago Móvil</h6>
+            <table class="table table-bordered">
+                <tbody>
+                    <tr>
+                        <th scope="row" class="bg-light">Banco</th>
+                        <td>Banesco</td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="bg-light">Teléfono</th>
+                        <td>0412-1234567</td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="bg-light">RIF</th>
+                        <td>J-12345678-9</td>
+                    </tr>
+                     <tr>
+                        <th scope="row" class="bg-light">Monto</th>
+                        <td class="text-danger">El equivalente a la tasa BCV del día.</td>
+                    </tr>
+                </tbody>
+            </table>
+          </div>
+
+          <div class="tab-pane fade" id="pills-transferencia" role="tabpanel" aria-labelledby="pills-transferencia-tab">
+            <h6 class="fw-bold">Datos para Transferencia en Bolívares</h6>
+            <table class="table table-bordered">
+                <tbody>
+                    <tr>
+                        <th scope="row" class="bg-light">Banco</th>
+                        <td>Banesco</td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="bg-light">Titular</th>
+                        <td>Moto Plan Motors C.A.</td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="bg-light">RIF</th>
+                        <td>J-12345678-9</td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="bg-light">N° de Cuenta</th>
+                        <td>0134-0000-00-0000123456</td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="bg-light">Tipo</th>
+                        <td>Cuenta Corriente</td>
+                    </tr>
+                </tbody>
+            </table>
+          </div>
+
+          <div class="tab-pane fade" id="pills-binance" role="tabpanel" aria-labelledby="pills-binance-tab">
+            <h6 class="fw-bold">Datos para Pago en Binance (USDT)</h6>
+             <div class="alert alert-warning small">
+                <strong>Importante:</strong> Asegúrate de enviar el monto exacto en USDT y cubrir las comisiones de la red para que recibamos el importe completo.
+            </div>
+            <table class="table table-bordered">
+                <tbody>
+                    <tr>
+                        <th scope="row" class="bg-light">Correo (Pay ID)</th>
+                        <td>pagos@motoplan.com</td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="bg-light">Red</th>
+                        <td>BSC / BEP20 (Recomendada)</td>
+                    </tr>
+                </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 
