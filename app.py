@@ -4224,6 +4224,7 @@ def portal_reportar_pago():
             monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv_calculo).quantize(Decimal('0.01'))
 
             if request.method == 'POST':
+                # --- INICIO DE LA CORRECCIÓN ---
                 pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
                 
                 pago_en_final = pago_form.get('pago_en')
@@ -4233,11 +4234,13 @@ def portal_reportar_pago():
                 referencia_final = pago_form.get('referencia')
                 banco_final = None
                 fecha_pago_final = pago_form.get('fecha_pago')
+                currency_bulk = ''
 
                 if pago_en_final == 'USDT':
                     monto_usd_a_guardar = Decimal(pago_form.get('monto_usdt', '0.00').replace(',', '.'))
                     forma_pago_final = 'Binance'
                     tasa_bcv_calculo = None
+                    currency_bulk = 'USD'
                 else: 
                     pago_en_final = 'Dolar/BCV'
                     monto_bs_str = pago_form.get('monto_bs', '0.00').replace(',', '.')
@@ -4245,32 +4248,29 @@ def portal_reportar_pago():
                     monto_usd_a_guardar = cliente.get('valor_cuota') or Decimal('0.0') 
                     forma_pago_final = pago_form.get('forma_pago_bs')
                     banco_final = pago_form.get('banco')
+                    currency_bulk = 'VES'
 
-                cuotas_a_cubrir = 1
+                # PASO 1: Crear el registro en payment_bulks para obtener un ID válido.
+                cur.execute("""
+                    INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
+                    VALUES (%s, %s, %s, 'OPEN', 0) RETURNING id
+                """, (cliente['id'], currency_bulk, monto_reportado_bs if currency_bulk == 'VES' else monto_usd_a_guardar))
+                
+                new_bulk_id = cur.fetchone()[0]
 
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se modifica la consulta para obtener el ID del nuevo pago
+                # PASO 2: Insertar el pago en la tabla 'pagos' usando el new_bulk_id válido.
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, pago_en, cuotas_cubiertas)
-                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, %s)
-                    RETURNING id;
+                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, pago_en, cuotas_cubiertas, bulk_id)
+                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, 1, %s);
                 """
                 cur.execute(pago_query, (
                     cliente['id'], monto_usd_a_guardar, monto_reportado_bs,
                     forma_pago_final, fecha_pago_final, referencia_final, 
                     banco_final, tasa_bcv_calculo,
                     get_venezuela_current_datetime(), concepto_pago, pago_en_final,
-                    cuotas_a_cubrir
+                    new_bulk_id
                 ))
-                
-                # Se obtiene el ID del pago recién insertado
-                new_pago_id = cur.fetchone()[0]
-
-                # Si el pago es en USDT o Dolar/BCV, se establece su propio ID como el bulk_id inicial.
-                # Esto permite que los administradores puedan generar pagos de diferencia vinculados a este.
-                if pago_en_final in ['Dolar/BCV', 'USDT']:
-                    cur.execute("UPDATE pagos SET bulk_id = %s WHERE id = %s", (new_pago_id, new_pago_id))
                 # --- FIN DE LA CORRECCIÓN ---
                 
                 flash('✅ ¡Pago de cuota reportado! Será verificado por un administrador.', 'success')
@@ -4280,6 +4280,7 @@ def portal_reportar_pago():
     except (psycopg2.Error, ValueError, InvalidOperation) as e:
         if conn: conn.rollback()
         flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
+        traceback.print_exc() # Imprime el error detallado en la consola del servidor para depuración
         return redirect(url_for('portal_dashboard'))
 
     return render_template('portal_pago_unificado.html', 
