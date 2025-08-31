@@ -5337,7 +5337,23 @@ def ver_reporte(pago_id):
 
             if pago.get('bulk_id'):
                 cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (pago['bulk_id'],))
-                pagos_del_mismo_bulk = cur.fetchall()
+                pagos_del_mismo_bulk_raw = cur.fetchall()
+
+                # --- NUEVA LÓGICA PARA PROCESAR DETALLES ---
+                pagos_procesados = []
+                for p_raw in pagos_del_mismo_bulk_raw:
+                    p_dict = dict(p_raw)
+                    detalles = p_dict.get('detalles_reporte') or {}
+                    if isinstance(detalles, str):
+                        try:
+                            # Reemplaza el string JSON con el diccionario parseado
+                            p_dict['detalles_reporte'] = json.loads(detalles)
+                        except json.JSONDecodeError:
+                            p_dict['detalles_reporte'] = {} # Asegura que sea un dict si el parseo falla
+                    pagos_procesados.append(p_dict)
+                
+                pagos_del_mismo_bulk = pagos_procesados
+                # --- FIN DE LA NUEVA LÓGICA ---
 
                 # Un proceso se considera "complejo" si ya contiene al menos un pago marcado como 'Inconsistente'.
                 is_complex_process = any(p['estado_reporte'] == 'Inconsistente' for p in pagos_del_mismo_bulk)
@@ -5354,12 +5370,9 @@ def ver_reporte(pago_id):
                     )
                     
                     monto_verificado_total = Decimal('0.0')
-                    for p_item_raw in pagos_del_mismo_bulk:
-                        p_item = dict(p_item_raw)
+                    for p_item in pagos_del_mismo_bulk:
+                        # detalles ya es un diccionario gracias a la lógica anterior
                         detalles = p_item.get('detalles_reporte') or {}
-                        if isinstance(detalles, str):
-                            try: detalles = json.loads(detalles)
-                            except json.JSONDecodeError: detalles = {}
                         
                         # Sumamos el monto verificado si existe en los detalles
                         if detalles and detalles.get('monto_verificado'):
@@ -5390,7 +5403,7 @@ def ver_reporte(pago_id):
                 pagos_del_mismo_bulk=pagos_del_mismo_bulk,
                 pago_pendiente_para_acciones=pago_pendiente_para_acciones,
                 bulk_totals=bulk_totals,
-                is_complex_process=is_complex_process,  # Pasamos la nueva variable a la plantilla
+                is_complex_process=is_complex_process,
                 counts=counts
             )
             # --- FIN DE LA MODIFICACIÓN ---
