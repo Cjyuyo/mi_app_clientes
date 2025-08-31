@@ -1551,8 +1551,8 @@ def reportes_por_revisar():
     try:
         with conn.cursor() as cur:
             # --- INICIO DE LA CORRECCIÓN ---
-            # Se ajustan los alias de la consulta para que coincidan con los nombres de variable
-            # que espera la plantilla HTML (ej. 'monto_bs' en lugar de 'monto_reportado_bs').
+            # Se cambia a INNER JOIN para asegurar que solo se muestren procesos
+            # que tengan al menos un pago asociado, evitando errores con valores nulos.
             query = """
                 SELECT DISTINCT ON (b.id)
                     p.id, -- ID del primer pago, usado para el enlace "Revisar"
@@ -1568,7 +1568,7 @@ def reportes_por_revisar():
                     c.cedula
                 FROM payment_bulks b
                 JOIN clientes c ON b.cliente_id = c.id
-                LEFT JOIN pagos p ON p.bulk_id = b.id
+                INNER JOIN pagos p ON p.bulk_id = b.id
                 WHERE b.status IN ('OPEN', 'UNDER_REVIEW')
                 ORDER BY b.id, p.fecha_creacion ASC;
             """
