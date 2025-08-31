@@ -1679,7 +1679,6 @@ def procesar_reporte(pago_id):
                 flash('Reporte aprobado. Ahora puede ser procesado desde la sección de Conciliar Pagos.', 'success')
             
             elif accion == 'corregir_y_generar_diferencia':
-                # --- INICIO DE LA LÓGICA MEJORADA ---
                 motivo_cliente = request.form.get('motivo_cliente')
                 monto_real_recibido, currency = (None, None)
                 
@@ -1702,36 +1701,29 @@ def procesar_reporte(pago_id):
                 
                 monto_esperado = (base_amount_usd * pago['tasa_dia']).quantize(Decimal('0.01')) if currency == 'VES' and pago['tasa_dia'] else base_amount_usd
                 
+                # --- LÓGICA RESTAURADA Y CORRECTA ---
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status)
                     VALUES (%s, %s, %s, 'UNDER_REVIEW') RETURNING id
                 """, (cliente_id, currency, monto_esperado))
                 bulk_id = cur.fetchone()[0]
 
-                detalles_correccion = {
-                    'accion': 'Correccion por Admin',
+                detalles_inconsistencia = {
+                    'motivo': 'Discrepancia Verificada por Admin',
                     'monto_original_reportado': str(pago['monto_bs'] if currency == 'VES' else pago['monto']),
                     'monto_verificado': str(monto_real_recibido),
-                    'motivo_para_cliente': motivo_cliente
+                    'motivo_para_cliente': motivo_cliente 
                 }
 
-                tasa_dia_pago = pago.get('tasa_dia') or Decimal('0.0')
-                monto_usd_actualizado = monto_real_recibido if currency == 'USD' else ((monto_real_recibido / tasa_dia_pago).quantize(Decimal('0.02')) if tasa_dia_pago > 0 else Decimal('0.0'))
-                monto_bs_actualizado = monto_real_recibido if currency == 'VES' else ((monto_real_recibido * tasa_dia_pago).quantize(Decimal('0.02')) if tasa_dia_pago > 0 else Decimal('0.0'))
-
+                # El pago original se marca como 'Inconsistente' y se le asocia el bulk_id.
+                # NO se marca como 'Aprobado' aquí.
                 cur.execute(
                     """
-                    UPDATE pagos 
-                    SET estado_reporte = 'Aprobado', 
-                        revisado_por_id = %s, 
-                        fecha_revision = NOW(), 
-                        detalles_reporte = %s, 
-                        bulk_id = %s,
-                        monto = %s,
-                        monto_bs = %s
+                    UPDATE pagos SET estado_reporte = 'Inconsistente', revisado_por_id = %s, 
+                           fecha_revision = NOW(), detalles_reporte = %s, bulk_id = %s
                     WHERE id = %s
                     """,
-                    (g.admin['id'], json.dumps(detalles_correccion), bulk_id, monto_usd_actualizado, monto_bs_actualizado, pago_id)
+                    (g.admin['id'], json.dumps(detalles_inconsistencia), bulk_id, pago_id)
                 )
 
                 monto_pendiente = monto_esperado - monto_real_recibido
@@ -1740,13 +1732,12 @@ def procesar_reporte(pago_id):
                         INSERT INTO payment_orders (bulk_id, cliente_id, amount, currency, status)
                         VALUES (%s, %s, %s, %s, 'ISSUED')
                     """, (bulk_id, cliente_id, monto_pendiente, currency))
-
-                recalcular_totales_bulk(bulk_id)
                 
-                descripcion_audit = f"Corrigió reporte #{pago_id}. Monto verificado: {monto_real_recibido} {currency}. Se generó orden por {monto_pendiente:,.2f} {currency}."
+                # --- FIN DE LA LÓGICA RESTAURADA ---
+                
+                descripcion_audit = f"Corrigió reporte #{pago_id}. Monto verificado: {monto_real_recibido}. Se generó orden por {monto_pendiente:,.2f} {currency}."
                 registrar_accion_auditoria('CORRECCION_REPORTE_ADMIN', descripcion_audit, cliente_id, {'pago_id': pago_id})
-                flash("El monto verificado ha sido aprobado. Se generó una orden de pago para el cliente por la diferencia.", "success")
-                # --- FIN DE LA LÓGICA MEJORADA ---
+                flash("El monto verificado ha sido registrado. Se generó una orden de pago para el cliente por la diferencia.", "success")
             
             else:
                 flash('Acción no válida.', 'error')
@@ -4186,6 +4177,7 @@ def portal_reportar_pago():
     
     try:
         with conn.cursor() as cur:
+            # ... (Lógica del método GET) ...
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
             cliente = cur.fetchone()
             if not cliente:
@@ -4205,6 +4197,7 @@ def portal_reportar_pago():
             tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
             monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv_calculo).quantize(Decimal('0.01'))
 
+
             if request.method == 'POST':
                 pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
                 
@@ -4222,7 +4215,8 @@ def portal_reportar_pago():
                     forma_pago_final = 'Binance'
                     tasa_bcv_calculo = None
                     currency_bulk = 'USD'
-                    referencia_final = pago_form.get('referencia_usdt') # <-- CAMBIO APLICADO
+                    # --- SOLUCIÓN CORRECTA PARA LA REFERENCIA USDT ---
+                    referencia_final = pago_form.get('referencia_usdt')
                 else: 
                     pago_en_final = 'Dolar/BCV'
                     monto_bs_str = pago_form.get('monto_bs', '0.00').replace(',', '.')
@@ -4231,7 +4225,7 @@ def portal_reportar_pago():
                     forma_pago_final = pago_form.get('forma_pago_bs')
                     banco_final = pago_form.get('banco')
                     currency_bulk = 'VES'
-                    referencia_final = pago_form.get('referencia') # Se mantiene para Bs.
+                    referencia_final = pago_form.get('referencia')
 
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
@@ -4271,7 +4265,7 @@ def portal_reportar_pago():
                            concepto_pago=concepto_pago,
                            is_enrollment_payment=False,
                            monto_restante=Decimal('0.0'))
-
+                           
 # NUEVO: Esta es la nueva ruta completa para manejar el pago de diferencias.
 @app.route('/portal/diferencia/reportar/<int:bulk_id>/<int:order_id>', methods=['GET', 'POST'])
 @portal_login_required
