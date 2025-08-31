@@ -4810,7 +4810,7 @@ def portal_pagar_inscripcion():
                            monto_a_pagar_usd=monto_restante,
                            monto_a_pagar_bs=monto_a_pagar_bs,
                            concepto_pago=concepto_pago,
-                           is_enrollment_payment=True)
+                           is_enrollment_payment=True
 
 @app.route('/portal/estado_cuenta')
 @portal_login_required
