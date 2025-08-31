@@ -4396,7 +4396,7 @@ def portal_diferencia_reportar(bulk_id, order_id):
                            order_id=order_id,
                            hay_pago_pendiente_general=hay_pago_pendiente_general
                            )
-                           
+
 @app.route('/admin/pagos/por-revisar')
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
