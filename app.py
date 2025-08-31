@@ -854,13 +854,12 @@ def guardar_oferta(client_id):
 def recalcular_totales_bulk(bulk_id):
     """
     Recalcula los totales de un bulk basado en sus líneas de pago.
-    CORRECCIÓN: Ahora suma correctamente los montos verificados de pagos 'Inconsistente'
-    y los montos de pagos 'Aprobado', y actualiza el estado del bulk si los totales coinciden.
+    Actualiza el estado del bulk y sus pagos asociados si los totales coinciden.
     NOTA: Esta función NO gestiona la transacción (commit/rollback).
     """
     conn = get_db()
     if not conn:
-        logging.error(f"BULK_RECALC_V2: Falla de conexión para bulk_id {bulk_id}")
+        logging.error(f"BULK_RECALC_V3: Falla de conexión para bulk_id {bulk_id}")
         return
 
     try:
@@ -869,7 +868,7 @@ def recalcular_totales_bulk(bulk_id):
             cur.execute("SELECT currency, expected_amount FROM payment_bulks WHERE id = %s FOR UPDATE", (bulk_id,))
             bulk = cur.fetchone()
             if not bulk:
-                logging.warning(f"BULK_RECALC_V2: No se encontró el bulk_id {bulk_id} para recalcular.")
+                logging.warning(f"BULK_RECALC_V3: No se encontró el bulk_id {bulk_id} para recalcular.")
                 return
 
             # Obtiene todos los pagos asociados que no estén anulados
@@ -904,7 +903,7 @@ def recalcular_totales_bulk(bulk_id):
                 UPDATE payment_bulks SET total_verified = %s, updated_at = NOW() WHERE id = %s
             """, (total_verificado, bulk_id))
             
-            logging.info(f"BULK_RECALC_V2: Total verificado actualizado a {total_verificado} para bulk_id {bulk_id}")
+            logging.info(f"BULK_RECALC_V3: Total verificado actualizado a {total_verificado} para bulk_id {bulk_id}")
 
             # --- LÓGICA CRÍTICA DE TRANSICIÓN DE ESTADO ---
             # Si el total verificado ya cubre lo esperado, se marca como listo para conciliar.
@@ -912,10 +911,18 @@ def recalcular_totales_bulk(bulk_id):
                 cur.execute("""
                     UPDATE payment_bulks SET status = 'READY_TO_RECONCILE' WHERE id = %s
                 """, (bulk_id,))
-                logging.info(f"BULK_RECALC_V2: Bulk #{bulk_id} actualizado a READY_TO_RECONCILE.")
+                logging.info(f"BULK_RECALC_V3: Bulk #{bulk_id} actualizado a READY_TO_RECONCILE.")
+                
+                # --- ¡NUEVA LÓGICA! ---
+                # Actualiza el estado de todos los pagos del bulk para que desaparezcan de la cola de revisión.
+                cur.execute("""
+                    UPDATE pagos SET estado_reporte = 'Aprobado' 
+                    WHERE bulk_id = %s AND estado_reporte = 'Inconsistente'
+                """, (bulk_id,))
+                logging.info(f"BULK_RECALC_V3: Pagos inconsistentes del bulk #{bulk_id} actualizados a Aprobado.")
 
     except (psycopg2.Error, InvalidOperation, json.JSONDecodeError) as e:
-        logging.error(f"BULK_RECALC_V2: Error recalculando totales para bulk_id {bulk_id}: {e}")
+        logging.error(f"BULK_RECALC_V3: Error recalculando totales para bulk_id {bulk_id}: {e}")
         # Re-lanza la excepción para que la función que llama pueda manejar el rollback.
         raise e
 
@@ -1543,52 +1550,56 @@ def reportes_por_revisar():
         return render_template('reportes_por_revisar.html', reportes=reportes_categorizados)
     try:
         with conn.cursor() as cur:
-            # --- CORRECCIÓN ---
-            # Se vuelve a consultar por ambos estados para poblar las dos pestañas.
+            # --- INICIO DE LA CORRECCIÓN ---
+            # La consulta ahora se basa en el estado del 'payment_bulk' (el proceso general)
+            # para determinar en qué pestaña debe aparecer cada item.
+            # Se obtiene el primer pago de cada proceso solo para fines de visualización en la lista.
             query = """
-                SELECT p.*, c.nombre, c.apellido, c.cedula, c.valor_cuota, c.inscripcion_monto, c.moneda_pago
-                FROM pagos p JOIN clientes c ON p.cliente_id = c.id
-                WHERE p.estado_reporte IN ('Pendiente de Revision', 'Inconsistente')
-                ORDER BY p.fecha_creacion ASC;
+                SELECT DISTINCT ON (b.id)
+                    p.id, -- ID del primer pago, usado para el enlace "Revisar"
+                    b.status AS bulk_status,
+                    b.expected_amount,
+                    b.currency,
+                    p.monto AS monto_reportado_usd,
+                    p.monto_bs AS monto_reportado_bs,
+                    p.fecha_creacion,
+                    c.id AS cliente_id,
+                    c.nombre,
+                    c.apellido,
+                    c.cedula
+                FROM payment_bulks b
+                JOIN clientes c ON b.cliente_id = c.id
+                LEFT JOIN pagos p ON p.bulk_id = b.id
+                WHERE b.status IN ('OPEN', 'UNDER_REVIEW')
+                ORDER BY b.id, p.fecha_creacion ASC;
             """
             cur.execute(query)
-            todos_los_reportes = cur.fetchall()
+            procesos_pendientes = cur.fetchall()
 
-            for reporte_row in todos_los_reportes:
-                reporte = dict(reporte_row)
+            for proceso_row in procesos_pendientes:
+                reporte = dict(proceso_row)
                 
-                # Se calcula el monto esperado para mostrarlo en la interfaz
-                reporte['monto_esperado_bs'] = Decimal('0.0')
-                reporte['monto_esperado_usd'] = Decimal('0.0')
-
-                monto_dolares_referencia = Decimal('0.0')
-                if 'Cuota' in reporte.get('tipo_pago', ''):
-                    monto_dolares_referencia = reporte.get('valor_cuota', Decimal('0.0'))
-                elif 'Inscripción' in reporte.get('tipo_pago', ''):
-                    monto_dolares_referencia = reporte.get('inscripcion_monto', Decimal('0.0'))
-                
-                reporte['monto_esperado_usd'] = monto_dolares_referencia
-
-                if reporte['moneda_pago'] == 'BsBCV':
-                    fecha_del_pago = reporte.get('fecha_pago', get_venezuela_current_date())
-                    cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_del_pago,))
-                    tasa_row = cur.fetchone()
-                    tasa_exacta = tasa_row['tasa'] if tasa_row and tasa_row['tasa'] else reporte.get('tasa_dia')
-                    
-                    if monto_dolares_referencia and tasa_exacta:
-                        reporte['monto_esperado_bs'] = (monto_dolares_referencia * tasa_exacta).quantize(Decimal('0.01'))
-
-                # Se categoriza cada reporte en su lista correspondiente
-                if reporte['estado_reporte'] == 'Inconsistente':
-                    reportes_categorizados['diferencias'].append(reporte)
+                # Se prepara el monto esperado para mostrarlo en la interfaz
+                if reporte['currency'] == 'VES':
+                    reporte['monto_esperado_bs'] = reporte['expected_amount']
+                    reporte['monto_esperado_usd'] = Decimal('0.0')
                 else:
+                    reporte['monto_esperado_usd'] = reporte['expected_amount']
+                    reporte['monto_esperado_bs'] = Decimal('0.0')
+
+                # Se categoriza el reporte basado en el estado del PROCESO, no del pago individual.
+                if reporte['bulk_status'] == 'UNDER_REVIEW':
+                    reportes_categorizados['diferencias'].append(reporte)
+                elif reporte['bulk_status'] == 'OPEN':
                     reportes_categorizados['pendientes'].append(reporte)
+            # --- FIN DE LA CORRECCIÓN ---
 
     except psycopg2.Error as e:
         flash(f"Error al cargar la lista de reportes: {e}", "danger")
+        logging.error(f"Error en reportes_por_revisar: {traceback.format_exc()}")
 
     return render_template('reportes_por_revisar.html', reportes=reportes_categorizados)
-
+    
  # --- INICIO DE LA CORRECCIÓN ---
 # Esta es una función auxiliar que contiene la lógica pura de conciliación.
 # La usamos para evitar repetir código.
