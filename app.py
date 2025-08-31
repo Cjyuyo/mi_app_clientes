@@ -1718,9 +1718,9 @@ def procesar_reporte(pago_id):
                 monto_usd_actualizado = monto_real_recibido if currency == 'USD' else ((monto_real_recibido / tasa_dia_pago).quantize(Decimal('0.02')) if tasa_dia_pago > 0 else Decimal('0.0'))
                 monto_bs_actualizado = monto_real_recibido if currency == 'VES' else ((monto_real_recibido * tasa_dia_pago).quantize(Decimal('0.02')) if tasa_dia_pago > 0 else Decimal('0.0'))
 
-                # --- INICIO DE LA LÓGICA CLAVE ---
-                # 1. Se marca el pago como 'Aprobado' porque el monto verificado es correcto.
-                # 2. Se actualizan los montos (monto y monto_bs) al valor real verificado.
+                # --- INICIO DE LA CORRECCIÓN CLAVE ---
+                # El pago original se marca como 'Aprobado' porque el monto validado es correcto,
+                # pero el proceso (bulk) sigue 'UNDER_REVIEW' y visible en la pantalla de revisión.
                 cur.execute(
                     """
                     UPDATE pagos 
@@ -1735,7 +1735,7 @@ def procesar_reporte(pago_id):
                     """,
                     (g.admin['id'], json.dumps(detalles_correccion), bulk_id, monto_usd_actualizado, monto_bs_actualizado, pago_id)
                 )
-                # --- FIN DE LA LÓGICA CLAVE ---
+                # --- FIN DE LA CORRECCIÓN CLAVE ---
 
                 monto_pendiente = monto_esperado - monto_real_recibido
                 if monto_pendiente > 0:
@@ -1744,6 +1744,7 @@ def procesar_reporte(pago_id):
                         VALUES (%s, %s, %s, %s, 'ISSUED')
                     """, (bulk_id, cliente_id, monto_pendiente, currency))
 
+                # Se llama a recalcular, pero como la diferencia está pendiente, el bulk no cambiará a 'READY_TO_RECONCILE'
                 recalcular_totales_bulk(bulk_id)
                 
                 descripcion_audit = f"Corrigió reporte #{pago_id}. Monto verificado: {monto_real_recibido} {currency}. Se generó orden por {monto_pendiente:,.2f} {currency}."
