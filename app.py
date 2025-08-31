@@ -4782,14 +4782,11 @@ def portal_pagar_inscripcion():
                     forma_pago_final = pago_form.get('forma_pago_bs')
                     banco_final = pago_form.get('banco')
                 
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se añade 'estado_pago' con el valor 'Pendiente' a la inserción.
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia,
                                        estado_reporte, fecha_creacion, reportado_por_cliente, estado_pago) 
                     VALUES (%s, %s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, 'Pendiente');
                 """
-                # --- FIN DE LA CORRECCIÓN ---
                 cur.execute(pago_query, (
                     session['cliente_id'], monto_usd_a_guardar, monto_reportado_bs,
                     forma_pago_final, fecha_pago_final, pago_en_final, 
