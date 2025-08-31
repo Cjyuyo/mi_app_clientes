@@ -160,7 +160,6 @@
 
             <div class="lg:col-span-1 space-y-6">
                 
-                {# --- INICIO DE LA CORRECCIÓN --- #}
                 {% if pago.bulk_id %}
                     {# Lógica para procesos de pago complejos (bulk) #}
                     {% if pago.bulk_status == 'UNDER_REVIEW' and bulk_totals and bulk_totals.pendiente > 0 %}
@@ -192,7 +191,6 @@
                     {% if p_accion.estado_reporte == 'Aprobado' %}{% set status_text = 'Aprobado' %}{% set status_icon = 'bi-check-circle-fill' %}{% set status_color = 'green' %}{% endif %}
                     {% if p_accion.estado_reporte == 'Inconsistente' %}{% set status_text = 'Inconsistente' %}{% set status_icon = 'bi-exclamation-triangle-fill' %}{% set status_color = 'red' %}{% endif %}
                 {% endif %}
-                {# --- FIN DE LA CORRECCIÓN --- #}
 
                 {% if is_admin_view and pago.bulk_status == 'READY_TO_RECONCILE' %}
                     <a href="{{ url_for('pagos_por_conciliar') }}" class="block bg-cyan-50 text-cyan-800 p-5 rounded-xl border border-cyan-200 text-center hover:bg-cyan-100 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500">
@@ -253,7 +251,7 @@
                         <td class="p-3 font-mono">{{ pago_item.referencia if pago_item.referencia and pago_item.referencia|string != 'None' else 'N/A' }}</td>
                         <td class="p-3">
                             {# --- INICIO DE LA MODIFICACIÓN --- #}
-                            {% if pago_item.estado_reporte == 'Inconsistente' and pago_item.detalles_reporte and pago_item.detalles_reporte.monto_verificado %}
+                            {% if pago_item.detalles_reporte and pago_item.detalles_reporte.monto_verificado %}
                                 <div class="text-xs text-slate-500">
                                     Reportado: 
                                     {% if pago_item.pago_en == 'Dolar/BCV' %}
@@ -292,8 +290,10 @@
                                 {% endif %}">
                                 {% if pago_item.estado_reporte == 'RECONCILED' %}
                                     Conciliado
+                                {% elif pago_item.estado_reporte == 'Inconsistente' %}
+                                    CON DIFERENCIA
                                 {% else %}
-                                    {{ pago_item.estado_reporte }}
+                                    {{ pago_item.estado_reporte.replace('_', ' ') }}
                                 {% endif %}
                             </span>
                         </td>
