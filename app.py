@@ -4180,6 +4180,8 @@ def portal_dashboard():
 @portal_login_required
 def portal_reportar_pago():
     conn = get_db()
+    # INICIO DE LA CORRECCIÓN: Se inicializa 'tasa_hoy' en None para evitar el NameError.
+    tasa_hoy = None
     if not conn:
         flash('No se pudo conectar con la base de datos.', 'error')
         return redirect(url_for('portal_dashboard'))
@@ -4192,7 +4194,18 @@ def portal_reportar_pago():
                 flash('No se pudo encontrar tu perfil de cliente.', 'error')
                 return redirect(url_for('portal_logout'))
 
-            # ... Lógica para GET (preparación de datos para el formulario) ...
+            monto_a_pagar_usd = cliente.get('valor_cuota') or Decimal('0.0')
+            
+            cur.execute("SELECT COUNT(*) FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'", (session['cliente_id'],))
+            cuotas_pagadas_conciliadas = cur.fetchone()[0]
+
+            concepto_pago = "Pago de Cuota de Activación" if cuotas_pagadas_conciliadas == 0 else "Pago de Cuota Mensual"
+
+            today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
+            cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
+            tasa_hoy = cur.fetchone()
+            tasa_bcv_calculo = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
+            monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv_calculo).quantize(Decimal('0.01'))
 
             if request.method == 'POST':
                 pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
@@ -4211,9 +4224,6 @@ def portal_reportar_pago():
                     forma_pago_final = 'Binance'
                     tasa_bcv_calculo = None
                     currency_bulk = 'USD'
-                    # ÁREA CRÍTICA: Aquí se intenta obtener la referencia para USDT.
-                    # Si el formulario no envía un campo con name="referencia_usdt", 
-                    # referencia_final se quedará como None.
                     referencia_final = pago_form.get('referencia_usdt')
                 else: 
                     pago_en_final = 'Dolar/BCV'
@@ -4225,14 +4235,18 @@ def portal_reportar_pago():
                     currency_bulk = 'VES'
                     referencia_final = pago_form.get('referencia') # Para pagos en Bs.
 
-                # ... (Creación del Bulk de Pago) ...
+                cur.execute("""
+                    INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
+                    VALUES (%s, %s, %s, 'OPEN', 0) RETURNING id
+                """, (cliente['id'], currency_bulk, monto_reportado_bs if currency_bulk == 'VES' else monto_usd_a_guardar))
+                
+                new_bulk_id = cur.fetchone()[0]
 
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
                                     estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, pago_en, cuotas_cubiertas, bulk_id, estado_pago)
                     VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, 1, %s, 'Pendiente');
                 """
-                # La variable 'referencia_final' se inserta en la base de datos aquí.
                 cur.execute(pago_query, (
                     cliente['id'], monto_usd_a_guardar, monto_reportado_bs,
                     forma_pago_final, fecha_pago_final, referencia_final, 
@@ -4244,12 +4258,6 @@ def portal_reportar_pago():
                 flash('✅ ¡Pago de cuota reportado! Será verificado por un administrador.', 'success')
                 conn.commit()
                 return redirect(url_for('portal_dashboard'))
-
-    except (psycopg2.Error, ValueError, InvalidOperation) as e:
-        if conn: conn.rollback()
-        flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
-        traceback.print_exc()
-        return redirect(url_for('portal_dashboard'))
 
     except (psycopg2.Error, ValueError, InvalidOperation) as e:
         if conn: conn.rollback()
