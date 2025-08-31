@@ -4689,41 +4689,10 @@ def pagar_diferencia(pago_original_id):
             concepto_pago=f"Diferencia del pago #{pago_original_id}"
         )
 
-@app.route('/portal/corregir_reporte/<int:pago_id>', methods=['GET'])
-@portal_login_required
-def portal_corregir_reporte(pago_id):
-    conn = get_db()
-    if not conn:
-        flash("Error de conexión.", 'error')
-        return redirect(url_for('portal_dashboard'))
-    
-    with conn.cursor() as cur:
-        cur.execute("SELECT * FROM pagos WHERE id = %s AND cliente_id = %s", (pago_id, session['cliente_id']))
-        pago_a_corregir = cur.fetchone()
-        
-        cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
-        cliente = cur.fetchone()
-        
-        today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
-        cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
-        tasas_hoy = cur.fetchone()
-
-    if not pago_a_corregir or pago_a_corregir['estado_reporte'] != 'Inconsistente':
-        flash('Este reporte no se puede corregir.', 'error')
-        return redirect(url_for('portal_dashboard'))
-    
-    return render_template('portal_reportar_pago.html', 
-                           cliente=cliente,
-                           tasas_hoy=tasas_hoy,
-                           pago_a_corregir=pago_a_corregir, 
-                           modo_correccion=True,
-                           mes_actual=get_nombre_mes(get_venezuela_current_date().month))
-
 @app.route('/portal/pagar_inscripcion', methods=['GET', 'POST'])
 @portal_login_required
 def portal_pagar_inscripcion():
     conn = get_db()
-    
     if not conn:
         flash('No se pudo conectar con la base de datos.', 'error')
         return redirect(url_for('portal_dashboard'))
