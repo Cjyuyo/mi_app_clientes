@@ -1719,10 +1719,12 @@ def procesar_reporte(pago_id):
                 monto_usd_actualizado = monto_real_recibido if currency == 'USD' else ((monto_real_recibido / tasa_dia_pago).quantize(Decimal('0.02')) if tasa_dia_pago > 0 else Decimal('0.0'))
                 monto_bs_actualizado = monto_real_recibido if currency == 'VES' else ((monto_real_recibido * tasa_dia_pago).quantize(Decimal('0.02')) if tasa_dia_pago > 0 else Decimal('0.0'))
 
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se cambia el estado a 'Inconsistente' para que permanezca en la lista de revisión.
                 cur.execute(
                     """
                     UPDATE pagos 
-                    SET estado_reporte = 'Aprobado', 
+                    SET estado_reporte = 'Inconsistente', 
                         revisado_por_id = %s, 
                         fecha_revision = NOW(), 
                         detalles_reporte = %s, 
@@ -1733,6 +1735,7 @@ def procesar_reporte(pago_id):
                     """,
                     (g.admin['id'], json.dumps(detalles_correccion), bulk_id, monto_usd_actualizado, monto_bs_actualizado, pago_id)
                 )
+                # --- FIN DE LA CORRECCIÓN ---
 
                 monto_pendiente = monto_esperado - monto_real_recibido
                 if monto_pendiente > 0:
