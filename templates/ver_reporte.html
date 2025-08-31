@@ -54,7 +54,6 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {% set currency_symbol = 'Bs.' if bulk_totals.currency == 'VES' else '$' %}
                         
-                        <!-- Tarjeta: Monto Esperado -->
                         <div class="bg-white p-4 rounded-xl shadow-sm border text-center">
                             <h3 class="text-xs font-semibold text-slate-500 whitespace-nowrap">Monto Esperado</h3>
                             <p class="text-2xl font-bold text-slate-800 mt-2 flex items-baseline justify-center">
@@ -63,7 +62,6 @@
                                 {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1.5">{{ currency_symbol }}</span>{% endif %}
                             </p>
                         </div>
-                        <!-- Tarjeta: Total Reportado -->
                         <div class="bg-white p-4 rounded-xl shadow-sm border text-center">
                             <h3 class="text-xs font-semibold text-slate-500 whitespace-nowrap">Total Reportado</h3>
                             <p class="text-2xl font-bold text-blue-600 mt-2 flex items-baseline justify-center">
@@ -72,7 +70,6 @@
                                 {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1.5">{{ currency_symbol }}</span>{% endif %}
                             </p>
                         </div>
-                        <!-- Tarjeta: Total Verificado -->
                         <div class="bg-green-50 p-4 rounded-xl shadow-sm border border-green-200 text-center">
                             <h3 class="text-xs font-semibold text-green-600 whitespace-nowrap">Total Verificado</h3>
                             <p class="text-2xl font-bold text-green-700 mt-2 flex items-baseline justify-center">
@@ -81,7 +78,6 @@
                                 {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1.5">{{ currency_symbol }}</span>{% endif %}
                             </p>
                         </div>
-                        <!-- Tarjeta: Diferencia Pendiente -->
                         <div class="bg-red-50 p-4 rounded-xl shadow-sm border border-red-200 text-center">
                             <h3 class="text-xs font-semibold text-red-600 whitespace-nowrap">Diferencia Pendiente</h3>
                             <p class="text-2xl font-bold text-red-700 mt-2 flex items-baseline justify-center">
@@ -96,7 +92,6 @@
                 {% else %}
                 {# VISTA PARA PAGOS SIMPLES (PENDIENTES DE PRIMERA REVISIÓN) #}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Tarjeta: Monto de la Cuota -->
                     <div class="bg-white p-5 rounded-xl shadow-sm border">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-100 text-slate-500"><i class="bi bi-bullseye text-xl"></i></div>
@@ -122,7 +117,6 @@
                         </div>
                     </div>
 
-                    <!-- Tarjeta: Monto Reportado por Cliente -->
                     <div class="bg-white p-5 rounded-xl shadow-sm border">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-blue-100 text-blue-600"><i class="bi bi-file-earmark-text-fill text-xl"></i></div>
@@ -165,22 +159,14 @@
             </div>
 
             <div class="lg:col-span-1 space-y-6">
-                {% set p_accion = pago_pendiente_para_acciones or pago %}
-                {% set status_text = p_accion.estado_reporte %}
-                {% set status_icon = 'bi-question-circle' %}
-                {% set status_color = 'slate' %}
                 
+                {# --- INICIO DE LA CORRECCIÓN --- #}
                 {% if pago.bulk_id %}
-                    {% if pago.bulk_status == 'UNDER_REVIEW' or pago.bulk_status == 'OPEN' %}
-                        {% if bulk_totals and bulk_totals.pendiente > 0 %}
-                            {% set status_text = 'Diferencia Pendiente' %}
-                            {% set status_icon = 'bi-exclamation-triangle-fill' %}
-                            {% set status_color = 'red' %}
-                        {% else %}
-                            {% set status_text = 'Pendiente de Revisión' %}
-                            {% set status_icon = 'bi-hourglass-split' %}
-                            {% set status_color = 'amber' %}
-                        {% endif %}
+                    {# Lógica para procesos de pago complejos (bulk) #}
+                    {% if pago.bulk_status == 'UNDER_REVIEW' and bulk_totals and bulk_totals.pendiente > 0 %}
+                        {% set status_text = 'Diferencia Pendiente' %}
+                        {% set status_icon = 'bi-exclamation-triangle-fill' %}
+                        {% set status_color = 'red' %}
                     {% elif pago.bulk_status == 'READY_TO_RECONCILE' %}
                         {% set status_text = 'Listo para Conciliar' %}
                         {% set status_icon = 'bi-check-circle-fill' %}
@@ -193,14 +179,21 @@
                         {% set status_text = 'Anulado' %}
                         {% set status_icon = 'bi-x-octagon-fill' %}
                         {% set status_color = 'slate' %}
+                    {% else %}
+                        {# Este es el caso para un reporte inicial (status 'OPEN') o uno bajo revisión sin diferencia pendiente #}
+                        {% set status_text = 'Pendiente de Revisión' %}
+                        {% set status_icon = 'bi-hourglass-split' %}
+                        {% set status_color = 'amber' %}
                     {% endif %}
                 {% else %}
+                    {# Lógica de fallback para pagos que no pertenecen a un bulk (si aplica) #}
+                    {% set p_accion = pago %}
                     {% if p_accion.estado_reporte == 'Pendiente de Revision' %}{% set status_text = 'Pendiente de Revisión' %}{% set status_icon = 'bi-hourglass-split' %}{% set status_color = 'amber' %}{% endif %}
                     {% if p_accion.estado_reporte == 'Aprobado' %}{% set status_text = 'Aprobado' %}{% set status_icon = 'bi-check-circle-fill' %}{% set status_color = 'green' %}{% endif %}
                     {% if p_accion.estado_reporte == 'Inconsistente' %}{% set status_text = 'Inconsistente' %}{% set status_icon = 'bi-exclamation-triangle-fill' %}{% set status_color = 'red' %}{% endif %}
                 {% endif %}
+                {# --- FIN DE LA CORRECCIÓN --- #}
 
-                {# --- INICIO DE LA MODIFICACIÓN --- #}
                 {% if is_admin_view and pago.bulk_status == 'READY_TO_RECONCILE' %}
                     <a href="{{ url_for('pagos_por_conciliar') }}" class="block bg-cyan-50 text-cyan-800 p-5 rounded-xl border border-cyan-200 text-center hover:bg-cyan-100 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500">
                         <i class="bi bi-check-circle-fill text-4xl"></i>
@@ -213,8 +206,8 @@
                         <h3 class="text-xl font-bold mt-2">{{ status_text }}</h3>
                     </div>
                 {% endif %}
-                {# --- FIN DE LA MODIFICACIÓN --- #}
 
+                {% set p_accion = pago_pendiente_para_acciones or pago %}
                 {% if is_admin_view and p_accion.estado_reporte == 'Pendiente de Revision' %}
                 <div class="bg-white p-5 rounded-xl shadow-sm border">
                     <h3 class="text-lg font-bold text-slate-800 mb-4">Acciones (sobre Pago #{{p_accion.id}})</h3>
