@@ -1551,8 +1551,8 @@ def reportes_por_revisar():
     try:
         with conn.cursor() as cur:
             # --- INICIO DE LA CORRECCIÓN ---
-            # Se cambia a INNER JOIN para asegurar que solo se muestren procesos
-            # que tengan al menos un pago asociado, evitando errores con valores nulos.
+            # Se añade una condición para excluir pagos cuyo estado comience con 'Anulado',
+            # asegurando que los procesos cancelados no aparezcan en la lista.
             query = """
                 SELECT DISTINCT ON (b.id)
                     p.id, -- ID del primer pago, usado para el enlace "Revisar"
@@ -1569,7 +1569,7 @@ def reportes_por_revisar():
                 FROM payment_bulks b
                 JOIN clientes c ON b.cliente_id = c.id
                 INNER JOIN pagos p ON p.bulk_id = b.id
-                WHERE b.status IN ('OPEN', 'UNDER_REVIEW')
+                WHERE b.status IN ('OPEN', 'UNDER_REVIEW') AND p.estado_reporte NOT LIKE 'Anulado%'
                 ORDER BY b.id, p.fecha_creacion ASC;
             """
             cur.execute(query)
