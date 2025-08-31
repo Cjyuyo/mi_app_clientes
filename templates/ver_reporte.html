@@ -56,7 +56,7 @@
                         
                         <!-- Tarjeta: Monto Esperado -->
                         <div class="bg-white p-4 rounded-xl shadow-sm border text-center">
-                            <h3 class="text-sm font-semibold text-slate-500 whitespace-nowrap">Monto Esperado</h3>
+                            <h3 class="text-sm font-semibold text-slate-500">Monto Esperado</h3>
                             <p class="text-2xl font-bold text-slate-800 mt-2 flex items-baseline justify-center">
                                 {% if currency_symbol == '$' %}<span class="text-xl font-normal mr-1">{{ currency_symbol }}</span>{% endif %}
                                 <span class="font-mono">{{ "%.2f"|format(bulk_totals.esperado|float) }}</span>
@@ -65,7 +65,7 @@
                         </div>
                         <!-- Tarjeta: Total Reportado -->
                         <div class="bg-white p-4 rounded-xl shadow-sm border text-center">
-                            <h3 class="text-sm font-semibold text-slate-500 whitespace-nowrap">Total Reportado</h3>
+                            <h3 class="text-sm font-semibold text-slate-500">Total Reportado</h3>
                             <p class="text-2xl font-bold text-blue-600 mt-2 flex items-baseline justify-center">
                                 {% if currency_symbol == '$' %}<span class="text-xl font-normal mr-1">{{ currency_symbol }}</span>{% endif %}
                                 <span class="font-mono">{{ "%.2f"|format(bulk_totals.reportado|float) }}</span>
@@ -74,7 +74,7 @@
                         </div>
                         <!-- Tarjeta: Total Verificado -->
                         <div class="bg-green-50 p-4 rounded-xl shadow-sm border border-green-200 text-center">
-                            <h3 class="text-sm font-semibold text-green-600 whitespace-nowrap">Total Verificado</h3>
+                            <h3 class="text-sm font-semibold text-green-600">Total Verificado</h3>
                             <p class="text-2xl font-bold text-green-700 mt-2 flex items-baseline justify-center">
                                 {% if currency_symbol == '$' %}<span class="text-xl font-normal mr-1">{{ currency_symbol }}</span>{% endif %}
                                 <span class="font-mono">{{ "%.2f"|format(bulk_totals.verificado|float) }}</span>
@@ -83,7 +83,7 @@
                         </div>
                         <!-- Tarjeta: Diferencia Pendiente -->
                         <div class="bg-red-50 p-4 rounded-xl shadow-sm border border-red-200 text-center">
-                            <h3 class="text-sm font-semibold text-red-600 whitespace-nowrap">Diferencia Pendiente</h3>
+                            <h3 class="text-sm font-semibold text-red-600">Diferencia Pendiente</h3>
                             <p class="text-2xl font-bold text-red-700 mt-2 flex items-baseline justify-center">
                                 {% if currency_symbol == '$' %}<span class="text-xl font-normal mr-1">{{ currency_symbol }}</span>{% endif %}
                                 <span class="font-mono">{{ "%.2f"|format(bulk_totals.pendiente|float) }}</span>
@@ -156,7 +156,7 @@
                         <div><dt class="text-slate-500">Concepto</dt><dd class="font-semibold">{{ pago.por_concepto_de }}</dd></div>
                         <div><dt class="text-slate-500">Fecha del Pago</dt><dd class="font-semibold">{{ pago.fecha_pago | format_date }}</dd></div>
                         <div><dt class="text-slate-500">Forma de Pago</dt><dd class="font-semibold">{{ pago.forma_pago }}</dd></div>
-                        <div><dt class="text-slate-500">Referencia / ID</dt><dd class="font-semibold font-mono">{{ pago.referencia }}</dd></div>
+                        <div><dt class="text-slate-500">Referencia / ID</dt><dd class="font-semibold font-mono">{{ pago.referencia if pago.referencia and pago.referencia != 'None' else 'N/A' }}</dd></div>
                         {% if pago.pago_en == 'Dolar/BCV' %}
                         <div><dt class="text-slate-500">Banco</dt><dd class="font-semibold">{{ pago.banco }}</dd></div>
                         {% endif %}
