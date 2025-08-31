@@ -58,37 +58,37 @@
                         <!-- Tarjeta: Monto Esperado -->
                         <div class="bg-white p-4 rounded-xl shadow-sm border text-center">
                             <h3 class="text-sm font-semibold text-slate-500">Monto Esperado</h3>
-                            <p class="text-2xl font-bold text-slate-800 mt-2 flex items-baseline justify-center">
-                                {% if currency_symbol == '$' %}<span class="text-lg font-normal mr-0.5">{{ currency_symbol }}</span>{% endif %}
-                                <span>{{ "%.2f"|format(bulk_totals.esperado|float) }}</span>
-                                {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1">{{ currency_symbol }}</span>{% endif %}
+                            <p class="text-2xl font-bold text-slate-800 mt-2 flex items-center justify-center">
+                                {% if currency_symbol == '$' %}<span class="text-xl font-normal mr-1">{{ currency_symbol }}</span>{% endif %}
+                                <span class="font-mono">{{ "%.2f"|format(bulk_totals.esperado|float) }}</span>
+                                {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1.5">{{ currency_symbol }}</span>{% endif %}
                             </p>
                         </div>
                         <!-- Tarjeta: Total Reportado -->
                         <div class="bg-white p-4 rounded-xl shadow-sm border text-center">
                             <h3 class="text-sm font-semibold text-slate-500">Total Reportado</h3>
-                            <p class="text-2xl font-bold text-blue-600 mt-2 flex items-baseline justify-center">
-                                {% if currency_symbol == '$' %}<span class="text-lg font-normal mr-0.5">{{ currency_symbol }}</span>{% endif %}
-                                <span>{{ "%.2f"|format(bulk_totals.reportado|float) }}</span>
-                                {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1">{{ currency_symbol }}</span>{% endif %}
+                            <p class="text-2xl font-bold text-blue-600 mt-2 flex items-center justify-center">
+                                {% if currency_symbol == '$' %}<span class="text-xl font-normal mr-1">{{ currency_symbol }}</span>{% endif %}
+                                <span class="font-mono">{{ "%.2f"|format(bulk_totals.reportado|float) }}</span>
+                                {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1.5">{{ currency_symbol }}</span>{% endif %}
                             </p>
                         </div>
                         <!-- Tarjeta: Total Verificado -->
                         <div class="bg-green-50 p-4 rounded-xl shadow-sm border border-green-200 text-center">
                             <h3 class="text-sm font-semibold text-green-600">Total Verificado</h3>
-                            <p class="text-2xl font-bold text-green-700 mt-2 flex items-baseline justify-center">
-                                {% if currency_symbol == '$' %}<span class="text-lg font-normal mr-0.5">{{ currency_symbol }}</span>{% endif %}
-                                <span>{{ "%.2f"|format(bulk_totals.verificado|float) }}</span>
-                                {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1">{{ currency_symbol }}</span>{% endif %}
+                            <p class="text-2xl font-bold text-green-700 mt-2 flex items-center justify-center">
+                                {% if currency_symbol == '$' %}<span class="text-xl font-normal mr-1">{{ currency_symbol }}</span>{% endif %}
+                                <span class="font-mono">{{ "%.2f"|format(bulk_totals.verificado|float) }}</span>
+                                {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1.5">{{ currency_symbol }}</span>{% endif %}
                             </p>
                         </div>
                         <!-- Tarjeta: Diferencia Pendiente -->
                         <div class="bg-red-50 p-4 rounded-xl shadow-sm border border-red-200 text-center">
                             <h3 class="text-sm font-semibold text-red-600">Diferencia Pendiente</h3>
-                            <p class="text-2xl font-bold text-red-700 mt-2 flex items-baseline justify-center">
-                                {% if currency_symbol == '$' %}<span class="text-lg font-normal mr-0.5">{{ currency_symbol }}</span>{% endif %}
-                                <span>{{ "%.2f"|format(bulk_totals.pendiente|float) }}</span>
-                                {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1">{{ currency_symbol }}</span>{% endif %}
+                            <p class="text-2xl font-bold text-red-700 mt-2 flex items-center justify-center">
+                                {% if currency_symbol == '$' %}<span class="text-xl font-normal mr-1">{{ currency_symbol }}</span>{% endif %}
+                                <span class="font-mono">{{ "%.2f"|format(bulk_totals.pendiente|float) }}</span>
+                                {% if currency_symbol != '$' %}<span class="text-lg font-normal ml-1.5">{{ currency_symbol }}</span>{% endif %}
                             </p>
                         </div>
                     </div>
@@ -108,15 +108,15 @@
                         </div>
                         <div class="mt-4 text-center">
                              {% if pago.moneda_pago == 'BsBCV' %}
-                                <p class="text-3xl font-bold text-slate-800 tracking-tight flex items-baseline justify-center">
-                                    <span class="text-lg font-normal mr-0.5">$</span>
-                                    <span>{{ "%.2f"|format(pago.valor_cuota|float) }}</span>
+                                <p class="text-3xl font-bold text-slate-800 tracking-tight flex items-center justify-center">
+                                    <span class="text-xl font-normal mr-1">$</span>
+                                    <span class="font-mono">{{ "%.2f"|format(pago.valor_cuota|float) }}</span>
                                 </p>
                                 <p class="text-xs text-slate-500 mt-1">(Referencia en USD)</p>
                             {% else %}
-                                <p class="text-3xl font-bold text-slate-800 tracking-tight flex items-baseline justify-center">
-                                    <span class="text-lg font-normal mr-0.5">$</span>
-                                    <span>{{ "%.2f"|format(pago.valor_cuota|float) }}</span>
+                                <p class="text-3xl font-bold text-slate-800 tracking-tight flex items-center justify-center">
+                                    <span class="text-xl font-normal mr-1">$</span>
+                                    <span class="font-mono">{{ "%.2f"|format(pago.valor_cuota|float) }}</span>
                                 </p>
                                 <p class="text-xs text-slate-500 mt-1">Pago directo en divisas</p>
                             {% endif %}
@@ -134,15 +134,15 @@
                         </div>
                         <div class="mt-4 text-center">
                             {% if pago.pago_en == 'Dolar/BCV' %}
-                                <p class="text-3xl font-bold text-blue-600 tracking-tight flex items-baseline justify-center">
-                                    <span>{{ "%.2f"|format(pago.monto_bs|float) }}</span>
-                                    <span class="text-lg font-normal ml-1">Bs.</span>
+                                <p class="text-3xl font-bold text-blue-600 tracking-tight flex items-center justify-center">
+                                    <span class="font-mono">{{ "%.2f"|format(pago.monto_bs|float) }}</span>
+                                    <span class="text-lg font-normal ml-1.5">Bs.</span>
                                 </p>
                                 <p class="text-xs text-slate-500 mt-1">Tasa BCV del día del pago: <span class="font-mono">{{ pago.tasa_dia | format_decimal }}</span></p>
                             {% else %}
-                                <p class="text-3xl font-bold text-blue-600 tracking-tight flex items-baseline justify-center">
-                                    <span class="text-lg font-normal mr-0.5">$</span>
-                                    <span>{{ "%.2f"|format(pago.monto|float) }}</span>
+                                <p class="text-3xl font-bold text-blue-600 tracking-tight flex items-center justify-center">
+                                    <span class="text-xl font-normal mr-1">$</span>
+                                    <span class="font-mono">{{ "%.2f"|format(pago.monto|float) }}</span>
                                 </p>
                                 <p class="text-xs text-slate-500 mt-1">Reportado vía {{ pago.forma_pago or 'Digital' }}</p>
                             {% endif %}
