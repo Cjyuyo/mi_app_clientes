@@ -47,7 +47,6 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2 space-y-6">
                 
-                <!-- ===== INICIO DE LA NUEVA LÓGICA DE TARJETAS ===== -->
                 {% if bulk_totals and is_complex_process %}
                 {# VISTA PARA PROCESOS COMPLEJOS (CON DIFERENCIAS) #}
                 <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -57,7 +56,7 @@
                         
                         <!-- Tarjeta: Monto Esperado -->
                         <div class="bg-white p-4 rounded-xl shadow-sm border text-center">
-                            <h3 class="text-sm font-semibold text-slate-500">Monto Esperado</h3>
+                            <h3 class="text-sm font-semibold text-slate-500 whitespace-nowrap">Monto Esperado</h3>
                             <p class="text-2xl font-bold text-slate-800 mt-2 flex items-baseline justify-center">
                                 {% if currency_symbol == '$' %}<span class="text-xl font-normal mr-1">{{ currency_symbol }}</span>{% endif %}
                                 <span class="font-mono">{{ "%.2f"|format(bulk_totals.esperado|float) }}</span>
@@ -66,7 +65,7 @@
                         </div>
                         <!-- Tarjeta: Total Reportado -->
                         <div class="bg-white p-4 rounded-xl shadow-sm border text-center">
-                            <h3 class="text-sm font-semibold text-slate-500">Total Reportado</h3>
+                            <h3 class="text-sm font-semibold text-slate-500 whitespace-nowrap">Total Reportado</h3>
                             <p class="text-2xl font-bold text-blue-600 mt-2 flex items-baseline justify-center">
                                 {% if currency_symbol == '$' %}<span class="text-xl font-normal mr-1">{{ currency_symbol }}</span>{% endif %}
                                 <span class="font-mono">{{ "%.2f"|format(bulk_totals.reportado|float) }}</span>
@@ -75,7 +74,7 @@
                         </div>
                         <!-- Tarjeta: Total Verificado -->
                         <div class="bg-green-50 p-4 rounded-xl shadow-sm border border-green-200 text-center">
-                            <h3 class="text-sm font-semibold text-green-600">Total Verificado</h3>
+                            <h3 class="text-sm font-semibold text-green-600 whitespace-nowrap">Total Verificado</h3>
                             <p class="text-2xl font-bold text-green-700 mt-2 flex items-baseline justify-center">
                                 {% if currency_symbol == '$' %}<span class="text-xl font-normal mr-1">{{ currency_symbol }}</span>{% endif %}
                                 <span class="font-mono">{{ "%.2f"|format(bulk_totals.verificado|float) }}</span>
@@ -84,7 +83,7 @@
                         </div>
                         <!-- Tarjeta: Diferencia Pendiente -->
                         <div class="bg-red-50 p-4 rounded-xl shadow-sm border border-red-200 text-center">
-                            <h3 class="text-sm font-semibold text-red-600">Diferencia Pendiente</h3>
+                            <h3 class="text-sm font-semibold text-red-600 whitespace-nowrap">Diferencia Pendiente</h3>
                             <p class="text-2xl font-bold text-red-700 mt-2 flex items-baseline justify-center">
                                 {% if currency_symbol == '$' %}<span class="text-xl font-normal mr-1">{{ currency_symbol }}</span>{% endif %}
                                 <span class="font-mono">{{ "%.2f"|format(bulk_totals.pendiente|float) }}</span>
@@ -150,8 +149,6 @@
                     </div>
                 </div>
                 {% endif %}
-                <!-- ===== FIN DE LA NUEVA LÓGICA DE TARJETAS ===== -->
-
 
                 <div class="bg-white p-6 rounded-xl shadow-sm border">
                     <h3 class="text-lg font-bold text-slate-800 mb-4">Detalles de la Transacción Principal (#{{pago.id}})</h3>
@@ -168,13 +165,11 @@
             </div>
 
             <div class="lg:col-span-1 space-y-6">
-                 <!-- ===== INICIO DE LA CORRECCIÓN DE ESTADO ===== -->
                  {% set p_accion = pago_pendiente_para_acciones or pago %}
                  {% set status_text = p_accion.estado_reporte %}
                  {% set status_icon = 'bi-question-circle' %}
                  {% set status_color = 'slate' %}
                  
-                 {# Si es un proceso bulk, el estado del bulk tiene prioridad #}
                  {% if pago.bulk_id %}
                     {% if pago.bulk_status == 'UNDER_REVIEW' or pago.bulk_status == 'OPEN' %}
                         {% if bulk_totals and bulk_totals.pendiente > 0 %}
@@ -199,7 +194,7 @@
                         {% set status_icon = 'bi-x-octagon-fill' %}
                         {% set status_color = 'slate' %}
                     {% endif %}
-                 {% else %} {# Lógica anterior para pagos simples #}
+                 {% else %}
                     {% if p_accion.estado_reporte == 'Pendiente de Revision' %}{% set status_text = 'Pendiente de Revisión' %}{% set status_icon = 'bi-hourglass-split' %}{% set status_color = 'amber' %}{% endif %}
                     {% if p_accion.estado_reporte == 'Aprobado' %}{% set status_text = 'Aprobado' %}{% set status_icon = 'bi-check-circle-fill' %}{% set status_color = 'green' %}{% endif %}
                     {% if p_accion.estado_reporte == 'Inconsistente' %}{% set status_text = 'Inconsistente' %}{% set status_icon = 'bi-exclamation-triangle-fill' %}{% set status_color = 'red' %}{% endif %}
@@ -209,8 +204,6 @@
                     <i class="bi {{ status_icon }} text-4xl"></i>
                     <h3 class="text-xl font-bold mt-2">{{ status_text }}</h3>
                 </div>
-                <!-- ===== FIN DE LA CORRECCIÓN DE ESTADO ===== -->
-
 
                 {% if is_admin_view and p_accion.estado_reporte == 'Pendiente de Revision' %}
                 <div class="bg-white p-5 rounded-xl shadow-sm border">
