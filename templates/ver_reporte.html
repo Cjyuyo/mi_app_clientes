@@ -251,12 +251,35 @@
                         <td class="p-3">{{ pago_item.fecha_creacion | format_datetime }}</td>
                         <td class="p-3">{{ pago_item.por_concepto_de }}</td>
                         <td class="p-3 font-mono">{{ pago_item.referencia if pago_item.referencia and pago_item.referencia|string != 'None' else 'N/A' }}</td>
-                        <td class="p-3 font-semibold text-slate-800">
-                            {% if pago_item.pago_en == 'Dolar/BCV' %}
-                                {{ "%.2f"|format(pago_item.monto_bs|float) }} Bs.
+                        <td class="p-3">
+                            {# --- INICIO DE LA MODIFICACIÓN --- #}
+                            {% if pago_item.estado_reporte == 'Inconsistente' and pago_item.detalles_reporte and pago_item.detalles_reporte.monto_verificado %}
+                                <div class="text-xs text-slate-500">
+                                    Reportado: 
+                                    {% if pago_item.pago_en == 'Dolar/BCV' %}
+                                        {{ "%.2f"|format(pago_item.monto_bs|float) }} Bs.
+                                    {% else %}
+                                        ${{ "%.2f"|format(pago_item.monto|float) }}
+                                    {% endif %}
+                                </div>
+                                <div class="font-semibold text-green-600">
+                                    Verificado: 
+                                    {% if pago.bulk_currency == 'VES' %}
+                                        {{ "%.2f"|format(pago_item.detalles_reporte.monto_verificado|float) }} Bs.
+                                    {% else %}
+                                        ${{ "%.2f"|format(pago_item.detalles_reporte.monto_verificado|float) }}
+                                    {% endif %}
+                                </div>
                             {% else %}
-                                ${{ "%.2f"|format(pago_item.monto|float) }}
+                                <span class="font-semibold text-slate-800">
+                                {% if pago_item.pago_en == 'Dolar/BCV' %}
+                                    {{ "%.2f"|format(pago_item.monto_bs|float) }} Bs.
+                                {% else %}
+                                    ${{ "%.2f"|format(pago_item.monto|float) }}
+                                {% endif %}
+                                </span>
                             {% endif %}
+                            {# --- FIN DE LA MODIFICACIÓN --- #}
                         </td>
                         <td class="p-3">
                             <span class="p-1.5 text-xs font-medium uppercase tracking-wider rounded-lg 
