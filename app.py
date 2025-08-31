@@ -1551,17 +1551,16 @@ def reportes_por_revisar():
     try:
         with conn.cursor() as cur:
             # --- INICIO DE LA CORRECCIÓN ---
-            # La consulta ahora se basa en el estado del 'payment_bulk' (el proceso general)
-            # para determinar en qué pestaña debe aparecer cada item.
-            # Se obtiene el primer pago de cada proceso solo para fines de visualización en la lista.
+            # Se ajustan los alias de la consulta para que coincidan con los nombres de variable
+            # que espera la plantilla HTML (ej. 'monto_bs' en lugar de 'monto_reportado_bs').
             query = """
                 SELECT DISTINCT ON (b.id)
                     p.id, -- ID del primer pago, usado para el enlace "Revisar"
                     b.status AS bulk_status,
                     b.expected_amount,
                     b.currency,
-                    p.monto AS monto_reportado_usd,
-                    p.monto_bs AS monto_reportado_bs,
+                    p.monto,
+                    p.monto_bs,
                     p.fecha_creacion,
                     c.id AS cliente_id,
                     c.nombre,
@@ -1599,7 +1598,7 @@ def reportes_por_revisar():
         logging.error(f"Error en reportes_por_revisar: {traceback.format_exc()}")
 
     return render_template('reportes_por_revisar.html', reportes=reportes_categorizados)
-    
+
  # --- INICIO DE LA CORRECCIÓN ---
 # Esta es una función auxiliar que contiene la lógica pura de conciliación.
 # La usamos para evitar repetir código.
