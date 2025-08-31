@@ -4325,7 +4325,6 @@ def portal_diferencia_reportar(bulk_id, order_id):
         pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
         try:
             with conn.cursor() as cur:
-                # --- INICIO DE LA CORRECCIÓN DEFINITIVA ---
                 tasa_bcv_dia = tasa_hoy['tasa'] if tasa_hoy and tasa_hoy['tasa'] else Decimal('0.0')
                 moneda_orden = order['currency']
                 
@@ -4334,14 +4333,18 @@ def portal_diferencia_reportar(bulk_id, order_id):
                 pago_en_final = ''
                 forma_pago_final = ''
                 banco_final = None
-                referencia_final = pago_form.get('referencia')
+                referencia_final = None # Inicializamos la variable
 
                 if moneda_orden == 'USD':
                     monto_usd_final = Decimal(pago_form.get('monto_usdt', '0.00').replace(',', '.'))
-                    monto_bs_final = Decimal('0.0') # Forzamos Bs a 0 para integridad de datos
+                    monto_bs_final = Decimal('0.0') 
                     pago_en_final = 'USDT'
                     forma_pago_final = 'Binance'
-                    banco_final = None # No hay banco para pagos USDT
+                    banco_final = None
+                    # --- INICIO DE LA CORRECCIÓN ---
+                    # Se obtiene la referencia del campo específico para USDT/Binance.
+                    referencia_final = pago_form.get('referencia_usdt')
+                    # --- FIN DE LA CORRECCIÓN ---
                 else: # VES
                     monto_bs_final = Decimal(pago_form.get('monto_bs', '0.00').replace(',', '.'))
                     if tasa_bcv_dia > 0:
@@ -4351,6 +4354,8 @@ def portal_diferencia_reportar(bulk_id, order_id):
                     pago_en_final = 'Dolar/BCV'
                     forma_pago_final = pago_form.get('forma_pago_bs')
                     banco_final = pago_form.get('banco')
+                    # Se obtiene la referencia del campo genérico.
+                    referencia_final = pago_form.get('referencia')
 
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
@@ -4364,7 +4369,6 @@ def portal_diferencia_reportar(bulk_id, order_id):
                     banco_final, tasa_bcv_dia, get_venezuela_current_datetime(), 
                     concepto_pago, bulk_id, pago_en_final
                 ))
-                # --- FIN DE LA CORRECCIÓN DEFINITIVA ---
                 
                 cur.execute("UPDATE payment_orders SET status = 'PAID' WHERE id = %s", (order_id,))
                 
@@ -4392,7 +4396,7 @@ def portal_diferencia_reportar(bulk_id, order_id):
                            order_id=order_id,
                            hay_pago_pendiente_general=hay_pago_pendiente_general
                            )
-
+                           
 @app.route('/admin/pagos/por-revisar')
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
