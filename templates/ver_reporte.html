@@ -165,12 +165,12 @@
             </div>
 
             <div class="lg:col-span-1 space-y-6">
-                 {% set p_accion = pago_pendiente_para_acciones or pago %}
-                 {% set status_text = p_accion.estado_reporte %}
-                 {% set status_icon = 'bi-question-circle' %}
-                 {% set status_color = 'slate' %}
-                 
-                 {% if pago.bulk_id %}
+                {% set p_accion = pago_pendiente_para_acciones or pago %}
+                {% set status_text = p_accion.estado_reporte %}
+                {% set status_icon = 'bi-question-circle' %}
+                {% set status_color = 'slate' %}
+                
+                {% if pago.bulk_id %}
                     {% if pago.bulk_status == 'UNDER_REVIEW' or pago.bulk_status == 'OPEN' %}
                         {% if bulk_totals and bulk_totals.pendiente > 0 %}
                             {% set status_text = 'Diferencia Pendiente' %}
@@ -194,16 +194,26 @@
                         {% set status_icon = 'bi-x-octagon-fill' %}
                         {% set status_color = 'slate' %}
                     {% endif %}
-                 {% else %}
+                {% else %}
                     {% if p_accion.estado_reporte == 'Pendiente de Revision' %}{% set status_text = 'Pendiente de Revisión' %}{% set status_icon = 'bi-hourglass-split' %}{% set status_color = 'amber' %}{% endif %}
                     {% if p_accion.estado_reporte == 'Aprobado' %}{% set status_text = 'Aprobado' %}{% set status_icon = 'bi-check-circle-fill' %}{% set status_color = 'green' %}{% endif %}
                     {% if p_accion.estado_reporte == 'Inconsistente' %}{% set status_text = 'Inconsistente' %}{% set status_icon = 'bi-exclamation-triangle-fill' %}{% set status_color = 'red' %}{% endif %}
-                 {% endif %}
+                {% endif %}
 
-                <div class="bg-{{ status_color }}-50 text-{{ status_color }}-800 p-5 rounded-xl border border-{{ status_color }}-200 text-center">
-                    <i class="bi {{ status_icon }} text-4xl"></i>
-                    <h3 class="text-xl font-bold mt-2">{{ status_text }}</h3>
-                </div>
+                {# --- INICIO DE LA MODIFICACIÓN --- #}
+                {% if is_admin_view and pago.bulk_status == 'READY_TO_RECONCILE' %}
+                    <a href="{{ url_for('pagos_por_conciliar') }}" class="block bg-cyan-50 text-cyan-800 p-5 rounded-xl border border-cyan-200 text-center hover:bg-cyan-100 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500">
+                        <i class="bi bi-check-circle-fill text-4xl"></i>
+                        <h3 class="text-xl font-bold mt-2">Listo para Conciliar</h3>
+                        <p class="text-xs mt-1">Click para ir a la zona de conciliación</p>
+                    </a>
+                {% else %}
+                    <div class="bg-{{ status_color }}-50 text-{{ status_color }}-800 p-5 rounded-xl border border-{{ status_color }}-200 text-center">
+                        <i class="bi {{ status_icon }} text-4xl"></i>
+                        <h3 class="text-xl font-bold mt-2">{{ status_text }}</h3>
+                    </div>
+                {% endif %}
+                {# --- FIN DE LA MODIFICACIÓN --- #}
 
                 {% if is_admin_view and p_accion.estado_reporte == 'Pendiente de Revision' %}
                 <div class="bg-white p-5 rounded-xl shadow-sm border">
