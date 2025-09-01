@@ -3010,7 +3010,6 @@ def reporte_flujo_caja():
 # =================================================================================
 # --- GESTIÓN DE CLIENTES Y PAGOS ---
 # =================================================================================
-
 # ... (todo tu código anterior de app.py) ...
 
 @app.route('/cliente/<int:cliente_id>')
@@ -3078,22 +3077,28 @@ def perfil_cliente(cliente_id):
             cliente_dict['conteo_ofertas'] = len(ofertas_procesadas)
             cliente_dict['conteo_gestiones'] = len(gestiones_procesadas)
             
-            # 5. Renderizar la plantilla con los datos correctos y procesados
-            return render_template(
+            # --- INICIO DE LA CORRECCIÓN ---
+            # 5. Renderizar la plantilla y añadir cabeceras anti-caché
+            response = make_response(render_template(
                 'cliente_perfil.html',
                 cliente=cliente_dict,
                 pagos=pagos_procesados,
                 ofertas=ofertas_procesadas,
                 gestiones=gestiones_procesadas,
                 admin_rol=g.admin['rol']
-            )
+            ))
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+            return response
+            # --- FIN DE LA CORRECCIÓN ---
 
     except Exception as e:
         # Manejo de errores para cualquier problema inesperado durante el proceso
         logging.error(f"Error CRÍTICO al cargar perfil del cliente {cliente_id}: {e}\n{traceback.format_exc()}")
         flash("Ocurrió un error grave al cargar el perfil del cliente. El problema ha sido registrado.", "error")
         return redirect(url_for('consulta'))
-
+        
     # 4. Se pasan las nuevas variables (`cliente_dict` y `ofertas`) a la plantilla.
     return render_template('cliente_perfil.html',
                            cliente=cliente_dict, # Usamos el diccionario modificado
