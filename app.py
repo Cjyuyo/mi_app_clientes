@@ -3098,7 +3098,7 @@ def perfil_cliente(cliente_id):
         logging.error(f"Error CRÍTICO al cargar perfil del cliente {cliente_id}: {e}\n{traceback.format_exc()}")
         flash("Ocurrió un error grave al cargar el perfil del cliente. El problema ha sido registrado.", "error")
         return redirect(url_for('consulta'))
-        
+
     # 4. Se pasan las nuevas variables (`cliente_dict` y `ofertas`) a la plantilla.
     return render_template('cliente_perfil.html',
                            cliente=cliente_dict, # Usamos el diccionario modificado
@@ -4690,11 +4690,7 @@ def generar_contrato(client_id):
         flash('Acceso no autorizado.', 'error')
         return redirect(url_for('home'))
 
-    # --- INICIO DE LA CORRECCIÓN ---
-    # Se obtiene el parámetro 'origin' de la URL para saber de dónde vino el usuario.
-    # Si no se proporciona, se asume 'perfil' como valor por defecto.
     origin = request.args.get('origin', 'perfil')
-    # --- FIN DE LA CORRECCIÓN ---
 
     conn = get_db()
     if not conn:
@@ -4703,21 +4699,28 @@ def generar_contrato(client_id):
 
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se añade la concatenación del nombre y apellido del beneficiario
+            # para que esté disponible en la plantilla del contrato.
+            query = """
+                SELECT *, 
+                       (nombre || ' ' || apellido) as nombre_apellido,
+                       (beneficiario_nombre || ' ' || beneficiario_apellido) as beneficiario_nombre_apellido
+                FROM clientes WHERE id = %s
+            """
+            # --- FIN DE LA CORRECCIÓN ---
+            cur.execute(query, (client_id,))
             cliente = cur.fetchone()
         
         if not cliente:
             flash('Cliente no encontrado.', 'error')
             return redirect(url_for('home'))
 
-        # --- INICIO DE LA CORRECCIÓN ---
-        # Se pasa la variable 'origin' a la plantilla para que el botón de "Volver" funcione correctamente.
         return render_template('contrato.html', 
                                cliente=cliente, 
                                modo_pre_registro=False, 
-                               anio_actual=get_venezuela_current_date().year,
+                               anio_actual=datetime.now().year,
                                origin=origin)
-        # --- FIN DE LA CORRECCIÓN ---
         
     except psycopg2.Error as e:
         flash(f"Error al generar el contrato: {e}", "error")
