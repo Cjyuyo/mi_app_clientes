@@ -3217,9 +3217,8 @@ def reporte_proyecciones():
         logging.error(f"Error en reporte_proyecciones: {traceback.format_exc()}")
 
     return render_template('reporte_proyecciones.html', proyecciones=proyecciones)
-    
+
 # ====== FIN: REEMPLAZA TU FUNCIÓN DE PROYECCIONES CON ESTA VERSIÓN SIN NÓMINA ======
-Python
 # Importa estas librerías en la parte superior de tu archivo si aún no las tienes
 from flask import request, redirect, url_for, flash, json
 
