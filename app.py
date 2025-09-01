@@ -4593,7 +4593,6 @@ def portal_reportar_pago():
                     forma_pago_final = 'Binance'
                     tasa_bcv_calculo = None
                     currency_bulk = 'USD'
-                    # --- SOLUCIÓN CORRECTA PARA LA REFERENCIA USDT ---
                     referencia_final = pago_form.get('referencia_usdt')
                 else: 
                     pago_en_final = 'Dolar/BCV'
@@ -4605,10 +4604,18 @@ def portal_reportar_pago():
                     currency_bulk = 'VES'
                     referencia_final = pago_form.get('referencia')
 
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se selecciona el monto ESPERADO correcto según la moneda del proceso (bulk).
+                # Para Bolívares (VES), usamos el monto calculado por el sistema (monto_a_pagar_bs).
+                # Para Dólares (USD), usamos el valor de la cuota (monto_a_pagar_usd).
+                # Esto replica la lógica de USDT para los pagos en Bs.
+                expected_amount_for_bulk = monto_a_pagar_bs if currency_bulk == 'VES' else monto_a_pagar_usd
+                
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
                     VALUES (%s, %s, %s, 'OPEN', 0) RETURNING id
-                """, (cliente['id'], currency_bulk, monto_reportado_bs if currency_bulk == 'VES' else monto_usd_a_guardar))
+                """, (cliente['id'], currency_bulk, expected_amount_for_bulk))
+                # --- FIN DE LA CORRECCIÓN ---
                 
                 new_bulk_id = cur.fetchone()[0]
 
