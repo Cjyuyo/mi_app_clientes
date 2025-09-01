@@ -5246,18 +5246,21 @@ def portal_pagar_inscripcion():
                 monto_usd_a_guardar = Decimal('0.0')
                 monto_reportado_bs = Decimal('0.0')
                 forma_pago_final = None
-                referencia_final = pago_form.get('referencia')
+                referencia_final = None # Inicializado
                 banco_final = None
                 fecha_pago_final = pago_form.get('fecha_pago')
+                currency_bulk = ''
 
                 if pago_en_final == 'USDT':
                     if tipo_pago_inscripcion == 'abono':
                         monto_usd_a_guardar = Decimal(pago_form.get('monto_abono_usd', '0.00').replace(',', '.'))
-                    else:
+                    else: # Pago completo
                         monto_usd_a_guardar = monto_restante
                     forma_pago_final = 'Binance'
                     tasa_bcv_calculo = None
-                else:
+                    currency_bulk = 'USD'
+                    referencia_final = pago_form.get('referencia_usdt')
+                else: # Dolar/BCV
                     pago_en_final = 'Dolar/BCV'
                     monto_bs_str = pago_form.get('monto_bs', '0.00').replace(',', '.')
                     monto_reportado_bs = Decimal(monto_bs_str).quantize(Decimal('0.02'))
@@ -5267,20 +5270,34 @@ def portal_pagar_inscripcion():
                         monto_usd_a_guardar = Decimal('0.0')
                     forma_pago_final = pago_form.get('forma_pago_bs')
                     banco_final = pago_form.get('banco')
-                
+                    currency_bulk = 'VES'
+                    referencia_final = pago_form.get('referencia')
+
                 # --- INICIO DE LA CORRECCIÓN ---
-                # Se añade 'cuotas_cubiertas' a la consulta con un valor fijo de 0.
+                # 1. Se crea el "Expediente de Pago" (payment_bulk) para la inscripción.
+                #    El monto esperado es el total restante de la inscripción.
+                expected_amount_for_bulk = monto_restante if currency_bulk == 'USD' else monto_a_pagar_bs
+                
+                cur.execute("""
+                    INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
+                    VALUES (%s, %s, %s, 'OPEN', 0) RETURNING id
+                """, (cliente['id'], currency_bulk, expected_amount_for_bulk))
+                
+                new_bulk_id = cur.fetchone()[0]
+
+                # 2. Se modifica la inserción del pago para ASIGNAR el bulk_id, unificando el flujo.
                 pago_query = """
-                    INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia,
-                                       estado_reporte, fecha_creacion, reportado_por_cliente, estado_pago, cuotas_cubiertas) 
-                    VALUES (%s, %s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, 'Pendiente', %s);
+                    INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, 
+                                       referencia, banco, tasa_dia, estado_reporte, fecha_creacion, reportado_por_cliente, 
+                                       estado_pago, cuotas_cubiertas, bulk_id) 
+                    VALUES (%s, %s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, 'Pendiente', 0, %s);
                 """
                 cur.execute(pago_query, (
                     session['cliente_id'], monto_usd_a_guardar, monto_reportado_bs,
                     forma_pago_final, fecha_pago_final, pago_en_final, 
                     concepto_pago, referencia_final, banco_final, tasa_bcv_calculo, 
                     get_venezuela_current_datetime(),
-                    0 # Valor añadido para cuotas_cubiertas
+                    new_bulk_id # <--- Se asigna el ID del nuevo "expediente"
                 ))
                 # --- FIN DE LA CORRECCIÓN ---
                 
