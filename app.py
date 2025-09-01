@@ -2949,7 +2949,7 @@ def admin_tasa_bcv():
         
     return render_template('admin_tasa_bcv.html', tasas_de_hoy=tasas_de_hoy, historial_tasas=historial_tasas, anio_actual=today_date.year)
 
-# ====== INICIO: NUEVA RUTA PARA GESTIÓN DE EGRESOS ======
+# ====== INICIO: REEMPLAZA TU FUNCIÓN DE GESTIÓN DE EGRESOS CON ESTA ======
 @app.route('/admin/gestion_egresos', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
@@ -2961,46 +2961,93 @@ def gestion_egresos():
 
     if request.method == 'POST':
         try:
-            titulo = request.form.get('titulo')
-            monto = Decimal(request.form.get('monto'))
-            moneda = request.form.get('moneda')
             tipo_egreso = request.form.get('tipo_egreso')
-            frecuencia = request.form.get('frecuencia') if tipo_egreso == 'Fijo' else None
-            fecha_pago = request.form.get('fecha_pago_programada')
-            descripcion = request.form.get('descripcion')
-            
-            if not all([titulo, monto, moneda, tipo_egreso, fecha_pago]):
-                flash("Todos los campos marcados con * son obligatorios.", "danger")
-            else:
-                with conn.cursor() as cur:
+
+            with conn.cursor() as cur:
+                if tipo_egreso == 'Devolución':
+                    # Lógica para crear un plan de devolución por cuotas
+                    cliente_id = int(request.form.get('cliente_asociado_id'))
+                    monto_total = Decimal(request.form.get('monto_total_devolucion'))
+                    moneda = request.form.get('moneda_devolucion')
+                    num_cuotas = int(request.form.get('numero_de_cuotas'))
+                    fecha_primer_pago_str = request.form.get('fecha_primer_pago')
+                    descripcion = request.form.get('descripcion_devolucion')
+                    
+                    monto_por_cuota = (monto_total / num_cuotas).quantize(Decimal('0.01'))
+                    fecha_primer_pago = datetime.strptime(fecha_primer_pago_str, '%Y-%m-%d').date()
+
+                    cur.execute("SELECT nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
+                    cliente_info = cur.fetchone()
+                    titulo_base = f"Devolución a {cliente_info['nombre']} {cliente_info['apellido']}"
+
+                    for i in range(num_cuotas):
+                        cuota_actual = i + 1
+                        titulo_cuota = f"{titulo_base} (Cuota {cuota_actual}/{num_cuotas})"
+                        
+                        # Calcular la fecha para la cuota actual (sumando meses)
+                        mes_actual = fecha_primer_pago.month + i
+                        ano_actual = fecha_primer_pago.year + (mes_actual - 1) // 12
+                        mes_final = (mes_actual - 1) % 12 + 1
+                        fecha_pago_cuota = date(ano_actual, mes_final, fecha_primer_pago.day)
+
+                        cur.execute("""
+                            INSERT INTO egresos_planificados
+                            (titulo, monto, moneda, tipo_egreso, fecha_pago_programada, cliente_asociado_id, descripcion, creado_por_id)
+                            VALUES (%s, %s, %s, 'Devolución', %s, %s, %s, %s)
+                        """, (titulo_cuota, monto_por_cuota, moneda, fecha_pago_cuota, cliente_id, descripcion, g.admin['id']))
+                
+                else: # Lógica para Gastos Fijos y Variables
+                    titulo = request.form.get('titulo')
+                    monto = Decimal(request.form.get('monto'))
+                    moneda = request.form.get('moneda')
+                    descripcion = request.form.get('descripcion')
+                    frecuencia = request.form.get('frecuencia') if tipo_egreso == 'Fijo' else None
+                    fecha_pago_programada = request.form.get('fecha_pago_programada') if tipo_egreso == 'Variable' else None
+                    fecha_inicio = request.form.get('fecha_inicio_recurrencia') if tipo_egreso == 'Fijo' else None
+                    fecha_fin = request.form.get('fecha_fin_recurrencia') if tipo_egreso == 'Fijo' else None
+
                     cur.execute("""
                         INSERT INTO egresos_planificados 
-                        (titulo, monto, moneda, tipo_egreso, frecuencia, fecha_pago_programada, descripcion, creado_por_id)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (titulo, monto, moneda, tipo_egreso, frecuencia, fecha_pago, descripcion, g.admin['id']))
-                conn.commit()
-                flash("Egreso planificado agregado exitosamente.", "success")
-                return redirect(url_for('gestion_egresos'))
+                        (titulo, monto, moneda, tipo_egreso, frecuencia, fecha_pago_programada, 
+                         fecha_inicio_recurrencia, fecha_fin_recurrencia, descripcion, creado_por_id)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (titulo, monto, moneda, tipo_egreso, frecuencia, fecha_pago_programada,
+                          fecha_inicio, fecha_fin, descripcion, g.admin['id']))
+
+            conn.commit()
+            flash("Egreso planificado agregado exitosamente.", "success")
+            return redirect(url_for('gestion_egresos'))
         
-        except (psycopg2.Error, InvalidOperation) as e:
+        except (psycopg2.Error, InvalidOperation, TypeError, ValueError) as e:
             conn.rollback()
             flash(f"Error al guardar el egreso: {e}", "danger")
 
-    # Lógica para GET
+    # Lógica para GET (se mantiene igual)
     egresos = {'fijos': [], 'variables': [], 'devoluciones': []}
+    clientes = []
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM egresos_planificados WHERE tipo_egreso = 'Fijo' ORDER BY titulo")
+            cur.execute("SELECT id, nombre, apellido FROM clientes WHERE estatus = 'ACTIVO' ORDER BY nombre, apellido")
+            clientes_raw = cur.fetchall()
+            clientes = [{'id': c['id'], 'nombre_completo': f"{c['nombre']} {c['apellido']}"} for c in clientes_raw]
+            
+            cur.execute("SELECT * FROM egresos_planificados WHERE tipo_egreso = 'Fijo' AND estado = 'Activo' ORDER BY titulo")
             egresos['fijos'] = cur.fetchall()
-            cur.execute("SELECT * FROM egresos_planificados WHERE tipo_egreso = 'Variable' ORDER BY fecha_pago_programada DESC")
+            cur.execute("SELECT * FROM egresos_planificados WHERE tipo_egreso = 'Variable' AND estado = 'Activo' ORDER BY fecha_pago_programada DESC")
             egresos['variables'] = cur.fetchall()
-            cur.execute("SELECT * FROM egresos_planificados WHERE tipo_egreso = 'Devolución' ORDER BY fecha_pago_programada DESC")
+            cur.execute("""
+                SELECT e.*, c.nombre, c.apellido 
+                FROM egresos_planificados e
+                LEFT JOIN clientes c ON e.cliente_asociado_id = c.id
+                WHERE e.tipo_egreso = 'Devolución' AND e.estado = 'Activo' 
+                ORDER BY e.fecha_pago_programada DESC
+            """)
             egresos['devoluciones'] = cur.fetchall()
     except psycopg2.Error as e:
         flash(f"Error al cargar la lista de egresos: {e}", "danger")
 
-    return render_template('gestion_egresos.html', egresos=egresos)
-# ====== FIN: NUEVA RUTA PARA GESTIÓN DE EGRESOS ======
+    return render_template('gestion_egresos.html', egresos=egresos, clientes=clientes)
+# ====== FIN: REEMPLAZA TU FUNCIÓN DE GESTIÓN DE EGRESOS CON ESTA ======
 
 @app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
 @admin_required

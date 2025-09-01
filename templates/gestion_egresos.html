@@ -5,7 +5,7 @@
 {% block page_title %}Gestión de Egresos Planificados{% endblock %}
 
 {% block body %}
-<div class="space-y-8" x-data="{ tipoEgreso: '' }">
+<div class="space-y-8" x-data="{ activeTab: 'gastos' }">
     <header class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <div class="flex items-center gap-4">
             <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-red-100 text-red-600">
@@ -20,78 +20,78 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div class="lg:col-span-1">
-            <form action="{{ url_for('gestion_egresos') }}" method="POST" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
-                <h2 class="text-lg font-bold text-slate-800 border-b pb-3 mb-4">Agregar Nuevo Egreso</h2>
-                
-                <div>
-                    <label for="titulo" class="block text-sm font-medium text-slate-700">Título*</label>
-                    <input type="text" id="titulo" name="titulo" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label for="monto" class="block text-sm font-medium text-slate-700">Monto*</label>
-                        <input type="text" inputmode="decimal" id="monto" name="monto" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label for="moneda" class="block text-sm font-medium text-slate-700">Moneda*</label>
-                        <select id="moneda" name="moneda" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="USD">USD</option>
-                            <option value="VES">VES</option>
-                            <option value="EUR">EUR</option>
-                        </select>
-                    </div>
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+                <div class="border-b border-slate-200">
+                    <nav class="-mb-px flex" aria-label="Tabs">
+                        <button @click="activeTab = 'gastos'" :class="{'border-indigo-500 text-indigo-600': activeTab === 'gastos', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'gastos'}" class="w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm">
+                            Gastos Fijos/Variables
+                        </button>
+                        <button @click="activeTab = 'devoluciones'" :class="{'border-indigo-500 text-indigo-600': activeTab === 'devoluciones', 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300': activeTab !== 'devoluciones'}" class="w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm">
+                            Devoluciones a Clientes
+                        </button>
+                    </nav>
                 </div>
 
-                <div>
-                    <label for="tipo_egreso" class="block text-sm font-medium text-slate-700">Tipo de Egreso*</label>
-                    <select id="tipo_egreso" name="tipo_egreso" x-model="tipoEgreso" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="" disabled selected>-- Seleccionar --</option>
-                        <option value="Fijo">Fijo (Recurrente)</option>
-                        <option value="Variable">Variable (Único)</option>
-                        <option value="Devolución">Devolución</option>
-                    </select>
+                <div x-show="activeTab === 'gastos'" class="p-6">
+                    <form action="{{ url_for('gestion_egresos') }}" method="POST" class="space-y-4" x-data="{ tipoEgresoGasto: '' }">
+                        <input type="hidden" name="tipo_egreso" x-model="tipoEgresoGasto">
+                        <h2 class="text-lg font-bold text-slate-800">Agregar Gasto</h2>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Tipo*</label>
+                            <select x-model="tipoEgresoGasto" required class="mt-1 block w-full rounded-md border-slate-300"><option value="" disabled selected>-- Seleccionar --</option><option value="Fijo">Fijo (Recurrente)</option><option value="Variable">Variable (Pago Único)</option></select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Título*</label>
+                            <input type="text" name="titulo" required class="mt-1 block w-full rounded-md border-slate-300">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-sm font-medium text-slate-700">Monto*</label><input type="text" inputmode="decimal" name="monto" required class="mt-1 block w-full rounded-md border-slate-300"></div>
+                            <div><label class="block text-sm font-medium text-slate-700">Moneda*</label><select name="moneda" required class="mt-1 block w-full rounded-md border-slate-300"><option value="USD">USD</option><option value="VES">VES</option></select></div>
+                        </div>
+                        <div x-show="tipoEgresoGasto === 'Fijo'" x-transition class="space-y-4">
+                            <div><label class="block text-sm font-medium text-slate-700">Frecuencia*</label><select name="frecuencia" :required="tipoEgresoGasto === 'Fijo'" class="mt-1 block w-full rounded-md border-slate-300"><option value="Mensual">Mensual</option><option value="Quincenal">Quincenal</option><option value="Anual">Anual</option></select></div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label class="block text-sm font-medium text-slate-700">Inicio*</label><input type="date" name="fecha_inicio_recurrencia" :required="tipoEgresoGasto === 'Fijo'" class="mt-1 block w-full rounded-md border-slate-300"></div>
+                                <div><label class="block text-sm font-medium text-slate-700">Fin*</label><input type="date" name="fecha_fin_recurrencia" :required="tipoEgresoGasto === 'Fijo'" class="mt-1 block w-full rounded-md border-slate-300"></div>
+                            </div>
+                        </div>
+                        <div x-show="tipoEgresoGasto === 'Variable'" x-transition>
+                            <label class="block text-sm font-medium text-slate-700">Fecha de Pago*</label><input type="date" name="fecha_pago_programada" :required="tipoEgresoGasto === 'Variable'" class="mt-1 block w-full rounded-md border-slate-300">
+                        </div>
+                        <div><label class="block text-sm font-medium text-slate-700">Descripción</label><textarea name="descripcion" rows="2" class="mt-1 block w-full rounded-md border-slate-300"></textarea></div>
+                        <div class="pt-2"><button type="submit" class="w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">Agregar Gasto</button></div>
+                    </form>
                 </div>
 
-                <div x-show="tipoEgreso === 'Fijo'" x-transition>
-                    <label for="frecuencia" class="block text-sm font-medium text-slate-700">Frecuencia*</label>
-                    <select id="frecuencia" name="frecuencia" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="Mensual">Mensual</option>
-                        <option value="Quincenal">Quincenal</option>
-                        <option value="Anual">Anual</option>
-                    </select>
+                <div x-show="activeTab === 'devoluciones'" class="p-6">
+                    <form action="{{ url_for('gestion_egresos') }}" method="POST" class="space-y-4">
+                        <input type="hidden" name="tipo_egreso" value="Devolución">
+                        <h2 class="text-lg font-bold text-slate-800">Registrar Plan de Devolución</h2>
+                        <div><label class="block text-sm font-medium text-slate-700">Cliente a reintegrar*</label><select name="cliente_asociado_id" required class="mt-1 block w-full rounded-md border-slate-300"><option value="">-- Seleccionar --</option>{% for cliente in clientes %}<option value="{{ cliente.id }}">{{ cliente.nombre_completo }}</option>{% endfor %}</select></div>
+                        <div><label class="block text-sm font-medium text-slate-700">Monto Total a Devolver*</label><input type="text" inputmode="decimal" name="monto_total_devolucion" required class="mt-1 block w-full rounded-md border-slate-300"></div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-sm font-medium text-slate-700">Moneda*</label><select name="moneda_devolucion" required class="mt-1 block w-full rounded-md border-slate-300"><option value="USD">USD</option><option value="VES">VES</option></select></div>
+                            <div><label class="block text-sm font-medium text-slate-700">N° de Cuotas*</label><input type="number" name="numero_de_cuotas" value="1" min="1" required class="mt-1 block w-full rounded-md border-slate-300"></div>
+                        </div>
+                        <div><label class="block text-sm font-medium text-slate-700">Fecha del Primer Pago*</label><input type="date" name="fecha_primer_pago" required class="mt-1 block w-full rounded-md border-slate-300"></div>
+                        <div><label class="block text-sm font-medium text-slate-700">Descripción / Motivo</label><textarea name="descripcion_devolucion" rows="2" class="mt-1 block w-full rounded-md border-slate-300"></textarea></div>
+                        <div class="pt-2"><button type="submit" class="w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">Crear Plan de Devolución</button></div>
+                    </form>
                 </div>
-                
-                <div>
-                    <label for="fecha_pago_programada" class="block text-sm font-medium text-slate-700">Fecha de Pago Programada*</label>
-                    <input type="date" id="fecha_pago_programada" name="fecha_pago_programada" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                </div>
-                
-                <div>
-                    <label for="descripcion" class="block text-sm font-medium text-slate-700">Descripción</label>
-                    <textarea id="descripcion" name="descripcion" rows="3" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
-                </div>
-
-                <div class="pt-2">
-                    <button type="submit" class="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
-                        <i class="bi bi-plus-circle-fill"></i>
-                        Agregar Egreso
-                    </button>
-                </div>
-            </form>
+            </div>
         </div>
 
         <div class="lg:col-span-2 space-y-6">
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b"><h3 class="font-bold text-slate-700">Egresos Fijos</h3></div>
                 <table class="min-w-full divide-y divide-slate-200">
-                    <thead class="bg-slate-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Título</th><th class="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Monto</th><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Frecuencia</th></tr></thead>
+                    <thead class="bg-slate-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Título</th><th class="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Monto Mensual</th><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Período de Vigencia</th></tr></thead>
                     <tbody>
                         {% for egreso in egresos.fijos %}
                         <tr class="hover:bg-slate-50">
                             <td class="px-4 py-3 font-medium text-slate-800">{{ egreso.titulo }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-red-600">${{ "{:,.2f}".format(egreso.monto) }}</td>
-                            <td class="px-4 py-3">{{ egreso.frecuencia }}</td>
+                            <td class="px-4 py-3 text-sm text-slate-600">{{ egreso.fecha_inicio_recurrencia|format_date if egreso.fecha_inicio_recurrencia else 'N/A' }} al {{ egreso.fecha_fin_recurrencia|format_date if egreso.fecha_fin_recurrencia else 'N/A' }}</td>
                         </tr>
                         {% else %}
                         <tr><td colspan="3" class="text-center text-slate-500 p-4 text-sm">No hay egresos fijos registrados.</td></tr>
@@ -101,11 +101,11 @@
             </div>
             
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="p-4 border-b"><h3 class="font-bold text-slate-700">Egresos Variables y Devoluciones</h3></div>
+                <div class="p-4 border-b"><h3 class="font-bold text-slate-700">Egresos Variables (Pagos Únicos)</h3></div>
                  <table class="min-w-full divide-y divide-slate-200">
                     <thead class="bg-slate-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Título</th><th class="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Monto</th><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Fecha Pago</th></tr></thead>
                     <tbody>
-                        {% for egreso in egresos.variables + egresos.devoluciones %}
+                        {% for egreso in egresos.variables %}
                         <tr class="hover:bg-slate-50">
                             <td class="px-4 py-3 font-medium text-slate-800">{{ egreso.titulo }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-red-600">${{ "{:,.2f}".format(egreso.monto) }}</td>
@@ -113,6 +113,24 @@
                         </tr>
                         {% else %}
                         <tr><td colspan="3" class="text-center text-slate-500 p-4 text-sm">No hay egresos variables registrados.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 border-b"><h3 class="font-bold text-slate-700">Cuotas de Devolución Programadas</h3></div>
+                 <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Concepto</th><th class="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Monto Cuota</th><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Fecha Pago</th></tr></thead>
+                    <tbody>
+                        {% for egreso in egresos.devoluciones %}
+                        <tr class="hover:bg-slate-50">
+                            <td class="px-4 py-3 font-medium text-slate-800">{{ egreso.titulo }}</td>
+                            <td class="px-4 py-3 text-right font-semibold text-red-600">{{egreso.moneda}} {{ "{:,.2f}".format(egreso.monto) }}</td>
+                            <td class="px-4 py-3">{{ egreso.fecha_pago_programada | format_date }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="text-center text-slate-500 p-4 text-sm">No hay devoluciones programadas.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
