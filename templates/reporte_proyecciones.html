@@ -68,19 +68,23 @@
                 <div>
                     <label class="block text-sm font-medium text-slate-600">Margen de Seguridad</label>
                     <p class="text-xs text-slate-500 mb-2">Cuánto pueden caer tus ingresos antes de tener pérdidas.</p>
+                    {% if proyecciones.kpis.margen_seguridad_pct is not none %}
                     <div class="w-full bg-slate-200 rounded-full h-6">
                         <div class="{{ proyecciones.kpis.margen_color }} h-6 rounded-full text-center text-white text-xs font-bold flex items-center justify-center" 
                              style="width: {{ [proyecciones.kpis.margen_seguridad_pct, 100]|min }}%;">
                              {{ "{:,.1f}".format(proyecciones.kpis.margen_seguridad_pct) }}%
                         </div>
                     </div>
+                    {% endif %}
                 </div>
                 <div class="space-y-4">
                     <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border">
                         <span class="font-medium text-slate-600">Punto de Equilibrio:</span>
+                        {% if proyecciones.kpis.punto_equilibrio_usd is not none %}
                         <span class="font-bold text-lg text-slate-800">${{ "{:,.2f}".format(proyecciones.kpis.punto_equilibrio_usd) }}</span>
+                        {% endif %}
                     </div>
-                    {% if proyecciones.resumen_total.sobrecosto_binance %}
+                    {% if proyecciones.resumen_total.sobrecosto_binance is not none %}
                     <div class="flex justify-between items-center p-3 rounded-lg bg-red-50 border-2 border-red-200">
                         <span class="font-semibold text-red-800">Sobrecosto por Pagos (Binance):</span>
                         <span class="font-bold text-lg text-red-800">(${{ "{:,.2f}".format(proyecciones.resumen_total.sobrecosto_binance) }})</span>
@@ -111,13 +115,23 @@
                 <h2 class="text-lg font-bold text-slate-800 mb-4">Parámetros de Ingresos</h2>
                 <div class="space-y-3 text-sm">
                     <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border"><span class="font-medium text-slate-600">Clientes Ahorradores Activos</span><span class="font-bold text-slate-800 text-base">{{ proyecciones.ingresos.clientes_activos }}</span></div>
-                    <div class="flex justify-between items-center p-3 rounded-lg bg-blue-50 border-2 border-blue-200"><span class="font-semibold text-blue-800">Suma de Cuotas Mensuales (Base)</span><span class="font-bold text-lg text-blue-800">${{ "{:,.2f}".format(proyecciones.ingresos.base_mensual) }}</span></div>
+                    <div class="flex justify-between items-center p-3 rounded-lg bg-blue-50 border-2 border-blue-200">
+                        <span class="font-semibold text-blue-800">Suma de Cuotas Mensuales (Base)</span>
+                        {% if proyecciones.ingresos.base_mensual is not none %}
+                        <span class="font-bold text-lg text-blue-800">${{ "{:,.2f}".format(proyecciones.ingresos.base_mensual) }}</span>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200/80">
                 <h2 class="text-lg font-bold text-slate-800 mb-4">Parámetros de Gastos</h2>
                 <div class="space-y-3 text-sm">
-                    <div class="flex justify-between items-center p-3 rounded-lg bg-red-50 border-2 border-red-200 mt-2"><span class="font-semibold text-red-800">Total Egresos Operativos (sin nómina)</span><span class="font-bold text-lg text-red-800">${{ "{:,.2f}".format(proyecciones.egresos.total_planificado) }}</span></div>
+                    <div class="flex justify-between items-center p-3 rounded-lg bg-red-50 border-2 border-red-200 mt-2">
+                        <span class="font-semibold text-red-800">Total Egresos Operativos (sin nómina)</span>
+                        {% if proyecciones.egresos.total_planificado is not none %}
+                        <span class="font-bold text-lg text-red-800">${{ "{:,.2f}".format(proyecciones.egresos.total_planificado) }}</span>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -131,9 +145,15 @@
                         {% for item in proyecciones.detalle_mensual %}
                         <tr class="hover:bg-slate-50">
                             <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{{ item.mes }}</td>
-                            <td class="px-4 py-4 whitespace-nowrap text-sm text-green-600 font-semibold text-right">${{ "{:,.2f}".format(item.ingresos_usd) }}</td>
-                            <td class="px-4 py-4 whitespace-nowrap text-sm text-red-600 font-semibold text-right">(${{ "{:,.2f}".format(item.egresos_usd) }})</td>
-                            <td class="px-4 py-4 whitespace-nowrap text-sm font-bold bg-slate-50 {% if item.balance_neto_final >= 0 %}text-indigo-700{% else %}text-red-700{% endif %} text-right">${{ "{:,.2f}".format(item.balance_neto_final) }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-green-600 font-semibold text-right">
+                                {% if item.ingresos_usd is not none %}${{ "{:,.2f}".format(item.ingresos_usd) }}{% endif %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-red-600 font-semibold text-right">
+                                {% if item.egresos_usd is not none %}(${{ "{:,.2f}".format(item.egresos_usd) }}){% endif %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-bold bg-slate-50 {% if item.balance_neto_final >= 0 %}text-indigo-700{% else %}text-red-700{% endif %} text-right">
+                                {% if item.balance_neto_final is not none %}${{ "{:,.2f}".format(item.balance_neto_final) }}{% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
