@@ -3156,9 +3156,7 @@ def reporte_proyecciones():
     try:
         fecha_inicio_str = request.args.get('fecha_inicio', hoy.strftime('%Y-%m-%d'))
         fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
-        # --- CORRECCIÓN: Se renombró la variable para evitar confusión con el diccionario ---
-        tasa_bcv_inicio_param = request.args.get('tasa_bcv_dolar_inicio') 
-        margen_dolar_pct = Decimal(request.args.get('margen_dolar_pct', '5.0'))
+        tasa_bcv_inicio_str = request.args.get('tasa_bcv_inicio')
         margen_euro_pct = Decimal(request.args.get('margen_euro_pct', '8.0'))
         margen_binance_pct = Decimal(request.args.get('margen_binance_pct', '5.0'))
         meses_a_proyectar = int(request.args.get('meses', 3))
@@ -3166,26 +3164,13 @@ def reporte_proyecciones():
     except (ValueError, InvalidOperation):
         fecha_inicio, meses_a_proyectar = hoy, 3
         tasa_devaluacion_mensual_pct = Decimal('20.0')
-        tasa_bcv_inicio_param = None
-        margen_dolar_pct = Decimal('5.0')
+        tasa_bcv_inicio_str = None
         margen_euro_pct = Decimal('8.0')
         margen_binance_pct = Decimal('5.0')
 
     # Se inicializan todos los campos que la plantilla usará para evitar errores
     proyecciones = {
-        'parametros': {
-            'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'), 
-            'tasa_bcv_dolar_inicio': tasa_bcv_inicio_param,
-            'margen_dolar_pct': margen_dolar_pct,
-            'margen_euro_pct': margen_euro_pct, 
-            'margen_binance_pct': margen_binance_pct, 
-            'meses': meses_a_proyectar, 
-            'devaluacion_pct': tasa_devaluacion_mensual_pct,
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Se añade un valor por defecto para 'devaluacion_ponderada' para evitar el TypeError.
-            'devaluacion_ponderada': Decimal('0.0')
-            # --- FIN DE LA CORRECCIÓN ---
-        },
+        'parametros': {'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'), 'tasa_bcv_inicio': tasa_bcv_inicio_str, 'margen_euro_pct': margen_euro_pct, 'margen_binance_pct': margen_binance_pct, 'meses': meses_a_proyectar, 'devaluacion_pct': tasa_devaluacion_mensual_pct},
         'simulacion_exitosa': False, 'mensaje_error': None,
         'ingresos': {'base_mensual': Decimal('0.0'), 'clientes_activos': 0},
         'egresos': {'total_planificado': Decimal('0.0')},
@@ -3195,10 +3180,6 @@ def reporte_proyecciones():
             'balance_neto_final': Decimal('0.0'), 'sobrecosto_binance': Decimal('0.0')
         }
     }
-    
-    # Si no se envían parámetros, solo se muestra el formulario vacío
-    if not request.args:
-        return render_template('reporte_proyecciones.html', proyecciones=proyecciones)
 
     try:
         with conn.cursor() as cur:
@@ -3210,6 +3191,7 @@ def reporte_proyecciones():
 
             fecha_fin_proyeccion = fecha_inicio + timedelta(days=meses_a_proyectar * 30)
             
+            # La consulta de egresos ahora excluye permanentemente la nómina
             query_egresos = """
                 SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados 
                 WHERE estado = 'Activo' AND moneda = 'USD' 
@@ -3255,12 +3237,12 @@ def reporte_proyecciones():
             proyecciones['kpis'] = kpis
 
     except (psycopg2.Error, InvalidOperation, TypeError) as e:
-        proyecciones['mensaje_error'] = f"Error al procesar la simulación: {e}"
+        proyecciones['mensaje_error'] = f"Error de base de datos: {e}"
         logging.error(f"Error en reporte_proyecciones: {traceback.format_exc()}")
 
     return render_template('reporte_proyecciones.html', proyecciones=proyecciones)
 
-# ====== FIN: REEMPLAZA TU FUNCIÓN DE PROYECCIONES CON ESTA VERSIÓN CORREGIDA ======
+# ====== FIN: REEMPLAZA TU FUNCIÓN DE PROYECCIONES CON ESTA VERSIÓN SIN NÓMINA ======
 
 # ===================================================================
 # RUTA PARA CERRAR PROYECCIÓN Y GUARDAR INFORME HISTÓRICO
