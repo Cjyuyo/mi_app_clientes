@@ -4,6 +4,6 @@ psycopg2-binary
 python-dotenv
 pandas
 tqdm
-fpdf
+fpdf2
 XlsxWriter
 boto3

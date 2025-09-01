@@ -2870,7 +2870,8 @@ def asignar_gestor(cliente_id):
 def admin_tasa_bcv():
     conn = get_db()
     now_vet, today_date = get_venezuela_current_datetime(), get_venezuela_current_date()
-    tasas_de_hoy, historial_tasas = {'usd': None, 'eur': None}, []
+    tasas_de_hoy = {'usd': None, 'eur': None, 'binance': None}
+    historial_tasas = []
     
     if not conn:
         flash('Error de conexión a la base de datos.', 'danger')
@@ -2881,43 +2882,47 @@ def admin_tasa_bcv():
             if request.method == 'POST':
                 tasa_usd_str = request.form.get('tasa_usd', '').replace(',', '.')
                 tasa_eur_str = request.form.get('tasa_eur', '').replace(',', '.')
+                tasa_binance_str = request.form.get('tasa_binance', '').replace(',', '.')
 
-                if not tasa_usd_str and not tasa_eur_str:
+                if not tasa_usd_str and not tasa_eur_str and not tasa_binance_str:
                     flash('Debe ingresar al menos un valor de tasa para guardar.', 'warning')
                     return redirect(url_for('admin_tasa_bcv'))
                 
                 tasa_usd = Decimal(tasa_usd_str) if tasa_usd_str else None
                 tasa_eur = Decimal(tasa_eur_str) if tasa_eur_str else None
+                tasa_binance = Decimal(tasa_binance_str) if tasa_binance_str else None
 
-                if (tasa_usd is not None and tasa_usd < 0) or \
-                   (tasa_eur is not None and tasa_eur < 0):
+                # Validación de valores no negativos
+                if any(t is not None and t < 0 for t in [tasa_usd, tasa_eur, tasa_binance]):
                     flash('Los valores de las tasas no pueden ser negativos.', 'danger')
                     return redirect(url_for('admin_tasa_bcv'))
 
-                cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha = %s", (today_date,))
+                cur.execute("SELECT tasa, tasa_euro, tasa_binance_p2p FROM historial_tasas_bcv WHERE fecha = %s", (today_date,))
                 tasa_actual = cur.fetchone()
 
                 final_tasa_usd = tasa_usd if tasa_usd is not None else (tasa_actual['tasa'] if tasa_actual else None)
                 final_tasa_eur = tasa_eur if tasa_eur is not None else (tasa_actual['tasa_euro'] if tasa_actual else None)
+                final_tasa_binance = tasa_binance if tasa_binance is not None else (tasa_actual['tasa_binance_p2p'] if tasa_actual else None)
                 
                 sql_upsert = """
-                    INSERT INTO historial_tasas_bcv (fecha, tasa, tasa_euro, establecida_por_id) VALUES (%s, %s, %s, %s)
+                    INSERT INTO historial_tasas_bcv (fecha, tasa, tasa_euro, tasa_binance_p2p, establecida_por_id) VALUES (%s, %s, %s, %s, %s)
                     ON CONFLICT (fecha) DO UPDATE SET 
                         tasa = EXCLUDED.tasa, 
                         tasa_euro = EXCLUDED.tasa_euro, 
+                        tasa_binance_p2p = EXCLUDED.tasa_binance_p2p,
                         establecida_por_id = EXCLUDED.establecida_por_id;
                 """
-                cur.execute(sql_upsert, (today_date, final_tasa_usd, final_tasa_eur, g.admin['id']))
+                cur.execute(sql_upsert, (today_date, final_tasa_usd, final_tasa_eur, final_tasa_binance, g.admin['id']))
                 
                 if now_vet.hour >= 17 and now_vet.weekday() < 5: 
-                    if now_vet.weekday() == 4:
+                    if now_vet.weekday() == 4: # Si es viernes después de las 5pm
                         for i in range(1, 4):
                             next_day = today_date + timedelta(days=i)
-                            cur.execute(sql_upsert, (next_day, final_tasa_usd, final_tasa_eur, g.admin['id']))
+                            cur.execute(sql_upsert, (next_day, final_tasa_usd, final_tasa_eur, final_tasa_binance, g.admin['id']))
                         flash('Tasa de Viernes guardada para todo el fin de semana y el Lunes.', 'success')
-                    else:
+                    else: # Cualquier otro día de semana
                         tomorrow_date = today_date + timedelta(days=1)
-                        cur.execute(sql_upsert, (tomorrow_date, final_tasa_usd, final_tasa_eur, g.admin['id']))
+                        cur.execute(sql_upsert, (tomorrow_date, final_tasa_usd, final_tasa_eur, final_tasa_binance, g.admin['id']))
                         flash('Tasa guardada para hoy y mañana.', 'success')
                 else:
                     flash('¡Tasa guardada exitosamente para hoy!', 'success')
@@ -2925,12 +2930,15 @@ def admin_tasa_bcv():
                 conn.commit()
                 return redirect(url_for('admin_tasa_bcv'))
 
-            cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_date,))
+            # Lógica para GET
+            cur.execute("SELECT tasa, tasa_euro, tasa_binance_p2p FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_date,))
             resultado = cur.fetchone()
             if resultado:
-                tasas_de_hoy['usd'], tasas_de_hoy['eur'] = resultado['tasa'], resultado['tasa_euro']
+                tasas_de_hoy['usd'] = resultado['tasa']
+                tasas_de_hoy['eur'] = resultado['tasa_euro']
+                tasas_de_hoy['binance'] = resultado['tasa_binance_p2p']
             
-            cur.execute("SELECT h.fecha, h.tasa, h.tasa_euro, a.usuario FROM historial_tasas_bcv h LEFT JOIN administradores a ON h.establecida_por_id = a.id ORDER BY h.fecha DESC LIMIT 30")
+            cur.execute("SELECT h.fecha, h.tasa, h.tasa_euro, h.tasa_binance_p2p, a.usuario FROM historial_tasas_bcv h LEFT JOIN administradores a ON h.establecida_por_id = a.id ORDER BY h.fecha DESC LIMIT 30")
             historial_tasas = cur.fetchall()
 
     except InvalidOperation:
@@ -2940,6 +2948,59 @@ def admin_tasa_bcv():
         flash(f'Error al procesar la solicitud: {e}', 'danger')
         
     return render_template('admin_tasa_bcv.html', tasas_de_hoy=tasas_de_hoy, historial_tasas=historial_tasas, anio_actual=today_date.year)
+
+# ====== INICIO: NUEVA RUTA PARA GESTIÓN DE EGRESOS ======
+@app.route('/admin/gestion_egresos', methods=['GET', 'POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente', 'administradora')
+def gestion_egresos():
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", "danger")
+        return redirect(url_for('gestion_administrativa'))
+
+    if request.method == 'POST':
+        try:
+            titulo = request.form.get('titulo')
+            monto = Decimal(request.form.get('monto'))
+            moneda = request.form.get('moneda')
+            tipo_egreso = request.form.get('tipo_egreso')
+            frecuencia = request.form.get('frecuencia') if tipo_egreso == 'Fijo' else None
+            fecha_pago = request.form.get('fecha_pago_programada')
+            descripcion = request.form.get('descripcion')
+            
+            if not all([titulo, monto, moneda, tipo_egreso, fecha_pago]):
+                flash("Todos los campos marcados con * son obligatorios.", "danger")
+            else:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO egresos_planificados 
+                        (titulo, monto, moneda, tipo_egreso, frecuencia, fecha_pago_programada, descripcion, creado_por_id)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (titulo, monto, moneda, tipo_egreso, frecuencia, fecha_pago, descripcion, g.admin['id']))
+                conn.commit()
+                flash("Egreso planificado agregado exitosamente.", "success")
+                return redirect(url_for('gestion_egresos'))
+        
+        except (psycopg2.Error, InvalidOperation) as e:
+            conn.rollback()
+            flash(f"Error al guardar el egreso: {e}", "danger")
+
+    # Lógica para GET
+    egresos = {'fijos': [], 'variables': [], 'devoluciones': []}
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM egresos_planificados WHERE tipo_egreso = 'Fijo' ORDER BY titulo")
+            egresos['fijos'] = cur.fetchall()
+            cur.execute("SELECT * FROM egresos_planificados WHERE tipo_egreso = 'Variable' ORDER BY fecha_pago_programada DESC")
+            egresos['variables'] = cur.fetchall()
+            cur.execute("SELECT * FROM egresos_planificados WHERE tipo_egreso = 'Devolución' ORDER BY fecha_pago_programada DESC")
+            egresos['devoluciones'] = cur.fetchall()
+    except psycopg2.Error as e:
+        flash(f"Error al cargar la lista de egresos: {e}", "danger")
+
+    return render_template('gestion_egresos.html', egresos=egresos)
+# ====== FIN: NUEVA RUTA PARA GESTIÓN DE EGRESOS ======
 
 @app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
 @admin_required
@@ -3017,99 +3078,174 @@ def reporte_proyecciones():
         flash("Error de conexión a la base de datos.", "danger")
         return redirect(url_for('gestion_administrativa'))
 
-    meses_a_proyectar = int(request.args.get('meses', 3))
+    # Parámetros de la simulación desde la URL
+    try:
+        meses_a_proyectar = int(request.args.get('meses', 3))
+        # Se espera un % (ej: 20), se convierte a factor decimal (0.20)
+        tasa_devaluacion_mensual_pct = Decimal(request.args.get('devaluacion', '20.0'))
+        tasa_devaluacion_mensual = tasa_devaluacion_mensual_pct / 100
+    except (ValueError, InvalidOperation):
+        flash("Parámetros de proyección inválidos. Usando valores por defecto.", "warning")
+        meses_a_proyectar = 3
+        tasa_devaluacion_mensual = Decimal('0.20')
+        tasa_devaluacion_mensual_pct = Decimal('20.0')
+
     hoy = get_venezuela_current_date()
     
     # Estructura de datos para los resultados
     proyecciones = {
-        'ingresos': {'base_mensual': Decimal('0.0'), 'clientes_activos': 0, 'tasa_pago_historica': 0, 'ingreso_ajustado_mensual': Decimal('0.0'), 'detalle': []},
-        'gastos': {'fijos_mensuales_estimados': Decimal('0.0'), 'comisiones_pendientes_pago': Decimal('0.0'), 'detalle': []},
-        'resumen': [],
-        'totales': {'ingresos': Decimal('0.0'), 'gastos': Decimal('0.0'), 'balance_neto': Decimal('0.0')}
+        'parametros': {
+            'meses': meses_a_proyectar,
+            'devaluacion_pct': tasa_devaluacion_mensual_pct
+        },
+        'resumen_total': {
+            'ingresos_usd': Decimal('0.0'),
+            'egresos_usd': Decimal('0.0'),
+            'balance_operativo': Decimal('0.0'),
+            'margen_cambiario': Decimal('0.0'),
+            'perdida_devaluacion': Decimal('0.0'),
+            'balance_neto_final': Decimal('0.0')
+        },
+        'detalle_mensual': []
     }
 
     try:
         with conn.cursor() as cur:
-            # --- 1. Proyección de Ingresos ---
+            # --- 1. OBTENER DATOS BASE ---
+            
+            # Tasas actuales
+            cur.execute("""
+                SELECT tasa as bcv, tasa_binance_p2p as binance FROM historial_tasas_bcv ORDER BY fecha DESC LIMIT 1
+            """)
+            tasas_actuales = cur.fetchone()
+            if not tasas_actuales or not tasas_actuales['bcv'] or not tasas_actuales['binance']:
+                flash("No hay suficientes datos de tasas de cambio para generar la proyección. Por favor, actualice las tasas del día.", "danger")
+                return render_template('reporte_proyecciones.html', proyecciones=proyecciones, error=True)
+
+            tasa_bcv_actual = tasas_actuales['bcv']
+            tasa_binance_actual = tasas_actuales['binance']
+            spread_actual = (tasa_binance_actual / tasa_bcv_actual) - 1 if tasa_bcv_actual > 0 else 0
+
+            # Ingresos base por CUOTAS
             cur.execute("""
                 SELECT COUNT(*) as total_clientes, COALESCE(SUM(valor_cuota), 0) as total_cuotas
                 FROM clientes WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR'
             """)
             ingresos_base = cur.fetchone()
-            proyecciones['ingresos']['clientes_activos'] = ingresos_base['total_clientes']
-            proyecciones['ingresos']['base_mensual'] = ingresos_base['total_cuotas']
+            ingreso_mensual_base_usd = ingresos_base['total_cuotas']
 
-            # Calcular tasa de pago histórica (morosidad inversa) para un ajuste más realista
-            if ingresos_base['total_clientes'] > 0:
-                mes_pasado_inicio = (hoy.replace(day=1) - timedelta(days=1)).replace(day=1)
-                mes_pasado_fin = hoy.replace(day=1) - timedelta(days=1)
-                cur.execute("""
-                    SELECT COUNT(DISTINCT cliente_id) FROM pagos
-                    WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s
-                """, (mes_pasado_inicio, mes_pasado_fin))
-                clientes_pagaron_mes_pasado = cur.fetchone()[0]
-                tasa_pago = (clientes_pagaron_mes_pasado / ingresos_base['total_clientes']) * 100 if ingresos_base['total_clientes'] > 0 else 0
-                proyecciones['ingresos']['tasa_pago_historica'] = round(tasa_pago, 2)
-                proyecciones['ingresos']['ingreso_ajustado_mensual'] = ingresos_base['total_cuotas'] * (Decimal(tasa_pago) / 100)
-            
-            # --- 2. Proyección de Gastos ---
-            # Gastos Fijos (promedio de los últimos 6 meses)
+            # Tasa de retiro de clientes (churn)
             seis_meses_atras = hoy - timedelta(days=180)
             cur.execute("""
-                SELECT COALESCE(SUM(monto_origen), 0) FROM operaciones_tesoreria
-                WHERE tipo_operacion IN ('PAGO_GASTO', 'PAGO_NOMINA') AND moneda_origen = 'USD' AND fecha_operacion >= %s
+                SELECT COUNT(*) FROM clientes 
+                WHERE estatus = 'RETIRO' AND proceso = 'AHORRADOR' AND fecha_ingreso >= %s
             """, (seis_meses_atras,))
-            gastos_tesoreria = cur.fetchone()[0] or Decimal('0.0')
-            
-            cur.execute("""
-                SELECT COALESCE(SUM(monto), 0) FROM peticiones_pago
-                WHERE estado = 'Pagada' AND moneda = 'USD' AND fecha_pago >= %s
-            """, (seis_meses_atras,))
-            gastos_peticiones = cur.fetchone()[0] or Decimal('0.0')
-            
-            gastos_totales_historicos = gastos_tesoreria + gastos_peticiones
-            proyecciones['gastos']['fijos_mensuales_estimados'] = (gastos_totales_historicos / 6).quantize(Decimal('0.01'))
+            clientes_retirados_6m = cur.fetchone()[0]
+            tasa_retiro_mensual = Decimal(clientes_retirados_6m / 6 / ingresos_base['total_clientes']) if ingresos_base['total_clientes'] > 0 else 0
 
-            # Comisiones pendientes de pago (gasto único a corto plazo)
+            # Egresos fijos mensuales programados en USD
             cur.execute("""
-                SELECT COALESCE(SUM(monto), 0) FROM comisiones WHERE estado = 'aprobado'
+                SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados
+                WHERE tipo_egreso = 'Fijo' AND frecuencia = 'Mensual' AND estado = 'Activo' AND moneda = 'USD'
             """)
-            proyecciones['gastos']['comisiones_pendientes_pago'] = cur.fetchone()[0] or Decimal('0.0')
+            egresos_fijos_mensuales_usd = cur.fetchone()[0]
 
-            # --- 3. Construcción de la proyección mensual ---
-            ingreso_mensual = proyecciones['ingresos']['ingreso_ajustado_mensual']
-            gasto_mensual_base = proyecciones['gastos']['fijos_mensuales_estimados']
+            # --- 2. MOTOR DE SIMULACIÓN DIARIA ---
             
-            for i in range(meses_a_proyectar):
-                fecha_mes = hoy + timedelta(days=30*i)
-                nombre_mes = get_nombre_mes(fecha_mes.month)
+            dias_a_proyectar = meses_a_proyectar * 30
+            tasa_devaluacion_diaria = (1 + tasa_devaluacion_mensual) ** (1/30) - 1
+            
+            saldo_ves_virtual = Decimal('0.0')
+            resultados_diarios = []
+            
+            # Bucle de simulación para cada día futuro
+            for i in range(dias_a_proyectar):
+                fecha_dia = hoy + timedelta(days=i)
+                
+                # Proyectar tasas para el día
+                tasa_bcv_proyectada = tasa_bcv_actual * ((1 + tasa_devaluacion_diaria) ** i)
+                tasa_binance_proyectada = tasa_bcv_proyectada * (1 + spread_actual)
 
-                # Ingresos
-                proyecciones['ingresos']['detalle'].append({'mes': nombre_mes, 'monto': ingreso_mensual})
-                proyecciones['totales']['ingresos'] += ingreso_mensual
-                
-                # Gastos
-                gasto_este_mes = gasto_mensual_base
-                if i == 0: # Sumar comisiones pendientes solo al primer mes
-                    gasto_este_mes += proyecciones['gastos']['comisiones_pendientes_pago']
-                
-                proyecciones['gastos']['detalle'].append({'mes': nombre_mes, 'monto': gasto_este_mes})
-                proyecciones['totales']['gastos'] += gasto_este_mes
-                
-                # Resumen
-                balance_neto_mes = ingreso_mensual - gasto_este_mes
-                proyecciones['resumen'].append({'mes': nombre_mes, 'ingreso': ingreso_mensual, 'gasto': gasto_este_mes, 'balance': balance_neto_mes})
+                # Proyectar base de ingresos para el día (disminuye con la tasa de retiro)
+                ingreso_diario_base_usd = (ingreso_mensual_base_usd / 30) * ((1 - tasa_retiro_mensual) ** (i / 30))
+                ingreso_diario_ves = ingreso_diario_base_usd * tasa_bcv_proyectada
+                saldo_ves_virtual += ingreso_diario_ves
 
-            proyecciones['totales']['balance_neto'] = proyecciones['totales']['ingresos'] - proyecciones['totales']['gastos']
+                # Simular rebalanceo al final del día
+                valor_teorico_usd = saldo_ves_virtual / tasa_bcv_proyectada
+                valor_real_usd = saldo_ves_virtual / tasa_binance_proyectada
+                margen_cambiario_dia = valor_real_usd - valor_teorico_usd
+                
+                # Pérdida por devaluación (cuánto valor perdió el saldo en Bs durante el día)
+                valor_usd_inicio_dia = saldo_ves_virtual / (tasa_bcv_actual * ((1 + tasa_devaluacion_diaria) ** (i-1))) if i > 0 else valor_teorico_usd
+                perdida_devaluacion_dia = valor_usd_inicio_dia - valor_teorico_usd
+
+                # Egresos programados para ese día
+                cur.execute("""
+                    SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados
+                    WHERE estado = 'Activo' AND moneda = 'USD' AND (
+                        (tipo_egreso = 'Variable' AND fecha_pago_programada = %s) OR
+                        (tipo_egreso = 'Devolución' AND fecha_pago_programada = %s) OR
+                        (tipo_egreso = 'Fijo' AND EXTRACT(DAY FROM fecha_pago_programada) = %s)
+                    )
+                """, (fecha_dia, fecha_dia, fecha_dia.day))
+                egresos_variables_dia_usd = cur.fetchone()[0]
+                egresos_diarios_usd = (egresos_fijos_mensuales_usd / 30) + egresos_variables_dia_usd
+
+                resultados_diarios.append({
+                    'fecha': fecha_dia,
+                    'mes': fecha_dia.month,
+                    'ingresos_usd': ingreso_diario_base_usd,
+                    'egresos_usd': egresos_diarios_usd,
+                    'margen_cambiario': margen_cambiario_dia,
+                    'perdida_devaluacion': perdida_devaluacion_dia
+                })
+                
+                # El saldo en Bs se convierte a USD y se reinicia para el día siguiente
+                saldo_ves_virtual = Decimal('0.0')
+
+            # --- 3. AGRUPAR RESULTADOS POR MES ---
+            
+            for mes_offset in range(meses_a_proyectar):
+                fecha_mes_actual = hoy + timedelta(days=mes_offset*30)
+                numero_mes = fecha_mes_actual.month
+                nombre_mes = get_nombre_mes(numero_mes)
+
+                datos_mes = [r for r in resultados_diarios if r['mes'] == numero_mes]
+                
+                ingresos_mes = sum(d['ingresos_usd'] for d in datos_mes)
+                egresos_mes = sum(d['egresos_usd'] for d in datos_mes)
+                balance_operativo_mes = ingresos_mes - egresos_mes
+                margen_cambiario_mes = sum(d['margen_cambiario'] for d in datos_mes)
+                perdida_devaluacion_mes = sum(d['perdida_devaluacion'] for d in datos_mes)
+                balance_neto_final_mes = balance_operativo_mes + margen_cambiario_mes - perdida_devaluacion_mes
+                
+                proyecciones['detalle_mensual'].append({
+                    'mes': nombre_mes,
+                    'ingresos_usd': ingresos_mes,
+                    'egresos_usd': egresos_mes,
+                    'balance_operativo': balance_operativo_mes,
+                    'margen_cambiario': margen_cambiario_mes,
+                    'perdida_devaluacion': perdida_devaluacion_mes,
+                    'balance_neto_final': balance_neto_final_mes
+                })
+
+                # Sumar a los totales
+                proyecciones['resumen_total']['ingresos_usd'] += ingresos_mes
+                proyecciones['resumen_total']['egresos_usd'] += egresos_mes
+                proyecciones['resumen_total']['balance_operativo'] += balance_operativo_mes
+                proyecciones['resumen_total']['margen_cambiario'] += margen_cambiario_mes
+                proyecciones['resumen_total']['perdida_devaluacion'] += perdida_devaluacion_mes
+                proyecciones['resumen_total']['balance_neto_final'] += balance_neto_final_mes
+
 
     except psycopg2.Error as e:
-        flash(f"Error al generar el reporte de proyecciones: {e}", "danger")
+        flash(f"Error de base de datos al generar la proyección: {e}", "danger")
+        logging.error(f"Error en reporte_proyecciones: {traceback.format_exc()}")
+        return render_template('reporte_proyecciones.html', proyecciones=proyecciones, error=True)
 
-    return render_template('reporte_proyecciones.html', 
-                           proyecciones=proyecciones,
-                           meses_proyectados=meses_a_proyectar,
-                           anio_actual=hoy.year)
-# ====== FIN: NUEVA RUTA DE PROYECCIONES FINANCIERAS ======
+    return render_template('reporte_proyecciones.html', proyecciones=proyecciones)
+# ====== FIN: REEMPLAZA TU FUNCIÓN DE PROYECCIONES CON ESTA ======
 
 # =================================================================================
 # --- GESTIÓN DE CLIENTES Y PAGOS ---

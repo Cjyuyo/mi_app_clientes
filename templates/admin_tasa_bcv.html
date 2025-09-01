@@ -22,7 +22,6 @@
 
 {% block body %}
 <div class="space-y-6">
-    <!-- Encabezado con Gradiente y Animación -->
     <div class="fade-in bg-gradient-to-r from-slate-800 to-slate-900 text-white p-6 rounded-2xl shadow-lg">
         <div class="flex items-center gap-4">
             <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-white/10">
@@ -35,10 +34,8 @@
         </div>
     </div>
 
-    <!-- Contenido Principal: Formulario e Historial -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <!-- Columna del Formulario para Establecer Tasa -->
         <div class="fade-in fade-in-delay-1 lg:col-span-1 bg-white p-6 rounded-2xl shadow-md hover:shadow-xl transition-shadow duration-300">
             <h2 class="text-xl font-bold text-slate-800 mb-1">Establecer Tasa del Día</h2>
             <p class="text-sm text-slate-500 mb-6">Los valores guardados se usarán para todos los cálculos.</p>
@@ -46,41 +43,49 @@
             <form method="POST" action="{{ url_for('admin_tasa_bcv') }}">
                 <div class="space-y-5">
                     <div>
-                        <label for="tasa_usd" class="block text-sm font-medium text-slate-600 mb-1">Tasa Dólar (USD)</label>
+                        <label for="tasa_usd" class="block text-sm font-medium text-slate-600 mb-1">Tasa Dólar (BCV)</label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 font-semibold">Bs.</span>
                             <input type="text" name="tasa_usd" id="tasa_usd"
                                    class="w-full pl-12 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-slate-800"
-                                   placeholder="138.12830000"
+                                   placeholder="0.00"
                                    value="{{ tasas_de_hoy.usd|string if tasas_de_hoy.usd is not none else '' }}"
                                    inputmode="decimal">
                         </div>
                     </div>
                     <div>
-                        <label for="tasa_eur" class="block text-sm font-medium text-slate-600 mb-1">Tasa Euro (EUR)</label>
+                        <label for="tasa_eur" class="block text-sm font-medium text-slate-600 mb-1">Tasa Euro (BCV)</label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 font-semibold">Bs.</span>
-                            <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
                             <input type="text" name="tasa_eur" id="tasa_eur"
                                    class="w-full pl-12 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-slate-800"
-                                   placeholder="161.22197047"
+                                   placeholder="0.00"
                                    value="{{ tasas_de_hoy.eur|string if tasas_de_hoy.eur is not none else '' }}"
                                    inputmode="decimal">
-                            <!-- ===== FIN DE LA CORRECCIÓN ===== -->
+                        </div>
+                    </div>
+                    <div>
+                        <label for="tasa_binance" class="block text-sm font-medium text-slate-600 mb-1">Tasa Binance P2P (Venta)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 font-semibold">Bs.</span>
+                            <input type="text" name="tasa_binance" id="tasa_binance"
+                                   class="w-full pl-12 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 font-mono text-slate-800"
+                                   placeholder="0.00"
+                                   value="{{ tasas_de_hoy.binance|string if tasas_de_hoy.binance is not none else '' }}"
+                                   inputmode="decimal">
                         </div>
                     </div>
                     <div class="pt-2">
                         <button type="submit"
                                 class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 ease-in-out flex items-center justify-center gap-2 transform hover:scale-105">
                             <i class="bi bi-check2-circle"></i>
-                            Guardar Tasa
+                            Guardar Tasas
                         </button>
                     </div>
                 </div>
             </form>
         </div>
 
-        <!-- Columna del Historial de Tasas -->
         <div class="fade-in fade-in-delay-2 lg:col-span-2 bg-white p-6 rounded-2xl shadow-md">
             <h2 class="text-xl font-bold text-slate-800 mb-1">Historial de Cambios</h2>
             <p class="text-sm text-slate-500 mb-6">Últimos registros de tasas establecidas.</p>
@@ -90,8 +95,9 @@
                     <thead class="bg-slate-50">
                         <tr>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Fecha</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tasa USD (Bs.)</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tasa EUR (Bs.)</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tasa USD (BCV)</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tasa EUR (BCV)</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tasa Binance P2P</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Establecida por</th>
                         </tr>
                     </thead>
@@ -101,15 +107,14 @@
                             <tr class="hover:bg-slate-50 transition-colors duration-200">
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600">{{ registro.fecha | format_date('%d/%m/%Y') }}</td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-800 font-mono">{{ registro.tasa|string if registro.tasa is not none else 'N/A' }}</td>
-                                <!-- ===== INICIO DE LA CORRECCIÓN ===== -->
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-800 font-mono">{{ registro.tasa_euro|string if registro.tasa_euro is not none else 'N/A' }}</td>
-                                <!-- ===== FIN DE LA CORRECCIÓN ===== -->
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-800 font-mono font-semibold">{{ registro.tasa_binance_p2p|string if registro.tasa_binance_p2p is not none else 'N/A' }}</td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600">{{ registro.usuario or 'Sistema' }}</td>
                             </tr>
                             {% endfor %}
                         {% else %}
                             <tr>
-                                <td colspan="4" class="px-4 py-6 text-center text-sm text-slate-500">
+                                <td colspan="5" class="px-4 py-6 text-center text-sm text-slate-500">
                                     <div class="flex flex-col items-center gap-2">
                                         <i class="bi bi-cloud-drizzle text-4xl text-slate-300"></i>
                                         <span>No hay historial de tasas para mostrar.</span>
