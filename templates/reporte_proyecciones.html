@@ -1,0 +1,152 @@
+{% extends 'base_sidebar.html' %}
+
+{% block title %}Proyecciones Financieras{% endblock %}
+
+{% block page_title %}Proyecciones Financieras{% endblock %}
+
+{% block body %}
+<div class="space-y-8">
+
+    <header class="bg-white p-6 rounded-xl shadow-sm border border-slate-200/80">
+        <div class="flex flex-col md:flex-row justify-between items-start gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-sky-100 text-sky-600">
+                    <i class="bi bi-calendar-range text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Proyecciones Financieras</h1>
+                    <p class="text-slate-500 mt-1">Estimación de ingresos, gastos y balance neto para los próximos meses.</p>
+                </div>
+            </div>
+            <form method="GET" action="{{ url_for('reporte_proyecciones') }}" class="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                <label for="meses" class="text-sm font-medium text-slate-600">Proyectar a:</label>
+                <select name="meses" id="meses" class="form-select rounded-md border-slate-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm">
+                    <option value="1" {% if meses_proyectados == 1 %}selected{% endif %}>1 Mes</option>
+                    <option value="3" {% if meses_proyectados == 3 %}selected{% endif %}>3 Meses</option>
+                    <option value="6" {% if meses_proyectados == 6 %}selected{% endif %}>6 Meses</option>
+                    <option value="12" {% if meses_proyectados == 12 %}selected{% endif %}>12 Meses</option>
+                </select>
+                <button type="submit" class="btn bg-indigo-500 hover:bg-indigo-600 text-white text-sm">
+                    <i class="bi bi-search"></i>
+                    <span class="ml-2 hidden sm:inline">Calcular</span>
+                </button>
+            </form>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80 text-center hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+            <div class="w-12 h-12 mx-auto flex items-center justify-center rounded-full bg-green-100 text-green-600 mb-2">
+                <i class="bi bi-graph-up-arrow text-2xl"></i>
+            </div>
+            <h3 class="text-sm font-semibold text-slate-500 uppercase">Ingresos Totales Proyectados</h3>
+            <p class="text-4xl font-bold text-slate-800 mt-2 text-green-600">${{ "{:,.2f}".format(proyecciones.totales.ingresos) }}</p>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80 text-center hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+            <div class="w-12 h-12 mx-auto flex items-center justify-center rounded-full bg-red-100 text-red-600 mb-2">
+                <i class="bi bi-graph-down-arrow text-2xl"></i>
+            </div>
+            <h3 class="text-sm font-semibold text-slate-500 uppercase">Gastos Totales Proyectados</h3>
+            <p class="text-4xl font-bold text-slate-800 mt-2 text-red-600">${{ "{:,.2f}".format(proyecciones.totales.gastos) }}</p>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80 text-center hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+            <div class="w-12 h-12 mx-auto flex items-center justify-center rounded-full bg-sky-100 text-sky-600 mb-2">
+                <i class="bi bi-bank text-2xl"></i>
+            </div>
+            <h3 class="text-sm font-semibold text-slate-500 uppercase">Balance Neto Proyectado</h3>
+            <p class="text-4xl font-bold text-slate-800 mt-2 text-sky-600">${{ "{:,.2f}".format(proyecciones.totales.balance_neto) }}</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200/80">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-3">
+                <i class="bi bi-arrow-down-circle-fill text-green-500 text-xl"></i>
+                <span>Parámetros de Ingresos</span>
+            </h2>
+            <div class="space-y-3 text-sm">
+                <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border border-slate-200">
+                    <span class="font-medium text-slate-600">Clientes Ahorradores Activos</span>
+                    <span class="font-bold text-slate-800 text-base">{{ proyecciones.ingresos.clientes_activos }}</span>
+                </div>
+                <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border border-slate-200">
+                    <span class="font-medium text-slate-600">Suma de Cuotas Mensuales (Base)</span>
+                    <span class="font-bold text-slate-800 text-base">${{ "{:,.2f}".format(proyecciones.ingresos.base_mensual) }}</span>
+                </div>
+                <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border border-slate-200">
+                    <span class="font-medium text-slate-600">Tasa de Pago Histórica (Ajuste)</span>
+                    <span class="font-bold text-slate-800 text-base">{{ proyecciones.ingresos.tasa_pago_historica }}%</span>
+                </div>
+                <div class="flex justify-between items-center p-4 rounded-lg bg-green-50 border-2 border-green-200 mt-2">
+                    <span class="font-semibold text-green-800">Ingreso Mensual Proyectado</span>
+                    <span class="font-bold text-lg text-green-800">${{ "{:,.2f}".format(proyecciones.ingresos.ingreso_ajustado_mensual) }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200/80">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-3">
+                <i class="bi bi-arrow-up-circle-fill text-red-500 text-xl"></i>
+                <span>Parámetros de Gastos</span>
+            </h2>
+            <div class="space-y-3 text-sm">
+                <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border border-slate-200">
+                    <span class="font-medium text-slate-600">Promedio de Gastos Fijos Mensuales</span>
+                    <span class="font-bold text-slate-800 text-base">${{ "{:,.2f}".format(proyecciones.gastos.fijos_mensuales_estimados) }}</span>
+                </div>
+                <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border border-slate-200">
+                    <span class="font-medium text-slate-600">Comisiones Aprobadas por Pagar</span>
+                    <span class="font-bold text-slate-800 text-base">${{ "{:,.2f}".format(proyecciones.gastos.comisiones_pendientes_pago) }}</span>
+                </div>
+                 <div class="flex justify-between items-center p-4 rounded-lg bg-red-50 border-2 border-red-200 mt-2">
+                    <span class="font-semibold text-red-800">Gasto Proyectado (Primer Mes)</span>
+                    <span class="font-bold text-lg text-red-800">${{ "{:,.2f}".format(proyecciones.gastos.fijos_mensuales_estimados + proyecciones.gastos.comisiones_pendientes_pago) }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200/80">
+        <div class="p-6">
+            <h2 class="text-xl font-bold text-slate-800">Proyección Mensual Detallada</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Mes</th>
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Ingresos (+)</th>
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Gastos (-)</th>
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Balance Neto</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-slate-200">
+                    {% for item in proyecciones.resumen %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{{ item.mes }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-semibold text-right">${{ "{:,.2f}".format(item.ingreso) }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-semibold text-right">${{ "{:,.2f}".format(item.gasto) }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold {% if item.balance >= 0 %}text-sky-700{% else %}text-red-700{% endif %} text-right">
+                            ${{ "{:,.2f}".format(item.balance) }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="px-6 py-10 text-center text-slate-500">
+                            No se pudieron generar las proyecciones. Verifique los datos.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                 <tfoot class="bg-slate-100 border-t-2 border-slate-300">
+                    <tr class="font-bold text-base">
+                        <td class="px-6 py-4 text-left text-sm text-slate-700">TOTALES</td>
+                        <td class="px-6 py-4 text-right text-sm text-green-700">${{ "{:,.2f}".format(proyecciones.totales.ingresos) }}</td>
+                        <td class="px-6 py-4 text-right text-sm text-red-700">${{ "{:,.2f}".format(proyecciones.totales.gastos) }}</td>
+                        <td class="px-6 py-4 text-right text-sm text-sky-800">${{ "{:,.2f}".format(proyecciones.totales.balance_neto) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -3007,6 +3007,109 @@ def reporte_flujo_caja():
             flash(f"Error al obtener historial de movimientos: {e}", "error")
     return render_template('reporte_flujo_caja.html', fecha_reporte=fecha_reporte_str, resumen=resumen, tasas_del_dia=tasas_del_dia, historial=historial_unificado, anio_actual=today.year)
 
+@app.route('/reportes/proyecciones', methods=['GET'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def reporte_proyecciones():
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", "danger")
+        return redirect(url_for('gestion_administrativa'))
+
+    meses_a_proyectar = int(request.args.get('meses', 3))
+    hoy = get_venezuela_current_date()
+    
+    # Estructura de datos para los resultados
+    proyecciones = {
+        'ingresos': {'base_mensual': Decimal('0.0'), 'clientes_activos': 0, 'tasa_pago_historica': 0, 'ingreso_ajustado_mensual': Decimal('0.0'), 'detalle': []},
+        'gastos': {'fijos_mensuales_estimados': Decimal('0.0'), 'comisiones_pendientes_pago': Decimal('0.0'), 'detalle': []},
+        'resumen': [],
+        'totales': {'ingresos': Decimal('0.0'), 'gastos': Decimal('0.0'), 'balance_neto': Decimal('0.0')}
+    }
+
+    try:
+        with conn.cursor() as cur:
+            # --- 1. Proyección de Ingresos ---
+            cur.execute("""
+                SELECT COUNT(*) as total_clientes, COALESCE(SUM(valor_cuota), 0) as total_cuotas
+                FROM clientes WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR'
+            """)
+            ingresos_base = cur.fetchone()
+            proyecciones['ingresos']['clientes_activos'] = ingresos_base['total_clientes']
+            proyecciones['ingresos']['base_mensual'] = ingresos_base['total_cuotas']
+
+            # Calcular tasa de pago histórica (morosidad inversa) para un ajuste más realista
+            if ingresos_base['total_clientes'] > 0:
+                mes_pasado_inicio = (hoy.replace(day=1) - timedelta(days=1)).replace(day=1)
+                mes_pasado_fin = hoy.replace(day=1) - timedelta(days=1)
+                cur.execute("""
+                    SELECT COUNT(DISTINCT cliente_id) FROM pagos
+                    WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s
+                """, (mes_pasado_inicio, mes_pasado_fin))
+                clientes_pagaron_mes_pasado = cur.fetchone()[0]
+                tasa_pago = (clientes_pagaron_mes_pasado / ingresos_base['total_clientes']) * 100 if ingresos_base['total_clientes'] > 0 else 0
+                proyecciones['ingresos']['tasa_pago_historica'] = round(tasa_pago, 2)
+                proyecciones['ingresos']['ingreso_ajustado_mensual'] = ingresos_base['total_cuotas'] * (Decimal(tasa_pago) / 100)
+            
+            # --- 2. Proyección de Gastos ---
+            # Gastos Fijos (promedio de los últimos 6 meses)
+            seis_meses_atras = hoy - timedelta(days=180)
+            cur.execute("""
+                SELECT COALESCE(SUM(monto_origen), 0) FROM operaciones_tesoreria
+                WHERE tipo_operacion IN ('PAGO_GASTO', 'PAGO_NOMINA') AND moneda_origen = 'USD' AND fecha_operacion >= %s
+            """, (seis_meses_atras,))
+            gastos_tesoreria = cur.fetchone()[0] or Decimal('0.0')
+            
+            cur.execute("""
+                SELECT COALESCE(SUM(monto), 0) FROM peticiones_pago
+                WHERE estado = 'Pagada' AND moneda = 'USD' AND fecha_pago >= %s
+            """, (seis_meses_atras,))
+            gastos_peticiones = cur.fetchone()[0] or Decimal('0.0')
+            
+            gastos_totales_historicos = gastos_tesoreria + gastos_peticiones
+            proyecciones['gastos']['fijos_mensuales_estimados'] = (gastos_totales_historicos / 6).quantize(Decimal('0.01'))
+
+            # Comisiones pendientes de pago (gasto único a corto plazo)
+            cur.execute("""
+                SELECT COALESCE(SUM(monto), 0) FROM comisiones WHERE estado = 'aprobado'
+            """)
+            proyecciones['gastos']['comisiones_pendientes_pago'] = cur.fetchone()[0] or Decimal('0.0')
+
+            # --- 3. Construcción de la proyección mensual ---
+            ingreso_mensual = proyecciones['ingresos']['ingreso_ajustado_mensual']
+            gasto_mensual_base = proyecciones['gastos']['fijos_mensuales_estimados']
+            
+            for i in range(meses_a_proyectar):
+                fecha_mes = hoy + timedelta(days=30*i)
+                nombre_mes = get_nombre_mes(fecha_mes.month)
+
+                # Ingresos
+                proyecciones['ingresos']['detalle'].append({'mes': nombre_mes, 'monto': ingreso_mensual})
+                proyecciones['totales']['ingresos'] += ingreso_mensual
+                
+                # Gastos
+                gasto_este_mes = gasto_mensual_base
+                if i == 0: # Sumar comisiones pendientes solo al primer mes
+                    gasto_este_mes += proyecciones['gastos']['comisiones_pendientes_pago']
+                
+                proyecciones['gastos']['detalle'].append({'mes': nombre_mes, 'monto': gasto_este_mes})
+                proyecciones['totales']['gastos'] += gasto_este_mes
+                
+                # Resumen
+                balance_neto_mes = ingreso_mensual - gasto_este_mes
+                proyecciones['resumen'].append({'mes': nombre_mes, 'ingreso': ingreso_mensual, 'gasto': gasto_este_mes, 'balance': balance_neto_mes})
+
+            proyecciones['totales']['balance_neto'] = proyecciones['totales']['ingresos'] - proyecciones['totales']['gastos']
+
+    except psycopg2.Error as e:
+        flash(f"Error al generar el reporte de proyecciones: {e}", "danger")
+
+    return render_template('reporte_proyecciones.html', 
+                           proyecciones=proyecciones,
+                           meses_proyectados=meses_a_proyectar,
+                           anio_actual=hoy.year)
+# ====== FIN: NUEVA RUTA DE PROYECCIONES FINANCIERAS ======
+
 # =================================================================================
 # --- GESTIÓN DE CLIENTES Y PAGOS ---
 # =================================================================================

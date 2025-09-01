@@ -89,7 +89,16 @@
                     <p class="text-sm text-slate-500 mt-1">Visualiza los indicadores clave (KPIs).</p>
                 </div>
             </a>
-        </div>
+            <a href="{{ url_for('reporte_proyecciones') }}" class="group bg-white p-5 rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex items-start space-x-4">
+                <div class="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-sky-100 text-sky-600">
+                    <i class="bi bi-calendar-range text-2xl"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800 group-hover:text-sky-600 transition-colors">Proyecciones Financieras</h3>
+                    <p class="text-sm text-slate-500 mt-1">Estima ingresos y gastos futuros para la planificación.</p>
+                </div>
+            </a>
+            </div>
     </div>
     {% endif %}
 
