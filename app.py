@@ -3007,6 +3007,7 @@ def reporte_flujo_caja():
             flash(f"Error al obtener historial de movimientos: {e}", "error")
     return render_template('reporte_flujo_caja.html', fecha_reporte=fecha_reporte_str, resumen=resumen, tasas_del_dia=tasas_del_dia, historial=historial_unificado, anio_actual=today.year)
 
+# ====== INICIO: NUEVA RUTA DE PROYECCIONES FINANCIERAS ======
 @app.route('/reportes/proyecciones', methods=['GET'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
