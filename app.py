@@ -3356,22 +3356,6 @@ def activar_proyeccion():
 
     return redirect(url_for('proyecciones_guardadas'))
 
-@app.route('/proyecciones/<int:proyeccion_id>/desactivar', methods=['POST'])
-@admin_required
-@rol_requerido('superadmin', 'gerente')
-def desactivar_proyeccion(proyeccion_id):
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM proyecciones_activas WHERE id = %s", (proyeccion_id,))
-        conn.commit()
-        flash("Proyección desactivada y eliminada correctamente.", "warning")
-    except psycopg2.Error as e:
-        conn.rollback()
-        flash(f"Error al desactivar la proyección: {e}", "danger")
-
-    return redirect(url_for('proyecciones_guardadas'))
-
 # ====== FIN: NUEVAS RUTAS PARA GESTIÓN DE PROYECCIONES ======
 
 @app.route('/proyecciones/<int:proyeccion_id>/desactivar', methods=['POST'])
