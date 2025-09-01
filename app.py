@@ -3156,7 +3156,9 @@ def reporte_proyecciones():
     try:
         fecha_inicio_str = request.args.get('fecha_inicio', hoy.strftime('%Y-%m-%d'))
         fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
-        tasa_bcv_inicio_str = request.args.get('tasa_bcv_inicio')
+        # --- CORRECCIÓN: Se renombró la variable para evitar confusión con el diccionario ---
+        tasa_bcv_inicio_param = request.args.get('tasa_bcv_dolar_inicio') 
+        margen_dolar_pct = Decimal(request.args.get('margen_dolar_pct', '5.0'))
         margen_euro_pct = Decimal(request.args.get('margen_euro_pct', '8.0'))
         margen_binance_pct = Decimal(request.args.get('margen_binance_pct', '5.0'))
         meses_a_proyectar = int(request.args.get('meses', 3))
@@ -3164,13 +3166,26 @@ def reporte_proyecciones():
     except (ValueError, InvalidOperation):
         fecha_inicio, meses_a_proyectar = hoy, 3
         tasa_devaluacion_mensual_pct = Decimal('20.0')
-        tasa_bcv_inicio_str = None
+        tasa_bcv_inicio_param = None
+        margen_dolar_pct = Decimal('5.0')
         margen_euro_pct = Decimal('8.0')
         margen_binance_pct = Decimal('5.0')
 
     # Se inicializan todos los campos que la plantilla usará para evitar errores
     proyecciones = {
-        'parametros': {'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'), 'tasa_bcv_inicio': tasa_bcv_inicio_str, 'margen_euro_pct': margen_euro_pct, 'margen_binance_pct': margen_binance_pct, 'meses': meses_a_proyectar, 'devaluacion_pct': tasa_devaluacion_mensual_pct},
+        'parametros': {
+            'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'), 
+            'tasa_bcv_dolar_inicio': tasa_bcv_inicio_param,
+            'margen_dolar_pct': margen_dolar_pct,
+            'margen_euro_pct': margen_euro_pct, 
+            'margen_binance_pct': margen_binance_pct, 
+            'meses': meses_a_proyectar, 
+            'devaluacion_pct': tasa_devaluacion_mensual_pct,
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se añade un valor por defecto para 'devaluacion_ponderada' para evitar el TypeError.
+            'devaluacion_ponderada': Decimal('0.0')
+            # --- FIN DE LA CORRECCIÓN ---
+        },
         'simulacion_exitosa': False, 'mensaje_error': None,
         'ingresos': {'base_mensual': Decimal('0.0'), 'clientes_activos': 0},
         'egresos': {'total_planificado': Decimal('0.0')},
@@ -3180,6 +3195,10 @@ def reporte_proyecciones():
             'balance_neto_final': Decimal('0.0'), 'sobrecosto_binance': Decimal('0.0')
         }
     }
+    
+    # Si no se envían parámetros, solo se muestra el formulario vacío
+    if not request.args:
+        return render_template('reporte_proyecciones.html', proyecciones=proyecciones)
 
     try:
         with conn.cursor() as cur:
@@ -3191,7 +3210,6 @@ def reporte_proyecciones():
 
             fecha_fin_proyeccion = fecha_inicio + timedelta(days=meses_a_proyectar * 30)
             
-            # La consulta de egresos ahora excluye permanentemente la nómina
             query_egresos = """
                 SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados 
                 WHERE estado = 'Activo' AND moneda = 'USD' 
@@ -3237,29 +3255,25 @@ def reporte_proyecciones():
             proyecciones['kpis'] = kpis
 
     except (psycopg2.Error, InvalidOperation, TypeError) as e:
-        proyecciones['mensaje_error'] = f"Error de base de datos: {e}"
+        proyecciones['mensaje_error'] = f"Error al procesar la simulación: {e}"
         logging.error(f"Error en reporte_proyecciones: {traceback.format_exc()}")
 
     return render_template('reporte_proyecciones.html', proyecciones=proyecciones)
 
-# ====== FIN: REEMPLAZA TU FUNCIÓN DE PROYECCIONES CON ESTA VERSIÓN SIN NÓMINA ======
-# Importa estas librerías en la parte superior de tu archivo si aún no las tienes
-from flask import request, redirect, url_for, flash, json
-
-# ... (resto de tus importaciones y código de la app) ...
-
+# ====== FIN: REEMPLAZA TU FUNCIÓN DE PROYECCIONES CON ESTA VERSIÓN CORREGIDA ======
 
 # ===================================================================
 # RUTA PARA CERRAR PROYECCIÓN Y GUARDAR INFORME HISTÓRICO
 # ===================================================================
 @app.route('/proyecciones/cerrar', methods=['POST'])
-# Asegúrate de proteger esta ruta para que solo usuarios autorizados puedan acceder
-# @login_required
+@admin_required
+@rol_requerido('superadmin', 'gerente')
 def proyecciones_cerrar_mes():
     """
     Recibe los datos de una proyección simulada, la guarda en el histórico
     como un registro oficial y redirige al usuario para iniciar una nueva simulación.
     """
+    conn = get_db()
     # 1. Obtener los datos de la proyección desde el formulario
     datos_proyeccion_str = request.form.get('datos_proyeccion')
 
@@ -3275,10 +3289,7 @@ def proyecciones_cerrar_mes():
         return redirect(url_for('reporte_proyecciones'))
 
     # 3. Lógica para guardar en la base de datos (DEBES ADAPTAR ESTA PARTE)
-    # Aquí crearías un nuevo registro en tu tabla de históricos (ej: proyecciones_activas con estado 'Cerrada')
-    # usando los datos de 'proyeccion_data'.
     print("Simulando guardado de informe en Base de Datos:", proyeccion_data)
-
 
     # 4. Enviar un mensaje de éxito al usuario
     flash('¡El mes se ha cerrado exitosamente! El informe ha sido guardado en el histórico.', 'success')
@@ -3315,20 +3326,17 @@ def proyecciones_guardadas():
 def activar_proyeccion():
     conn = get_db()
     try:
-        # Recuperar los datos del formulario, que vienen como strings JSON
         parametros_str = request.form.get('parametros_simulacion')
         resultados_str = request.form.get('resultados_resumen')
         
         parametros = json.loads(parametros_str)
         resultados = json.loads(resultados_str)
 
-        # Determinar el mes y año de la proyección
         fecha_inicio = datetime.strptime(parametros['fecha_inicio'], '%Y-%m-%d').date()
         mes = fecha_inicio.month
         ano = fecha_inicio.year
 
         with conn.cursor() as cur:
-            # Usar INSERT ON CONFLICT para reemplazar una proyección existente para el mismo mes
             cur.execute("""
                 INSERT INTO proyecciones_activas (mes_proyeccion, ano_proyeccion, parametros_simulacion, resultados_resumen, creado_por_id)
                 VALUES (%s, %s, %s, %s, %s)
@@ -3348,6 +3356,23 @@ def activar_proyeccion():
 
     return redirect(url_for('proyecciones_guardadas'))
 
+@app.route('/proyecciones/<int:proyeccion_id>/desactivar', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def desactivar_proyeccion(proyeccion_id):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM proyecciones_activas WHERE id = %s", (proyeccion_id,))
+        conn.commit()
+        flash("Proyección desactivada y eliminada correctamente.", "warning")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error al desactivar la proyección: {e}", "danger")
+
+    return redirect(url_for('proyecciones_guardadas'))
+
+# ====== FIN: NUEVAS RUTAS PARA GESTIÓN DE PROYECCIONES ======
 
 @app.route('/proyecciones/<int:proyeccion_id>/desactivar', methods=['POST'])
 @admin_required
