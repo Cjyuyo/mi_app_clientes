@@ -20,35 +20,30 @@
                 </div>
             </div>
             
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 items-end bg-slate-50 p-4 rounded-lg border border-slate-200">
                 <div>
                     <label for="fecha_inicio" class="text-xs font-medium text-slate-600">Fecha de Inicio</label>
                     <input type="date" name="fecha_inicio" id="fecha_inicio" value="{{ proyecciones.parametros.fecha_inicio }}" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
                 </div>
                  <div>
-                    <label for="tasa_bcv_inicio" class="text-xs font-medium text-slate-600">Tasa BCV de Inicio</label>
-                    <input type="text" inputmode="decimal" name="tasa_bcv_inicio" id="tasa_bcv_inicio" value="{{ proyecciones.parametros.tasa_bcv_inicio }}" placeholder="Auto (de la fecha)" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
+                    <label for="tasa_bcv_dolar_inicio" class="text-xs font-medium text-slate-600">Tasa BCV Dólar</label>
+                    <input type="text" inputmode="decimal" name="tasa_bcv_dolar_inicio" id="tasa_bcv_dolar_inicio" value="{{ proyecciones.parametros.tasa_bcv_dolar_inicio }}" placeholder="Auto" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
                 </div>
                  <div>
-                    <label for="margen_euro_pct" class="text-xs font-medium text-slate-600">Margen Euro/BCV</label>
-                    <div class="relative mt-1">
-                        <input type="text" inputmode="decimal" name="margen_euro_pct" id="margen_euro_pct" value="{{ proyecciones.parametros.margen_euro_pct }}" class="form-input w-full rounded-md border-slate-300 text-sm pr-8">
-                        <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span>
-                    </div>
+                    <label for="tasa_bcv_euro_inicio" class="text-xs font-medium text-slate-600">Tasa BCV Euro</label>
+                    <input type="text" inputmode="decimal" name="tasa_bcv_euro_inicio" id="tasa_bcv_euro_inicio" value="{{ proyecciones.parametros.tasa_bcv_euro_inicio }}" placeholder="Auto" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
                 </div>
                 <div>
-                    <label for="margen_binance_pct" class="text-xs font-medium text-slate-600">Margen Binance/BCV</label>
-                    <div class="relative mt-1">
-                        <input type="text" inputmode="decimal" name="margen_binance_pct" id="margen_binance_pct" value="{{ proyecciones.parametros.margen_binance_pct }}" class="form-input w-full rounded-md border-slate-300 text-sm pr-8">
-                        <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span>
-                    </div>
+                    <label for="margen_dolar_pct" class="text-xs font-medium text-slate-600">Margen Dólar</label>
+                    <div class="relative mt-1"><input type="text" name="margen_dolar_pct" value="{{ proyecciones.parametros.margen_dolar_pct }}" class="form-input w-full rounded-md border-slate-300 text-sm pr-8"><span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span></div>
                 </div>
                 <div>
-                    <label for="devaluacion" class="text-xs font-medium text-slate-600">Devaluación Mensual</label>
-                    <div class="relative mt-1">
-                         <input type="text" inputmode="decimal" name="devaluacion" id="devaluacion" value="{{ proyecciones.parametros.devaluacion_pct }}" class="form-input w-full rounded-md border-slate-300 text-sm pr-8">
-                         <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span>
-                    </div>
+                    <label for="margen_euro_pct" class="text-xs font-medium text-slate-600">Margen Euro</label>
+                    <div class="relative mt-1"><input type="text" name="margen_euro_pct" value="{{ proyecciones.parametros.margen_euro_pct }}" class="form-input w-full rounded-md border-slate-300 text-sm pr-8"><span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span></div>
+                </div>
+                <div>
+                    <label for="margen_binance_pct" class="text-xs font-medium text-slate-600">Margen Binance</label>
+                    <div class="relative mt-1"><input type="text" name="margen_binance_pct" value="{{ proyecciones.parametros.margen_binance_pct }}" class="form-input w-full rounded-md border-slate-300 text-sm pr-8"><span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span></div>
                 </div>
                 <div class="col-span-2 md:col-span-1">
                     <button type="submit" class="btn bg-indigo-600 hover:bg-indigo-700 text-white text-sm h-10 w-full flex items-center justify-center">
@@ -56,6 +51,11 @@
                         Simular
                     </button>
                 </div>
+            </div>
+            
+            <div class="mt-4 text-center">
+                <span class="text-sm font-medium text-slate-600">Devaluación Ponderada (calculada):</span>
+                <span class="ml-2 font-bold text-lg text-indigo-700">{{ "{:,.2f}".format(proyecciones.parametros.devaluacion_ponderada) }}%</span>
             </div>
         </form>
     </header>
@@ -90,40 +90,29 @@
             </div>
         </div>
 
-        <!-- 3. Parámetros de Ingresos (Simplificado) -->
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200/80">
-            <h2 class="text-lg font-bold text-slate-800 mb-4">Resumen de Parámetros Base</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border">
-                    <span class="font-medium text-slate-600">Clientes Ahorradores Activos</span>
-                    <span class="font-bold text-slate-800 text-base">{{ proyecciones.ingresos.clientes_activos }}</span>
+        <!-- 3. Parámetros de Ingresos y Gastos -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200/80">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Parámetros de Ingresos</h2>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border"><span class="font-medium text-slate-600">Clientes Ahorradores Activos</span><span class="font-bold text-slate-800 text-base">{{ proyecciones.ingresos.clientes_activos }}</span></div>
+                    <div class="flex justify-between items-center p-3 rounded-lg bg-blue-50 border-2 border-blue-200"><span class="font-semibold text-blue-800">Suma de Cuotas Mensuales (Base)</span><span class="font-bold text-lg text-blue-800">${{ "{:,.2f}".format(proyecciones.ingresos.base_mensual) }}</span></div>
                 </div>
-                <div class="flex justify-between items-center p-3 rounded-lg bg-blue-50 border-2 border-blue-200">
-                    <span class="font-semibold text-blue-800">Suma de Cuotas Mensuales (Base)</span>
-                    <span class="font-bold text-lg text-blue-800">${{ "{:,.2f}".format(proyecciones.ingresos.base_mensual) }}</span>
-                </div>
-                 <div class="flex justify-between items-center p-3 rounded-lg bg-red-50 border-2 border-red-200">
-                    <span class="font-semibold text-red-800">Total Egresos Operativos (sin nómina)</span>
-                    <span class="font-bold text-lg text-red-800">${{ "{:,.2f}".format(proyecciones.egresos.total_planificado) }}</span>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200/80">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Parámetros de Gastos</h2>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between items-center p-3 rounded-lg bg-red-50 border-2 border-red-200 mt-2"><span class="font-semibold text-red-800">Total Egresos Operativos (sin nómina)</span><span class="font-bold text-lg text-red-800">${{ "{:,.2f}".format(proyecciones.egresos.total_planificado) }}</span></div>
                 </div>
             </div>
         </div>
 
         <!-- 4. Tabla de Proyección Mensual Detallada -->
         <div class="bg-white rounded-xl shadow-sm border border-slate-200/80 overflow-hidden">
-            <div class="p-6 border-b border-slate-200">
-                <h2 class="text-xl font-bold text-slate-800">Desglose Mensual (Operativo)</h2>
-            </div>
+            <div class="p-6 border-b border-slate-200"><h2 class="text-xl font-bold text-slate-800">Desglose Mensual (Operativo)</h2></div>
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-slate-200">
-                    <thead class="bg-slate-50">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Mes</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Ingresos (Cuotas)</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Egresos (Operativos)</th>
-                            <th class="px-4 py-3 text-right text-xs font-bold text-slate-700 uppercase">Balance Neto</th>
-                        </tr>
-                    </thead>
+                    <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Mes</th><th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Ingresos (Cuotas)</th><th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Egresos (Operativos)</th><th class="px-4 py-3 text-right text-xs font-bold text-slate-700 uppercase">Balance Neto</th></tr></thead>
                     <tbody class="bg-white divide-y divide-slate-200">
                         {% for item in proyecciones.detalle_mensual %}
                         <tr class="hover:bg-slate-50">
