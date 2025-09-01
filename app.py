@@ -1541,12 +1541,11 @@ def reportes_por_revisar():
         return render_template('reportes_por_revisar.html', reportes=reportes_categorizados)
     try:
         with conn.cursor() as cur:
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Se añade una condición para excluir pagos cuyo estado comience con 'Anulado',
-            # asegurando que los procesos cancelados no aparezcan en la lista.
-            query = """
+            # --- LÓGICA ORIGINAL PARA PAGOS DE CUOTAS (BULKS) ---
+            # Esta parte se mantiene como estaba.
+            query_bulks = """
                 SELECT DISTINCT ON (b.id)
-                    p.id, -- ID del primer pago, usado para el enlace "Revisar"
+                    p.id,
                     b.status AS bulk_status,
                     b.expected_amount,
                     b.currency,
@@ -1563,13 +1562,11 @@ def reportes_por_revisar():
                 WHERE b.status IN ('OPEN', 'UNDER_REVIEW') AND p.estado_reporte NOT LIKE 'Anulado%'
                 ORDER BY b.id, p.fecha_creacion ASC;
             """
-            cur.execute(query)
+            cur.execute(query_bulks)
             procesos_pendientes = cur.fetchall()
 
             for proceso_row in procesos_pendientes:
                 reporte = dict(proceso_row)
-                
-                # Se prepara el monto esperado para mostrarlo en la interfaz
                 if reporte['currency'] == 'VES':
                     reporte['monto_esperado_bs'] = reporte['expected_amount']
                     reporte['monto_esperado_usd'] = Decimal('0.0')
@@ -1577,12 +1574,39 @@ def reportes_por_revisar():
                     reporte['monto_esperado_usd'] = reporte['expected_amount']
                     reporte['monto_esperado_bs'] = Decimal('0.0')
 
-                # Se categoriza el reporte basado en el estado del PROCESO, no del pago individual.
                 if reporte['bulk_status'] == 'UNDER_REVIEW':
                     reportes_categorizados['diferencias'].append(reporte)
                 elif reporte['bulk_status'] == 'OPEN':
                     reportes_categorizados['pendientes'].append(reporte)
-            # --- FIN DE LA CORRECCIÓN ---
+            
+            # --- INICIO DE LA NUEVA LÓGICA PARA PAGOS DE INSCRIPCIÓN ---
+            # Se añade una nueva consulta para buscar pagos de inscripción pendientes que no tienen un "bulk".
+            query_inscripciones = """
+                SELECT 
+                    p.id,
+                    p.monto,
+                    p.monto_bs,
+                    p.fecha_creacion,
+                    c.id as cliente_id,
+                    c.nombre,
+                    c.apellido,
+                    c.cedula,
+                    c.inscripcion_monto as monto_esperado_usd -- El monto esperado es el total de la inscripción
+                FROM pagos p
+                JOIN clientes c ON p.cliente_id = c.id
+                WHERE p.tipo_pago = 'Inscripción' 
+                  AND p.estado_reporte = 'Pendiente de Revision'
+                  AND p.bulk_id IS NULL;
+            """
+            cur.execute(query_inscripciones)
+            pagos_inscripcion_pendientes = cur.fetchall()
+            
+            for pago_insc in pagos_inscripcion_pendientes:
+                reporte_insc = dict(pago_insc)
+                # Se le da el formato necesario para que coincida con la estructura de la plantilla
+                reporte_insc['monto_esperado_bs'] = Decimal('0.0') 
+                reportes_categorizados['pendientes'].append(reporte_insc)
+            # --- FIN DE LA NUEVA LÓGICA ---
 
     except psycopg2.Error as e:
         flash(f"Error al cargar la lista de reportes: {e}", "danger")
