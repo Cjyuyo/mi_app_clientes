@@ -3144,13 +3144,14 @@ def reporte_proyecciones():
         margen_euro_pct = Decimal('8.0')
         margen_binance_pct = Decimal('5.0')
 
+    # Se inicializan todos los campos que la plantilla usará para evitar errores
     proyecciones = {
         'parametros': {'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'), 'tasa_bcv_inicio': tasa_bcv_inicio_str, 'margen_euro_pct': margen_euro_pct, 'margen_binance_pct': margen_binance_pct, 'meses': meses_a_proyectar, 'devaluacion_pct': tasa_devaluacion_mensual_pct},
         'simulacion_exitosa': False, 'mensaje_error': None,
         'ingresos': {'base_mensual': Decimal('0.0'), 'clientes_activos': 0},
         'egresos': {'total_planificado': Decimal('0.0')},
         'kpis': {}, 'detalle_mensual': [], 
-        'resumen_total': { # Inicializar siempre el resumen total
+        'resumen_total': {
             'ingresos_usd': Decimal('0.0'), 'egresos_usd': Decimal('0.0'),
             'balance_neto_final': Decimal('0.0'), 'sobrecosto_binance': Decimal('0.0')
         }
@@ -3166,20 +3167,37 @@ def reporte_proyecciones():
 
             fecha_fin_proyeccion = fecha_inicio + timedelta(days=meses_a_proyectar * 30)
             
-            query_egresos = "SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE estado = 'Activo' AND moneda = 'USD' AND titulo NOT ILIKE '%%nomina%%' AND ((tipo_egreso IN ('Variable', 'Devolución') AND fecha_pago_programada BETWEEN %s AND %s) OR (tipo_egreso = 'Fijo' AND fecha_inicio_recurrencia <= %s AND fecha_fin_recurrencia >= %s))"
+            # La consulta de egresos ahora excluye permanentemente la nómina
+            query_egresos = """
+                SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados 
+                WHERE estado = 'Activo' AND moneda = 'USD' 
+                AND titulo NOT ILIKE '%%nomina%%' 
+                AND (
+                    (tipo_egreso IN ('Variable', 'Devolución') AND fecha_pago_programada BETWEEN %s AND %s) OR
+                    (tipo_egreso = 'Fijo' AND fecha_inicio_recurrencia <= %s AND fecha_fin_recurrencia >= %s)
+                )
+            """
             cur.execute(query_egresos, (fecha_inicio, fecha_fin_proyeccion, fecha_fin_proyeccion, fecha_inicio))
             proyecciones['egresos']['total_planificado'] = cur.fetchone()[0] or Decimal('0.0')
 
             # --- SIMULACIÓN Y RESULTADOS ---
-            proyecciones['simulacion_exitosa'] = True # O la lógica de simulación que determine el éxito
+            proyecciones['simulacion_exitosa'] = True
             total_ingresos_proyectados = proyecciones['ingresos']['base_mensual'] * meses_a_proyectar
             total_egresos_proyectados = proyecciones['egresos']['total_planificado']
 
             proyecciones['resumen_total']['ingresos_usd'] = total_ingresos_proyectados
             proyecciones['resumen_total']['egresos_usd'] = total_egresos_proyectados
             proyecciones['resumen_total']['balance_neto_final'] = total_ingresos_proyectados - total_egresos_proyectados
-            # Aquí se calcularía el sobrecosto real si la simulación se ejecuta
-            # proyecciones['resumen_total']['sobrecosto_binance'] = ...
+            
+            # Llenar desglose mensual
+            for i in range(meses_a_proyectar):
+                fecha_mes = fecha_inicio + timedelta(days=30*i)
+                ingreso_mes = proyecciones['ingresos']['base_mensual']
+                egreso_mes = total_egresos_proyectados / meses_a_proyectar if meses_a_proyectar > 0 else 0
+                proyecciones['detalle_mensual'].append({
+                    'mes': get_nombre_mes(fecha_mes.month), 'ingresos_usd': ingreso_mes, 'egresos_usd': egreso_mes,
+                    'balance_neto_final': ingreso_mes - egreso_mes
+                })
 
             # Calcular KPIs
             kpis = {'punto_equilibrio_usd': total_egresos_proyectados}
@@ -3199,7 +3217,7 @@ def reporte_proyecciones():
         logging.error(f"Error en reporte_proyecciones: {traceback.format_exc()}")
 
     return render_template('reporte_proyecciones.html', proyecciones=proyecciones)
-# ====== FIN: REEMPLAZA TU FUNCIÓN DE PROYECCIONES CON ESTA VERSIÓN CORREGIDA ======
+# ====== FIN: REEMPLAZA TU FUNCIÓN DE PROYECCIONES CON ESTA VERSIÓN SIN NÓMINA ======
 
 # ====== INICIO: NUEVAS RUTAS PARA GESTIÓN DE PROYECCIONES ======
 
