@@ -9,55 +9,37 @@
 
     <header class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <form method="GET" action="{{ url_for('reporte_proyecciones') }}">
-            <div class="flex items-center gap-4 mb-4">
-                <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-sky-100 text-sky-600"><i class="bi bi-sliders text-2xl"></i></div>
-                <div><h1 class="text-3xl font-bold text-slate-800 tracking-tight">Planificación de Escenarios</h1><p class="text-slate-500 mt-1">Define las variables para simular el comportamiento financiero futuro.</p></div>
-            </div>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end bg-slate-50 p-4 rounded-lg border border-slate-200">
-                <div><label for="fecha_inicio" class="text-xs font-medium text-slate-600">Fecha de Inicio</label><input type="date" name="fecha_inicio" id="fecha_inicio" value="{{ proyecciones.parametros.fecha_inicio }}" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm"></div>
-                <div><label for="tasa_bcv_inicio" class="text-xs font-medium text-slate-600">Tasa BCV de Inicio</label><input type="text" inputmode="decimal" name="tasa_bcv_inicio" id="tasa_bcv_inicio" value="{{ proyecciones.parametros.tasa_bcv_inicio }}" placeholder="Auto (de la fecha)" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm"></div>
-                <div><label for="margen_euro_pct" class="text-xs font-medium text-slate-600">Margen Euro/BCV</label><div class="relative mt-1"><input type="text" inputmode="decimal" name="margen_euro_pct" id="margen_euro_pct" value="{{ proyecciones.parametros.margen_euro_pct }}" class="form-input w-full rounded-md border-slate-300 text-sm pr-8"><span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span></div></div>
-                <div><label for="margen_binance_pct" class="text-xs font-medium text-slate-600">Margen Binance/BCV</label><div class="relative mt-1"><input type="text" inputmode="decimal" name="margen_binance_pct" id="margen_binance_pct" value="{{ proyecciones.parametros.margen_binance_pct }}" class="form-input w-full rounded-md border-slate-300 text-sm pr-8"><span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span></div></div>
-                <div><label for="devaluacion" class="text-xs font-medium text-slate-600">Devaluación Mensual</label><div class="relative mt-1"><input type="text" inputmode="decimal" name="devaluacion" id="devaluacion" value="{{ proyecciones.parametros.devaluacion_pct }}" class="form-input w-full rounded-md border-slate-300 text-sm pr-8"><span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span></div></div>
-                <div class="col-span-2 md:col-span-1"><button type="submit" class="btn bg-indigo-600 hover:bg-indigo-700 text-white text-sm h-10 w-full flex items-center justify-center"><i class="bi bi-calculator-fill mr-2"></i>Simular</button></div>
-            </div>
-        </form>
+            </form>
     </header>
 
     {% if proyecciones.simulacion_exitosa %}
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200/80">
-            <h2 class="text-xl font-bold text-slate-800 mb-4">Indicadores Estratégicos</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                <div>
-                    <label class="block text-sm font-medium text-slate-600">Margen de Seguridad</label>
-                    <p class="text-xs text-slate-500 mb-2">Cuánto pueden caer tus ingresos antes de tener pérdidas.</p>
-                    <div class="w-full bg-slate-200 rounded-full h-6"><div class="{{ proyecciones.kpis.margen_color }} h-6 rounded-full text-center text-white text-xs font-bold flex items-center justify-center" style="width: {{ [proyecciones.kpis.margen_seguridad_pct, 100]|min }}%;">{{ "{:,.1f}".format(proyecciones.kpis.margen_seguridad_pct) }}%</div></div>
-                </div>
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border"><span class="font-medium text-slate-600">Punto de Equilibrio:</span><span class="font-bold text-lg text-slate-800">${{ "{:,.2f}".format(proyecciones.kpis.punto_equilibrio_usd) }}</span></div>
-                    {% if proyecciones.resumen_total.sobrecosto_binance %}
-                    <div class="flex justify-between items-center p-3 rounded-lg bg-red-50 border-2 border-red-200"><span class="font-semibold text-red-800">Sobrecosto por Pagos (Binance):</span><span class="font-bold text-lg text-red-800">(${{ "{:,.2f}".format(proyecciones.resumen_total.sobrecosto_binance) }})</span></div>
-                    {% endif %}
-                </div>
             </div>
-        </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200/80">
                 <h2 class="text-lg font-bold text-slate-800 mb-4">Parámetros de Ingresos</h2>
-                <div class="space-y-3 text-sm"><div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border"><span class="font-medium text-slate-600">Clientes Ahorradores Activos</span><span class="font-bold text-slate-800 text-base">{{ proyecciones.ingresos.clientes_activos }}</span></div><div class="flex justify-between items-center p-3 rounded-lg bg-blue-50 border-2 border-blue-200"><span class="font-semibold text-blue-800">Suma de Cuotas Mensuales (Base)</span><span class="font-bold text-lg text-blue-800">${{ "{:,.2f}".format(proyecciones.ingresos.base_mensual) }}</span></div></div>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border"><span class="font-medium text-slate-600">Clientes Ahorradores Activos</span><span class="font-bold text-slate-800 text-base">{{ proyecciones.ingresos.clientes_activos }}</span></div>
+                    <div class="flex justify-between items-center p-3 rounded-lg bg-blue-50 border-2 border-blue-200"><span class="font-semibold text-blue-800">Suma de Cuotas Mensuales (Base)</span><span class="font-bold text-lg text-blue-800">${{ "{:,.2f}".format(proyecciones.ingresos.base_mensual) }}</span></div>
+                </div>
             </div>
             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200/80">
                 <h2 class="text-lg font-bold text-slate-800 mb-4">Parámetros de Gastos</h2>
-                <div class="space-y-3 text-sm"><div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border"><span class="font-medium text-slate-600">Gastos Operativos (sin nómina)</span><span class="font-bold text-slate-800 text-base">${{ "{:,.2f}".format(proyecciones.egresos.gastos_sin_nomina) }}</span></div><div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border"><span class="font-medium text-slate-600">Gastos de Nómina</span><span class="font-bold text-slate-800 text-base">${{ "{:,.2f}".format(proyecciones.egresos.solo_nomina) }}</span></div><div class="flex justify-between items-center p-3 rounded-lg bg-red-50 border-2 border-red-200 mt-2"><span class="font-semibold text-red-800">Total Egresos Planificados</span><span class="font-bold text-lg text-red-800">${{ "{:,.2f}".format(proyecciones.egresos.total_planificado) }}</span></div></div>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between items-center p-3 rounded-lg bg-red-50 border-2 border-red-200 mt-2">
+                        <span class="font-semibold text-red-800">Total Egresos Operativos (sin nómina)</span>
+                        <span class="font-bold text-lg text-red-800">${{ "{:,.2f}".format(proyecciones.egresos.total_planificado) }}</span>
+                    </div>
+                    </div>
             </div>
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border border-slate-200/80 overflow-hidden">
-            <div class="p-6 border-b border-slate-200"><h2 class="text-xl font-bold text-slate-800">Desglose Mensual de la Proyección</h2></div>
+            <div class="p-6 border-b border-slate-200"><h2 class="text-xl font-bold text-slate-800">Desglose Mensual (Operativo)</h2></div>
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-slate-200">
-                    <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Mes</th><th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Ingresos</th><th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Egresos</th><th class="px-4 py-3 text-right text-xs font-bold text-slate-700 uppercase">Balance Neto</th></tr></thead>
+                    <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Mes</th><th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Ingresos (Cuotas)</th><th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Egresos (Operativos)</th><th class="px-4 py-3 text-right text-xs font-bold text-slate-700 uppercase">Balance Neto</th></tr></thead>
                     <tbody class="bg-white divide-y divide-slate-200">
                         {% for item in proyecciones.detalle_mensual %}
                         <tr>
@@ -66,8 +48,6 @@
                             <td class="px-4 py-4 whitespace-nowrap text-sm text-red-600 font-semibold text-right">(${{ "{:,.2f}".format(item.egresos_usd) }})</td>
                             <td class="px-4 py-4 whitespace-nowrap text-sm font-bold bg-slate-50 {% if item.balance_neto_final >= 0 %}text-indigo-700{% else %}text-red-700{% endif %} text-right">${{ "{:,.2f}".format(item.balance_neto_final) }}</td>
                         </tr>
-                        {% else %}
-                        <tr><td colspan="4" class="text-center p-6 text-slate-500">No hay datos para mostrar. Ejecute una simulación.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
