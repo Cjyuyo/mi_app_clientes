@@ -1,0 +1,54 @@
+{% extends 'base_sidebar.html' %}
+
+{% block title %}Proyecciones Guardadas{% endblock %}
+
+{% block page_title %}Proyecciones Guardadas{% endblock %}
+
+{% block body %}
+<div class="bg-white rounded-2xl shadow-lg border border-slate-200/80 overflow-hidden">
+    <div class="p-6 border-b">
+        <h1 class="text-2xl font-bold text-slate-800">Historial de Proyecciones</h1>
+        <p class="text-slate-500 mt-1">Consulta y gestiona las proyecciones que has guardado como plan oficial.</p>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full">
+            <thead class="bg-slate-50">
+                <tr>
+                    <th class="px-5 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Período</th>
+                    <th class="px-5 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
+                    <th class="px-5 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Balance Neto Proyectado</th>
+                    <th class="px-5 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Creado por</th>
+                    <th class="px-5 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha de Creación</th>
+                    <th class="px-5 py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+                {% for proyeccion in proyecciones %}
+                <tr class="hover:bg-slate-50">
+                    <td class="px-5 py-4 font-bold text-slate-800">{{ get_nombre_mes(proyeccion.mes_proyeccion) }} {{ proyeccion.ano_proyeccion }}</td>
+                    <td class="px-5 py-4">
+                        {% if proyeccion.estado == 'Activa' %}
+                            <span class="py-1 px-2.5 bg-green-100 text-green-800 text-xs font-bold rounded-full">Activa</span>
+                        {% else %}
+                            <span class="py-1 px-2.5 bg-slate-200 text-slate-800 text-xs font-medium rounded-full">Cerrada</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-5 py-4 text-right font-mono font-semibold text-indigo-700">${{ "{:,.2f}".format(proyeccion.resultados_resumen.balance_neto_final | float) }}</td>
+                    <td class="px-5 py-4 text-sm text-slate-600">{{ proyeccion.creado_por }}</td>
+                    <td class="px-5 py-4 text-sm text-slate-600">{{ proyeccion.fecha_creacion.strftime('%d/%m/%Y %I:%M %p') }}</td>
+                    <td class="px-5 py-4 text-center">
+                        {% if proyeccion.estado == 'Activa' %}
+                        <form action="{{ url_for('desactivar_proyeccion', proyeccion_id=proyeccion.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres eliminar esta proyección activa? Esta acción no se puede deshacer.');">
+                            <button type="submit" class="text-red-500 hover:text-red-700 text-sm font-semibold">Desactivar</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center p-8 text-slate-500">No hay proyecciones guardadas.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

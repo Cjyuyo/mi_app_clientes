@@ -3213,6 +3213,87 @@ def reporte_proyecciones():
     return render_template('reporte_proyecciones.html', proyecciones=proyecciones)
 # ====== FIN: REEMPLAZA TU FUNCIÓN DE PROYECCIONES CON ESTA VERSIÓN SIN NÓMINA ======
 
+# ====== INICIO: NUEVAS RUTAS PARA GESTIÓN DE PROYECCIONES ======
+
+@app.route('/proyecciones/guardadas')
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def proyecciones_guardadas():
+    conn = get_db()
+    proyecciones = []
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT p.*, a.usuario as creado_por
+                    FROM proyecciones_activas p
+                    LEFT JOIN administradores a ON p.creado_por_id = a.id
+                    ORDER BY p.ano_proyeccion DESC, p.mes_proyeccion DESC
+                """)
+                proyecciones = cur.fetchall()
+        except psycopg2.Error as e:
+            flash(f"Error al cargar las proyecciones guardadas: {e}", "danger")
+    
+    return render_template('proyecciones_guardadas.html', proyecciones=proyecciones)
+
+@app.route('/proyecciones/activar', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def activar_proyeccion():
+    conn = get_db()
+    try:
+        # Recuperar los datos del formulario, que vienen como strings JSON
+        parametros_str = request.form.get('parametros_simulacion')
+        resultados_str = request.form.get('resultados_resumen')
+        
+        parametros = json.loads(parametros_str)
+        resultados = json.loads(resultados_str)
+
+        # Determinar el mes y año de la proyección
+        fecha_inicio = datetime.strptime(parametros['fecha_inicio'], '%Y-%m-%d').date()
+        mes = fecha_inicio.month
+        ano = fecha_inicio.year
+
+        with conn.cursor() as cur:
+            # Usar INSERT ON CONFLICT para reemplazar una proyección existente para el mismo mes
+            cur.execute("""
+                INSERT INTO proyecciones_activas (mes_proyeccion, ano_proyeccion, parametros_simulacion, resultados_resumen, creado_por_id)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (mes_proyeccion, ano_proyeccion) DO UPDATE SET
+                    parametros_simulacion = EXCLUDED.parametros_simulacion,
+                    resultados_resumen = EXCLUDED.resultados_resumen,
+                    creado_por_id = EXCLUDED.creado_por_id,
+                    fecha_creacion = NOW(),
+                    estado = 'Activa'
+            """, (mes, ano, parametros_str, resultados_str, g.admin['id']))
+        conn.commit()
+        flash(f"Proyección para {get_nombre_mes(mes)}/{ano} guardada y activada exitosamente.", "success")
+    except (psycopg2.Error, json.JSONDecodeError, KeyError) as e:
+        conn.rollback()
+        flash(f"Error al activar la proyección: {e}", "danger")
+        logging.error(f"Error en activar_proyeccion: {traceback.format_exc()}")
+
+    return redirect(url_for('proyecciones_guardadas'))
+
+
+@app.route('/proyecciones/<int:proyeccion_id>/desactivar', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def desactivar_proyeccion(proyeccion_id):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM proyecciones_activas WHERE id = %s", (proyeccion_id,))
+        conn.commit()
+        flash("Proyección desactivada y eliminada correctamente.", "warning")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error al desactivar la proyección: {e}", "danger")
+
+    return redirect(url_for('proyecciones_guardadas'))
+
+# ====== FIN: NUEVAS RUTAS PARA GESTIÓN DE PROYECCIONES ======
+
 # =================================================================================
 # --- GESTIÓN DE CLIENTES Y PAGOS ---
 # =================================================================================
