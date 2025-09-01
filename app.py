@@ -3116,7 +3116,7 @@ def reporte_flujo_caja():
             flash(f"Error al obtener historial de movimientos: {e}", "error")
     return render_template('reporte_flujo_caja.html', fecha_reporte=fecha_reporte_str, resumen=resumen, tasas_del_dia=tasas_del_dia, historial=historial_unificado, anio_actual=today.year)
 
-# ====== INICIO: REEMPLAZA TU FUNCIÓN DE PROYECCIONES CON ESTA VERSIÓN SIN NÓMINA ======
+# ====== INICIO: REEMPLAZA TU FUNCIÓN DE PROYECCIONES CON ESTA VERSIÓN CORREGIDA ======
 @app.route('/reportes/proyecciones', methods=['GET'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -3132,20 +3132,28 @@ def reporte_proyecciones():
     try:
         fecha_inicio_str = request.args.get('fecha_inicio', hoy.strftime('%Y-%m-%d'))
         fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
-        # ... (resto de los parámetros se mantienen igual) ...
+        tasa_bcv_inicio_str = request.args.get('tasa_bcv_inicio')
+        margen_euro_pct = Decimal(request.args.get('margen_euro_pct', '8.0'))
+        margen_binance_pct = Decimal(request.args.get('margen_binance_pct', '5.0'))
         meses_a_proyectar = int(request.args.get('meses', 3))
         tasa_devaluacion_mensual_pct = Decimal(request.args.get('devaluacion', '20.0'))
     except (ValueError, InvalidOperation):
-        # ... (valores de fallback se mantienen igual) ...
         fecha_inicio, meses_a_proyectar = hoy, 3
         tasa_devaluacion_mensual_pct = Decimal('20.0')
+        tasa_bcv_inicio_str = None
+        margen_euro_pct = Decimal('8.0')
+        margen_binance_pct = Decimal('5.0')
 
     proyecciones = {
-        'parametros': {'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'), 'meses': meses_a_proyectar, 'devaluacion_pct': tasa_devaluacion_mensual_pct},
+        'parametros': {'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'), 'tasa_bcv_inicio': tasa_bcv_inicio_str, 'margen_euro_pct': margen_euro_pct, 'margen_binance_pct': margen_binance_pct, 'meses': meses_a_proyectar, 'devaluacion_pct': tasa_devaluacion_mensual_pct},
         'simulacion_exitosa': False, 'mensaje_error': None,
         'ingresos': {'base_mensual': Decimal('0.0'), 'clientes_activos': 0},
         'egresos': {'total_planificado': Decimal('0.0')},
-        'kpis': {}, 'detalle_mensual': []
+        'kpis': {}, 'detalle_mensual': [], 
+        'resumen_total': { # Inicializar siempre el resumen total
+            'ingresos_usd': Decimal('0.0'), 'egresos_usd': Decimal('0.0'),
+            'balance_neto_final': Decimal('0.0'), 'sobrecosto_binance': Decimal('0.0')
+        }
     }
 
     try:
@@ -3158,40 +3166,20 @@ def reporte_proyecciones():
 
             fecha_fin_proyeccion = fecha_inicio + timedelta(days=meses_a_proyectar * 30)
             
-            # ===== INICIO DE LA CORRECCIÓN =====
-            # La consulta de egresos ahora excluye permanentemente la nómina
-            query_egresos = """
-                SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados 
-                WHERE estado = 'Activo' AND moneda = 'USD' 
-                AND titulo NOT ILIKE '%%nomina%%' 
-                AND (
-                    (tipo_egreso IN ('Variable', 'Devolución') AND fecha_pago_programada BETWEEN %s AND %s) OR
-                    (tipo_egreso = 'Fijo' AND fecha_inicio_recurrencia <= %s AND fecha_fin_recurrencia >= %s)
-                )
-            """
+            query_egresos = "SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE estado = 'Activo' AND moneda = 'USD' AND titulo NOT ILIKE '%%nomina%%' AND ((tipo_egreso IN ('Variable', 'Devolución') AND fecha_pago_programada BETWEEN %s AND %s) OR (tipo_egreso = 'Fijo' AND fecha_inicio_recurrencia <= %s AND fecha_fin_recurrencia >= %s))"
             cur.execute(query_egresos, (fecha_inicio, fecha_fin_proyeccion, fecha_fin_proyeccion, fecha_inicio))
             proyecciones['egresos']['total_planificado'] = cur.fetchone()[0] or Decimal('0.0')
-            # ===== FIN DE LA CORRECCIÓN =====
 
             # --- SIMULACIÓN Y RESULTADOS ---
-            proyecciones['simulacion_exitosa'] = True
+            proyecciones['simulacion_exitosa'] = True # O la lógica de simulación que determine el éxito
             total_ingresos_proyectados = proyecciones['ingresos']['base_mensual'] * meses_a_proyectar
             total_egresos_proyectados = proyecciones['egresos']['total_planificado']
 
-            proyecciones['resumen_total'] = {
-                'ingresos_usd': total_ingresos_proyectados,
-                'egresos_usd': total_egresos_proyectados,
-                'balance_neto_final': total_ingresos_proyectados - total_egresos_proyectados
-            }
-
-            for i in range(meses_a_proyectar):
-                fecha_mes = fecha_inicio + timedelta(days=30*i)
-                ingreso_mes = proyecciones['ingresos']['base_mensual']
-                egreso_mes = total_egresos_proyectados / meses_a_proyectar if meses_a_proyectar > 0 else 0
-                proyecciones['detalle_mensual'].append({
-                    'mes': get_nombre_mes(fecha_mes.month), 'ingresos_usd': ingreso_mes, 'egresos_usd': egreso_mes,
-                    'balance_neto_final': ingreso_mes - egreso_mes
-                })
+            proyecciones['resumen_total']['ingresos_usd'] = total_ingresos_proyectados
+            proyecciones['resumen_total']['egresos_usd'] = total_egresos_proyectados
+            proyecciones['resumen_total']['balance_neto_final'] = total_ingresos_proyectados - total_egresos_proyectados
+            # Aquí se calcularía el sobrecosto real si la simulación se ejecuta
+            # proyecciones['resumen_total']['sobrecosto_binance'] = ...
 
             # Calcular KPIs
             kpis = {'punto_equilibrio_usd': total_egresos_proyectados}
@@ -3211,7 +3199,7 @@ def reporte_proyecciones():
         logging.error(f"Error en reporte_proyecciones: {traceback.format_exc()}")
 
     return render_template('reporte_proyecciones.html', proyecciones=proyecciones)
-# ====== FIN: REEMPLAZA TU FUNCIÓN DE PROYECCIONES CON ESTA VERSIÓN SIN NÓMINA ======
+# ====== FIN: REEMPLAZA TU FUNCIÓN DE PROYECCIONES CON ESTA VERSIÓN CORREGIDA ======
 
 # ====== INICIO: NUEVAS RUTAS PARA GESTIÓN DE PROYECCIONES ======
 
