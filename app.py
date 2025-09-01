@@ -5238,19 +5238,21 @@ def portal_pagar_inscripcion():
                     banco_final = pago_form.get('banco')
                 
                 # --- INICIO DE LA CORRECCIÓN ---
-                # Se añade 'estado_pago' con el valor 'Pendiente' a la inserción.
+                # Se añade 'cuotas_cubiertas' a la consulta con un valor fijo de 0.
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia,
-                                       estado_reporte, fecha_creacion, reportado_por_cliente, estado_pago) 
-                    VALUES (%s, %s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, 'Pendiente');
+                                       estado_reporte, fecha_creacion, reportado_por_cliente, estado_pago, cuotas_cubiertas) 
+                    VALUES (%s, %s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, 'Pendiente', %s);
                 """
-                # --- FIN DE LA CORRECCIÓN ---
                 cur.execute(pago_query, (
                     session['cliente_id'], monto_usd_a_guardar, monto_reportado_bs,
                     forma_pago_final, fecha_pago_final, pago_en_final, 
                     concepto_pago, referencia_final, banco_final, tasa_bcv_calculo, 
-                    get_venezuela_current_datetime()
+                    get_venezuela_current_datetime(),
+                    0 # Valor añadido para cuotas_cubiertas
                 ))
+                # --- FIN DE LA CORRECCIÓN ---
+                
                 conn.commit()
                 flash('✅ ¡Pago de inscripción reportado! Será verificado por un administrador.', 'success')
                 return redirect(url_for('portal_dashboard'))
