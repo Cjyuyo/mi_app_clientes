@@ -2964,31 +2964,38 @@ def gestion_egresos():
             tipo_egreso = request.form.get('tipo_egreso')
             with conn.cursor() as cur:
                 if tipo_egreso == 'Devolución':
-                    # Lógica para devoluciones (se mantiene igual)
+                    # Lógica actualizada para devoluciones
                     cliente_id = int(request.form.get('cliente_asociado_id'))
                     monto_total = Decimal(request.form.get('monto_total_devolucion'))
-                    moneda = request.form.get('moneda_devolucion')
+                    metodo_pago = request.form.get('metodo_pago_devolucion') # Nuevo campo
                     num_cuotas = int(request.form.get('numero_de_cuotas'))
                     fecha_primer_pago_str = request.form.get('fecha_primer_pago')
                     descripcion = request.form.get('descripcion_devolucion')
+                    
                     monto_por_cuota = (monto_total / num_cuotas).quantize(Decimal('0.01'))
                     fecha_primer_pago = datetime.strptime(fecha_primer_pago_str, '%Y-%m-%d').date()
+
                     cur.execute("SELECT nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
                     cliente_info = cur.fetchone()
                     titulo_base = f"Devolución a {cliente_info['nombre']} {cliente_info['apellido']}"
+
                     for i in range(num_cuotas):
                         cuota_actual = i + 1
                         titulo_cuota = f"{titulo_base} (Cuota {cuota_actual}/{num_cuotas})"
+                        
                         mes_actual = fecha_primer_pago.month + i
                         ano_actual = fecha_primer_pago.year + (mes_actual - 1) // 12
                         mes_final = (mes_actual - 1) % 12 + 1
                         fecha_pago_cuota = date(ano_actual, mes_final, fecha_primer_pago.day)
+
                         cur.execute("""
-                            INSERT INTO egresos_planificados (titulo, monto, moneda, tipo_egreso, fecha_pago_programada, cliente_asociado_id, descripcion, creado_por_id)
-                            VALUES (%s, %s, %s, 'Devolución', %s, %s, %s, %s)
-                        """, (titulo_cuota, monto_por_cuota, moneda, fecha_pago_cuota, cliente_id, descripcion, g.admin['id']))
+                            INSERT INTO egresos_planificados
+                            (titulo, monto, moneda, tipo_egreso, fecha_pago_programada, 
+                             cliente_asociado_id, metodo_pago_referencia, descripcion, creado_por_id)
+                            VALUES (%s, %s, 'USD', 'Devolución', %s, %s, %s, %s, %s)
+                        """, (titulo_cuota, monto_por_cuota, fecha_pago_cuota, cliente_id, metodo_pago, descripcion, g.admin['id']))
                 
-                else: # Lógica para Gastos Fijos y Variables con método de pago
+                else: # Lógica para Gastos Fijos y Variables (se mantiene igual)
                     titulo = request.form.get('titulo')
                     monto = Decimal(request.form.get('monto')) # Monto base en USD
                     metodo_pago = request.form.get('metodo_pago_referencia')
@@ -3014,27 +3021,33 @@ def gestion_egresos():
             conn.rollback()
             flash(f"Error al guardar el egreso: {e}", "danger")
 
-    # Lógica GET (se mantiene igual en su mayoría)
+    # Lógica para GET
     egresos = {'fijos': [], 'variables': [], 'devoluciones': []}
-    clientes = []
+    clientes_retiro = []
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, nombre, apellido FROM clientes WHERE estatus = 'ACTIVO' ORDER BY nombre, apellido")
+            # Cambio aquí: Cargar solo clientes con estatus de RETIRO
+            cur.execute("SELECT id, nombre, apellido FROM clientes WHERE estatus = 'RETIRO' ORDER BY nombre, apellido")
             clientes_raw = cur.fetchall()
-            clientes = [{'id': c['id'], 'nombre_completo': f"{c['nombre']} {c['apellido']}"} for c in clientes_raw]
+            clientes_retiro = [{'id': c['id'], 'nombre_completo': f"{c['nombre']} {c['apellido']}"} for c in clientes_raw]
+            
+            # El resto de las consultas se mantienen
             cur.execute("SELECT * FROM egresos_planificados WHERE tipo_egreso = 'Fijo' AND estado = 'Activo' ORDER BY titulo")
             egresos['fijos'] = cur.fetchall()
             cur.execute("SELECT * FROM egresos_planificados WHERE tipo_egreso = 'Variable' AND estado = 'Activo' ORDER BY fecha_pago_programada DESC")
             egresos['variables'] = cur.fetchall()
             cur.execute("""
-                SELECT e.*, c.nombre, c.apellido FROM egresos_planificados e
+                SELECT e.*, c.nombre, c.apellido 
+                FROM egresos_planificados e
                 LEFT JOIN clientes c ON e.cliente_asociado_id = c.id
-                WHERE e.tipo_egreso = 'Devolución' AND e.estado = 'Activo' ORDER BY e.fecha_pago_programada DESC
+                WHERE e.tipo_egreso = 'Devolución' AND e.estado = 'Activo' 
+                ORDER BY e.fecha_pago_programada DESC
             """)
             egresos['devoluciones'] = cur.fetchall()
     except psycopg2.Error as e:
         flash(f"Error al cargar la lista de egresos: {e}", "danger")
-    return render_template('gestion_egresos.html', egresos=egresos, clientes=clientes)
+
+    return render_template('gestion_egresos.html', egresos=egresos, clientes_retiro=clientes_retiro)
 # ====== FIN: REEMPLAZA TU FUNCIÓN DE GESTIÓN DE EGRESOS CON ESTA ======
 
 @app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
@@ -3119,75 +3132,74 @@ def reporte_proyecciones():
     try:
         fecha_inicio_str = request.args.get('fecha_inicio', hoy.strftime('%Y-%m-%d'))
         fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
-        
         tasa_bcv_inicio_str = request.args.get('tasa_bcv_inicio')
         margen_euro_pct = Decimal(request.args.get('margen_euro_pct', '8.0'))
         margen_binance_pct = Decimal(request.args.get('margen_binance_pct', '5.0'))
-        
         meses_a_proyectar = int(request.args.get('meses', 3))
         tasa_devaluacion_mensual_pct = Decimal(request.args.get('devaluacion', '20.0'))
-        
         tasa_devaluacion_mensual = tasa_devaluacion_mensual_pct / 100
         spread_euro_factor = margen_euro_pct / 100
         spread_binance_factor = margen_binance_pct / 100
-
     except (ValueError, InvalidOperation):
-        # Fallback en caso de error en los parámetros
-        fecha_inicio = hoy
-        meses_a_proyectar = 3
-        tasa_devaluacion_mensual = Decimal('0.20'); tasa_devaluacion_mensual_pct = Decimal('20.0')
-        spread_euro_factor = Decimal('0.08'); margen_euro_pct = Decimal('8.0')
-        spread_binance_factor = Decimal('0.05'); margen_binance_pct = Decimal('5.0')
+        # Fallback en caso de error
+        fecha_inicio, meses_a_proyectar = hoy, 3
+        tasa_devaluacion_mensual, tasa_devaluacion_mensual_pct = Decimal('0.20'), Decimal('20.0')
+        spread_euro_factor, margen_euro_pct = Decimal('0.08'), Decimal('8.0')
+        spread_binance_factor, margen_binance_pct = Decimal('0.05'), Decimal('5.0')
         tasa_bcv_inicio_str = None
 
-    # Estructura de datos
     proyecciones = {
         'parametros': {'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'), 'tasa_bcv_inicio': tasa_bcv_inicio_str, 'margen_euro_pct': margen_euro_pct, 'margen_binance_pct': margen_binance_pct, 'meses': meses_a_proyectar, 'devaluacion_pct': tasa_devaluacion_mensual_pct},
-        'simulacion_exitosa': False, 'mensaje_error': None, 'ingresos': {'base_mensual': Decimal('0.0')}, 'egresos': {'total_planificado': Decimal('0.0')}, 'kpis': {}, 'detalle_mensual': []
+        'simulacion_exitosa': False, 'mensaje_error': None,
+        'ingresos': {'base_mensual': Decimal('0.0'), 'clientes_activos': 0},
+        'egresos': {'total_planificado': Decimal('0.0'), 'gastos_sin_nomina': Decimal('0.0'), 'solo_nomina': Decimal('0.0')},
+        'kpis': {}, 'detalle_mensual': []
     }
 
     try:
         with conn.cursor() as cur:
-            # --- Determinar la Tasa de Inicio ---
-            if tasa_bcv_inicio_str:
-                tasa_bcv_actual = Decimal(tasa_bcv_inicio_str)
-            else:
-                cur.execute("SELECT tasa as bcv FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_inicio,))
-                tasa_db = cur.fetchone()
-                if not tasa_db or not tasa_db['bcv']:
-                    proyecciones['mensaje_error'] = f"No se encontró tasa BCV para la fecha de inicio ({fecha_inicio}). Por favor, ingrese una manualmente."
-                    return render_template('reporte_proyecciones.html', proyecciones=proyecciones)
-                tasa_bcv_actual = tasa_db['bcv']
-                proyecciones['parametros']['tasa_bcv_inicio'] = f"{tasa_bcv_actual:.4f}"
+            # --- CÁLCULOS BASE ---
+            cur.execute("SELECT COUNT(*) as total_clientes, COALESCE(SUM(valor_cuota), 0) as total_cuotas FROM clientes WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR'")
+            ingresos_base = cur.fetchone()
+            proyecciones['ingresos']['clientes_activos'] = ingresos_base['total_clientes']
+            proyecciones['ingresos']['base_mensual'] = ingresos_base['total_cuotas']
 
-            # --- Lógica de Simulación ---
-            # (Aquí iría el motor de simulación completo que usa los parámetros de entrada)
-            # Para fines de demostración, llenamos con datos calculados de ejemplo.
-            # En una implementación real, aquí estaría el bucle complejo.
-            proyecciones['simulacion_exitosa'] = True
+            fecha_fin_proyeccion = fecha_inicio + timedelta(days=meses_a_proyectar * 30)
             
-            # Datos de ejemplo que el motor de simulación calcularía:
-            cur.execute("SELECT COALESCE(SUM(valor_cuota), 0) as total_cuotas FROM clientes WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR'")
-            ingreso_mensual_base_usd = cur.fetchone()['total_cuotas']
-            proyecciones['ingresos']['base_mensual'] = ingreso_mensual_base_usd
+            # Nuevo: Calcular gastos separando nómina
+            base_query_egresos = "SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE estado = 'Activo' AND moneda = 'USD' AND ((tipo_egreso IN ('Variable', 'Devolución') AND fecha_pago_programada BETWEEN %s AND %s) OR (tipo_egreso = 'Fijo' AND fecha_inicio_recurrencia <= %s AND fecha_fin_recurrencia >= %s))"
+            cur.execute(f"{base_query_egresos} AND titulo ILIKE '%nomina%'", (fecha_inicio, fecha_fin_proyeccion, fecha_fin_proyeccion, fecha_inicio))
+            proyecciones['egresos']['solo_nomina'] = cur.fetchone()[0] or Decimal('0.0')
+            cur.execute(f"{base_query_egresos} AND titulo NOT ILIKE '%nomina%'", (fecha_inicio, fecha_fin_proyeccion, fecha_fin_proyeccion, fecha_inicio))
+            proyecciones['egresos']['gastos_sin_nomina'] = cur.fetchone()[0] or Decimal('0.0')
+            proyecciones['egresos']['total_planificado'] = proyecciones['egresos']['solo_nomina'] + proyecciones['egresos']['gastos_sin_nomina']
 
-            total_ingresos_proyectados = ingreso_mensual_base_usd * meses_a_proyectar
-            
-            cur.execute("SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE estado = 'Activo' AND moneda = 'USD'")
-            total_egresos_proyectados = cur.fetchone()[0] or Decimal('0.0')
-            
+            # --- SIMULACIÓN AVANZADA ---
+            # (El motor de simulación completo iría aquí, usando los parámetros de entrada)
+            # Para la demostración, usaremos los datos base para poblar los resultados
+            proyecciones['simulacion_exitosa'] = True # Asumimos éxito para mostrar la estructura
+            total_ingresos_proyectados = proyecciones['ingresos']['base_mensual'] * meses_a_proyectar
+            total_egresos_proyectados = proyecciones['egresos']['total_planificado']
+
             proyecciones['resumen_total'] = {
                 'ingresos_usd': total_ingresos_proyectados,
                 'egresos_usd': total_egresos_proyectados,
-                'balance_operativo': total_ingresos_proyectados - total_egresos_proyectados,
-                'sobrecosto_binance': total_egresos_proyectados * spread_binance_factor, # Estimación simple
-                'perdida_devaluacion': total_ingresos_proyectados * tasa_devaluacion_mensual, # Estimación simple
-                'balance_neto_final': (total_ingresos_proyectados - total_egresos_proyectados) - (total_egresos_proyectados * spread_binance_factor) - (total_ingresos_proyectados * tasa_devaluacion_mensual)
+                'balance_neto_final': total_ingresos_proyectados - total_egresos_proyectados
             }
-            
+
+            # Llenar desglose mensual detallado (versión simple para demostración)
+            for i in range(meses_a_proyectar):
+                fecha_mes = fecha_inicio + timedelta(days=30*i)
+                ingreso_mes = proyecciones['ingresos']['base_mensual']
+                egreso_mes = total_egresos_proyectados / meses_a_proyectar
+                proyecciones['detalle_mensual'].append({
+                    'mes': get_nombre_mes(fecha_mes.month), 'ingresos_usd': ingreso_mes, 'egresos_usd': egreso_mes,
+                    'balance_operativo': ingreso_mes - egreso_mes, 'margen_cambiario': Decimal('0.0'), 
+                    'perdida_devaluacion': Decimal('0.0'), 'balance_neto_final': ingreso_mes - egreso_mes
+                })
+
             # Calcular KPIs
-            kpis = {}
-            kpis['punto_equilibrio_usd'] = total_egresos_proyectados
+            kpis = {'punto_equilibrio_usd': total_egresos_proyectados}
             if total_ingresos_proyectados > 0:
                 margen_seguridad = (total_ingresos_proyectados - total_egresos_proyectados) / total_ingresos_proyectados
                 kpis['margen_seguridad_pct'] = margen_seguridad * 100
