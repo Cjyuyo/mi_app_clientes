@@ -44,9 +44,18 @@
                             <label class="block text-sm font-medium text-slate-700">Título*</label>
                             <input type="text" name="titulo" required class="mt-1 block w-full rounded-md border-slate-300">
                         </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div><label class="block text-sm font-medium text-slate-700">Monto*</label><input type="text" inputmode="decimal" name="monto" required class="mt-1 block w-full rounded-md border-slate-300"></div>
-                            <div><label class="block text-sm font-medium text-slate-700">Moneda*</label><select name="moneda" required class="mt-1 block w-full rounded-md border-slate-300"><option value="USD">USD</option><option value="VES">VES</option></select></div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Monto Base (siempre en USD)*</label>
+                            <input type="text" inputmode="decimal" name="monto" required class="mt-1 block w-full rounded-md border-slate-300" placeholder="Ej: 1200.00">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Método de Pago / Tasa de Referencia*</label>
+                            <select name="metodo_pago_referencia" required class="mt-1 block w-full rounded-md border-slate-300">
+                                <option value="USD_EFECTIVO">USD en Efectivo</option>
+                                <option value="VES_BCV">Bolívares (Tasa BCV)</option>
+                                <option value="VES_EUR">Bolívares (Tasa Euro)</option>
+                                <option value="VES_BINANCE">Bolívares (Tasa Binance)</option>
+                            </select>
                         </div>
                         <div x-show="tipoEgresoGasto === 'Fijo'" x-transition class="space-y-4">
                             <div><label class="block text-sm font-medium text-slate-700">Frecuencia*</label><select name="frecuencia" :required="tipoEgresoGasto === 'Fijo'" class="mt-1 block w-full rounded-md border-slate-300"><option value="Mensual">Mensual</option><option value="Quincenal">Quincenal</option><option value="Anual">Anual</option></select></div>
@@ -85,13 +94,13 @@
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b"><h3 class="font-bold text-slate-700">Egresos Fijos</h3></div>
                 <table class="min-w-full divide-y divide-slate-200">
-                    <thead class="bg-slate-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Título</th><th class="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Monto Mensual</th><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Período de Vigencia</th></tr></thead>
+                    <thead class="bg-slate-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Título</th><th class="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Monto Base (USD)</th><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Método de Pago</th></tr></thead>
                     <tbody>
                         {% for egreso in egresos.fijos %}
                         <tr class="hover:bg-slate-50">
                             <td class="px-4 py-3 font-medium text-slate-800">{{ egreso.titulo }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-red-600">${{ "{:,.2f}".format(egreso.monto) }}</td>
-                            <td class="px-4 py-3 text-sm text-slate-600">{{ egreso.fecha_inicio_recurrencia|format_date if egreso.fecha_inicio_recurrencia else 'N/A' }} al {{ egreso.fecha_fin_recurrencia|format_date if egreso.fecha_fin_recurrencia else 'N/A' }}</td>
+                            <td class="px-4 py-3 text-sm text-slate-600">{{ (egreso.metodo_pago_referencia or '').replace('_', ' ')|replace('Ves', 'Bs.') }}</td>
                         </tr>
                         {% else %}
                         <tr><td colspan="3" class="text-center text-slate-500 p-4 text-sm">No hay egresos fijos registrados.</td></tr>
@@ -103,7 +112,7 @@
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b"><h3 class="font-bold text-slate-700">Egresos Variables (Pagos Únicos)</h3></div>
                  <table class="min-w-full divide-y divide-slate-200">
-                    <thead class="bg-slate-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Título</th><th class="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Monto</th><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Fecha Pago</th></tr></thead>
+                    <thead class="bg-slate-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Título</th><th class="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Monto Base (USD)</th><th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Fecha Pago</th></tr></thead>
                     <tbody>
                         {% for egreso in egresos.variables %}
                         <tr class="hover:bg-slate-50">

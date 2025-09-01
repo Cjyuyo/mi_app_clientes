@@ -16,7 +16,7 @@
                     </div>
                     <div>
                         <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Proyecciones Financieras</h1>
-                        <p class="text-slate-500 mt-1">Simula escenarios financieros futuros.</p>
+                        <p class="text-slate-500 mt-1">Simula escenarios financieros y revisa datos base.</p>
                     </div>
                 </div>
                 
@@ -39,110 +39,70 @@
                     </div>
                     <button type="submit" class="btn bg-indigo-500 hover:bg-indigo-600 text-white text-sm h-10">
                         <i class="bi bi-calculator-fill"></i>
-                        <span class="ml-2 hidden sm:inline">Simular</span>
+                        <span class="ml-2 hidden sm:inline">Calcular</span>
                     </button>
                 </div>
             </div>
         </form>
     </header>
 
-    {% if error %}
-        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md" role="alert">
-            <p class="font-bold">Error en la Proyección</p>
-            <p>{{ get_flashed_messages() | first or "No hay suficientes datos de tasas de cambio para generar la proyección. Por favor, actualice las tasas del día." }}</p>
-        </div>
-    {% else %}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80 text-center">
-            <h3 class="text-sm font-semibold text-slate-500 uppercase">Ingresos Proyectados</h3>
-            <p class="text-4xl font-bold text-green-600 mt-2">${{ "{:,.2f}".format(proyecciones.resumen_total.ingresos_usd) }}</p>
+            <h3 class="text-sm font-semibold text-slate-500 uppercase">Ingresos Base Proyectados</h3>
+            <p class="text-4xl font-bold text-green-600 mt-2">${{ "{:,.2f}".format(proyecciones.ingresos.base_mensual * proyecciones.parametros.meses) }}</p>
         </div>
         <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200/80 text-center">
-            <h3 class="text-sm font-semibold text-slate-500 uppercase">Egresos Proyectados</h3>
-            <p class="text-4xl font-bold text-red-600 mt-2">${{ "{:,.2f}".format(proyecciones.resumen_total.egresos_usd) }}</p>
+            <h3 class="text-sm font-semibold text-slate-500 uppercase">Egresos Totales Planificados</h3>
+            <p class="text-4xl font-bold text-red-600 mt-2">${{ "{:,.2f}".format(proyecciones.egresos.total_planificado) }}</p>
         </div>
         <div class="bg-slate-800 text-white p-6 rounded-xl shadow-lg text-center">
-            <h3 class="text-sm font-semibold text-slate-300 uppercase">Balance Neto Final</h3>
-            <p class="text-4xl font-bold mt-2">${{ "{:,.2f}".format(proyecciones.resumen_total.balance_neto_final) }}</p>
-        </div>
-    </div>
-    
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200/80">
-            <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-3">
-                <i class="bi bi-arrow-down-circle-fill text-green-500 text-xl"></i>
-                <span>Parámetros de Ingresos</span>
-            </h2>
-            <div class="space-y-3 text-sm">
-                <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border border-slate-200">
-                    <span class="font-medium text-slate-600">Clientes Ahorradores Activos</span>
-                    <span class="font-bold text-slate-800 text-base">{{ proyecciones.ingresos.clientes_activos }}</span>
-                </div>
-                <div class="flex justify-between items-center p-3 rounded-lg bg-blue-50 border-2 border-blue-200">
-                    <span class="font-semibold text-blue-800">Suma Total de Cuotas (Base)</span>
-                    <span class="font-bold text-lg text-blue-800">${{ "{:,.2f}".format(proyecciones.ingresos.base_mensual) }}</span>
-                </div>
-                <div class="flex justify-between items-center p-3 rounded-lg bg-green-50 border-2 border-green-200 mt-2">
-                    <span class="font-semibold text-green-800">Ingreso Total Proyectado (Simulado)</span>
-                    <span class="font-bold text-lg text-green-800">${{ "{:,.2f}".format(proyecciones.resumen_total.ingresos_usd) }}</span>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200/80">
-            <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-3">
-                <i class="bi bi-sliders text-purple-500 text-xl"></i>
-                <span>Parámetros de Simulación y Gastos</span>
-            </h2>
-            <div class="space-y-3 text-sm">
-                <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border border-slate-200">
-                    <span class="font-medium text-slate-600">Gasto Total Proyectado</span>
-                    <span class="font-bold text-slate-800 text-base">${{ "{:,.2f}".format(proyecciones.resumen_total.egresos_usd) }}</span>
-                </div>
-                <div class="flex justify-between items-center p-3 rounded-lg bg-cyan-50 border-2 border-cyan-200">
-                    <span class="font-semibold text-cyan-800">Margen Cambiario Proyectado</span>
-                    <span class="font-bold text-lg {% if proyecciones.resumen_total.margen_cambiario >= 0 %}text-cyan-800{% else %}text-red-600{% endif %}">${{ "{:,.2f}".format(proyecciones.resumen_total.margen_cambiario) }}</span>
-                </div>
-                 <div class="flex justify-between items-center p-3 rounded-lg bg-red-50 border-2 border-red-200 mt-2">
-                    <span class="font-semibold text-red-800">Pérdida por Devaluación Proyectada</span>
-                    <span class="font-bold text-lg text-red-800">(${{ "{:,.2f}".format(proyecciones.resumen_total.perdida_devaluacion) }})</span>
-                </div>
-            </div>
+            <h3 class="text-sm font-semibold text-slate-300 uppercase">Balance Base Proyectado</h3>
+            <p class="text-4xl font-bold mt-2">${{ "{:,.2f}".format((proyecciones.ingresos.base_mensual * proyecciones.parametros.meses) - proyecciones.egresos.total_planificado) }}</p>
         </div>
     </div>
 
+    {% if proyecciones.simulacion_exitosa %}
+    <div class="space-y-8 p-6 rounded-xl border-2 border-dashed border-sky-300 bg-sky-50">
+        <h2 class="text-xl font-bold text-sky-800 text-center">Resultados de la Simulación Avanzada</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+             <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="text-sm font-semibold text-slate-500">Margen Cambiario</h3><p class="text-2xl font-bold {% if proyecciones.resumen_total.margen_cambiario >= 0 %}text-cyan-600{% else %}text-red-600{% endif %}">${{ "{:,.2f}".format(proyecciones.resumen_total.margen_cambiario) }}</p></div>
+             <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="text-sm font-semibold text-slate-500">Pérdida Devaluación</h3><p class="text-2xl font-bold text-red-600">(${{ "{:,.2f}".format(proyecciones.resumen_total.perdida_devaluacion) }})</p></div>
+             <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="text-sm font-semibold text-slate-500">Balance Neto Final</h3><p class="text-2xl font-bold text-indigo-700">${{ "{:,.2f}".format(proyecciones.resumen_total.balance_neto_final) }}</p></div>
+        </div>
+    </div>
+    {% else %}
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 p-4 rounded-md text-center">
+        <p><i class="bi bi-info-circle-fill mr-2"></i>{{ proyecciones.mensaje_error }}</p>
+    </div>
+    {% endif %}
+
     <div class="bg-white rounded-xl shadow-sm border border-slate-200/80 overflow-hidden">
         <div class="p-6 border-b border-slate-200">
-            <h2 class="text-xl font-bold text-slate-800">Desglose Mensual de la Proyección</h2>
+            <h2 class="text-xl font-bold text-slate-800">Desglose Mensual (Base)</h2>
         </div>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-slate-200">
                 <thead class="bg-slate-50">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Mes</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Ingresos USD</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Egresos USD</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Balance Op.</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Margen Cambiario</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Pérdida Deval.</th>
-                        <th class="px-4 py-3 text-right text-xs font-bold text-slate-700 uppercase tracking-wider">Balance Neto Final</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Mes</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Ingresos</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Egresos</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold text-slate-700 uppercase">Balance</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-slate-200">
-                    {% for item in proyecciones.detalle_mensual %}
+                    {% for item in proyecciones.detalle_mensual_base %}
                     <tr>
                         <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{{ item.mes }}</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-green-600 font-semibold text-right">${{ "{:,.2f}".format(item.ingresos_usd) }}</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-red-600 font-semibold text-right">(${{ "{:,.2f}".format(item.egresos_usd) }})</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm font-medium {% if item.balance_operativo >= 0 %}text-slate-700{% else %}text-red-700{% endif %} text-right">${{ "{:,.2f}".format(item.balance_operativo) }}</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm {% if item.margen_cambiario >= 0 %}text-cyan-600{% else %}text-red-600{% endif %} font-semibold text-right">${{ "{:,.2f}".format(item.margen_cambiario) }}</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-red-600 font-semibold text-right">(${{ "{:,.2f}".format(item.perdida_devaluacion) }})</td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm font-bold bg-slate-50 {% if item.balance_neto_final >= 0 %}text-indigo-700{% else %}text-red-700{% endif %} text-right">${{ "{:,.2f}".format(item.balance_neto_final) }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-green-600 font-semibold text-right">${{ "{:,.2f}".format(item.ingreso) }}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-red-600 font-semibold text-right">(${{ "{:,.2f}".format(item.egreso) }})</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm font-bold bg-slate-50 {% if item.balance >= 0 %}text-indigo-700{% else %}text-red-700{% endif %} text-right">${{ "{:,.2f}".format(item.balance) }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
-    {% endif %}
+    
 </div>
 {% endblock %}
