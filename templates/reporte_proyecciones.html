@@ -14,7 +14,7 @@
                     <i class="bi bi-sliders text-2xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Planificación de Escenarios</h1>
+                    <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Planificación de Scenarios</h1>
                     <p class="text-slate-500 mt-1">Define las variables para simular el comportamiento financiero futuro.</p>
                 </div>
             </div>
@@ -54,7 +54,9 @@
             
             <div class="mt-4 text-center">
                 <span class="text-sm font-medium text-slate-600">Devaluación Ponderada (calculada):</span>
+                {% if proyecciones.parametros.devaluacion_ponderada is not none %}
                 <span class="ml-2 font-bold text-lg text-indigo-700">{{ "{:,.2f}".format(proyecciones.parametros.devaluacion_ponderada) }}%</span>
+                {% endif %}
             </div>
         </form>
     </header>
