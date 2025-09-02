@@ -4016,16 +4016,6 @@ def consulta():
                            busqueda=termino_busqueda, 
                            admin_rol=g.admin['rol'])
 
-# 3. AÑADE ESTA NUEVA RUTA A CUALQUIER PARTE DE TU ARCHIVO APP.PY
-# COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
-
-# Asegúrate de tener esta línea al principio de tu app.py
-import re
-
-# COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
-# Asegúrate de añadir esta línea al principio de app.py
-from psycopg2.extras import execute_values
-
 # COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
 @app.route('/upload_clientes', methods=['GET', 'POST'])
 @admin_required
@@ -4046,9 +4036,7 @@ def upload_clientes():
                 conn = get_db()
                 cursor = conn.cursor()
 
-                # Funciones auxiliares para la limpieza de datos
-                def clean_text(val):
-                    return str(val).strip() if pd.notna(val) else ''
+                def clean_text(val): return str(val).strip() if pd.notna(val) else ''
                 def to_int_safe(val):
                     if pd.isna(val) or val == '': return None
                     try: return int(float(val))
@@ -4062,18 +4050,15 @@ def upload_clientes():
                     dt = pd.to_datetime(date_val, errors='coerce', dayfirst=True)
                     return dt.date() if pd.notna(dt) else None
 
-                # 1. Leer y limpiar el archivo Excel
                 df = pd.read_excel(file, dtype=str).fillna('')
                 df.columns = [str(col).strip().upper() for col in df.columns]
                 df.dropna(subset=['N⁰ CEDULA'], inplace=True)
                 df['cedula_clean'] = df['N⁰ CEDULA'].apply(lambda x: re.sub(r'[^0-9VEve-]', '', str(x)))
                 df = df[df['cedula_clean'] != '']
                 
-                # 2. Obtener todas las cédulas existentes de la BD en una sola consulta
                 cursor.execute("SELECT cedula FROM clientes")
                 existing_cedulas = {row[0] for row in cursor.fetchall()}
 
-                # 3. Separar los datos para insertar y para actualizar
                 records_to_update = []
                 records_to_insert = []
                 column_order = [ 'cedula', 'nombre', 'apellido', 'grupo', 'plan', 'moneda_pago', 'asesor', 'responsable', 'numero_contrato', 'proceso', 'estatus', 'fecha_ingreso', 'numero_telefono', 'porcentaje_inscripcion', 'inscripcion', 'cuotas_totales', 'cuotas_pagas', 'estatus_pago', 'pagos_impuntuales', 'cuotas_mora', 'observacion', 'valor_cuota', 'fecha_pago', 'estatus_cuota', 'valor_cancelado' ]
@@ -4099,24 +4084,30 @@ def upload_clientes():
                     else:
                         records_to_insert.append(record)
 
-                # 4. Ejecutar la INSERCIÓN masiva
                 if records_to_insert:
                     insert_query = f"INSERT INTO clientes ({', '.join(column_order)}) VALUES %s"
                     execute_values(cursor, insert_query, records_to_insert)
 
-                # 5. Ejecutar la ACTUALIZACIÓN masiva
                 if records_to_update:
+                    # ===== INICIO DE LA MODIFICACIÓN (Añade CASTs) =====
                     update_query = """
                         UPDATE clientes SET
                             nombre = data.nombre, apellido = data.apellido, grupo = data.grupo, plan = data.plan,
                             moneda_pago = data.moneda_pago, asesor = data.asesor, responsable = data.responsable,
                             numero_contrato = data.numero_contrato, proceso = data.proceso, estatus = data.estatus,
                             fecha_ingreso = data.fecha_ingreso, numero_telefono = data.numero_telefono,
-                            porcentaje_inscripcion = data.porcentaje_inscripcion, inscripcion = data.inscripcion,
-                            cuotas_totales = data.cuotas_totales, cuotas_pagas = data.cuotas_pagas,
-                            estatus_pago = data.estatus_pago, pagos_impuntuales = data.pagos_impuntuales,
-                            cuotas_mora = data.cuotas_mora, observacion = data.observacion, valor_cuota = data.valor_cuota,
-                            fecha_pago = data.fecha_pago, estatus_cuota = data.estatus_cuota, valor_cancelado = data.valor_cancelado
+                            porcentaje_inscripcion = data.porcentaje_inscripcion::numeric,
+                            inscripcion = data.inscripcion::numeric,
+                            cuotas_totales = data.cuotas_totales::integer,
+                            cuotas_pagas = data.cuotas_pagas::integer,
+                            estatus_pago = data.estatus_pago,
+                            pagos_impuntuales = data.pagos_impuntuales::integer,
+                            cuotas_mora = data.cuotas_mora::integer,
+                            observacion = data.observacion,
+                            valor_cuota = data.valor_cuota::numeric,
+                            fecha_pago = data.fecha_pago,
+                            estatus_cuota = data.estatus_cuota,
+                            valor_cancelado = data.valor_cancelado::numeric
                         FROM (VALUES %s) AS data(
                             cedula, nombre, apellido, grupo, plan, moneda_pago, asesor, responsable, 
                             numero_contrato, proceso, estatus, fecha_ingreso, numero_telefono, 
@@ -4126,6 +4117,7 @@ def upload_clientes():
                         )
                         WHERE clientes.cedula = data.cedula;
                     """
+                    # ===== FIN DE LA MODIFICACIÓN =====
                     execute_values(cursor, update_query, records_to_update)
                 
                 conn.commit()
