@@ -3307,13 +3307,13 @@ def reporte_proyecciones():
     proyecciones = {
         'parametros': {
             'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
-            'devaluacion_pct': Decimal(request.args.get('devaluacion_pct', '20.0')),
             'tasa_bcv_dolar_inicio': tasa_bcv_dolar_str,
             'tasa_bcv_euro_inicio': tasa_bcv_euro_str,
             'margen_dolar_pct': Decimal(request.args.get('margen_dolar_pct', '15.0')),
             'margen_euro_pct': Decimal(request.args.get('margen_euro_pct', '15.0')),
             'margen_binance_pct': Decimal(request.args.get('margen_binance_pct', '65.0')),
-            'devaluacion_ponderada': None
+            'devaluacion_ponderada_bcv': None,
+            'devaluacion_ponderada_total': None
         },
         'simulacion_exitosa': False, 'mensaje_error': None,
         'ingresos': { 'clientes_activos': 0, 'base_mensual': Decimal('0.0'), 'tasa_pago_historica_pct': Decimal('100.0'), 'ingreso_mensual_proyectado': Decimal('0.0') },
@@ -3355,10 +3355,22 @@ def reporte_proyecciones():
                 proyecciones['egresos']['gasto_proyectado_primer_mes'] = gasto_proyectado
 
                 # Lógica de Pérdidas y Devaluación Ponderada
-                perdida_devaluacion_bcv = Decimal('0.0')
-                valor_usd_inicial_bs = Decimal('0.0')
-                devaluacion_bcv_pct = proyecciones['parametros']['devaluacion_pct']
+                margen_dolar_pct = proyecciones['parametros']['margen_dolar_pct']
+                margen_euro_pct = proyecciones['parametros']['margen_euro_pct']
+                margen_binance_pct = proyecciones['parametros']['margen_binance_pct']
+
+                gastos_dolar = gastos_variables_por_metodo.get('Zelle', Decimal('0.0')) # Asumiendo que 'Zelle' usa el margen Dólar
+                gastos_euro = gastos_variables_por_metodo.get('Efectivo EUR', Decimal('0.0')) # Asumiendo que 'Efectivo EUR' usa el margen Euro
+                gastos_binance = gastos_variables_por_metodo.get('Binance', Decimal('0.0'))
                 
+                total_gastos_bcv = gastos_dolar + gastos_euro
+                ponderado_bcv = Decimal('0.0')
+                if total_gastos_bcv > 0:
+                    ponderado_bcv = ((gastos_dolar * margen_dolar_pct) + (gastos_euro * margen_euro_pct)) / total_gastos_bcv
+                proyecciones['parametros']['devaluacion_ponderada_bcv'] = ponderado_bcv
+                
+                perdida_devaluacion_caja = Decimal('0.0')
+                valor_usd_inicial_bs = Decimal('0.0')
                 if tasa_bcv_dolar_str:
                     tasa_bcv_inicio = Decimal(tasa_bcv_dolar_str)
                     if tasa_bcv_inicio > 0:
@@ -3366,20 +3378,17 @@ def reporte_proyecciones():
                         saldo_bs = balances_caja.get('CAJA_BS_TOTAL', Decimal('0.0'))
                         valor_usd_inicial_bs = saldo_bs / tasa_bcv_inicio
                         
-                        tasa_bcv_final = tasa_bcv_inicio * (1 + (devaluacion_bcv_pct / 100))
-                        valor_usd_final = saldo_bs / tasa_bcv_final
-                        perdida_devaluacion_bcv = valor_usd_inicial_bs - valor_usd_final
+                        tasa_bcv_final = tasa_bcv_inicio * (1 + (ponderado_bcv / 100))
+                        valor_usd_final = saldo_bs / tasa_bcv_final if tasa_bcv_final > 0 else Decimal('0.0')
+                        perdida_devaluacion_caja = valor_usd_inicial_bs - valor_usd_final
 
-                gastos_binance = gastos_variables_por_metodo.get('Binance', Decimal('0.0'))
-                margen_binance_pct = proyecciones['parametros']['margen_binance_pct']
                 perdida_transaccional_binance = gastos_binance * (margen_binance_pct / 100)
-
-                perdida_total_proyectada = perdida_devaluacion_bcv + perdida_transaccional_binance
+                perdida_total_proyectada = perdida_devaluacion_caja + perdida_transaccional_binance
                 proyecciones['kpis']['perdida_devaluacion_usd'] = perdida_total_proyectada
 
                 if valor_usd_inicial_bs > 0:
-                    devaluacion_ponderada = (perdida_total_proyectada / valor_usd_inicial_bs) * 100
-                    proyecciones['parametros']['devaluacion_ponderada'] = devaluacion_ponderada
+                    ponderado_total = (perdida_total_proyectada / valor_usd_inicial_bs) * 100
+                    proyecciones['parametros']['devaluacion_ponderada_total'] = ponderado_total
 
                 # Resumen y KPIs
                 proyecciones['simulacion_exitosa'] = True

@@ -38,21 +38,6 @@
                            value="{{ proyecciones.parametros.tasa_bcv_dolar_inicio }}" placeholder="Auto" 
                            class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
                 </div>
-                 <div>
-                    <label for="tasa_bcv_euro_inicio" class="text-xs font-medium text-slate-600">Tasa BCV Euro</label>
-                    <input type="text" inputmode="decimal" name="tasa_bcv_euro_inicio" id="tasa_bcv_euro_inicio" 
-                           value="{{ proyecciones.parametros.tasa_bcv_euro_inicio }}" placeholder="Auto" 
-                           class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-                </div>
-                <div>
-                    <label for="devaluacion_pct" class="text-xs font-medium text-slate-600">Devaluación Tasa BCV (%)</label>
-                    <div class="relative mt-1">
-                        <input type="text" name="devaluacion_pct" value="{{ proyecciones.parametros.devaluacion_pct }}" 
-                               class="form-input w-full rounded-md border-slate-300 text-sm pr-8">
-                        <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span>
-                    </div>
-                </div>
-                <!-- NUEVOS CAMPOS DE MARGEN -->
                 <div>
                     <label for="margen_dolar_pct" class="text-xs font-medium text-slate-600">Margen Dólar (%)</label>
                     <div class="relative mt-1">
@@ -77,22 +62,31 @@
                         <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span>
                     </div>
                 </div>
-                <!-- CAMPO PARA EL BOTÓN -->
-                <div class="self-end">
+                <div class="col-span-2 md:col-span-3 lg:col-span-3 self-end">
                     <button type="submit" class="py-2 px-4 w-full rounded-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center">
                        <i class="bi bi-calculator-fill mr-2"></i>
                        Simular
                    </button>
                 </div>
             </div>
-             <!-- DISPLAY DE DEVALUACIÓN PONDERADA -->
-            <div class="mt-4 text-center">
-                <span class="text-sm font-medium text-slate-600">Devaluación Ponderada (calculada):</span>
-                {% if proyecciones.parametros.devaluacion_ponderada is not none %}
-                <span class="ml-2 font-bold text-lg text-indigo-700">{{ "{:,.2f}".format(proyecciones.parametros.devaluacion_ponderada) }}%</span>
-                {% else %}
-                <span class="ml-2 text-sm text-slate-400">Se calculará en la simulación...</span>
-                {% endif %}
+
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-2 text-center gap-4">
+                <div>
+                    <span class="text-sm font-medium text-slate-600">Devaluación Ponderada BCV (calculada):</span>
+                    {% if proyecciones.parametros.devaluacion_ponderada_bcv is not none %}
+                    <span class="ml-2 font-bold text-lg text-indigo-700">{{ "{:,.2f}".format(proyecciones.parametros.devaluacion_ponderada_bcv) }}%</span>
+                    {% else %}
+                    <span class="ml-2 text-sm text-slate-400">Se calculará...</span>
+                    {% endif %}
+                </div>
+                <div>
+                    <span class="text-sm font-medium text-slate-600">Devaluación Ponderada Total (calculada):</span>
+                    {% if proyecciones.parametros.devaluacion_ponderada_total is not none %}
+                    <span class="ml-2 font-bold text-lg text-red-600">{{ "{:,.2f}".format(proyecciones.parametros.devaluacion_ponderada_total) }}%</span>
+                    {% else %}
+                    <span class="ml-2 text-sm text-slate-400">Se calculará...</span>
+                    {% endif %}
+                </div>
             </div>
         </form>
     </header>
