@@ -573,6 +573,34 @@ def procesar_peticion(peticion_id):
 # =================================================================================
 # ===== FUNCIONES AUXILIARES (AUDITORÍA, COMISIONES, TESORERÍA) =====
 # =================================================================================
+# >>> INICIO DE LA INTEGRACIÓN: NUEVA FUNCIÓN AUXILIAR <<<
+def calcular_ingreso_real_acumulado(fecha_inicio):
+    """
+    Calcula la suma de todos los ingresos CONCILIADOS desde una fecha de inicio.
+    Convierte todos los montos a un equivalente en USD para una totalización unificada.
+    """
+    conn = get_db()
+    total_ingresado_usd = Decimal('0.0')
+    if not conn:
+        return total_ingresado_usd
+    try:
+        with conn.cursor() as cur:
+            # Suma todos los montos que ya están en USD y los montos en Bs convertidos a USD con la tasa del día del pago.
+            cur.execute("""
+                SELECT 
+                    COALESCE(SUM(monto), 0) + 
+                    COALESCE(SUM(CASE WHEN tasa_dia > 0 THEN monto_bs / tasa_dia ELSE 0 END), 0) as total
+                FROM pagos
+                WHERE estado_pago = 'Conciliado' AND fecha_conciliacion >= %s
+            """, (fecha_inicio,))
+            resultado = cur.fetchone()
+            if resultado and resultado['total']:
+                total_ingresado_usd = resultado['total']
+    except psycopg2.Error as e:
+        logging.error(f"Error al calcular ingreso real acumulado: {e}")
+    
+    return total_ingresado_usd
+# >>> FIN DE LA INTEGRACIÓN <<<
 
 def subir_archivo_a_s3(base64_data, nombre_en_s3):
     """Sube un archivo a S3 desde una cadena de datos Base64."""
@@ -2022,18 +2050,63 @@ def pagos_por_conciliar():
 @rol_requerido('superadmin', 'gerente', 'administradora', 'asistente')
 def tesoreria_rebalanceo():
     conn = get_db()
+    hoy = get_venezuela_current_date()
     balances_actuales = calcular_balances_tesoreria() 
     historial_movimientos = []
+    
+    # >>> INICIO DE LA INTEGRACIÓN: BUSCAR PROYECCIÓN Y DETERMINAR RECOMENDACIÓN <<<
+    contexto_proyeccion = None
+    mostrar_recomendacion = False
+    tasas_del_dia = {'usd': Decimal('0.0'), 'eur': Decimal('0.0')}
+    
     if conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT op.*, admin.usuario as nombre_admin, op.perdida_cambiaria
-                FROM operaciones_tesoreria op
-                LEFT JOIN administradores admin ON op.realizada_por = admin.id
-                ORDER BY op.fecha_operacion DESC LIMIT 30
-            """)
-            historial_movimientos = cur.fetchall()
+        try:
+            with conn.cursor() as cur:
+                # Obtener tasas del día para cálculos y visualización
+                cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (hoy,))
+                resultado_tasa = cur.fetchone()
+                if resultado_tasa:
+                    tasas_del_dia['usd'] = resultado_tasa['tasa'] or Decimal('0.0')
+                    tasas_del_dia['eur'] = resultado_tasa['tasa_euro'] or Decimal('0.0')
+
+                # Buscar Proyección Activa
+                cur.execute("""
+                    SELECT * FROM proyecciones_activas 
+                    WHERE mes_proyeccion = %s AND ano_proyeccion = %s AND estado = 'Activa' 
+                    LIMIT 1
+                """, (hoy.month, hoy.year))
+                proyeccion_activa = cur.fetchone()
+
+                if proyeccion_activa:
+                    resultados = json.loads(proyeccion_activa.get('resultados_resumen', '{}'))
+                    contexto_proyeccion = {
+                        "balance_neto_proyectado": Decimal(resultados.get('resumen', {}).get('balance_neto_proyectado', '0.0')),
+                        "perdida_devaluacion_proyectada": Decimal(resultados.get('kpis', {}).get('perdida_devaluacion_usd', '0.0'))
+                    }
+                    
+                    # Lógica para la recomendación
+                    tasa_usd_actual = tasas_del_dia.get('usd')
+                    if tasa_usd_actual and tasa_usd_actual > 0:
+                        saldo_bs_en_usd = balances_actuales.get('CAJA_BS_TOTAL', Decimal('0.0')) / tasa_usd_actual
+                        # Umbral de recomendación: si el saldo en Bs equivale a más de $200
+                        if saldo_bs_en_usd > 200 and contexto_proyeccion['perdida_devaluacion_proyectada'] > 0:
+                            mostrar_recomendacion = True
+
+                # Carga del historial (lógica existente)
+                cur.execute("""
+                    SELECT op.*, admin.usuario as nombre_admin, op.perdida_cambiaria
+                    FROM operaciones_tesoreria op
+                    LEFT JOIN administradores admin ON op.realizada_por = admin.id
+                    ORDER BY op.fecha_operacion DESC LIMIT 30
+                """)
+                historial_movimientos = cur.fetchall()
+        except (psycopg2.Error, json.JSONDecodeError, KeyError) as e:
+            flash("No se pudo cargar el contexto de la proyección activa.", "warning")
+            logging.error(f"Error cargando contexto de proyección en tesorería: {e}")
+    # >>> FIN DE LA INTEGRACIÓN <<<
+
     if request.method == 'POST':
+        # ... (toda tu lógica POST se mantiene sin cambios) ...
         try:
             form = request.form
             tipo_operacion, nota, caja_origen = form.get('tipo_operacion'), form.get('nota'), form.get('caja_origen')
@@ -2047,22 +2120,20 @@ def tesoreria_rebalanceo():
                 return redirect(url_for('tesoreria_rebalanceo'))
             
             tasa_aplicada_str = form.get('tasa_aplicada', '0').replace(',', '.'),
-            tasa_aplicada = Decimal(tasa_aplicada_str) if tasa_aplicada_str and tasa_aplicada_str != '0' else None
+            tasa_aplicada = Decimal(tasa_aplicada_str[0]) if isinstance(tasa_aplicada_str, tuple) and tasa_aplicada_str[0] and tasa_aplicada_str[0] != '0' else None
             perdida_cambiaria = Decimal('0.0')
 
             if tipo_operacion in ['PAGO_GASTO', 'PAGO_NOMINA']:
                 caja_destino, monto_destino, moneda_destino = 'GASTO_OPERATIVO', monto_origen, moneda_origen
                 if tipo_operacion == 'PAGO_NOMINA' and moneda_origen == 'BS' and 'USD' in caja_origen:
-                    with conn.cursor() as cur_tasa:
-                        cur_tasa.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
-                        tasa_bcv_row = cur_tasa.fetchone()
-                        tasa_bcv = tasa_bcv_row['tasa'] if tasa_bcv_row and tasa_bcv_row['tasa'] else None
+                    tasa_bcv = tasas_del_dia.get('usd')
                     if not tasa_bcv or tasa_bcv <= 0:
                         flash("Error: No se encontró una tasa BCV válida para hoy. No se puede procesar el pago de nómina en Bs.", "danger")
                         return redirect(url_for('tesoreria_rebalanceo'))
                     
                     monto_egreso_en_usd = monto_origen / tasa_bcv
-                    perdida_cambiaria = (monto_origen / tasa_bcv) - (monto_origen / tasa_aplicada) if tasa_aplicada and tasa_aplicada > 0 else Decimal('0.0')
+                    if tasa_aplicada and tasa_aplicada > 0:
+                         perdida_cambiaria = (monto_origen / tasa_bcv) - (monto_origen / tasa_aplicada)
                     
                     monto_origen, moneda_origen = monto_egreso_en_usd, 'USD'
                     monto_destino, moneda_destino = monto_egreso_en_usd, 'USD'
@@ -2076,10 +2147,7 @@ def tesoreria_rebalanceo():
                     return redirect(url_for('tesoreria_rebalanceo'))
                 
                 if tipo_operacion == 'COMPRA_DIVISAS' and moneda_origen == 'BS' and 'USD' in moneda_destino:
-                    with conn.cursor() as cur_tasa:
-                        cur_tasa.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
-                        tasa_bcv_row = cur_tasa.fetchone()
-                        tasa_bcv = tasa_bcv_row['tasa'] if tasa_bcv_row and tasa_bcv_row['tasa'] else None
+                    tasa_bcv = tasas_del_dia.get('usd')
                     if tasa_bcv and tasa_bcv > 0:
                         valor_real_en_usd_bcv = monto_origen / tasa_bcv
                         valor_obtenido_en_usd = monto_destino
@@ -2103,7 +2171,13 @@ def tesoreria_rebalanceo():
             flash(f"Error de base de datos: {e}", "danger")
         return redirect(url_for('tesoreria_rebalanceo'))
 
-    return render_template('tesoreria_rebalanceo.html', balances=balances_actuales, historial=historial_movimientos, anio_actual=get_venezuela_current_date().year)
+    return render_template('tesoreria_rebalanceo.html', 
+                           balances=balances_actuales, 
+                           historial=historial_movimientos, 
+                           anio_actual=get_venezuela_current_date().year,
+                           contexto_proyeccion=contexto_proyeccion,
+                           mostrar_recomendacion=mostrar_recomendacion,
+                           tasas_del_dia=tasas_del_dia)
 
 # >>> COMISIONES: BEGIN [dashboard_comercial]
 @app.route('/comercial/dashboard', methods=['GET'])
@@ -3079,6 +3153,7 @@ def gestion_egresos():
         flash(f"Error al cargar la lista de egresos: {e}", "danger")
 
     return render_template('gestion_egresos.html', egresos=egresos, clientes_retiro=clientes_retiro)
+
 # ====== FIN: REEMPLAZA TU FUNCIÓN DE GESTIÓN DE EGRESOS CON ESTA ======
 
 @app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
@@ -3092,6 +3167,7 @@ def reporte_flujo_caja():
     except ValueError:
         flash("Formato de fecha inválido. Usando fecha actual.", "warning")
         fecha_reporte_str, fecha_reporte_dt = today.strftime('%Y-%m-%d'), today
+    
     tasas_del_dia = {'usd': Decimal('0.0'), 'eur': Decimal('0.0')}
     if conn:
         with conn.cursor() as cur:
@@ -3099,6 +3175,7 @@ def reporte_flujo_caja():
             resultado_tasa = cur.fetchone()
             if resultado_tasa:
                 tasas_del_dia['usd'], tasas_del_dia['eur'] = resultado_tasa['tasa'] or Decimal('0.0'), resultado_tasa['tasa_euro'] or Decimal('0.0')
+
     balances = calcular_balances_tesoreria(fecha_hasta=fecha_reporte_dt)
     resumen = {}
     resumen.update(balances)
@@ -3106,11 +3183,12 @@ def reporte_flujo_caja():
     resumen['balance_bs_usd_usd'] = balances['CAJA_BS_USD'] / tasa_usd if tasa_usd > 0 else Decimal('0.0')
     resumen['balance_bs_eur_eur'] = balances['CAJA_BS_EUR'] / tasa_eur if tasa_eur > 0 else Decimal('0.0')
     resumen['balance_bs_consolidado_bs'] = balances['CAJA_BS_TOTAL']
-    balance_bs_eur_en_usd = balances['CAJA_BS_EUR'] / tasa_usd if tasa_usd > 0 else Decimal('0.0')
+    balance_bs_eur_en_usd = balances['CAJA_BS_EUR'] / tasa_usd if tasa_usd > 0 else Decimal('0.0') # Re-calculado con la tasa correcta
     resumen['balance_bs_consolidado_usd'] = resumen['balance_bs_usd_usd'] + balance_bs_eur_en_usd
     resumen['tasa_ponderada_bs'] = resumen['balance_bs_consolidado_bs'] / resumen['balance_bs_consolidado_usd'] if resumen['balance_bs_consolidado_usd'] > 0 else Decimal('0.0')
     resumen['balance_general_consolidado_usd'] = balances['EFECTIVO_USD'] + balances['BINANCE_USDT'] + resumen['balance_bs_consolidado_usd']
     resumen['acumulado_perdida_devaluacion'], resumen['acumulado_perdida_conversion'] = Decimal('0.0'), Decimal('0.0')
+    
     if conn and tasa_usd > 0:
         try:
             with conn.cursor() as cur:
@@ -3125,6 +3203,41 @@ def reporte_flujo_caja():
                 resumen['acumulado_perdida_conversion'] = cur.fetchone()[0] or Decimal('0.0')
         except psycopg2.Error as e:
             flash(f"Error calculando las pérdidas financieras: {e}", "warning")
+
+    # >>> INICIO DE LA INTEGRACIÓN: BUSCAR PROYECCIÓN ACTIVA <<<
+    comparativa_proyeccion = None
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                mes_reporte, anio_reporte = fecha_reporte_dt.month, fecha_reporte_dt.year
+                cur.execute("""
+                    SELECT * FROM proyecciones_activas 
+                    WHERE mes_proyeccion = %s AND ano_proyeccion = %s AND estado = 'Activa' 
+                    LIMIT 1
+                """, (mes_reporte, anio_reporte))
+                proyeccion_activa = cur.fetchone()
+
+                if proyeccion_activa:
+                    # Usamos .get() para evitar errores si las claves no existen
+                    resultados = json.loads(proyeccion_activa.get('resultados_resumen', '{}'))
+                    parametros = json.loads(proyeccion_activa.get('parametros_simulacion', '{}'))
+                    fecha_inicio_proyeccion_str = parametros.get('fecha_inicio')
+                    
+                    if fecha_inicio_proyeccion_str:
+                        fecha_inicio_proyeccion = datetime.strptime(fecha_inicio_proyeccion_str, '%Y-%m-%d').date()
+                        ingreso_real_a_fecha = calcular_ingreso_real_acumulado(fecha_inicio_proyeccion)
+
+                        comparativa_proyeccion = {
+                            "ingreso_proyectado_mes": Decimal(resultados.get('resumen', {}).get('ingresos_totales_proyectados', '0.0')),
+                            "ingreso_real_a_fecha": ingreso_real_a_fecha,
+                            "devaluacion_proyectada_mes": Decimal(resultados.get('kpis', {}).get('perdida_devaluacion_usd', '0.0')),
+                            "devaluacion_real_a_fecha": resumen.get('acumulado_perdida_devaluacion', Decimal('0.0'))
+                        }
+        except (psycopg2.Error, json.JSONDecodeError, KeyError) as e:
+            flash(f"No se pudo cargar la comparativa con la proyección activa: {e}", "warning")
+            logging.error(f"Error cargando comparativa de proyección en flujo de caja: {e}")
+    # >>> FIN DE LA INTEGRACIÓN <<<
+
     historial_unificado = []
     if conn:
         try:
@@ -3136,8 +3249,8 @@ def reporte_flujo_caja():
                            NULL AS monto_egreso, NULL AS moneda_egreso, (SELECT usuario FROM administradores WHERE id = p.conciliado_por_id) AS usuario
                     FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.estado_pago = 'Conciliado' AND p.fecha_pago = %s
                     UNION ALL
-                    SELECT ot.fecha_operacion AS timestamp, ot.tipo_operacion, ot.nota AS detalle, CASE WHEN ot.tipo_operacion != 'PAGO_GASTO' THEN ot.monto_destino ELSE NULL END AS monto_ingreso,
-                           CASE WHEN ot.tipo_operacion != 'PAGO_GASTO' THEN ot.moneda_destino ELSE NULL END AS moneda_ingreso, ot.monto_origen AS monto_egreso, ot.moneda_origen AS moneda_egreso, adm.usuario
+                    SELECT ot.fecha_operacion AS timestamp, ot.tipo_operacion, ot.nota AS detalle, CASE WHEN ot.tipo_operacion != 'PAGO_GASTO' AND ot.tipo_operacion != 'PAGO_NOMINA' THEN ot.monto_destino ELSE NULL END AS monto_ingreso,
+                           CASE WHEN ot.tipo_operacion != 'PAGO_GASTO' AND ot.tipo_operacion != 'PAGO_NOMINA' THEN ot.moneda_destino ELSE NULL END AS moneda_ingreso, ot.monto_origen AS monto_egreso, ot.moneda_origen AS moneda_egreso, adm.usuario
                     FROM operaciones_tesoreria ot JOIN administradores adm ON ot.realizada_por = adm.id WHERE ot.fecha_operacion BETWEEN %s AND %s
                     ORDER BY timestamp ASC;
                 """
@@ -3145,7 +3258,14 @@ def reporte_flujo_caja():
                 historial_unificado = cur.fetchall()
         except (psycopg2.Error, ValueError) as e:
             flash(f"Error al obtener historial de movimientos: {e}", "error")
-    return render_template('reporte_flujo_caja.html', fecha_reporte=fecha_reporte_str, resumen=resumen, tasas_del_dia=tasas_del_dia, historial=historial_unificado, anio_actual=today.year)
+
+    return render_template('reporte_flujo_caja.html', 
+                           fecha_reporte=fecha_reporte_str, 
+                           resumen=resumen, 
+                           tasas_del_dia=tasas_del_dia, 
+                           historial=historial_unificado, 
+                           anio_actual=today.year,
+                           comparativa_proyeccion=comparativa_proyeccion)
 
 # ====== INICIO: REEMPLAZA TU FUNCIÓN DE PROYECCIONES CON ESTA VERSIÓN CORREGIDA ======
 @app.route('/reportes/proyecciones', methods=['GET'])
@@ -3173,25 +3293,23 @@ def reporte_proyecciones():
     except psycopg2.Error as e:
         flash("No se pudieron cargar las tasas de cambio automáticamente.", "warning")
 
-    try:
+     try:
         fecha_inicio_str = request.args.get('fecha_inicio', hoy.strftime('%Y-%m-%d'))
         fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
         
         tasa_bcv_dolar_str = request.args.get('tasa_bcv_dolar_inicio') or (f"{tasa_dolar_db:.4f}" if tasa_dolar_db else "")
         tasa_bcv_euro_str = request.args.get('tasa_bcv_euro_inicio') or (f"{tasa_euro_db:.4f}" if tasa_euro_db else "")
-        devaluacion_pct = Decimal(request.args.get('devaluacion_pct', '20.0'))
-
+        # >>> MODIFICACIÓN: Se quita devaluacion_pct de aquí porque ya está en los parámetros de la simulación
     except (ValueError, InvalidOperation):
         fecha_inicio = hoy
         tasa_bcv_dolar_str = f"{tasa_dolar_db:.4f}" if tasa_dolar_db else ""
         tasa_bcv_euro_str = f"{tasa_euro_db:.4f}" if tasa_euro_db else ""
-        devaluacion_pct = Decimal('20.0')
 
-    # --- INICIO DE LA CORRECCIÓN ---
     proyecciones = {
         'parametros': {
             'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
-            'devaluacion_pct': devaluacion_pct,
+            # >>> MODIFICACIÓN: El valor de devaluacion_pct ahora se obtiene del request.args
+            'devaluacion_pct': Decimal(request.args.get('devaluacion_pct', '20.0')),
             'tasa_bcv_dolar_inicio': tasa_bcv_dolar_str,
             'tasa_bcv_euro_inicio': tasa_bcv_euro_str,
             'margen_dolar_pct': request.args.get('margen_dolar_pct', '15.0'),
@@ -3203,7 +3321,7 @@ def reporte_proyecciones():
         'ingresos': {
             'clientes_activos': 0,
             'base_mensual': Decimal('0.0'),
-            'tasa_pago_historica_pct': Decimal('100.0'),  # <-- CLAVE CRÍTICA AÑADIDA
+            'tasa_pago_historica_pct': Decimal('100.0'),
             'ingreso_mensual_proyectado': Decimal('0.0')
         },
         'egresos': {
@@ -3212,21 +3330,27 @@ def reporte_proyecciones():
         },
         'resumen': {
             'ingresos_totales_proyectados': Decimal('0.0'),
+            # >>> INICIO DE LA INTEGRACIÓN: NUEVOS CAMPOS <<<
+            'ingreso_real_acumulado': Decimal('0.0'),
+            # >>> FIN DE LA INTEGRACIÓN <<<
             'gastos_totales_proyectados': Decimal('0.0'),
             'balance_neto_proyectado': Decimal('0.0')
         },
         'kpis': {
             'margen_maniobra_pct': Decimal('0.0'),
             'perdida_devaluacion_usd': Decimal('0.0'),
-            'margen_color': 'bg-gray-500'
+            'margen_color': 'bg-gray-500',
+            # >>> INICIO DE LA INTEGRACIÓN: NUEVOS CAMPOS <<<
+            'progreso_ingreso_pct': 0
+            # >>> FIN DE LA INTEGRACIÓN <<<
         }
     }
     # --- FIN DE LA CORRECCIÓN ---
 
-    if simulacion_realizada and conn: # Added conn check for placeholder
+    if simulacion_realizada and conn:
         try:
             with conn.cursor() as cur:
-                # Cálculos de Ingresos
+                # Cálculos de Ingresos (Lógica existente)
                 cur.execute("""
                     SELECT 
                         COUNT(*) as clientes_activos, 
@@ -3237,13 +3361,22 @@ def reporte_proyecciones():
                 ingresos_data = cur.fetchone()
                 proyecciones['ingresos']['clientes_activos'] = ingresos_data['clientes_activos']
                 proyecciones['ingresos']['base_mensual'] = ingresos_data['total_cuotas']
-                ingreso_proyectado = proyecciones['ingresos']['base_mensual'] # Asumiendo 100% de pago por ahora
+                ingreso_proyectado = proyecciones['ingresos']['base_mensual'] # Asumiendo 100% de pago
                 proyecciones['ingresos']['ingreso_mensual_proyectado'] = ingreso_proyectado
 
-                # Cálculos de Gastos
+                # >>> INICIO DE LA INTEGRACIÓN: CÁLCULO DEL INGRESO REAL <<<
+                ingreso_real = calcular_ingreso_real_acumulado(fecha_inicio)
+                proyecciones['resumen']['ingreso_real_acumulado'] = ingreso_real
+                
+                if ingreso_proyectado > 0:
+                    progreso_pct = (ingreso_real / ingreso_proyectado) * 100
+                    proyecciones['kpis']['progreso_ingreso_pct'] = min(float(progreso_pct), 100.0)
+                # >>> FIN DE LA INTEGRACIÓN <<<
+
+                # Cálculos de Gastos (Lógica existente)
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE tipo_egreso = 'Fijo' AND estado = 'Activo'")
                 gastos_fijos = cur.fetchone()[0] or Decimal('0.0')
-                proyecciones['egresos']['promedio_gastos_fijos'] = gastos_fijos # Asignando a su clave
+                proyecciones['egresos']['promedio_gastos_fijos'] = gastos_fijos
 
                 fecha_fin_primer_mes = fecha_inicio + timedelta(days=30)
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE tipo_egreso IN ('Variable', 'Devolución') AND estado = 'Activo' AND fecha_pago_programada BETWEEN %s AND %s", (fecha_inicio, fecha_fin_primer_mes))
@@ -3251,8 +3384,9 @@ def reporte_proyecciones():
                 gasto_proyectado = gastos_fijos + gastos_variables
                 proyecciones['egresos']['gasto_proyectado_primer_mes'] = gasto_proyectado
 
-                # Cálculo de Devaluación
+                # Cálculo de Devaluación (Lógica existente con ajuste de seguridad)
                 perdida_devaluacion = Decimal('0.0')
+                devaluacion_pct_param = proyecciones['parametros']['devaluacion_pct']
                 if tasa_bcv_dolar_str:
                     tasa_bcv_inicio = Decimal(tasa_bcv_dolar_str)
                     if tasa_bcv_inicio > 0:
@@ -3260,19 +3394,17 @@ def reporte_proyecciones():
                         saldo_bs = balances_caja.get('CAJA_BS_TOTAL', Decimal('0.0'))
                         
                         valor_usd_inicial = saldo_bs / tasa_bcv_inicio
-                        tasa_bcv_final = tasa_bcv_inicio * (1 + (devaluacion_pct / 100))
+                        tasa_bcv_final = tasa_bcv_inicio * (1 + (devaluacion_pct_param / 100))
                         valor_usd_final = saldo_bs / tasa_bcv_final
                         perdida_devaluacion = valor_usd_inicial - valor_usd_final
                 
                 proyecciones['kpis']['perdida_devaluacion_usd'] = perdida_devaluacion
 
-                # Resumen y KPIs ajustados
+                # Resumen y KPIs ajustados (Lógica existente)
                 proyecciones['simulacion_exitosa'] = True
                 proyecciones['resumen']['ingresos_totales_proyectados'] = ingreso_proyectado
                 proyecciones['resumen']['gastos_totales_proyectados'] = gasto_proyectado
                 
-                # Aquí la pérdida por devaluación se resta del balance. Podría ser controversial,
-                # pero se mantiene según la lógica original.
                 balance_neto_proyectado = ingreso_proyectado - gasto_proyectado - perdida_devaluacion
                 proyecciones['resumen']['balance_neto_proyectado'] = balance_neto_proyectado
 
@@ -3285,6 +3417,7 @@ def reporte_proyecciones():
                 
         except (psycopg2.Error, InvalidOperation, TypeError) as e:
             proyecciones['mensaje_error'] = f"Error al calcular la proyección: {e}"
+            logging.error(f"Error en el cálculo de la proyección: {traceback.format_exc()}") # Log más detallado
     
     return render_template('reporte_proyecciones.html', 
                            proyecciones=proyecciones, 

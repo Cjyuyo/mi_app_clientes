@@ -11,11 +11,54 @@
         <p class="text-slate-500 mt-1">Registro de movimientos entre cajas y tipos de moneda.</p>
     </div>
 
+    {% if contexto_proyeccion %}
+    <div class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="md:col-span-2 bg-white p-5 rounded-xl shadow-sm border-2 border-indigo-200 bg-indigo-50">
+                <h3 class="text-lg font-bold text-indigo-800 mb-2">Contexto de Proyección Activa</h3>
+                <div class="flex justify-around items-center text-center mt-3">
+                    <div>
+                        <p class="text-sm font-medium text-indigo-700">Meta de Balance Neto (Mes)</p>
+                        <p class="text-2xl font-bold {{ 'text-green-600' if contexto_proyeccion.balance_neto_proyectado >= 0 else 'text-red-600' }} mt-1">
+                            ${{ "{:,.2f}".format(contexto_proyeccion.balance_neto_proyectado) }}
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-indigo-700">Riesgo por Devaluación Proyectado</p>
+                        <p class="text-2xl font-bold text-red-600 mt-1">
+                            (-${{ "{:,.2f}".format(contexto_proyeccion.perdida_devaluacion_proyectada) }})
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border-2 border-blue-200 bg-blue-50 text-center flex flex-col justify-center">
+                <p class="text-sm font-medium text-blue-700">Saldo Actual en Bolívares</p>
+                <p class="text-2xl font-bold text-blue-800 mt-1">
+                    ${{ "{:,.2f}".format(balances.CAJA_BS_TOTAL / tasas_del_dia.usd) if tasas_del_dia and tasas_del_dia.usd > 0 else '0.00' }}
+                </p>
+                <p class="text-xs text-slate-500">(Bs. {{ "{:,.2f}".format(balances.CAJA_BS_TOTAL) }})</p>
+            </div>
+        </div>
+        {% if mostrar_recomendacion %}
+        <div class="p-4 rounded-md bg-yellow-100 text-yellow-800 border border-yellow-300">
+            <div class="flex items-center">
+                <div class="w-10 h-10 flex-shrink-0 mr-3 flex items-center justify-center rounded-full bg-yellow-200">
+                    <i class="bi bi-lightbulb-fill text-xl text-yellow-600"></i>
+                </div>
+                <div>
+                    <p class="font-bold">Acción Recomendada</p>
+                    <p class="text-sm">Tu saldo en Bolívares es significativo. Para mitigar el riesgo de devaluación proyectado, considera realizar una <span class="font-semibold">Compra de Divisas</span>.</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
     {# Este bloque para mostrar mensajes de éxito o error se mantiene #}
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-            <div class="p-4 rounded-md {% if category == 'error' %} bg-red-100 text-red-800 {% elif category == 'success' %} bg-green-100 text-green-800 {% else %} bg-blue-100 text-blue-800 {% endif %}" role="alert">
+            <div class="p-4 rounded-md {% if category == 'danger' %} bg-red-100 text-red-800 {% elif category == 'success' %} bg-green-100 text-green-800 {% else %} bg-blue-100 text-blue-800 {% endif %}" role="alert">
                 {{ message }}
             </div>
             {% endfor %}

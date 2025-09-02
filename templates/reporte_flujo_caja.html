@@ -6,7 +6,6 @@
 
 {% block body %}
 <div class="space-y-8">
-    <!-- Encabezado y Filtro -->
     <div class="bg-white p-6 rounded-xl shadow-sm">
         <div class="flex flex-col md:flex-row justify-between md:items-center gap-4">
             <div>
@@ -21,7 +20,6 @@
         </div>
     </div>
 
-    <!-- Tasas del Día -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div class="bg-white p-4 rounded-xl shadow-sm text-center">
             <div class="text-sm text-slate-500">Tasa Dólar (BCV) al {{ fecha_reporte | format_date }}</div>
@@ -33,8 +31,30 @@
         </div>
     </div>
 
+    {% if comparativa_proyeccion %}
+    <div class="bg-white p-6 rounded-xl shadow-sm border-2 border-indigo-200 bg-indigo-50">
+        <h2 class="text-xl font-bold text-indigo-800 mb-4">📈 Seguimiento de Proyección Activa (a la fecha)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-center">
+            <div>
+                <p class="text-sm font-medium text-indigo-700">Ingreso Proyectado (Mes)</p>
+                <p class="text-2xl font-bold text-slate-800 mt-1">${{ "{:,.2f}".format(comparativa_proyeccion.ingreso_proyectado_mes) }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-indigo-700">Ingreso Real Conciliado</p>
+                <p class="text-2xl font-bold text-green-600 mt-1">${{ "{:,.2f}".format(comparativa_proyeccion.ingreso_real_a_fecha) }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-indigo-700">Pérdida Devaluación Proyectada</p>
+                <p class="text-2xl font-bold text-slate-800 mt-1">(${{ "{:,.2f}".format(comparativa_proyeccion.devaluacion_proyectada_mes) }})</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-indigo-700">Pérdida Devaluación Real</p>
+                <p class="text-2xl font-bold text-red-600 mt-1">(${{ "{:,.2f}".format(comparativa_proyeccion.devaluacion_real_a_fecha) }})</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Columna de Balances -->
         <div class="lg:col-span-1 space-y-6">
             <div class="bg-white p-6 rounded-xl shadow-sm text-center">
                 <div class="text-sm font-medium text-slate-500">Balance General Consolidado</div>
@@ -57,7 +77,6 @@
             </div>
         </div>
 
-        <!-- Columna de Historial -->
         <div class="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
             <div class="p-5 border-b border-slate-200">
                 <h2 class="text-lg font-bold text-slate-800">Historial de Movimientos del Día</h2>
