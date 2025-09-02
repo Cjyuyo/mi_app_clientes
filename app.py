@@ -4019,6 +4019,8 @@ def consulta():
 
 # COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
 
+# COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
+
 @app.route('/upload_clientes', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -4043,11 +4045,21 @@ def upload_clientes():
                 conn = get_db()
                 cursor = conn.cursor()
 
-                df = pd.read_excel(file, dtype=str).fillna('') # Lee todo como texto para evitar errores de tipo
+                # ===== INICIO DE LA MODIFICACIÓN =====
+                # Pequeñas funciones para convertir los números de NumPy a Python estándar
+                def to_int_safe(val):
+                    if pd.isna(val): return None
+                    return int(val)
+
+                def to_float_safe(val):
+                    if pd.isna(val): return None
+                    return float(val)
+                # ===== FIN DE LA MODIFICACIÓN =====
+
+                df = pd.read_excel(file, dtype=str).fillna('')
                 df.dropna(subset=['N⁰ CEDULA'], inplace=True)
                 df.columns = [str(col).strip().upper() for col in df.columns]
 
-                # Nombres de las columnas que esperamos en el Excel
                 column_map = {
                     'cedula': 'N⁰ CEDULA', 'nombre_apellido': 'NOMBRE Y APELLIDO', 'grupo': 'GRUPO',
                     'plan': 'PLAN', 'moneda_pago': 'MONEDA DE PAGO', 'asesor': 'ASESOR',
@@ -4055,41 +4067,48 @@ def upload_clientes():
                     'estatus_cliente': 'ESTATUS', 'fecha_ingreso': 'FECHA DE INGRESO', 'numero_telefono': 'NUMERO DE TLF',
                     'porcentaje_inscripcion': 'PORCENTAJE INSCRIPCION', 'inscripcion': 'INSCRIPCION',
                     'cuotas_totales': 'CUOTAS TOTALES', 'cuotas_pagas': 'CUOTAS PAGAS',
-                    'estatus_pago': df.columns[16], # La segunda columna 'ESTATUS'
+                    'estatus_pago': df.columns[16],
                     'pagos_impuntuales': 'PAGOS IMPUNTUALES', 'cuotas_mora': 'CUOTAS EN MORA', 'observacion': 'OBSERVACIÓN',
                     'valor_cuota': 'VALOR DE CUOTA', 'fecha_pago': 'FECHA DE PAGO', 'estatus_cuota': 'ESTATUS CUOTA',
                     'valor_cancelado': 'VALOR CANCELADO'
                 }
 
                 for index, row in df.iterrows():
-                    # Extraer y limpiar datos de la fila
                     cedula = row[column_map['cedula']].split('.')[0]
                     nombre_completo = row[column_map['nombre_apellido']]
                     nombre_parts = nombre_completo.strip().split(' ', 1)
                     nombre = nombre_parts[0]
                     apellido = nombre_parts[1] if len(nombre_parts) > 1 else ''
 
-                    # Buscar si el cliente ya existe por la cédula
                     cursor.execute("SELECT id FROM clientes WHERE cedula = %s", (cedula,))
                     existing_client = cursor.fetchone()
 
+                    # ===== INICIO DE LA MODIFICACIÓN =====
+                    # Ahora usamos las funciones to_int_safe y to_float_safe para la conversión
                     params = {
                         'nombre': nombre, 'apellido': apellido, 'grupo': row.get(column_map['grupo']),
                         'plan': row.get(column_map['plan']), 'moneda_pago': row.get(column_map['moneda_pago']),
                         'asesor': row.get(column_map['asesor']), 'responsable': row.get(column_map['responsable']),
                         'numero_contrato': row.get(column_map['numero_contrato']), 'proceso': row.get(column_map['proceso']),
                         'estatus': row.get(column_map['estatus_cliente']), 'fecha_ingreso': pd.to_datetime(row.get(column_map['fecha_ingreso']), errors='coerce').date() or None,
-                        'numero_telefono': row.get(column_map['numero_telefono']), 'porcentaje_inscripcion': pd.to_numeric(row.get(column_map['porcentaje_inscripcion']), errors='coerce'),
-                        'inscripcion': pd.to_numeric(row.get(column_map['inscripcion']), errors='coerce'), 'cuotas_totales': pd.to_numeric(row.get(column_map['cuotas_totales']), errors='coerce'),
-                        'cuotas_pagas': pd.to_numeric(row.get(column_map['cuotas_pagas']), errors='coerce'), 'estatus_pago': row.get(column_map['estatus_pago']),
-                        'pagos_impuntuales': pd.to_numeric(row.get(column_map['pagos_impuntuales']), errors='coerce'), 'cuotas_mora': pd.to_numeric(row.get(column_map['cuotas_mora']), errors='coerce'),
-                        'observacion': row.get(column_map['observacion']), 'valor_cuota': pd.to_numeric(row.get(column_map['valor_cuota']), errors='coerce'),
-                        'fecha_pago': pd.to_datetime(row.get(column_map['fecha_pago']), errors='coerce').date() or None, 'estatus_cuota': row.get(column_map['estatus_cuota']),
-                        'valor_cancelado': pd.to_numeric(row.get(column_map['valor_cancelado']), errors='coerce'), 'cedula': cedula
+                        'numero_telefono': row.get(column_map['numero_telefono']),
+                        'porcentaje_inscripcion': to_float_safe(pd.to_numeric(row.get(column_map['porcentaje_inscripcion']), errors='coerce')),
+                        'inscripcion': to_float_safe(pd.to_numeric(row.get(column_map['inscripcion']), errors='coerce')),
+                        'cuotas_totales': to_int_safe(pd.to_numeric(row.get(column_map['cuotas_totales']), errors='coerce')),
+                        'cuotas_pagas': to_int_safe(pd.to_numeric(row.get(column_map['cuotas_pagas']), errors='coerce')),
+                        'estatus_pago': row.get(column_map['estatus_pago']),
+                        'pagos_impuntuales': to_int_safe(pd.to_numeric(row.get(column_map['pagos_impuntuales']), errors='coerce')),
+                        'cuotas_mora': to_int_safe(pd.to_numeric(row.get(column_map['cuotas_mora']), errors='coerce')),
+                        'observacion': row.get(column_map['observacion']),
+                        'valor_cuota': to_float_safe(pd.to_numeric(row.get(column_map['valor_cuota']), errors='coerce')),
+                        'fecha_pago': pd.to_datetime(row.get(column_map['fecha_pago']), errors='coerce').date() or None,
+                        'estatus_cuota': row.get(column_map['estatus_cuota']),
+                        'valor_cancelado': to_float_safe(pd.to_numeric(row.get(column_map['valor_cancelado']), errors='coerce')),
+                        'cedula': cedula
                     }
+                    # ===== FIN DE LA MODIFICACIÓN =====
 
                     if existing_client:
-                        # Si existe, ACTUALIZAR
                         update_query = """
                             UPDATE clientes SET 
                             nombre = %(nombre)s, apellido = %(apellido)s, grupo = %(grupo)s, plan = %(plan)s,
@@ -4106,7 +4125,6 @@ def upload_clientes():
                         cursor.execute(update_query, params)
                         updated_count += 1
                     else:
-                        # Si no existe, INSERTAR
                         insert_query = """
                             INSERT INTO clientes (cedula, nombre, apellido, grupo, plan, moneda_pago, asesor, responsable, 
                             numero_contrato, proceso, estatus, fecha_ingreso, numero_telefono, 
