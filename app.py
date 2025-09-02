@@ -4017,21 +4017,16 @@ def consulta():
 # 3. AÑADE ESTA NUEVA RUTA A CUALQUIER PARTE DE TU ARCHIVO APP.PY
 # COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
 
-# COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
-
-# COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
-
 @app.route('/upload_clientes', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def upload_clientes():
     if request.method == 'POST':
+        # (Validación de archivo se mantiene igual)
         if 'archivo_excel' not in request.files:
             flash('No se encontró el archivo en la solicitud.', 'error')
             return redirect(request.url)
-
         file = request.files['archivo_excel']
-
         if file.filename == '':
             flash('No se seleccionó ningún archivo.', 'error')
             return redirect(request.url)
@@ -4040,116 +4035,96 @@ def upload_clientes():
             conn = None
             updated_count = 0
             inserted_count = 0
+            skipped_rows = [] # Para guardar las filas con errores
             
             try:
                 conn = get_db()
                 cursor = conn.cursor()
 
-                # ===== INICIO DE LA MODIFICACIÓN =====
-                # Pequeñas funciones para convertir los números de NumPy a Python estándar
                 def to_int_safe(val):
-                    if pd.isna(val): return None
-                    return int(val)
+                    if pd.isna(val) or val == '': return None
+                    try: return int(float(val))
+                    except (ValueError, TypeError): return None
 
                 def to_float_safe(val):
-                    if pd.isna(val): return None
-                    return float(val)
-                # ===== FIN DE LA MODIFICACIÓN =====
+                    if pd.isna(val) or val == '': return None
+                    try: return float(val)
+                    except (ValueError, TypeError): return None
+
+                def to_date_safe(date_val):
+                    if pd.isna(date_val) or date_val == '': return None
+                    dt = pd.to_datetime(date_val, errors='coerce')
+                    if pd.isna(dt): return None
+                    return dt.date()
 
                 df = pd.read_excel(file, dtype=str).fillna('')
                 df.dropna(subset=['N⁰ CEDULA'], inplace=True)
                 df.columns = [str(col).strip().upper() for col in df.columns]
 
-                column_map = {
-                    'cedula': 'N⁰ CEDULA', 'nombre_apellido': 'NOMBRE Y APELLIDO', 'grupo': 'GRUPO',
-                    'plan': 'PLAN', 'moneda_pago': 'MONEDA DE PAGO', 'asesor': 'ASESOR',
-                    'responsable': 'RESPONSABLE', 'numero_contrato': 'N⁰ CONTRATO', 'proceso': 'PROCESO',
-                    'estatus_cliente': 'ESTATUS', 'fecha_ingreso': 'FECHA DE INGRESO', 'numero_telefono': 'NUMERO DE TLF',
-                    'porcentaje_inscripcion': 'PORCENTAJE INSCRIPCION', 'inscripcion': 'INSCRIPCION',
-                    'cuotas_totales': 'CUOTAS TOTALES', 'cuotas_pagas': 'CUOTAS PAGAS',
-                    'estatus_pago': df.columns[16],
-                    'pagos_impuntuales': 'PAGOS IMPUNTUALES', 'cuotas_mora': 'CUOTAS EN MORA', 'observacion': 'OBSERVACIÓN',
-                    'valor_cuota': 'VALOR DE CUOTA', 'fecha_pago': 'FECHA DE PAGO', 'estatus_cuota': 'ESTATUS CUOTA',
-                    'valor_cancelado': 'VALOR CANCELADO'
-                }
+                column_map = { 'cedula': 'N⁰ CEDULA', 'nombre_apellido': 'NOMBRE Y APELLIDO', 'grupo': 'GRUPO', 'plan': 'PLAN', 'moneda_pago': 'MONEDA DE PAGO', 'asesor': 'ASESOR', 'responsable': 'RESPONSABLE', 'numero_contrato': 'N⁰ CONTRATO', 'proceso': 'PROCESO', 'estatus_cliente': 'ESTATUS', 'fecha_ingreso': 'FECHA DE INGRESO', 'numero_telefono': 'NUMERO DE TLF', 'porcentaje_inscripcion': 'PORCENTAJE INSCRIPCION', 'inscripcion': 'INSCRIPCION', 'cuotas_totales': 'CUOTAS TOTALES', 'cuotas_pagas': 'CUOTAS PAGAS', 'estatus_pago': df.columns[16], 'pagos_impuntuales': 'PAGOS IMPUNTUALES', 'cuotas_mora': 'CUOTAS EN MORA', 'observacion': 'OBSERVACIÓN', 'valor_cuota': 'VALOR DE CUOTA', 'fecha_pago': 'FECHA DE PAGO', 'estatus_cuota': 'ESTATUS CUOTA', 'valor_cancelado': 'VALOR CANCELADO' }
 
                 for index, row in df.iterrows():
-                    cedula = row[column_map['cedula']].split('.')[0]
-                    nombre_completo = row[column_map['nombre_apellido']]
-                    nombre_parts = nombre_completo.strip().split(' ', 1)
-                    nombre = nombre_parts[0]
-                    apellido = nombre_parts[1] if len(nombre_parts) > 1 else ''
+                    try: # ===== INICIA EL BLOQUE DE SEGURIDAD POR FILA =====
+                        cedula = str(row[column_map['cedula']]).strip().split('.')[0]
+                        if not cedula:
+                            skipped_rows.append((index + 2, "Cédula vacía"))
+                            continue
 
-                    cursor.execute("SELECT id FROM clientes WHERE cedula = %s", (cedula,))
-                    existing_client = cursor.fetchone()
+                        nombre_completo = str(row[column_map['nombre_apellido']]).strip()
+                        nombre_parts = nombre_completo.split(' ', 1)
+                        nombre = nombre_parts[0]
+                        apellido = nombre_parts[1] if len(nombre_parts) > 1 else ''
 
-                    # ===== INICIO DE LA MODIFICACIÓN =====
-                    # Ahora usamos las funciones to_int_safe y to_float_safe para la conversión
-                    params = {
-                        'nombre': nombre, 'apellido': apellido, 'grupo': row.get(column_map['grupo']),
-                        'plan': row.get(column_map['plan']), 'moneda_pago': row.get(column_map['moneda_pago']),
-                        'asesor': row.get(column_map['asesor']), 'responsable': row.get(column_map['responsable']),
-                        'numero_contrato': row.get(column_map['numero_contrato']), 'proceso': row.get(column_map['proceso']),
-                        'estatus': row.get(column_map['estatus_cliente']), 'fecha_ingreso': pd.to_datetime(row.get(column_map['fecha_ingreso']), errors='coerce').date() or None,
-                        'numero_telefono': row.get(column_map['numero_telefono']),
-                        'porcentaje_inscripcion': to_float_safe(pd.to_numeric(row.get(column_map['porcentaje_inscripcion']), errors='coerce')),
-                        'inscripcion': to_float_safe(pd.to_numeric(row.get(column_map['inscripcion']), errors='coerce')),
-                        'cuotas_totales': to_int_safe(pd.to_numeric(row.get(column_map['cuotas_totales']), errors='coerce')),
-                        'cuotas_pagas': to_int_safe(pd.to_numeric(row.get(column_map['cuotas_pagas']), errors='coerce')),
-                        'estatus_pago': row.get(column_map['estatus_pago']),
-                        'pagos_impuntuales': to_int_safe(pd.to_numeric(row.get(column_map['pagos_impuntuales']), errors='coerce')),
-                        'cuotas_mora': to_int_safe(pd.to_numeric(row.get(column_map['cuotas_mora']), errors='coerce')),
-                        'observacion': row.get(column_map['observacion']),
-                        'valor_cuota': to_float_safe(pd.to_numeric(row.get(column_map['valor_cuota']), errors='coerce')),
-                        'fecha_pago': pd.to_datetime(row.get(column_map['fecha_pago']), errors='coerce').date() or None,
-                        'estatus_cuota': row.get(column_map['estatus_cuota']),
-                        'valor_cancelado': to_float_safe(pd.to_numeric(row.get(column_map['valor_cancelado']), errors='coerce')),
-                        'cedula': cedula
-                    }
-                    # ===== FIN DE LA MODIFICACIÓN =====
+                        cursor.execute("SELECT id FROM clientes WHERE cedula = %s", (cedula,))
+                        existing_client = cursor.fetchone()
 
-                    if existing_client:
-                        update_query = """
-                            UPDATE clientes SET 
-                            nombre = %(nombre)s, apellido = %(apellido)s, grupo = %(grupo)s, plan = %(plan)s,
-                            moneda_pago = %(moneda_pago)s, asesor = %(asesor)s, responsable = %(responsable)s,
-                            numero_contrato = %(numero_contrato)s, proceso = %(proceso)s, estatus = %(estatus)s,
-                            fecha_ingreso = %(fecha_ingreso)s, numero_telefono = %(numero_telefono)s,
-                            porcentaje_inscripcion = %(porcentaje_inscripcion)s, inscripcion = %(inscripcion)s,
-                            cuotas_totales = %(cuotas_totales)s, cuotas_pagas = %(cuotas_pagas)s,
-                            estatus_pago = %(estatus_pago)s, pagos_impuntuales = %(pagos_impuntuales)s,
-                            cuotas_mora = %(cuotas_mora)s, observacion = %(observacion)s, valor_cuota = %(valor_cuota)s,
-                            fecha_pago = %(fecha_pago)s, estatus_cuota = %(estatus_cuota)s, valor_cancelado = %(valor_cancelado)s
-                            WHERE cedula = %(cedula)s
-                        """
-                        cursor.execute(update_query, params)
-                        updated_count += 1
-                    else:
-                        insert_query = """
-                            INSERT INTO clientes (cedula, nombre, apellido, grupo, plan, moneda_pago, asesor, responsable, 
-                            numero_contrato, proceso, estatus, fecha_ingreso, numero_telefono, 
-                            porcentaje_inscripcion, inscripcion, cuotas_totales, cuotas_pagas, 
-                            estatus_pago, pagos_impuntuales, cuotas_mora, observacion, 
-                            valor_cuota, fecha_pago, estatus_cuota, valor_cancelado) VALUES (
-                            %(cedula)s, %(nombre)s, %(apellido)s, %(grupo)s, %(plan)s, %(moneda_pago)s, %(asesor)s, %(responsable)s,
-                            %(numero_contrato)s, %(proceso)s, %(estatus)s, %(fecha_ingreso)s, %(numero_telefono)s,
-                            %(porcentaje_inscripcion)s, %(inscripcion)s, %(cuotas_totales)s, %(cuotas_pagas)s,
-                            %(estatus_pago)s, %(pagos_impuntuales)s, %(cuotas_mora)s, %(observacion)s,
-                            %(valor_cuota)s, %(fecha_pago)s, %(estatus_cuota)s, %(valor_cancelado)s)
-                        """
-                        cursor.execute(insert_query, params)
-                        inserted_count += 1
-                
+                        params = {
+                            'nombre': nombre, 'apellido': apellido, 'grupo': str(row.get(column_map['grupo'])).strip(),
+                            'plan': str(row.get(column_map['plan'])).strip(), 'moneda_pago': str(row.get(column_map['moneda_pago'])).strip(),
+                            'asesor': str(row.get(column_map['asesor'])).strip(), 'responsable': str(row.get(column_map['responsable'])).strip(),
+                            'numero_contrato': str(row.get(column_map['numero_contrato'])).strip(), 'proceso': str(row.get(column_map['proceso'])).strip(),
+                            'estatus': str(row.get(column_map['estatus_cliente'])).strip(), 'numero_telefono': str(row.get(column_map['numero_telefono'])).strip(),
+                            'estatus_pago': str(row.get(column_map['estatus_pago'])).strip(), 'observacion': str(row.get(column_map['observacion'])).strip(),
+                            'estatus_cuota': str(row.get(column_map['estatus_cuota'])).strip(), 'cedula': cedula,
+                            'fecha_ingreso': to_date_safe(row.get(column_map['fecha_ingreso'])), 'fecha_pago': to_date_safe(row.get(column_map['fecha_pago'])),
+                            'porcentaje_inscripcion': to_float_safe(row.get(column_map['porcentaje_inscripcion'])), 'inscripcion': to_float_safe(row.get(column_map['inscripcion'])),
+                            'cuotas_totales': to_int_safe(row.get(column_map['cuotas_totales'])), 'cuotas_pagas': to_int_safe(row.get(column_map['cuotas_pagas'])),
+                            'pagos_impuntuales': to_int_safe(row.get(column_map['pagos_impuntuales'])), 'cuotas_mora': to_int_safe(row.get(column_map['cuotas_mora'])),
+                            'valor_cuota': to_float_safe(row.get(column_map['valor_cuota'])), 'valor_cancelado': to_float_safe(row.get(column_map['valor_cancelado'])),
+                        }
+
+                        if existing_client:
+                            # (Query de UPDATE se mantiene igual)
+                            update_query = "UPDATE clientes SET nombre = %(nombre)s, apellido = %(apellido)s, grupo = %(grupo)s, plan = %(plan)s, moneda_pago = %(moneda_pago)s, asesor = %(asesor)s, responsable = %(responsable)s, numero_contrato = %(numero_contrato)s, proceso = %(proceso)s, estatus = %(estatus)s, fecha_ingreso = %(fecha_ingreso)s, numero_telefono = %(numero_telefono)s, porcentaje_inscripcion = %(porcentaje_inscripcion)s, inscripcion = %(inscripcion)s, cuotas_totales = %(cuotas_totales)s, cuotas_pagas = %(cuotas_pagas)s, estatus_pago = %(estatus_pago)s, pagos_impuntuales = %(pagos_impuntuales)s, cuotas_mora = %(cuotas_mora)s, observacion = %(observacion)s, valor_cuota = %(valor_cuota)s, fecha_pago = %(fecha_pago)s, estatus_cuota = %(estatus_cuota)s, valor_cancelado = %(valor_cancelado)s WHERE cedula = %(cedula)s"
+                            cursor.execute(update_query, params)
+                            updated_count += 1
+                        else:
+                            # (Query de INSERT se mantiene igual)
+                            insert_query = "INSERT INTO clientes (cedula, nombre, apellido, grupo, plan, moneda_pago, asesor, responsable, numero_contrato, proceso, estatus, fecha_ingreso, numero_telefono, porcentaje_inscripcion, inscripcion, cuotas_totales, cuotas_pagas, estatus_pago, pagos_impuntuales, cuotas_mora, observacion, valor_cuota, fecha_pago, estatus_cuota, valor_cancelado) VALUES (%(cedula)s, %(nombre)s, %(apellido)s, %(grupo)s, %(plan)s, %(moneda_pago)s, %(asesor)s, %(responsable)s, %(numero_contrato)s, %(proceso)s, %(estatus)s, %(fecha_ingreso)s, %(numero_telefono)s, %(porcentaje_inscripcion)s, %(inscripcion)s, %(cuotas_totales)s, %(cuotas_pagas)s, %(estatus_pago)s, %(pagos_impuntuales)s, %(cuotas_mora)s, %(observacion)s, %(valor_cuota)s, %(fecha_pago)s, %(estatus_cuota)s, %(valor_cancelado)s)"
+                            cursor.execute(insert_query, params)
+                            inserted_count += 1
+                    
+                    except psycopg2.IntegrityError as e:
+                        conn.rollback() # Revierte la transacción fallida de esta fila
+                        skipped_rows.append((index + 2, f"Cédula o contrato duplicado: {cedula}"))
+                    except Exception as e:
+                        conn.rollback()
+                        skipped_rows.append((index + 2, f"Error inesperado: {e}"))
+                    # ===== FIN DEL BLOQUE DE SEGURIDAD POR FILA =====
+
                 conn.commit()
-                flash(f'¡Proceso completado! Se actualizaron {updated_count} clientes y se crearon {inserted_count} nuevos.', 'success')
-            
+                success_message = f'¡Proceso completado! Se actualizaron {updated_count} clientes y se crearon {inserted_count} nuevos.'
+                if skipped_rows:
+                    flash(success_message, 'success')
+                    skipped_details = ", ".join([f"Fila {r[0]} ({r[1]})" for r in skipped_rows])
+                    flash(f'Atención: Se omitieron {len(skipped_rows)} filas por errores. Detalles: {skipped_details}', 'warning')
+                else:
+                    flash(success_message, 'success')
+
             except KeyError as e:
-                if conn: conn.rollback()
-                flash(f"Error de columna: No se encontró el encabezado {e} en el archivo Excel. Por favor, verifica que el nombre sea exacto.", 'error')
-            
+                flash(f"Error Crítico de Columna: No se encontró el encabezado {e}. La carga fue cancelada.", 'error')
             except Exception as e:
-                if conn: conn.rollback()
-                flash(f'Ocurrió un error inesperado al procesar el archivo en la fila {index + 2}: {e}', 'error')
+                flash(f'Ocurrió un error general al procesar el archivo: {e}', 'error')
             
             finally:
                 if cursor: cursor.close()
@@ -4157,7 +4132,7 @@ def upload_clientes():
             return redirect(url_for('upload_clientes'))
 
         else:
-            flash('Formato de archivo no válido. Por favor, sube un archivo .xlsx o .xls.', 'error')
+            flash('Formato de archivo no válido.', 'error')
             return redirect(request.url)
 
     return render_template('upload_clientes.html')
