@@ -2106,7 +2106,6 @@ def tesoreria_rebalanceo():
     # >>> FIN DE LA INTEGRACIÓN <<<
 
     if request.method == 'POST':
-        # ... (toda tu lógica POST se mantiene sin cambios) ...
         try:
             form = request.form
             tipo_operacion, nota, caja_origen = form.get('tipo_operacion'), form.get('nota'), form.get('caja_origen')
@@ -2139,8 +2138,7 @@ def tesoreria_rebalanceo():
                     monto_destino, moneda_destino = monto_egreso_en_usd, 'USD'
                     nota += f" (Pago original: {monto_origen_str} Bs @ Tasa {tasa_bcv})"
             else: 
-                caja_destino, monto_destino_str = form.get('caja_destino'), form.get('monto_destino', '0').replace(',', '.')
-                moneda_destino = form.get('moneda_destino')
+                caja_destino, monto_destino_str = form.get('caja_destino'), form.get('monto_destino', '0').replace(',', '.'), form.get('moneda_destino')
                 monto_destino = Decimal(monto_destino_str) if monto_destino_str and monto_destino_str != '0' else None
                 if not all([caja_destino, monto_destino, moneda_destino]):
                     flash("Error: Para transferencias, el destino es obligatorio.", 'danger')
