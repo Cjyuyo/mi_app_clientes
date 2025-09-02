@@ -3980,10 +3980,9 @@ def conciliar_pago(pago_id):
                     )
                     flash_msg = f"¡Pago de inscripción conciliado y el cliente ahora está INSCRITO!"
                     
-                    # --- INICIO DE LA CORRECCIÓN CRÍTICA ---
-                    # En este punto, la inscripción está completa. Llamamos a la función de comisiones.
-                   try:
-                        # CAMBIO AQUÍ: Se usan los campos _id para pasar los IDs numéricos
+                    # --- INICIO DEL BLOQUE CORREGIDO CON INDENTACIÓN CORRECTA ---
+                    try:
+                        # Se usan los campos _id para pasar los IDs numéricos
                         calcular_y_guardar_comisiones(
                             cliente['contrato_nro'], 
                             cliente['id'], 
@@ -3996,18 +3995,16 @@ def conciliar_pago(pago_id):
                     except Exception as e:
                         flash_msg += " ADVERTENCIA: Hubo un error crítico al generar las comisiones."
                         logging.error(f"Error al llamar a calcular_y_guardar_comisiones para contrato {cliente['contrato_nro']}: {e}")
-                    # --- FIN DE LA CORRECCIÓN CRÍTICA ---
+                    # --- FIN DEL BLOQUE CORREGIDO ---
                         
                 else:
                     flash_msg = f"¡Abono de inscripción de ${pago_inicial['monto']} conciliado exitosamente!"
             
             elif pago_inicial['tipo_pago'] in ['Cuota', 'Pago Oferta']:
-                # (Lógica existente para conciliar cuotas)
                 cur.execute(
                     "UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE id = %s",
                     (admin_id, pago_id)
                 )
-                # ... (resto de la lógica de cuotas) ...
                 flash_msg = f"¡Pago de {pago_inicial['tipo_pago']} de ${pago_inicial['monto']} conciliado exitosamente!"
 
             descripcion_audit = f"Concilió el pago N° {pago_id} (Tipo: {pago_inicial['tipo_pago']}, Monto: ${pago_inicial['monto']})."
