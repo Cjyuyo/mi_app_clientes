@@ -1,0 +1,40 @@
+{% extends 'base_sidebar.html' %}
+
+{% block title %}Cargar Clientes desde Excel{% endblock %}
+
+{% block body %}
+<div class="w-full max-w-2xl mx-auto bg-white p-6 md:p-8 rounded-xl shadow-md border border-slate-200">
+    <h1 class="text-2xl font-bold text-slate-800 mb-4">Cargar y Actualizar Clientes</h1>
+    <p class="text-sm text-slate-600 mb-6">
+        Sube un archivo Excel (.xlsx) para actualizar la base de datos de clientes. El formato del archivo debe coincidir con la plantilla definida.
+    </p>
+
+    <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-md mb-6" role="alert">
+        <h3 class="font-bold">¡Atención! Proceso destructivo</h3>
+        <p class="text-sm">
+            Al subir un nuevo archivo, se **eliminarán permanentemente TODOS los clientes actuales** de la base de datos y se reemplazarán por los del archivo. Esta acción no se puede deshacer.
+        </p>
+    </div>
+
+    <form action="{{ url_for('upload_clientes') }}" method="post" enctype="multipart/form-data">
+        <div>
+            <label for="archivo_excel" class="block text-sm font-medium text-slate-700">Selecciona el archivo de clientes</label>
+            <input type="file" name="archivo_excel" id="archivo_excel" required
+                   class="mt-2 block w-full text-sm text-slate-500
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded-full file:border-0
+                          file:text-sm file:font-semibold
+                          file:bg-blue-50 file:text-blue-700
+                          hover:file:bg-blue-100"/>
+        </div>
+
+        <div class="mt-8 border-t pt-6">
+            <button type="submit"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg
+                           focus:outline-none focus:shadow-outline transition-colors">
+                Subir Archivo y Actualizar Base de Datos
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

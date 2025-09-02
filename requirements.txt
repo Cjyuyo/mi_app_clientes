@@ -7,3 +7,4 @@ tqdm
 fpdf2
 XlsxWriter
 boto3
+openpyxl

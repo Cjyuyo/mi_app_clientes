@@ -149,14 +149,14 @@
             <div class="flex flex-col md:flex-row items-center gap-4 md:gap-6">
                 <div class="flex-shrink-0 flex items-center gap-4 w-full md:w-auto">
                     {% if cliente.ruta_foto_cliente_s3 %}
-                        <img src="{{ bucket_url }}{{ cliente.ruta_foto_cliente_s3 }}" alt="Foto de {{ cliente.nombre_apellido }}" class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg">
+                        <img src="{{ bucket_url }}{{ cliente.ruta_foto_cliente_s3 }}" alt="Foto de {{ cliente.nombre }} {{ cliente.apellido }}" class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg">
                     {% else %}
                         <div class="w-20 h-20 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center border-4 border-white shadow-lg flex-shrink-0">
                             <svg class="w-14 h-14" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
                         </div>
                     {% endif %}
                     <div>
-                        <h1 class="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">{{ cliente.nombre_apellido }}</h1>
+                        <h1 class="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">{{ cliente.nombre }} {{ cliente.apellido }}</h1>
                         <p class="text-slate-500 font-mono text-sm">C.I: {{ cliente.cedula }}</p>
                         <div class="mt-2 flex items-center gap-2">
                             <span class="text-xs font-semibold py-1 px-3 rounded-full bg-blue-100 text-blue-800">{{ cliente.proceso }}</span>
@@ -171,7 +171,7 @@
                 </div>
 
                 {% set total_financiado = (cliente.valor_cuota|float(0) * cliente.cuotas_totales|int(0)) %}
-                {% set total_pagado_plan = (cliente.cuotas_pagadas_progresivas|int(0) * cliente.valor_cuota|float(0)) %}
+                {% set total_pagado_plan = (cliente.cuotas_pagas|int(0) * cliente.valor_cuota|float(0)) %}
                 {% set saldo_pendiente = total_financiado - total_pagado_plan %}
                 
                 <div class="flex-grow w-full grid grid-cols-3 gap-2 md:gap-4 text-center pt-4 md:pt-0 border-t md:border-t-0 md:border-l md:pl-6 border-slate-200">
@@ -215,14 +215,13 @@
             </div>
         </div>
 
-        <!-- Resto del código del cliente (sin cambios)... -->
         {% if g.admin.rol != 'asesor' %}
         <div x-show="showOfferForm" x-cloak x-transition class="bg-white rounded-xl shadow-md border border-slate-200 p-4 md:p-6">
-            <h3 class="font-bold mb-4 text-lg text-slate-800 flex items-center gap-2"><i class="bi bi-gem text-blue-600"></i>Registrar Nueva Oferta para {{ cliente.nombre_apellido }}</h3>
+            <h3 class="font-bold mb-4 text-lg text-slate-800 flex items-center gap-2"><i class="bi bi-gem text-blue-600"></i>Registrar Nueva Oferta para {{ cliente.nombre }} {{ cliente.apellido }}</h3>
             <form class="oferta-form-admin" 
                   action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" 
                   method="POST" 
-                  data-plan="{{ cliente.plan_contratado|float(0) }}">
+                  data-plan="{{ cliente.plan|float(0) }}">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                     <div>
                         <label class="block text-sm font-medium text-slate-700">Modelo a Ofertar</label>
@@ -258,7 +257,7 @@
                         <div class="space-y-4 pt-4">
                             <div>
                                 <h4 class="text-sm font-semibold text-slate-600 mb-1">Progreso Inscripción</h4>
-                                {% set inscripcion_pagada = cliente.inscripcion_pagada|float(0) %}{% set inscripcion_monto = cliente.inscripcion_monto|float(1) %}
+                                {% set inscripcion_pagada = cliente.valor_cancelado|float(0) %}{% set inscripcion_monto = cliente.inscripcion|float(1) %}
                                 {% set inscripcion_percent = (inscripcion_pagada / inscripcion_monto * 100) if inscripcion_monto > 0 else 0 %}
                                 <div class="pt-1">
                                     <div class="flex justify-between items-center mb-1"><span class="text-sm font-semibold text-slate-600">{{ "%.0f"|format(inscripcion_percent) }}%</span><span class="text-xs font-medium text-slate-500">${{ "%.2f"|format(inscripcion_pagada) }} / ${{ "%.2f"|format(inscripcion_monto) }}</span></div>
@@ -267,10 +266,10 @@
                             </div>
                             <div>
                                 <h4 class="text-sm font-semibold text-slate-600 mb-1">Progreso del Plan</h4>
-                                {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas|int(0) %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas|int(0) %}{% set cuotas_totales = cliente.cuotas_totales|int(1) %}
-                                {% set progresivas_percent = (cuotas_progresivas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}{% set regresivas_percent = (cuotas_regresivas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                                {% set cuotas_pagas = cliente.cuotas_pagas|int(0) %}{% set cuotas_totales = cliente.cuotas_totales|int(1) %}
+                                {% set progresivas_percent = (cuotas_pagas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}{% set regresivas_percent = 0 %}
                                 <div class="pt-1">
-                                    <div class="flex justify-between items-center text-sm mb-2"><span class="font-semibold text-slate-600">Cuotas: {{ cuotas_progresivas + cuotas_regresivas }} / {{ cuotas_totales }}</span><span class="font-semibold text-slate-500">{{ "%.1f"|format(progresivas_percent + regresivas_percent) }}%</span></div>
+                                    <div class="flex justify-between items-center text-sm mb-2"><span class="font-semibold text-slate-600">Cuotas: {{ cuotas_pagas }} / {{ cuotas_totales }}</span><span class="font-semibold text-slate-500">{{ "%.1f"|format(progresivas_percent + regresivas_percent) }}%</span></div>
                                     <div class="w-full flex h-3 rounded-full overflow-hidden bg-slate-200"><div class="bg-blue-600" style="width: {{ progresivas_percent }}%"></div><div class="bg-teal-500" style="width: {{ regresivas_percent }}%"></div></div>
                                 </div>
                             </div>
@@ -331,7 +330,7 @@
                             <div class="bg-white border border-slate-200 rounded-lg p-5">
                                 <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-telephone-fill"></i> Contacto</h3>
                                 <div class="space-y-3 text-sm">
-                                    <div class="flex items-center gap-3 pt-2"><i class="bi bi-whatsapp text-slate-400 w-4 text-center"></i><span class="font-semibold text-slate-700">{{ cliente.telefono or 'N/A' }}</span></div>
+                                    <div class="flex items-center gap-3 pt-2"><i class="bi bi-whatsapp text-slate-400 w-4 text-center"></i><span class="font-semibold text-slate-700">{{ cliente.numero_telefono or 'N/A' }}</span></div>
                                     <div class="flex items-center gap-3"><i class="bi bi-envelope-fill text-slate-400 w-4 text-center"></i><span class="font-semibold text-slate-700">{{ cliente.email or 'N/A' }}</span></div>
                                     <div class="flex items-start gap-3"><i class="bi bi-geo-alt-fill text-slate-400 w-4 text-center pt-1"></i><span class="text-slate-700">{{ cliente.direccion or 'N/A' }}</span></div>
                                 </div>
@@ -339,12 +338,29 @@
                             <div class="bg-white border border-slate-200 rounded-lg p-5">
                                  <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-journal-text"></i> Contrato</h3>
                                  <div class="space-y-3 text-sm">
-                                     <div class="flex justify-between items-center pt-2"><span class="text-slate-500">Valor del Bien/Plan:</span><span class="font-bold text-slate-800">${{ "%.2f"|format(cliente.plan_contratado|float) if cliente.plan_contratado else '0.00' }}</span></div>
-                                     <div class="flex justify-between items-center"><span class="text-slate-500">N° Contrato:</span><span class="font-semibold font-mono text-slate-700">{{ cliente.contrato_nro or 'N/A' }}</span></div>
+                                     <div class="flex justify-between items-center pt-2"><span class="text-slate-500">Valor del Bien/Plan:</span><span class="font-bold text-slate-800">${{ "%.2f"|format(cliente.plan|float) if cliente.plan else '0.00' }}</span></div>
+                                     <div class="flex justify-between items-center"><span class="text-slate-500">N° Contrato:</span><span class="font-semibold font-mono text-slate-700">{{ cliente.numero_contrato or 'N/A' }}</span></div>
                                      <div class="flex justify-between items-center"><span class="text-slate-500">Fecha Ingreso:</span><span class="font-semibold text-slate-700">{{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</span></div>
                                      <div class="flex justify-between items-center"><span class="text-slate-500">Asesor:</span><span class="font-semibold text-slate-700">{{ cliente.asesor or 'N/A' }}</span></div>
+                                     <div class="flex justify-between items-center"><span class="text-slate-500">Responsable:</span><span class="font-semibold text-slate-700">{{ cliente.responsable or 'N/A' }}</span></div>
+                                     <div class="flex justify-between items-center"><span class="text-slate-500">Grupo:</span><span class="font-semibold text-slate-700">{{ cliente.grupo or 'N/A' }}</span></div>
                                  </div>
                             </div>
+                            <div class="bg-white border border-slate-200 rounded-lg p-5 md:col-span-2">
+                                <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-wallet-fill"></i> Estado de Cuenta</h3>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3 pt-2 text-sm">
+                                   <div><p class="text-slate-500">Cuotas en Mora:</p><p class="font-semibold text-red-600">{{ cliente.cuotas_mora or '0' }}</p></div>
+                                   <div><p class="text-slate-500">Pagos Impuntuales:</p><p class="font-semibold text-slate-700">{{ cliente.pagos_impuntuales or '0' }}</p></div>
+                                   <div><p class="text-slate-500">Moneda de Pago:</p><p class="font-semibold text-slate-700">{{ cliente.moneda_pago or 'N/A' }}</p></div>
+                                   <div><p class="text-slate-500">Estatus de Pago:</p><p class="font-semibold text-slate-700">{{ cliente.estatus_pago or 'N/A' }}</p></div>
+                                </div>
+                                {% if cliente.observacion %}
+                                <div class="mt-4 pt-4 border-t border-slate-200">
+                                    <p class="text-sm font-medium text-slate-600">Última Observación:</p>
+                                    <p class="text-sm text-slate-800 italic bg-slate-50 p-2 rounded-md mt-1">"{{ cliente.observacion }}"</p>
+                                </div>
+                                {% endif %}
+                           </div>
                             {% if cliente.beneficiario_nombre %}
                             <div class="bg-white border border-slate-200 rounded-lg p-5 md:col-span-2">
                                  <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-person-heart"></i> Beneficiario</h3>
@@ -473,7 +489,6 @@
     </div>
     {% endfor %}
 
-    <!-- Modal de Anulación Rediseñado -->
     <div x-show="isAnnulModalOpen" 
          x-cloak 
          x-transition:enter="ease-out duration-300"
@@ -495,7 +510,6 @@
              class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto overflow-hidden transform">
             
             <form @submit.prevent="submitAnnulment()">
-                <!-- Cabecera del Modal -->
                 <div class="bg-red-50 p-5 border-b border-red-200">
                     <div class="flex items-center gap-4">
                         <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -508,7 +522,6 @@
                     </div>
                 </div>
                 
-                <!-- Cuerpo del Modal -->
                 <div class="p-6 space-y-4">
                     <p class="text-sm text-slate-600">
                         Estás a punto de anular este reporte. El cliente será notificado y deberá registrar el pago nuevamente. Por favor, especifica el motivo.
@@ -525,7 +538,6 @@
                     </div>
                 </div>
                 
-                <!-- Pie del Modal -->
                 <div class="bg-slate-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-lg">
                     <button type="button" @click="closeAnnulModal()" class="px-5 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition">
                         Cancelar
@@ -544,7 +556,6 @@
         </div>
     </div>
     
-    <!-- --- INICIO DE LA MODIFICACIÓN: Modal de Anulación de Proceso --- -->
     <div x-show="isAnnulProcessModalOpen" 
          x-cloak 
          x-transition:enter="ease-out duration-300"
@@ -601,9 +612,7 @@
             </form>
         </div>
     </div>
-    <!-- --- FIN DE LA MODIFICACIÓN --- -->
-
-</div>
+    </div>
 {% endblock %}
 
 {% block scripts_extra %}

@@ -3959,11 +3959,16 @@ def consulta():
         else:
             try:
                 with conn.cursor() as cur:
+                    # --- INICIO DE LA MODIFICACIÓN ---
+                    # Se actualizó "contrato_nro" a "numero_contrato" para que coincida con la nueva tabla.
+                    # Se eliminó la concatenación "nombre_apellido" del SELECT ya que no es necesaria.
                     query_clientes = """
-                        SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes 
-                        WHERE cedula = %s OR (nombre || ' ' || apellido) ILIKE %s OR contrato_nro ILIKE %s
+                        SELECT * FROM clientes 
+                        WHERE cedula = %s OR (nombre || ' ' || apellido) ILIKE %s OR numero_contrato ILIKE %s
                         ORDER BY nombre, apellido LIMIT 10;
                     """
+                    # --- FIN DE LA MODIFICACIÓN ---
+                    
                     patron_like = f'%{termino_busqueda}%'
                     cur.execute(query_clientes, (termino_busqueda, patron_like, patron_like))
                     
@@ -4009,6 +4014,117 @@ def consulta():
                            busqueda=termino_busqueda, 
                            admin_rol=g.admin['rol'])
 
+# 3. AÑADE ESTA NUEVA RUTA A CUALQUIER PARTE DE TU ARCHIVO APP.PY
+@app.route('/upload_clientes', methods=['GET', 'POST'])
+@admin_required # Asegúrate que solo los admins puedan acceder
+def upload_clientes():
+    if request.method == 'POST':
+        if 'archivo_excel' not in request.files:
+            flash('No se encontró el archivo en la solicitud.', 'error')
+            return redirect(request.url)
+
+        file = request.files['archivo_excel']
+
+        if file.filename == '':
+            flash('No se seleccionó ningún archivo.', 'error')
+            return redirect(request.url)
+
+        if file and (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
+            conn = None  # Inicializar conn
+            cursor = None # Inicializar cursor
+            try:
+                df = pd.read_excel(file)
+                df.dropna(subset=['N⁰ CEDULA'], inplace=True)
+
+                url = urlparse(DATABASE_URL)
+                conn_details = {
+                    "user": url.username,
+                    "password": url.password,
+                    "host": url.hostname,
+                    "port": url.port,
+                    "database": url.path[1:],
+                    "ssl_context": True
+                }
+                
+                conn = pg8000.dbapi.connect(**conn_details)
+                cursor = conn.cursor()
+
+                create_table_sql = """
+                DROP TABLE IF EXISTS clientes;
+                CREATE TABLE clientes (
+                    id SERIAL PRIMARY KEY, cedula VARCHAR(255), nombre VARCHAR(255), apellido VARCHAR(255),
+                    grupo VARCHAR(255), plan VARCHAR(255), moneda_pago VARCHAR(255), asesor VARCHAR(255),
+                    responsable VARCHAR(255), numero_contrato VARCHAR(255), proceso VARCHAR(255),
+                    estatus VARCHAR(255), fecha_ingreso DATE, numero_telefono VARCHAR(255),
+                    porcentaje_inscripcion NUMERIC, inscripcion NUMERIC, cuotas_totales INTEGER,
+                    cuotas_pagas INTEGER, estatus_pago VARCHAR(255), pagos_impuntuales INTEGER,
+                    cuotas_mora INTEGER, observacion TEXT, valor_cuota NUMERIC, fecha_pago DATE,
+                    estatus_cuota VARCHAR(255), valor_cancelado NUMERIC
+                );
+                """
+                cursor.execute(create_table_sql)
+
+                df.columns = [str(col).strip().lower() for col in df.columns]
+                cols = pd.Series(df.columns)
+                estatus_indices = cols[cols == 'estatus'].index
+                if len(estatus_indices) > 1:
+                    cols.iloc[estatus_indices[1]] = 'estatus_pago'
+                df.columns = cols
+                
+                data_to_insert = []
+                for _, row in df.iterrows():
+                    full_name = str(row.get('nombre y apellido', ''))
+                    name_parts = full_name.strip().split(' ', 1)
+                    
+                    def to_date(date_str):
+                        try: return pd.to_datetime(date_str, dayfirst=True, errors='coerce').date() if pd.notna(date_str) else None
+                        except Exception: return None
+
+                    def to_numeric(val):
+                        try: return pd.to_numeric(val, errors='coerce') if pd.notna(val) else None
+                        except Exception: return None
+
+                    data_tuple = (
+                        str(row.get('n⁰ cedula', '')).split('.')[0], name_parts[0], name_parts[1] if len(name_parts) > 1 else '',
+                        row.get('grupo'), row.get('plan'), row.get('moneda de pago'), row.get('asesor'),
+                        row.get('responsable'), row.get('n⁰ contrato'), row.get('proceso'), row.get('estatus'),
+                        to_date(row.get('fecha de ingreso')), row.get('numero de tlf'), to_numeric(row.get('% inscripcion')),
+                        to_numeric(row.get('inscripcion')), to_numeric(row.get('cuotas totales')), to_numeric(row.get('cuotas pagas')),
+                        row.get('estatus_pago'), to_numeric(row.get('pagos impuntuales')), to_numeric(row.get('cuotas en mora')),
+                        row.get('observación'), to_numeric(row.get('valor de cuota')), to_date(row.get('fecha de pago')),
+                        row.get('estatus cuota'), to_numeric(row.get('valor cancelado'))
+                    )
+                    data_to_insert.append(data_tuple)
+                
+                insert_query = """
+                INSERT INTO clientes (
+                    cedula, nombre, apellido, grupo, plan, moneda_pago, asesor, responsable, 
+                    numero_contrato, proceso, estatus, fecha_ingreso, numero_telefono, 
+                    porcentaje_inscripcion, inscripcion, cuotas_totales, cuotas_pagas, 
+                    estatus_pago, pagos_impuntuales, cuotas_mora, observacion, 
+                    valor_cuota, fecha_pago, estatus_cuota, valor_cancelado
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                cursor.executemany(insert_query, data_to_insert)
+                conn.commit()
+
+                flash(f'¡Éxito! Se actualizaron {cursor.rowcount} registros de clientes.', 'success')
+                
+            except Exception as e:
+                if conn: conn.rollback()
+                flash(f'Ocurrió un error al procesar el archivo: {e}', 'error')
+            finally:
+                if cursor: cursor.close()
+                if conn: conn.close()
+            
+            return redirect(url_for('upload_clientes'))
+
+        else:
+            flash('Formato de archivo no válido. Por favor, sube un archivo .xlsx o .xls.', 'error')
+            return redirect(request.url)
+
+    return render_template('upload_clientes.html')
+    
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 @admin_required
 def registrar_pago(client_id):
