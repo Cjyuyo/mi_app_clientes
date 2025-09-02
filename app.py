@@ -4019,6 +4019,8 @@ def consulta():
 
 # COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
 
+# COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
+
 @app.route('/upload_clientes', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -4035,20 +4037,14 @@ def upload_clientes():
             return redirect(request.url)
 
         if file and (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
-            conn = None
-            cursor = None
-            DATABASE_URL = os.getenv('DATABASE_URL')
+            conn = None  # Inicializamos la variable de conexión
             try:
-                from urllib.parse import urlparse
-                import pg8000.dbapi
+                # Usamos la conexión estándar de la aplicación
+                conn = get_db()
+                cursor = conn.cursor()
 
                 df = pd.read_excel(file)
                 df.dropna(subset=['N⁰ CEDULA'], inplace=True)
-
-                url = urlparse(DATABASE_URL)
-                conn_details = { "user": url.username, "password": url.password, "host": url.hostname, "port": url.port, "database": url.path[1:] }
-                conn = pg8000.dbapi.connect(**conn_details)
-                cursor = conn.cursor()
 
                 create_table_sql = """
                 DROP TABLE IF EXISTS clientes;
@@ -4068,7 +4064,7 @@ def upload_clientes():
                 df.columns = [str(col).strip().upper() for col in df.columns]
                 
                 data_to_insert = []
-                for index, row in df.iterrows(): # Añadido 'index' para seguimiento de errores
+                for index, row in df.iterrows():
                     full_name = str(row.get('NOMBRE Y APELLIDO', ''))
                     name_parts = full_name.strip().split(' ', 1)
                     
@@ -4103,26 +4099,22 @@ def upload_clientes():
                 """
                 cursor.executemany(insert_query, data_to_insert)
                 conn.commit()
-
                 flash(f'¡Éxito! Se actualizaron {cursor.rowcount} registros de clientes.', 'success')
             
-            # ===== INICIO DE LA MODIFICACIÓN DE ERRORES =====
             except KeyError as e:
                 if conn: conn.rollback()
                 flash(f"Error de columna: No se encontró el encabezado {e} en el archivo Excel. Por favor, verifica que el nombre de la columna sea exactamente igual a la plantilla.", 'error')
             
             except (ValueError, TypeError) as e:
                 if conn: conn.rollback()
-                flash(f"Error en el formato de los datos: Se encontró un valor incorrecto en una celda (posiblemente en la fila {index + 2}). Revisa que las columnas de números no contengan texto o símbolos (como '$') y que las fechas sean válidas.", 'error')
+                flash(f"Error en el formato de los datos: Se encontró un valor incorrecto en una celda (cerca de la fila {index + 2}). Revisa que las columnas de números no contengan texto o símbolos y que las fechas sean válidas.", 'error')
 
             except Exception as e:
                 if conn: conn.rollback()
                 flash(f'Ocurrió un error inesperado al procesar el archivo: {e}', 'error')
-            # ===== FIN DE LA MODIFICACIÓN DE ERRORES =====
             
             finally:
                 if cursor: cursor.close()
-                if conn: conn.close()
             
             return redirect(url_for('upload_clientes'))
 
