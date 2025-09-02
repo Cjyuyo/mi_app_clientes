@@ -4019,8 +4019,6 @@ def consulta():
 
 # COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
 
-# COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
-
 @app.route('/upload_clientes', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -4037,81 +4035,103 @@ def upload_clientes():
             return redirect(request.url)
 
         if file and (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
-            conn = None  # Inicializamos la variable de conexión
+            conn = None
+            updated_count = 0
+            inserted_count = 0
+            
             try:
-                # Usamos la conexión estándar de la aplicación
                 conn = get_db()
                 cursor = conn.cursor()
 
-                df = pd.read_excel(file)
+                df = pd.read_excel(file, dtype=str).fillna('') # Lee todo como texto para evitar errores de tipo
                 df.dropna(subset=['N⁰ CEDULA'], inplace=True)
-
-                create_table_sql = """
-                DROP TABLE IF EXISTS clientes;
-                CREATE TABLE clientes (
-                    id SERIAL PRIMARY KEY, cedula VARCHAR(255), nombre VARCHAR(255), apellido VARCHAR(255),
-                    grupo VARCHAR(255), plan VARCHAR(255), moneda_pago VARCHAR(255), asesor VARCHAR(255),
-                    responsable VARCHAR(255), numero_contrato VARCHAR(255), proceso VARCHAR(255),
-                    estatus VARCHAR(255), fecha_ingreso DATE, numero_telefono VARCHAR(255),
-                    porcentaje_inscripcion NUMERIC, inscripcion NUMERIC, cuotas_totales INTEGER,
-                    cuotas_pagas INTEGER, estatus_pago VARCHAR(255), pagos_impuntuales INTEGER,
-                    cuotas_mora INTEGER, observacion TEXT, valor_cuota NUMERIC, fecha_pago DATE,
-                    estatus_cuota VARCHAR(255), valor_cancelado NUMERIC
-                );
-                """
-                cursor.execute(create_table_sql)
-
                 df.columns = [str(col).strip().upper() for col in df.columns]
-                
-                data_to_insert = []
+
+                # Nombres de las columnas que esperamos en el Excel
+                column_map = {
+                    'cedula': 'N⁰ CEDULA', 'nombre_apellido': 'NOMBRE Y APELLIDO', 'grupo': 'GRUPO',
+                    'plan': 'PLAN', 'moneda_pago': 'MONEDA DE PAGO', 'asesor': 'ASESOR',
+                    'responsable': 'RESPONSABLE', 'numero_contrato': 'N⁰ CONTRATO', 'proceso': 'PROCESO',
+                    'estatus_cliente': 'ESTATUS', 'fecha_ingreso': 'FECHA DE INGRESO', 'numero_telefono': 'NUMERO DE TLF',
+                    'porcentaje_inscripcion': 'PORCENTAJE INSCRIPCION', 'inscripcion': 'INSCRIPCION',
+                    'cuotas_totales': 'CUOTAS TOTALES', 'cuotas_pagas': 'CUOTAS PAGAS',
+                    'estatus_pago': df.columns[16], # La segunda columna 'ESTATUS'
+                    'pagos_impuntuales': 'PAGOS IMPUNTUALES', 'cuotas_mora': 'CUOTAS EN MORA', 'observacion': 'OBSERVACIÓN',
+                    'valor_cuota': 'VALOR DE CUOTA', 'fecha_pago': 'FECHA DE PAGO', 'estatus_cuota': 'ESTATUS CUOTA',
+                    'valor_cancelado': 'VALOR CANCELADO'
+                }
+
                 for index, row in df.iterrows():
-                    full_name = str(row.get('NOMBRE Y APELLIDO', ''))
-                    name_parts = full_name.strip().split(' ', 1)
-                    
-                    def to_date(date_str):
-                        try: return pd.to_datetime(date_str, dayfirst=True, errors='coerce').date() if pd.notna(date_str) else None
-                        except Exception: return None
+                    # Extraer y limpiar datos de la fila
+                    cedula = row[column_map['cedula']].split('.')[0]
+                    nombre_completo = row[column_map['nombre_apellido']]
+                    nombre_parts = nombre_completo.strip().split(' ', 1)
+                    nombre = nombre_parts[0]
+                    apellido = nombre_parts[1] if len(nombre_parts) > 1 else ''
 
-                    def to_numeric(val):
-                        try: return pd.to_numeric(val, errors='coerce') if pd.notna(val) else None
-                        except Exception: return None
+                    # Buscar si el cliente ya existe por la cédula
+                    cursor.execute("SELECT id FROM clientes WHERE cedula = %s", (cedula,))
+                    existing_client = cursor.fetchone()
 
-                    data_tuple = (
-                        str(row.get('N⁰ CEDULA', '')).split('.')[0], name_parts[0], name_parts[1] if len(name_parts) > 1 else '',
-                        row.get('GRUPO'), row.get('PLAN'), row.get('MONEDA DE PAGO'), row.get('ASESOR'),
-                        row.get('RESPONSABLE'), row.get('N⁰ CONTRATO'), row.get('PROCESO'), row.get('ESTATUS'),
-                        to_date(row.get('FECHA DE INGRESO')), row.get('NUMERO DE TLF'), to_numeric(row.get('PORCENTAJE INSCRIPCION')),
-                        to_numeric(row.get('INSCRIPCION')), to_numeric(row.get('CUOTAS TOTALES')), to_numeric(row.get('CUOTAS PAGAS')),
-                        row.get(df.columns[16]), to_numeric(row.get('PAGOS IMPUNTUALES')), to_numeric(row.get('CUOTAS EN MORA')),
-                        row.get('OBSERVACIÓN'), to_numeric(row.get('VALOR DE CUOTA')), to_date(row.get('FECHA DE PAGO')),
-                        row.get('ESTATUS CUOTA'), to_numeric(row.get('VALOR CANCELADO'))
-                    )
-                    data_to_insert.append(data_tuple)
+                    params = {
+                        'nombre': nombre, 'apellido': apellido, 'grupo': row.get(column_map['grupo']),
+                        'plan': row.get(column_map['plan']), 'moneda_pago': row.get(column_map['moneda_pago']),
+                        'asesor': row.get(column_map['asesor']), 'responsable': row.get(column_map['responsable']),
+                        'numero_contrato': row.get(column_map['numero_contrato']), 'proceso': row.get(column_map['proceso']),
+                        'estatus': row.get(column_map['estatus_cliente']), 'fecha_ingreso': pd.to_datetime(row.get(column_map['fecha_ingreso']), errors='coerce').date() or None,
+                        'numero_telefono': row.get(column_map['numero_telefono']), 'porcentaje_inscripcion': pd.to_numeric(row.get(column_map['porcentaje_inscripcion']), errors='coerce'),
+                        'inscripcion': pd.to_numeric(row.get(column_map['inscripcion']), errors='coerce'), 'cuotas_totales': pd.to_numeric(row.get(column_map['cuotas_totales']), errors='coerce'),
+                        'cuotas_pagas': pd.to_numeric(row.get(column_map['cuotas_pagas']), errors='coerce'), 'estatus_pago': row.get(column_map['estatus_pago']),
+                        'pagos_impuntuales': pd.to_numeric(row.get(column_map['pagos_impuntuales']), errors='coerce'), 'cuotas_mora': pd.to_numeric(row.get(column_map['cuotas_mora']), errors='coerce'),
+                        'observacion': row.get(column_map['observacion']), 'valor_cuota': pd.to_numeric(row.get(column_map['valor_cuota']), errors='coerce'),
+                        'fecha_pago': pd.to_datetime(row.get(column_map['fecha_pago']), errors='coerce').date() or None, 'estatus_cuota': row.get(column_map['estatus_cuota']),
+                        'valor_cancelado': pd.to_numeric(row.get(column_map['valor_cancelado']), errors='coerce'), 'cedula': cedula
+                    }
+
+                    if existing_client:
+                        # Si existe, ACTUALIZAR
+                        update_query = """
+                            UPDATE clientes SET 
+                            nombre = %(nombre)s, apellido = %(apellido)s, grupo = %(grupo)s, plan = %(plan)s,
+                            moneda_pago = %(moneda_pago)s, asesor = %(asesor)s, responsable = %(responsable)s,
+                            numero_contrato = %(numero_contrato)s, proceso = %(proceso)s, estatus = %(estatus)s,
+                            fecha_ingreso = %(fecha_ingreso)s, numero_telefono = %(numero_telefono)s,
+                            porcentaje_inscripcion = %(porcentaje_inscripcion)s, inscripcion = %(inscripcion)s,
+                            cuotas_totales = %(cuotas_totales)s, cuotas_pagas = %(cuotas_pagas)s,
+                            estatus_pago = %(estatus_pago)s, pagos_impuntuales = %(pagos_impuntuales)s,
+                            cuotas_mora = %(cuotas_mora)s, observacion = %(observacion)s, valor_cuota = %(valor_cuota)s,
+                            fecha_pago = %(fecha_pago)s, estatus_cuota = %(estatus_cuota)s, valor_cancelado = %(valor_cancelado)s
+                            WHERE cedula = %(cedula)s
+                        """
+                        cursor.execute(update_query, params)
+                        updated_count += 1
+                    else:
+                        # Si no existe, INSERTAR
+                        insert_query = """
+                            INSERT INTO clientes (cedula, nombre, apellido, grupo, plan, moneda_pago, asesor, responsable, 
+                            numero_contrato, proceso, estatus, fecha_ingreso, numero_telefono, 
+                            porcentaje_inscripcion, inscripcion, cuotas_totales, cuotas_pagas, 
+                            estatus_pago, pagos_impuntuales, cuotas_mora, observacion, 
+                            valor_cuota, fecha_pago, estatus_cuota, valor_cancelado) VALUES (
+                            %(cedula)s, %(nombre)s, %(apellido)s, %(grupo)s, %(plan)s, %(moneda_pago)s, %(asesor)s, %(responsable)s,
+                            %(numero_contrato)s, %(proceso)s, %(estatus)s, %(fecha_ingreso)s, %(numero_telefono)s,
+                            %(porcentaje_inscripcion)s, %(inscripcion)s, %(cuotas_totales)s, %(cuotas_pagas)s,
+                            %(estatus_pago)s, %(pagos_impuntuales)s, %(cuotas_mora)s, %(observacion)s,
+                            %(valor_cuota)s, %(fecha_pago)s, %(estatus_cuota)s, %(valor_cancelado)s)
+                        """
+                        cursor.execute(insert_query, params)
+                        inserted_count += 1
                 
-                insert_query = """
-                INSERT INTO clientes (
-                    cedula, nombre, apellido, grupo, plan, moneda_pago, asesor, responsable, 
-                    numero_contrato, proceso, estatus, fecha_ingreso, numero_telefono, 
-                    porcentaje_inscripcion, inscripcion, cuotas_totales, cuotas_pagas, 
-                    estatus_pago, pagos_impuntuales, cuotas_mora, observacion, 
-                    valor_cuota, fecha_pago, estatus_cuota, valor_cancelado
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """
-                cursor.executemany(insert_query, data_to_insert)
                 conn.commit()
-                flash(f'¡Éxito! Se actualizaron {cursor.rowcount} registros de clientes.', 'success')
+                flash(f'¡Proceso completado! Se actualizaron {updated_count} clientes y se crearon {inserted_count} nuevos.', 'success')
             
             except KeyError as e:
                 if conn: conn.rollback()
-                flash(f"Error de columna: No se encontró el encabezado {e} en el archivo Excel. Por favor, verifica que el nombre de la columna sea exactamente igual a la plantilla.", 'error')
+                flash(f"Error de columna: No se encontró el encabezado {e} en el archivo Excel. Por favor, verifica que el nombre sea exacto.", 'error')
             
-            except (ValueError, TypeError) as e:
-                if conn: conn.rollback()
-                flash(f"Error en el formato de los datos: Se encontró un valor incorrecto en una celda (cerca de la fila {index + 2}). Revisa que las columnas de números no contengan texto o símbolos y que las fechas sean válidas.", 'error')
-
             except Exception as e:
                 if conn: conn.rollback()
-                flash(f'Ocurrió un error inesperado al procesar el archivo: {e}', 'error')
+                flash(f'Ocurrió un error inesperado al procesar el archivo en la fila {index + 2}: {e}', 'error')
             
             finally:
                 if cursor: cursor.close()
