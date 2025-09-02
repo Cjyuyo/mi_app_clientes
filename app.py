@@ -3158,54 +3158,39 @@ def reporte_proyecciones():
         return redirect(url_for('gestion_administrativa'))
 
     hoy = get_venezuela_current_date()
-    simulacion_realizada = 'fecha_inicio' in request.args
+    simulacion_realizada = False
+    
+    # --- PASO 1: INTENTAR CARGAR LA ÚLTIMA PROYECCIÓN GUARDADA ---
+    # Si el usuario solo está visitando la página, intentamos cargar lo último que calculó.
+    if not request.args:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT * FROM proyecciones_activas ORDER BY ano_proyeccion DESC, mes_proyeccion DESC LIMIT 1")
+                ultima_proyeccion = cur.fetchone()
+                if ultima_proyeccion:
+                    # Si encontramos una, usamos sus parámetros para recalcular y mostrar
+                    parametros = ultima_proyeccion['parametros_simulacion']
+                    fecha_inicio = datetime.strptime(parametros.get('fecha_inicio'), '%Y-%m-%d').date()
+                    meses_a_proyectar = parametros.get('meses', 1)
+                    simulacion_realizada = True
+        except (psycopg2.Error, KeyError):
+            ultima_proyeccion = None # Si falla, continuamos como si no hubiera nada guardado
+    
+    # --- PASO 2: PROCESAR EL FORMULARIO SI EL USUARIO HACE CLIC EN "CALCULAR" ---
+    # Si el usuario envía el formulario, estos valores tienen prioridad.
+    if 'fecha_inicio' in request.args:
+        simulacion_realizada = True
+        try:
+            fecha_inicio_str = request.args.get('fecha_inicio', hoy.strftime('%Y-%m-%d'))
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+            meses_a_proyectar = int(request.args.get('meses', 1))
+        except (ValueError, InvalidOperation):
+            fecha_inicio = hoy
+            meses_a_proyectar = 1
 
-    # --- Lógica de Parámetros y Tasas ---
-    tasa_dolar_db, tasa_euro_db = None, None
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv ORDER BY fecha DESC LIMIT 1")
-            tasas_recientes = cur.fetchone()
-            if tasas_recientes:
-                tasa_dolar_db = tasas_recientes['tasa']
-                tasa_euro_db = tasas_recientes['tasa_euro']
-    except psycopg2.Error as e:
-        flash("No se pudieron cargar las tasas de cambio automáticamente.", "warning")
-
-    try:
-        fecha_inicio_str = request.args.get('fecha_inicio', hoy.strftime('%Y-%m-%d'))
-        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
-        meses_a_proyectar = int(request.args.get('meses', 1)) # Se mantiene para la lógica de resumen
-        
-        # Se leen los parámetros del formulario o se usan los de la BD
-        tasa_bcv_dolar_str = request.args.get('tasa_bcv_dolar_inicio') or (f"{tasa_dolar_db:.4f}" if tasa_dolar_db else "")
-        tasa_bcv_euro_str = request.args.get('tasa_bcv_euro_inicio') or (f"{tasa_euro_db:.4f}" if tasa_euro_db else "")
-        margen_dolar_pct = Decimal(request.args.get('margen_dolar_pct', '5.0'))
-        margen_euro_pct = Decimal(request.args.get('margen_euro_pct', '8.0'))
-        margen_binance_pct = Decimal(request.args.get('margen_binance_pct', '5.0'))
-        
-    except (ValueError, InvalidOperation):
-        # Fallback en caso de error
-        fecha_inicio = hoy
-        meses_a_proyectar = 1
-        tasa_bcv_dolar_str = f"{tasa_dolar_db:.4f}" if tasa_dolar_db else ""
-        tasa_bcv_euro_str = f"{tasa_euro_db:.4f}" if tasa_euro_db else ""
-        margen_dolar_pct = Decimal('5.0')
-        margen_euro_pct = Decimal('8.0')
-        margen_binance_pct = Decimal('5.0')
-
-    # --- INICIO DE LA CORRECCIÓN ---
+    # --- PASO 3: INICIALIZAR LA ESTRUCTURA DE DATOS ---
     proyecciones = {
-        'parametros': {
-            'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
-            'meses': meses_a_proyectar,
-            'tasa_bcv_dolar_inicio': tasa_bcv_dolar_str,
-            'tasa_bcv_euro_inicio': tasa_bcv_euro_str,
-            'margen_dolar_pct': margen_dolar_pct,
-            'margen_euro_pct': margen_euro_pct,
-            'margen_binance_pct': margen_binance_pct,
-            'devaluacion_ponderada': None  # <-- SE AÑADE LA CLAVE FALTANTE AQUÍ
-        },
+        'parametros': { 'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d') if 'fecha_inicio' in locals() else hoy.strftime('%Y-%m-%d'), 'meses': meses_a_proyectar if 'meses_a_proyectar' in locals() else 1 },
         'simulacion_exitosa': False, 'mensaje_error': None,
         'ingresos': {
             'clientes_activos': 0, 'base_mensual': Decimal('0.0'),
@@ -3219,46 +3204,47 @@ def reporte_proyecciones():
             'balance_neto_proyectado': Decimal('0.0')
         }
     }
-    # --- FIN DE LA CORRECCIÓN ---
 
-    try:
-        with conn.cursor() as cur:
-            # Cálculos de Ingresos
-            cur.execute("SELECT COUNT(*) as total_clientes, COALESCE(SUM(valor_cuota), 0) as total_cuotas FROM clientes WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR'")
-            ingresos_base = cur.fetchone()
-            proyecciones['ingresos']['clientes_activos'] = ingresos_base['total_clientes']
-            proyecciones['ingresos']['base_mensual'] = ingresos_base['total_cuotas']
+    # --- PASO 4: EJECUTAR LOS CÁLCULOS SI HAY UNA SIMULACIÓN ACTIVA ---
+    if simulacion_realizada:
+        try:
+            with conn.cursor() as cur:
+                # --- Parámetros de Ingresos ---
+                cur.execute("SELECT COUNT(*) as total_clientes, COALESCE(SUM(valor_cuota), 0) as total_cuotas FROM clientes WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR'")
+                ingresos_base = cur.fetchone()
+                proyecciones['ingresos']['clientes_activos'] = ingresos_base['total_clientes']
+                proyecciones['ingresos']['base_mensual'] = ingresos_base['total_cuotas']
 
-            fecha_hace_30_dias = hoy - timedelta(days=30)
-            cur.execute("""
-                SELECT COUNT(DISTINCT cliente_id) FROM pagos
-                WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s
-                AND cliente_id IN (SELECT id FROM clientes WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR')
-            """, (fecha_hace_30_dias,))
-            clientes_que_pagaron = cur.fetchone()[0]
-            if proyecciones['ingresos']['clientes_activos'] > 0:
-                tasa_historica = (Decimal(clientes_que_pagaron) / Decimal(proyecciones['ingresos']['clientes_activos'])) * 100
-                proyecciones['ingresos']['tasa_pago_historica_pct'] = tasa_historica
+                fecha_hace_30_dias = hoy - timedelta(days=30)
+                cur.execute("""
+                    SELECT COUNT(DISTINCT cliente_id) FROM pagos
+                    WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s
+                    AND cliente_id IN (SELECT id FROM clientes WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR')
+                """, (fecha_hace_30_dias,))
+                clientes_que_pagaron = cur.fetchone()[0]
+                if proyecciones['ingresos']['clientes_activos'] > 0:
+                    tasa_historica = (Decimal(clientes_que_pagaron) / Decimal(proyecciones['ingresos']['clientes_activos'])) * 100
+                    proyecciones['ingresos']['tasa_pago_historica_pct'] = tasa_historica
+                
+                # CORRECCIÓN DE LÓGICA: Se usa la base mensual directamente para la proyección.
+                ingreso_proyectado = proyecciones['ingresos']['base_mensual']
+                proyecciones['ingresos']['ingreso_mensual_proyectado'] = ingreso_proyectado
 
-            ingreso_proyectado = proyecciones['ingresos']['base_mensual'] * (proyecciones['ingresos']['tasa_pago_historica_pct'] / 100)
-            proyecciones['ingresos']['ingreso_mensual_proyectado'] = ingreso_proyectado
+                # --- Parámetros de Gastos (SIN COMISIONES) ---
+                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE tipo_egreso = 'Fijo' AND estado = 'Activo'")
+                gastos_fijos = cur.fetchone()[0] or Decimal('0.0')
+                proyecciones['egresos']['promedio_gastos_fijos'] = gastos_fijos
 
-            # Cálculos de Gastos
-            cur.execute("SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE tipo_egreso = 'Fijo' AND estado = 'Activo'")
-            gastos_fijos = cur.fetchone()[0] or Decimal('0.0')
-            proyecciones['egresos']['promedio_gastos_fijos'] = gastos_fijos
+                fecha_fin_primer_mes = fecha_inicio + timedelta(days=30)
+                cur.execute("""
+                    SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados
+                    WHERE tipo_egreso IN ('Variable', 'Devolución') AND estado = 'Activo'
+                    AND fecha_pago_programada BETWEEN %s AND %s
+                """, (fecha_inicio, fecha_fin_primer_mes))
+                gastos_variables_primer_mes = cur.fetchone()[0] or Decimal('0.0')
+                proyecciones['egresos']['gasto_proyectado_primer_mes'] = gastos_fijos + gastos_variables_primer_mes
 
-            fecha_fin_primer_mes = fecha_inicio + timedelta(days=30)
-            cur.execute("""
-                SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados
-                WHERE tipo_egreso IN ('Variable', 'Devolución') AND estado = 'Activo'
-                AND fecha_pago_programada BETWEEN %s AND %s
-            """, (fecha_inicio, fecha_fin_primer_mes))
-            gastos_variables_primer_mes = cur.fetchone()[0] or Decimal('0.0')
-            proyecciones['egresos']['gasto_proyectado_primer_mes'] = gastos_fijos + gastos_variables_primer_mes
-
-            # Resumen de la Proyección (si se ejecutó la simulación)
-            if simulacion_realizada:
+                # --- Resumen General de la Proyección ---
                 proyecciones['simulacion_exitosa'] = True
                 ingresos_totales = ingreso_proyectado * meses_a_proyectar
                 gastos_totales = proyecciones['egresos']['gasto_proyectado_primer_mes'] * meses_a_proyectar
@@ -3266,10 +3252,29 @@ def reporte_proyecciones():
                 proyecciones['resumen']['ingresos_totales_proyectados'] = ingresos_totales
                 proyecciones['resumen']['gastos_totales_proyectados'] = gastos_totales
                 proyecciones['resumen']['balance_neto_proyectado'] = ingresos_totales - gastos_totales
-            
-    except (psycopg2.Error, InvalidOperation, TypeError) as e:
-        proyecciones['mensaje_error'] = f"Error al calcular la proyección: {e}"
-        logging.error(f"Error en reporte_proyecciones: {traceback.format_exc()}")
+
+                # --- PASO 5: GUARDAR LA NUEVA PROYECCIÓN EN LA BASE DE DATOS ---
+                # Si el usuario calculó una nueva, se guarda para que sea la "activa".
+                if 'fecha_inicio' in request.args:
+                    parametros_str = json.dumps(proyecciones['parametros'], default=str)
+                    resultados_str = json.dumps(proyecciones['resumen'], default=str)
+                    mes = fecha_inicio.month
+                    ano = fecha_inicio.year
+                    cur.execute("""
+                        INSERT INTO proyecciones_activas (mes_proyeccion, ano_proyeccion, parametros_simulacion, resultados_resumen, creado_por_id)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (mes_proyeccion, ano_proyeccion) DO UPDATE SET
+                            parametros_simulacion = EXCLUDED.parametros_simulacion,
+                            resultados_resumen = EXCLUDED.resultados_resumen,
+                            creado_por_id = EXCLUDED.creado_por_id,
+                            fecha_creacion = NOW()
+                    """, (mes, ano, parametros_str, resultados_str, g.admin['id']))
+                    conn.commit()
+                
+        except (psycopg2.Error, InvalidOperation, TypeError) as e:
+            conn.rollback()
+            proyecciones['mensaje_error'] = f"Error al calcular la proyección: {e}"
+            logging.error(f"Error en reporte_proyecciones: {traceback.format_exc()}")
     
     return render_template('reporte_proyecciones.html', 
                            proyecciones=proyecciones, 
