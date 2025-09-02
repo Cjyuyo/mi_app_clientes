@@ -3291,7 +3291,7 @@ def reporte_proyecciones():
     except psycopg2.Error as e:
         flash("No se pudieron cargar las tasas de cambio automáticamente.", "warning")
 
-     try:
+    try:
         fecha_inicio_str = request.args.get('fecha_inicio', hoy.strftime('%Y-%m-%d'))
         fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
         
