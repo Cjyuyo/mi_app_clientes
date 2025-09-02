@@ -3273,14 +3273,13 @@ def reporte_proyecciones():
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", "danger")
-        return redirect(url_for('gestion_administrativa')) # Assumed endpoint
+        return redirect(url_for('gestion_administrativa'))
 
     hoy = get_venezuela_current_date()
     simulacion_realizada = 'fecha_inicio' in request.args
 
     tasa_dolar_db, tasa_euro_db = None, None
     try:
-        # This part requires a live DB connection, will be skipped in placeholder
         if conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv ORDER BY fecha DESC LIMIT 1")
@@ -3297,7 +3296,6 @@ def reporte_proyecciones():
         
         tasa_bcv_dolar_str = request.args.get('tasa_bcv_dolar_inicio') or (f"{tasa_dolar_db:.4f}" if tasa_dolar_db else "")
         tasa_bcv_euro_str = request.args.get('tasa_bcv_euro_inicio') or (f"{tasa_euro_db:.4f}" if tasa_euro_db else "")
-        # >>> MODIFICACIÓN: Se quita devaluacion_pct de aquí porque ya está en los parámetros de la simulación
     except (ValueError, InvalidOperation):
         fecha_inicio = hoy
         tasa_bcv_dolar_str = f"{tasa_dolar_db:.4f}" if tasa_dolar_db else ""
@@ -3306,7 +3304,6 @@ def reporte_proyecciones():
     proyecciones = {
         'parametros': {
             'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
-            # >>> MODIFICACIÓN: El valor de devaluacion_pct ahora se obtiene del request.args
             'devaluacion_pct': Decimal(request.args.get('devaluacion_pct', '20.0')),
             'tasa_bcv_dolar_inicio': tasa_bcv_dolar_str,
             'tasa_bcv_euro_inicio': tasa_bcv_euro_str,
@@ -3328,9 +3325,7 @@ def reporte_proyecciones():
         },
         'resumen': {
             'ingresos_totales_proyectados': Decimal('0.0'),
-            # >>> INICIO DE LA INTEGRACIÓN: NUEVOS CAMPOS <<<
             'ingreso_real_acumulado': Decimal('0.0'),
-            # >>> FIN DE LA INTEGRACIÓN <<<
             'gastos_totales_proyectados': Decimal('0.0'),
             'balance_neto_proyectado': Decimal('0.0')
         },
@@ -3338,17 +3333,13 @@ def reporte_proyecciones():
             'margen_maniobra_pct': Decimal('0.0'),
             'perdida_devaluacion_usd': Decimal('0.0'),
             'margen_color': 'bg-gray-500',
-            # >>> INICIO DE LA INTEGRACIÓN: NUEVOS CAMPOS <<<
             'progreso_ingreso_pct': 0
-            # >>> FIN DE LA INTEGRACIÓN <<<
         }
     }
-    # --- FIN DE LA CORRECCIÓN ---
 
     if simulacion_realizada and conn:
         try:
             with conn.cursor() as cur:
-                # Cálculos de Ingresos (Lógica existente)
                 cur.execute("""
                     SELECT 
                         COUNT(*) as clientes_activos, 
@@ -3359,19 +3350,16 @@ def reporte_proyecciones():
                 ingresos_data = cur.fetchone()
                 proyecciones['ingresos']['clientes_activos'] = ingresos_data['clientes_activos']
                 proyecciones['ingresos']['base_mensual'] = ingresos_data['total_cuotas']
-                ingreso_proyectado = proyecciones['ingresos']['base_mensual'] # Asumiendo 100% de pago
+                ingreso_proyectado = proyecciones['ingresos']['base_mensual']
                 proyecciones['ingresos']['ingreso_mensual_proyectado'] = ingreso_proyectado
 
-                # >>> INICIO DE LA INTEGRACIÓN: CÁLCULO DEL INGRESO REAL <<<
                 ingreso_real = calcular_ingreso_real_acumulado(fecha_inicio)
                 proyecciones['resumen']['ingreso_real_acumulado'] = ingreso_real
                 
                 if ingreso_proyectado > 0:
                     progreso_pct = (ingreso_real / ingreso_proyectado) * 100
                     proyecciones['kpis']['progreso_ingreso_pct'] = min(float(progreso_pct), 100.0)
-                # >>> FIN DE LA INTEGRACIÓN <<<
 
-                # Cálculos de Gastos (Lógica existente)
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE tipo_egreso = 'Fijo' AND estado = 'Activo'")
                 gastos_fijos = cur.fetchone()[0] or Decimal('0.0')
                 proyecciones['egresos']['promedio_gastos_fijos'] = gastos_fijos
@@ -3382,7 +3370,6 @@ def reporte_proyecciones():
                 gasto_proyectado = gastos_fijos + gastos_variables
                 proyecciones['egresos']['gasto_proyectado_primer_mes'] = gasto_proyectado
 
-                # Cálculo de Devaluación (Lógica existente con ajuste de seguridad)
                 perdida_devaluacion = Decimal('0.0')
                 devaluacion_pct_param = proyecciones['parametros']['devaluacion_pct']
                 if tasa_bcv_dolar_str:
@@ -3398,7 +3385,6 @@ def reporte_proyecciones():
                 
                 proyecciones['kpis']['perdida_devaluacion_usd'] = perdida_devaluacion
 
-                # Resumen y KPIs ajustados (Lógica existente)
                 proyecciones['simulacion_exitosa'] = True
                 proyecciones['resumen']['ingresos_totales_proyectados'] = ingreso_proyectado
                 proyecciones['resumen']['gastos_totales_proyectados'] = gasto_proyectado
@@ -3415,7 +3401,7 @@ def reporte_proyecciones():
                 
         except (psycopg2.Error, InvalidOperation, TypeError) as e:
             proyecciones['mensaje_error'] = f"Error al calcular la proyección: {e}"
-            logging.error(f"Error en el cálculo de la proyección: {traceback.format_exc()}") # Log más detallado
+            logging.error(f"Error en el cálculo de la proyección: {traceback.format_exc()}")
     
     return render_template('reporte_proyecciones.html', 
                            proyecciones=proyecciones, 
@@ -3426,40 +3412,149 @@ def reporte_proyecciones():
 # ===================================================================
 # RUTA PARA CERRAR PROYECCIÓN Y GUARDAR INFORME HISTÓRICO
 # ===================================================================
-@app.route('/proyecciones/cerrar', methods=['POST'])
+@app.route('/reportes/proyecciones', methods=['GET'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
-def proyecciones_cerrar_mes():
-    """
-    Recibe los datos de una proyección simulada, la guarda en el histórico
-    como un registro oficial y redirige al usuario para iniciar una nueva simulación.
-    """
+def reporte_proyecciones():
     conn = get_db()
-    # 1. Obtener los datos de la proyección desde el formulario
-    datos_proyeccion_str = request.form.get('datos_proyeccion')
+    if not conn:
+        flash("Error de conexión a la base de datos.", "danger")
+        return redirect(url_for('gestion_administrativa'))
 
-    if not datos_proyeccion_str:
-        flash('Error: No se recibieron datos de la proyección para cerrar el mes.', 'danger')
-        return redirect(url_for('reporte_proyecciones'))
+    hoy = get_venezuela_current_date()
+    simulacion_realizada = 'fecha_inicio' in request.args
 
-    # 2. Convertir el string JSON a un diccionario de Python
+    tasa_dolar_db, tasa_euro_db = None, None
     try:
-        proyeccion_data = json.loads(datos_proyeccion_str)
-    except json.JSONDecodeError:
-        flash('Error: El formato de los datos de la proyección es inválido.', 'danger')
-        return redirect(url_for('reporte_proyecciones'))
+        if conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv ORDER BY fecha DESC LIMIT 1")
+                tasas_recientes = cur.fetchone()
+                if tasas_recientes:
+                    tasa_dolar_db = tasas_recientes['tasa']
+                    tasa_euro_db = tasas_recientes['tasa_euro']
+    except psycopg2.Error as e:
+        flash("No se pudieron cargar las tasas de cambio automáticamente.", "warning")
 
-    # 3. Lógica para guardar en la base de datos (DEBES ADAPTAR ESTA PARTE)
-    print("Simulando guardado de informe en Base de Datos:", proyeccion_data)
+    try:
+        fecha_inicio_str = request.args.get('fecha_inicio', hoy.strftime('%Y-%m-%d'))
+        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        
+        tasa_bcv_dolar_str = request.args.get('tasa_bcv_dolar_inicio') or (f"{tasa_dolar_db:.4f}" if tasa_dolar_db else "")
+        tasa_bcv_euro_str = request.args.get('tasa_bcv_euro_inicio') or (f"{tasa_euro_db:.4f}" if tasa_euro_db else "")
+    except (ValueError, InvalidOperation):
+        fecha_inicio = hoy
+        tasa_bcv_dolar_str = f"{tasa_dolar_db:.4f}" if tasa_dolar_db else ""
+        tasa_bcv_euro_str = f"{tasa_euro_db:.4f}" if tasa_euro_db else ""
 
-    # 4. Enviar un mensaje de éxito al usuario
-    flash('¡El mes se ha cerrado exitosamente! El informe ha sido guardado en el histórico.', 'success')
+    proyecciones = {
+        'parametros': {
+            'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
+            'devaluacion_pct': Decimal(request.args.get('devaluacion_pct', '20.0')),
+            'tasa_bcv_dolar_inicio': tasa_bcv_dolar_str,
+            'tasa_bcv_euro_inicio': tasa_bcv_euro_str,
+            'margen_dolar_pct': request.args.get('margen_dolar_pct', '15.0'),
+            'margen_euro_pct': request.args.get('margen_euro_pct', '15.0'),
+            'margen_binance_pct': request.args.get('margen_binance_pct', '50.0'),
+            'devaluacion_ponderada': None
+        },
+        'simulacion_exitosa': False, 'mensaje_error': None,
+        'ingresos': {
+            'clientes_activos': 0,
+            'base_mensual': Decimal('0.0'),
+            'tasa_pago_historica_pct': Decimal('100.0'),
+            'ingreso_mensual_proyectado': Decimal('0.0')
+        },
+        'egresos': {
+            'promedio_gastos_fijos': Decimal('0.0'),
+            'gasto_proyectado_primer_mes': Decimal('0.0')
+        },
+        'resumen': {
+            'ingresos_totales_proyectados': Decimal('0.0'),
+            'ingreso_real_acumulado': Decimal('0.0'),
+            'gastos_totales_proyectados': Decimal('0.0'),
+            'balance_neto_proyectado': Decimal('0.0')
+        },
+        'kpis': {
+            'margen_maniobra_pct': Decimal('0.0'),
+            'perdida_devaluacion_usd': Decimal('0.0'),
+            'margen_color': 'bg-gray-500',
+            'progreso_ingreso_pct': 0
+        }
+    }
 
-    # 5. Redirigir al usuario a la página de proyecciones para que pueda empezar de nuevo
-    return redirect(url_for('reporte_proyecciones'))
+    if simulacion_realizada and conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT 
+                        COUNT(*) as clientes_activos, 
+                        COALESCE(SUM(valor_cuota), 0) as total_cuotas 
+                    FROM clientes 
+                    WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR'
+                """)
+                ingresos_data = cur.fetchone()
+                proyecciones['ingresos']['clientes_activos'] = ingresos_data['clientes_activos']
+                proyecciones['ingresos']['base_mensual'] = ingresos_data['total_cuotas']
+                ingreso_proyectado = proyecciones['ingresos']['base_mensual']
+                proyecciones['ingresos']['ingreso_mensual_proyectado'] = ingreso_proyectado
+
+                ingreso_real = calcular_ingreso_real_acumulado(fecha_inicio)
+                proyecciones['resumen']['ingreso_real_acumulado'] = ingreso_real
+                
+                if ingreso_proyectado > 0:
+                    progreso_pct = (ingreso_real / ingreso_proyectado) * 100
+                    proyecciones['kpis']['progreso_ingreso_pct'] = min(float(progreso_pct), 100.0)
+
+                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE tipo_egreso = 'Fijo' AND estado = 'Activo'")
+                gastos_fijos = cur.fetchone()[0] or Decimal('0.0')
+                proyecciones['egresos']['promedio_gastos_fijos'] = gastos_fijos
+
+                fecha_fin_primer_mes = fecha_inicio + timedelta(days=30)
+                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE tipo_egreso IN ('Variable', 'Devolución') AND estado = 'Activo' AND fecha_pago_programada BETWEEN %s AND %s", (fecha_inicio, fecha_fin_primer_mes))
+                gastos_variables = cur.fetchone()[0] or Decimal('0.0')
+                gasto_proyectado = gastos_fijos + gastos_variables
+                proyecciones['egresos']['gasto_proyectado_primer_mes'] = gasto_proyectado
+
+                perdida_devaluacion = Decimal('0.0')
+                devaluacion_pct_param = proyecciones['parametros']['devaluacion_pct']
+                if tasa_bcv_dolar_str:
+                    tasa_bcv_inicio = Decimal(tasa_bcv_dolar_str)
+                    if tasa_bcv_inicio > 0:
+                        balances_caja = calcular_balances_tesoreria()
+                        saldo_bs = balances_caja.get('CAJA_BS_TOTAL', Decimal('0.0'))
+                        
+                        valor_usd_inicial = saldo_bs / tasa_bcv_inicio
+                        tasa_bcv_final = tasa_bcv_inicio * (1 + (devaluacion_pct_param / 100))
+                        valor_usd_final = saldo_bs / tasa_bcv_final
+                        perdida_devaluacion = valor_usd_inicial - valor_usd_final
+                
+                proyecciones['kpis']['perdida_devaluacion_usd'] = perdida_devaluacion
+
+                proyecciones['simulacion_exitosa'] = True
+                proyecciones['resumen']['ingresos_totales_proyectados'] = ingreso_proyectado
+                proyecciones['resumen']['gastos_totales_proyectados'] = gasto_proyectado
+                
+                balance_neto_proyectado = ingreso_proyectado - gasto_proyectado - perdida_devaluacion
+                proyecciones['resumen']['balance_neto_proyectado'] = balance_neto_proyectado
+
+                if ingreso_proyectado > 0:
+                    margen = (balance_neto_proyectado / ingreso_proyectado) * 100
+                    proyecciones['kpis']['margen_maniobra_pct'] = margen
+                    if margen > 30: proyecciones['kpis']['margen_color'] = 'bg-green-500'
+                    elif margen > 10: proyecciones['kpis']['margen_color'] = 'bg-yellow-500'
+                    else: proyecciones['kpis']['margen_color'] = 'bg-red-500'
+                
+        except (psycopg2.Error, InvalidOperation, TypeError) as e:
+            proyecciones['mensaje_error'] = f"Error al calcular la proyección: {e}"
+            logging.error(f"Error en el cálculo de la proyección: {traceback.format_exc()}")
+    
+    return render_template('reporte_proyecciones.html', 
+                           proyecciones=proyecciones, 
+                           simulacion_realizada=simulacion_realizada)
+# ====== FIN DE LA FUNCIÓN MODIFICADA ======
 
 # ====== INICIO: NUEVAS RUTAS PARA GESTIÓN DE PROYECCIONES ======
-
 @app.route('/proyecciones/guardadas')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -3480,6 +3575,66 @@ def proyecciones_guardadas():
             flash(f"Error al cargar las proyecciones guardadas: {e}", "danger")
     
     return render_template('proyecciones_guardadas.html', proyecciones=proyecciones)
+
+@app.route('/proyecciones/activar', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def activar_proyeccion():
+    conn = get_db()
+    try:
+        # Se obtienen los datos serializados del formulario
+        parametros_str = request.form.get('parametros_simulacion')
+        resultados_str = request.form.get('resultados_resumen')
+        
+        if not all([parametros_str, resultados_str]):
+            flash("Faltan datos para activar la proyección.", "danger")
+            return redirect(url_for('reporte_proyecciones'))
+
+        parametros = json.loads(parametros_str)
+        
+        # Determinar mes y año a partir de la fecha de inicio
+        fecha_inicio = datetime.strptime(parametros['fecha_inicio'], '%Y-%m-%d').date()
+        mes = fecha_inicio.month
+        ano = fecha_inicio.year
+
+        with conn.cursor() as cur:
+            # UPSERT: Inserta una nueva proyección o actualiza la existente para el mismo mes/año
+            cur.execute("""
+                INSERT INTO proyecciones_activas (mes_proyeccion, ano_proyeccion, parametros_simulacion, resultados_resumen, creado_por_id)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (mes_proyeccion, ano_proyeccion) DO UPDATE SET
+                    parametros_simulacion = EXCLUDED.parametros_simulacion,
+                    resultados_resumen = EXCLUDED.resultados_resumen,
+                    creado_por_id = EXCLUDED.creado_por_id,
+                    fecha_creacion = NOW(),
+                    estado = 'Activa'
+            """, (mes, ano, parametros_str, resultados_str, g.admin['id']))
+        conn.commit()
+        flash(f"Proyección para {get_nombre_mes(mes)}/{ano} guardada y activada exitosamente.", "success")
+    except (psycopg2.Error, json.JSONDecodeError, KeyError) as e:
+        conn.rollback()
+        flash(f"Error al activar la proyección: {e}", "danger")
+        logging.error(f"Error en activar_proyeccion: {traceback.format_exc()}")
+
+    return redirect(url_for('proyecciones_guardadas'))
+
+@app.route('/proyecciones/<int:proyeccion_id>/desactivar', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def desactivar_proyeccion(proyeccion_id):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            # En lugar de borrar, la marcamos como Inactiva para mantener el histórico
+            cur.execute("UPDATE proyecciones_activas SET estado = 'Inactiva' WHERE id = %s", (proyeccion_id,))
+        conn.commit()
+        flash("Proyección desactivada correctamente.", "warning")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error al desactivar la proyección: {e}", "danger")
+
+    return redirect(url_for('proyecciones_guardadas'))
+# ====== FIN: NUEVAS RUTAS PARA GESTIÓN DE PROYECCIONES ======
 
 @app.route('/proyecciones/activar', methods=['POST'])
 @admin_required
