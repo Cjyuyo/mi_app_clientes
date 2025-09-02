@@ -2,14 +2,12 @@
 
 {% block title %}Planificación Financiera{% endblock %}
 
-{% block page_title %}Planificación Financiera{% endblock %}
-
 {% block body %}
 <div class="space-y-8">
 
     <header class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <form method="GET" action="{{ url_for('reporte_proyecciones') }}">
-            <div class="flex items-center gap-4 mb-4">
+        <div class="flex flex-col md:flex-row justify-between md:items-center">
+            <div class="flex items-center gap-4 mb-4 md:mb-0">
                 <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-sky-100 text-sky-600">
                     <i class="bi bi-sliders text-2xl"></i>
                 </div>
@@ -18,88 +16,90 @@
                     <p class="text-slate-500 mt-1">Define las variables para simular el comportamiento financiero futuro.</p>
                 </div>
             </div>
-            
-            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 items-end bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <div>
+                <a href="{{ url_for('proyecciones_guardadas') }}" class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 flex items-center">
+                    <i class="bi bi-clock-history mr-2"></i>
+                    Ver Proyecciones Guardadas
+                </a>
+            </div>
+        </div>
+        
+        <form method="GET" action="{{ url_for('reporte_proyecciones') }}" class="mt-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 items-end bg-slate-50 p-4 rounded-lg border border-slate-200">
                 
-                {% set is_locked = simulacion_realizada and g.admin.rol != 'superadmin' %}
-
                 <div>
                     <label for="fecha_inicio" class="text-xs font-medium text-slate-600">Fecha de Inicio</label>
                     <input type="date" name="fecha_inicio" id="fecha_inicio" value="{{ proyecciones.parametros.fecha_inicio }}" 
-                           class="mt-1 form-input w-full rounded-md border-slate-300 text-sm {{ 'bg-slate-100 cursor-not-allowed' if is_locked else '' }}"
-                           {{ 'readonly' if is_locked else '' }}>
+                           class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
                 </div>
                  <div>
                     <label for="tasa_bcv_dolar_inicio" class="text-xs font-medium text-slate-600">Tasa BCV Dólar</label>
                     <input type="text" inputmode="decimal" name="tasa_bcv_dolar_inicio" id="tasa_bcv_dolar_inicio" 
                            value="{{ proyecciones.parametros.tasa_bcv_dolar_inicio }}" placeholder="Auto" 
-                           class="mt-1 form-input w-full rounded-md border-slate-300 text-sm {{ 'bg-slate-100 cursor-not-allowed' if is_locked else '' }}"
-                           {{ 'readonly' if is_locked else '' }}>
+                           class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
                 </div>
                  <div>
                     <label for="tasa_bcv_euro_inicio" class="text-xs font-medium text-slate-600">Tasa BCV Euro</label>
                     <input type="text" inputmode="decimal" name="tasa_bcv_euro_inicio" id="tasa_bcv_euro_inicio" 
                            value="{{ proyecciones.parametros.tasa_bcv_euro_inicio }}" placeholder="Auto" 
-                           class="mt-1 form-input w-full rounded-md border-slate-300 text-sm {{ 'bg-slate-100 cursor-not-allowed' if is_locked else '' }}"
-                           {{ 'readonly' if is_locked else '' }}>
+                           class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
                 </div>
                 <div>
-                    <label for="margen_dolar_pct" class="text-xs font-medium text-slate-600">Margen Dólar</label>
+                    <label for="devaluacion_pct" class="text-xs font-medium text-slate-600">Devaluación Proyectada</label>
                     <div class="relative mt-1">
-                        <input type="text" name="margen_dolar_pct" value="{{ proyecciones.parametros.margen_dolar_pct }}" 
-                               class="form-input w-full rounded-md border-slate-300 text-sm pr-8 {{ 'bg-slate-100 cursor-not-allowed' if is_locked else '' }}" 
-                               {{ 'readonly' if is_locked else '' }}>
+                        <input type="text" name="devaluacion_pct" value="{{ proyecciones.parametros.devaluacion_pct }}" 
+                               class="form-input w-full rounded-md border-slate-300 text-sm pr-8">
                         <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span>
                     </div>
-                </div>
-                <div>
-                    <label for="margen_euro_pct" class="text-xs font-medium text-slate-600">Margen Euro</label>
-                    <div class="relative mt-1">
-                        <input type="text" name="margen_euro_pct" value="{{ proyecciones.parametros.margen_euro_pct }}" 
-                               class="form-input w-full rounded-md border-slate-300 text-sm pr-8 {{ 'bg-slate-100 cursor-not-allowed' if is_locked else '' }}" 
-                               {{ 'readonly' if is_locked else '' }}>
-                        <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span>
-                    </div>
-                </div>
-                <div>
-                    <label for="margen_binance_pct" class="text-xs font-medium text-slate-600">Margen Binance</label>
-                    <div class="relative mt-1">
-                        <input type="text" name="margen_binance_pct" value="{{ proyecciones.parametros.margen_binance_pct }}" 
-                               class="form-input w-full rounded-md border-slate-300 text-sm pr-8 {{ 'bg-slate-100 cursor-not-allowed' if is_locked else '' }}" 
-                               {{ 'readonly' if is_locked else '' }}>
-                        <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span>
-                    </div>
-                </div>
-                <div class="col-span-2 md:col-span-1">
-                    <button type="submit" class="btn bg-indigo-600 hover:bg-indigo-700 text-white text-sm h-10 w-full flex items-center justify-center">
-                        <i class="bi bi-calculator-fill mr-2"></i>
-                        Proyectar
-                    </button>
                 </div>
             </div>
-            
-            <div class="mt-4 text-center">
-                <span class="text-sm font-medium text-slate-600">Devaluación Ponderada (calculada):</span>
-                {% if proyecciones.parametros.devaluacion_ponderada is not none %}
-                <span class="ml-2 font-bold text-lg text-indigo-700">{{ "{:,.2f}".format(proyecciones.parametros.devaluacion_ponderada) }}%</span>
-                {% endif %}
+            <div class="flex justify-center mt-4">
+                 <button type="submit" class="py-2 px-8 rounded-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center">
+                    <i class="bi bi-calculator-fill mr-2"></i>
+                    Simular Proyección
+                </button>
             </div>
         </form>
     </header>
 
-    {% if simulacion_realizada %}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    {% if simulacion_realizada and proyecciones.simulacion_exitosa %}
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-green-300 bg-green-50 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p class="text-sm text-green-800 font-medium text-center md:text-left">
+                <i class="bi bi-info-circle-fill mr-2"></i>
+                Esta es una simulación. Si los resultados son correctos, puedes guardarla como la <strong>proyección activa</strong> para este mes.
+            </p>
+            <form method="POST" action="{{ url_for('activar_proyeccion') }}">
+                <input type="hidden" name="parametros_simulacion" value="{{ proyecciones.parametros|tojson }}">
+                <input type="hidden" name="resultados_resumen" value="{{ {'resumen': proyecciones.resumen, 'kpis': proyecciones.kpis}|tojson }}">
+                
+                <button type="submit" class="py-2 px-6 rounded-md text-sm font-semibold text-white bg-green-600 hover:bg-green-700 flex items-center justify-center w-full md:w-auto">
+                    <i class="bi bi-check-circle-fill mr-2"></i>
+                    Activar esta Proyección
+                </button>
+            </form>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-start gap-4">
                 <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-green-100 text-green-600"><i class="bi bi-arrow-down-circle-fill text-2xl"></i></div>
                 <div>
-                    <p class="text-sm text-slate-500 font-medium">Ingresos Totales Proyectados</p>
+                    <p class="text-sm text-slate-500 font-medium">Ingresos Proyectados</p>
                     <p class="text-3xl font-bold text-slate-800 mt-1">${{ "{:,.2f}".format(proyecciones.resumen.ingresos_totales_proyectados) }}</p>
                 </div>
             </div>
+            
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-start gap-4">
+                <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-teal-100 text-teal-600"><i class="bi bi-cash-stack text-2xl"></i></div>
+                <div>
+                    <p class="text-sm text-slate-500 font-medium">Ingreso Real Acumulado</p>
+                    <p class="text-3xl font-bold text-teal-600 mt-1">${{ "{:,.2f}".format(proyecciones.resumen.ingreso_real_acumulado) }}</p>
+                </div>
+            </div>
+
             <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-start gap-4">
                 <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-red-100 text-red-600"><i class="bi bi-arrow-up-circle-fill text-2xl"></i></div>
                 <div>
-                    <p class="text-sm text-slate-500 font-medium">Gastos Totales Proyectados</p>
+                    <p class="text-sm text-slate-500 font-medium">Gastos Proyectados</p>
                     <p class="text-3xl font-bold text-slate-800 mt-1">${{ "{:,.2f}".format(proyecciones.resumen.gastos_totales_proyectados) }}</p>
                 </div>
             </div>
@@ -112,44 +112,13 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border">
-                <h3 class="text-lg font-bold text-slate-800 mb-2">Tolerancia / Margen de Maniobra</h3>
-                <p class="text-xs text-slate-500 mb-3">Qué porcentaje de tus ingresos proyectados representa tu ganancia neta.</p>
-                <div class="w-full bg-slate-200 rounded-full h-8">
-                    <div class="{{ proyecciones.kpis.margen_color }} h-8 rounded-full text-center text-white text-sm font-bold flex items-center justify-center" 
-                         style="width: {{ [proyecciones.kpis.margen_maniobra_pct, 100]|min }}%;">
-                         {{ "{:,.1f}".format(proyecciones.kpis.margen_maniobra_pct) }}%
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-red-200 bg-red-50">
-                <h3 class="text-lg font-bold text-red-800 mb-2">Impacto por Devaluación</h3>
-                 <p class="text-xs text-red-700 mb-3">Pérdida de valor estimada sobre tu saldo actual en Bolívares.</p>
-                <p class="text-2xl font-bold text-red-800">(-${{ "{:,.2f}".format(proyecciones.kpis.perdida_devaluacion_usd) }})</p>
-            </div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><i class="bi bi-plus-circle-fill text-green-500"></i>Parámetros de Ingresos</h3>
-                <div class="space-y-3">
-                    <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border"><span class="font-medium text-slate-600">Clientes Ahorradores Activos</span><span class="font-bold text-slate-800 text-base">{{ proyecciones.ingresos.clientes_activos }}</span></div>
-                    <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border"><span class="font-medium text-slate-600">Suma de Cuotas Mensuales (Base)</span><span class="font-bold text-slate-800 text-base">${{ "{:,.2f}".format(proyecciones.ingresos.base_mensual) }}</span></div>
-                    <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border"><span class="font-medium text-slate-600">Tasa de Pago Histórica (Ajuste)</span><span class="font-bold text-slate-800 text-base">{{ "{:,.1f}".format(proyecciones.ingresos.tasa_pago_historica_pct) }}%</span></div>
-                    <div class="flex justify-between items-center p-3 rounded-lg bg-blue-50 border-2 border-blue-200">
-                        <span class="font-semibold text-blue-800">Ingreso Mensual Proyectado</span>
-                        <span class="font-bold text-lg text-blue-800">${{ "{:,.2f}".format(proyecciones.ingresos.ingreso_mensual_proyectado) }}</span>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><i class="bi bi-dash-circle-fill text-red-500"></i>Parámetros de Gastos</h3>
-                <div class="space-y-3">
-                    <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 border"><span class="font-medium text-slate-600">Promedio de Gastos Fijos Mensuales</span><span class="font-bold text-slate-800 text-base">${{ "{:,.2f}".format(proyecciones.egresos.promedio_gastos_fijos) }}</span></div>
-                    <div class="flex justify-between items-center p-3 rounded-lg bg-red-50 border-2 border-red-200">
-                        <span class="font-semibold text-red-800">Gasto Proyectado (Primer Mes)</span>
-                        <span class="font-bold text-lg text-red-800">${{ "{:,.2f}".format(proyecciones.egresos.gasto_proyectado_primer_mes) }}</span>
-                    </div>
+        <div class="bg-white p-6 rounded-xl shadow-sm border">
+            <h3 class="text-lg font-bold text-slate-800 mb-2">Progreso de Ingresos (Real vs. Proyectado)</h3>
+            <p class="text-xs text-slate-500 mb-3">Porcentaje del ingreso proyectado que ha sido conciliado a la fecha.</p>
+            <div class="w-full bg-slate-200 rounded-full h-8">
+                <div class="bg-teal-500 h-8 rounded-full text-center text-white text-sm font-bold flex items-center justify-center" 
+                     style="width: {{ proyecciones.kpis.progreso_ingreso_pct }}%;">
+                     {{ "{:,.1f}".format(proyecciones.kpis.progreso_ingreso_pct) }}%
                 </div>
             </div>
         </div>
@@ -161,8 +130,8 @@
     {% else %}
         <div class="text-center py-12">
             <div class="text-5xl text-slate-300 mb-4"><i class="bi bi-search"></i></div>
-            <h3 class="text-xl font-semibold text-slate-600">Define los parámetros y haz clic en "Proyectar"</h3>
-            <p class="text-slate-500 mt-2">Ingresa los 7 campos de variables para generar una nueva proyección financiera.</p>
+            <h3 class="text-xl font-semibold text-slate-600">Define los parámetros y haz clic en "Simular Proyección"</h3>
+            <p class="text-slate-500 mt-2">Ingresa las variables para generar una nueva simulación financiera.</p>
         </div>
     {% endif %}
     
