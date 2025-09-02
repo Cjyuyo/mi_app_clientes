@@ -4015,9 +4015,13 @@ def consulta():
                            admin_rol=g.admin['rol'])
 
 # 3. AÑADE ESTA NUEVA RUTA A CUALQUIER PARTE DE TU ARCHIVO APP.PY
+# COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
+
+# COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
+
 @app.route('/upload_clientes', methods=['GET', 'POST'])
-@admin_required 
-@rol_requerido('superadmin', 'gerente')  # <-- AÑADE ESTA LÍNEA
+@admin_required
+@rol_requerido('superadmin', 'gerente')
 def upload_clientes():
     if request.method == 'POST':
         if 'archivo_excel' not in request.files:
@@ -4031,22 +4035,18 @@ def upload_clientes():
             return redirect(request.url)
 
         if file and (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
-            conn = None  # Inicializar conn
-            cursor = None # Inicializar cursor
+            conn = None
+            cursor = None
+            DATABASE_URL = os.getenv('DATABASE_URL')
             try:
+                from urllib.parse import urlparse
+                import pg8000.dbapi
+
                 df = pd.read_excel(file)
                 df.dropna(subset=['N⁰ CEDULA'], inplace=True)
 
                 url = urlparse(DATABASE_URL)
-                conn_details = {
-                    "user": url.username,
-                    "password": url.password,
-                    "host": url.hostname,
-                    "port": url.port,
-                    "database": url.path[1:],
-                    "ssl_context": True
-                }
-                
+                conn_details = { "user": url.username, "password": url.password, "host": url.hostname, "port": url.port, "database": url.path[1:] }
                 conn = pg8000.dbapi.connect(**conn_details)
                 cursor = conn.cursor()
 
@@ -4065,16 +4065,11 @@ def upload_clientes():
                 """
                 cursor.execute(create_table_sql)
 
-                df.columns = [str(col).strip().lower() for col in df.columns]
-                cols = pd.Series(df.columns)
-                estatus_indices = cols[cols == 'estatus'].index
-                if len(estatus_indices) > 1:
-                    cols.iloc[estatus_indices[1]] = 'estatus_pago'
-                df.columns = cols
+                df.columns = [str(col).strip().upper() for col in df.columns]
                 
                 data_to_insert = []
-                for _, row in df.iterrows():
-                    full_name = str(row.get('nombre y apellido', ''))
+                for index, row in df.iterrows(): # Añadido 'index' para seguimiento de errores
+                    full_name = str(row.get('NOMBRE Y APELLIDO', ''))
                     name_parts = full_name.strip().split(' ', 1)
                     
                     def to_date(date_str):
@@ -4086,14 +4081,14 @@ def upload_clientes():
                         except Exception: return None
 
                     data_tuple = (
-                        str(row.get('n⁰ cedula', '')).split('.')[0], name_parts[0], name_parts[1] if len(name_parts) > 1 else '',
-                        row.get('grupo'), row.get('plan'), row.get('moneda de pago'), row.get('asesor'),
-                        row.get('responsable'), row.get('n⁰ contrato'), row.get('proceso'), row.get('estatus'),
-                        to_date(row.get('fecha de ingreso')), row.get('numero de tlf'), to_numeric(row.get('% inscripcion')),
-                        to_numeric(row.get('inscripcion')), to_numeric(row.get('cuotas totales')), to_numeric(row.get('cuotas pagas')),
-                        row.get('estatus_pago'), to_numeric(row.get('pagos impuntuales')), to_numeric(row.get('cuotas en mora')),
-                        row.get('observación'), to_numeric(row.get('valor de cuota')), to_date(row.get('fecha de pago')),
-                        row.get('estatus cuota'), to_numeric(row.get('valor cancelado'))
+                        str(row.get('N⁰ CEDULA', '')).split('.')[0], name_parts[0], name_parts[1] if len(name_parts) > 1 else '',
+                        row.get('GRUPO'), row.get('PLAN'), row.get('MONEDA DE PAGO'), row.get('ASESOR'),
+                        row.get('RESPONSABLE'), row.get('N⁰ CONTRATO'), row.get('PROCESO'), row.get('ESTATUS'),
+                        to_date(row.get('FECHA DE INGRESO')), row.get('NUMERO DE TLF'), to_numeric(row.get('PORCENTAJE INSCRIPCION')),
+                        to_numeric(row.get('INSCRIPCION')), to_numeric(row.get('CUOTAS TOTALES')), to_numeric(row.get('CUOTAS PAGAS')),
+                        row.get(df.columns[16]), to_numeric(row.get('PAGOS IMPUNTUALES')), to_numeric(row.get('CUOTAS EN MORA')),
+                        row.get('OBSERVACIÓN'), to_numeric(row.get('VALOR DE CUOTA')), to_date(row.get('FECHA DE PAGO')),
+                        row.get('ESTATUS CUOTA'), to_numeric(row.get('VALOR CANCELADO'))
                     )
                     data_to_insert.append(data_tuple)
                 
@@ -4110,10 +4105,21 @@ def upload_clientes():
                 conn.commit()
 
                 flash(f'¡Éxito! Se actualizaron {cursor.rowcount} registros de clientes.', 'success')
-                
+            
+            # ===== INICIO DE LA MODIFICACIÓN DE ERRORES =====
+            except KeyError as e:
+                if conn: conn.rollback()
+                flash(f"Error de columna: No se encontró el encabezado {e} en el archivo Excel. Por favor, verifica que el nombre de la columna sea exactamente igual a la plantilla.", 'error')
+            
+            except (ValueError, TypeError) as e:
+                if conn: conn.rollback()
+                flash(f"Error en el formato de los datos: Se encontró un valor incorrecto en una celda (posiblemente en la fila {index + 2}). Revisa que las columnas de números no contengan texto o símbolos (como '$') y que las fechas sean válidas.", 'error')
+
             except Exception as e:
                 if conn: conn.rollback()
-                flash(f'Ocurrió un error al procesar el archivo: {e}', 'error')
+                flash(f'Ocurrió un error inesperado al procesar el archivo: {e}', 'error')
+            # ===== FIN DE LA MODIFICACIÓN DE ERRORES =====
+            
             finally:
                 if cursor: cursor.close()
                 if conn: conn.close()
