@@ -3161,17 +3161,51 @@ def reporte_proyecciones():
     simulacion_realizada = 'fecha_inicio' in request.args
 
     # --- Lógica de Parámetros y Tasas ---
+    tasa_dolar_db, tasa_euro_db = None, None
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv ORDER BY fecha DESC LIMIT 1")
+            tasas_recientes = cur.fetchone()
+            if tasas_recientes:
+                tasa_dolar_db = tasas_recientes['tasa']
+                tasa_euro_db = tasas_recientes['tasa_euro']
+    except psycopg2.Error as e:
+        flash("No se pudieron cargar las tasas de cambio automáticamente.", "warning")
+
     try:
         fecha_inicio_str = request.args.get('fecha_inicio', hoy.strftime('%Y-%m-%d'))
         fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
-        meses_a_proyectar = int(request.args.get('meses', 1))
+        meses_a_proyectar = int(request.args.get('meses', 1)) # Se mantiene para la lógica de resumen
+        
+        # Se leen los parámetros del formulario o se usan los de la BD
+        tasa_bcv_dolar_str = request.args.get('tasa_bcv_dolar_inicio') or (f"{tasa_dolar_db:.4f}" if tasa_dolar_db else "")
+        tasa_bcv_euro_str = request.args.get('tasa_bcv_euro_inicio') or (f"{tasa_euro_db:.4f}" if tasa_euro_db else "")
+        margen_dolar_pct = Decimal(request.args.get('margen_dolar_pct', '5.0'))
+        margen_euro_pct = Decimal(request.args.get('margen_euro_pct', '8.0'))
+        margen_binance_pct = Decimal(request.args.get('margen_binance_pct', '5.0'))
+        
     except (ValueError, InvalidOperation):
+        # Fallback en caso de error
         fecha_inicio = hoy
         meses_a_proyectar = 1
+        tasa_bcv_dolar_str = f"{tasa_dolar_db:.4f}" if tasa_dolar_db else ""
+        tasa_bcv_euro_str = f"{tasa_euro_db:.4f}" if tasa_euro_db else ""
+        margen_dolar_pct = Decimal('5.0')
+        margen_euro_pct = Decimal('8.0')
+        margen_binance_pct = Decimal('5.0')
 
-    # --- INICIO DE LA NUEVA LÓGICA DE CÁLCULO ---
+    # --- INICIO DE LA CORRECCIÓN ---
     proyecciones = {
-        'parametros': { 'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'), 'meses': meses_a_proyectar },
+        'parametros': {
+            'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
+            'meses': meses_a_proyectar,
+            'tasa_bcv_dolar_inicio': tasa_bcv_dolar_str,
+            'tasa_bcv_euro_inicio': tasa_bcv_euro_str,
+            'margen_dolar_pct': margen_dolar_pct,
+            'margen_euro_pct': margen_euro_pct,
+            'margen_binance_pct': margen_binance_pct,
+            'devaluacion_ponderada': None  # <-- SE AÑADE LA CLAVE FALTANTE AQUÍ
+        },
         'simulacion_exitosa': False, 'mensaje_error': None,
         'ingresos': {
             'clientes_activos': 0, 'base_mensual': Decimal('0.0'),
@@ -3185,16 +3219,16 @@ def reporte_proyecciones():
             'balance_neto_proyectado': Decimal('0.0')
         }
     }
+    # --- FIN DE LA CORRECCIÓN ---
 
     try:
         with conn.cursor() as cur:
-            # --- Parámetros de Ingresos ---
+            # Cálculos de Ingresos
             cur.execute("SELECT COUNT(*) as total_clientes, COALESCE(SUM(valor_cuota), 0) as total_cuotas FROM clientes WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR'")
             ingresos_base = cur.fetchone()
             proyecciones['ingresos']['clientes_activos'] = ingresos_base['total_clientes']
             proyecciones['ingresos']['base_mensual'] = ingresos_base['total_cuotas']
 
-            # Calcular Tasa de Pago Histórica (últimos 30 días)
             fecha_hace_30_dias = hoy - timedelta(days=30)
             cur.execute("""
                 SELECT COUNT(DISTINCT cliente_id) FROM pagos
@@ -3206,11 +3240,10 @@ def reporte_proyecciones():
                 tasa_historica = (Decimal(clientes_que_pagaron) / Decimal(proyecciones['ingresos']['clientes_activos'])) * 100
                 proyecciones['ingresos']['tasa_pago_historica_pct'] = tasa_historica
 
-            # Calcular Ingreso Mensual Proyectado
             ingreso_proyectado = proyecciones['ingresos']['base_mensual'] * (proyecciones['ingresos']['tasa_pago_historica_pct'] / 100)
             proyecciones['ingresos']['ingreso_mensual_proyectado'] = ingreso_proyectado
 
-            # --- Parámetros de Gastos (SIN COMISIONES) ---
+            # Cálculos de Gastos
             cur.execute("SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE tipo_egreso = 'Fijo' AND estado = 'Activo'")
             gastos_fijos = cur.fetchone()[0] or Decimal('0.0')
             proyecciones['egresos']['promedio_gastos_fijos'] = gastos_fijos
@@ -3224,11 +3257,11 @@ def reporte_proyecciones():
             gastos_variables_primer_mes = cur.fetchone()[0] or Decimal('0.0')
             proyecciones['egresos']['gasto_proyectado_primer_mes'] = gastos_fijos + gastos_variables_primer_mes
 
-            # --- Resumen General de la Proyección ---
+            # Resumen de la Proyección (si se ejecutó la simulación)
             if simulacion_realizada:
                 proyecciones['simulacion_exitosa'] = True
                 ingresos_totales = ingreso_proyectado * meses_a_proyectar
-                gastos_totales = proyecciones['egresos']['gasto_proyectado_primer_mes'] * meses_a_proyectar # Simplificación para la proyección
+                gastos_totales = proyecciones['egresos']['gasto_proyectado_primer_mes'] * meses_a_proyectar
                 
                 proyecciones['resumen']['ingresos_totales_proyectados'] = ingresos_totales
                 proyecciones['resumen']['gastos_totales_proyectados'] = gastos_totales
