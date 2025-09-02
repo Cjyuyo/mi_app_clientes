@@ -39,8 +39,8 @@
     <form id="registroForm" action="{{ url_for('registrar_cliente') }}" method="POST" class="space-y-6">
         <input type="hidden" name="foto_cliente" id="foto_cliente" required>
         <input type="hidden" name="foto_cedula" id="foto_cedula" required>
-        <input type="hidden" name="asesor" id="asesor-hidden-input" required>
-        <input type="hidden" name="responsable" id="responsable-hidden-input" required>
+        <input type="hidden" name="asesor_id" id="asesor-hidden-input" required>
+        <input type="hidden" name="responsable_id" id="responsable-hidden-input" required>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -125,7 +125,7 @@
                     <select id="asesor_select" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required>
                         <option value="" selected disabled>-- Seleccione --</option>
                         {% for responsable in responsables %}
-                            <option value="{{ responsable.nombre_completo }}">{{ responsable.nombre_completo }}</option>
+                            <option value="{{ responsable.id }}">{{ responsable.nombre_completo }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -134,7 +134,7 @@
                     <select id="responsable_select" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required>
                         <option value="" selected disabled>-- Seleccione --</option>
                         {% for responsable in responsables %}
-                            <option value="{{ responsable.nombre_completo }}">{{ responsable.nombre_completo }}</option>
+                            <option value="{{ responsable.id }}">{{ responsable.nombre_completo }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -200,7 +200,6 @@
         const cuotaInput = document.getElementById('valor_cuota');
         const cuotaLabel = document.querySelector('label[for="valor_cuota"]');
 
-        // --- INICIO DE LA MODIFICACIÓN ---
         const planMontos = [1400, 1500, 1600, 1700, 1800, 1900, 2000, 2100, 2300, 2400, 2500, 2700, 2800, 2900, 3200, 3300, 3500, 3800, 4500, 5200, 5600, 5900, 6300];
         
         planMontos.forEach(monto => {
@@ -209,7 +208,6 @@
             option.textContent = `$${monto.toLocaleString('es-CO')}`;
             planSelect.appendChild(option);
         });
-        // --- FIN DE LA MODIFICACIÓN ---
 
         function calcularYActualizarCuota() {
             const montoPlan = parseFloat(planSelect.value);
