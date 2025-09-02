@@ -3170,7 +3170,15 @@ def reporte_proyecciones():
 
     # Se inicializan todos los campos que la plantilla usará para evitar errores
     proyecciones = {
-        'parametros': {'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'), 'tasa_bcv_inicio': tasa_bcv_inicio_str, 'margen_euro_pct': margen_euro_pct, 'margen_binance_pct': margen_binance_pct, 'meses': meses_a_proyectar, 'devaluacion_pct': tasa_devaluacion_mensual_pct},
+        'parametros': {
+            'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'), 
+            'tasa_bcv_inicio': tasa_bcv_inicio_str, 
+            'margen_euro_pct': margen_euro_pct, 
+            'margen_binance_pct': margen_binance_pct, 
+            'meses': meses_a_proyectar, 
+            'devaluacion_pct': tasa_devaluacion_mensual_pct,
+            'devaluacion_ponderada': None # <-- CORRECCIÓN APLICADA AQUÍ
+        },
         'simulacion_exitosa': False, 'mensaje_error': None,
         'ingresos': {'base_mensual': Decimal('0.0'), 'clientes_activos': 0},
         'egresos': {'total_planificado': Decimal('0.0')},
@@ -3205,6 +3213,9 @@ def reporte_proyecciones():
             proyecciones['egresos']['total_planificado'] = cur.fetchone()[0] or Decimal('0.0')
 
             # --- SIMULACIÓN Y RESULTADOS ---
+            # (Aquí iría la lógica futura que SÍ calcula un valor para proyecciones['parametros']['devaluacion_ponderada'])
+            # Por ahora, solo se muestra la estructura base.
+
             proyecciones['simulacion_exitosa'] = True
             total_ingresos_proyectados = proyecciones['ingresos']['base_mensual'] * meses_a_proyectar
             total_egresos_proyectados = proyecciones['egresos']['total_planificado']
