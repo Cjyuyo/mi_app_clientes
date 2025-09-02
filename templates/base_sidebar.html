@@ -148,6 +148,10 @@
                             {% if g.admin.rol in ['superadmin', 'gerente'] %}
                             <li><a href="{{ url_for('dashboard_comercial') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-graph-up-arrow text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Dashboard Comercial</span></a></li>
                             {% endif %}
+
+                            {% if g.admin.rol in ['superadmin', 'gerente'] %}
+                            <li><a href="{{ url_for('upload_clientes') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-cloud-arrow-up-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Cargar Clientes</span></a></li>
+                            {% endif %}
                             {% if g.admin.rol == 'superadmin' %}
                             <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-shield-check text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Auditoría</span></a></li>
                             {% endif %}

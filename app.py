@@ -4016,7 +4016,8 @@ def consulta():
 
 # 3. AÑADE ESTA NUEVA RUTA A CUALQUIER PARTE DE TU ARCHIVO APP.PY
 @app.route('/upload_clientes', methods=['GET', 'POST'])
-@admin_required # Asegúrate que solo los admins puedan acceder
+@admin_required 
+@rol_requerido('superadmin', 'gerente')  # <-- AÑADE ESTA LÍNEA
 def upload_clientes():
     if request.method == 'POST':
         if 'archivo_excel' not in request.files:
@@ -4124,7 +4125,7 @@ def upload_clientes():
             return redirect(request.url)
 
     return render_template('upload_clientes.html')
-    
+
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 @admin_required
 def registrar_pago(client_id):
