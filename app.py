@@ -3319,7 +3319,13 @@ def reporte_proyecciones():
         'ingresos': { 'clientes_activos': 0, 'base_mensual': Decimal('0.0'), 'tasa_pago_historica_pct': Decimal('100.0'), 'ingreso_mensual_proyectado': Decimal('0.0') },
         'egresos': { 'promedio_gastos_fijos': Decimal('0.0'), 'gasto_proyectado_primer_mes': Decimal('0.0') },
         'resumen': { 'ingresos_totales_proyectados': Decimal('0.0'), 'ingreso_real_acumulado': Decimal('0.0'), 'gastos_totales_proyectados': Decimal('0.0'), 'balance_neto_proyectado': Decimal('0.0') },
-        'kpis': { 'margen_maniobra_pct': Decimal('0.0'), 'perdida_devaluacion_usd': Decimal('0.0'), 'margen_color': 'bg-gray-500', 'progreso_ingreso_pct': 0 }
+        'kpis': { 'margen_maniobra_pct': Decimal('0.0'), 'perdida_devaluacion_usd': Decimal('0.0'), 'margen_color': 'bg-gray-500', 'progreso_ingreso_pct': 0 },
+        'gestion_cobranza': {
+            'USD': {'clientes': 0, 'monto': Decimal('0.0')}, 
+            'BsBCV': {'clientes': 0, 'monto': Decimal('0.0')},
+            'EuroBCV': {'clientes': 0, 'monto': Decimal('0.0')},
+            'USDT': {'clientes': 0, 'monto': Decimal('0.0')}
+        }
     }
 
     if simulacion_realizada and conn:
@@ -3353,6 +3359,38 @@ def reporte_proyecciones():
                 gastos_variables_total = sum(gastos_variables_por_metodo.values())
                 gasto_proyectado = gastos_fijos + gastos_variables_total
                 proyecciones['egresos']['gasto_proyectado_primer_mes'] = gasto_proyectado
+
+                # >>> INICIO DE LA MODIFICACIÓN: MAPEO DE MONEDAS <<<
+                # Este mapa traduce los valores de la BD a las claves que usa la plantilla.
+                # ¡IMPORTANTE! Si los nombres en la BD cambian, solo necesitas actualizar este mapa.
+                moneda_map = {
+                    'USD': 'USD',
+                    'BsBCV': 'BsBCV',
+                    'EuroBCV': 'EuroBCV',
+                    'USDT': 'USDT'
+                    # Ejemplo: si en la BD se guarda como 'Dolar', se añadiría: 'Dolar': 'USD'
+                }
+
+                cur.execute("""
+                    SELECT 
+                        moneda_pago,
+                        COUNT(id) as total_clientes,
+                        SUM(valor_cuota) as monto_total
+                    FROM clientes
+                    WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR'
+                    GROUP BY moneda_pago
+                """)
+                cobranza_data = cur.fetchall()
+                for row in cobranza_data:
+                    moneda_db = row['moneda_pago']
+                    # Usamos el mapa para encontrar la clave correcta en nuestro diccionario.
+                    # El .get() previene errores si una moneda de la BD no está en el mapa.
+                    clave_proyeccion = moneda_map.get(moneda_db)
+
+                    if clave_proyeccion:
+                        proyecciones['gestion_cobranza'][clave_proyeccion]['clientes'] = row['total_clientes']
+                        proyecciones['gestion_cobranza'][clave_proyeccion]['monto'] = row['monto_total']
+                # >>> FIN DE LA MODIFICACIÓN <<<
 
                 # Lógica de Pérdidas y Devaluación Ponderada
                 margen_dolar_pct = proyecciones['parametros']['margen_dolar_pct']

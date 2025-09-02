@@ -150,6 +150,71 @@
                 </div>
             </div>
         </div>
+        
+        <!-- INICIO DE LA SECCIÓN DE GESTIÓN DE COBRANZA -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border">
+            <h3 class="text-xl font-bold text-slate-800 mb-4">Gestión de Cobranza Proyectada</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <h4 class="font-semibold text-blue-800 mb-3">Dólar Efectivo (USD)</h4>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center p-3 rounded-md bg-white border">
+                            <span class="font-medium text-slate-600">Clientes</span>
+                            <span class="font-bold text-slate-800 text-base">{{ proyecciones.gestion_cobranza.USD.clientes }}</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 rounded-md bg-white border">
+                            <span class="font-medium text-slate-600">Monto a Cobrar</span>
+                            <span class="font-bold text-slate-800 text-base">${{ "{:,.2f}".format(proyecciones.gestion_cobranza.USD.monto) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                    <h4 class="font-semibold text-green-800 mb-3">Bolívares (BCV)</h4>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center p-3 rounded-md bg-white border">
+                            <span class="font-medium text-slate-600">Clientes</span>
+                            <span class="font-bold text-slate-800 text-base">{{ proyecciones.gestion_cobranza.BsBCV.clientes }}</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 rounded-md bg-white border">
+                            <span class="font-medium text-slate-600">Monto (USD Ref.)</span>
+                            <span class="font-bold text-slate-800 text-base">${{ "{:,.2f}".format(proyecciones.gestion_cobranza.BsBCV.monto) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                    <h4 class="font-semibold text-indigo-800 mb-3">Euros (BCV)</h4>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center p-3 rounded-md bg-white border">
+                            <span class="font-medium text-slate-600">Clientes</span>
+                            <span class="font-bold text-slate-800 text-base">{{ proyecciones.gestion_cobranza.EuroBCV.clientes }}</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 rounded-md bg-white border">
+                            <span class="font-medium text-slate-600">Monto (EUR Ref.)</span>
+                            <span class="font-bold text-slate-800 text-base">€{{ "{:,.2f}".format(proyecciones.gestion_cobranza.EuroBCV.monto) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 p-4 rounded-lg border border-amber-200">
+                    <h4 class="font-semibold text-amber-800 mb-3">Binance (USDT)</h4>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center p-3 rounded-md bg-white border">
+                            <span class="font-medium text-slate-600">Clientes</span>
+                            <span class="font-bold text-slate-800 text-base">{{ proyecciones.gestion_cobranza.USDT.clientes }}</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 rounded-md bg-white border">
+                            <span class="font-medium text-slate-600">Monto a Cobrar</span>
+                            <span class="font-bold text-slate-800 text-base">${{ "{:,.2f}".format(proyecciones.gestion_cobranza.USDT.monto) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <!-- FIN DE LA SECCIÓN DE GESTIÓN DE COBRANZA -->
 
     {% elif proyecciones.mensaje_error %}
         <div class="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 p-4 rounded-md text-center">
