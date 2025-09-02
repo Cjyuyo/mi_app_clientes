@@ -4138,13 +4138,33 @@ def upload_clientes():
 
     return render_template('upload_clientes.html')
 
+    @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
+@admin_required
+def registrar_pago(client_id):
+    """
+    Ruta para que un administrador registre un pago manualmente.
+    """
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('consulta'))
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s", (client_id,))
+        cliente = cur.fetchone()
+        today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
+        cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
+        tasas_hoy = cur.fetchone()
+
+    if not cliente:
+        flash('Cliente no encontrado.', 'error')
+        return redirect(url_for('consulta'))
+
     if request.method == 'POST':
         pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
         
         try:
             with conn.cursor() as cur:
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se obtiene la tasa de cambio del día directamente desde la BD en el backend.
                 cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (get_venezuela_current_date(),))
                 tasa_del_dia_row = cur.fetchone()
                 tasa_bcv_dia = tasa_del_dia_row['tasa'] if tasa_del_dia_row and tasa_del_dia_row['tasa'] else Decimal('0.0')
@@ -4156,17 +4176,14 @@ def upload_clientes():
                 monto_bs_str = pago_form.get('monto_bs', '0').replace(',', '.')
                 monto_bs = Decimal(monto_bs_str) if monto_bs_str else Decimal('0.0')
                 
-                # Se determina el monto oficial en USD que se debe guardar.
                 if pago_form['tipo_pago'] == 'Inscripción':
                     monto_usd_a_guardar = cliente.get('inscripcion_monto', Decimal('0.0'))
-                else: # 'Cuota'
+                else:
                     monto_usd_a_guardar = cliente.get('valor_cuota', Decimal('0.0'))
                 
-                # Si el pago es en Efectivo o Binance, se toma el monto en USD del formulario.
                 if pago_form.get('pago_en') in ['Efectivo USD', 'Binance']:
                     monto_usd_str = pago_form.get('monto', '0').replace(',', '.')
                     monto_usd_a_guardar = Decimal(monto_usd_str) if monto_usd_str else Decimal('0.0')
-                # --- FIN DE LA CORRECCIÓN ---
 
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, lugar_emision,
@@ -4175,11 +4192,11 @@ def upload_clientes():
                 """
                 cur.execute(pago_query, (
                     client_id, 
-                    monto_usd_a_guardar, # Se guarda el monto oficial en USD.
+                    monto_usd_a_guardar,
                     pago_form['tipo_pago'], pago_form['forma_pago'], pago_form['fecha_pago'], pago_form.get('pago_en'), 
                     pago_form.get('por_concepto_de'), pago_form.get('referencia'), pago_form.get('banco'), pago_form.get('lugar_emision'), 
                     tasa_bcv_dia, 
-                    monto_bs, # Se guarda el monto en Bs reportado.
+                    monto_bs,
                     'USD', get_venezuela_current_datetime(), g.admin['id'], None
                 ))
                 conn.commit()
