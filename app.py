@@ -3310,97 +3310,88 @@ def reporte_proyecciones():
             'devaluacion_pct': Decimal(request.args.get('devaluacion_pct', '20.0')),
             'tasa_bcv_dolar_inicio': tasa_bcv_dolar_str,
             'tasa_bcv_euro_inicio': tasa_bcv_euro_str,
-            'margen_dolar_pct': request.args.get('margen_dolar_pct', '15.0'),
-            'margen_euro_pct': request.args.get('margen_euro_pct', '15.0'),
-            'margen_binance_pct': request.args.get('margen_binance_pct', '50.0'),
+            'margen_dolar_pct': Decimal(request.args.get('margen_dolar_pct', '15.0')),
+            'margen_euro_pct': Decimal(request.args.get('margen_euro_pct', '15.0')),
+            'margen_binance_pct': Decimal(request.args.get('margen_binance_pct', '65.0')),
             'devaluacion_ponderada': None
         },
         'simulacion_exitosa': False, 'mensaje_error': None,
-        'ingresos': {
-            'clientes_activos': 0,
-            'base_mensual': Decimal('0.0'),
-            'tasa_pago_historica_pct': Decimal('100.0'),
-            'ingreso_mensual_proyectado': Decimal('0.0')
-        },
-        'egresos': {
-            'promedio_gastos_fijos': Decimal('0.0'),
-            'gasto_proyectado_primer_mes': Decimal('0.0')
-        },
-        'resumen': {
-            'ingresos_totales_proyectados': Decimal('0.0'),
-            'ingreso_real_acumulado': Decimal('0.0'),
-            'gastos_totales_proyectados': Decimal('0.0'),
-            'balance_neto_proyectado': Decimal('0.0')
-        },
-        'kpis': {
-            'margen_maniobra_pct': Decimal('0.0'),
-            'perdida_devaluacion_usd': Decimal('0.0'),
-            'margen_color': 'bg-gray-500',
-            'progreso_ingreso_pct': 0
-        }
+        'ingresos': { 'clientes_activos': 0, 'base_mensual': Decimal('0.0'), 'tasa_pago_historica_pct': Decimal('100.0'), 'ingreso_mensual_proyectado': Decimal('0.0') },
+        'egresos': { 'promedio_gastos_fijos': Decimal('0.0'), 'gasto_proyectado_primer_mes': Decimal('0.0') },
+        'resumen': { 'ingresos_totales_proyectados': Decimal('0.0'), 'ingreso_real_acumulado': Decimal('0.0'), 'gastos_totales_proyectados': Decimal('0.0'), 'balance_neto_proyectado': Decimal('0.0') },
+        'kpis': { 'margen_maniobra_pct': Decimal('0.0'), 'perdida_devaluacion_usd': Decimal('0.0'), 'margen_color': 'bg-gray-500', 'progreso_ingreso_pct': 0 }
     }
 
     if simulacion_realizada and conn:
         try:
             with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT 
-                        COUNT(*) as clientes_activos, 
-                        COALESCE(SUM(valor_cuota), 0) as total_cuotas 
-                    FROM clientes 
-                    WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR'
-                """)
+                # Lógica de Ingresos (sin cambios)
+                cur.execute("SELECT COUNT(*) as clientes_activos, COALESCE(SUM(valor_cuota), 0) as total_cuotas FROM clientes WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR'")
                 ingresos_data = cur.fetchone()
-                proyecciones['ingresos']['clientes_activos'] = ingresos_data['clientes_activos']
-                proyecciones['ingresos']['base_mensual'] = ingresos_data['total_cuotas']
+                proyecciones['ingresos'].update(ingresos_data)
                 ingreso_proyectado = proyecciones['ingresos']['base_mensual']
                 proyecciones['ingresos']['ingreso_mensual_proyectado'] = ingreso_proyectado
-
                 ingreso_real = calcular_ingreso_real_acumulado(fecha_inicio)
                 proyecciones['resumen']['ingreso_real_acumulado'] = ingreso_real
-                
                 if ingreso_proyectado > 0:
-                    progreso_pct = (ingreso_real / ingreso_proyectado) * 100
-                    proyecciones['kpis']['progreso_ingreso_pct'] = min(float(progreso_pct), 100.0)
+                    proyecciones['kpis']['progreso_ingreso_pct'] = min(float((ingreso_real / ingreso_proyectado) * 100), 100.0)
 
+                # Lógica de Gastos (modificada para separar por método de pago)
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE tipo_egreso = 'Fijo' AND estado = 'Activo'")
                 gastos_fijos = cur.fetchone()[0] or Decimal('0.0')
                 proyecciones['egresos']['promedio_gastos_fijos'] = gastos_fijos
 
                 fecha_fin_primer_mes = fecha_inicio + timedelta(days=30)
-                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE tipo_egreso IN ('Variable', 'Devolución') AND estado = 'Activo' AND fecha_pago_programada BETWEEN %s AND %s", (fecha_inicio, fecha_fin_primer_mes))
-                gastos_variables = cur.fetchone()[0] or Decimal('0.0')
-                gasto_proyectado = gastos_fijos + gastos_variables
+                cur.execute("""
+                    SELECT metodo_pago_referencia, COALESCE(SUM(monto), 0) as total 
+                    FROM egresos_planificados 
+                    WHERE tipo_egreso IN ('Variable', 'Devolución') AND estado = 'Activo' AND fecha_pago_programada BETWEEN %s AND %s
+                    GROUP BY metodo_pago_referencia
+                """, (fecha_inicio, fecha_fin_primer_mes))
+                gastos_variables_por_metodo = {row['metodo_pago_referencia']: row['total'] for row in cur.fetchall()}
+                
+                gastos_variables_total = sum(gastos_variables_por_metodo.values())
+                gasto_proyectado = gastos_fijos + gastos_variables_total
                 proyecciones['egresos']['gasto_proyectado_primer_mes'] = gasto_proyectado
 
-                perdida_devaluacion = Decimal('0.0')
-                devaluacion_pct_param = proyecciones['parametros']['devaluacion_pct']
+                # Lógica de Pérdidas y Devaluación Ponderada
+                perdida_devaluacion_bcv = Decimal('0.0')
+                valor_usd_inicial_bs = Decimal('0.0')
+                devaluacion_bcv_pct = proyecciones['parametros']['devaluacion_pct']
+                
                 if tasa_bcv_dolar_str:
                     tasa_bcv_inicio = Decimal(tasa_bcv_dolar_str)
                     if tasa_bcv_inicio > 0:
                         balances_caja = calcular_balances_tesoreria()
                         saldo_bs = balances_caja.get('CAJA_BS_TOTAL', Decimal('0.0'))
+                        valor_usd_inicial_bs = saldo_bs / tasa_bcv_inicio
                         
-                        valor_usd_inicial = saldo_bs / tasa_bcv_inicio
-                        tasa_bcv_final = tasa_bcv_inicio * (1 + (devaluacion_pct_param / 100))
+                        tasa_bcv_final = tasa_bcv_inicio * (1 + (devaluacion_bcv_pct / 100))
                         valor_usd_final = saldo_bs / tasa_bcv_final
-                        perdida_devaluacion = valor_usd_inicial - valor_usd_final
-                
-                proyecciones['kpis']['perdida_devaluacion_usd'] = perdida_devaluacion
+                        perdida_devaluacion_bcv = valor_usd_inicial_bs - valor_usd_final
 
+                gastos_binance = gastos_variables_por_metodo.get('Binance', Decimal('0.0'))
+                margen_binance_pct = proyecciones['parametros']['margen_binance_pct']
+                perdida_transaccional_binance = gastos_binance * (margen_binance_pct / 100)
+
+                perdida_total_proyectada = perdida_devaluacion_bcv + perdida_transaccional_binance
+                proyecciones['kpis']['perdida_devaluacion_usd'] = perdida_total_proyectada
+
+                if valor_usd_inicial_bs > 0:
+                    devaluacion_ponderada = (perdida_total_proyectada / valor_usd_inicial_bs) * 100
+                    proyecciones['parametros']['devaluacion_ponderada'] = devaluacion_ponderada
+
+                # Resumen y KPIs
                 proyecciones['simulacion_exitosa'] = True
                 proyecciones['resumen']['ingresos_totales_proyectados'] = ingreso_proyectado
                 proyecciones['resumen']['gastos_totales_proyectados'] = gasto_proyectado
-                
-                balance_neto_proyectado = ingreso_proyectado - gasto_proyectado - perdida_devaluacion
+                balance_neto_proyectado = ingreso_proyectado - gasto_proyectado - perdida_total_proyectada
                 proyecciones['resumen']['balance_neto_proyectado'] = balance_neto_proyectado
 
                 if ingreso_proyectado > 0:
                     margen = (balance_neto_proyectado / ingreso_proyectado) * 100
                     proyecciones['kpis']['margen_maniobra_pct'] = margen
-                    if margen > 30: proyecciones['kpis']['margen_color'] = 'bg-green-500'
-                    elif margen > 10: proyecciones['kpis']['margen_color'] = 'bg-yellow-500'
-                    else: proyecciones['kpis']['margen_color'] = 'bg-red-500'
+                    proyecciones['kpis']['margen_color'] = 'bg-green-500' if margen > 30 else ('bg-yellow-500' if margen > 10 else 'bg-red-500')
                 
         except (psycopg2.Error, InvalidOperation, TypeError) as e:
             proyecciones['mensaje_error'] = f"Error al calcular la proyección: {e}"
