@@ -3160,7 +3160,6 @@ def reporte_proyecciones():
     hoy = get_venezuela_current_date()
     simulacion_realizada = 'fecha_inicio' in request.args
 
-    # --- Lógica de Parámetros y Tasas ---
     tasa_dolar_db, tasa_euro_db = None, None
     try:
         with conn.cursor() as cur:
@@ -3177,20 +3176,22 @@ def reporte_proyecciones():
         fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
         
         tasa_bcv_dolar_str = request.args.get('tasa_bcv_dolar_inicio') or (f"{tasa_dolar_db:.4f}" if tasa_dolar_db else "")
-        devaluacion_pct = Decimal(request.args.get('devaluacion_pct', '20.0')) 
+        tasa_bcv_euro_str = request.args.get('tasa_bcv_euro_inicio') or (f"{tasa_euro_db:.4f}" if tasa_euro_db else "") # <-- LÍNEA AÑADIDA
+        devaluacion_pct = Decimal(request.args.get('devaluacion_pct', '20.0'))
 
     except (ValueError, InvalidOperation):
         fecha_inicio = hoy
         tasa_bcv_dolar_str = f"{tasa_dolar_db:.4f}" if tasa_dolar_db else ""
+        tasa_bcv_euro_str = f"{tasa_euro_db:.4f}" if tasa_euro_db else "" # <-- LÍNEA AÑADIDA
         devaluacion_pct = Decimal('20.0')
 
-    # --- INICIO DE LA CORRECCIÓN ---
     proyecciones = {
         'parametros': { 
             'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'), 
             'devaluacion_pct': devaluacion_pct, 
             'tasa_bcv_dolar_inicio': tasa_bcv_dolar_str,
-            'devaluacion_ponderada': None # <-- SE AÑADE LA CLAVE FALTANTE AQUÍ
+            'tasa_bcv_euro_inicio': tasa_bcv_euro_str, # <-- LÍNEA AÑADIDA
+            'devaluacion_ponderada': None
         },
         'simulacion_exitosa': False, 'mensaje_error': None,
         'ingresos': { 'base_mensual': Decimal('0.0'), 'ingreso_mensual_proyectado': Decimal('0.0') },
@@ -3198,18 +3199,16 @@ def reporte_proyecciones():
         'resumen': { 'balance_neto_proyectado': Decimal('0.0') },
         'kpis': { 'margen_maniobra_pct': Decimal('0.0'), 'perdida_devaluacion_usd': Decimal('0.0'), 'margen_color': 'bg-gray-500' }
     }
-    # --- FIN DE LA CORRECCIÓN ---
 
     if simulacion_realizada:
         try:
             with conn.cursor() as cur:
-                # Cálculos de Ingresos
+                # (El resto de la lógica de cálculo se mantiene igual)
                 cur.execute("SELECT COALESCE(SUM(valor_cuota), 0) as total_cuotas FROM clientes WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR'")
                 proyecciones['ingresos']['base_mensual'] = cur.fetchone()['total_cuotas']
                 ingreso_proyectado = proyecciones['ingresos']['base_mensual']
                 proyecciones['ingresos']['ingreso_mensual_proyectado'] = ingreso_proyectado
 
-                # Cálculos de Gastos
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE tipo_egreso = 'Fijo' AND estado = 'Activo'")
                 gastos_fijos = cur.fetchone()[0] or Decimal('0.0')
                 fecha_fin_primer_mes = fecha_inicio + timedelta(days=30)
@@ -3218,7 +3217,6 @@ def reporte_proyecciones():
                 gasto_proyectado = gastos_fijos + gastos_variables
                 proyecciones['egresos']['gasto_proyectado_primer_mes'] = gasto_proyectado
 
-                # Cálculo de Devaluación
                 perdida_devaluacion = Decimal('0.0')
                 if tasa_bcv_dolar_str:
                     tasa_bcv_inicio = Decimal(tasa_bcv_dolar_str)
@@ -3233,7 +3231,6 @@ def reporte_proyecciones():
                 
                 proyecciones['kpis']['perdida_devaluacion_usd'] = perdida_devaluacion
 
-                # Resumen y KPIs ajustados
                 proyecciones['simulacion_exitosa'] = True
                 balance_operativo = ingreso_proyectado - gasto_proyectado
                 balance_final = balance_operativo - perdida_devaluacion
