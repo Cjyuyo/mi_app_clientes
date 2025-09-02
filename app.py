@@ -3155,19 +3155,21 @@ def reporte_proyecciones():
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", "danger")
-        return redirect(url_for('gestion_administrativa'))
+        return redirect(url_for('gestion_administrativa')) # Assumed endpoint
 
     hoy = get_venezuela_current_date()
     simulacion_realizada = 'fecha_inicio' in request.args
 
     tasa_dolar_db, tasa_euro_db = None, None
     try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv ORDER BY fecha DESC LIMIT 1")
-            tasas_recientes = cur.fetchone()
-            if tasas_recientes:
-                tasa_dolar_db = tasas_recientes['tasa']
-                tasa_euro_db = tasas_recientes['tasa_euro']
+        # This part requires a live DB connection, will be skipped in placeholder
+        if conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv ORDER BY fecha DESC LIMIT 1")
+                tasas_recientes = cur.fetchone()
+                if tasas_recientes:
+                    tasa_dolar_db = tasas_recientes['tasa']
+                    tasa_euro_db = tasas_recientes['tasa_euro']
     except psycopg2.Error as e:
         flash("No se pudieron cargar las tasas de cambio automáticamente.", "warning")
 
@@ -3187,37 +3189,62 @@ def reporte_proyecciones():
 
     # --- INICIO DE LA CORRECCIÓN ---
     proyecciones = {
-        'parametros': { 
-            'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'), 
-            'devaluacion_pct': devaluacion_pct, 
+        'parametros': {
+            'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
+            'devaluacion_pct': devaluacion_pct,
             'tasa_bcv_dolar_inicio': tasa_bcv_dolar_str,
             'tasa_bcv_euro_inicio': tasa_bcv_euro_str,
-            'devaluacion_ponderada': None 
+            'margen_dolar_pct': request.args.get('margen_dolar_pct', '15.0'),
+            'margen_euro_pct': request.args.get('margen_euro_pct', '15.0'),
+            'margen_binance_pct': request.args.get('margen_binance_pct', '50.0'),
+            'devaluacion_ponderada': None
         },
         'simulacion_exitosa': False, 'mensaje_error': None,
-        'ingresos': { 'base_mensual': Decimal('0.0'), 'ingreso_mensual_proyectado': Decimal('0.0') },
-        'egresos': { 'gasto_proyectado_primer_mes': Decimal('0.0') },
-        'resumen': { 
-            'ingresos_totales_proyectados': Decimal('0.0'), 
-            'gastos_totales_proyectados': Decimal('0.0'),
-            'balance_neto_proyectado': Decimal('0.0') 
+        'ingresos': {
+            'clientes_activos': 0,
+            'base_mensual': Decimal('0.0'),
+            'tasa_pago_historica_pct': Decimal('100.0'),  # <-- CLAVE CRÍTICA AÑADIDA
+            'ingreso_mensual_proyectado': Decimal('0.0')
         },
-        'kpis': { 'margen_maniobra_pct': Decimal('0.0'), 'perdida_devaluacion_usd': Decimal('0.0'), 'margen_color': 'bg-gray-500' }
+        'egresos': {
+            'promedio_gastos_fijos': Decimal('0.0'),
+            'gasto_proyectado_primer_mes': Decimal('0.0')
+        },
+        'resumen': {
+            'ingresos_totales_proyectados': Decimal('0.0'),
+            'gastos_totales_proyectados': Decimal('0.0'),
+            'balance_neto_proyectado': Decimal('0.0')
+        },
+        'kpis': {
+            'margen_maniobra_pct': Decimal('0.0'),
+            'perdida_devaluacion_usd': Decimal('0.0'),
+            'margen_color': 'bg-gray-500'
+        }
     }
     # --- FIN DE LA CORRECCIÓN ---
 
-    if simulacion_realizada:
+    if simulacion_realizada and conn: # Added conn check for placeholder
         try:
             with conn.cursor() as cur:
                 # Cálculos de Ingresos
-                cur.execute("SELECT COALESCE(SUM(valor_cuota), 0) as total_cuotas FROM clientes WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR'")
-                proyecciones['ingresos']['base_mensual'] = cur.fetchone()['total_cuotas']
-                ingreso_proyectado = proyecciones['ingresos']['base_mensual']
+                cur.execute("""
+                    SELECT 
+                        COUNT(*) as clientes_activos, 
+                        COALESCE(SUM(valor_cuota), 0) as total_cuotas 
+                    FROM clientes 
+                    WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR'
+                """)
+                ingresos_data = cur.fetchone()
+                proyecciones['ingresos']['clientes_activos'] = ingresos_data['clientes_activos']
+                proyecciones['ingresos']['base_mensual'] = ingresos_data['total_cuotas']
+                ingreso_proyectado = proyecciones['ingresos']['base_mensual'] # Asumiendo 100% de pago por ahora
                 proyecciones['ingresos']['ingreso_mensual_proyectado'] = ingreso_proyectado
 
                 # Cálculos de Gastos
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE tipo_egreso = 'Fijo' AND estado = 'Activo'")
                 gastos_fijos = cur.fetchone()[0] or Decimal('0.0')
+                proyecciones['egresos']['promedio_gastos_fijos'] = gastos_fijos # Asignando a su clave
+
                 fecha_fin_primer_mes = fecha_inicio + timedelta(days=30)
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE tipo_egreso IN ('Variable', 'Devolución') AND estado = 'Activo' AND fecha_pago_programada BETWEEN %s AND %s", (fecha_inicio, fecha_fin_primer_mes))
                 gastos_variables = cur.fetchone()[0] or Decimal('0.0')
@@ -3239,24 +3266,22 @@ def reporte_proyecciones():
                 
                 proyecciones['kpis']['perdida_devaluacion_usd'] = perdida_devaluacion
 
-                # --- INICIO DE LA CORRECCIÓN ---
                 # Resumen y KPIs ajustados
                 proyecciones['simulacion_exitosa'] = True
-                # Se asume proyección a 1 mes para los totales
                 proyecciones['resumen']['ingresos_totales_proyectados'] = ingreso_proyectado
                 proyecciones['resumen']['gastos_totales_proyectados'] = gasto_proyectado
                 
-                balance_operativo = ingreso_proyectado - gasto_proyectado
-                balance_final = balance_operativo - perdida_devaluacion
-                proyecciones['resumen']['balance_neto_proyectado'] = balance_final
+                # Aquí la pérdida por devaluación se resta del balance. Podría ser controversial,
+                # pero se mantiene según la lógica original.
+                balance_neto_proyectado = ingreso_proyectado - gasto_proyectado - perdida_devaluacion
+                proyecciones['resumen']['balance_neto_proyectado'] = balance_neto_proyectado
 
                 if ingreso_proyectado > 0:
-                    margen = (balance_final / ingreso_proyectado) * 100
+                    margen = (balance_neto_proyectado / ingreso_proyectado) * 100
                     proyecciones['kpis']['margen_maniobra_pct'] = margen
                     if margen > 30: proyecciones['kpis']['margen_color'] = 'bg-green-500'
                     elif margen > 10: proyecciones['kpis']['margen_color'] = 'bg-yellow-500'
                     else: proyecciones['kpis']['margen_color'] = 'bg-red-500'
-                # --- FIN DE LA CORRECCIÓN ---
                 
         except (psycopg2.Error, InvalidOperation, TypeError) as e:
             proyecciones['mensaje_error'] = f"Error al calcular la proyección: {e}"
