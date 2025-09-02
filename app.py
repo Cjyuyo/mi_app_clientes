@@ -3491,45 +3491,7 @@ def desactivar_proyeccion(proyeccion_id):
         flash(f"Error al desactivar la proyección: {e}", "danger")
 
     return redirect(url_for('proyecciones_guardadas'))
-# ====== FIN: NUEVAS RUTAS PARA GESTIÓN DE PROYECCIONES ======
-
-@app.route('/proyecciones/activar', methods=['POST'])
-@admin_required
-@rol_requerido('superadmin', 'gerente')
-def activar_proyeccion():
-    conn = get_db()
-    try:
-        parametros_str = request.form.get('parametros_simulacion')
-        resultados_str = request.form.get('resultados_resumen')
-        
-        parametros = json.loads(parametros_str)
-        resultados = json.loads(resultados_str)
-
-        fecha_inicio = datetime.strptime(parametros['fecha_inicio'], '%Y-%m-%d').date()
-        mes = fecha_inicio.month
-        ano = fecha_inicio.year
-
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO proyecciones_activas (mes_proyeccion, ano_proyeccion, parametros_simulacion, resultados_resumen, creado_por_id)
-                VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT (mes_proyeccion, ano_proyeccion) DO UPDATE SET
-                    parametros_simulacion = EXCLUDED.parametros_simulacion,
-                    resultados_resumen = EXCLUDED.resultados_resumen,
-                    creado_por_id = EXCLUDED.creado_por_id,
-                    fecha_creacion = NOW(),
-                    estado = 'Activa'
-            """, (mes, ano, parametros_str, resultados_str, g.admin['id']))
-        conn.commit()
-        flash(f"Proyección para {get_nombre_mes(mes)}/{ano} guardada y activada exitosamente.", "success")
-    except (psycopg2.Error, json.JSONDecodeError, KeyError) as e:
-        conn.rollback()
-        flash(f"Error al activar la proyección: {e}", "danger")
-        logging.error(f"Error en activar_proyeccion: {traceback.format_exc()}")
-
-    return redirect(url_for('proyecciones_guardadas'))
-
-# ====== FIN: NUEVAS RUTAS PARA GESTIÓN DE PROYECCIONES ======
+# ====== FIN: NUEVAS RUTAS PARA GESTIÓN DE PROYECCIONES =====
 
 @app.route('/proyecciones/<int:proyeccion_id>/desactivar', methods=['POST'])
 @admin_required
