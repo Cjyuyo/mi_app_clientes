@@ -4138,7 +4138,7 @@ def upload_clientes():
 
     return render_template('upload_clientes.html')
 
-    @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
+@app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 @admin_required
 def registrar_pago(client_id):
     """
