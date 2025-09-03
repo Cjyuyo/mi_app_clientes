@@ -1614,8 +1614,7 @@ def reportes_por_revisar():
                 elif reporte['bulk_status'] == 'OPEN':
                     reportes_categorizados['pendientes'].append(reporte)
             
-            # --- INICIO DE LA NUEVA LÓGICA PARA PAGOS DE INSCRIPCIÓN ---
-            # Se añade una nueva consulta para buscar pagos de inscripción pendientes que no tienen un "bulk".
+            # --- INICIO DE LA NUEVA LÓGICA PARA PAGOS DE INSCRIPCIÓN (CORREGIDA) ---
             query_inscripciones = """
                 SELECT 
                     p.id,
@@ -1626,7 +1625,7 @@ def reportes_por_revisar():
                     c.nombre,
                     c.apellido,
                     c.cedula,
-                    c.inscripcion_monto as monto_esperado_usd -- El monto esperado es el total de la inscripción
+                    c.inscripcion as monto_esperado_usd -- CORREGIDO: Se usa 'inscripcion'
                 FROM pagos p
                 JOIN clientes c ON p.cliente_id = c.id
                 WHERE p.tipo_pago = 'Inscripción' 
@@ -1638,7 +1637,6 @@ def reportes_por_revisar():
             
             for pago_insc in pagos_inscripcion_pendientes:
                 reporte_insc = dict(pago_insc)
-                # Se le da el formato necesario para que coincida con la estructura de la plantilla
                 reporte_insc['monto_esperado_bs'] = Decimal('0.0') 
                 reportes_categorizados['pendientes'].append(reporte_insc)
             # --- FIN DE LA NUEVA LÓGICA ---
@@ -2184,8 +2182,6 @@ def tesoreria_rebalanceo():
 def dashboard_comercial():
     conn = get_db()
     
-    # Valores por defecto para todas las variables que necesita la plantilla
-    # Esto asegura que la página no se rompa incluso si la BD falla.
     comisiones, asesores, lotes = [], [], []
     stats = defaultdict(lambda: {'monto': Decimal('0.0'), 'conteo': 0})
     args = request.args
@@ -2210,11 +2206,11 @@ def dashboard_comercial():
             anio_actual=get_venezuela_current_date().year
         )
 
-    # --- Construcción de la consulta SQL ---
+    # --- Construcción de la consulta SQL (CORREGIDA) ---
     base_query = """
         SELECT 
             c.id, c.fecha_origen, a.usuario as asesor, cl.nombre || ' ' || cl.apellido as cliente,
-            cl.plan_contratado, c.moneda, c.tasa_bcv_usada, c.base, c.pct_comision, c.pct_split,
+            cl.plan, c.moneda, c.tasa_bcv_usada, c.base, c.pct_comision, c.pct_split, -- CORREGIDO: Se usa 'cl.plan'
             c.monto, c.estado, c.payment_batch_id, c.notas,
             (SELECT SUM(monto_ajuste) FROM comisiones_rebalanceos cr WHERE cr.comision_id_origen = c.id) as total_ajustes
         FROM comisiones c
@@ -2229,7 +2225,6 @@ def dashboard_comercial():
     if filters['fecha_hasta_origen']: filters_sql_list.append("c.fecha_origen <= %s"); params.append(filters['fecha_hasta_origen'])
     if filters['asesor_id']: filters_sql_list.append("c.asesor_id = %s"); params.append(filters['asesor_id'])
     if filters['estado']: filters_sql_list.append("c.estado = %s"); params.append(filters['estado'])
-    # ... (puedes añadir más filtros aquí si es necesario) ...
 
     if filters_sql_list:
         base_query += " WHERE " + " AND ".join(filters_sql_list)

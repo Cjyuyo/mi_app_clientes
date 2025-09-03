@@ -164,91 +164,93 @@
         </div>
         
         <!-- INICIO DE LA SECCIÓN DE GESTIÓN DE COBRANZA (REDiseñada) -->
-        <div class="bg-white p-6 rounded-xl shadow-sm border">
-    <h3 class="text-xl font-bold text-slate-800 mb-1">Gestión de Cobranza Proyectada</h3>
-    <p class="text-sm text-slate-500 mb-6">Desglose de la cartera de clientes activos y ahorradores por método de pago.</p>
+        <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
+    <div class="flex items-center justify-between mb-2">
+        <h3 class="text-2xl font-extrabold text-slate-800">Gestión de Cobranza Proyectada</h3>
+        <i class="bi bi-wallet2 text-3xl text-slate-400"></i>
+    </div>
+    <p class="text-sm text-slate-500 mb-8">Desglose detallado de la cartera de clientes activos y ahorradores por método de pago.</p>
     
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         
-        <div class="flex flex-col h-full bg-slate-50 p-5 rounded-xl border border-slate-200">
-            <div class="flex items-center gap-3 mb-4">
-                <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                    <i class="bi bi-cash-coin text-xl"></i>
-                </div>
-                <h4 class="font-bold text-slate-700 text-base">Dólar Efectivo</h4>
-            </div>
-            <div class="flex-grow flex flex-col justify-end space-y-3 mt-2">
-                <div class="flex justify-between items-baseline">
-                    <span class="text-sm text-slate-500">Clientes</span>
-                    <span class="font-bold text-slate-800 text-2xl tracking-tight">{{ proyecciones.gestion_cobranza.USD.clientes }}</span>
-                </div>
-                <div class="flex justify-between items-baseline">
-                    <span class="text-sm text-slate-500">Monto a Cobrar</span>
-                    <span class="font-bold text-green-600 text-2xl tracking-tight">${{ "{:,.2f}".format(proyecciones.gestion_cobranza.USD.monto) }}</span>
+        <div class="flex flex-col bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl shadow-md border border-blue-200 transform hover:scale-103 transition-all duration-300 ease-in-out">
+            <div class="flex items-center justify-between mb-6">
+                <h4 class="font-bold text-xl text-blue-800">Dólar Efectivo</h4>
+                <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-blue-200 text-blue-700 shadow-inner">
+                    <i class="bi bi-cash-coin text-2xl"></i>
                 </div>
             </div>
-        </div>
-
-        <div class="flex flex-col h-full bg-slate-50 p-5 rounded-xl border border-slate-200">
-            <div class="flex items-center gap-3 mb-4">
-                <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-green-100 text-green-600">
-                    <i class="bi bi-bank text-xl"></i>
+            <div class="flex-grow flex flex-col justify-between">
+                <div class="mb-4 pb-4 border-b border-blue-200">
+                    <span class="text-sm text-blue-700 opacity-80">Clientes</span>
+                    <p class="font-extrabold text-blue-900 text-3xl mt-1 tracking-tight">{{ proyecciones.gestion_cobranza.USD.clientes }}</p>
                 </div>
-                <h4 class="font-bold text-slate-700 text-base">Bolívares (BCV)</h4>
-            </div>
-            <div class="flex-grow flex flex-col justify-end space-y-3 mt-2">
-                <div class="flex justify-between items-baseline">
-                    <span class="text-sm text-slate-500">Clientes</span>
-                    <span class="font-bold text-slate-800 text-2xl tracking-tight">{{ proyecciones.gestion_cobranza.BsBCV.clientes }}</span>
-                </div>
-                <div class="flex justify-between items-baseline">
-                    <span class="text-sm text-slate-500">Monto (USD Ref.)</span>
-                    <span class="font-bold text-green-600 text-2xl tracking-tight">${{ "{:,.2f}".format(proyecciones.gestion_cobranza.BsBCV.monto) }}</span>
+                <div>
+                    <span class="text-sm text-blue-700 opacity-80">Monto a Cobrar</span>
+                    <p class="font-extrabold text-green-700 text-3xl mt-1 tracking-tight">${{ "{:,.2f}".format(proyecciones.gestion_cobranza.USD.monto) }}</p>
                 </div>
             </div>
         </div>
 
-        <div class="flex flex-col h-full bg-slate-50 p-5 rounded-xl border border-slate-200">
-            <div class="flex items-center gap-3 mb-4">
-                <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
-                    <i class="bi bi-currency-euro text-xl"></i>
+        <div class="flex flex-col bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl shadow-md border border-green-200 transform hover:scale-103 transition-all duration-300 ease-in-out">
+            <div class="flex items-center justify-between mb-6">
+                <h4 class="font-bold text-xl text-green-800">Bolívares (BCV)</h4>
+                <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-green-200 text-green-700 shadow-inner">
+                    <i class="bi bi-bank text-2xl"></i>
                 </div>
-                <h4 class="font-bold text-slate-700 text-base">Euros (BCV)</h4>
             </div>
-            <div class="flex-grow flex flex-col justify-end space-y-3 mt-2">
-                <div class="flex justify-between items-baseline">
-                    <span class="text-sm text-slate-500">Clientes</span>
-                    <span class="font-bold text-slate-800 text-2xl tracking-tight">{{ proyecciones.gestion_cobranza.EuroBCV.clientes }}</span>
+            <div class="flex-grow flex flex-col justify-between">
+                <div class="mb-4 pb-4 border-b border-green-200">
+                    <span class="text-sm text-green-700 opacity-80">Clientes</span>
+                    <p class="font-extrabold text-green-900 text-3xl mt-1 tracking-tight">{{ proyecciones.gestion_cobranza.BsBCV.clientes }}</p>
                 </div>
-                <div class="flex justify-between items-baseline">
-                    <span class="text-sm text-slate-500">Monto (EUR Ref.)</span>
-                    <span class="font-bold text-green-600 text-2xl tracking-tight">€{{ "{:,.2f}".format(proyecciones.gestion_cobranza.EuroBCV.monto) }}</span>
+                <div>
+                    <span class="text-sm text-green-700 opacity-80">Monto (USD Ref.)</span>
+                    <p class="font-extrabold text-green-700 text-3xl mt-1 tracking-tight">${{ "{:,.2f}".format(proyecciones.gestion_cobranza.BsBCV.monto) }}</p>
                 </div>
             </div>
         </div>
 
-        <div class="flex flex-col h-full bg-slate-50 p-5 rounded-xl border border-slate-200">
-            <div class="flex items-center gap-3 mb-4">
-                <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-amber-100 text-amber-600">
-                    <i class="bi bi-gem text-xl"></i>
+        <div class="flex flex-col bg-gradient-to-br from-indigo-50 to-indigo-100 p-6 rounded-xl shadow-md border border-indigo-200 transform hover:scale-103 transition-all duration-300 ease-in-out">
+            <div class="flex items-center justify-between mb-6">
+                <h4 class="font-bold text-xl text-indigo-800">Euros (BCV)</h4>
+                <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-indigo-200 text-indigo-700 shadow-inner">
+                    <i class="bi bi-currency-euro text-2xl"></i>
                 </div>
-                <h4 class="font-bold text-slate-700 text-base">Binance (USDT)</h4>
             </div>
-            <div class="flex-grow flex flex-col justify-end space-y-3 mt-2">
-                <div class="flex justify-between items-baseline">
-                    <span class="text-sm text-slate-500">Clientes</span>
-                    <span class="font-bold text-slate-800 text-2xl tracking-tight">{{ proyecciones.gestion_cobranza.USDT.clientes }}</span>
+            <div class="flex-grow flex flex-col justify-between">
+                <div class="mb-4 pb-4 border-b border-indigo-200">
+                    <span class="text-sm text-indigo-700 opacity-80">Clientes</span>
+                    <p class="font-extrabold text-indigo-900 text-3xl mt-1 tracking-tight">{{ proyecciones.gestion_cobranza.EuroBCV.clientes }}</p>
                 </div>
-                <div class="flex justify-between items-baseline">
-                    <span class="text-sm text-slate-500">Monto a Cobrar</span>
-                    <span class="font-bold text-green-600 text-2xl tracking-tight">${{ "{:,.2f}".format(proyecciones.gestion_cobranza.USDT.monto) }}</span>
+                <div>
+                    <span class="text-sm text-indigo-700 opacity-80">Monto (EUR Ref.)</span>
+                    <p class="font-extrabold text-green-700 text-3xl mt-1 tracking-tight">€{{ "{:,.2f}".format(proyecciones.gestion_cobranza.EuroBCV.monto) }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-col bg-gradient-to-br from-amber-50 to-amber-100 p-6 rounded-xl shadow-md border border-amber-200 transform hover:scale-103 transition-all duration-300 ease-in-out">
+            <div class="flex items-center justify-between mb-6">
+                <h4 class="font-bold text-xl text-amber-800">Binance (USDT)</h4>
+                <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-amber-200 text-amber-700 shadow-inner">
+                    <i class="bi bi-gem text-2xl"></i>
+                </div>
+            </div>
+            <div class="flex-grow flex flex-col justify-between">
+                <div class="mb-4 pb-4 border-b border-amber-200">
+                    <span class="text-sm text-amber-700 opacity-80">Clientes</span>
+                    <p class="font-extrabold text-amber-900 text-3xl mt-1 tracking-tight">{{ proyecciones.gestion_cobranza.USDT.clientes }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-amber-700 opacity-80">Monto a Cobrar</span>
+                    <p class="font-extrabold text-green-700 text-3xl mt-1 tracking-tight">${{ "{:,.2f}".format(proyecciones.gestion_cobranza.USDT.monto) }}</p>
                 </div>
             </div>
         </div>
 
     </div>
 </div>
-
                 <!-- Card: Binance (USDT) -->
                 <div class="flex flex-col h-full bg-slate-50 p-5 rounded-xl border border-slate-200">
                     <div class="flex items-center gap-3 mb-4">
