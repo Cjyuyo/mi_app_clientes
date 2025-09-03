@@ -1,105 +1,198 @@
 {% extends 'base_sidebar.html' %}
 
 {% block title %}
-    Editar Cliente - {{ cliente.nombre_apellido }}
+    Editar Cliente - {{ cliente.nombre }} {{ cliente.apellido }}
 {% endblock %}
 
 {% block body %}
-<div class="max-w-4xl mx-auto">
-    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div class="bg-slate-800 text-white p-5">
-            <h1 class="text-2xl font-bold"><i class="bi bi-pencil-square mr-2"></i>Editar Cliente</h1>
-            <p class="text-sm text-slate-300">{{ cliente.nombre_apellido }}</p>
-        </div>
+<div class="max-w-4xl mx-auto" x-data>
+    <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+        
+        <div class="bg-slate-800 text-white p-5 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold"><i class="bi bi-pencil-square mr-3"></i>Editar Cliente</h1>
+                <p class="text-sm text-slate-300">{{ cliente.nombre }} {{ cliente.apellido }} (C.I: {{ cliente.cedula }})</p>
+            </div>
+        </div>
 
-        <form action="{{ url_for('edit_client', client_id=cliente.id) }}" method="POST" class="p-6 space-y-8">
-            <input type="hidden" name="id" value="{{ cliente.id }}">
-            
-                        <div>
-                <h2 class="text-lg font-semibold text-slate-700 border-b pb-2 mb-4">Información Personal</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label for="nombre_apellido" class="block text-sm font-medium text-slate-700">Nombres y Apellidos</label>
-                        <input type="text" id="nombre_apellido" name="nombre_apellido" value="{{ cliente.nombre_apellido }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
-                    </div>
-                    <div>
-                        <label for="cedula" class="block text-sm font-medium text-slate-700">Cédula</label>
-                        <input type="text" id="cedula" name="cedula" value="{{ cliente.cedula }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
-                    </div>
-                    <div>
-                        <label for="telefono" class="block text-sm font-medium text-slate-700">Teléfono</label>
-                        <input type="tel" id="telefono" name="telefono" value="{{ cliente.numero_telefono }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                    </div>
-                    <div class="md:col-span-2">
-                        <label for="direccion" class="block text-sm font-medium text-slate-700">Dirección</label>
-                        <textarea id="direccion" name="direccion" rows="3" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">{{ cliente.direccion }}</textarea>
-                    </div>
-                </div>
-            </div>
+        <form action="{{ url_for('edit_client', client_id=cliente.id) }}" method="POST" class="p-6 space-y-6">
+            
+            <!-- SECCIÓN 1: INFORMACIÓN PERSONAL -->
+            <div x-data="{ open: true }" class="bg-slate-50 rounded-lg border border-slate-200 transition-shadow hover:shadow-sm">
+                <button type="button" @click="open = !open" class="w-full flex justify-between items-center p-4 text-left">
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center gap-3"><i class="bi bi-person-badge-fill text-blue-600"></i>Información Personal</h3>
+                    <i class="bi bi-chevron-down text-slate-500 transition-transform" :class="{ 'rotate-180': open }"></i>
+                </button>
+                <div x-show="open" x-transition class="p-6 border-t border-slate-200">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="nombre" class="block text-sm font-medium text-slate-700">Nombres</label>
+                            <input type="text" id="nombre" name="nombre" value="{{ cliente.nombre or '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" required>
+                        </div>
+                        <div>
+                            <label for="apellido" class="block text-sm font-medium text-slate-700">Apellidos</label>
+                            <input type="text" id="apellido" name="apellido" value="{{ cliente.apellido or '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" required>
+                        </div>
+                        <div>
+                            <label for="cedula" class="block text-sm font-medium text-slate-700">Cédula</label>
+                            <input type="text" id="cedula" name="cedula" value="{{ cliente.cedula or '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm" required>
+                        </div>
+                        <div>
+                            <label for="numero_telefono" class="block text-sm font-medium text-slate-700">Teléfono</label>
+                            <input type="tel" id="numero_telefono" name="numero_telefono" value="{{ cliente.numero_telefono or '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
+                        </div>
+                        <div>
+                            <label for="email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label>
+                            <input type="email" id="email" name="email" value="{{ cliente.email or '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="direccion" class="block text-sm font-medium text-slate-700">Dirección</label>
+                            <textarea id="direccion" name="direccion" rows="3" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">{{ cliente.direccion or '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                        <div>
-                <h2 class="text-lg font-semibold text-slate-700 border-b pb-2 mb-4">Detalles del Contrato</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label for="contrato_nro" class="block text-sm font-medium text-slate-700">Número de Contrato</label>
-                        <input type="text" id="contrato_nro" name="contrato_nro" value="{{ cliente.numero_contrato }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                    </div>
-                    <div>
-                        <label for="plan_contratado" class="block text-sm font-medium text-slate-700">Plan Contratado</label>
-                        <input type="text" id="plan_contratado" name="plan_contratado" value="{{ cliente.plan }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                    </div>
-                    <div>
-                        <label for="grupo" class="block text-sm font-medium text-slate-700">Grupo</label>
-                        <input type="text" id="grupo" name="grupo" value="{{ cliente.grupo }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                    </div>
-                    <div>
-                        <label for="estatus" class="block text-sm font-medium text-slate-700">Estatus</label>
-                                                <select id="estatus" name="estatus" 
-                                class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500
-                                       {% if edicion_de_estado_bloqueada %} bg-gray-200 cursor-not-allowed {% endif %}"
-                                {% if edicion_de_estado_bloqueada %} disabled {% endif %}>
-                            
-                            {% set estados_permitidos = ['ACTIVO', 'INACTIVO', 'RETIRO', 'CONGELADO', 'PENDIENTE'] %}
-                            {% for estado in estados_permitidos %}
-                                <option value="{{ estado }}" {% if cliente.estatus_cliente == estado %} selected {% endif %}>
-                                    {{ estado.title() }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                        {% if edicion_de_estado_bloqueada %}
-                            <p class="mt-2 text-xs text-gray-500">
-                                El estatus no se puede modificar hasta que el cliente complete el pago de la inscripción.
-                            </p>
-                        {% endif %}
-                                            </div>
-                </div>
-            </div>
+            <!-- SECCIÓN 2: BENEFICIARIO -->
+            <div x-data="{ open: false }" class="bg-slate-50 rounded-lg border border-slate-200 transition-shadow hover:shadow-sm">
+                <button type="button" @click="open = !open" class="w-full flex justify-between items-center p-4 text-left">
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center gap-3"><i class="bi bi-person-heart text-pink-600"></i>Información del Beneficiario</h3>
+                    <i class="bi bi-chevron-down text-slate-500 transition-transform" :class="{ 'rotate-180': open }"></i>
+                </button>
+                <div x-show="open" x-transition class="p-6 border-t border-slate-200">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <div>
+                            <label for="beneficiario_nombre" class="block text-sm font-medium text-slate-700">Nombres del Beneficiario</label>
+                            <input type="text" id="beneficiario_nombre" name="beneficiario_nombre" value="{{ cliente.beneficiario_nombre or '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
+                        </div>
+                        <div>
+                            <label for="beneficiario_apellido" class="block text-sm font-medium text-slate-700">Apellidos del Beneficiario</label>
+                            <input type="text" id="beneficiario_apellido" name="beneficiario_apellido" value="{{ cliente.beneficiario_apellido or '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
+                        </div>
+                        <div>
+                            <label for="beneficiario_cedula" class="block text-sm font-medium text-slate-700">Cédula del Beneficiario</label>
+                            <input type="text" id="beneficiario_cedula" name="beneficiario_cedula" value="{{ cliente.beneficiario_cedula or '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
+                        </div>
+                        <div>
+                            <label for="beneficiario_telefono" class="block text-sm font-medium text-slate-700">Teléfono del Beneficiario</label>
+                            <input type="tel" id="beneficiario_telefono" name="beneficiario_telefono" value="{{ cliente.beneficiario_telefono or '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                        <div class="flex justify-end gap-3 pt-4 border-t">
-                <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="text-sm bg-white text-slate-700 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50">Cancelar</a>
-                <button type="submit" class="text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700">
-                    Guardar Cambios
-                </button>
-            </div>
-        </form>
-    </div>
+            <!-- SECCIÓN 3: DETALLES DEL CONTRATO -->
+            <div x-data="{ open: true }" class="bg-slate-50 rounded-lg border border-slate-200 transition-shadow hover:shadow-sm">
+                <button type="button" @click="open = !open" class="w-full flex justify-between items-center p-4 text-left">
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center gap-3"><i class="bi bi-file-earmark-text-fill text-orange-600"></i>Detalles del Contrato y Plan</h3>
+                    <i class="bi bi-chevron-down text-slate-500 transition-transform" :class="{ 'rotate-180': open }"></i>
+                </button>
+                <div x-show="open" x-transition class="p-6 border-t border-slate-200">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="numero_contrato" class="block text-sm font-medium text-slate-700">Número de Contrato</label>
+                            <input type="text" id="numero_contrato" name="numero_contrato" value="{{ cliente.numero_contrato or '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
+                        </div>
+                        <div>
+                            <label for="plan" class="block text-sm font-medium text-slate-700">Plan Contratado (Valor USD)</label>
+                            <input type="text" id="plan" name="plan" value="{{ cliente.plan or '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
+                        </div>
+                         <div>
+                            <label for="valor_cuota" class="block text-sm font-medium text-slate-700">Valor de Cuota (USD)</label>
+                            <input type="number" step="0.01" id="valor_cuota" name="valor_cuota" value="{{ cliente.valor_cuota or '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
+                        </div>
+                        <div>
+                            <label for="cuotas_totales" class="block text-sm font-medium text-slate-700">Cuotas Totales</label>
+                            <input type="number" id="cuotas_totales" name="cuotas_totales" value="{{ cliente.cuotas_totales or '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
+                        </div>
+                        <div>
+                            <label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label>
+                            <select id="moneda_pago" name="moneda_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
+                                <option value="USD" {% if cliente.moneda_pago == 'USD' %}selected{% endif %}>Divisas (USD)</option>
+                                <option value="BsBCV" {% if cliente.moneda_pago == 'BsBCV' %}selected{% endif %}>Bolívares (Tasa BCV)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="fecha_ingreso" class="block text-sm font-medium text-slate-700">Fecha de Ingreso</label>
+                            <input type="date" id="fecha_ingreso" name="fecha_ingreso" value="{{ cliente.fecha_ingreso.strftime('%Y-%m-%d') if cliente.fecha_ingreso else '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 4: ADMINISTRACIÓN -->
+            <div x-data="{ open: false }" class="bg-slate-50 rounded-lg border border-slate-200 transition-shadow hover:shadow-sm">
+                <button type="button" @click="open = !open" class="w-full flex justify-between items-center p-4 text-left">
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center gap-3"><i class="bi bi-sliders text-purple-600"></i>Configuración Administrativa</h3>
+                    <i class="bi bi-chevron-down text-slate-500 transition-transform" :class="{ 'rotate-180': open }"></i>
+                </button>
+                <div x-show="open" x-transition class="p-6 border-t border-slate-200">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="estado_del_plan" class="block text-sm font-medium text-slate-700">Proceso del Plan</label>
+                            <select id="estado_del_plan" name="estado_del_plan" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
+                                {% set procesos = ['RESERVA', 'INSCRITO', 'AHORRADOR', 'ADJUDICADO', 'ENTREGADO'] %}
+                                {% for proc in procesos %}
+                                <option value="{{ proc }}" {% if cliente.estado_del_plan == proc %}selected{% endif %}>{{ proc.title() }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="estatus_cliente" class="block text-sm font-medium text-slate-700">Estatus del Cliente</label>
+                            <select id="estatus_cliente" name="estatus_cliente" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm {% if edicion_de_estado_bloqueada %} bg-gray-200 cursor-not-allowed {% endif %}" {% if edicion_de_estado_bloqueada %} disabled {% endif %}>
+                                {% set estados = ['ACTIVO', 'INACTIVO', 'RETIRO', 'CONGELADO', 'PENDIENTE'] %}
+                                {% for est in estados %}
+                                <option value="{{ est }}" {% if cliente.estatus_cliente == est %}selected{% endif %}>{{ est.title() }}</option>
+                                {% endfor %}
+                            </select>
+                            {% if edicion_de_estado_bloqueada %}
+                            <p class="mt-2 text-xs text-gray-500">El estatus no se puede cambiar mientras el proceso sea 'Reserva'.</p>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <label for="asesor" class="block text-sm font-medium text-slate-700">Asesor</label>
+                            <input type="text" id="asesor" name="asesor" value="{{ cliente.asesor or '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
+                        </div>
+                        <div>
+                            <label for="responsable" class="block text-sm font-medium text-slate-700">Responsable del Cierre</label>
+                            <input type="text" id="responsable" name="responsable" value="{{ cliente.responsable or '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
+                        </div>
+                        <div>
+                            <label for="gestor_id" class="block text-sm font-medium text-slate-700">Gestor de Cobranza Asignado</label>
+                            <select id="gestor_id" name="gestor_id" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">
+                                <option value="">-- Sin Asignar --</option>
+                                {% for gestor in gestores %}
+                                <option value="{{ gestor.id }}" {% if cliente.gestor_id == gestor.id %}selected{% endif %}>{{ gestor.nombre_completo }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="observacion" class="block text-sm font-medium text-slate-700">Observaciones Internas</label>
+                            <textarea id="observacion" name="observacion" rows="3" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm">{{ cliente.observacion or '' }}</textarea>
+                        </div>
+                        <div class="md:col-span-2">
+                             <div class="relative flex items-start">
+                                <div class="flex h-6 items-center">
+                                    <input id="ignorar_penalidad_puntualidad" name="ignorar_penalidad_puntualidad" type="checkbox" {% if cliente.ignorar_penalidad_puntualidad %}checked{% endif %} class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600">
+                                </div>
+                                <div class="ml-3 text-sm leading-6">
+                                    <label for="ignorar_penalidad_puntualidad" class="font-medium text-slate-900">Ignorar Penalidad por Puntualidad</label>
+                                    <p class="text-slate-500">Marcar si el cliente tiene un permiso especial para no ser penalizado por impuntualidad en adjudicaciones.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acciones del Formulario -->
+            <div class="flex justify-end gap-3 pt-6 border-t border-slate-200">
+                <a href="{{ url_for('consulta', busqueda=cliente.cedula) }}" class="text-sm bg-white text-slate-700 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors">Cancelar</a>
+                <button type="submit" class="text-sm bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+                    <i class="bi bi-check-circle-fill"></i> Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
-{% endblock %}
-
-{% block scripts_extra %}
-<script>
-    (function() {
-        const form = document.querySelector('form');
-        form.addEventListener('submit', function(e) {
-            if (form.getAttribute('data-submitted') === 'true') {
-                e.preventDefault();
-                return;
-            }
-            form.setAttribute('data-submitted', 'true');
-            const submitButton = form.querySelector('button[type="submit"]');
-            submitButton.setAttribute('disabled', 'disabled');
-            submitButton.innerHTML = 'Procesando...';
-        });
-    })();
-</script>
 {% endblock %}
