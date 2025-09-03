@@ -4261,7 +4261,7 @@ def conciliar_pago(pago_id):
                 flash("El pago a conciliar no existe.", 'error')
                 return redirect(url_for('pagos_por_conciliar'))
 
-            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s FOR UPDATE", (pago_inicial['cliente_id'],))
+            cur.execute("SELECT * FROM clientes WHERE id = %s FOR UPDATE", (pago_inicial['cliente_id'],))
             cliente = cur.fetchone()
             cedula_cliente_para_redirect = cliente['cedula']
 
@@ -4278,33 +4278,47 @@ def conciliar_pago(pago_id):
                     (admin_id, pago_id)
                 )
                 cur.execute(
-                    "UPDATE clientes SET inscripcion_pagada = inscripcion_pagada + %s WHERE id = %s RETURNING inscripcion_pagada, inscripcion_monto",
+                    "UPDATE clientes SET inscripcion_pagada = inscripcion_pagada + %s WHERE id = %s RETURNING inscripcion_pagada, inscripcion",
                     (pago_inicial['monto'], cliente['id'])
                 )
                 updated_cliente = cur.fetchone()
                 
-                if updated_cliente['inscripcion_pagada'] >= updated_cliente['inscripcion_monto']:
+                # ***** INICIO DE LA MODIFICACIÓN *****
+                # Verifica si la inscripción se ha pagado por completo
+                if updated_cliente['inscripcion_pagada'] >= updated_cliente['inscripcion']:
                     cur.execute(
                         "UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],)
                     )
-                    flash_msg = f"¡Pago de inscripción conciliado y el cliente ahora está INSCRITO!"
+                    flash_msg = "¡Pago de inscripción conciliado y el cliente ahora está INSCRITO!"
                     
-                    # --- INICIO DEL BLOQUE CORREGIDO CON INDENTACIÓN CORRECTA ---
+                    # Llama a la función para calcular y guardar las comisiones
                     try:
-                        # Se usan los campos _id para pasar los IDs numéricos
-                        calcular_y_guardar_comisiones(
-                            cliente['contrato_nro'], 
-                            cliente['id'], 
-                            cliente['plan_contratado'], 
-                            cliente['asesor_id'], 
-                            cliente['responsable_id']
-                        )
-                        flash_msg += " ¡Comisiones generadas exitosamente!"
-                        logging.info(f"Comisiones generadas para contrato {cliente['contrato_nro']}.")
+                        cur.execute("SELECT * FROM clientes WHERE id = %s", (cliente['id'],))
+                        cliente_actualizado = cur.fetchone()
+                        
+                        # Asumiendo que los IDs de asesor y responsable están en la tabla clientes
+                        asesor_id = cliente_actualizado.get('asesor_id') 
+                        responsable_id = cliente_actualizado.get('responsable_id')
+                        plan_contratado = cliente_actualizado.get('plan', '0')
+
+                        if asesor_id and responsable_id:
+                             calcular_y_guardar_comisiones(
+                                cliente_actualizado['numero_contrato'], 
+                                cliente_actualizado['id'], 
+                                Decimal(plan_contratado), 
+                                asesor_id, 
+                                responsable_id
+                            )
+                             flash_msg += " ¡Comisiones generadas exitosamente!"
+                             logging.info(f"Comisiones generadas para contrato {cliente_actualizado['numero_contrato']}.")
+                        else:
+                            flash_msg += " ADVERTENCIA: No se generaron comisiones por falta de Asesor/Responsable ID."
+                            logging.warning(f"No se generaron comisiones para contrato {cliente_actualizado['numero_contrato']} por falta de IDs.")
+
                     except Exception as e:
                         flash_msg += " ADVERTENCIA: Hubo un error crítico al generar las comisiones."
-                        logging.error(f"Error al llamar a calcular_y_guardar_comisiones para contrato {cliente['contrato_nro']}: {e}")
-                    # --- FIN DEL BLOQUE CORREGIDO ---
+                        logging.error(f"Error al llamar a calcular_y_guardar_comisiones para contrato {cliente['numero_contrato']}: {e}")
+                # ***** FIN DE LA MODIFICACIÓN *****
                         
                 else:
                     flash_msg = f"¡Abono de inscripción de ${pago_inicial['monto']} conciliado exitosamente!"
@@ -4323,7 +4337,7 @@ def conciliar_pago(pago_id):
             flash(flash_msg, 'success')
             return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
 
-    except (psycopg2.Error, ValueError, TypeError) as e:
+    except (psycopg2.Error, ValueError, TypeError, InvalidOperation) as e:
         if conn: conn.rollback()
         logging.error(f"Error al conciliar el pago {pago_id}: {traceback.format_exc()}")
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
