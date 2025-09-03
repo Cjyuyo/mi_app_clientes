@@ -3331,10 +3331,10 @@ def reporte_proyecciones():
     if simulacion_realizada and conn:
         try:
             with conn.cursor() as cur:
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se cambian 'estatus' por 'estatus_cliente' y 'proceso' por 'estado_del_plan'
-                cur.execute("SELECT COUNT(*) as clientes_activos, COALESCE(SUM(valor_cuota), 0) as total_cuotas FROM clientes WHERE estatus_cliente = 'ACTIVO' AND estado_del_plan = 'AHORRADOR'")
-                # --- FIN DE LA CORRECCIÓN ---
+                # --- INICIO DE LA MODIFICACIÓN ---
+                # Ahora se incluyen clientes con estatus 'ACTIVO' o 'AHORRADOR'.
+                cur.execute("SELECT COUNT(*) as clientes_activos, COALESCE(SUM(valor_cuota), 0) as total_cuotas FROM clientes WHERE estatus_cliente IN ('ACTIVO', 'AHORRADOR')")
+                # --- FIN DE LA MODIFICACIÓN ---
                 
                 ingresos_data = cur.fetchone()
                 proyecciones['ingresos'].update(ingresos_data)
@@ -3364,27 +3364,28 @@ def reporte_proyecciones():
 
                 moneda_map = {
                     'USD': 'USD',
-                    'BsBCV': 'BsBCV',
-                    'EuroBCV': 'EuroBCV',
+                    'Bs(BCV)': 'BsBCV',
+                    'Euro(BCV)': 'EuroBCV',
                     'USDT': 'USDT'
                 }
 
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se cambian 'estatus' por 'estatus_cliente' y 'proceso' por 'estado_del_plan'
+                # --- INICIO DE LA MODIFICACIÓN ---
+                # Ahora se agrupa por moneda para clientes con estatus 'ACTIVO' o 'AHORRADOR'.
                 cur.execute("""
                     SELECT 
                         moneda_pago,
                         COUNT(id) as total_clientes,
                         SUM(valor_cuota) as monto_total
                     FROM clientes
-                    WHERE estatus_cliente = 'ACTIVO' AND estado_del_plan = 'AHORRADOR'
+                    WHERE estatus_cliente IN ('ACTIVO', 'AHORRADOR')
                     GROUP BY moneda_pago
                 """)
-                # --- FIN DE LA CORRECCIÓN ---
+                # --- FIN DE LA MODIFICACIÓN ---
 
                 cobranza_data = cur.fetchall()
                 for row in cobranza_data:
                     moneda_db = row['moneda_pago']
+                    # Mapeo corregido para coincidir con las claves de moneda_map
                     clave_proyeccion = moneda_map.get(moneda_db)
 
                     if clave_proyeccion:
