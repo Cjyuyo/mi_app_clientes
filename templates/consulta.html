@@ -356,6 +356,9 @@
                                  <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-journal-text"></i> Contrato</h3>
                                  <div class="space-y-3 text-sm">
                                      <div class="flex justify-between items-center pt-2"><span class="text-slate-500">Valor del Bien/Plan:</span><span class="font-bold text-slate-800">${{ "%.2f"|format(cliente.plan|float) if cliente.plan else '0.00' }}</span></div>
+                                     <!-- INICIO DE LA CORRECCIÓN -->
+                                     <div class="flex justify-between items-center"><span class="text-slate-500">Valor de Cuota:</span><span class="font-bold text-slate-800">${{ "%.2f"|format(cliente.valor_cuota|float) if cliente.valor_cuota else '0.00' }}</span></div>
+                                     <!-- FIN DE LA CORRECCIÓN -->
                                      <div class="flex justify-between items-center"><span class="text-slate-500">N° Contrato:</span><span class="font-semibold font-mono text-slate-700">{{ cliente.numero_contrato or 'N/A' }}</span></div>
                                      <div class="flex justify-between items-center"><span class="text-slate-500">Fecha Ingreso:</span><span class="font-semibold text-slate-700">{{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</span></div>
                                      <div class="flex justify-between items-center"><span class="text-slate-500">Asesor:</span><span class="font-semibold text-slate-700">{{ cliente.asesor or 'N/A' }}</span></div>
