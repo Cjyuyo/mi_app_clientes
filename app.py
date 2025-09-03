@@ -3331,7 +3331,7 @@ def reporte_proyecciones():
     if simulacion_realizada and conn:
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT COUNT(*) as clientes_activos, COALESCE(SUM(valor_cuota), 0) as total_cuotas FROM clientes WHERE estatus_cliente IN ('ACTIVO', 'AHORRADOR')")
+                cur.execute("SELECT COUNT(*) as clientes_activos, COALESCE(SUM(valor_cuota), 0) as base_mensual FROM clientes WHERE estatus_cliente IN ('ACTIVO', 'AHORRADOR')")
                 
                 ingresos_data = cur.fetchone()
                 proyecciones['ingresos'].update(ingresos_data)
