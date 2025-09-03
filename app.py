@@ -4482,7 +4482,7 @@ def edit_client(client_id):
         flash('Cliente no encontrado.', 'error')
         return redirect(url_for('consulta'))
 
-    edicion_de_estado_bloqueada = cliente_actual['proceso'] == 'RESERVA'
+    edicion_de_estado_bloqueada = cliente_actual['estado_del_plan'] == 'RESERVA'
 
     if request.method == 'POST':
         try:
