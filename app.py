@@ -1044,9 +1044,11 @@ def hub():
             with conn.cursor() as cur:
                 # --- Lógica existente para otras estadísticas ---
                 if g.admin['rol'] in ['superadmin', 'gerente', 'administradora']:
-                     cur.execute("SELECT COUNT(*) FROM clientes WHERE estatus = 'ACTIVO'")
+                     # CORREGIDO: Se usa 'estatus_cliente' en lugar de 'estatus'
+                     cur.execute("SELECT COUNT(*) FROM clientes WHERE estatus_cliente = 'ACTIVO'")
                 else:
-                    cur.execute("SELECT COUNT(*) FROM clientes WHERE gestor_id = %s AND estatus = 'ACTIVO'", (g.admin['id'],))
+                    # CORREGIDO: Se usa 'estatus_cliente' en lugar de 'estatus'
+                    cur.execute("SELECT COUNT(*) FROM clientes WHERE gestor_id = %s AND estatus_cliente = 'ACTIVO'", (g.admin['id'],))
                 stats['clientes_cartera'] = cur.fetchone()[0]
 
                 if g.admin['rol'] in ['superadmin', 'gerente']:
@@ -1057,9 +1059,6 @@ def hub():
                     cur.execute("SELECT COUNT(DISTINCT b.id) FROM payment_bulks b JOIN pagos p ON p.bulk_id = b.id WHERE b.status IN ('OPEN', 'UNDER_REVIEW') AND p.estado_reporte NOT LIKE 'Anulado%'")
                     stats['reportes_pendientes'] = cur.fetchone()[0]
 
-                    # --- INICIO DE LA CORRECCIÓN ---
-                    # La consulta ahora cuenta los 'payment_bulks' listos para conciliar,
-                    # en lugar de los pagos individuales, para mostrar "1" por lote.
                     cur.execute("""
                         SELECT COUNT(DISTINCT bulk_id) FROM pagos 
                         WHERE estado_reporte = 'Aprobado' AND estado_pago = 'Pendiente' AND bulk_id IS NOT NULL
@@ -1073,7 +1072,6 @@ def hub():
                     count_individuales = cur.fetchone()[0]
 
                     stats['pagos_por_conciliar'] = (count_bulks or 0) + (count_individuales or 0)
-                    # --- FIN DE LA CORRECCIÓN ---
 
                 cur.execute("SELECT tasa FROM historial_tasas_bcv ORDER BY fecha DESC LIMIT 1")
                 tasa_row = cur.fetchone()
