@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contrato de Adhesión - {{ cliente.contrato_nro }}</title>
+    <title>Contrato de Adhesión - {{ cliente.numero_contrato }}</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -108,7 +108,7 @@
                     <div class="bg-white p-4 rounded-lg shadow-sm border print:shadow-none">
                         <h3 class="font-semibold text-slate-600 mb-2 flex items-center gap-2"><i class="bi bi-file-earmark-text-fill text-blue-600"></i> Detalles del Plan</h3>
                         <p class="text-sm text-slate-500">Monto Contratado</p>
-                        <p class="text-slate-800 font-medium text-lg">${{ "%.2f"|format(cliente.plan_contratado|float) }}</p>
+                        <p class="text-slate-800 font-medium text-lg">${{ "%.2f"|format(cliente.plan|float) }}</p>
                         <p class="text-sm text-slate-500 mt-2">Bien a Adquirir: <strong>Moto 0km</strong></p>
                     </div>
                 </div>
@@ -162,8 +162,8 @@
                 <p><strong>Cláusula 15.</strong> LA EMPRESA dispone de hasta 60 días hábiles para entregar el monto adjudicado tras validar las garantías.</p>
                 <h3>CAPÍTULO V: INCUMPLIMIENTOS DE PAGO</h3>
                 <p><strong>Cláusula 16.</strong> El atraso en el pago inhabilita al cliente para participar en adjudicaciones y genera penalidad. <br><em>Fundamento Legal: Código Civil Art. 1160.</em></p>
-                <p><strong>Cláusula 17.</strong> Si un cliente no adjudicado deja de pagar tres (3) cuotas consecutivas, LA EMPRESA podrá anular el contrato sin previo aviso.</p>
-                <p><strong>Cláusula 18.</strong> Si el cliente ya fue adjudicado y deja de pagar, LA EMPRESA podrá ejecutar el contrato judicialmente, recuperar el bien entregado y exigir el pago completo de lo adeudado. Se aplicará, además, un cargo por mora diaria equivalente al 0,2% del monto vencido por cada día de retraso, más los gastos legales correspondientes.</p>
+                <p><strong>Cláusula 17.</strong> Si un cliente no adjudicado deixa de pagar tres (3) cuotas consecutivas, LA EMPRESA podrá anular el contrato sin previo aviso.</p>
+                <p><strong>Cláusula 18.</strong> Si el cliente ya fue adjudicado y deixa de pagar, LA EMPRESA podrá ejecutar el contrato judicialmente, recuperar el bien entregado y exigir el pago completo de lo adeudado. Se aplicará, además, un cargo por mora diaria equivalente al 0,2% del monto vencido por cada día de retraso, más los gastos legales correspondientes.</p>
                 <h3>CAPÍTULO VI: DERECHOS DEL CLIENTE NO ADJUDICADO</h3>
                 <p><strong>Cláusula 19.</strong> Mientras no haya sido adjudicado, EL CLIENTE podrá: <br> 19.1. Retracto: dentro de los primeros 7 días desde la firma. Después de ese plazo, el contrato es obligatorio. <br> 19.2. Cambio de grupo: a uno de mayor o menor monto. <br> 19.3. Traspaso: a un tercero solvente, con aprobación de LA EMPRESA. <br> 19.4. Rescisión voluntaria: en cualquier momento. Se reintegrarán solo los aportes netos, descontando inscripción, gastos y tributos. El reintegro será cuota a cuota, a medida que el grupo cumpla su ciclo, para no afectar el fondo común y se indicará el cronograma de devolución dentro de 15 días hábiles posteriores a la notificación formal por parte del cliente. <br> 19.5. Designación de beneficiario: para heredar el contrato en caso de fallecimiento. <br> <em>Fundamento Legal: Art. 1161 Código Civil y autonomía contractual.</em></p>
                 <h3>CAPÍTULO VII: DOMICILIO, JURISDICCIÓN Y MEDIOS ELECTRÓNICOS</h3>
@@ -301,5 +301,5 @@
     });
     </script>
 </body>
-</html
+</html>
 }
