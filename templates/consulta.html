@@ -159,13 +159,13 @@
                         <h1 class="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">{{ cliente.nombre }} {{ cliente.apellido }}</h1>
                         <p class="text-slate-500 font-mono text-sm">C.I: {{ cliente.cedula }}</p>
                         <div class="mt-2 flex items-center gap-2">
-                            <span class="text-xs font-semibold py-1 px-3 rounded-full bg-blue-100 text-blue-800">{{ cliente.proceso }}</span>
+                            <span class="text-xs font-semibold py-1 px-3 rounded-full bg-blue-100 text-blue-800">{{ cliente.estado_del_plan }}</span>
                             <span class="text-xs font-semibold py-1 px-3 rounded-full
-                                {% set estatus = cliente.estatus | upper if cliente.estatus else '' %}
+                                {% set estatus = cliente.estatus_cliente | upper if cliente.estatus_cliente else '' %}
                                 {% if estatus == 'ACTIVO' or estatus == 'AHORRADOR' or estatus == 'ADJUDICADO' %} bg-green-100 text-green-800
                                 {% elif estatus == 'INACTIVO' or estatus == 'RETIRO' %} bg-red-100 text-red-800
                                 {% else %} bg-yellow-100 text-yellow-800
-                                {% endif %}">{{ cliente.estatus }}</span>
+                                {% endif %}">{{ cliente.estatus_cliente }}</span>
                         </div>
                     </div>
                 </div>
@@ -666,3 +666,4 @@
     });
 </script>
 {% endblock %}
+}

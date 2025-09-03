@@ -166,7 +166,7 @@
                     const newContent = users.map(user => {
                         const FIVE_MINUTES_IN_SECONDS = 300;
                         const isEffectivelyOnline = user.inactivity_seconds < FIVE_MINUTES_IN_SECONDS;
-                        const { icon, text, textColor } = this.getStatusInfo(user.status, isEffectivelyOnline);
+                        const { icon, text, textColor } = this.getStatusInfo(user.current_status, isEffectivelyOnline);
                         const lastSeenText = isEffectivelyOnline ? text : user.last_seen;
                         
                         return `
