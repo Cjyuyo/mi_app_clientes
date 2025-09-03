@@ -2840,42 +2840,38 @@ def reporte_metricas():
         'mes_actual': get_nombre_mes(today.month), 'anio_actual': today.year,
         'ingresos_ultimos_meses': {'labels': [], 'values': []},
         'composicion_clientes': {'labels': [], 'values': []},
-        'total_clientes': 0, 'clientes_activos': 0, 'clientes_inactivos': 0,
-        'clientes_retirados': 0, 'clientes_adjudicados': 0, 'clientes_congelados': 0,
-        'clientes_reserva': 0,
-        'estados_del_plan': {}  # NUEVO: Diccionario para los conteos dinámicos
+        'mapa_clientes': {}  # Contendrá todos los conteos del nuevo mapa
     }
     if conn:
         try:
             with conn.cursor() as cur:
+                # Consulta única para obtener todos los conteos del mapa
                 cur.execute("""
                     SELECT
                         COUNT(*) AS total_clientes,
-                        COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'ACTIVO' THEN 1 END) AS clientes_activos,
-                        COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'INACTIVO' THEN 1 END) AS clientes_inactivos,
-                        COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'RETIRO' THEN 1 END) AS clientes_retirados,
-                        COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'CONGELADO' THEN 1 END) AS clientes_congelados,
-                        COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'RESERVA' THEN 1 END) AS clientes_reserva,
-                        COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'ADJUDICADO' THEN 1 END) AS clientes_adjudicados
+                        -- Clientes DENTRO del sistema
+                        COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) IN ('ACTIVO', 'RESERVA', 'CONGELADO') OR TRIM(UPPER(estado_del_plan)) IN ('ADJUDICADO', 'AHORRADOR', 'COBRANZA DIFERIDA', 'INSCRITO', 'CONGELADO', 'RESERVA') THEN 1 END) as dentro_sistema,
+                        -- Embudo Activo
+                        COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' THEN 1 END) AS ahorrador,
+                        COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'ADJUDICADO' THEN 1 END) AS adjudicado,
+                        COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COBRANZA DIFERIDA' THEN 1 END) AS cobranza_diferida,
+                        COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'INSCRITO' THEN 1 END) AS inscrito,
+                        -- Clientes Pausados
+                        COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'CONGELADO' THEN 1 END) AS estatus_congelado,
+                        COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'CONGELADO' THEN 1 END) as plan_congelado,
+                        COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'RESERVA' THEN 1 END) AS reserva,
+                        -- Clientes FUERA del sistema
+                        COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'RETIRO' THEN 1 END) AS retirados,
+                        COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COMPLETADO' THEN 1 END) AS completado,
+                        -- Inactivos (Grupo separado)
+                        COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'INACTIVO' THEN 1 END) AS inactivos
                     FROM clientes
                 """)
-                client_counts = cur.fetchone()
-                if client_counts:
-                    dashboard_metrics.update(dict(client_counts))
+                mapa_counts = cur.fetchone()
+                if mapa_counts:
+                    dashboard_metrics['mapa_clientes'] = dict(mapa_counts)
 
-                # NUEVO: Consulta para obtener todos los 'estado_del_plan' y sus conteos
-                cur.execute("""
-                    SELECT estado_del_plan, COUNT(*) as total
-                    FROM clientes
-                    WHERE estado_del_plan IS NOT NULL AND estado_del_plan != ''
-                    GROUP BY estado_del_plan
-                    ORDER BY estado_del_plan
-                """)
-                estados_plan = cur.fetchall()
-                dashboard_metrics['estados_del_plan'] = {
-                    item['estado_del_plan']: item['total'] for item in estados_plan
-                }
-
+                # El resto de las consultas para ingresos, morosidad, etc., se mantienen igual
                 first_day_of_month = today.replace(day=1)
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
                 dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
