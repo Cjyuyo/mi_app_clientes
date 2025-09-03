@@ -3265,10 +3265,10 @@ def reporte_flujo_caja():
                            anio_actual=today.year,
                            comparativa_proyeccion=comparativa_proyeccion)
 
-# ====== INICIO: REEMPLAZA TU FUNCIÓN DE PROYECCIONES CON ESTA VERSIÓN CORREGIDA =====
 # ===================================================================
 # RUTA PARA CERRAR PROYECCIÓN Y GUARDAR INFORME HISTÓRICO
 # ===================================================================
+# ====== INICIO: REEMPLAZA TU FUNCIÓN DE PROYECCIONES CON ESTA VERSIÓN CORREGIDA =====
 @app.route('/reportes/proyecciones', methods=['GET'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -3331,8 +3331,11 @@ def reporte_proyecciones():
     if simulacion_realizada and conn:
         try:
             with conn.cursor() as cur:
-                # Lógica de Ingresos (sin cambios)
-                cur.execute("SELECT COUNT(*) as clientes_activos, COALESCE(SUM(valor_cuota), 0) as total_cuotas FROM clientes WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR'")
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se cambian 'estatus' por 'estatus_cliente' y 'proceso' por 'estado_del_plan'
+                cur.execute("SELECT COUNT(*) as clientes_activos, COALESCE(SUM(valor_cuota), 0) as total_cuotas FROM clientes WHERE estatus_cliente = 'ACTIVO' AND estado_del_plan = 'AHORRADOR'")
+                # --- FIN DE LA CORRECCIÓN ---
+                
                 ingresos_data = cur.fetchone()
                 proyecciones['ingresos'].update(ingresos_data)
                 ingreso_proyectado = proyecciones['ingresos']['base_mensual']
@@ -3342,7 +3345,6 @@ def reporte_proyecciones():
                 if ingreso_proyectado > 0:
                     proyecciones['kpis']['progreso_ingreso_pct'] = min(float((ingreso_real / ingreso_proyectado) * 100), 100.0)
 
-                # Lógica de Gastos (modificada para separar por método de pago)
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM egresos_planificados WHERE tipo_egreso = 'Fijo' AND estado = 'Activo'")
                 gastos_fijos = cur.fetchone()[0] or Decimal('0.0')
                 proyecciones['egresos']['promedio_gastos_fijos'] = gastos_fijos
@@ -3360,45 +3362,41 @@ def reporte_proyecciones():
                 gasto_proyectado = gastos_fijos + gastos_variables_total
                 proyecciones['egresos']['gasto_proyectado_primer_mes'] = gasto_proyectado
 
-                # >>> INICIO DE LA MODIFICACIÓN: MAPEO DE MONEDAS <<<
-                # Este mapa traduce los valores de la BD a las claves que usa la plantilla.
-                # ¡IMPORTANTE! Si los nombres en la BD cambian, solo necesitas actualizar este mapa.
                 moneda_map = {
                     'USD': 'USD',
                     'BsBCV': 'BsBCV',
                     'EuroBCV': 'EuroBCV',
                     'USDT': 'USDT'
-                    # Ejemplo: si en la BD se guarda como 'Dolar', se añadiría: 'Dolar': 'USD'
                 }
 
+                # --- INICIO DE LA CORRECCIÓN ---
+                # Se cambian 'estatus' por 'estatus_cliente' y 'proceso' por 'estado_del_plan'
                 cur.execute("""
                     SELECT 
                         moneda_pago,
                         COUNT(id) as total_clientes,
                         SUM(valor_cuota) as monto_total
                     FROM clientes
-                    WHERE estatus = 'ACTIVO' AND proceso = 'AHORRADOR'
+                    WHERE estatus_cliente = 'ACTIVO' AND estado_del_plan = 'AHORRADOR'
                     GROUP BY moneda_pago
                 """)
+                # --- FIN DE LA CORRECCIÓN ---
+
                 cobranza_data = cur.fetchall()
                 for row in cobranza_data:
                     moneda_db = row['moneda_pago']
-                    # Usamos el mapa para encontrar la clave correcta en nuestro diccionario.
-                    # El .get() previene errores si una moneda de la BD no está en el mapa.
                     clave_proyeccion = moneda_map.get(moneda_db)
 
                     if clave_proyeccion:
                         proyecciones['gestion_cobranza'][clave_proyeccion]['clientes'] = row['total_clientes']
                         proyecciones['gestion_cobranza'][clave_proyeccion]['monto'] = row['monto_total']
-                # >>> FIN DE LA MODIFICACIÓN <<<
 
-                # Lógica de Pérdidas y Devaluación Ponderada
                 margen_dolar_pct = proyecciones['parametros']['margen_dolar_pct']
                 margen_euro_pct = proyecciones['parametros']['margen_euro_pct']
                 margen_binance_pct = proyecciones['parametros']['margen_binance_pct']
 
-                gastos_dolar = gastos_variables_por_metodo.get('Zelle', Decimal('0.0')) # Asumiendo que 'Zelle' usa el margen Dólar
-                gastos_euro = gastos_variables_por_metodo.get('Efectivo EUR', Decimal('0.0')) # Asumiendo que 'Efectivo EUR' usa el margen Euro
+                gastos_dolar = gastos_variables_por_metodo.get('Zelle', Decimal('0.0'))
+                gastos_euro = gastos_variables_por_metodo.get('Efectivo EUR', Decimal('0.0'))
                 gastos_binance = gastos_variables_por_metodo.get('Binance', Decimal('0.0'))
                 
                 total_gastos_bcv = gastos_dolar + gastos_euro
@@ -3428,7 +3426,6 @@ def reporte_proyecciones():
                     ponderado_total = (perdida_total_proyectada / valor_usd_inicial_bs) * 100
                     proyecciones['parametros']['devaluacion_ponderada_total'] = ponderado_total
 
-                # Resumen y KPIs
                 proyecciones['simulacion_exitosa'] = True
                 proyecciones['resumen']['ingresos_totales_proyectados'] = ingreso_proyectado
                 proyecciones['resumen']['gastos_totales_proyectados'] = gasto_proyectado

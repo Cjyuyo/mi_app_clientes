@@ -174,20 +174,24 @@
                 {% set total_pagado_plan = (cliente.cuotas_pagas|int(0) * cliente.valor_cuota|float(0)) %}
                 {% set saldo_pendiente = total_financiado - total_pagado_plan %}
                 
-                <div class="flex-grow w-full grid grid-cols-3 gap-2 md:gap-4 text-center pt-4 md:pt-0 border-t md:border-t-0 md:border-l md:pl-6 border-slate-200">
-                    <div>
-                        <p class="text-xs text-slate-500 uppercase font-semibold">Total Financiado</p>
-                        <p class="text-xl md:text-2xl font-bold text-slate-800">${{ "%.2f"|format(total_financiado) }}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs text-slate-500 uppercase font-semibold">Pagado al Plan</p>
-                        <p class="text-xl md:text-2xl font-bold text-green-600">${{ "%.2f"|format(total_pagado_plan) }}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs text-slate-500 uppercase font-semibold">Saldo Pendiente</p>
-                        <p class="text-xl md:text-2xl font-bold text-red-600">${{ "%.2f"|format(saldo_pendiente) }}</p>
+                <!-- INICIO DE LA CORRECCIÓN DE DISEÑO -->
+                <div class="flex-grow w-full bg-slate-50 border border-slate-200 rounded-lg p-3">
+                    <div class="grid grid-cols-3 gap-2 text-center divide-x divide-slate-200">
+                        <div>
+                            <p class="text-xs text-slate-500 uppercase font-semibold">Total Financiado</p>
+                            <p class="text-xl md:text-2xl font-bold text-slate-800">${{ "%.2f"|format(total_financiado) }}</p>
+                        </div>
+                        <div class="pl-2">
+                            <p class="text-xs text-slate-500 uppercase font-semibold">Pagado al Plan</p>
+                            <p class="text-xl md:text-2xl font-bold text-green-600">${{ "%.2f"|format(total_pagado_plan) }}</p>
+                        </div>
+                        <div class="pl-2">
+                            <p class="text-xs text-slate-500 uppercase font-semibold">Saldo Pendiente</p>
+                            <p class="text-xl md:text-2xl font-bold text-red-600">${{ "%.2f"|format(saldo_pendiente) }}</p>
+                        </div>
                     </div>
                 </div>
+                <!-- FIN DE LA CORRECCIÓN DE DISEÑO -->
 
                 <div class="flex-shrink-0 w-full md:w-auto border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-6 border-slate-200">
                     <div class="flex md:flex-col gap-2">
@@ -356,9 +360,7 @@
                                  <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-journal-text"></i> Contrato</h3>
                                  <div class="space-y-3 text-sm">
                                      <div class="flex justify-between items-center pt-2"><span class="text-slate-500">Valor del Bien/Plan:</span><span class="font-bold text-slate-800">${{ "%.2f"|format(cliente.plan|float) if cliente.plan else '0.00' }}</span></div>
-                                     <!-- INICIO DE LA CORRECCIÓN -->
                                      <div class="flex justify-between items-center"><span class="text-slate-500">Valor de Cuota:</span><span class="font-bold text-slate-800">${{ "%.2f"|format(cliente.valor_cuota|float) if cliente.valor_cuota else '0.00' }}</span></div>
-                                     <!-- FIN DE LA CORRECCIÓN -->
                                      <div class="flex justify-between items-center"><span class="text-slate-500">N° Contrato:</span><span class="font-semibold font-mono text-slate-700">{{ cliente.numero_contrato or 'N/A' }}</span></div>
                                      <div class="flex justify-between items-center"><span class="text-slate-500">Fecha Ingreso:</span><span class="font-semibold text-slate-700">{{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</span></div>
                                      <div class="flex justify-between items-center"><span class="text-slate-500">Asesor:</span><span class="font-semibold text-slate-700">{{ cliente.asesor or 'N/A' }}</span></div>
