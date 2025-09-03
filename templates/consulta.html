@@ -136,10 +136,10 @@
 
     {% for cliente in clientes %}
     <div x-data="{ 
-        showOfferForm: false, 
-        activeTab: 'pagos',
-        openCards: { progress: true, dossier: true } 
-    }" class="w-full space-y-6 mb-8">
+    showOfferForm: false, 
+    activeTab: 'resumen',
+    openCards: { progress: true, dossier: true } 
+}" class="w-full space-y-6 mb-8">
 
         {% set bucket_url = 'https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/' %}
 
