@@ -56,8 +56,6 @@
                     showConfirmButton: false,
                     timerProgressBar: true
                 }).then(() => {
-                    // --- CORRECCIÓN APLICADA AQUÍ ---
-                    // Redirige a la consulta usando la cédula devuelta por el servidor
                     if (data.cedula) {
                         window.location.href = `/consulta?busqueda=${encodeURIComponent(data.cedula)}`;
                     } else {
@@ -174,24 +172,22 @@
                 {% set total_pagado_plan = (cliente.cuotas_pagas|int(0) * cliente.valor_cuota|float(0)) %}
                 {% set saldo_pendiente = total_financiado - total_pagado_plan %}
                 
-                <!-- INICIO DE LA CORRECCIÓN DE DISEÑO -->
                 <div class="flex-grow w-full bg-slate-50 border border-slate-200 rounded-lg p-3">
                     <div class="grid grid-cols-3 gap-2 text-center divide-x divide-slate-200">
                         <div>
-                            <p class="text-xs text-slate-500 uppercase font-semibold">Total Financiado</p>
-                            <p class="text-xl md:text-2xl font-bold text-slate-800">${{ "%.2f"|format(total_financiado) }}</p>
+                            <p class="text-xs text-slate-500 uppercase font-semibold tracking-wider">Total Financiado</p>
+                            <p class="text-xl font-bold text-slate-800">${{ "%.2f"|format(total_financiado) }}</p>
                         </div>
                         <div class="pl-2">
-                            <p class="text-xs text-slate-500 uppercase font-semibold">Pagado al Plan</p>
-                            <p class="text-xl md:text-2xl font-bold text-green-600">${{ "%.2f"|format(total_pagado_plan) }}</p>
+                            <p class="text-xs text-slate-500 uppercase font-semibold tracking-wider">Pagado al Plan</p>
+                            <p class="text-xl font-bold text-green-600">${{ "%.2f"|format(total_pagado_plan) }}</p>
                         </div>
                         <div class="pl-2">
-                            <p class="text-xs text-slate-500 uppercase font-semibold">Saldo Pendiente</p>
-                            <p class="text-xl md:text-2xl font-bold text-red-600">${{ "%.2f"|format(saldo_pendiente) }}</p>
+                            <p class="text-xs text-slate-500 uppercase font-semibold tracking-wider">Saldo Pendiente</p>
+                            <p class="text-xl font-bold text-red-600">${{ "%.2f"|format(saldo_pendiente) }}</p>
                         </div>
                     </div>
                 </div>
-                <!-- FIN DE LA CORRECCIÓN DE DISEÑO -->
 
                 <div class="flex-shrink-0 w-full md:w-auto border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-6 border-slate-200">
                     <div class="flex md:flex-col gap-2">
@@ -347,32 +343,44 @@
                     </div>
                     
                     <div class="p-4 md:p-6 bg-slate-50/50 min-h-[20rem]">
-                        <div x-show="activeTab === 'resumen'" x-cloak class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div class="bg-white border border-slate-200 rounded-lg p-5">
-                                <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-telephone-fill"></i> Contacto</h3>
-                                <div class="space-y-3 text-sm">
-                                    <div class="flex items-center gap-3 pt-2"><i class="bi bi-whatsapp text-slate-400 w-4 text-center"></i><span class="font-semibold text-slate-700">{{ cliente.numero_telefono or 'N/A' }}</span></div>
-                                    <div class="flex items-center gap-3"><i class="bi bi-envelope-fill text-slate-400 w-4 text-center"></i><span class="font-semibold text-slate-700">{{ cliente.email or 'N/A' }}</span></div>
-                                    <div class="flex items-start gap-3"><i class="bi bi-geo-alt-fill text-slate-400 w-4 text-center pt-1"></i><span class="text-slate-700">{{ cliente.direccion or 'N/A' }}</span></div>
+                        <div x-show="activeTab === 'resumen'" x-cloak class="space-y-6">
+                            <!-- INICIO DE LA CORRECCIÓN DE DISEÑO -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="bg-white border border-slate-200 rounded-lg p-5">
+                                    <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-telephone-fill"></i> Contacto</h3>
+                                    <div class="space-y-3 text-sm">
+                                        <div class="grid grid-cols-3 gap-x-4">
+                                            <div class="col-span-1"><i class="bi bi-whatsapp text-slate-400"></i> Teléfono:</div>
+                                            <div class="col-span-2 font-semibold text-slate-700">{{ cliente.numero_telefono or 'N/A' }}</div>
+                                        </div>
+                                        <div class="grid grid-cols-3 gap-x-4">
+                                            <div class="col-span-1"><i class="bi bi-envelope-fill text-slate-400"></i> Email:</div>
+                                            <div class="col-span-2 font-semibold text-slate-700">{{ cliente.email or 'N/A' }}</div>
+                                        </div>
+                                        <div class="grid grid-cols-3 gap-x-4 items-start">
+                                            <div class="col-span-1"><i class="bi bi-geo-alt-fill text-slate-400"></i> Dirección:</div>
+                                            <div class="col-span-2 text-slate-700">{{ cliente.direccion or 'N/A' }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="bg-white border border-slate-200 rounded-lg p-5">
+                                    <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-journal-text"></i> Contrato</h3>
+                                    <div class="space-y-3 text-sm">
+                                        <div class="grid grid-cols-2 gap-x-4"><span class="text-slate-500">Valor del Bien/Plan:</span><span class="font-bold text-slate-800 text-right">${{ "%.2f"|format(cliente.plan|float) if cliente.plan else '0.00' }}</span></div>
+                                        <div class="grid grid-cols-2 gap-x-4"><span class="text-slate-500">Valor de Cuota:</span><span class="font-bold text-slate-800 text-right">${{ "%.2f"|format(cliente.valor_cuota|float) if cliente.valor_cuota else '0.00' }}</span></div>
+                                        <div class="grid grid-cols-2 gap-x-4"><span class="text-slate-500">N° Contrato:</span><span class="font-semibold font-mono text-slate-700 text-right">{{ cliente.numero_contrato or 'N/A' }}</span></div>
+                                        <div class="grid grid-cols-2 gap-x-4"><span class="text-slate-500">Fecha Ingreso:</span><span class="font-semibold text-slate-700 text-right">{{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</span></div>
+                                        <div class="grid grid-cols-2 gap-x-4"><span class="text-slate-500">Asesor:</span><span class="font-semibold text-slate-700 text-right">{{ cliente.asesor or 'N/A' }}</span></div>
+                                        <div class="grid grid-cols-2 gap-x-4"><span class="text-slate-500">Responsable:</span><span class="font-semibold text-slate-700 text-right">{{ cliente.responsable or 'N/A' }}</span></div>
+                                        <div class="grid grid-cols-2 gap-x-4"><span class="text-slate-500">Grupo:</span><span class="font-semibold text-slate-700 text-right">{{ cliente.grupo or 'N/A' }}</span></div>
+                                    </div>
                                 </div>
                             </div>
                             <div class="bg-white border border-slate-200 rounded-lg p-5">
-                                 <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-journal-text"></i> Contrato</h3>
-                                 <div class="space-y-3 text-sm">
-                                     <div class="flex justify-between items-center pt-2"><span class="text-slate-500">Valor del Bien/Plan:</span><span class="font-bold text-slate-800">${{ "%.2f"|format(cliente.plan|float) if cliente.plan else '0.00' }}</span></div>
-                                     <div class="flex justify-between items-center"><span class="text-slate-500">Valor de Cuota:</span><span class="font-bold text-slate-800">${{ "%.2f"|format(cliente.valor_cuota|float) if cliente.valor_cuota else '0.00' }}</span></div>
-                                     <div class="flex justify-between items-center"><span class="text-slate-500">N° Contrato:</span><span class="font-semibold font-mono text-slate-700">{{ cliente.numero_contrato or 'N/A' }}</span></div>
-                                     <div class="flex justify-between items-center"><span class="text-slate-500">Fecha Ingreso:</span><span class="font-semibold text-slate-700">{{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</span></div>
-                                     <div class="flex justify-between items-center"><span class="text-slate-500">Asesor:</span><span class="font-semibold text-slate-700">{{ cliente.asesor or 'N/A' }}</span></div>
-                                     <div class="flex justify-between items-center"><span class="text-slate-500">Responsable:</span><span class="font-semibold text-slate-700">{{ cliente.responsable or 'N/A' }}</span></div>
-                                     <div class="flex justify-between items-center"><span class="text-slate-500">Grupo:</span><span class="font-semibold text-slate-700">{{ cliente.grupo or 'N/A' }}</span></div>
-                                 </div>
-                            </div>
-                            <div class="bg-white border border-slate-200 rounded-lg p-5 md:col-span-2">
                                 <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-wallet-fill"></i> Estado de Cuenta</h3>
-                                <div class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3 pt-2 text-sm">
-                                   <div><p class="text-slate-500">Cuotas en Mora:</p><p class="font-semibold text-red-600">{{ cliente.cuotas_mora or '0' }}</p></div>
-                                   <div><p class="text-slate-500">Pagos Impuntuales:</p><p class="font-semibold text-slate-700">{{ cliente.pagos_impuntuales or '0' }}</p></div>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-6 pt-2 text-sm">
+                                   <div><p class="text-slate-500">Cuotas en Mora:</p><p class="font-semibold text-red-600 text-lg">{{ cliente.cuotas_mora or '0' }}</p></div>
+                                   <div><p class="text-slate-500">Pagos Impuntuales:</p><p class="font-semibold text-slate-700 text-lg">{{ cliente.pagos_impuntuales or '0' }}</p></div>
                                    <div><p class="text-slate-500">Moneda de Pago:</p><p class="font-semibold text-slate-700">{{ cliente.moneda_pago or 'N/A' }}</p></div>
                                    <div><p class="text-slate-500">Estatus de Pago:</p><p class="font-semibold text-slate-700">{{ cliente.estatus_pago or 'N/A' }}</p></div>
                                 </div>
@@ -384,7 +392,7 @@
                                 {% endif %}
                            </div>
                             {% if cliente.beneficiario_nombre %}
-                            <div class="bg-white border border-slate-200 rounded-lg p-5 md:col-span-2">
+                            <div class="bg-white border border-slate-200 rounded-lg p-5">
                                  <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-person-heart"></i> Beneficiario</h3>
                                  <div class="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2 pt-2 text-sm">
                                     <div><p class="text-slate-500">Nombre:</p><p class="font-semibold text-slate-700">{{ cliente.beneficiario_nombre }} {{ cliente.beneficiario_apellido }}</p></div>
@@ -393,7 +401,8 @@
                                  </div>
                             </div>
                             {% endif %}
-                            </div>
+                            <!-- FIN DE LA CORRECCIÓN DE DISEÑO -->
+                        </div>
 
                         <div x-show="activeTab === 'pagos'" x-cloak class="space-y-3">
                             {% for pago in cliente.pagos %}
