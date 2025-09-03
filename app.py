@@ -3801,13 +3801,12 @@ def finalizar_registro():
             flash('Ambas firmas son obligatorias para registrar al cliente.', 'error')
             return redirect(url_for('registrar'))
             
-        # CAMBIO: Se usa 'plan' para el cálculo pero el formulario sigue enviando 'plan_contratado'
-        plan_calculo = Decimal(form_data.get('plan_contratado', '0').replace(',', '.'))
+        plan_valor = Decimal(form_data.get('plan', '0').replace(',', '.')) # Corregido de 'plan_contratado' a 'plan'
         cuotas_totales = int(form_data.get('cuotas_totales', 0))
         moneda_pago = form_data.get('moneda_pago')
 
-        # CAMBIO: Se usa 'inscripcion' para el cálculo
-        form_data['inscripcion'] = (plan_calculo * Decimal('0.16')).quantize(Decimal('0.01'))
+        # Corregido: 'inscripcion' en lugar de 'inscripcion_monto'
+        form_data['inscripcion'] = (plan_valor * Decimal('0.16')).quantize(Decimal('0.01'))
 
         if moneda_pago == 'USD':
             base = Decimal('0.0496')
@@ -3815,7 +3814,7 @@ def finalizar_registro():
             base = Decimal('0.0557')
         
         factor_cuota = base * (Decimal('24') / Decimal(cuotas_totales))
-        valor_cuota_calculado = (plan_calculo * factor_cuota).quantize(Decimal('0.01'))
+        valor_cuota_calculado = (plan_valor * factor_cuota).quantize(Decimal('0.01'))
         form_data['valor_cuota'] = valor_cuota_calculado
         
         responsable_cierre = form_data.get('responsable', '') 
@@ -3837,10 +3836,11 @@ def finalizar_registro():
                 'ruta_foto_cedula_s3': ruta_s3_cedula,
                 'estatus': 'PENDIENTE',
                 'beneficiario_nombre': beneficiario_nombre,
-                'beneficiario_apellido': beneficiario_apellido,
+                'beneficiario_apellido': beneficiario_apellido
             }
             
-            # CAMBIO: Mapeo de los nombres del formulario a los nuevos nombres de la base de datos
+            # --- INICIO DE LA CORRECCIÓN DE ESQUEMA ---
+            # Mapeo de los nombres del formulario a los nombres de columna de la BD
             optional_fields_map = {
                 'contrato_nro': 'numero_contrato',
                 'telefono': 'numero_telefono',
@@ -3848,11 +3848,11 @@ def finalizar_registro():
                 'responsable': 'responsable',
                 'fecha_ingreso': 'fecha_ingreso',
                 'grupo': 'grupo',
-                'plan_contratado': 'plan',
+                'plan_contratado': 'plan', # El formulario usa plan_contratado, la BD usa plan
                 'cuotas_totales': 'cuotas_totales',
                 'moneda_pago': 'moneda_pago',
                 'valor_cuota': 'valor_cuota',
-                'inscripcion_monto': 'inscripcion', # El formulario envía 'inscripcion_monto'
+                'inscripcion_monto': 'inscripcion', # El formulario usa inscripcion_monto, la BD usa inscripcion
                 'ciclo_cobranza': 'ciclo_cobranza',
                 'direccion': 'direccion',
                 'email': 'email',
@@ -3862,13 +3862,11 @@ def finalizar_registro():
                 'beneficiario_direccion': 'beneficiario_direccion'
             }
 
-            # Corrección para el monto de inscripción que viene del form y el calculado
-            form_data['inscripcion_monto'] = form_data['inscripcion']
-            
             for form_key, db_key in optional_fields_map.items():
                 if form_data.get(form_key):
-                    insert_dict[db_key] = form_data[form_key]
-
+                    insert_dict[db_key] = form_data.get(form_key)
+            # --- FIN DE LA CORRECCIÓN DE ESQUEMA ---
+                
             columns = insert_dict.keys()
             values = insert_dict.values()
             query = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))}) RETURNING id"
@@ -3876,10 +3874,10 @@ def finalizar_registro():
             cur.execute(query, list(values))
             new_client_id = cur.fetchone()[0]
 
-            # CAMBIO: Usa 'numero_contrato' para la caja de inscripciones
-            if Decimal(form_data['inscripcion']) > 0:
-                cur.execute("INSERT INTO caja_inscripciones (contrato_nro, cliente_id, monto_inscripcion, responsable_cierre) VALUES (%s, %s, %s, %s)",
-                            (form_data.get('contrato_nro'), new_client_id, form_data['inscripcion'], responsable_cierre))
+            # Corregido: usa la variable estandarizada 'numero_contrato' y 'inscripcion'
+            if Decimal(form_data.get('inscripcion', 0)) > 0:
+                cur.execute("INSERT INTO caja_inscripciones (numero_contrato, cliente_id, monto_inscripcion, responsable_cierre) VALUES (%s, %s, %s, %s)",
+                            (form_data.get('numero_contrato'), new_client_id, form_data.get('inscripcion'), responsable_cierre))
             
             descripcion_audit = f"Registró y firmó contrato para nuevo cliente: {form_data.get('nombre_apellido')} (C.I. {cedula_cliente_limpia})."
             registrar_accion_auditoria('REGISTRO_CLIENTE_FIRMADO', descripcion_audit, new_client_id)
@@ -3890,8 +3888,8 @@ def finalizar_registro():
 
     except psycopg2.IntegrityError:
         conn.rollback()
-        # CAMBIO: Mensaje de error estandarizado
-        flash(f"Registro fallido: La cédula '{form_data.get('cedula')}' o el N° de Contrato '{form_data.get('contrato_nro')}' ya existen.", 'error')
+        # Corregido: usa la variable estandarizada 'numero_contrato'
+        flash(f"Registro fallido: La cédula '{form_data.get('cedula')}' o el N° de Contrato '{form_data.get('numero_contrato')}' ya existen.", 'error')
         return redirect(url_for('registrar'))
     except (psycopg2.Error, ValueError, ConnectionError, InvalidOperation) as e:
         conn.rollback()
@@ -4048,6 +4046,7 @@ def upload_clientes():
                 conn = get_db()
                 cursor = conn.cursor()
 
+                # Funciones auxiliares robustas
                 def clean_text(val): return str(val).strip() if pd.notna(val) else ''
                 def to_int_safe(val):
                     if pd.isna(val) or val == '': return None
@@ -4062,30 +4061,36 @@ def upload_clientes():
                     dt = pd.to_datetime(date_val, errors='coerce', dayfirst=True)
                     return dt.date() if pd.notna(dt) else None
 
+                # 1. Leer Excel y estandarizar encabezados para que coincidan con tu nuevo archivo
                 df = pd.read_excel(file, dtype=str).fillna('')
                 df.columns = [str(col).strip().upper() for col in df.columns]
-                df.dropna(subset=['N⁰ CEDULA'], inplace=True)
-                df['cedula_clean'] = df['N⁰ CEDULA'].apply(lambda x: re.sub(r'[^0-9VEve-]', '', str(x)))
+                df.dropna(subset=['NUMERO DE CEDULA'], inplace=True)
+                df['cedula_clean'] = df['NUMERO DE CEDULA'].apply(lambda x: re.sub(r'[^0-9VEve-]', '', str(x)))
                 df = df[df['cedula_clean'] != '']
                 
+                # 2. Obtener clientes existentes
                 cursor.execute("SELECT cedula FROM clientes")
                 existing_cedulas = {row[0] for row in cursor.fetchall()}
 
+                # 3. Preparar datos para inserción y actualización
                 records_to_update = []
                 records_to_insert = []
-                column_order = [ 'cedula', 'nombre', 'apellido', 'grupo', 'plan', 'moneda_pago', 'asesor', 'responsable', 'numero_contrato', 'proceso', 'estatus', 'fecha_ingreso', 'numero_telefono', 'porcentaje_inscripcion', 'inscripcion', 'cuotas_totales', 'cuotas_pagas', 'estatus_pago', 'pagos_impuntuales', 'cuotas_mora', 'observacion', 'valor_cuota', 'fecha_pago', 'estatus_cuota', 'valor_cancelado' ]
+                
+                # NUEVO ESTÁNDAR DE COLUMNAS DE LA BASE DE DATOS
+                column_order = [ 'cedula', 'nombre', 'apellido', 'grupo', 'plan', 'moneda_pago', 'asesor', 'responsable', 'numero_contrato', 'estado_del_plan', 'estatus_cliente', 'fecha_ingreso', 'numero_telefono', 'porcentaje_inscripcion', 'inscripcion', 'cuotas_totales', 'cuotas_pagas', 'condicion_pago', 'pagos_impuntuales', 'cuotas_mora', 'observacion', 'valor_cuota', 'fecha_pago', 'estatus_cuota', 'valor_cancelado' ]
 
                 for _, row in df.iterrows():
                     nombre_completo = clean_text(row.get('NOMBRE Y APELLIDO'))
                     nombre_parts = nombre_completo.split(' ', 1)
                     
+                    # Mapeo desde los nuevos encabezados de tu Excel
                     record = (
                         row['cedula_clean'], clean_text(nombre_parts[0]), clean_text(nombre_parts[1] if len(nombre_parts) > 1 else ''),
                         clean_text(row.get('GRUPO')), clean_text(row.get('PLAN')), clean_text(row.get('MONEDA DE PAGO')),
-                        clean_text(row.get('ASESOR')), clean_text(row.get('RESPONSABLE')), clean_text(row.get('N⁰ CONTRATO')),
-                        clean_text(row.get('PROCESO')), clean_text(row.get('ESTATUS')), to_date_safe(row.get('FECHA DE INGRESO')),
-                        clean_text(row.get('NUMERO DE TLF')), to_float_safe(row.get('PORCENTAJE INSCRIPCION')), to_float_safe(row.get('INSCRIPCION')),
-                        to_int_safe(row.get('CUOTAS TOTALES')), to_int_safe(row.get('CUOTAS PAGAS')), clean_text(row.get(df.columns[16])),
+                        clean_text(row.get('ASESOR')), clean_text(row.get('RESPONSABLE')), clean_text(row.get('NUMERO DE CONTRATO')),
+                        clean_text(row.get('ESTADO DEL PLAN')), clean_text(row.get('ESTATUS')), to_date_safe(row.get('FECHA DE INGRESO')),
+                        clean_text(row.get('NUMERO DE TELEFONO')), to_float_safe(row.get('PORCENTAJE DE INSCRIPCION')), to_float_safe(row.get('INSCRIPCION')),
+                        to_int_safe(row.get('CUOTAS TOTALES')), to_int_safe(row.get('CUOTAS PAGAS')), clean_text(row.get('CONDICION')),
                         to_int_safe(row.get('PAGOS IMPUNTUALES')), to_int_safe(row.get('CUOTAS EN MORA')), clean_text(row.get('OBSERVACIÓN')),
                         to_float_safe(row.get('VALOR DE CUOTA')), to_date_safe(row.get('FECHA DE PAGO')), clean_text(row.get('ESTATUS CUOTA')),
                         to_float_safe(row.get('VALOR CANCELADO'))
@@ -4096,40 +4101,35 @@ def upload_clientes():
                     else:
                         records_to_insert.append(record)
 
+                # 4. Ejecutar INSERCIÓN masiva
                 if records_to_insert:
                     insert_query = f"INSERT INTO clientes ({', '.join(column_order)}) VALUES %s"
                     execute_values(cursor, insert_query, records_to_insert)
 
+                # 5. Ejecutar ACTUALIZACIÓN masiva con los nombres de columna corregidos
                 if records_to_update:
-                    # ===== INICIO DE LA MODIFICACIÓN (Añade CASTs) =====
                     update_query = """
                         UPDATE clientes SET
                             nombre = data.nombre, apellido = data.apellido, grupo = data.grupo, plan = data.plan,
                             moneda_pago = data.moneda_pago, asesor = data.asesor, responsable = data.responsable,
-                            numero_contrato = data.numero_contrato, proceso = data.proceso, estatus = data.estatus,
-                            fecha_ingreso = data.fecha_ingreso, numero_telefono = data.numero_telefono,
-                            porcentaje_inscripcion = data.porcentaje_inscripcion::numeric,
-                            inscripcion = data.inscripcion::numeric,
-                            cuotas_totales = data.cuotas_totales::integer,
-                            cuotas_pagas = data.cuotas_pagas::integer,
-                            estatus_pago = data.estatus_pago,
-                            pagos_impuntuales = data.pagos_impuntuales::integer,
-                            cuotas_mora = data.cuotas_mora::integer,
-                            observacion = data.observacion,
-                            valor_cuota = data.valor_cuota::numeric,
-                            fecha_pago = data.fecha_pago,
-                            estatus_cuota = data.estatus_cuota,
+                            numero_contrato = data.numero_contrato, estado_del_plan = data.estado_del_plan, 
+                            estatus_cliente = data.estatus_cliente, fecha_ingreso = data.fecha_ingreso, 
+                            numero_telefono = data.numero_telefono, porcentaje_inscripcion = data.porcentaje_inscripcion::numeric,
+                            inscripcion = data.inscripcion::numeric, cuotas_totales = data.cuotas_totales::integer,
+                            cuotas_pagas = data.cuotas_pagas::integer, condicion_pago = data.condicion_pago,
+                            pagos_impuntuales = data.pagos_impuntuales::integer, cuotas_mora = data.cuotas_mora::integer,
+                            observacion = data.observacion, valor_cuota = data.valor_cuota::numeric,
+                            fecha_pago = data.fecha_pago, estatus_cuota = data.estatus_cuota, 
                             valor_cancelado = data.valor_cancelado::numeric
                         FROM (VALUES %s) AS data(
                             cedula, nombre, apellido, grupo, plan, moneda_pago, asesor, responsable, 
-                            numero_contrato, proceso, estatus, fecha_ingreso, numero_telefono, 
-                            porcentaje_inscripcion, inscripcion, cuotas_totales, cuotas_pagas, 
-                            estatus_pago, pagos_impuntuales, cuotas_mora, observacion, 
-                            valor_cuota, fecha_pago, estatus_cuota, valor_cancelado
+                            numero_contrato, estado_del_plan, estatus_cliente, fecha_ingreso, 
+                            numero_telefono, porcentaje_inscripcion, inscripcion, cuotas_totales, 
+                            cuotas_pagas, condicion_pago, pagos_impuntuales, cuotas_mora, 
+                            observacion, valor_cuota, fecha_pago, estatus_cuota, valor_cancelado
                         )
                         WHERE clientes.cedula = data.cedula;
                     """
-                    # ===== FIN DE LA MODIFICACIÓN =====
                     execute_values(cursor, update_query, records_to_update)
                 
                 conn.commit()
