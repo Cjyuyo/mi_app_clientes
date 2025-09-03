@@ -10,14 +10,12 @@
 
 {% block body %}
 <div class="space-y-8">
-    <!-- Encabezado de la página -->
     <div class="bg-white p-6 rounded-xl shadow-sm">
         <h1 class="text-3xl font-bold text-slate-800">Dashboard de Rendimiento</h1>
         <p class="text-slate-500 mt-1">Análisis de los indicadores clave para {{ metrics.mes_actual }} {{ metrics.anio_actual }}.</p>
     </div>
 
-    <!-- KPIs Principales -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6">
         <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
             <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-green-100 text-green-600">
                 <i class="bi bi-cash-stack text-2xl"></i>
@@ -25,15 +23,6 @@
             <div>
                 <div class="text-sm text-slate-500 font-medium">Ingresos del Mes</div>
                 <div class="text-2xl font-bold text-slate-800">${{ "{:,.2f}".format(metrics.ingresos_mes_conciliados) }}</div>
-            </div>
-        </div>
-        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
-            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                <i class="bi bi-people-fill text-2xl"></i>
-            </div>
-            <div>
-                <div class="text-sm text-slate-500 font-medium">Clientes Activos</div>
-                <div class="text-2xl font-bold text-slate-800">{{ metrics.clientes_activos }}</div>
             </div>
         </div>
         <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
@@ -46,6 +35,15 @@
             </div>
         </div>
         <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
+            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-sky-100 text-sky-600">
+                <i class="bi bi-people-fill text-2xl"></i>
+            </div>
+            <div>
+                <div class="text-sm text-slate-500 font-medium">Total Clientes</div>
+                <div class="text-2xl font-bold text-slate-800">{{ metrics.total_clientes }}</div>
+            </div>
+        </div>
+        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
             <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-purple-100 text-purple-600">
                 <i class="bi bi-award-fill text-2xl"></i>
             </div>
@@ -55,8 +53,31 @@
             </div>
         </div>
     </div>
+    
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+        <div class="bg-white p-4 rounded-xl shadow-sm text-center">
+            <div class="text-sm font-semibold text-green-600">Activos</div>
+            <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_activos }}</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm text-center">
+            <div class="text-sm font-semibold text-yellow-600">Reserva</div>
+            <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_reserva }}</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm text-center">
+            <div class="text-sm font-semibold text-blue-600">Congelados</div>
+            <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_congelados }}</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm text-center">
+            <div class="text-sm font-semibold text-slate-500">Inactivos</div>
+            <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_inactivos }}</div>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm text-center">
+            <div class="text-sm font-semibold text-red-600">Retirados</div>
+            <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_retirados }}</div>
+        </div>
+    </div>
 
-    <!-- Gráficos -->
+
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-sm">
             <h2 class="text-lg font-bold text-slate-800 mb-4">Ingresos Mensuales (Últimos 6 Meses)</h2>
