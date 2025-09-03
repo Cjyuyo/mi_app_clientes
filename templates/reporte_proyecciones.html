@@ -109,51 +109,47 @@
 
         <!-- INICIO DE LA SECCIÓN DE KPIS (REDiseñada) -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            
-            <!-- Card: Ingresos Proyectados -->
-            <div class="flex flex-col justify-between bg-white p-5 rounded-xl shadow-sm border border-slate-200 h-full">
-                <div class="flex items-center gap-3 text-slate-500">
-                    <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-green-100 text-green-600"><i class="bi bi-arrow-down-circle-fill"></i></div>
-                    <span class="text-sm font-medium">Ingresos Proyectados</span>
-                </div>
-                <div>
-                    <p class="text-3xl font-bold text-slate-800 mt-2">${{ "{:,.2f}".format(proyecciones.resumen.ingresos_totales_proyectados) }}</p>
-                </div>
-            </div>
-            
-            <!-- Card: Ingreso Real Acumulado -->
-            <div class="flex flex-col justify-between bg-white p-5 rounded-xl shadow-sm border border-slate-200 h-full">
-                <div class="flex items-center gap-3 text-slate-500">
-                    <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-teal-100 text-teal-600"><i class="bi bi-cash-stack"></i></div>
-                    <span class="text-sm font-medium">Ingreso Real Acumulado</span>
-                </div>
-                <div>
-                    <p class="text-3xl font-bold text-teal-600 mt-2">${{ "{:,.2f}".format(proyecciones.resumen.ingreso_real_acumulado) }}</p>
-                </div>
-            </div>
-
-            <!-- Card: Gastos Proyectados -->
-            <div class="flex flex-col justify-between bg-white p-5 rounded-xl shadow-sm border border-slate-200 h-full">
-                <div class="flex items-center gap-3 text-slate-500">
-                    <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-red-100 text-red-600"><i class="bi bi-arrow-up-circle-fill"></i></div>
-                    <span class="text-sm font-medium">Gastos Proyectados</span>
-                </div>
-                <div>
-                    <p class="text-3xl font-bold text-slate-800 mt-2">${{ "{:,.2f}".format(proyecciones.resumen.gastos_totales_proyectados) }}</p>
-                </div>
-            </div>
-
-            <!-- Card: Balance Neto Proyectado -->
-            <div class="flex flex-col justify-between bg-white p-5 rounded-xl shadow-sm border border-slate-200 h-full">
-                <div class="flex items-center gap-3 text-slate-500">
-                    <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-sky-100 text-sky-600"><i class="bi bi-bank"></i></div>
-                    <span class="text-sm font-medium">Balance Neto Proyectado</span>
-                </div>
-                <div>
-                    <p class="text-3xl font-bold mt-2 {{ 'text-green-600' if proyecciones.resumen.balance_neto_proyectado >= 0 else 'text-red-600' }}">${{ "{:,.2f}".format(proyecciones.resumen.balance_neto_proyectado) }}</p>
-                </div>
-            </div>
+    
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center">
+        <div class="flex items-center gap-3 text-slate-500">
+            <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-green-100 text-green-600"><i class="bi bi-arrow-down-circle-fill"></i></div>
+            <span class="text-sm font-medium">Ingresos Proyectados</span>
         </div>
+        <div class="mt-2 flex-grow flex items-center">
+            <p class="text-2xl font-bold text-slate-800">${{ "{:,.2f}".format(proyecciones.resumen.ingresos_totales_proyectados) }}</p>
+        </div>
+    </div>
+    
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center">
+        <div class="flex items-center gap-3 text-slate-500">
+            <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-teal-100 text-teal-600"><i class="bi bi-cash-stack"></i></div>
+            <span class="text-sm font-medium">Ingreso Real Acumulado</span>
+        </div>
+        <div class="mt-2 flex-grow flex items-center">
+            <p class="text-2xl font-bold text-teal-600">${{ "{:,.2f}".format(proyecciones.resumen.ingreso_real_acumulado) }}</p>
+        </div>
+    </div>
+
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center">
+        <div class="flex items-center gap-3 text-slate-500">
+            <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-red-100 text-red-600"><i class="bi bi-arrow-up-circle-fill"></i></div>
+            <span class="text-sm font-medium">Gastos Proyectados</span>
+        </div>
+        <div class="mt-2 flex-grow flex items-center">
+            <p class="text-2xl font-bold text-slate-800">${{ "{:,.2f}".format(proyecciones.resumen.gastos_totales_proyectados) }}</p>
+        </div>
+    </div>
+
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center">
+        <div class="flex items-center gap-3 text-slate-500">
+            <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-sky-100 text-sky-600"><i class="bi bi-bank"></i></div>
+            <span class="text-sm font-medium">Balance Neto Proyectado</span>
+        </div>
+        <div class="mt-2 flex-grow flex items-center">
+            <p class="text-2xl font-bold {{ 'text-green-600' if proyecciones.resumen.balance_neto_proyectado >= 0 else 'text-red-600' }}">${{ "{:,.2f}".format(proyecciones.resumen.balance_neto_proyectado) }}</p>
+        </div>
+    </div>
+</div>
         <!-- FIN DE LA SECCIÓN DE KPIS -->
 
         <div class="bg-white p-6 rounded-xl shadow-sm border">
