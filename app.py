@@ -2840,13 +2840,12 @@ def reporte_metricas():
         'mes_actual': get_nombre_mes(today.month), 'anio_actual': today.year,
         'ingresos_ultimos_meses': {'labels': [], 'values': []},
         'composicion_clientes': {'labels': [], 'values': []},
-        'mapa_clientes': {},
-        'estados_del_plan': {}  # Se inicializa el diccionario aquí
+        'mapa_clientes': {}
     }
     if conn:
         try:
             with conn.cursor() as cur:
-                # Consulta para el mapa de clientes
+                # Consulta única para obtener todos los conteos del mapa
                 cur.execute("""
                     SELECT
                         COUNT(*) AS total_clientes,
@@ -2867,20 +2866,7 @@ def reporte_metricas():
                 if mapa_counts:
                     dashboard_metrics['mapa_clientes'] = dict(mapa_counts)
 
-                # Consulta para obtener todos los 'estado_del_plan' dinámicamente
-                cur.execute("""
-                    SELECT estado_del_plan, COUNT(*) as total
-                    FROM clientes
-                    WHERE estado_del_plan IS NOT NULL AND estado_del_plan != ''
-                    GROUP BY estado_del_plan
-                    ORDER BY estado_del_plan
-                """)
-                estados_plan = cur.fetchall()
-                dashboard_metrics['estados_del_plan'] = {
-                    item['estado_del_plan']: item['total'] for item in estados_plan
-                }
-
-                # El resto de las consultas para ingresos, morosidad, etc.
+                # El resto de las consultas para ingresos, morosidad, etc., se mantienen igual
                 first_day_of_month = today.replace(day=1)
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
                 dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
@@ -2907,10 +2893,14 @@ def reporte_metricas():
                     current_date = month_start - timedelta(days=1)
                 dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
                 
-                cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN PROCESO') as proceso, COUNT(*) FROM clientes WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO' GROUP BY estado_del_plan")
+                # ***** INICIO DE LA MODIFICACIÓN *****
+                # Se elimina el filtro "WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO'" para incluir a todos los clientes
+                cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as proceso, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
                 client_composition = cur.fetchall()
+                # ***** FIN DE LA MODIFICACIÓN *****
+
                 comp_labels = [row['proceso'].capitalize() for row in client_composition]
-                comp_values = [row['count'] for row in client_composition]
+                comp_values = [row['total'] for row in client_composition]
                 dashboard_metrics['composicion_clientes'] = {'labels': comp_labels, 'values': comp_values}
 
         except psycopg2.Error as e:
