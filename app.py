@@ -3801,11 +3801,13 @@ def finalizar_registro():
             flash('Ambas firmas son obligatorias para registrar al cliente.', 'error')
             return redirect(url_for('registrar'))
             
-        plan_contratado = Decimal(form_data.get('plan_contratado', '0').replace(',', '.'))
+        # CAMBIO: Se usa 'plan' para el cálculo pero el formulario sigue enviando 'plan_contratado'
+        plan_calculo = Decimal(form_data.get('plan_contratado', '0').replace(',', '.'))
         cuotas_totales = int(form_data.get('cuotas_totales', 0))
         moneda_pago = form_data.get('moneda_pago')
 
-        form_data['inscripcion_monto'] = (plan_contratado * Decimal('0.16')).quantize(Decimal('0.01'))
+        # CAMBIO: Se usa 'inscripcion' para el cálculo
+        form_data['inscripcion'] = (plan_calculo * Decimal('0.16')).quantize(Decimal('0.01'))
 
         if moneda_pago == 'USD':
             base = Decimal('0.0496')
@@ -3813,22 +3815,18 @@ def finalizar_registro():
             base = Decimal('0.0557')
         
         factor_cuota = base * (Decimal('24') / Decimal(cuotas_totales))
-        valor_cuota_calculado = (plan_contratado * factor_cuota).quantize(Decimal('0.01'))
+        valor_cuota_calculado = (plan_calculo * factor_cuota).quantize(Decimal('0.01'))
         form_data['valor_cuota'] = valor_cuota_calculado
         
         responsable_cierre = form_data.get('responsable', '') 
 
         with conn.cursor() as cur:
-            # Separar nombre y apellido del cliente principal
             nombre_completo = form_data.get('nombre_apellido').split(' ', 1)
             nombre, apellido = nombre_completo[0], nombre_completo[1] if len(nombre_completo) > 1 else ''
             
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Separar nombre y apellido del beneficiario
             beneficiario_completo = form_data.get('beneficiario_nombre_apellido', '').split(' ', 1)
             beneficiario_nombre = beneficiario_completo[0]
             beneficiario_apellido = beneficiario_completo[1] if len(beneficiario_completo) > 1 else ''
-            # --- FIN DE LA CORRECCIÓN ---
 
             insert_dict = {
                 'nombre': nombre, 'apellido': apellido, 'cedula': cedula_cliente_limpia,
@@ -3838,24 +3836,39 @@ def finalizar_registro():
                 'ruta_foto_cliente_s3': ruta_s3_cliente,
                 'ruta_foto_cedula_s3': ruta_s3_cedula,
                 'estatus': 'PENDIENTE',
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Añadir los campos del beneficiario al diccionario de inserción
                 'beneficiario_nombre': beneficiario_nombre,
                 'beneficiario_apellido': beneficiario_apellido,
-                # --- FIN DE LA CORRECCIÓN ---
             }
             
-            optional_fields = [
-                'contrato_nro', 'telefono', 'asesor', 'responsable', 'fecha_ingreso', 'grupo', 
-                'plan_contratado', 'cuotas_totales', 'moneda_pago', 'valor_cuota', 
-                'inscripcion_monto', 'ciclo_cobranza', 'direccion', 'email', 
-                'beneficiario_cedula', 'beneficiario_telefono', # Se quita 'beneficiario_nombre_apellido'
-                'beneficiario_email', 'beneficiario_direccion'
-            ]
+            # CAMBIO: Mapeo de los nombres del formulario a los nuevos nombres de la base de datos
+            optional_fields_map = {
+                'contrato_nro': 'numero_contrato',
+                'telefono': 'numero_telefono',
+                'asesor': 'asesor',
+                'responsable': 'responsable',
+                'fecha_ingreso': 'fecha_ingreso',
+                'grupo': 'grupo',
+                'plan_contratado': 'plan',
+                'cuotas_totales': 'cuotas_totales',
+                'moneda_pago': 'moneda_pago',
+                'valor_cuota': 'valor_cuota',
+                'inscripcion_monto': 'inscripcion', # El formulario envía 'inscripcion_monto'
+                'ciclo_cobranza': 'ciclo_cobranza',
+                'direccion': 'direccion',
+                'email': 'email',
+                'beneficiario_cedula': 'beneficiario_cedula',
+                'beneficiario_telefono': 'beneficiario_telefono',
+                'beneficiario_email': 'beneficiario_email',
+                'beneficiario_direccion': 'beneficiario_direccion'
+            }
 
-            for field in optional_fields:
-                if form_data.get(field): insert_dict[field] = form_data[field]
-                
+            # Corrección para el monto de inscripción que viene del form y el calculado
+            form_data['inscripcion_monto'] = form_data['inscripcion']
+            
+            for form_key, db_key in optional_fields_map.items():
+                if form_data.get(form_key):
+                    insert_dict[db_key] = form_data[form_key]
+
             columns = insert_dict.keys()
             values = insert_dict.values()
             query = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))}) RETURNING id"
@@ -3863,9 +3876,10 @@ def finalizar_registro():
             cur.execute(query, list(values))
             new_client_id = cur.fetchone()[0]
 
-            if Decimal(form_data['inscripcion_monto']) > 0:
+            # CAMBIO: Usa 'numero_contrato' para la caja de inscripciones
+            if Decimal(form_data['inscripcion']) > 0:
                 cur.execute("INSERT INTO caja_inscripciones (contrato_nro, cliente_id, monto_inscripcion, responsable_cierre) VALUES (%s, %s, %s, %s)",
-                            (form_data.get('contrato_nro'), new_client_id, form_data['inscripcion_monto'], responsable_cierre))
+                            (form_data.get('contrato_nro'), new_client_id, form_data['inscripcion'], responsable_cierre))
             
             descripcion_audit = f"Registró y firmó contrato para nuevo cliente: {form_data.get('nombre_apellido')} (C.I. {cedula_cliente_limpia})."
             registrar_accion_auditoria('REGISTRO_CLIENTE_FIRMADO', descripcion_audit, new_client_id)
@@ -3876,6 +3890,7 @@ def finalizar_registro():
 
     except psycopg2.IntegrityError:
         conn.rollback()
+        # CAMBIO: Mensaje de error estandarizado
         flash(f"Registro fallido: La cédula '{form_data.get('cedula')}' o el N° de Contrato '{form_data.get('contrato_nro')}' ya existen.", 'error')
         return redirect(url_for('registrar'))
     except (psycopg2.Error, ValueError, ConnectionError, InvalidOperation) as e:
@@ -3961,15 +3976,12 @@ def consulta():
         else:
             try:
                 with conn.cursor() as cur:
-                    # --- INICIO DE LA MODIFICACIÓN ---
-                    # Se actualizó "contrato_nro" a "numero_contrato" para que coincida con la nueva tabla.
-                    # Se eliminó la concatenación "nombre_apellido" del SELECT ya que no es necesaria.
+                    # CAMBIO: Se asegura que la consulta use el nuevo nombre de columna 'numero_contrato'
                     query_clientes = """
                         SELECT * FROM clientes 
                         WHERE cedula = %s OR (nombre || ' ' || apellido) ILIKE %s OR numero_contrato ILIKE %s
                         ORDER BY nombre, apellido LIMIT 10;
                     """
-                    # --- FIN DE LA MODIFICACIÓN ---
                     
                     patron_like = f'%{termino_busqueda}%'
                     cur.execute(query_clientes, (termino_busqueda, patron_like, patron_like))
@@ -4457,7 +4469,6 @@ def edit_client(client_id):
         return redirect(url_for('consulta'))
     
     with conn.cursor() as cur:
-        # --- INICIO CORRECCIÓN: Concatenar nombre de beneficiario para el formulario ---
         cur.execute("""
             SELECT *, 
                    (nombre || ' ' || apellido) as nombre_apellido,
@@ -4465,7 +4476,6 @@ def edit_client(client_id):
             FROM clientes 
             WHERE id = %s
         """, (client_id,))
-        # --- FIN CORRECCIÓN ---
         cliente_actual = cur.fetchone()
     
     if not cliente_actual:
@@ -4478,18 +4488,15 @@ def edit_client(client_id):
         try:
             form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
             
-            # (Lógica de cambios y auditoría existente se mantiene)
             cambios = []
-            # ...
+            # ... (código de auditoría sin cambios)
 
             with conn.cursor() as cur:
-                # Separar nombre del cliente principal
                 if 'nombre_apellido' in form_data:
                     nombre_completo = form_data['nombre_apellido'].split(' ', 1)
                     form_data['nombre'] = nombre_completo[0]
                     form_data['apellido'] = nombre_completo[1] if len(nombre_completo) > 1 else ''
 
-                # --- INICIO CORRECCIÓN: Separar nombre del beneficiario y añadir a la actualización ---
                 if 'beneficiario_nombre_apellido' in form_data:
                     beneficiario_completo = form_data['beneficiario_nombre_apellido'].split(' ', 1)
                     form_data['beneficiario_nombre'] = beneficiario_completo[0]
@@ -4501,14 +4508,16 @@ def edit_client(client_id):
                 if edicion_de_estado_bloqueada:
                     update_data['estatus'] = cliente_actual['estatus']
 
+                # CAMBIO: La consulta UPDATE usa los nombres de columna estandarizados
                 update_query = """
                 UPDATE clientes SET
-                    nombre = %(nombre)s, apellido = %(apellido)s, cedula = %(cedula)s, contrato_nro = %(contrato_nro)s,
-                    telefono = %(telefono)s, email = %(email)s, direccion = %(direccion)s, 
+                    nombre = %(nombre)s, apellido = %(apellido)s, cedula = %(cedula)s, 
+                    numero_contrato = %(numero_contrato)s,
+                    numero_telefono = %(numero_telefono)s, email = %(email)s, direccion = %(direccion)s, 
                     asesor = %(asesor)s, responsable = %(responsable)s, fecha_ingreso = %(fecha_ingreso)s,
-                    grupo = %(grupo)s, plan_contratado = %(plan_contratado)s,
+                    grupo = %(grupo)s, plan = %(plan)s,
                     cuotas_totales = %(cuotas_totales)s, moneda_pago = %(moneda_pago)s, valor_cuota = %(valor_cuota)s,
-                    inscripcion_monto = %(inscripcion_monto)s, proceso = %(proceso)s, estatus = %(estatus)s,
+                    inscripcion = %(inscripcion)s, proceso = %(proceso)s, estatus = %(estatus)s,
                     cuotas_pagadas_progresivas = %(cuotas_pagadas_progresivas)s,
                     cuotas_pagadas_regresivas = %(cuotas_pagadas_regresivas)s,
                     beneficiario_nombre = %(beneficiario_nombre)s,
@@ -4519,11 +4528,9 @@ def edit_client(client_id):
                     beneficiario_direccion = %(beneficiario_direccion)s
                 WHERE id = %(id)s;
                 """
-                # --- FIN CORRECCIÓN ---
                 cur.execute(update_query, update_data)
                 
-                # (Lógica de auditoría existente se mantiene)
-                # ...
+                # ... (lógica de auditoría sin cambios)
 
                 conn.commit()
                 flash('¡Cliente actualizado exitosamente!', 'success')
@@ -5247,15 +5254,12 @@ def portal_login():
             return render_template('portal_login.html', anio_actual=get_venezuela_current_date().year)
         try:
             with conn.cursor() as cur:
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se simplifica la consulta para hacerla más robusta y evitar errores.
-                # Ahora compara directamente el número de contrato limpio.
+                # CAMBIO: Usa la columna estandarizada 'numero_contrato'
                 sql_query = """
                     SELECT id, (nombre || ' ' || apellido) as nombre_apellido 
                     FROM clientes 
-                    WHERE TRIM(cedula) = %s AND REPLACE(TRIM(UPPER(contrato_nro)), 'MP-', '') = %s;
+                    WHERE TRIM(cedula) = %s AND REPLACE(TRIM(UPPER(numero_contrato)), 'MP-', '') = %s;
                 """
-                # --- FIN DE LA CORRECCIÓN ---
                 cur.execute(sql_query, (cedula, contrato_nro))
                 cliente = cur.fetchone()
             if cliente:
@@ -5505,7 +5509,8 @@ def portal_pagar_inscripcion():
                 flash('No se pudo encontrar tu perfil de cliente.', 'error')
                 return redirect(url_for('portal_logout'))
             
-            inscripcion_total = cliente.get('inscripcion_monto', Decimal('0.0')) or Decimal('0.0')
+            # CAMBIO: Usa la columna estandarizada 'inscripcion'
+            inscripcion_total = cliente.get('inscripcion', Decimal('0.0')) or Decimal('0.0')
             inscripcion_pagada = cliente.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
             monto_restante = inscripcion_total - inscripcion_pagada
 
@@ -5513,6 +5518,7 @@ def portal_pagar_inscripcion():
                 flash('Tu inscripción ya ha sido pagada en su totalidad.', 'info')
                 return redirect(url_for('portal_dashboard'))
 
+            # ... (el resto de la función se mantiene igual, ya que la lógica interna no cambia)
             concepto_pago = "Abono a Inscripción" if inscripcion_pagada > 0 else "Pago de Inscripción"
 
             today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
@@ -5529,7 +5535,7 @@ def portal_pagar_inscripcion():
                 monto_usd_a_guardar = Decimal('0.0')
                 monto_reportado_bs = Decimal('0.0')
                 forma_pago_final = None
-                referencia_final = None # Inicializado
+                referencia_final = None 
                 banco_final = None
                 fecha_pago_final = pago_form.get('fecha_pago')
                 currency_bulk = ''
@@ -5537,13 +5543,13 @@ def portal_pagar_inscripcion():
                 if pago_en_final == 'USDT':
                     if tipo_pago_inscripcion == 'abono':
                         monto_usd_a_guardar = Decimal(pago_form.get('monto_abono_usd', '0.00').replace(',', '.'))
-                    else: # Pago completo
+                    else:
                         monto_usd_a_guardar = monto_restante
                     forma_pago_final = 'Binance'
                     tasa_bcv_calculo = None
                     currency_bulk = 'USD'
                     referencia_final = pago_form.get('referencia_usdt')
-                else: # Dolar/BCV
+                else: 
                     pago_en_final = 'Dolar/BCV'
                     monto_bs_str = pago_form.get('monto_bs', '0.00').replace(',', '.')
                     monto_reportado_bs = Decimal(monto_bs_str).quantize(Decimal('0.02'))
@@ -5556,9 +5562,6 @@ def portal_pagar_inscripcion():
                     currency_bulk = 'VES'
                     referencia_final = pago_form.get('referencia')
 
-                # --- INICIO DE LA CORRECCIÓN ---
-                # 1. Se crea el "Expediente de Pago" (payment_bulk) para la inscripción.
-                #    El monto esperado es el total restante de la inscripción.
                 expected_amount_for_bulk = monto_restante if currency_bulk == 'USD' else monto_a_pagar_bs
                 
                 cur.execute("""
@@ -5568,7 +5571,6 @@ def portal_pagar_inscripcion():
                 
                 new_bulk_id = cur.fetchone()[0]
 
-                # 2. Se modifica la inserción del pago para ASIGNAR el bulk_id, unificando el flujo.
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, 
                                        referencia, banco, tasa_dia, estado_reporte, fecha_creacion, reportado_por_cliente, 
@@ -5580,9 +5582,8 @@ def portal_pagar_inscripcion():
                     forma_pago_final, fecha_pago_final, pago_en_final, 
                     concepto_pago, referencia_final, banco_final, tasa_bcv_calculo, 
                     get_venezuela_current_datetime(),
-                    new_bulk_id # <--- Se asigna el ID del nuevo "expediente"
+                    new_bulk_id
                 ))
-                # --- FIN DE LA CORRECCIÓN ---
                 
                 conn.commit()
                 flash('✅ ¡Pago de inscripción reportado! Será verificado por un administrador.', 'success')
