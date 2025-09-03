@@ -1137,7 +1137,7 @@ def get_active_sessions():
             for user in usuarios_db:
                 users_list.append({
                     "username": user['usuario'],
-                    "status": user['current_status'] or 'Disponible',
+                    "current_status": user['current_status'] or 'Disponible',
                     "last_seen": time_ago(user['ultimo_visto']),
                     "inactivity_seconds": user['inactivity_seconds']
                 })
