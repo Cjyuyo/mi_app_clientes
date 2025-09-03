@@ -54,30 +54,43 @@
         </div>
     </div>
     
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-        <div class="bg-white p-4 rounded-xl shadow-sm text-center">
-            <div class="text-sm font-semibold text-green-600">Activos</div>
-            <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_activos }}</div>
-        </div>
-        <div class="bg-white p-4 rounded-xl shadow-sm text-center">
-            <div class="text-sm font-semibold text-yellow-600">Reserva</div>
-            <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_reserva }}</div>
-        </div>
-        <div class="bg-white p-4 rounded-xl shadow-sm text-center">
-            <div class="text-sm font-semibold text-blue-600">Congelados</div>
-            <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_congelados }}</div>
-        </div>
-        <div class="bg-white p-4 rounded-xl shadow-sm text-center">
-            <div class="text-sm font-semibold text-slate-500">Inactivos</div>
-            <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_inactivos }}</div>
-        </div>
-        <div class="bg-white p-4 rounded-xl shadow-sm text-center">
-            <div class="text-sm font-semibold text-red-600">Retirados</div>
-            <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_retirados }}</div>
+    <div class="p-4 bg-slate-50 rounded-xl border">
+        <h3 class="text-md font-bold text-slate-700 mb-4">Desglose por Estatus de Cliente</h3>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div class="bg-white p-3 rounded-lg shadow-sm text-center border">
+                <div class="text-sm font-semibold text-green-600">Activos</div>
+                <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_activos }}</div>
+            </div>
+            <div class="bg-white p-3 rounded-lg shadow-sm text-center border">
+                <div class="text-sm font-semibold text-yellow-600">Reserva</div>
+                <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_reserva }}</div>
+            </div>
+            <div class="bg-white p-3 rounded-lg shadow-sm text-center border">
+                <div class="text-sm font-semibold text-blue-600">Congelados</div>
+                <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_congelados }}</div>
+            </div>
+            <div class="bg-white p-3 rounded-lg shadow-sm text-center border">
+                <div class="text-sm font-semibold text-slate-500">Inactivos</div>
+                <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_inactivos }}</div>
+            </div>
+            <div class="bg-white p-3 rounded-lg shadow-sm text-center border">
+                <div class="text-sm font-semibold text-red-600">Retirados</div>
+                <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_retirados }}</div>
+            </div>
         </div>
     </div>
 
-
+    <div class="p-4 bg-slate-50 rounded-xl border">
+        <h3 class="text-md font-bold text-slate-700 mb-4">Desglose por Estado del Plan</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {% for estado, total in metrics.estados_del_plan.items() %}
+            <div class="bg-white p-3 rounded-lg shadow-sm text-center border">
+                <div class="text-sm font-semibold text-gray-600 truncate" title="{{ estado }}">{{ estado | title }}</div>
+                <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ total }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-sm">
             <h2 class="text-lg font-bold text-slate-800 mb-4">Ingresos Mensuales (Últimos 6 Meses)</h2>
