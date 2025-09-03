@@ -257,13 +257,30 @@
                         <div class="space-y-4 pt-4">
                             <div>
                                 <h4 class="text-sm font-semibold text-slate-600 mb-1">Progreso Inscripción</h4>
-                                {% set inscripcion_pagada = cliente.valor_cancelado|float(0) %}{% set inscripcion_monto = cliente.inscripcion|float(1) %}
-                                {% set inscripcion_percent = (inscripcion_pagada / inscripcion_monto * 100) if inscripcion_monto > 0 else 0 %}
+                                
+                                {% set inscripcion_pagada_original = cliente.valor_cancelado|float(0) %}
+                                {% set inscripcion_monto = cliente.inscripcion|float(1) %}
+                                {% set inscripcion_percent_original = (inscripcion_pagada_original / inscripcion_monto * 100) if inscripcion_monto > 0 else 0 %}
+                                
+                                {% set cuotas_pagadas_num = cliente.cuotas_pagas|int(0) %}
+                                {% if cuotas_pagadas_num >= 1 and inscripcion_percent_original < 100 %}
+                                    {% set inscripcion_pagada_final = inscripcion_monto %}
+                                    {% set inscripcion_percent_final = 100 %}
+                                {% else %}
+                                    {% set inscripcion_pagada_final = inscripcion_pagada_original %}
+                                    {% set inscripcion_percent_final = inscripcion_percent_original %}
+                                {% endif %}
+                                
                                 <div class="pt-1">
-                                    <div class="flex justify-between items-center mb-1"><span class="text-sm font-semibold text-slate-600">{{ "%.0f"|format(inscripcion_percent) }}%</span><span class="text-xs font-medium text-slate-500">${{ "%.2f"|format(inscripcion_pagada) }} / ${{ "%.2f"|format(inscripcion_monto) }}</span></div>
-                                    <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="bg-yellow-400 h-2.5 rounded-full" style="width: {{ inscripcion_percent }}%"></div></div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="text-sm font-semibold text-slate-600">{{ "%.0f"|format(inscripcion_percent_final) }}%</span>
+                                        <span class="text-xs font-medium text-slate-500">${{ "%.2f"|format(inscripcion_pagada_final) }} / ${{ "%.2f"|format(inscripcion_monto) }}</span>
+                                    </div>
+                                    <div class="w-full bg-slate-200 rounded-full h-2.5">
+                                        <div class="bg-yellow-400 h-2.5 rounded-full" style="width: {{ inscripcion_percent_final }}%"></div>
+                                    </div>
                                 </div>
-                            </div>
+                                </div>
                             <div>
                                 <h4 class="text-sm font-semibold text-slate-600 mb-1">Progreso del Plan</h4>
                                 {% set cuotas_pagas = cliente.cuotas_pagas|int(0) %}{% set cuotas_totales = cliente.cuotas_totales|int(1) %}
@@ -666,4 +683,3 @@
     });
 </script>
 {% endblock %}
-}
