@@ -4168,100 +4168,180 @@ def conciliar_pago(pago_id):
     
     # --- INICIO DE LA FUNCIÓN DE COMISIONES ---
     def calcular_y_guardar_comisiones(cliente_info):
-    
-    conn = get_db()
-    if not conn:
-        logging.error("No se pudo obtener la conexión a la base de datos para calcular comisiones.")
-        return
+        # --- INICIO DE LA CORRECCIÓN DE INDENTACIÓN ---
+        conn = get_db()
+        if not conn:
+            logging.error("No se pudo obtener la conexión a la base de datos para calcular comisiones.")
+            return
 
+        try:
+            with conn.cursor() as cur:
+                # 1. OBTENER CONTEXTO DE ROLES DESDE LA BASE DE DATOS
+                cur.execute("SELECT id, rol FROM administradores")
+                admins = {admin['id']: admin['rol'] for admin in cur.fetchall()}
+
+                PRESIDENCIA_IDS = {id for id, rol in admins.items() if rol == 'presidencia'}
+                GERENCIA_IDS = {id for id, rol in admins.items() if rol == 'gerencia'}
+
+                # 2. EXTRAER DATOS DE LA VENTA
+                plan_contratado = Decimal(cliente_info.get('plan_contratado', '0'))
+                dueño_id = cliente_info.get('asesor_id')
+                cerrador_id = cliente_info.get('cerrado_por_id')
+                contrato_nro = cliente_info['contrato_nro']
+                cliente_id = cliente_info['id']
+
+                if not cerrador_id or not dueño_id:
+                    logging.error(f"Contrato {contrato_nro}: Falta 'cerrado_por_id' o 'asesor_id' (dueño). No se generan comisiones.")
+                    return
+
+                rol_del_dueño = admins.get(dueño_id)
+                rol_del_cerrador = admins.get(cerrador_id)
+                es_autocierre = (cerrador_id == dueño_id)
+                
+                comisiones_a_insertar = []
+                fondo_total_comisiones = plan_contratado * Decimal('0.16')
+
+                logging.info(f"Iniciando cálculo de comisiones para Contrato {contrato_nro} (Plan: ${plan_contratado:,.2f}).")
+                logging.info(f"Dueño (ID): {dueño_id} (Rol: {rol_del_dueño}), Cerrador (ID): {cerrador_id} (Rol: {rol_del_cerrador})")
+
+                # 3. APLICAR LÓGICA DE COMISIONES POR CAPAS
+
+                # Capa 1: Comisiones Fijas ("Diferenciales")
+                if rol_del_dueño == 'presidencia':
+                    if GERENCIA_IDS:
+                        monto_gerencia = (plan_contratado * Decimal('0.005')) / len(GERENCIA_IDS)
+                        for gid in GERENCIA_IDS:
+                            comisiones_a_insertar.append({'beneficiario_id': gid, 'monto': monto_gerencia, 'concepto': 'Diferencial Gerencia (Dueño Presidencia)'})
+                elif rol_del_dueño != 'gerencia':
+                    if GERENCIA_IDS:
+                        monto_gerencia = (plan_contratado * Decimal('0.01')) / len(GERENCIA_IDS)
+                        for gid in GERENCIA_IDS:
+                            comisiones_a_insertar.append({'beneficiario_id': gid, 'monto': monto_gerencia, 'concepto': 'Diferencial Gerencia'})
+                
+                # Capa 2: Comisión del Dueño (según su cargo)
+                if rol_del_dueño == 'asesor':
+                    comisiones_a_insertar.append({'beneficiario_id': dueño_id, 'monto': plan_contratado * Decimal('0.02'), 'concepto': 'Comisión Dueño (Fuerza Comercial)'})
+                    for pid in PRESIDENCIA_IDS:
+                        comisiones_a_insertar.append({'beneficiario_id': pid, 'monto': plan_contratado * Decimal('0.03'), 'concepto': 'Diferencial Presidencia'})
+                
+                elif rol_del_dueño == 'gerencia':
+                    comisiones_a_insertar.append({'beneficiario_id': dueño_id, 'monto': plan_contratado * Decimal('0.05'), 'concepto': 'Comisión Dueño (Gerencia)'})
+                    for pid in PRESIDENCIA_IDS:
+                        comisiones_a_insertar.append({'beneficiario_id': pid, 'monto': plan_contratado * Decimal('0.03'), 'concepto': 'Diferencial Presidencia'})
+
+                elif rol_del_dueño == 'presidencia':
+                    for pid in PRESIDENCIA_IDS:
+                        comisiones_a_insertar.append({'beneficiario_id': pid, 'monto': plan_contratado * Decimal('0.055'), 'concepto': 'Comisión Dueño (Presidencia)'})
+
+                # Capa 3: Bono Universal del Cerrador
+                condicion_especial_sin_bono = (rol_del_dueño == 'presidencia' and rol_del_cerrador == 'gerencia')
+                if not es_autocierre and not condicion_especial_sin_bono:
+                    monto_bono = plan_contratado * Decimal('0.004')
+                    comisiones_a_insertar.append({'beneficiario_id': cerrador_id, 'monto': monto_bono, 'concepto': 'Bono de Cierre (0.4%)'})
+
+                # 4. INSERTAR REGISTROS Y CALCULAR SOBRANTE
+                if comisiones_a_insertar:
+                    total_comisiones_calculadas = sum(c['monto'] for c in comisiones_a_insertar)
+                    sobrante_empresa = fondo_total_comisiones - total_comisiones_calculadas
+                    
+                    sql_comisiones = "INSERT INTO comisiones (origen_id, origen_tipo, asesor_id, moneda, monto, estado, notas, fecha_origen, base) VALUES (%s, 'Venta', %s, 'USD', %s, 'pendiente', %s, NOW()::date, %s)"
+                    for com in comisiones_a_insertar:
+                        if com.get('monto', Decimal('0.0')) > 0:
+                            cur.execute(sql_comisiones, (cliente_id, com['beneficiario_id'], com['monto'], com['concepto'], plan_contratado))
+                    
+                    cur.execute("UPDATE caja_inscripciones SET sobrante_empresa = %s WHERE contrato_nro = %s", (sobrante_empresa, contrato_nro))
+                    
+                    # El commit se maneja en la función principal
+                    logging.info(f"ÉXITO: {len(comisiones_a_insertar)} registros de comisión generados para Contrato {contrato_nro}. Total comisiones: ${total_comisiones_calculadas:,.2f}. Sobrante: ${sobrante_empresa:,.2f}.")
+                else:
+                    logging.warning(f"Contrato {contrato_nro}: No se generaron comisiones. Revisar roles y lógica.")
+
+        except Exception as e:
+            if conn: conn.rollback()
+            logging.error(f"Error CRÍTICO al calcular comisiones para Contrato {cliente_info.get('contrato_nro', 'N/A')}: {e}")
+            raise e
+        # --- FIN DE LA CORRECCIÓN DE INDENTACIÓN ---
+    # --- FIN DE LA FUNCIÓN DE COMISIONES ---
+
+    # El resto de la función conciliar_pago continúa aquí
+    conn = get_db()
+    cedula_cliente_para_redirect = None
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('pagos_por_conciliar'))
+    
     try:
         with conn.cursor() as cur:
-            # 1. OBTENER CONTEXTO DE ROLES DESDE LA BASE DE DATOS
-            cur.execute("SELECT id, rol FROM administradores")
-            admins = {admin['id']: admin['rol'] for admin in cur.fetchall()}
+            cur.execute("SELECT * FROM pagos WHERE id = %s FOR UPDATE", (pago_id,))
+            pago_inicial = cur.fetchone()
 
-            PRESIDENCIA_IDS = {id for id, rol in admins.items() if rol == 'presidencia'}
-            GERENCIA_IDS = {id for id, rol in admins.items() if rol == 'gerencia'}
+            if not pago_inicial:
+                flash("El pago a conciliar no existe.", 'error')
+                return redirect(url_for('pagos_por_conciliar'))
 
-            # 2. EXTRAER DATOS DE LA VENTA
-            plan_contratado = Decimal(cliente_info.get('plan_contratado', '0'))
-            dueño_id = cliente_info.get('asesor_id')
-            cerrador_id = cliente_info.get('cerrado_por_id')
-            contrato_nro = cliente_info['contrato_nro']
-            cliente_id = cliente_info['id']
+            cur.execute("SELECT * FROM clientes WHERE id = %s FOR UPDATE", (pago_inicial['cliente_id'],))
+            cliente = cur.fetchone()
+            cedula_cliente_para_redirect = cliente['cedula']
 
-            if not cerrador_id or not dueño_id:
-                logging.error(f"Contrato {contrato_nro}: Falta 'cerrado_por_id' o 'asesor_id' (dueño). No se generan comisiones.")
-                return
-
-            rol_del_dueño = admins.get(dueño_id)
-            rol_del_cerrador = admins.get(cerrador_id)
-            es_autocierre = (cerrador_id == dueño_id)
+            admin_id = g.admin['id']
+            flash_msg = ""
             
-            comisiones_a_insertar = []
-            fondo_total_comisiones = plan_contratado * Decimal('0.16')
+            if pago_inicial['estado_pago'] != 'Pendiente' or pago_inicial['estado_reporte'] != 'Aprobado':
+                flash("Este pago no puede ser conciliado porque no está aprobado o ya fue procesado.", "warning")
+                return redirect(url_for('pagos_por_conciliar'))
 
-            logging.info(f"Iniciando cálculo de comisiones para Contrato {contrato_nro} (Plan: ${plan_contratado:,.2f}).")
-            logging.info(f"Dueño (ID): {dueño_id} (Rol: {rol_del_dueño}), Cerrador (ID): {cerrador_id} (Rol: {rol_del_cerrador})")
+            if pago_inicial['tipo_pago'] == 'Inscripción':
+                cur.execute(
+                    "UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE id = %s",
+                    (admin_id, pago_id)
+                )
+                cur.execute(
+                    "UPDATE clientes SET inscripcion_pagada = inscripcion_pagada + %s WHERE id = %s RETURNING inscripcion_pagada, inscripcion",
+                    (pago_inicial['monto'], cliente['id'])
+                )
+                updated_cliente = cur.fetchone()
+                
+                if updated_cliente['inscripcion_pagada'] >= updated_cliente['inscripcion']:
+                    cur.execute(
+                        "UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],)
+                    )
+                    flash_msg = "¡Pago de inscripción conciliado y el cliente ahora está INSCRITO!"
+                    
+                    try:
+                        cur.execute("SELECT * FROM clientes WHERE id = %s", (cliente['id'],))
+                        cliente_actualizado = cur.fetchone()
+                        
+                        calcular_y_guardar_comisiones(dict(cliente_actualizado))
+                        flash_msg += " ¡Comisiones generadas exitosamente!"
 
-            # 3. APLICAR LÓGICA DE COMISIONES POR CAPAS
-
-            # Capa 1: Comisiones Fijas ("Diferenciales")
-            if rol_del_dueño == 'presidencia':
-                if GERENCIA_IDS:
-                    monto_gerencia = (plan_contratado * Decimal('0.005')) / len(GERENCIA_IDS)
-                    for gid in GERENCIA_IDS:
-                        comisiones_a_insertar.append({'beneficiario_id': gid, 'monto': monto_gerencia, 'concepto': 'Diferencial Gerencia (Dueño Presidencia)'})
-            # NUEVA REGLA: Si el dueño es un gerente, no se paga el diferencial de gerencia.
-            elif rol_del_dueño != 'gerencia':
-                if GERENCIA_IDS:
-                    monto_gerencia = (plan_contratado * Decimal('0.01')) / len(GERENCIA_IDS)
-                    for gid in GERENCIA_IDS:
-                        comisiones_a_insertar.append({'beneficiario_id': gid, 'monto': monto_gerencia, 'concepto': 'Diferencial Gerencia'})
+                    except Exception as e:
+                        flash_msg += " ¡ADVERTENCIA: Hubo un error crítico al generar las comisiones!"
+                        logging.error(f"Error al llamar a calcular_y_guardar_comisiones para contrato {cliente['numero_contrato']}: {e}")
+                
+                else:
+                    flash_msg = f"¡Abono de inscripción de ${pago_inicial['monto']} conciliado exitosamente!"
             
-            # Capa 2: Comisión del Dueño (según su cargo)
-            if rol_del_dueño == 'asesor':
-                comisiones_a_insertar.append({'beneficiario_id': dueño_id, 'monto': plan_contratado * Decimal('0.02'), 'concepto': 'Comisión Dueño (Fuerza Comercial)'})
-                for pid in PRESIDENCIA_IDS:
-                    comisiones_a_insertar.append({'beneficiario_id': pid, 'monto': plan_contratado * Decimal('0.03'), 'concepto': 'Diferencial Presidencia'})
-            
-            elif rol_del_dueño == 'gerencia':
-                comisiones_a_insertar.append({'beneficiario_id': dueño_id, 'monto': plan_contratado * Decimal('0.05'), 'concepto': 'Comisión Dueño (Gerencia)'})
-                for pid in PRESIDENCIA_IDS:
-                    comisiones_a_insertar.append({'beneficiario_id': pid, 'monto': plan_contratado * Decimal('0.03'), 'concepto': 'Diferencial Presidencia'})
+            elif pago_inicial['tipo_pago'] in ['Cuota', 'Pago Oferta']:
+                cur.execute(
+                    "UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE id = %s",
+                    (admin_id, pago_id)
+                )
+                flash_msg = f"¡Pago de {pago_inicial['tipo_pago']} de ${pago_inicial['monto']} conciliado exitosamente!"
 
-            elif rol_del_dueño == 'presidencia':
-                for pid in PRESIDENCIA_IDS:
-                    comisiones_a_insertar.append({'beneficiario_id': pid, 'monto': plan_contratado * Decimal('0.055'), 'concepto': 'Comisión Dueño (Presidencia)'})
+            descripcion_audit = f"Concilió el pago N° {pago_id} (Tipo: {pago_inicial['tipo_pago']}, Monto: ${pago_inicial['monto']})."
+            registrar_accion_auditoria('CONCILIACION_PAGO', descripcion_audit, cliente['id'])
 
-            # Capa 3: Bono Universal del Cerrador
-            # NUEVA REGLA: El bono no se paga si el dueño es presidencia y el cerrador es un gerente.
-            condicion_especial_sin_bono = (rol_del_dueño == 'presidencia' and rol_del_cerrador == 'gerencia')
-            if not es_autocierre and not condicion_especial_sin_bono:
-                monto_bono = plan_contratado * Decimal('0.004')
-                comisiones_a_insertar.append({'beneficiario_id': cerrador_id, 'monto': monto_bono, 'concepto': 'Bono de Cierre (0.4%)'})
+            conn.commit()
+            flash(flash_msg, 'success')
+            return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
 
-            # 4. INSERTAR REGISTROS Y CALCULAR SOBRANTE
-            if comisiones_a_insertar:
-                total_comisiones_calculadas = sum(c['monto'] for c in comisiones_a_insertar)
-                sobrante_empresa = fondo_total_comisiones - total_comisiones_calculadas
-                
-                sql_comisiones = "INSERT INTO comisiones (origen_id, origen_tipo, asesor_id, moneda, monto, estado, notas, fecha_origen, base) VALUES (%s, 'Venta', %s, 'USD', %s, 'pendiente', %s, NOW()::date, %s)"
-                for com in comisiones_a_insertar:
-                    if com.get('monto', Decimal('0.0')) > 0:
-                        cur.execute(sql_comisiones, (cliente_id, com['beneficiario_id'], com['monto'], com['concepto'], plan_contratado))
-                
-                cur.execute("UPDATE caja_inscripciones SET sobrante_empresa = %s WHERE contrato_nro = %s", (sobrante_empresa, contrato_nro))
-                
-                conn.commit() # Commit se maneja fuera, en la función principal
-                logging.info(f"ÉXITO: {len(comisiones_a_insertar)} registros de comisión generados para Contrato {contrato_nro}. Total comisiones: ${total_comisiones_calculadas:,.2f}. Sobrante: ${sobrante_empresa:,.2f}.")
-            else:
-                logging.warning(f"Contrato {contrato_nro}: No se generaron comisiones. Revisar roles y lógica.")
-
-    except Exception as e:
+    except (psycopg2.Error, ValueError, TypeError, InvalidOperation) as e:
         if conn: conn.rollback()
-        logging.error(f"Error CRÍTICO al calcular comisiones para Contrato {cliente_info.get('contrato_nro', 'N/A')}: {e}")
-        raise e
+        logging.error(f"Error al conciliar el pago {pago_id}: {traceback.format_exc()}")
+        flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
+        if cedula_cliente_para_redirect:
+            return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
+        return redirect(url_for('pagos_por_conciliar'))
     # --- FIN DE LA FUNCIÓN DE COMISIONES ---
 
 
