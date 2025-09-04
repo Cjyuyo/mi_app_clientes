@@ -3959,98 +3959,81 @@ def upload_clientes():
                 conn = get_db()
                 cursor = conn.cursor()
 
-                # Funciones auxiliares robustas
-                def clean_text(val): return str(val).strip() if pd.notna(val) else ''
-                def to_int_safe(val):
-                    if pd.isna(val) or val == '': return None
-                    try: return int(float(val))
-                    except (ValueError, TypeError): return None
-                def to_float_safe(val):
-                    if pd.isna(val) or val == '': return None
-                    try: return float(val)
-                    except (ValueError, TypeError): return None
-                def to_date_safe(date_val):
-                    if pd.isna(date_val) or date_val == '': return None
-                    dt = pd.to_datetime(date_val, errors='coerce', dayfirst=True)
-                    return dt.date() if pd.notna(dt) else None
+                # --- INICIO DE LA NUEVA LÓGICA INTELIGENTE ---
 
-                # 1. Leer Excel y estandarizar encabezados para que coincidan con tu nuevo archivo
+                # 1. Leer el Excel y prepararlo
                 df = pd.read_excel(file, dtype=str).fillna('')
                 df.columns = [str(col).strip().upper() for col in df.columns]
-                df.dropna(subset=['NUMERO DE CEDULA'], inplace=True)
-                df['cedula_clean'] = df['NUMERO DE CEDULA'].apply(lambda x: re.sub(r'[^0-9VEve-]', '', str(x)))
-                df = df[df['cedula_clean'] != '']
                 
-                # 2. Obtener clientes existentes
+                # Limpiar cédulas para tener un identificador único y fiable
+                df['cedula_clean'] = df['NUMERO DE CEDULA'].apply(lambda x: re.sub(r'[^0-9VEve-]', '', str(x).strip()))
+                df = df[df['cedula_clean'] != '']
+
+                # 2. Obtener las cédulas de los clientes que ya existen en la base de datos
                 cursor.execute("SELECT cedula FROM clientes")
                 existing_cedulas = {row[0] for row in cursor.fetchall()}
 
-                # 3. Preparar datos para inserción y actualización
+                # 3. Preparar los datos y separarlos en dos grupos: para insertar y para actualizar
                 records_to_update = []
                 records_to_insert = []
                 
-                # NUEVO ESTÁNDAR DE COLUMNAS DE LA BASE DE DATOS
-                column_order = [ 'cedula', 'nombre', 'apellido', 'grupo', 'plan', 'moneda_pago', 'asesor', 'responsable', 'numero_contrato', 'estado_del_plan', 'estatus_cliente', 'fecha_ingreso', 'numero_telefono', 'porcentaje_inscripcion', 'inscripcion', 'cuotas_totales', 'cuotas_pagas', 'condicion_pago', 'pagos_impuntuales', 'cuotas_mora', 'observacion', 'valor_cuota', 'fecha_pago', 'estatus_cuota', 'valor_cancelado' ]
+                # Mapeo de columnas del Excel a la base de datos
+                column_map = {
+                    'NUMERO DE CEDULA': 'cedula', 'NOMBRE Y APELLIDO': 'nombre_completo', 'GRUPO': 'grupo',
+                    'PLAN': 'plan_contratado', 'MONEDA DE PAGO': 'moneda_pago', 'ASESOR': 'gestor_id',
+                    'NUMERO DE CONTRATO': 'numero_contrato', 'ESTADO DEL PLAN': 'proceso',
+                    'ESTATUS': 'estatus', 'FECHA DE INGRESO': 'fecha_ingreso', 'NUMERO DE TELEFONO': 'telefono',
+                    'INSCRIPCION': 'inscripcion', 'CUOTAS TOTALES': 'cuotas_totales', 'VALOR DE CUOTA': 'valor_cuota'
+                }
 
                 for _, row in df.iterrows():
-                    nombre_completo = clean_text(row.get('NOMBRE Y APELLIDO'))
-                    nombre_parts = nombre_completo.split(' ', 1)
+                    nombre_completo = str(row.get('NOMBRE Y APELLIDO', '')).split(' ', 1)
+                    nombre = nombre_completo[0]
+                    apellido = nombre_completo[1] if len(nombre_completo) > 1 else ''
                     
-                    # Mapeo desde los nuevos encabezados de tu Excel
-                    record = (
-                        row['cedula_clean'], clean_text(nombre_parts[0]), clean_text(nombre_parts[1] if len(nombre_parts) > 1 else ''),
-                        clean_text(row.get('GRUPO')), clean_text(row.get('PLAN')), clean_text(row.get('MONEDA DE PAGO')),
-                        clean_text(row.get('ASESOR')), clean_text(row.get('RESPONSABLE')), clean_text(row.get('NUMERO DE CONTRATO')),
-                        clean_text(row.get('ESTADO DEL PLAN')), clean_text(row.get('ESTATUS')), to_date_safe(row.get('FECHA DE INGRESO')),
-                        clean_text(row.get('NUMERO DE TELEFONO')), to_float_safe(row.get('PORCENTAJE DE INSCRIPCION')), to_float_safe(row.get('INSCRIPCION')),
-                        to_int_safe(row.get('CUOTAS TOTALES')), to_int_safe(row.get('CUOTAS PAGAS')), clean_text(row.get('CONDICION')),
-                        to_int_safe(row.get('PAGOS IMPUNTUALES')), to_int_safe(row.get('CUOTAS EN MORA')), clean_text(row.get('OBSERVACIÓN')),
-                        to_float_safe(row.get('VALOR DE CUOTA')), to_date_safe(row.get('FECHA DE PAGO')), clean_text(row.get('ESTATUS CUOTA')),
-                        to_float_safe(row.get('VALOR CANCELADO'))
+                    # Convertir valores a tipos correctos
+                    fecha_ingreso = pd.to_datetime(row.get('FECHA DE INGRESO'), errors='coerce').date() if pd.notna(row.get('FECHA DE INGRESO')) else None
+                    inscripcion = float(row.get('INSCRIPCION', 0)) if pd.notna(row.get('INSCRIPCION')) else 0.0
+                    cuotas_totales = int(row.get('CUOTAS TOTALES', 0)) if pd.notna(row.get('CUOTAS TOTALES')) else 0
+                    valor_cuota = float(row.get('VALOR DE CUOTA', 0)) if pd.notna(row.get('VALOR DE CUOTA')) else 0.0
+                    
+                    # Estructura de datos para la base de datos
+                    record_data = (
+                        row['cedula_clean'], nombre, apellido, str(row.get('GRUPO', '')),
+                        str(row.get('PLAN', '')), str(row.get('MONEDA DE PAGO', '')),
+                        str(row.get('NUMERO DE CONTRATO', '')), str(row.get('ESTADO DEL PLAN', '')),
+                        str(row.get('ESTATUS', '')), fecha_ingreso, str(row.get('NUMERO DE TELEFONO', '')),
+                        inscripcion, cuotas_totales, valor_cuota,
+                        True  # <-- 4. AQUÍ SE AÑADE LA MARCA es_migrado = TRUE
                     )
-                    
-                    if row['cedula_clean'] in existing_cedulas:
-                        records_to_update.append(record)
-                    else:
-                        records_to_insert.append(record)
 
-                # 4. Ejecutar INSERCIÓN masiva
+                    if row['cedula_clean'] in existing_cedulas:
+                        records_to_update.append(record_data)
+                    else:
+                        records_to_insert.append(record_data)
+
+                # 5. Ejecutar la INSERCIÓN masiva para los clientes nuevos
                 if records_to_insert:
-                    insert_query = f"INSERT INTO clientes ({', '.join(column_order)}) VALUES %s"
+                    cols_insert = "cedula, nombre, apellido, grupo, plan_contratado, moneda_pago, numero_contrato, proceso, estatus, fecha_ingreso, telefono, inscripcion, cuotas_totales, valor_cuota, es_migrado"
+                    insert_query = f"INSERT INTO clientes ({cols_insert}) VALUES %s"
                     execute_values(cursor, insert_query, records_to_insert)
 
-                # 5. Ejecutar ACTUALIZACIÓN masiva con los nombres de columna corregidos
+                # 6. Ejecutar la ACTUALIZACIÓN masiva para los clientes existentes
                 if records_to_update:
-                    update_query = """
-                        UPDATE clientes SET
-                            nombre = data.nombre, apellido = data.apellido, grupo = data.grupo, plan = data.plan,
-                            moneda_pago = data.moneda_pago, asesor = data.asesor, responsable = data.responsable,
-                            numero_contrato = data.numero_contrato, estado_del_plan = data.estado_del_plan, 
-                            estatus_cliente = data.estatus_cliente, fecha_ingreso = data.fecha_ingreso, 
-                            numero_telefono = data.numero_telefono, porcentaje_inscripcion = data.porcentaje_inscripcion::numeric,
-                            inscripcion = data.inscripcion::numeric, cuotas_totales = data.cuotas_totales::integer,
-                            cuotas_pagas = data.cuotas_pagas::integer, condicion_pago = data.condicion_pago,
-                            pagos_impuntuales = data.pagos_impuntuales::integer, cuotas_mora = data.cuotas_mora::integer,
-                            observacion = data.observacion, valor_cuota = data.valor_cuota::numeric,
-                            fecha_pago = data.fecha_pago, estatus_cuota = data.estatus_cuota, 
-                            valor_cancelado = data.valor_cancelado::numeric
-                        FROM (VALUES %s) AS data(
-                            cedula, nombre, apellido, grupo, plan, moneda_pago, asesor, responsable, 
-                            numero_contrato, estado_del_plan, estatus_cliente, fecha_ingreso, 
-                            numero_telefono, porcentaje_inscripcion, inscripcion, cuotas_totales, 
-                            cuotas_pagas, condicion_pago, pagos_impuntuales, cuotas_mora, 
-                            observacion, valor_cuota, fecha_pago, estatus_cuota, valor_cancelado
-                        )
-                        WHERE clientes.cedula = data.cedula;
-                    """
-                    execute_values(cursor, update_query, records_to_update)
+                    cols_update = "nombre=%s, apellido=%s, grupo=%s, plan_contratado=%s, moneda_pago=%s, numero_contrato=%s, proceso=%s, estatus=%s, fecha_ingreso=%s, telefono=%s, inscripcion=%s, cuotas_totales=%s, valor_cuota=%s, es_migrado=%s"
+                    # El primer elemento de record_data es la cédula, por eso se reordena
+                    update_query = f"UPDATE clientes SET {cols_update} WHERE cedula=%s"
+                    execute_values(cursor, update_query, [d[1:] + (d[0],) for d in records_to_update])
+
+                # --- FIN DE LA NUEVA LÓGICA ---
                 
                 conn.commit()
-                flash(f'¡Proceso completado! Se actualizaron {len(records_to_update)} clientes y se crearon {len(records_to_insert)} nuevos.', 'success')
+                flash(f'¡Proceso completado! Se crearon {len(records_to_insert)} clientes nuevos y se actualizaron {len(records_to_update)} existentes.', 'success')
 
             except Exception as e:
                 if conn: conn.rollback()
                 flash(f'Ocurrió un error al procesar el archivo: {e}', 'error')
+                logging.error(f"Error en carga de clientes: {traceback.format_exc()}")
             
             finally:
                 if cursor: cursor.close()
@@ -4058,7 +4041,7 @@ def upload_clientes():
             return redirect(url_for('upload_clientes'))
 
         else:
-            flash('Formato de archivo no válido.', 'error')
+            flash('Formato de archivo no válido. Use .xlsx o .xls.', 'error')
             return redirect(request.url)
 
     return render_template('upload_clientes.html')
