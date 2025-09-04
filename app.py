@@ -3954,107 +3954,101 @@ def upload_clientes():
             flash('No se seleccionó ningún archivo.', 'error')
             return redirect(request.url)
 
-        if file and (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
+        if file and (file.filename.endswith('.xlsx') or file.filename.endswith('.xls') or file.filename.endswith('.csv')):
             conn = None
             try:
                 conn = get_db()
                 cursor = conn.cursor()
 
-                # Funciones auxiliares robustas
-                def clean_text(val): return str(val).strip() if pd.notna(val) else ''
-                def to_int_safe(val):
-                    if pd.isna(val) or val == '': return None
-                    try: return int(float(val))
-                    except (ValueError, TypeError): return None
+                # Funciones auxiliares para convertir datos de forma segura
                 def to_float_safe(val):
-                    if pd.isna(val) or val == '': return None
-                    try: return float(val)
-                    except (ValueError, TypeError): return None
-                def to_date_safe(date_val):
-                    if pd.isna(date_val) or date_val == '': return None
-                    dt = pd.to_datetime(date_val, errors='coerce', dayfirst=True)
-                    return dt.date() if pd.notna(dt) else None
+                    if pd.isna(val) or str(val).strip() == '': return 0.0
+                    try: return float(str(val).replace(',', '.'))
+                    except (ValueError, TypeError): return 0.0
 
-                # 1. Leer Excel y estandarizar encabezados
-                df = pd.read_excel(file, dtype=str).fillna('')
-                df.columns = [str(col).strip().upper() for col in df.columns]
-                df.dropna(subset=['NUMERO DE CEDULA'], inplace=True)
-                df['cedula_clean'] = df['NUMERO DE CEDULA'].apply(lambda x: re.sub(r'[^0-9VEve-]', '', str(x)))
-                df = df[df['cedula_clean'] != '']
+                def to_int_safe(val):
+                    if pd.isna(val) or str(val).strip() == '': return 0
+                    try: return int(float(val))
+                    except (ValueError, TypeError): return 0
+
+                def to_date_safe(date_val):
+                    if pd.isna(date_val) or str(date_val).strip() == '': return None
+                    try: return pd.to_datetime(date_val, errors='coerce').date()
+                    except Exception: return None
+
+                # 1. Leer Excel o CSV y estandarizar encabezados
+                if file.filename.endswith('.csv'):
+                    df = pd.read_csv(file, dtype=str).fillna('')
+                else:
+                    df = pd.read_excel(file, dtype=str).fillna('')
                 
-                # 2. Obtener clientes existentes
+                df.columns = [str(col).strip().upper() for col in df.columns]
+                
+                # Usar el nuevo encabezado para la cédula
+                df.dropna(subset=['NUMERO DE CEDULA'], inplace=True)
+                df['cedula_clean'] = df['NUMERO DE CEDULA'].apply(lambda x: re.sub(r'[^0-9VEve-]', '', str(x).strip()))
+                df = df[df['cedula_clean'] != '']
+
+                # 2. Obtener clientes existentes de la BD
                 cursor.execute("SELECT cedula FROM clientes")
                 existing_cedulas = {row[0] for row in cursor.fetchall()}
 
-                # 3. Preparar datos para inserción y actualización
+                # 3. Preparar los datos usando los NUEVOS encabezados
                 records_to_update = []
                 records_to_insert = []
                 
-                # --- CAMBIO 1: Se añade 'es_migrado' a la lista de columnas ---
-                column_order = [ 'cedula', 'nombre', 'apellido', 'grupo', 'plan_contratado', 'moneda_pago', 'asesor', 'responsable', 'numero_contrato', 'proceso', 'estatus', 'fecha_ingreso', 'telefono', 'porcentaje_inscripcion', 'inscripcion', 'cuotas_totales', 'cuotas_pagadas_progresivas', 'condicion_pago', 'pagos_impuntuales', 'cuotas_mora', 'observacion', 'valor_cuota', 'fecha_pago', 'estatus_cuota', 'valor_cancelado', 'es_migrado' ]
-
                 for _, row in df.iterrows():
-                    nombre_completo = clean_text(row.get('NOMBRE Y APELLIDO'))
-                    nombre_parts = nombre_completo.split(' ', 1)
+                    nombre_completo = str(row.get('NOMBRE Y APELLIDO', '')).split(' ', 1)
+                    nombre = nombre_completo[0]
+                    apellido = nombre_completo[1] if len(nombre_completo) > 1 else ''
                     
-                    # --- CAMBIO 2: Se añade 'True' al final de la tupla de datos ---
-                    record = (
-                        row['cedula_clean'], clean_text(nombre_parts[0]), clean_text(nombre_parts[1] if len(nombre_parts) > 1 else ''),
-                        clean_text(row.get('GRUPO')), clean_text(row.get('PLAN')), clean_text(row.get('MONEDA DE PAGO')),
-                        clean_text(row.get('ASESOR')), clean_text(row.get('RESPONSABLE')), clean_text(row.get('NUMERO DE CONTRATO')),
-                        clean_text(row.get('ESTADO DEL PLAN')), clean_text(row.get('ESTATUS')), to_date_safe(row.get('FECHA DE INGRESO')),
-                        clean_text(row.get('NUMERO DE TELEFONO')), to_float_safe(row.get('PORCENTAJE DE INSCRIPCION')), to_float_safe(row.get('INSCRIPCION')),
-                        to_int_safe(row.get('CUOTAS TOTALES')), to_int_safe(row.get('CUOTAS PAGAS')), clean_text(row.get('CONDICION')),
-                        to_int_safe(row.get('PAGOS IMPUNTUALES')), to_int_safe(row.get('CUOTAS EN MORA')), clean_text(row.get('OBSERVACIÓN')),
-                        to_float_safe(row.get('VALOR DE CUOTA')), to_date_safe(row.get('FECHA DE PAGO')), clean_text(row.get('ESTATUS CUOTA')),
-                        to_float_safe(row.get('VALOR CANCELADO')),
-                        True # Marca es_migrado
-                    )
-                    
-                    if row['cedula_clean'] in existing_cedulas:
-                        records_to_update.append(record)
+                    record_data = {
+                        "cedula": row['cedula_clean'],
+                        "nombre": nombre,
+                        "apellido": apellido,
+                        "telefono": str(row.get('NUMERO DE TELEFONO', '')),
+                        "numero_contrato": str(row.get('NUMERO DE CONTRATO', '')),
+                        "plan_contratado": str(row.get('PLAN', '')),
+                        "estatus": str(row.get('ESTATUS', '')),
+                        "proceso": str(row.get('ESTADO DEL PLAN', '')),
+                        "fecha_ingreso": to_date_safe(row.get('FECHA DE INGRESO')),
+                        "asesor": str(row.get('ASESOR', '')),
+                        "responsable": str(row.get('RESPONSABLE', str(row.get('ASESOR', '')))), # Usa RESPONSABLE o ASESOR como fallback
+                        "moneda_pago": str(row.get('MONEDA DE PAGO', '')),
+                        "cuotas_totales": to_int_safe(row.get('CUOTAS TOTALES')),
+                        "valor_cuota": to_float_safe(row.get('VALOR DE CUOTA')),
+                        "inscripcion": to_float_safe(row.get('INSCRIPCION')),
+                        "es_migrado": True
+                    }
+
+                    if record_data['cedula'] in existing_cedulas:
+                        records_to_update.append(record_data)
                     else:
-                        records_to_insert.append(record)
+                        records_to_insert.append(record_data)
 
                 # 4. Ejecutar INSERCIÓN masiva
                 if records_to_insert:
-                    # Ajuste para que coincida con el nuevo 'column_order'
-                    insert_query = f"INSERT INTO clientes (cedula, nombre, apellido, grupo, plan_contratado, moneda_pago, asesor, responsable, numero_contrato, proceso, estatus, fecha_ingreso, telefono, porcentaje_inscripcion, inscripcion, cuotas_totales, cuotas_pagadas_progresivas, condicion_pago, pagos_impuntuales, cuotas_mora, observacion, valor_cuota, fecha_pago, estatus_cuota, valor_cancelado, es_migrado) VALUES %s"
-                    execute_values(cursor, insert_query, records_to_insert)
+                    cols_insert = records_to_insert[0].keys()
+                    insert_query = f"INSERT INTO clientes ({', '.join(cols_insert)}) VALUES %s"
+                    execute_values(cursor, insert_query, [tuple(rec.values()) for rec in records_to_insert])
 
                 # 5. Ejecutar ACTUALIZACIÓN masiva
                 if records_to_update:
-                    # --- CAMBIO 3: Se añade 'es_migrado' a la consulta UPDATE ---
-                    update_query = """
-                        UPDATE clientes SET
-                            nombre = data.nombre, apellido = data.apellido, grupo = data.grupo, plan_contratado = data.plan,
-                            moneda_pago = data.moneda_pago, asesor = data.asesor, responsable = data.responsable,
-                            numero_contrato = data.numero_contrato, proceso = data.estado_del_plan, 
-                            estatus = data.estatus_cliente, fecha_ingreso = data.fecha_ingreso, 
-                            telefono = data.numero_telefono, porcentaje_inscripcion = data.porcentaje_inscripcion::numeric,
-                            inscripcion = data.inscripcion::numeric, cuotas_totales = data.cuotas_totales::integer,
-                            cuotas_pagadas_progresivas = data.cuotas_pagas::integer, condicion_pago = data.condicion_pago,
-                            pagos_impuntuales = data.pagos_impuntuales::integer, cuotas_mora = data.cuotas_mora::integer,
-                            observacion = data.observacion, valor_cuota = data.valor_cuota::numeric,
-                            fecha_pago = data.fecha_pago, estatus_cuota = data.estatus_cuota, 
-                            valor_cancelado = data.valor_cancelado::numeric, es_migrado = data.es_migrado
-                        FROM (VALUES %s) AS data(
-                            cedula, nombre, apellido, grupo, plan, moneda_pago, asesor, responsable, 
-                            numero_contrato, estado_del_plan, estatus_cliente, fecha_ingreso, 
-                            telefono, porcentaje_inscripcion, inscripcion, cuotas_totales, 
-                            cuotas_pagas, condicion_pago, pagos_impuntuales, cuotas_mora, 
-                            observacion, valor_cuota, fecha_pago, estatus_cuota, valor_cancelado, es_migrado
-                        )
+                    cols_update_str = ", ".join([f"{key} = data.{key}" for key in records_to_update[0].keys() if key != 'cedula'])
+                    update_query = f"""
+                        UPDATE clientes SET {cols_update_str}
+                        FROM (VALUES %s) AS data({', '.join(records_to_update[0].keys())})
                         WHERE clientes.cedula = data.cedula;
                     """
-                    execute_values(cursor, update_query, records_to_update)
-                
+                    execute_values(cursor, update_query, [tuple(rec.values()) for rec in records_to_update])
+
                 conn.commit()
-                flash(f'¡Proceso completado! Se actualizaron {len(records_to_update)} clientes y se crearon {len(records_to_insert)} nuevos.', 'success')
+                flash(f'¡Proceso completado! Se crearon {len(records_to_insert)} clientes nuevos y se actualizaron {len(records_to_update)} existentes.', 'success')
 
             except Exception as e:
                 if conn: conn.rollback()
                 flash(f'Ocurrió un error al procesar el archivo: {e}', 'error')
+                logging.error(f"Error en carga de clientes: {traceback.format_exc()}")
             
             finally:
                 if cursor: cursor.close()
@@ -4062,7 +4056,7 @@ def upload_clientes():
             return redirect(url_for('upload_clientes'))
 
         else:
-            flash('Formato de archivo no válido.', 'error')
+            flash('Formato de archivo no válido. Use .xlsx o .csv.', 'error')
             return redirect(request.url)
 
     return render_template('upload_clientes.html')
