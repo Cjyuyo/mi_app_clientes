@@ -3651,16 +3651,24 @@ def registrar():
     try:
         with conn.cursor() as cur:
             # --- CORRECCIÓN AQUÍ ---
-            # Se cambió 'nombre' por 'nombre_completo' para que coincida con la base de datos.
             cur.execute("SELECT id, nombre_completo, rol FROM administradores ORDER BY nombre_completo")
             admins_list = cur.fetchall()
-            
-            # Lista completa para el campo "Cerrado Por"
-            todos_los_admins = [{'id': admin['id'], 'nombre': admin['nombre_completo']} for admin in admins_list]
 
-            # Diccionario organizado por roles para el campo dinámico "Asesor"
+            # 1. Definimos los únicos roles que pueden aparecer en los desplegables
+            roles_permitidos = ['presidencia', 'gerencia', 'asesor']
+
+            # 2. Filtramos la lista para el desplegable "3. Cerrador"
+            todos_los_admins = [
+                {'id': admin['id'], 'nombre': admin['nombre_completo']}
+                for admin in admins_list
+                if admin['rol'].strip().lower() in roles_permitidos
+            ]
+
+            # 3. Diccionario para el desplegable dinámico "2. Asesor"
+            # (Este ya se filtra implícitamente por las llaves definidas)
             admins_por_rol = {'presidencia': [], 'gerencia': [], 'asesor': []}
             for admin in admins_list:
+                # Normalizamos el rol para evitar errores de mayúsculas o espacios
                 rol = admin['rol'].strip().lower()
                 if rol in admins_por_rol:
                     admins_por_rol[rol].append({'id': admin['id'], 'nombre': admin['nombre_completo']})
