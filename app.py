@@ -3638,34 +3638,6 @@ def agregar_gestion(cliente_id):
             
     return redirect(url_for('perfil_cliente', cliente_id=cliente_id))
 
-@app.route('/registrar')
-@admin_required
-@rol_requerido('superadmin', 'gerente', 'asesor', 'asistente')
-def registrar():
-    conn = get_db()
-    lista_completa = []
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                # Se obtienen únicamente los roles especificados
-                query = """
-                    SELECT id, nombre_completo, rol 
-                    FROM administradores 
-                    WHERE rol IN ('superadmin', 'gerente', 'asesor') 
-                    AND estatus = 'Activo'
-                    ORDER BY nombre_completo
-                """
-                cur.execute(query)
-                lista_completa = cur.fetchall()
-        except psycopg2.Error as e:
-            flash(f"Error al cargar la lista de personal administrativo: {e}", "danger")
-    
-    # Se envía una única lista a la plantilla
-    return render_template('registrar.html', 
-                           responsables=lista_completa,
-                           anio_actual=get_venezuela_current_date().year
-                           )
-
 @app.route('/registrar', methods=['GET'])
 @admin_required
 def registrar():
