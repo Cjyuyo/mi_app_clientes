@@ -1,38 +1,86 @@
-{% extends 'base_sidebar.html' %}
+{% extends "base_sidebar.html" %}
 
-{% block title %}Cargar Clientes desde Excel{% endblock %}
+{% block title %}
+    Cargar Clientes
+{% endblock %}
 
 {% block body %}
-<div class="w-full max-w-2xl mx-auto bg-white p-6 md:p-8 rounded-xl shadow-md border border-slate-200">
-    <h1 class="text-2xl font-bold text-slate-800 mb-4">Cargar y Actualizar Clientes</h1>
-    <p class="text-sm text-slate-600 mb-6">
-        Sube un archivo Excel (.xlsx) para actualizar la base de datos de clientes. El formato del archivo debe coincidir con la plantilla definida.
-    </p>
-
-    <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-md mb-6" role="alert">
-        <h3 class="font-bold">¡Atención! Proceso destructivo</h3>
-        <p class="text-sm">
-            Al subir un nuevo archivo, se **eliminarán permanentemente TODOS los clientes actuales** de la base de datos y se reemplazarán por los del archivo. Esta acción no se puede deshacer.
-        </p>
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white p-6 rounded-xl shadow-md mb-6">
+        <div class="flex items-center gap-4">
+            <div class="bg-blue-100 text-blue-600 p-3 rounded-full">
+                <i class="bi bi-cloud-upload-fill text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">Cargar Clientes desde Archivo</h1>
+                <p class="text-slate-500">Sube un archivo Excel (.xlsx) para crear o actualizar clientes de forma masiva.</p>
+            </div>
+        </div>
     </div>
 
-    <form action="{{ url_for('upload_clientes') }}" method="post" enctype="multipart/form-data">
-        <div>
-            <label for="archivo_excel" class="block text-sm font-medium text-slate-700">Selecciona el archivo de clientes</label>
-            <input type="file" name="archivo_excel" id="archivo_excel" required
-                   class="mt-2 block w-full text-sm text-slate-500
-                          file:mr-4 file:py-2 file:px-4
-                          file:rounded-full file:border-0
-                          file:text-sm file:font-semibold
-                          file:bg-blue-50 file:text-blue-700
-                          hover:file:bg-blue-100"/>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-6 space-y-4">
+          {% for category, message in messages %}
+            <div class="p-4 rounded-lg flex items-start space-x-3
+              {% if category == 'success' %} bg-green-100 text-green-800 border border-green-200
+              {% elif category == 'error' %} bg-red-100 text-red-800 border border-red-200
+              {% else %} bg-blue-100 text-blue-800 border border-blue-200
+              {% endif %}"
+              role="alert">
+              
+              <div class="flex-shrink-0 text-lg">
+                {% if category == 'success' %}
+                  <i class="bi bi-check-circle-fill"></i>
+                {% elif category == 'error' %}
+                  <i class="bi bi-exclamation-triangle-fill"></i>
+                {% else %}
+                  <i class="bi bi-info-circle-fill"></i>
+                {% endif %}
+              </div>
+
+              <div class="flex-1">
+                <p class="font-bold text-sm">
+                  {% if category == 'success' %}
+                    ¡Éxito!
+                  {% elif category == 'error' %}
+                    Ocurrió un Error
+                  {% else %}
+                    Información
+                  {% endif %}
+                </p>
+                <p class="text-sm">{{ message }}</p>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    <form method="POST" enctype="multipart/form-data" class="bg-white p-6 rounded-xl shadow-md">
+        <div class="space-y-4">
+            <div>
+                <label for="archivo_excel" class="block text-sm font-medium text-slate-700 mb-1">Seleccionar archivo Excel (.xlsx)</label>
+                <input type="file" name="archivo_excel" id="archivo_excel" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required>
+            </div>
+
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="bi bi-exclamation-triangle-fill text-yellow-500"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-yellow-700">
+                            <strong>Atención:</strong> El sistema es inteligente. Si un cliente (por su cédula) ya existe, se actualizará. Si no existe, se creará. No se borrará ninguna información.
+                        </p>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="mt-8 border-t pt-6">
-            <button type="submit"
-                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg
-                           focus:outline-none focus:shadow-outline transition-colors">
-                Subir Archivo y Actualizar Base de Datos
+        <div class="mt-6 pt-4 border-t border-slate-200 text-right">
+            <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="bi bi-upload"></i>
+                Procesar Archivo
             </button>
         </div>
     </form>
