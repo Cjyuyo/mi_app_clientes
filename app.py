@@ -3664,7 +3664,7 @@ def registrar():
             todos_los_admins = [{'id': admin['id'], 'nombre': admin['nombre_completo']} for admin in admins_comerciales]
 
             # El diccionario para "Asesor" también se construye con la lista pre-filtrada
-            admins_por_rol = {'superadmin': [], 'gerencia': [], 'asesor': []}
+            admins_por_rol = {'superadmin': [], 'gerente': [], 'asesor': []}
             for admin in admins_comerciales:
                 # Normalizamos el rol para la lógica del desplegable dinámico
                 rol = admin['rol'].strip().lower()
