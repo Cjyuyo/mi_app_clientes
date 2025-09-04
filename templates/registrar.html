@@ -123,7 +123,7 @@
                     <label for="escenario_dueño" class="block text-sm font-medium text-slate-700">1. Escenario de Cierre</label>
                     <select id="escenario_dueño" name="escenario_dueño" class="mt-1 form-select w-full" required>
                         <option value="">Seleccione un cargo...</option>
-                        <option value="presidencia">Presidencia</option>
+                        <option value="superadmin">Presidencia</option>
                         <option value="gerencia">Gerencia</option>
                         <option value="asesor">Fuerza Comercial</option>
                     </select>
@@ -137,7 +137,7 @@
                 <div>
                     <label for="cerrado_por_id" class="block text-sm font-medium text-slate-700">3. Cerrador</label>
                     <select id="cerrado_por_id" name="cerrado_por_id" class="mt-1 form-select w-full" required>
-                        <option value="">Seleccione una persona...</option>
+                        <option value="">Elige a un Cerrador</option>
                         {% for admin in todos_los_admins %}
                             <option value="{{ admin.id }}">{{ admin.nombre }}</option>
                         {% endfor %}
