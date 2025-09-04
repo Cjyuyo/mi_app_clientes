@@ -663,84 +663,6 @@ def registrar_accion_auditoria(accion, descripcion, cliente_id=None, detalles_ad
         logging.error(f"AUDITORIA-FALLO-INSERCION: {e}")
         conn.rollback()
 
-def calcular_y_guardar_comisiones(contrato_nro, cliente_id, monto_plan, asesor_dueno_id, responsable_cierre_id):
-    """Calcula y guarda las comisiones basadas en el escenario de venta."""
-    conn = get_db()
-    if not conn or monto_plan <= 0:
-        logging.error(f"COMISIONES: No se pudo conectar a la BD o el monto del plan es cero para contrato {contrato_nro}.")
-        return
-
-    # IDs fijos para escenarios especiales (Asegúrate que estos IDs sean los correctos)
-    ID_CARLOS = 1
-    ID_KARIELSY = 2
-    ID_YUSBELIS = 3
-    ID_PRESIDENCIA = [ID_CARLOS, ID_KARIELSY]
-
-    POOL_COMISIONES = monto_plan * Decimal('0.16')
-    comisiones_a_registrar = []
-
-    if responsable_cierre_id in ID_PRESIDENCIA:
-        logging.info(f"Contrato {contrato_nro}: Aplicando Escenario 2 (Cierre Presidencia).")
-        monto_presidencia = monto_plan * Decimal('0.055')
-        comisiones_a_registrar.append({'beneficiario_id': ID_CARLOS, 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
-        comisiones_a_registrar.append({'beneficiario_id': ID_KARIELSY, 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
-        monto_yusbelis = monto_plan * Decimal('0.005')
-        comisiones_a_registrar.append({'beneficiario_id': ID_YUSBELIS, 'monto': monto_yusbelis, 'concepto': 'Comisión Staff'})
-        comisiones_a_registrar.append({'beneficiario_id': asesor_dueno_id, 'monto': Decimal('5.0'), 'concepto': 'Bono Asesor'})
-
-    elif responsable_cierre_id == ID_YUSBELIS:
-        logging.info(f"Contrato {contrato_nro}: Aplicando Escenario 3 (Cierre Yusbelis).")
-        monto_presidencia = monto_plan * Decimal('0.055')
-        comisiones_a_registrar.append({'beneficiario_id': ID_CARLOS, 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
-        comisiones_a_registrar.append({'beneficiario_id': ID_KARIELSY, 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
-        monto_yusbelis = monto_plan * Decimal('0.01')
-        comisiones_a_registrar.append({'beneficiario_id': ID_YUSBELIS, 'monto': monto_yusbelis, 'concepto': 'Comisión Cierre Staff'})
-    
-    else:
-        # --- INICIO DE LA CORRECCIÓN DE LÓGICA ---
-        logging.info(f"Contrato {contrato_nro}: Aplicando Escenario 1 (Cierre Asesor).")
-        
-        # Comisiones fijas de Presidencia y Staff
-        monto_presidencia = monto_plan * Decimal('0.03')
-        comisiones_a_registrar.append({'beneficiario_id': ID_CARLOS, 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
-        comisiones_a_registrar.append({'beneficiario_id': ID_KARIELSY, 'monto': monto_presidencia, 'concepto': 'Comisión Presidencia'})
-        monto_yusbelis = monto_plan * Decimal('0.01')
-        comisiones_a_registrar.append({'beneficiario_id': ID_YUSBELIS, 'monto': monto_yusbelis, 'concepto': 'Comisión Staff'})
-        
-        # 1. La comisión principal (2%) SIEMPRE va para el Asesor dueño del cliente.
-        monto_asesor_dueno = monto_plan * Decimal('0.02')
-        comisiones_a_registrar.append({'beneficiario_id': asesor_dueno_id, 'monto': monto_asesor_dueno, 'concepto': 'Comisión Asesor'})
-        
-        # 2. El Responsable del Cierre recibe un bono de $5 SÓLO SI es una persona diferente al Asesor.
-        if asesor_dueno_id != responsable_cierre_id:
-            comisiones_a_registrar.append({'beneficiario_id': responsable_cierre_id, 'monto': Decimal('5.0'), 'concepto': 'Bono Cierre Asesor'})
-        # --- FIN DE LA CORRECCIÓN DE LÓGICA ---
-
-    if comisiones_a_registrar:
-        total_comisiones_pagadas = sum(c['monto'] for c in comisiones_a_registrar)
-        sobrante_empresa = POOL_COMISIONES - total_comisiones_pagadas
-        try:
-            with conn.cursor() as cur:
-                sql_comisiones = """
-                    INSERT INTO comisiones (origen_id, origen_tipo, asesor_id, moneda, base, pct_comision, monto, estado, notas, fecha_origen)
-                    SELECT %s, 'Venta', %s, 'USD', %s, 1, %s, 'pendiente', %s, c.fecha_ingreso
-                    FROM clientes c
-                    WHERE c.id = %s
-                """
-                for comision in comisiones_a_registrar:
-                    if comision['monto'] > 0:
-                         cur.execute(sql_comisiones, (
-                            cliente_id, comision['beneficiario_id'], monto_plan, comision['monto'], 
-                            comision['concepto'], cliente_id
-                         ))
-
-                sql_sobrante = "UPDATE caja_inscripciones SET sobrante_empresa = %s WHERE contrato_nro = %s"
-                cur.execute(sql_sobrante, (sobrante_empresa, contrato_nro))
-            logging.info(f"COMISIONES v4.0 (Corregido): Contrato {contrato_nro} procesado. Total a pagar: ${total_comisiones_pagadas:,.2f}. Sobrante: ${sobrante_empresa:,.2f}.")
-        except psycopg2.Error as e:
-            logging.error(f"COMISIONES v4.0: Error al guardar comisiones para contrato {contrato_nro}: {e}")
-            raise e
-
 def calcular_balances_tesoreria(fecha_hasta=None):
     """Calcula los balances de las cajas de tesorería hasta una fecha específica."""
     conn = get_db()
@@ -3744,44 +3666,71 @@ def registrar():
                            anio_actual=get_venezuela_current_date().year
                            )
 
-@app.route('/registrar_cliente', methods=['POST'])
+@app.route('/registrar', methods=['GET'])
 @admin_required
-@rol_requerido('superadmin', 'gerente', 'asesor', 'asistente')
-def registrar_cliente():
-    form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
-    if not all(form_data.get(key) for key in ['nombre_apellido', 'cedula', 'contrato_nro']):
-        flash('Nombre, Cédula y N° de Contrato son obligatorios.', 'error')
-        return redirect(url_for('registrar'))
+def registrar():
+    conn = get_db()
+    if not conn:
+        flash('Error de conexión a la base de datos.', 'error')
+        return redirect(url_for('portal_dashboard'))
+
+    admins_por_rol = {}
+    todos_los_admins = []
     try:
-        plan_contratado = Decimal(form_data.get('plan_contratado', '0').replace(',', '.'))
-        cuotas_totales = int(form_data.get('cuotas_totales', 0))
-        moneda_pago = form_data.get('moneda_pago')
-        form_data['inscripcion_monto'] = (plan_contratado * Decimal('0.16')).quantize(Decimal('0.01'))
-        if moneda_pago == 'USD':
-            base = Decimal('0.0496')
-        else:
-            base = Decimal('0.0557')
-        factor_cuota = base * (Decimal('24') / Decimal(cuotas_totales))
-        form_data['valor_cuota'] = (plan_contratado * factor_cuota).quantize(Decimal('0.01'))
-        if form_data.get('fecha_ingreso'):
-            form_data['fecha_ingreso'] = datetime.strptime(form_data['fecha_ingreso'], '%Y-%m-%d').date()
-        else:
-            form_data['fecha_ingreso'] = get_venezuela_current_date()
-    except (InvalidOperation, ValueError):
-        flash('Los valores para el plan o número de cuotas no son válidos.', 'error')
-        return redirect(url_for('registrar'))
-    
-    flash('Datos del cliente validados. Por favor, proceda con las firmas para finalizar el registro.', 'info')
-    
-    # --- CORRECCIÓN: Se pasan las fotos para la vista previa en la pantalla de firma. ---
-    return render_template(
-        'contrato.html', 
-        cliente=form_data, 
-        modo_pre_registro=True, 
-        anio_actual=get_venezuela_current_date().year,
-        foto_cliente_preview=form_data.get('foto_cliente'),
-        foto_cedula_preview=form_data.get('foto_cedula')
-    )
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nombre, rol FROM administradores ORDER BY nombre")
+            admins_list = cur.fetchall()
+            
+            # Lista completa para el campo "Cerrado Por"
+            todos_los_admins = [{'id': admin['id'], 'nombre': admin['nombre']} for admin in admins_list]
+
+            # Diccionario organizado por roles para el campo dinámico "Asesor"
+            admins_por_rol = {'presidencia': [], 'gerencia': [], 'asesor': []}
+            for admin in admins_list:
+                rol = admin['rol']
+                if rol in admins_por_rol:
+                    admins_por_rol[rol].append({'id': admin['id'], 'nombre': admin['nombre']})
+
+    except psycopg2.Error as e:
+        flash(f"Error al cargar los datos para el formulario: {e}", "error")
+
+    return render_template('registrar.html', admins_por_rol=admins_por_rol, todos_los_admins=todos_los_admins)
+
+    # --- LÓGICA PARA PROCESAR EL FORMULARIO (POST) ---
+    if request.method == 'POST':
+        form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
+        if not all(form_data.get(key) for key in ['nombre_apellido', 'cedula', 'contrato_nro']):
+            flash('Nombre, Cédula y N° de Contrato son obligatorios.', 'error')
+            return redirect(url_for('registrar'))
+        try:
+            plan_contratado = Decimal(form_data.get('plan_contratado', '0').replace(',', '.'))
+            cuotas_totales = int(form_data.get('cuotas_totales', 0))
+            moneda_pago = form_data.get('moneda_pago')
+            form_data['inscripcion_monto'] = (plan_contratado * Decimal('0.16')).quantize(Decimal('0.01'))
+            if moneda_pago == 'USD':
+                base = Decimal('0.0496')
+            else:
+                base = Decimal('0.0557')
+            factor_cuota = base * (Decimal('24') / Decimal(cuotas_totales))
+            form_data['valor_cuota'] = (plan_contratado * factor_cuota).quantize(Decimal('0.01'))
+            if form_data.get('fecha_ingreso'):
+                form_data['fecha_ingreso'] = datetime.strptime(form_data['fecha_ingreso'], '%Y-%m-%d').date()
+            else:
+                form_data['fecha_ingreso'] = get_venezuela_current_date()
+        except (InvalidOperation, ValueError):
+            flash('Los valores para el plan o número de cuotas no son válidos.', 'error')
+            return redirect(url_for('registrar'))
+        
+        flash('Datos del cliente validados. Por favor, proceda con las firmas para finalizar el registro.', 'info')
+        
+        return render_template(
+            'contrato.html', 
+            cliente=form_data, 
+            modo_pre_registro=True, 
+            anio_actual=get_venezuela_current_date().year,
+            foto_cliente_preview=form_data.get('foto_cliente'),
+            foto_cedula_preview=form_data.get('foto_cedula')
+        )
 
 @app.route('/finalizar_registro', methods=['POST'])
 @admin_required
@@ -3822,11 +3771,10 @@ def finalizar_registro():
             flash('Ambas firmas son obligatorias para registrar al cliente.', 'error')
             return redirect(url_for('registrar'))
             
-        plan_valor = Decimal(form_data.get('plan', '0').replace(',', '.')) # Corregido de 'plan_contratado' a 'plan'
+        plan_valor = Decimal(form_data.get('plan', '0').replace(',', '.'))
         cuotas_totales = int(form_data.get('cuotas_totales', 0))
         moneda_pago = form_data.get('moneda_pago')
 
-        # Corregido: 'inscripcion' en lugar de 'inscripcion_monto'
         form_data['inscripcion'] = (plan_valor * Decimal('0.16')).quantize(Decimal('0.01'))
 
         if moneda_pago == 'USD':
@@ -3860,33 +3808,34 @@ def finalizar_registro():
                 'beneficiario_apellido': beneficiario_apellido
             }
             
-            # --- INICIO DE LA CORRECCIÓN DE ESQUEMA ---
-            # Mapeo de los nombres del formulario a los nombres de columna de la BD
             optional_fields_map = {
                 'contrato_nro': 'numero_contrato',
                 'telefono': 'numero_telefono',
-                'asesor': 'asesor',
-                'responsable': 'responsable',
+                'responsable': 'responsable', # CAMBIO: 'asesor' se elimina, 'responsable' es el dueño
                 'fecha_ingreso': 'fecha_ingreso',
                 'grupo': 'grupo',
-                'plan_contratado': 'plan', # El formulario usa plan_contratado, la BD usa plan
+                'plan_contratado': 'plan',
                 'cuotas_totales': 'cuotas_totales',
                 'moneda_pago': 'moneda_pago',
                 'valor_cuota': 'valor_cuota',
-                'inscripcion_monto': 'inscripcion', # El formulario usa inscripcion_monto, la BD usa inscripcion
+                'inscripcion_monto': 'inscripcion',
                 'ciclo_cobranza': 'ciclo_cobranza',
                 'direccion': 'direccion',
                 'email': 'email',
                 'beneficiario_cedula': 'beneficiario_cedula',
                 'beneficiario_telefono': 'beneficiario_telefono',
                 'beneficiario_email': 'beneficiario_email',
-                'beneficiario_direccion': 'beneficiario_direccion'
+                'beneficiario_direccion': 'beneficiario_direccion',
+                'cerrado_por_id': 'cerrado_por_id', # CAMBIO: Se añade el ID del cerrador
+                'escenario_cierre': 'escenario_cierre' # CAMBIO: Se añade el escenario
             }
 
             for form_key, db_key in optional_fields_map.items():
                 if form_data.get(form_key):
                     insert_dict[db_key] = form_data.get(form_key)
-            # --- FIN DE LA CORRECCIÓN DE ESQUEMA ---
+
+            # Asignar asesor basado en el responsable
+            insert_dict['asesor'] = form_data.get('responsable')
                 
             columns = insert_dict.keys()
             values = insert_dict.values()
@@ -3895,7 +3844,6 @@ def finalizar_registro():
             cur.execute(query, list(values))
             new_client_id = cur.fetchone()[0]
 
-            # Corregido: usa la variable estandarizada 'numero_contrato' y 'inscripcion'
             if Decimal(form_data.get('inscripcion', 0)) > 0:
                 cur.execute("INSERT INTO caja_inscripciones (numero_contrato, cliente_id, monto_inscripcion, responsable_cierre) VALUES (%s, %s, %s, %s)",
                             (form_data.get('numero_contrato'), new_client_id, form_data.get('inscripcion'), responsable_cierre))
@@ -3909,7 +3857,6 @@ def finalizar_registro():
 
     except psycopg2.IntegrityError:
         conn.rollback()
-        # Corregido: usa la variable estandarizada 'numero_contrato'
         flash(f"Registro fallido: La cédula '{form_data.get('cedula')}' o el N° de Contrato '{form_data.get('numero_contrato')}' ya existen.", 'error')
         return redirect(url_for('registrar'))
     except (psycopg2.Error, ValueError, ConnectionError, InvalidOperation) as e:
@@ -4246,6 +4193,102 @@ def registrar_pago(client_id):
 @app.route('/conciliar_pago/<int:pago_id>', methods=['POST'])
 @admin_required
 def conciliar_pago(pago_id):
+    
+    # --- INICIO DE LA FUNCIÓN DE COMISIONES ---
+    def calcular_y_guardar_comisiones(cliente_info):
+        conn = get_db()
+        if not conn:
+            logging.error("No se pudo obtener la conexión a la base de datos para calcular comisiones.")
+            return
+
+        try:
+            with conn.cursor() as cur:
+                # 1. OBTENER CONTEXTO DE ROLES DESDE LA BASE DE DATOS
+                cur.execute("SELECT id, rol FROM administradores")
+                admins = {admin['id']: admin['rol'] for admin in cur.fetchall()}
+
+                PRESIDENCIA_IDS = {id for id, rol in admins.items() if rol == 'presidencia'}
+                GERENCIA_IDS = {id for id, rol in admins.items() if rol == 'gerencia'}
+
+                # 2. EXTRAER DATOS DE LA VENTA
+                plan_contratado = Decimal(cliente_info.get('plan_contratado', '0'))
+                dueño_id = cliente_info.get('asesor_id')
+                cerrador_id = cliente_info.get('cerrado_por_id')
+                contrato_nro = cliente_info['contrato_nro']
+                cliente_id = cliente_info['id']
+
+                if not cerrador_id or not dueño_id:
+                    logging.error(f"Contrato {contrato_nro}: Falta 'cerrado_por_id' o 'asesor_id' (dueño). No se generan comisiones.")
+                    return
+
+                rol_del_dueño = admins.get(dueño_id)
+                es_autocierre = (cerrador_id == dueño_id)
+                
+                comisiones_a_insertar = []
+                fondo_total_comisiones = plan_contratado * Decimal('0.16')
+
+                logging.info(f"Iniciando cálculo de comisiones para Contrato {contrato_nro} (Plan: ${plan_contratado:,.2f}).")
+                logging.info(f"Dueño (ID): {dueño_id} (Rol: {rol_del_dueño}), Cerrador (ID): {cerrador_id}")
+
+                # 3. APLICAR LÓGICA DE COMISIONES POR CAPAS
+
+                # Capa 1: Comisiones Fijas ("Diferenciales")
+                if rol_del_dueño == 'presidencia':
+                    if GERENCIA_IDS:
+                        monto_gerencia = (plan_contratado * Decimal('0.005')) / len(GERENCIA_IDS)
+                        for gid in GERENCIA_IDS:
+                            comisiones_a_insertar.append({'beneficiario_id': gid, 'monto': monto_gerencia, 'concepto': 'Diferencial Gerencia (Dueño Presidencia)'})
+                else:
+                    if GERENCIA_IDS:
+                        monto_gerencia = (plan_contratado * Decimal('0.01')) / len(GERENCIA_IDS)
+                        for gid in GERENCIA_IDS:
+                            comisiones_a_insertar.append({'beneficiario_id': gid, 'monto': monto_gerencia, 'concepto': 'Diferencial Gerencia'})
+                
+                # Capa 2: Comisión del Dueño (según su cargo)
+                if rol_del_dueño == 'asesor':
+                    comisiones_a_insertar.append({'beneficiario_id': dueño_id, 'monto': plan_contratado * Decimal('0.02'), 'concepto': 'Comisión Dueño (Fuerza Comercial)'})
+                    for pid in PRESIDENCIA_IDS:
+                        comisiones_a_insertar.append({'beneficiario_id': pid, 'monto': plan_contratado * Decimal('0.03'), 'concepto': 'Diferencial Presidencia'})
+                
+                elif rol_del_dueño == 'gerencia':
+                    comisiones_a_insertar.append({'beneficiario_id': dueño_id, 'monto': plan_contratado * Decimal('0.05'), 'concepto': 'Comisión Dueño (Gerencia)'})
+                    for pid in PRESIDENCIA_IDS:
+                        comisiones_a_insertar.append({'beneficiario_id': pid, 'monto': plan_contratado * Decimal('0.03'), 'concepto': 'Diferencial Presidencia'})
+
+                elif rol_del_dueño == 'presidencia':
+                    for pid in PRESIDENCIA_IDS:
+                        comisiones_a_insertar.append({'beneficiario_id': pid, 'monto': plan_contratado * Decimal('0.055'), 'concepto': 'Comisión Dueño (Presidencia)'})
+
+                # Capa 3: Bono Universal del Cerrador (0.4%)
+                if not es_autocierre:
+                    monto_bono = plan_contratado * Decimal('0.004')
+                    comisiones_a_insertar.append({'beneficiario_id': cerrador_id, 'monto': monto_bono, 'concepto': 'Bono de Cierre (0.4%)'})
+
+                # 4. INSERTAR REGISTROS Y CALCULAR SOBRANTE
+                if comisiones_a_insertar:
+                    total_comisiones_calculadas = sum(c['monto'] for c in comisiones_a_insertar)
+                    sobrante_empresa = fondo_total_comisiones - total_comisiones_calculadas
+                    
+                    sql_comisiones = "INSERT INTO comisiones (origen_id, origen_tipo, asesor_id, moneda, monto, estado, notas, fecha_origen, base) VALUES (%s, 'Venta', %s, 'USD', %s, 'pendiente', %s, NOW()::date, %s)"
+                    for com in comisiones_a_insertar:
+                        if com.get('monto', Decimal('0.0')) > 0:
+                            cur.execute(sql_comisiones, (cliente_id, com['beneficiario_id'], com['monto'], com['concepto'], plan_contratado))
+                    
+                    cur.execute("UPDATE caja_inscripciones SET sobrante_empresa = %s WHERE contrato_nro = %s", (sobrante_empresa, contrato_nro))
+                    
+                    conn.commit() # Commit se maneja fuera, en la función principal
+                    logging.info(f"ÉXITO: {len(comisiones_a_insertar)} registros de comisión generados para Contrato {contrato_nro}. Total comisiones: ${total_comisiones_calculadas:,.2f}. Sobrante: ${sobrante_empresa:,.2f}.")
+                else:
+                    logging.warning(f"Contrato {contrato_nro}: No se generaron comisiones. Revisar roles y lógica.")
+
+        except Exception as e:
+            if conn: conn.rollback()
+            logging.error(f"Error CRÍTICO al calcular comisiones para Contrato {cliente_info.get('contrato_nro', 'N/A')}: {e}")
+            # Levantar la excepción para que la función principal maneje el rollback y el mensaje de error
+            raise e
+    # --- FIN DE LA FUNCIÓN DE COMISIONES ---
+
+
     conn = get_db()
     cedula_cliente_para_redirect = None
     if not conn:
@@ -4283,43 +4326,26 @@ def conciliar_pago(pago_id):
                 )
                 updated_cliente = cur.fetchone()
                 
-                # ***** INICIO DE LA MODIFICACIÓN *****
-                # Verifica si la inscripción se ha pagado por completo
                 if updated_cliente['inscripcion_pagada'] >= updated_cliente['inscripcion']:
                     cur.execute(
                         "UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],)
                     )
                     flash_msg = "¡Pago de inscripción conciliado y el cliente ahora está INSCRITO!"
                     
-                    # Llama a la función para calcular y guardar las comisiones
+                    # Se llama a la función de comisiones que está definida arriba
                     try:
                         cur.execute("SELECT * FROM clientes WHERE id = %s", (cliente['id'],))
                         cliente_actualizado = cur.fetchone()
                         
-                        # Asumiendo que los IDs de asesor y responsable están en la tabla clientes
-                        asesor_id = cliente_actualizado.get('asesor_id') 
-                        responsable_id = cliente_actualizado.get('responsable_id')
-                        plan_contratado = cliente_actualizado.get('plan', '0')
-
-                        if asesor_id and responsable_id:
-                             calcular_y_guardar_comisiones(
-                                cliente_actualizado['numero_contrato'], 
-                                cliente_actualizado['id'], 
-                                Decimal(plan_contratado), 
-                                asesor_id, 
-                                responsable_id
-                            )
-                             flash_msg += " ¡Comisiones generadas exitosamente!"
-                             logging.info(f"Comisiones generadas para contrato {cliente_actualizado['numero_contrato']}.")
-                        else:
-                            flash_msg += " ADVERTENCIA: No se generaron comisiones por falta de Asesor/Responsable ID."
-                            logging.warning(f"No se generaron comisiones para contrato {cliente_actualizado['numero_contrato']} por falta de IDs.")
+                        # Pasar el diccionario completo del cliente a la función
+                        calcular_y_guardar_comisiones(dict(cliente_actualizado))
+                        flash_msg += " ¡Comisiones generadas exitosamente!"
 
                     except Exception as e:
-                        flash_msg += " ADVERTENCIA: Hubo un error crítico al generar las comisiones."
+                        # La función de comisiones maneja su propio rollback, pero igual notificamos
+                        flash_msg += " ¡ADVERTENCIA: Hubo un error crítico al generar las comisiones!"
                         logging.error(f"Error al llamar a calcular_y_guardar_comisiones para contrato {cliente['numero_contrato']}: {e}")
-                # ***** FIN DE LA MODIFICACIÓN *****
-                        
+                
                 else:
                     flash_msg = f"¡Abono de inscripción de ${pago_inicial['monto']} conciliado exitosamente!"
             
