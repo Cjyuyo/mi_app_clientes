@@ -36,39 +36,91 @@
         </div>
     </div>
 
-    <form id="registroForm" action="{{ url_for('finalizar_registro') }}" method="POST" class="bg-white p-8 rounded-xl shadow-md space-y-6">
+    <form id="registroForm" action="{{ url_for('finalizar_registro') }}" method="POST" class="space-y-6">
+        <input type="hidden" name="foto_cliente" id="foto_cliente" required>
+        <input type="hidden" name="foto_cedula" id="foto_cedula" required>
         
-        <div>
-            <h2 class="text-lg font-semibold text-slate-700 mb-4">Datos Personales</h2>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="p-4 rounded-lg {% if category == 'error' %} bg-red-100 text-red-800 {% else %} bg-blue-100 text-blue-800 {% endif %}" role="alert">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-person-badge"></i>Información Personal y de Contacto</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div><label for="nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label><input type="text" id="nombre_apellido" name="nombre_apellido" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></div>
+                <div><label for="cedula" class="block text-sm font-medium text-slate-700">Número Cédula</label><input type="text" id="cedula" name="cedula" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></div>
+                <div><label for="telefono" class="block text-sm font-medium text-slate-700">Teléfono</label><input type="text" id="telefono" name="telefono" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></div>
+                <div><label for="email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label><input type="email" id="email" name="email" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50"></div>
+                <div class="md:col-span-2"><label for="direccion" class="block text-sm font-medium text-slate-700">Dirección</label><textarea id="direccion" name="direccion" rows="2" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50"></textarea></div>
+                <div><label for="fecha_ingreso" class="block text-sm font-medium text-slate-700">Fecha de Ingreso</label><input type="date" id="fecha_ingreso" name="fecha_ingreso" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-person-heart"></i>Beneficiario por Fallecimiento (Obligatorio)</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label for="nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label>
-                    <input type="text" id="nombre_apellido" name="nombre_apellido" class="mt-1 form-input w-full" required>
+                    <label for="beneficiario_nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label>
+                    <input type="text" id="beneficiario_nombre_apellido" name="beneficiario_nombre_apellido" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required>
                 </div>
                 <div>
-                    <label for="cedula" class="block text-sm font-medium text-slate-700">Cédula</label>
-                    <input type="text" id="cedula" name="cedula" class="mt-1 form-input w-full" required>
+                    <label for="beneficiario_cedula" class="block text-sm font-medium text-slate-700">Número Cédula</label>
+                    <input type="text" id="beneficiario_cedula" name="beneficiario_cedula" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required>
                 </div>
                 <div>
-                    <label for="telefono" class="block text-sm font-medium text-slate-700">Teléfono</label>
-                    <input type="tel" id="telefono" name="telefono" class="mt-1 form-input w-full">
+                    <label for="beneficiario_telefono" class="block text-sm font-medium text-slate-700">Teléfono</label>
+                    <input type="text" id="beneficiario_telefono" name="beneficiario_telefono" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required>
                 </div>
                 <div>
-                    <label for="email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label>
-                    <input type="email" id="email" name="email" class="mt-1 form-input w-full">
+                    <label for="beneficiario_email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label>
+                    <input type="email" id="beneficiario_email" name="beneficiario_email" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required>
                 </div>
                 <div class="md:col-span-2">
-                    <label for="direccion" class="block text-sm font-medium text-slate-700">Dirección</label>
-                    <textarea id="direccion" name="direccion" rows="3" class="mt-1 form-textarea w-full"></textarea>
+                    <label for="beneficiario_direccion" class="block text-sm font-medium text-slate-700">Dirección</label>
+                    <textarea id="beneficiario_direccion" name="beneficiario_direccion" rows="2" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></textarea>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-file-earmark-text"></i>Detalles del Plan y Contrato</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div><label for="contrato_nro" class="block text-sm font-medium text-slate-700">Número Contrato</label><input type="text" id="contrato_nro" name="contrato_nro" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></div>
+                <div><label for="grupo" class="block text-sm font-medium text-slate-700">Número Grupo</label><input type="text" id="grupo" name="grupo" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50"></div>
+                <div><label for="plan_contratado" class="block text-sm font-medium text-slate-700">Plan Contratado (Valor USD)</label><select id="plan_contratado" name="plan_contratado" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required><option value="" disabled selected>-- Seleccione --</option></select></div>
+                <div><label for="inscripcion_monto" class="block text-sm font-medium text-slate-700">Monto Inscripción (16%)</label><input type="number" id="inscripcion_monto" step="0.01" name="inscripcion_monto" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100" required readonly></div>
+                <div><label for="cuotas_totales" class="block text-sm font-medium text-slate-700">Total de Cuotas</label><select id="cuotas_totales" name="cuotas_totales" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
+                <div><label for="valor_cuota" class="block text-sm font-medium text-slate-700">Cuota Mensual</label><input type="number" id="valor_cuota" step="0.01" name="valor_cuota" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100 focus:border-blue-500 focus:ring-blue-500" required readonly></div>
+                <div><label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required><option value="USD">Divisas (USD)</option><option value="BsBCV">Bolívares (Tasa BCV)</option></select></div>
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-camera"></i>Verificación de Identidad</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="text-center">
+                    <h6 class="font-semibold text-slate-700 mb-2">Foto del Cliente</h6>
+                    <img id="preview-cliente" src="https://placehold.co/400x300/e2e8f0/94a3b8?text=Foto+Cliente" class="w-full h-48 object-cover rounded-lg border-2 border-dashed border-slate-300 mb-3">
+                    <button type="button" class="w-full bg-blue-500 text-white font-semibold py-2 px-4 border border-blue-600 rounded-lg shadow-sm hover:bg-blue-600 flex items-center justify-center gap-2" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cliente"><i class="bi bi-person-bounding-box"></i> Tomar Foto Cliente</button>
+                </div>
+                <div class="text-center">
+                    <h6 class="font-semibold text-slate-700 mb-2">Foto de la Cédula</h6>
+                    <img id="preview-cedula" src="https://placehold.co/400x300/e2e8f0/94a3b8?text=Foto+C%C3%A9dula" class="w-full h-48 object-cover rounded-lg border-2 border-dashed border-slate-300 mb-3">
+                    <button type="button" class="w-full bg-gray-700 text-white font-semibold py-2 px-4 border border-gray-800 rounded-lg shadow-sm hover:bg-gray-800 flex items-center justify-center gap-2" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cedula"><i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula</button>
                 </div>
             </div>
         </div>
         
-        <div class="border-t pt-6">
-            <h2 class="text-lg font-semibold text-slate-700 mb-4">Asignación de Comisiones</h2>
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-briefcase"></i>Información Administrativa</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                    <label for="escenario_dueño" class="block text-sm font-medium text-slate-700">1. Cargo del Dueño</label>
+                    <label for="escenario_dueño" class="block text-sm font-medium text-slate-700">1. Escenario de Cierre</label>
                     <select id="escenario_dueño" name="escenario_dueño" class="mt-1 form-select w-full" required>
                         <option value="">Seleccione un cargo...</option>
                         <option value="presidencia">Presidencia</option>
@@ -77,7 +129,7 @@
                     </select>
                 </div>
                 <div>
-                    <label for="asesor_id" class="block text-sm font-medium text-slate-700">2. Dueño (Responsable)</label>
+                    <label for="asesor_id" class="block text-sm font-medium text-slate-700">2. Asesor</label>
                     <select id="asesor_id" name="asesor_id" class="mt-1 form-select w-full" required disabled>
                         <option value="">Primero seleccione un cargo...</option>
                     </select>
@@ -93,144 +145,58 @@
                 </div>
             </div>
         </div>
-
-        <div class="border-t pt-6">
-            <h2 class="text-lg font-semibold text-slate-700 mb-4">Datos del Contrato</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label for="contrato_nro" class="block text-sm font-medium text-slate-700">Número de Contrato</label>
-                    <input type="text" id="contrato_nro" name="contrato_nro" class="mt-1 form-input w-full" required>
-                </div>
-                <div>
-                    <label for="grupo" class="block text-sm font-medium text-slate-700">Número de Grupo</label>
-                    <input type="text" id="grupo" name="grupo" class="mt-1 form-input w-full">
-                </div>
-                <div>
-                    <label for="fecha_ingreso" class="block text-sm font-medium text-slate-700">Fecha de Ingreso</label>
-                    <input type="date" id="fecha_ingreso" name="fecha_ingreso" class="mt-1 form-input w-full">
-                </div>
-                <div>
-                    <label for="ciclo_cobranza" class="block text-sm font-medium text-slate-700">Ciclo de Cobranza</label>
-                    <select id="ciclo_cobranza" name="ciclo_cobranza" class="mt-1 form-select w-full">
-                        <option>Semanal</option>
-                        <option>Quincenal</option>
-                        <option>Mensual</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <div class="border-t pt-6">
-            <h2 class="text-lg font-semibold text-slate-700 mb-4">Datos del Vehículo y Plan</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                    <label for="plan_contratado" class="block text-sm font-medium text-slate-700">Valor del Plan ($)</label>
-                    <input type="text" inputmode="decimal" id="plan_contratado" name="plan_contratado" class="mt-1 form-input w-full" required>
-                </div>
-                <div>
-                    <label for="cuotas_totales" class="block text-sm font-medium text-slate-700">Cuotas Totales</label>
-                    <input type="number" id="cuotas_totales" name="cuotas_totales" class="mt-1 form-input w-full" required>
-                </div>
-                <div>
-                    <label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label>
-                    <select id="moneda_pago" name="moneda_pago" class="mt-1 form-select w-full">
-                        <option value="USD">Dólares (USD)</option>
-                        <option value="BsBCV">Bolívares (BCV)</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <div class="border-t pt-6">
-            <h2 class="text-lg font-semibold text-slate-700 mb-4">Beneficiario</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label for="beneficiario_nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label>
-                    <input type="text" id="beneficiario_nombre_apellido" name="beneficiario_nombre_apellido" class="mt-1 form-input w-full">
-                </div>
-                <div>
-                    <label for="beneficiario_cedula" class="block text-sm font-medium text-slate-700">Cédula</label>
-                    <input type="text" id="beneficiario_cedula" name="beneficiario_cedula" class="mt-1 form-input w-full">
-                </div>
-                <div>
-                    <label for="beneficiario_telefono" class="block text-sm font-medium text-slate-700">Teléfono</label>
-                    <input type="tel" id="beneficiario_telefono" name="beneficiario_telefono" class="mt-1 form-input w-full">
-                </div>
-                <div>
-                    <label for="beneficiario_email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label>
-                    <input type="email" id="beneficiario_email" name="beneficiario_email" class="mt-1 form-input w-full">
-                </div>
-                <div class="md:col-span-2">
-                    <label for="beneficiario_direccion" class="block text-sm font-medium text-slate-700">Dirección</label>
-                    <textarea id="beneficiario_direccion" name="beneficiario_direccion" rows="3" class="mt-1 form-textarea w-full"></textarea>
-                </div>
-            </div>
-        </div>
-
-        <div class="border-t pt-6">
-            <h2 class="text-lg font-semibold text-slate-700 mb-4">Carga de Documentos</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="text-center">
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Foto del Cliente</label>
-                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#cameraModal" data-photo-type="cliente">
-                        <i class="bi bi-camera-fill"></i> Tomar Foto Cliente
-                    </button>
-                    <img id="foto_cliente_preview" src="" class="mt-3 img-fluid rounded" style="max-height: 150px; display: none;">
-                    <input type="hidden" id="foto_cliente" name="foto_cliente">
-                </div>
-                <div class="text-center">
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Foto de la Cédula</label>
-                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#cameraModal" data-photo-type="cedula">
-                        <i class="bi bi-person-badge-fill"></i> Tomar Foto Cédula
-                    </button>
-                    <img id="foto_cedula_preview" src="" class="mt-3 img-fluid rounded" style="max-height: 150px; display: none;">
-                    <input type="hidden" id="foto_cedula" name="foto_cedula">
-                </div>
-            </div>
-        </div>
         
-        <div class="pt-6 border-t">
-            <button id="submitBtn" type="submit" class="w-full bg-indigo-600 text-white py-3 px-4 rounded-md font-semibold hover:bg-indigo-700 disabled:opacity-50">
-                Continuar a la Firma del Contrato
+        <div class="flex justify-end gap-4 pt-4">
+            <a href="{{ url_for('hub') }}" class="bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50">Cancelar</a>
+            <button type="submit" id="submitBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2" disabled>
+                <i class="bi bi-file-earmark-text"></i>
+                Continuar al Contrato
             </button>
         </div>
     </form>
 </div>
 
-
 <div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="cameraModalLabel">Tomar Fotografía</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="text-center" id="camera-container">
-                    <video id="video" width="640" height="480" autoplay class="rounded"></video>
-                    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
-                </div>
-                <div id="spinner" style="display:none;" class="text-center p-5">
-                    <div class="animate-spin text-blue-500" style="font-size: 40px;">
-                        <i class="bi bi-arrow-repeat"></i>
-                    </div>
-                    <p class="mt-2 text-slate-600">Procesando imagen...</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" id="snap" class="btn btn-primary">
-                    <i class="bi bi-camera"></i> Capturar
-                </button>
-            </div>
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cameraModalLabel">Capturar Foto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <div class="live-view">
+            <video id="video-feed" autoplay playsinline muted class="bg-dark rounded w-100"></video>
         </div>
+        <div class="confirmation-view" style="display:none;">
+            <p><strong>¿Desea usar esta foto?</strong></p>
+            <canvas id="capture-canvas" class="rounded w-100"></canvas>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="live-view-footer w-100 d-flex justify-content-between">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" id="flip-camera-btn" class="btn btn-info"><i class="bi bi-arrow-repeat"></i> Cambiar Cámara</button>
+            <button type="button" id="capture-btn" class="btn btn-primary"><i class="bi bi-camera-fill"></i> Capturar</button>
+        </div>
+        <div class="confirmation-view-footer w-100 d-flex justify-content-between" style="display:none;">
+            <button type="button" class="btn btn-secondary" id="retake-btn"><i class="bi bi-arrow-clockwise"></i> Volver a Tomar</button>
+            <button type="button" class="btn btn-success" id="save-photo-btn"><i class="bi bi-check-circle-fill"></i> Guardar Foto</button>
+        </div>
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}
 
 {% block scripts_extra %}
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    function handleFormSubmit(form) {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         const adminsPorRol = {{ admins_por_rol | tojson | safe }};
 
@@ -249,9 +215,8 @@
                 
                 adminsPorRol[rolAsociado].forEach(function(admin) {
                     const option = document.createElement('option');
-                    // --- CAMBIO CRÍTICO APLICADO AQUÍ ---
-                    option.value = admin.id; // Se envía el ID
-                    option.textContent = admin.nombre; // Se muestra el nombre
+                    option.value = admin.id;
+                    option.textContent = admin.nombre;
                     dueñoSelect.appendChild(option);
                 });
             } else {
@@ -260,78 +225,144 @@
             }
         });
 
-        // --- El resto del script para la cámara y la validación se mantiene igual ---
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const context = canvas.getContext('2d');
-        const snap = document.getElementById('snap');
-        const spinner = document.getElementById('spinner');
-        const cameraContainer = document.getElementById('camera-container');
-        let currentStream;
-        let currentPhotoType;
+        const planSelect = document.getElementById('plan_contratado');
+        const inscripcionInput = document.getElementById('inscripcion_monto');
+        const plazoSelect = document.getElementById('cuotas_totales');
+        const monedaSelect = document.getElementById('moneda_pago');
+        const cuotaInput = document.getElementById('valor_cuota');
+        const cuotaLabel = document.querySelector('label[for="valor_cuota"]');
 
-        const cameraModalEl = document.getElementById('cameraModal');
-        cameraModalEl.addEventListener('show.bs.modal', function (event) {
-            const button = event.relatedTarget;
-            currentPhotoType = button.getAttribute('data-photo-type');
-            
-            spinner.style.display = 'none';
-            cameraContainer.style.display = 'block';
-
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ video: true })
-                    .then(function(stream) {
-                        currentStream = stream;
-                        video.srcObject = stream;
-                        video.play();
-                    }).catch(function(err) {
-                        console.log("An error occurred: " + err);
-                        Swal.fire('Error de Cámara', 'No se pudo acceder a la cámara. Verifique los permisos.', 'error');
-                    });
-            }
-        });
-
-        cameraModalEl.addEventListener('hide.bs.modal', function () {
-            if (currentStream) {
-                currentStream.getTracks().forEach(track => track.stop());
-            }
-        });
+        const planMontos = [1400, 1500, 1600, 1700, 1800, 1900, 2000, 2100, 2300, 2400, 2500, 2700, 2800, 2900, 3200, 3300, 3500, 3800, 4500, 5200, 5600, 5900, 6300];
         
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Se apunta la acción del formulario a la ruta correcta para la firma.
-        const form = document.getElementById('registroForm');
-        form.action = "{{ url_for('finalizar_registro') }}";
-        // --- FIN DE LA CORRECCIÓN ---
+        planMontos.forEach(monto => {
+            const option = document.createElement('option');
+            option.value = monto;
+            option.textContent = `$${monto.toLocaleString('es-CO')}`;
+            planSelect.appendChild(option);
+        });
 
-        function handleFormSubmit(form) {
-            const submitBtn = document.getElementById('submitBtn');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="animate-spin"><i class="bi bi-arrow-repeat"></i></span> Procesando...';
+        function calcularYActualizarCuota() {
+            const montoPlan = parseFloat(planSelect.value);
+            const plazo = parseInt(plazoSelect.value, 10);
+            const tipoMoneda = monedaSelect.value;
+            cuotaLabel.textContent = `Cuota Mensual (${tipoMoneda === 'USD' ? 'USD' : 'Bs'})`;
+            if (isNaN(montoPlan) || montoPlan <= 0 || !tipoMoneda || ![24, 36, 48].includes(plazo)) {
+                cuotaInput.value = ''; return;
+            }
+            const base = (tipoMoneda === 'USD') ? 0.0496 : 0.0557;
+            const factorCuota = base * (24 / plazo);
+            const cuota = montoPlan * factorCuota;
+            cuotaInput.value = cuota.toFixed(2);
+            cuotaInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
 
-        snap.addEventListener('click', function() {
-            cameraContainer.style.display = 'none';
-            spinner.style.display = 'block';
+        planSelect.addEventListener('change', function() {
+            const valorPlan = parseFloat(this.value);
+            if (!isNaN(valorPlan)) {
+                inscripcionInput.value = (valorPlan * 0.16).toFixed(2);
+                inscripcionInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            calcularYActualizarCuota();
+        });
 
-            context.drawImage(video, 0, 0, 640, 480);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        plazoSelect.addEventListener('change', calcularYActualizarCuota);
+        monedaSelect.addEventListener('change', calcularYActualizarCuota);
 
-            const previewElement = document.getElementById('foto_' + currentPhotoType + '_preview');
-            const hiddenInputElement = document.getElementById('foto_' + currentPhotoType);
+        // --- LÓGICA DE LA CÁMARA ---
+        const cameraModalEl = document.getElementById('cameraModal');
+        const video = document.getElementById('video-feed');
+        const canvas = document.getElementById('capture-canvas');
+        const captureBtn = document.getElementById('capture-btn');
+        const retakeBtn = document.getElementById('retake-btn');
+        const savePhotoBtn = document.getElementById('save-photo-btn');
+        const flipCameraBtn = document.getElementById('flip-camera-btn');
 
-            if (previewElement && hiddenInputElement) {
-                previewElement.src = dataUrl;
-                previewElement.style.display = 'block';
-                hiddenInputElement.value = dataUrl;
-                hiddenInputElement.dispatchEvent(new Event('input', { bubbles: true }));
+        let stream, currentCaptureType, capturedImageDataUrl;
+        let currentFacingMode = 'user'; 
+
+        function toggleViews(showConfirmation) {
+            cameraModalEl.querySelector('.live-view').style.display = showConfirmation ? 'none' : 'block';
+            cameraModalEl.querySelector('.live-view-footer').style.display = showConfirmation ? 'none' : 'flex';
+            cameraModalEl.querySelector('.confirmation-view').style.display = showConfirmation ? 'block' : 'none';
+            cameraModalEl.querySelector('.confirmation-view-footer').style.display = showConfirmation ? 'flex' : 'none';
+        }
+
+        async function startCamera(facingMode) {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            try {
+                const constraints = { video: { facingMode: facingMode } };
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                await video.play();
+                video.style.transform = (facingMode === 'user') ? 'scaleX(-1)' : 'scaleX(1)';
+            } catch (err) {
+                console.error("Error al iniciar la cámara: ", err);
+                alert("No se pudo acceder a la cámara. Por favor, asegúrese de dar los permisos necesarios.");
+                bootstrap.Modal.getInstance(cameraModalEl).hide();
+            }
+        }
+        
+        cameraModalEl.addEventListener('show.bs.modal', async (event) => {
+            currentCaptureType = event.relatedTarget.getAttribute('data-capture-type');
+            
+            const modalTitle = cameraModalEl.querySelector('.modal-title');
+            if (currentCaptureType === 'cedula') {
+                modalTitle.textContent = 'Capturar Foto de la Cédula';
+                currentFacingMode = 'environment';
+            } else {
+                modalTitle.textContent = 'Capturar Foto del Cliente (Selfie)';
+                currentFacingMode = 'user';
+            }
+            
+            toggleViews(false);
+            await startCamera(currentFacingMode);
+        });
+
+        cameraModalEl.addEventListener('hide.bs.modal', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        });
+
+        flipCameraBtn.addEventListener('click', () => {
+            currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+            startCamera(currentFacingMode);
+        });
+
+        captureBtn.addEventListener('click', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            
+            if (currentFacingMode === 'user') {
+                context.translate(canvas.width, 0);
+                context.scale(-1, 1);
+            }
+            
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            capturedImageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            toggleViews(true);
+        });
+        
+        retakeBtn.addEventListener('click', () => toggleViews(false));
+        
+        savePhotoBtn.addEventListener('click', () => {
+            if (capturedImageDataUrl && currentCaptureType) {
+                document.getElementById(`preview-${currentCaptureType}`).src = capturedImageDataUrl;
+                const hiddenInput = document.getElementById(`foto_${currentCaptureType}`);
+                hiddenInput.value = capturedImageDataUrl;
+                hiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
             }
             bootstrap.Modal.getInstance(cameraModalEl).hide();
         });
 
+        // --- LÓGICA DE VALIDACIÓN Y SUBMIT ---
         const submitBtn = document.getElementById('submitBtn');
+        const form = document.getElementById('registroForm');
         
         const validateForm = () => {
-            // Se asume que el formulario es el mismo, así que no se necesita cambiar esta parte
             for (const field of form.querySelectorAll('[required]')) {
                 if (!field.value || field.value.trim() === '') return false;
             }
@@ -347,13 +378,13 @@
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             Swal.fire({
-                title: '¿Continuar a la Firma?',
-                text: "Se pre-visualizará el contrato con los datos ingresados.",
+                title: '¿Confirmar Registro?',
+                text: "Se creará un nuevo perfil de cliente. ¿Está seguro?",
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#3085d6',
                 cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Sí, continuar',
+                confirmButtonText: 'Sí, registrar',
                 cancelButtonText: 'Cancelar'
             }).then((result) => {
                 if (result.isConfirmed) {
