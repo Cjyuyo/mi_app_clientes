@@ -5265,44 +5265,96 @@ def get_detalle_conciliacion(bulk_id):
 @rol_requerido('superadmin', 'gerente', 'administradora')
 def conciliar_bulk(bulk_id):
     conn = get_db()
-    if not conn: flash("Error de conexión.", "danger"); return redirect(url_for('admin_conciliacion'))
+    if not conn: 
+        flash("Error de conexión.", "danger")
+        return redirect(url_for('pagos_por_conciliar'))
+    
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM payment_bulks WHERE id = %s AND status = 'READY_TO_RECONCILE'", (bulk_id,))
+            # 1. Obtener la información del lote y bloquearlo para la transacción
+            cur.execute("SELECT * FROM payment_bulks WHERE id = %s AND status = 'READY_TO_RECONCILE' FOR UPDATE", (bulk_id,))
             bulk = cur.fetchone()
             if not bulk:
-                flash("El bulk no está listo para conciliar.", "error")
-                return redirect(url_for('admin_conciliacion'))
-            
-            cur.execute("SELECT * FROM pagos WHERE bulk_id = %s", (bulk_id,))
+                flash("El lote no está listo para conciliar o no existe.", "error")
+                return redirect(url_for('pagos_por_conciliar'))
+
+            # 2. Obtener todas las líneas de pago asociadas a este lote
+            cur.execute("SELECT * FROM pagos WHERE bulk_id = %s ORDER BY fecha_creacion ASC", (bulk_id,))
             lineas = cur.fetchall()
+            if not lineas:
+                flash("Error crítico: No se encontraron pagos asociados a este lote.", "danger")
+                return redirect(url_for('pagos_por_conciliar'))
+
+            # 3. Determinar el tipo de pago (Inscripción o Cuota) basado en la primera línea
+            tipo_pago_principal = lineas[0]['tipo_pago']
+            cliente_id = bulk['cliente_id']
+            monto_total_conciliado_usd = bulk['total_verified'] if bulk['currency'] == 'USD' else bulk['total_verified'] / (lineas[0]['tasa_dia'] or Decimal('1.0'))
+
+            # 4. Actualizar el registro maestro del cliente según el tipo de pago
+            if tipo_pago_principal == 'Inscripción':
+                cur.execute(
+                    "UPDATE clientes SET inscripcion_pagada = inscripcion_pagada + %s WHERE id = %s RETURNING id, inscripcion_pagada, inscripcion",
+                    (monto_total_conciliado_usd, cliente_id)
+                )
+                cliente_actualizado = cur.fetchone()
+                # Si la inscripción se completó, cambiar estado y calcular comisiones
+                if cliente_actualizado['inscripcion_pagada'] >= cliente_actualizado['inscripcion']:
+                    cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente_id,))
+                    flash("¡Inscripción completada y cliente ahora está INSCRITO!", "info")
+
+            elif tipo_pago_principal == 'Cuota':
+                # Cada lote de cuotas conciliado cuenta como 1 cuota pagada
+                cur.execute(
+                    "UPDATE clientes SET cuotas_pagadas_progresivas = cuotas_pagadas_progresivas + 1 WHERE id = %s",
+                    (cliente_id,)
+                )
             
-            lineas_data = [
-                {
+            # 5. Preparar los datos para el recibo consolidado
+            lineas_data = []
+            for l in lineas:
+                detalles = l['detalles_reporte'] or {}
+                if isinstance(detalles, str):
+                    try: detalles = json.loads(detalles)
+                    except json.JSONDecodeError: detalles = {}
+
+                monto_verificado = 0
+                if l['estado_reporte'] == 'Inconsistente' and detalles.get('monto_verificado'):
+                    monto_verificado = Decimal(detalles['monto_verificado'])
+                else:
+                    monto_verificado = l['monto_bs'] if bulk['currency'] == 'VES' else l['monto']
+
+                lineas_data.append({
                     "id": l['id'], 
-                    "monto_verificado": str(l['verified_amount']), 
+                    "monto_verificado": str(monto_verificado), 
                     "referencia": l['referencia'], 
-                    "banco": l['banco'],
-                    "fecha": l['fecha_pago'].isoformat(), 
-                    "es_diferencia": l['is_diferencia']
-                } for l in lineas
-            ]
-            receipt_data = json.dumps({"lineas_consolidadas": lineas_data})
+                    "fecha": l['fecha_pago'].isoformat()
+                })
             
+            receipt_data = json.dumps({"lineas_consolidadas": lineas_data})
+
+            # 6. Crear el recibo consolidado en la base de datos
             cur.execute("INSERT INTO receipts (bulk_id, cliente_id, currency, total, data) VALUES (%s, %s, %s, %s, %s) RETURNING id", 
-                        (bulk_id, bulk['cliente_id'], bulk['currency'], bulk['total_verified'], receipt_data))
+                        (bulk_id, cliente_id, bulk['currency'], bulk['total_verified'], receipt_data))
             receipt_id = cur.fetchone()[0]
             
-            cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', estado_reporte = 'RECONCILED', conciliado_por_id = %s WHERE bulk_id = %s", (g.admin['id'], bulk_id))
+            # 7. Actualizar el estado de todos los elementos a 'Conciliado'
+            cur.execute("UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE bulk_id = %s", (g.admin['id'], bulk_id))
             cur.execute("UPDATE payment_orders SET status = 'CLOSED' WHERE bulk_id = %s", (bulk_id,))
             cur.execute("UPDATE payment_bulks SET status = 'RECONCILED' WHERE id = %s", (bulk_id,))
             
-            registrar_accion_auditoria('CONCILIACION_BULK', f"Concilió bulk #{bulk_id}, recibo consolidado #{receipt_id}", bulk['cliente_id'])
+            registrar_accion_auditoria('CONCILIACION_LOTE', f"Concilió el lote #{bulk_id}. Recibo consolidado #{receipt_id} generado.", cliente_id)
             conn.commit()
-            flash(f"Bulk #{bulk_id} conciliado. Recibo consolidado #{receipt_id} generado.", "success")
-    except psycopg2.Error as e:
-        conn.rollback(); flash(f"Error al conciliar: {e}", "error")
-    return redirect(url_for('admin_conciliacion'))
+            flash(f"Lote #{bulk_id} conciliado exitosamente. Recibo consolidado #{receipt_id} generado.", "success")
+            
+            # Redirigir al nuevo recibo consolidado
+            return redirect(url_for('ver_recibo_consolidado', receipt_id=receipt_id))
+
+    except (psycopg2.Error, json.JSONDecodeError, InvalidOperation) as e:
+        conn.rollback()
+        flash(f"Error crítico al conciliar el lote: {e}", "danger")
+        logging.error(f"Error en conciliar_bulk: {traceback.format_exc()}")
+
+    return redirect(url_for('pagos_por_conciliar'))
 
 @app.route('/recibo_consolidado/<int:receipt_id>')
 def ver_recibo_consolidado(receipt_id):
