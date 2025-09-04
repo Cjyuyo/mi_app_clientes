@@ -3644,34 +3644,33 @@ def registrar():
     conn = get_db()
     if not conn:
         flash('Error de conexión a la base de datos.', 'error')
-        return redirect(url_for('portal_dashboard'))
+        return redirect(url_for('hub'))
 
     admins_por_rol = {}
     todos_los_admins = []
     try:
         with conn.cursor() as cur:
-            # --- CORRECCIÓN AQUÍ ---
-            cur.execute("SELECT id, nombre_completo, rol FROM administradores ORDER BY nombre_completo")
-            admins_list = cur.fetchall()
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Ahora la consulta filtra directamente por la capacidad 'es_comercial'
+            cur.execute("""
+                SELECT id, nombre_completo, rol 
+                FROM administradores 
+                WHERE es_comercial = TRUE 
+                ORDER BY nombre_completo
+            """)
+            admins_comerciales = cur.fetchall()
+            
+            # La lista para "Cerrado Por" ahora usa esta lista pre-filtrada
+            todos_los_admins = [{'id': admin['id'], 'nombre': admin['nombre_completo']} for admin in admins_comerciales]
 
-            # 1. Definimos los únicos roles que pueden aparecer en los desplegables
-            roles_permitidos = ['presidencia', 'gerencia', 'asesor']
-
-            # 2. Filtramos la lista para el desplegable "3. Cerrador"
-            todos_los_admins = [
-                {'id': admin['id'], 'nombre': admin['nombre_completo']}
-                for admin in admins_list
-                if admin['rol'].strip().lower() in roles_permitidos
-            ]
-
-            # 3. Diccionario para el desplegable dinámico "2. Asesor"
-            # (Este ya se filtra implícitamente por las llaves definidas)
+            # El diccionario para "Asesor" también se construye con la lista pre-filtrada
             admins_por_rol = {'presidencia': [], 'gerencia': [], 'asesor': []}
-            for admin in admins_list:
-                # Normalizamos el rol para evitar errores de mayúsculas o espacios
+            for admin in admins_comerciales:
+                # Normalizamos el rol para la lógica del desplegable dinámico
                 rol = admin['rol'].strip().lower()
                 if rol in admins_por_rol:
                     admins_por_rol[rol].append({'id': admin['id'], 'nombre': admin['nombre_completo']})
+            # --- FIN DE LA CORRECCIÓN ---
 
     except psycopg2.Error as e:
         flash(f"Error al cargar los datos para el formulario: {e}", "error")
@@ -6242,20 +6241,18 @@ def get_pago_detalle(pago_id):
 
 @app.route('/admin/gestion_usuarios')
 @admin_required
-@rol_requerido('superadmin', 'gerente') # Asegúrate que estos roles son los correctos
+@rol_requerido('superadmin', 'gerente')
 def gestion_usuarios():
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", "danger")
-        # Redirigir a una página segura como el hub si falla la conexión
         return redirect(url_for('hub'))
     try:
         with conn.cursor() as cur:
-            # Cargar administradores
-            cur.execute("SELECT id, nombre_completo, usuario, rol, estatus FROM administradores ORDER BY nombre_completo")
+            # --- CORRECCIÓN: Se añade la columna es_comercial ---
+            cur.execute("SELECT id, nombre_completo, usuario, rol, estatus, es_comercial FROM administradores ORDER BY nombre_completo")
             admins = cur.fetchall()
             
-            # Cargar contadores
             cur.execute("SELECT id, nombre_completo, usuario, estatus FROM contadores ORDER BY nombre_completo")
             contadores = cur.fetchall()
 
@@ -6265,6 +6262,46 @@ def gestion_usuarios():
         contadores = []
     
     return render_template('gestion_usuarios.html', admins=admins, contadores=contadores)
+
+# --- INICIO: NUEVA RUTA PARA GESTIONAR CAPACIDAD COMERCIAL ---
+@app.route('/admin/toggle_comercial/<int:user_id>', methods=['POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def toggle_comercial(user_id):
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", "danger")
+        return redirect(url_for('gestion_usuarios'))
+
+    try:
+        with conn.cursor() as cur:
+            # Asegurarse que el usuario a modificar existe
+            cur.execute("SELECT usuario, rol, es_comercial FROM administradores WHERE id = %s", (user_id,))
+            user = cur.fetchone()
+            if not user:
+                flash("Usuario administrador no encontrado.", "danger")
+                return redirect(url_for('gestion_usuarios'))
+
+            # Lógica de seguridad para no modificar superadmins si no eres uno
+            if user['rol'] == 'superadmin' and g.admin['rol'] != 'superadmin':
+                flash("No tienes permisos para modificar la capacidad comercial de un Superadmin.", "danger")
+                return redirect(url_for('gestion_usuarios'))
+
+            # Usamos NOT para invertir el valor booleano actual
+            cur.execute("UPDATE administradores SET es_comercial = NOT es_comercial WHERE id = %s", (user_id,))
+            
+            nuevo_estado = "Activada" if not user['es_comercial'] else "Desactivada"
+            registrar_accion_auditoria('CAMBIO_CAPACIDAD_COMERCIAL', f"Capacidad comercial {nuevo_estado} para el usuario '{user['usuario']}'.")
+            
+            conn.commit()
+            flash(f"Se ha cambiado la capacidad comercial para el usuario '{user['usuario']}'.", "success")
+
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Error al actualizar la capacidad del usuario: {e}", "danger")
+
+    return redirect(url_for('gestion_usuarios'))
+# --- FIN: NUEVA RUTA ---
 
 @app.route('/admin/agregar_usuario_unificado', methods=['POST'])
 @admin_required

@@ -38,6 +38,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Nombre Completo</th>
                         <th class="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Usuario (Login)</th>
                         <th class="hidden lg:table-cell px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Rol</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Comercial</th>
                         <th class="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Estado</th>
                         <th class="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Acciones</th>
                     </tr>
@@ -52,6 +53,11 @@
                         <td class="hidden md:table-cell px-6 py-4 whitespace-nowrap text-slate-500">{{ admin.usuario }}</td>
                         <td class="hidden lg:table-cell px-6 py-4 whitespace-nowrap text-slate-500">{{ admin.rol }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ 'bg-blue-100 text-blue-800' if admin.es_comercial else 'bg-gray-100 text-gray-800' }}">
+                                {{ 'Sí' if admin.es_comercial else 'No' }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ 'bg-green-100 text-green-800' if admin.estatus == 'Activo' else 'bg-red-100 text-red-800' }}">{{ admin.estatus }}</span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center text-base font-medium space-x-2">
@@ -61,6 +67,11 @@
                             <form action="{{ url_for('cambiar_estado_usuario', user_type='admin', user_id=admin.id) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de que deseas cambiar el estado de este usuario?');">
                                 <button type="submit" class="text-gray-500 hover:text-gray-800" title="{{ 'Desactivar' if admin.estatus == 'Activo' else 'Activar' }}">
                                     <i class="bi {{ 'bi-toggle-on' if admin.estatus == 'Activo' else 'bi-toggle-off' }}"></i>
+                                </button>
+                            </form>
+                            <form action="{{ url_for('toggle_comercial', user_id=admin.id) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Seguro que quieres cambiar la capacidad comercial de este usuario?');">
+                                <button type="submit" class="text-green-600 hover:text-green-900" title="Cambiar Capacidad Comercial">
+                                    <i class="bi bi-currency-dollar"></i>
                                 </button>
                             </form>
                             <form action="{{ url_for('resetear_password', user_type='admin', user_id=admin.id) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de que deseas resetear la contraseña de este usuario? Se generará una nueva contraseña temporal.');">
