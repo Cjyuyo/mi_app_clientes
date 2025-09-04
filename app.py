@@ -4168,6 +4168,7 @@ def conciliar_pago(pago_id):
     
     # --- INICIO DE LA FUNCIÓN DE COMISIONES ---
     def calcular_y_guardar_comisiones(cliente_info):
+    
     conn = get_db()
     if not conn:
         logging.error("No se pudo obtener la conexión a la base de datos para calcular comisiones.")
