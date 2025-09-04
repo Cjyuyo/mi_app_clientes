@@ -3650,59 +3650,25 @@ def registrar():
     todos_los_admins = []
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, nombre, rol FROM administradores ORDER BY nombre")
+            # --- CORRECCIÓN AQUÍ ---
+            # Se cambió 'nombre' por 'nombre_completo' para que coincida con la base de datos.
+            cur.execute("SELECT id, nombre_completo, rol FROM administradores ORDER BY nombre_completo")
             admins_list = cur.fetchall()
             
             # Lista completa para el campo "Cerrado Por"
-            todos_los_admins = [{'id': admin['id'], 'nombre': admin['nombre']} for admin in admins_list]
+            todos_los_admins = [{'id': admin['id'], 'nombre': admin['nombre_completo']} for admin in admins_list]
 
             # Diccionario organizado por roles para el campo dinámico "Asesor"
             admins_por_rol = {'presidencia': [], 'gerencia': [], 'asesor': []}
             for admin in admins_list:
-                rol = admin['rol']
+                rol = admin['rol'].strip().lower()
                 if rol in admins_por_rol:
-                    admins_por_rol[rol].append({'id': admin['id'], 'nombre': admin['nombre']})
+                    admins_por_rol[rol].append({'id': admin['id'], 'nombre': admin['nombre_completo']})
 
     except psycopg2.Error as e:
         flash(f"Error al cargar los datos para el formulario: {e}", "error")
 
     return render_template('registrar.html', admins_por_rol=admins_por_rol, todos_los_admins=todos_los_admins)
-
-    # --- LÓGICA PARA PROCESAR EL FORMULARIO (POST) ---
-    if request.method == 'POST':
-        form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
-        if not all(form_data.get(key) for key in ['nombre_apellido', 'cedula', 'contrato_nro']):
-            flash('Nombre, Cédula y N° de Contrato son obligatorios.', 'error')
-            return redirect(url_for('registrar'))
-        try:
-            plan_contratado = Decimal(form_data.get('plan_contratado', '0').replace(',', '.'))
-            cuotas_totales = int(form_data.get('cuotas_totales', 0))
-            moneda_pago = form_data.get('moneda_pago')
-            form_data['inscripcion_monto'] = (plan_contratado * Decimal('0.16')).quantize(Decimal('0.01'))
-            if moneda_pago == 'USD':
-                base = Decimal('0.0496')
-            else:
-                base = Decimal('0.0557')
-            factor_cuota = base * (Decimal('24') / Decimal(cuotas_totales))
-            form_data['valor_cuota'] = (plan_contratado * factor_cuota).quantize(Decimal('0.01'))
-            if form_data.get('fecha_ingreso'):
-                form_data['fecha_ingreso'] = datetime.strptime(form_data['fecha_ingreso'], '%Y-%m-%d').date()
-            else:
-                form_data['fecha_ingreso'] = get_venezuela_current_date()
-        except (InvalidOperation, ValueError):
-            flash('Los valores para el plan o número de cuotas no son válidos.', 'error')
-            return redirect(url_for('registrar'))
-        
-        flash('Datos del cliente validados. Por favor, proceda con las firmas para finalizar el registro.', 'info')
-        
-        return render_template(
-            'contrato.html', 
-            cliente=form_data, 
-            modo_pre_registro=True, 
-            anio_actual=get_venezuela_current_date().year,
-            foto_cliente_preview=form_data.get('foto_cliente'),
-            foto_cedula_preview=form_data.get('foto_cedula')
-        )
 
 @app.route('/finalizar_registro', methods=['POST'])
 @admin_required
