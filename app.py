@@ -4130,9 +4130,8 @@ def registrar_pago(client_id):
 @admin_required
 def conciliar_pago(pago_id):
     
-    # --- INICIO DE LA FUNCIÓN DE COMISIONES ---
+    # --- INICIO DE LA FUNCIÓN DE COMISIONES (SIN CAMBIOS) ---
     def calcular_y_guardar_comisiones(cliente_info):
-        # --- INICIO DE LA CORRECCIÓN DE INDENTACIÓN ---
         conn = get_db()
         if not conn:
             logging.error("No se pudo obtener la conexión a la base de datos para calcular comisiones.")
@@ -4140,14 +4139,12 @@ def conciliar_pago(pago_id):
 
         try:
             with conn.cursor() as cur:
-                # 1. OBTENER CONTEXTO DE ROLES DESDE LA BASE DE DATOS
                 cur.execute("SELECT id, rol FROM administradores")
                 admins = {admin['id']: admin['rol'] for admin in cur.fetchall()}
 
                 PRESIDENCIA_IDS = {id for id, rol in admins.items() if rol == 'presidencia'}
                 GERENCIA_IDS = {id for id, rol in admins.items() if rol == 'gerencia'}
 
-                # 2. EXTRAER DATOS DE LA VENTA
                 plan_contratado = Decimal(cliente_info.get('plan_contratado', '0'))
                 dueño_id = cliente_info.get('asesor_id')
                 cerrador_id = cliente_info.get('cerrado_por_id')
@@ -4168,9 +4165,6 @@ def conciliar_pago(pago_id):
                 logging.info(f"Iniciando cálculo de comisiones para Contrato {contrato_nro} (Plan: ${plan_contratado:,.2f}).")
                 logging.info(f"Dueño (ID): {dueño_id} (Rol: {rol_del_dueño}), Cerrador (ID): {cerrador_id} (Rol: {rol_del_cerrador})")
 
-                # 3. APLICAR LÓGICA DE COMISIONES POR CAPAS
-
-                # Capa 1: Comisiones Fijas ("Diferenciales")
                 if rol_del_dueño == 'presidencia':
                     if GERENCIA_IDS:
                         monto_gerencia = (plan_contratado * Decimal('0.005')) / len(GERENCIA_IDS)
@@ -4182,7 +4176,6 @@ def conciliar_pago(pago_id):
                         for gid in GERENCIA_IDS:
                             comisiones_a_insertar.append({'beneficiario_id': gid, 'monto': monto_gerencia, 'concepto': 'Diferencial Gerencia'})
                 
-                # Capa 2: Comisión del Dueño (según su cargo)
                 if rol_del_dueño == 'asesor':
                     comisiones_a_insertar.append({'beneficiario_id': dueño_id, 'monto': plan_contratado * Decimal('0.02'), 'concepto': 'Comisión Dueño (Fuerza Comercial)'})
                     for pid in PRESIDENCIA_IDS:
@@ -4197,13 +4190,11 @@ def conciliar_pago(pago_id):
                     for pid in PRESIDENCIA_IDS:
                         comisiones_a_insertar.append({'beneficiario_id': pid, 'monto': plan_contratado * Decimal('0.055'), 'concepto': 'Comisión Dueño (Presidencia)'})
 
-                # Capa 3: Bono Universal del Cerrador
                 condicion_especial_sin_bono = (rol_del_dueño == 'presidencia' and rol_del_cerrador == 'gerencia')
                 if not es_autocierre and not condicion_especial_sin_bono:
                     monto_bono = plan_contratado * Decimal('0.004')
                     comisiones_a_insertar.append({'beneficiario_id': cerrador_id, 'monto': monto_bono, 'concepto': 'Bono de Cierre (0.4%)'})
 
-                # 4. INSERTAR REGISTROS Y CALCULAR SOBRANTE
                 if comisiones_a_insertar:
                     total_comisiones_calculadas = sum(c['monto'] for c in comisiones_a_insertar)
                     sobrante_empresa = fondo_total_comisiones - total_comisiones_calculadas
@@ -4215,8 +4206,7 @@ def conciliar_pago(pago_id):
                     
                     cur.execute("UPDATE caja_inscripciones SET sobrante_empresa = %s WHERE contrato_nro = %s", (sobrante_empresa, contrato_nro))
                     
-                    # El commit se maneja en la función principal
-                    logging.info(f"ÉXITO: {len(comisiones_a_insertar)} registros de comisión generados para Contrato {contrato_nro}. Total comisiones: ${total_comisiones_calculadas:,.2f}. Sobrante: ${sobrante_empresa:,.2f}.")
+                    logging.info(f"ÉXITO: {len(comisiones_a_insertar)} registros de comisión generados para Contrato {contrato_nro}.")
                 else:
                     logging.warning(f"Contrato {contrato_nro}: No se generaron comisiones. Revisar roles y lógica.")
 
@@ -4224,10 +4214,8 @@ def conciliar_pago(pago_id):
             if conn: conn.rollback()
             logging.error(f"Error CRÍTICO al calcular comisiones para Contrato {cliente_info.get('contrato_nro', 'N/A')}: {e}")
             raise e
-        # --- FIN DE LA CORRECCIÓN DE INDENTACIÓN ---
     # --- FIN DE LA FUNCIÓN DE COMISIONES ---
 
-    # El resto de la función conciliar_pago continúa aquí
     conn = get_db()
     cedula_cliente_para_redirect = None
     if not conn:
@@ -4237,62 +4225,80 @@ def conciliar_pago(pago_id):
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM pagos WHERE id = %s FOR UPDATE", (pago_id,))
-            pago_inicial = cur.fetchone()
+            pago_a_conciliar = cur.fetchone()
 
-            if not pago_inicial:
+            if not pago_a_conciliar:
                 flash("El pago a conciliar no existe.", 'error')
                 return redirect(url_for('pagos_por_conciliar'))
 
-            cur.execute("SELECT * FROM clientes WHERE id = %s FOR UPDATE", (pago_inicial['cliente_id'],))
+            cur.execute("SELECT * FROM clientes WHERE id = %s FOR UPDATE", (pago_a_conciliar['cliente_id'],))
             cliente = cur.fetchone()
             cedula_cliente_para_redirect = cliente['cedula']
 
+            # --- INICIO DE LA CORRECCIÓN 1: Lógica para permitir conciliación manual ---
+            pago_reportado_por_cliente = pago_a_conciliar.get('reportado_por_cliente', False)
+            puede_conciliar = (
+                pago_a_conciliar['estado_pago'] == 'Pendiente' and
+                (
+                    (pago_reportado_por_cliente and pago_a_conciliar['estado_reporte'] == 'Aprobado') or
+                    (not pago_reportado_por_cliente)
+                )
+            )
+
+            if not puede_conciliar:
+                flash("Este pago no puede ser conciliado porque no está en el estado correcto.", "warning")
+                return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
+            # --- FIN DE LA CORRECCIÓN 1 ---
+
             admin_id = g.admin['id']
             flash_msg = ""
-            
-            if pago_inicial['estado_pago'] != 'Pendiente' or pago_inicial['estado_reporte'] != 'Aprobado':
-                flash("Este pago no puede ser conciliado porque no está aprobado o ya fue procesado.", "warning")
-                return redirect(url_for('pagos_por_conciliar'))
+            tipo_pago = pago_a_conciliar['tipo_pago']
 
-            if pago_inicial['tipo_pago'] == 'Inscripción':
-                cur.execute(
-                    "UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE id = %s",
-                    (admin_id, pago_id)
-                )
+            # --- INICIO DE LA CORRECCIÓN 2: Lógica para clientes migrados ---
+            if cliente.get('es_migrado') and cliente.get('inscripcion_pagada', Decimal('0.0')) < cliente.get('inscripcion', Decimal('0.0')) and tipo_pago == 'Cuota':
+                tipo_pago = 'Inscripción'
+                flash_msg += "Pago de cuota aplicado a la inscripción del cliente migrado. "
+            # --- FIN DE LA CORRECCIÓN 2 ---
+
+            if tipo_pago == 'Inscripción':
                 cur.execute(
                     "UPDATE clientes SET inscripcion_pagada = inscripcion_pagada + %s WHERE id = %s RETURNING inscripcion_pagada, inscripcion",
-                    (pago_inicial['monto'], cliente['id'])
+                    (pago_a_conciliar['monto'], cliente['id'])
                 )
                 updated_cliente = cur.fetchone()
                 
                 if updated_cliente['inscripcion_pagada'] >= updated_cliente['inscripcion']:
-                    cur.execute(
-                        "UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],)
-                    )
-                    flash_msg = "¡Pago de inscripción conciliado y el cliente ahora está INSCRITO!"
+                    cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],))
+                    flash_msg += "¡Pago de inscripción conciliado y cliente INSCRITO!"
                     
                     try:
                         cur.execute("SELECT * FROM clientes WHERE id = %s", (cliente['id'],))
                         cliente_actualizado = cur.fetchone()
-                        
                         calcular_y_guardar_comisiones(dict(cliente_actualizado))
-                        flash_msg += " ¡Comisiones generadas exitosamente!"
-
+                        flash_msg += " ¡Comisiones generadas!"
                     except Exception as e:
-                        flash_msg += " ¡ADVERTENCIA: Hubo un error crítico al generar las comisiones!"
-                        logging.error(f"Error al llamar a calcular_y_guardar_comisiones para contrato {cliente['numero_contrato']}: {e}")
-                
+                        flash_msg += " ¡ADVERTENCIA: Error al generar comisiones!"
+                        logging.error(f"Error en comisiones para contrato {cliente.get('numero_contrato')}: {e}")
                 else:
-                    flash_msg = f"¡Abono de inscripción de ${pago_inicial['monto']} conciliado exitosamente!"
-            
-            elif pago_inicial['tipo_pago'] in ['Cuota', 'Pago Oferta']:
-                cur.execute(
-                    "UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE id = %s",
-                    (admin_id, pago_id)
-                )
-                flash_msg = f"¡Pago de {pago_inicial['tipo_pago']} de ${pago_inicial['monto']} conciliado exitosamente!"
+                    flash_msg += f"¡Abono de inscripción de ${pago_a_conciliar['monto']} conciliado!"
 
-            descripcion_audit = f"Concilió el pago N° {pago_id} (Tipo: {pago_inicial['tipo_pago']}, Monto: ${pago_inicial['monto']})."
+            elif tipo_pago in ['Cuota', 'Pago Oferta']:
+                # --- INICIO DE LA CORRECCIÓN 3: Se añade la actualización de cuotas pagadas ---
+                if tipo_pago == 'Cuota':
+                     cur.execute(
+                        "UPDATE clientes SET cuotas_pagadas_progresivas = cuotas_pagadas_progresivas + 1 WHERE id = %s",
+                        (cliente['id'],)
+                    )
+                # --- FIN DE LA CORRECCIÓN 3 ---
+                flash_msg = f"¡Pago de {pago_a_conciliar['tipo_pago']} de ${pago_a_conciliar['monto']} conciliado!"
+            
+            # Actualiza el estado del pago a 'Conciliado'
+            cur.execute(
+                "UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE id = %s",
+                (admin_id, pago_id)
+            )
+
+            descripcion_audit = f"Concilió el pago N° {pago_id} (Tipo: {tipo_pago}, Monto: ${pago_a_conciliar['monto']})."
             registrar_accion_auditoria('CONCILIACION_PAGO', descripcion_audit, cliente['id'])
 
             conn.commit()
