@@ -3940,7 +3940,6 @@ def consulta():
                            admin_rol=g.admin['rol'])
 
 # COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
-Python
 # --- REEMPLAZA TU FUNCIÓN ACTUAL CON ESTA VERSIÓN CORREGIDA ---
 @app.route('/upload_clientes', methods=['GET', 'POST'])
 @admin_required
