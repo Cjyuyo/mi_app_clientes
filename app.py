@@ -3947,7 +3947,7 @@ def upload_clientes():
             conn = get_db()
             try:
                 with conn.cursor() as cursor:
-                    # Funciones de limpieza de datos
+                    # --- Funciones de limpieza de datos (sin cambios) ---
                     def clean_text(val): return str(val).strip() if pd.notna(val) and str(val).strip() != '' else None
                     def to_int_safe(val):
                         if pd.isna(val) or val == '': return 0
@@ -3964,8 +3964,8 @@ def upload_clientes():
 
                     df = pd.read_excel(file, dtype=str).fillna('')
                     df.columns = [str(col).strip().upper().replace('N⁰', 'NUMERO') for col in df.columns]
-                    
-                    # Mapeo final y estandarizado de columnas
+
+                    # Mapeo estandarizado de columnas (sin cambios)
                     column_mapping = {
                         'NOMBRE Y APELLIDO': 'nombre_completo', 'GRUPO': 'grupo', 'PLAN CONTRATADO': 'plan_contratado',
                         'MONEDA DE PAGO': 'moneda_pago', 'ASESOR': 'asesor', 'RESPONSABLE': 'responsable',
@@ -3982,28 +3982,23 @@ def upload_clientes():
                     cursor.execute("SELECT cedula, id FROM clientes")
                     existing_clients = {row['cedula']: row['id'] for row in cursor.fetchall()}
                     
-                    records_to_update = []
-                    records_to_insert = []
+                    records_to_update, records_to_insert = [], []
 
                     for index, row in df.iterrows():
+                        # ... (Lógica para procesar cada fila, sin cambios) ...
                         cedula_clean = clean_text(row.get('cedula'))
                         if not cedula_clean: continue
-
-                        # Lógica para determinar estado_del_plan
                         estado_plan_final = clean_text(row.get('estado_del_plan'))
                         cuotas_pagadas = to_int_safe(row.get('cuotas_pagadas_progresivas'))
                         saldo_inscripcion = to_decimal_safe(row.get('saldo_inscripcion', '0.0'))
                         inscripcion_total = to_decimal_safe(row.get('inscripcion_monto', '0.0'))
-
                         if saldo_inscripcion is not None and inscripcion_total is not None and inscripcion_total > 0:
                             if saldo_inscripcion <= 0:
                                 estado_plan_final = 'AHORRADOR' if cuotas_pagadas >= 1 else 'INSCRITO'
                             else:
                                 estado_plan_final = 'RESERVA'
-                        
                         nombre_completo = clean_text(row.get('nombre_completo'))
                         nombre_parts = nombre_completo.split(' ', 1) if nombre_completo else [None, None]
-                        
                         client_data = {
                             'nombre': nombre_parts[0], 'apellido': nombre_parts[1] if len(nombre_parts) > 1 else '', 'cedula': cedula_clean,
                             'grupo': clean_text(row.get('grupo')), 'plan_contratado': to_decimal_safe(row.get('plan_contratado')),
@@ -4018,24 +4013,51 @@ def upload_clientes():
                             'observacion': clean_text(row.get('observacion')), 'valor_cuota': to_decimal_safe(row.get('valor_cuota')),
                             'es_migrado': True 
                         }
-
                         if cedula_clean in existing_clients:
                             client_data['id'] = existing_clients[cedula_clean]
                             records_to_update.append(client_data)
                         else:
                             records_to_insert.append(client_data)
                     
+                    # --- Actualización de clientes existentes ---
                     if records_to_update:
-                        update_cols = [col for col in records_to_update[0].keys() if col != 'id']
-                        set_clause = ", ".join([f"{col} = data.{col}" for col in update_cols])
-                        update_query = f"""
-                            UPDATE clientes SET {set_clause}
-                            FROM (VALUES %s) AS data(id, {", ".join(update_cols)})
+                        # --- INICIO DE LA CORRECCIÓN ---
+                        # Se añade la conversión explícita con ::numeric e ::integer
+                        update_query = """
+                            UPDATE clientes SET
+                                nombre = data.nombre, apellido = data.apellido, grupo = data.grupo, 
+                                plan_contratado = data.plan_contratado::numeric, moneda_pago = data.moneda_pago, 
+                                asesor = data.asesor, responsable = data.responsable, numero_contrato = data.numero_contrato,
+                                estado_del_plan = data.estado_del_plan, estatus_cliente = data.estatus_cliente, 
+                                fecha_ingreso = data.fecha_ingreso::date, numero_telefono = data.numero_telefono, 
+                                porcentaje_inscripcion = data.porcentaje_inscripcion::numeric,
+                                inscripcion_monto = data.inscripcion_monto::numeric, 
+                                cuotas_totales = data.cuotas_totales::integer,
+                                cuotas_pagadas_progresivas = data.cuotas_pagadas_progresivas::integer, 
+                                condicion_pago = data.condicion_pago, pagos_impuntuales = data.pagos_impuntuales::integer, 
+                                cuotas_mora = data.cuotas_mora::integer, observacion = data.observacion, 
+                                valor_cuota = data.valor_cuota::numeric, es_migrado = data.es_migrado::boolean
+                            FROM (VALUES %s) AS data(
+                                id, nombre, apellido, cedula, grupo, plan_contratado, moneda_pago, asesor, responsable,
+                                numero_contrato, estado_del_plan, estatus_cliente, fecha_ingreso, numero_telefono,
+                                porcentaje_inscripcion, inscripcion_monto, cuotas_totales, cuotas_pagadas_progresivas,
+                                condicion_pago, pagos_impuntuales, cuotas_mora, observacion, valor_cuota, es_migrado
+                            )
                             WHERE clientes.id = data.id::integer;
                         """
-                        update_tuples = [[r.get(col) for col in ['id'] + update_cols] for r in records_to_update]
+                        # --- FIN DE LA CORRECCIÓN ---
+                        
+                        update_tuples = [[r.get(col) for col in [
+                            'id', 'nombre', 'apellido', 'cedula', 'grupo', 'plan_contratado', 'moneda_pago', 'asesor', 
+                            'responsable', 'numero_contrato', 'estado_del_plan', 'estatus_cliente', 'fecha_ingreso', 
+                            'numero_telefono', 'porcentaje_inscripcion', 'inscripcion_monto', 'cuotas_totales', 
+                            'cuotas_pagadas_progresivas', 'condicion_pago', 'pagos_impuntuales', 'cuotas_mora', 
+                            'observacion', 'valor_cuota', 'es_migrado'
+                        ]] for r in records_to_update]
+                        
                         execute_values(cursor, update_query, update_tuples)
 
+                    # --- Inserción de nuevos clientes (ya era robusta) ---
                     if records_to_insert:
                         insert_cols = records_to_insert[0].keys()
                         insert_query = f"INSERT INTO clientes ({', '.join(insert_cols)}) VALUES %s"
