@@ -2,7 +2,8 @@
 
 {% block title %}Reporte de Métricas{% endblock %}
 
-{% block content %}
+{# --- CORRECCIÓN 1: Se cambia 'content' por 'body' para que coincida con la plantilla base --- #}
+{% block body %}
 <div class="px-4 sm:px-6 lg:px-8 py-8 bg-slate-50 min-h-screen">
     <div class="max-w-7xl mx-auto">
         <div class="sm:flex sm:items-center sm:justify-between">
@@ -163,7 +164,8 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
+{# --- CORRECCIÓN 2: Se cambia 'scripts' por 'scripts_extra' para coincidir con la plantilla base --- #}
+{% block scripts_extra %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {

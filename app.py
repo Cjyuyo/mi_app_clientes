@@ -2789,7 +2789,6 @@ def reporte_metricas():
                 FROM clientes
             """)
             mapa_counts_row = cur.fetchone()
-            # CONVERSIÓN EXPLÍCITA: Se convierte la fila a un diccionario de Python puro.
             if mapa_counts_row:
                 dashboard_metrics['mapa_clientes'] = dict(mapa_counts_row)
 
@@ -2812,7 +2811,7 @@ def reporte_metricas():
                 clientes_en_mora = total_ahorradores - ahorradores_al_dia
                 dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100
             
-            # --- 3. INGRESOS ÚLTIMOS MESES (YA GENERA LISTAS PURAS) ---
+            # --- 3. INGRESOS ÚLTIMOS MESES ---
             income_labels, income_values = [], []
             current_date = today
             for _ in range(6):
@@ -2829,7 +2828,6 @@ def reporte_metricas():
             # --- 4. COMPOSICIÓN DE CLIENTES ---
             cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado_plan, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
             composition_rows = cur.fetchall()
-            # CONVERSIÓN EXPLÍCITA: Se convierte la lista de filas a una lista de diccionarios puros.
             client_composition_list = [dict(row) for row in composition_rows] if composition_rows else []
             comp_labels = [row.get('estado_plan', 'Sin Datos').capitalize() for row in client_composition_list]
             comp_values = [row.get('total', 0) for row in client_composition_list]
@@ -2846,15 +2844,14 @@ def reporte_metricas():
                 ORDER BY total DESC
             """)
             resumen_rows = cur.fetchall()
-            # CONVERSIÓN EXPLÍCITA: Se convierte a lista de diccionarios puros.
             dashboard_metrics['resumen_condicion'] = [dict(row) for row in resumen_rows] if resumen_rows else []
 
     except psycopg2.Error as e:
-        flash(f"No se pudieron cargar las métricas del dashboard debido a un error de base de datos. Por favor, contacte a soporte.", "danger")
+        flash(f"No se pudieron cargar las métricas del dashboard. Contacte a soporte.", "danger")
         logging.error(f"ERROR en reporte_metricas: {traceback.format_exc()}")
 
     return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
-
+    
 @app.route('/reportes/morosidad')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
