@@ -2749,6 +2749,7 @@ def reporte_metricas():
     conn = get_db()
     today = get_venezuela_current_date()
     
+    # Se inicializa el diccionario con todos los valores por defecto para evitar errores en la plantilla
     dashboard_metrics = {
         'ingresos_mes_conciliados': Decimal('0.0'),
         'indice_morosidad': 0.0,
@@ -2770,7 +2771,7 @@ def reporte_metricas():
 
     try:
         with conn.cursor() as cur:
-            # --- 1. MAPA DE CLIENTES ---
+            # --- CONSULTA 1: MAPA DE CLIENTES (Usa los nombres de columna correctos) ---
             cur.execute("""
                 SELECT
                     COUNT(*) AS total_clientes,
@@ -2791,7 +2792,7 @@ def reporte_metricas():
             if mapa_counts_row:
                 dashboard_metrics['mapa_clientes'] = dict(mapa_counts_row)
 
-            # --- 2. INGRESOS Y MOROSIDAD ---
+            # --- 2. INGRESOS Y MOROSIDAD (Usa los nombres de columna correctos) ---
             first_day_of_month = today.replace(day=1)
             cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
             dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
@@ -2824,7 +2825,7 @@ def reporte_metricas():
                 current_date = month_start - timedelta(days=1)
             dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
 
-            # --- 4. COMPOSICIÓN DE CLIENTES ---
+            # --- 4. COMPOSICIÓN DE CLIENTES (Usa el nombre de columna correcto) ---
             cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado_plan, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
             composition_rows = cur.fetchall()
             client_composition_list = [dict(row) for row in composition_rows] if composition_rows else []
@@ -2848,8 +2849,7 @@ def reporte_metricas():
     except psycopg2.Error as e:
         flash(f"No se pudieron cargar las métricas del dashboard. Contacte a soporte.", "danger")
         logging.error(f"ERROR en reporte_metricas: {traceback.format_exc()}")
-        
-    # --- CORRECCIÓN FINAL: Se elimina el paréntesis extra ---
+
     return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
 
 @app.route('/lista_clientes/<string:filtro>')
@@ -2857,49 +2857,41 @@ def reporte_metricas():
 def lista_clientes(filtro):
     """
     Muestra una lista de clientes filtrada por un estado específico.
-    El filtro puede ser un 'estado_del_plan' o un 'estatus_cliente'.
+    Busca en ambas columnas de estado para máxima compatibilidad.
     """
     conn = get_db()
     clientes = []
     
-    # Define qué estados pertenecen a qué columna para hacer la consulta correcta
-    estados_de_plan = ['AHORRADOR', 'ADJUDICADO', 'COBRANZA DIFERIDA', 'INSCRITO', 'COMPLETADO', 'RESERVA']
-    estatus_de_cliente = ['ACTIVO', 'INACTIVO', 'RETIRO', 'CONGELADO']
-
     if not conn:
         flash("Error de conexión con la base de datos.", "danger")
         return render_template('lista_clientes.html', clientes=clientes, filtro=filtro)
 
     try:
         with conn.cursor() as cur:
-            # --- CORRECCIÓN: Se elimina la conversión de espacios a guiones bajos ---
+            # Normaliza el filtro que viene del URL
             filtro_upper = filtro.upper()
-            
-            # Determina en qué columna buscar (esta lógica ahora funcionará correctamente)
-            if filtro_upper in estados_de_plan:
-                columna_a_filtrar = "estado_del_plan"
-            elif filtro_upper in estatus_de_cliente:
-                columna_a_filtrar = "estatus_cliente"
-            else:
-                flash(f"Filtro '{filtro}' no válido.", "warning")
-                return redirect(url_for('reporte_metricas'))
 
-            # Construye y ejecuta la consulta
-            query = f"""
+            # --- INICIO DE LA CORRECCIÓN ---
+            # La nueva consulta busca en AMBAS columnas de estado (estado_del_plan y estatus_cliente)
+            # Esto soluciona el problema de raíz, ya que no importa en qué columna esté el dato.
+            query = """
                 SELECT id, nombre, apellido, cedula 
                 FROM clientes 
-                WHERE TRIM(UPPER({columna_a_filtrar})) = %s
+                WHERE (TRIM(UPPER(estado_del_plan)) = %s OR TRIM(UPPER(estatus_cliente)) = %s)
                 ORDER BY nombre, apellido;
             """
-            # La consulta ahora recibe el término correcto (ej. 'COBRANZA DIFERIDA')
-            cur.execute(query, (filtro_upper,))
+            # --- FIN DE LA CORRECCIÓN ---
+            
+            # Se pasa el mismo filtro dos veces, una para cada columna en la consulta
+            cur.execute(query, (filtro_upper, filtro_upper))
             clientes = cur.fetchall()
 
     except psycopg2.Error as e:
         flash(f"Error al buscar clientes: {e}", "danger")
         logging.error(f"Error en lista_clientes con filtro '{filtro}': {traceback.format_exc()}")
 
-    return render_template('lista_clientes.html', clientes=clientes, filtro=filtro)
+    # Se usa 'replace' para mostrar el filtro de forma legible en la plantilla
+    return render_template('lista_clientes.html', clientes=clientes, filtro=filtro.replace('_', ' '))
     
 @app.route('/reportes/morosidad')
 @admin_required
