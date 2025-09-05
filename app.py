@@ -3964,7 +3964,7 @@ def upload_clientes():
                 # --- Funciones de limpieza de datos ---
                 def clean_text(val): return str(val).strip() if pd.notna(val) else None
                 def to_int_safe(val):
-                    if pd.isna(val) or val == '': return 0 # Devuelve 0 si está vacío
+                    if pd.isna(val) or val == '': return 0
                     try: return int(float(val))
                     except (ValueError, TypeError): return 0
                 def to_decimal_safe(val):
@@ -3979,7 +3979,6 @@ def upload_clientes():
                 df = pd.read_excel(file, dtype=str).fillna('')
                 df.columns = [str(col).strip().upper() for col in df.columns]
 
-                # --- Mapeo de columnas del Excel a la Base de Datos ---
                 column_mapping = {
                     'NOMBRE Y APELLIDO': 'nombre_completo', 'GRUPO': 'grupo', 'PLAN': 'plan_contratado',
                     'MONEDA DE PAGO': 'moneda_pago', 'ASESOR': 'asesor', 'RESPONSABLE': 'responsable',
@@ -3999,54 +3998,56 @@ def upload_clientes():
                 cursor.execute("SELECT cedula, id FROM clientes")
                 existing_clients = {row['cedula']: row['id'] for row in cursor.fetchall()}
                 records_to_update = []
-                
-                for _, row in df.iterrows():
-                    cedula_clean = clean_text(row.get('cedula'))
-                    if not cedula_clean: continue
+                errors_found = []
 
-                    # ===== INICIO DE LA LÓGICA SECUENCIAL CORRECTA =====
-                    estado_plan_final = clean_text(row.get('estado_del_plan'))
-                    cuotas_pagadas = to_int_safe(row.get('cuotas_pagas'))
-                    saldo_inscripcion = to_decimal_safe(row.get('saldo_inscripcion', '0.0'))
-                    inscripcion_total = to_decimal_safe(row.get('inscripcion_monto', '0.0'))
+                for index, row in df.iterrows():
+                    try:
+                        cedula_clean = clean_text(row.get('cedula'))
+                        if not cedula_clean: continue
 
-                    if saldo_inscripcion is not None and inscripcion_total is not None and inscripcion_total > 0:
-                        # Paso 1: Verificar si la inscripción está completa.
-                        if saldo_inscripcion >= inscripcion_total:
-                            # Si está completa, AHORA verificamos las cuotas.
-                            if cuotas_pagadas >= 1:
-                                estado_plan_final = 'Ahorrador'
+                        estado_plan_final = clean_text(row.get('estado_del_plan'))
+                        cuotas_pagadas = to_int_safe(row.get('cuotas_pagas'))
+                        saldo_inscripcion = to_decimal_safe(row.get('saldo_inscripcion', '0.0'))
+                        inscripcion_total = to_decimal_safe(row.get('inscripcion_monto', '0.0'))
+
+                        if saldo_inscripcion is not None and inscripcion_total is not None and inscripcion_total > 0:
+                            if saldo_inscripcion >= inscripcion_total:
+                                estado_plan_final = 'Ahorrador' if cuotas_pagadas >= 1 else 'Inscrito'
                             else:
-                                estado_plan_final = 'Inscrito'
-                        else:
-                            # Si la inscripción NO está completa, es 'Reserva'.
-                            estado_plan_final = 'Reserva'
-                    # ===== FIN DE LA LÓGICA SECUENCIAL CORRECTA =====
+                                estado_plan_final = 'Reserva'
+                        
+                        nombre_completo = clean_text(row.get('nombre_completo'))
+                        nombre_parts = nombre_completo.split(' ', 1) if nombre_completo else [None, None]
+                        
+                        client_data = {
+                            'nombre': nombre_parts[0], 'apellido': nombre_parts[1], 'cedula': cedula_clean,
+                            'grupo': clean_text(row.get('grupo')), 'plan_contratado': to_decimal_safe(row.get('plan_contratado')),
+                            'moneda_pago': clean_text(row.get('moneda_pago')), 'asesor': clean_text(row.get('asesor')),
+                            'responsable': clean_text(row.get('responsable')), 'numero_contrato': clean_text(row.get('numero_contrato')),
+                            'estado_del_plan': estado_plan_final,
+                            'estatus_cliente': clean_text(row.get('estatus_cliente')), 'fecha_ingreso': to_date_safe(row.get('fecha_ingreso')),
+                            'numero_telefono': clean_text(row.get('numero_telefono')), 'porcentaje_inscripcion': to_decimal_safe(row.get('porcentaje_inscripcion')),
+                            'inscripcion_monto': inscripcion_total, 'cuotas_totales': to_int_safe(row.get('cuotas_totales')),
+                            'cuotas_pagas': cuotas_pagadas, 'condicion_pago': clean_text(row.get('condicion_pago')),
+                            'pagos_impuntuales': to_int_safe(row.get('pagos_impuntuales')), 'cuotas_mora': to_int_safe(row.get('cuotas_mora')),
+                            'observacion': clean_text(row.get('observacion')), 'valor_cuota': to_decimal_safe(row.get('valor_cuota')),
+                            'fecha_pago': to_date_safe(row.get('fecha_pago')), 'estatus_cuota': clean_text(row.get('estatus_cuota')),
+                            'valor_cancelado': to_decimal_safe(row.get('valor_cancelado')),
+                            'saldo_inscripcion': saldo_inscripcion, 'es_migrado': True 
+                        }
 
-                    nombre_completo = clean_text(row.get('nombre_completo'))
-                    nombre_parts = nombre_completo.split(' ', 1) if nombre_completo else [None, None]
+                        if cedula_clean in existing_clients:
+                            client_data['id'] = existing_clients[cedula_clean]
+                            records_to_update.append(client_data)
                     
-                    client_data = {
-                        'nombre': nombre_parts[0], 'apellido': nombre_parts[1], 'cedula': cedula_clean,
-                        'grupo': clean_text(row.get('grupo')), 'plan_contratado': to_decimal_safe(row.get('plan_contratado')),
-                        'moneda_pago': clean_text(row.get('moneda_pago')), 'asesor': clean_text(row.get('asesor')),
-                        'responsable': clean_text(row.get('responsable')), 'numero_contrato': clean_text(row.get('numero_contrato')),
-                        'estado_del_plan': estado_plan_final, # <-- Se usa el estado final calculado
-                        'estatus_cliente': clean_text(row.get('estatus_cliente')), 'fecha_ingreso': to_date_safe(row.get('fecha_ingreso')),
-                        'numero_telefono': clean_text(row.get('numero_telefono')), 'porcentaje_inscripcion': to_decimal_safe(row.get('porcentaje_inscripcion')),
-                        'inscripcion_monto': inscripcion_total, 'cuotas_totales': to_int_safe(row.get('cuotas_totales')),
-                        'cuotas_pagas': cuotas_pagadas, 'condicion_pago': clean_text(row.get('condicion_pago')),
-                        'pagos_impuntuales': to_int_safe(row.get('pagos_impuntuales')), 'cuotas_mora': to_int_safe(row.get('cuotas_mora')),
-                        'observacion': clean_text(row.get('observacion')), 'valor_cuota': to_decimal_safe(row.get('valor_cuota')),
-                        'fecha_pago': to_date_safe(row.get('fecha_pago')), 'estatus_cuota': clean_text(row.get('estatus_cuota')),
-                        'valor_cancelado': to_decimal_safe(row.get('valor_cancelado')),
-                        'saldo_inscripcion': saldo_inscripcion,
-                        'es_migrado': True 
-                    }
+                    except Exception as e:
+                        errors_found.append(f"Fila {index + 2}: Cédula {row.get('cedula', 'N/A')} - Error: {e}")
 
-                    if cedula_clean in existing_clients:
-                        client_data['id'] = existing_clients[cedula_clean]
-                        records_to_update.append(client_data)
+                if errors_found:
+                    flash("Se encontraron errores en el archivo. No se realizó ninguna actualización.", "danger")
+                    for error in errors_found:
+                        flash(error, "warning")
+                    return redirect(url_for('upload_clientes'))
 
                 if records_to_update:
                     update_query = """
@@ -4082,8 +4083,8 @@ def upload_clientes():
                         for r in records_to_update
                     ]
                     
-                    execute_values(cursor, update_query, update_tuples, 
-                                 template='(%(id)s, %(nombre)s, %(apellido)s, %(cedula)s, %(grupo)s, %(plan_contratado)s, %(moneda_pago)s, %(asesor)s, %(responsable)s, %(numero_contrato)s, %(estado_del_plan)s, %(estatus_cliente)s, %(fecha_ingreso)s, %(numero_telefono)s, %(porcentaje_inscripcion)s, %(inscripcion_monto)s, %(cuotas_totales)s, %(cuotas_pagas)s, %(condicion_pago)s, %(pagos_impuntuales)s, %(cuotas_mora)s, %(observacion)s, %(valor_cuota)s, %(fecha_pago)s, %(estatus_cuota)s, %(valor_cancelado)s, %(saldo_inscripcion)s, %(es_migrado)s)')
+                    # --- CORRECCIÓN: Se elimina el argumento 'template' para que coincida con la lista de tuplas ---
+                    execute_values(cursor, update_query, update_tuples)
 
                 conn.commit()
                 flash(f'¡Proceso completado! Se actualizaron los datos de {len(records_to_update)} clientes existentes.', 'success')
