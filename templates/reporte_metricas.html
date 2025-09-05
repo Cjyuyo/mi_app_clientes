@@ -142,22 +142,22 @@
                 </div>
             </div>
             <div class="bg-white rounded-lg shadow p-5">
-                <h3 class="text-base font-semibold text-gray-900 mb-4">Resumen por Condición de Pago (Activos)</h3>
-                <div class="space-y-3">
-                    {% if metrics.resumen_condicion %}
-                        {% for item in metrics.resumen_condicion %}
-                            <div>
-                                <div class="flex justify-between items-center mb-1">
-                                    <p class="text-sm font-medium text-gray-600">{{ item.condicion }}</p>
-                                    <p class="text-sm font-semibold text-gray-800">{{ item.total }}</p>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    {% else %}
-                        <p class="text-sm text-gray-500">No hay datos de condición para mostrar o la columna no existe.</p>
-                    {% endif %}
+    <h3 class="text-base font-semibold text-gray-900 mb-4">Resumen por Condición de Pago (Activos)</h3>
+    <div class="space-y-3">
+        {% if metrics.resumen_condicion %}
+            {% for item in metrics.resumen_condicion %}
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <p class="text-sm font-medium text-gray-600">{{ item.condicion }}</p>
+                        <p class="text-sm font-semibold text-gray-800">{{ item.total }}</p>
+                    </div>
                 </div>
-            </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-sm text-gray-500">No hay datos de condición para mostrar.</p>
+        {% endif %}
+    </div>
+</div>
             </div>
     </div>
 </div>
