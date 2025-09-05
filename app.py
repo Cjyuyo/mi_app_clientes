@@ -3957,7 +3957,7 @@ def upload_clientes():
                 cursor = conn.cursor()
 
                 # --- Funciones de limpieza de datos ---
-                def clean_text(val): return str(val).strip() if pd.notna(val) else None
+                def clean_text(val): return str(val).strip() if pd.notna(val) and str(val).strip() != '' else None
                 def to_int_safe(val):
                     if pd.isna(val) or val == '': return 0
                     try: return int(float(val))
@@ -4045,20 +4045,21 @@ def upload_clientes():
                     return redirect(url_for('upload_clientes'))
 
                 if records_to_update:
+                    # --- CORRECCIÓN: Se añaden conversiones de tipo explícitas (::numeric, ::integer, etc.) ---
                     update_query = """
                         UPDATE clientes SET
-                            nombre = data.nombre, apellido = data.apellido, grupo = data.grupo, plan_contratado = data.plan_contratado,
+                            nombre = data.nombre, apellido = data.apellido, grupo = data.grupo, plan_contratado = data.plan_contratado::numeric,
                             moneda_pago = data.moneda_pago, asesor = data.asesor, responsable = data.responsable,
                             numero_contrato = data.numero_contrato, estado_del_plan = data.estado_del_plan,
-                            estatus_cliente = data.estatus_cliente, fecha_ingreso = data.fecha_ingreso,
-                            numero_telefono = data.numero_telefono, porcentaje_inscripcion = data.porcentaje_inscripcion,
-                            inscripcion_monto = data.inscripcion_monto, cuotas_totales = data.cuotas_totales,
-                            cuotas_pagas = data.cuotas_pagas, condicion_pago = data.condicion_pago,
-                            pagos_impuntuales = data.pagos_impuntuales, cuotas_mora = data.cuotas_mora,
-                            observacion = data.observacion, valor_cuota = data.valor_cuota,
-                            fecha_pago = data.fecha_pago, estatus_cuota = data.estatus_cuota,
-                            valor_cancelado = data.valor_cancelado, es_migrado = data.es_migrado,
-                            saldo_inscripcion = data.saldo_inscripcion
+                            estatus_cliente = data.estatus_cliente, fecha_ingreso = data.fecha_ingreso::date,
+                            numero_telefono = data.numero_telefono, porcentaje_inscripcion = data.porcentaje_inscripcion::numeric,
+                            inscripcion_monto = data.inscripcion_monto::numeric, cuotas_totales = data.cuotas_totales::integer,
+                            cuotas_pagas = data.cuotas_pagas::integer, condicion_pago = data.condicion_pago,
+                            pagos_impuntuales = data.pagos_impuntuales::integer, cuotas_mora = data.cuotas_mora::integer,
+                            observacion = data.observacion, valor_cuota = data.valor_cuota::numeric,
+                            fecha_pago = data.fecha_pago::date, estatus_cuota = data.estatus_cuota,
+                            valor_cancelado = data.valor_cancelado::numeric, es_migrado = data.es_migrado::boolean,
+                            saldo_inscripcion = data.saldo_inscripcion::numeric
                         FROM (VALUES %s) AS data(
                             id, nombre, apellido, cedula, grupo, plan_contratado, moneda_pago, asesor, responsable,
                             numero_contrato, estado_del_plan, estatus_cliente, fecha_ingreso, numero_telefono,
@@ -4078,7 +4079,6 @@ def upload_clientes():
                         for r in records_to_update
                     ]
                     
-                    # --- CORRECCIÓN: Se elimina el argumento 'template' para que coincida con la lista de tuplas ---
                     execute_values(cursor, update_query, update_tuples)
 
                 conn.commit()
