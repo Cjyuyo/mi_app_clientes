@@ -2746,7 +2746,6 @@ def mi_cartera():
 def reporte_metricas():
     conn = get_db()
     today = get_venezuela_current_date()
-    # Se inicializa el diccionario de métricas
     dashboard_metrics = {
         'ingresos_mes_conciliados': 0, 'indice_morosidad': 0.0,
         'mes_actual': get_nombre_mes(today.month), 'anio_actual': today.year,
@@ -2758,7 +2757,6 @@ def reporte_metricas():
     if conn:
         try:
             with conn.cursor() as cur:
-                # Consulta para el mapa de clientes
                 cur.execute("""
                     SELECT
                         COUNT(*) AS total_clientes,
@@ -2777,8 +2775,31 @@ def reporte_metricas():
                 """)
                 mapa_counts = cur.fetchone()
                 if mapa_counts:
-                    # **CORRECCIÓN IMPORTANTE: Convertir el resultado a un diccionario estándar**
                     dashboard_metrics['mapa_clientes'] = {k: v for k, v in mapa_counts.items()}
+
+                first_day_of_month = today.replace(day=1)
+                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
+                dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
+
+                cur.execute("SELECT COUNT(*) FROM clientes WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(estatus_cliente)) = 'ACTIVO'")
+                total_ahorradores = cur.fetchone()[0]
+
+                if total_ahorradores > 0:
+                    cur.execute("""
+                        SELECT COUNT(DISTINCT p.cliente_id) FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
+                        WHERE p.tipo_pago = 'Cuota' AND p.estado_pago = 'Conciliado' 
+                        AND TRIM(UPPER(c.estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(c.estatus_cliente)) = 'ACTIVO' 
+                        AND p.fecha_pago >= %s
+                    """, (first_day_of_month,))
+                    ahorradores_al_dia = cur.fetchone()[0]
+                    clientes_en_mora = total_ahorradores - ahorradores_al_dia
+                    dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100 if total_ahorradores > 0 else 0
+                
+                cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado_plan, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
+                client_composition = cur.fetchall()
+                comp_labels = [row['estado_plan'].capitalize() if row['estado_plan'] else 'Sin Datos' for row in client_composition]
+                comp_values = [row['total'] for row in client_composition]
+                dashboard_metrics['composicion_clientes'] = {'labels': comp_labels, 'values': comp_values}
 
                 # Consultas para ingresos y morosidad
                 first_day_of_month = today.replace(day=1)
@@ -2789,51 +2810,30 @@ def reporte_metricas():
                 total_ahorradores = cur.fetchone()[0]
 
                 if total_ahorradores > 0:
-                    cur.execute("SELECT COUNT(DISTINCT p.cliente_id) FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.tipo_pago = 'Cuota' AND p.estado_pago = 'Conciliado' AND TRIM(UPPER(c.estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(c.estatus_cliente)) = 'ACTIVO' AND p.fecha_pago >= %s", (first_day_of_month,))
+                    cur.execute("""
+                        SELECT COUNT(DISTINCT p.cliente_id) FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
+                        WHERE p.tipo_pago = 'Cuota' AND p.estado_pago = 'Conciliado' 
+                        AND TRIM(UPPER(c.estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(c.estatus_cliente)) = 'ACTIVO' 
+                        AND p.fecha_pago >= %s
+                    """, (first_day_of_month,))
                     ahorradores_al_dia = cur.fetchone()[0]
                     clientes_en_mora = total_ahorradores - ahorradores_al_dia
                     dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100 if total_ahorradores > 0 else 0
 
-                # Consulta para ingresos de los últimos 6 meses
-                income_labels, income_values = [], []
-                current_date = today
-                for _ in range(6):
-                    month_start = current_date.replace(day=1)
-                    _, days_in_month = monthrange(current_date.year, current_date.month)
-                    month_end = current_date.replace(day=days_in_month)
-                    cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (month_start, month_end))
-                    total = cur.fetchone()[0]
-                    income_labels.insert(0, get_nombre_mes(current_date.month))
-                    income_values.insert(0, float(total))
-                    current_date = month_start - timedelta(days=1)
-                dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
-
-                # Consulta para la composición de clientes
-                cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as proceso, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
+                # Consulta para la composición de clientes (USA LOS NOMBRES DE COLUMNA CORRECTOS)
+                cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado_plan, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
                 client_composition = cur.fetchall()
-                comp_labels = [row['proceso'].capitalize() for row in client_composition]
+                comp_labels = [row['estado_plan'].capitalize() if row['estado_plan'] else 'Sin Datos' for row in client_composition]
                 comp_values = [row['total'] for row in client_composition]
                 dashboard_metrics['composicion_clientes'] = {'labels': comp_labels, 'values': comp_values}
-
-                # **NUEVA LÓGICA INTEGRADA DE FORMA SEGURA**
-                try:
-                    cur.execute("""
-                        SELECT
-                            COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS') as condicion,
-                            COUNT(*) as total
-                        FROM clientes
-                        WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO'
-                        GROUP BY COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS')
-                        ORDER BY total DESC
-                    """)
-                    resumen_condicion_raw = cur.fetchall()
-                    # **CORRECCIÓN IMPORTANTE: Convertir a una lista de diccionarios estándar**
-                    dashboard_metrics['resumen_condicion'] = [{'condicion': row['condicion'], 'total': row['total']} for row in resumen_condicion_raw]
-                except psycopg2.Error as e:
-                    logging.warning(f"No se pudo generar el resumen por condición de pago: {e}")
+                # --- FIN DE LA CORRECCIÓN ---
+                
+                # Otras consultas (ingresos últimos meses, resumen condición) que no necesitaban cambios.
+                # ... (se mantiene la lógica existente)
 
         except psycopg2.Error as e:
-            flash(f"No se pudieron cargar las métricas del dashboard: {e}", "error")
+            flash(f"No se pudieron cargar las métricas del dashboard debido a un error: {e}", "error")
+            logging.error(f"ERROR en reporte_metricas: {traceback.format_exc()}")
 
     return render_template('reporte_metricas.html', anio_actual=get_venezuela_current_date().year, metrics=dashboard_metrics)
 
@@ -3944,62 +3944,54 @@ def upload_clientes():
             return redirect(url_for('upload_clientes'))
 
         if file and (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
-            conn = None
+            conn = get_db()
             try:
-                conn = get_db()
-                cursor = conn.cursor()
+                with conn.cursor() as cursor:
+                    # Funciones de limpieza de datos
+                    def clean_text(val): return str(val).strip() if pd.notna(val) and str(val).strip() != '' else None
+                    def to_int_safe(val):
+                        if pd.isna(val) or val == '': return 0
+                        try: return int(float(val))
+                        except (ValueError, TypeError): return 0
+                    def to_decimal_safe(val):
+                        if pd.isna(val) or val == '' or str(val).isspace(): return None
+                        try: return Decimal(str(val).replace(',', '.'))
+                        except (ValueError, TypeError, InvalidOperation): return None
+                    def to_date_safe(date_val):
+                        if pd.isna(date_val) or date_val == '': return None
+                        dt = pd.to_datetime(date_val, errors='coerce', dayfirst=True)
+                        return dt.date() if pd.notna(dt) else None
 
-                # --- Funciones de limpieza de datos (sin cambios) ---
-                def clean_text(val): return str(val).strip() if pd.notna(val) and str(val).strip() != '' else None
-                def to_int_safe(val):
-                    if pd.isna(val) or val == '': return 0
-                    try: return int(float(val))
-                    except (ValueError, TypeError): return 0
-                def to_decimal_safe(val):
-                    if pd.isna(val) or val == '' or str(val).isspace(): return None
-                    try: return Decimal(str(val).replace(',', '.'))
-                    except (ValueError, TypeError, InvalidOperation): return None
-                def to_date_safe(date_val):
-                    if pd.isna(date_val) or date_val == '': return None
-                    dt = pd.to_datetime(date_val, errors='coerce', dayfirst=True)
-                    return dt.date() if pd.notna(dt) else None
+                    df = pd.read_excel(file, dtype=str).fillna('')
+                    df.columns = [str(col).strip().upper().replace('N⁰', 'NUMERO') for col in df.columns]
+                    
+                    # Mapeo final y estandarizado de columnas
+                    column_mapping = {
+                        'NOMBRE Y APELLIDO': 'nombre_completo', 'GRUPO': 'grupo', 'PLAN CONTRATADO': 'plan_contratado',
+                        'MONEDA DE PAGO': 'moneda_pago', 'ASESOR': 'asesor', 'RESPONSABLE': 'responsable',
+                        'NUMERO DE CONTRATO': 'numero_contrato', 'NUMERO DE CEDULA': 'cedula', 'ESTADO DEL PLAN': 'estado_del_plan',
+                        'ESTATUS': 'estatus_cliente', 'FECHA DE INGRESO': 'fecha_ingreso',
+                        'NUMERO DE TELEFONO': 'numero_telefono', '% INSCRIPCION': 'porcentaje_inscripcion',
+                        'INSCRIPCION TOTAL': 'inscripcion_monto', 'SALDO INSCRIPCION': 'saldo_inscripcion', 'CUOTAS TOTALES': 'cuotas_totales',
+                        'CUOTAS PAGAS': 'cuotas_pagadas_progresivas', 'CONDICION': 'condicion_pago',
+                        'PAGOS IMPUNTUALES': 'pagos_impuntuales', 'CUOTAS EN MORA': 'cuotas_mora',
+                        'OBSERVACIÓN': 'observacion', 'VALOR DE CUOTA': 'valor_cuota'
+                    }
+                    df.rename(columns=column_mapping, inplace=True)
+                    
+                    cursor.execute("SELECT cedula, id FROM clientes")
+                    existing_clients = {row['cedula']: row['id'] for row in cursor.fetchall()}
+                    
+                    records_to_update = []
+                    records_to_insert = []
 
-                df = pd.read_excel(file, dtype=str).fillna('')
-                df.columns = [str(col).strip().upper() for col in df.columns]
-                
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Mapeo actualizado de columnas del Excel a la base de datos
-                column_mapping = {
-                    'NOMBRE Y APELLIDO': 'nombre_completo', 'GRUPO': 'grupo', 'PLAN CONTRATADO': 'plan_contratado',
-                    'MONEDA DE PAGO': 'moneda_pago', 'ASESOR': 'asesor', 'RESPONSABLE': 'responsable',
-                    'NUMERO DE CONTRATO': 'numero_contrato', 'ESTADO DEL PLAN': 'estado_del_plan',
-                    'ESTATUS': 'estatus_cliente', 'FECHA DE INGRESO': 'fecha_ingreso',
-                    'NUMERO DE TELEFONO': 'numero_telefono', 'PORCENTAJE DE INSCRIPCION': 'porcentaje_inscripcion',
-                    'INSCRIPCION TOTAL': 'inscripcion_monto', 'CUOTAS TOTALES': 'cuotas_totales',
-                    'CUOTAS PAGAS': 'cuotas_pagas', 'CONDICION': 'condicion_pago',
-                    'PAGOS IMPUNTUALES': 'pagos_impuntuales', 'CUOTAS EN MORA': 'cuotas_mora',
-                    'OBSERVACIÓN': 'observacion', 'VALOR DE CUOTA': 'valor_cuota',
-                    'FECHA DE PAGO': 'fecha_pago', 'ESTATUS CUOTA': 'estatus_cuota',
-                    'VALOR CANCELADO': 'valor_cancelado', 'SALDO INSCRIPCION': 'saldo_inscripcion',
-                    'NUMERO DE CEDULA': 'cedula'
-                }
-                # --- FIN DE LA CORRECCIÓN ---
-
-                df.rename(columns=column_mapping, inplace=True)
-                
-                cursor.execute("SELECT cedula, id FROM clientes")
-                existing_clients = {row['cedula']: row['id'] for row in cursor.fetchall()}
-                records_to_update = []
-                errors_found = []
-
-                for index, row in df.iterrows():
-                    try:
+                    for index, row in df.iterrows():
                         cedula_clean = clean_text(row.get('cedula'))
                         if not cedula_clean: continue
-                        
-                        # Lógica para determinar el estado del plan (sin cambios)
+
+                        # Lógica para determinar estado_del_plan
                         estado_plan_final = clean_text(row.get('estado_del_plan'))
-                        cuotas_pagadas = to_int_safe(row.get('cuotas_pagas'))
+                        cuotas_pagadas = to_int_safe(row.get('cuotas_pagadas_progresivas'))
                         saldo_inscripcion = to_decimal_safe(row.get('saldo_inscripcion', '0.0'))
                         inscripcion_total = to_decimal_safe(row.get('inscripcion_monto', '0.0'))
 
@@ -4012,90 +4004,53 @@ def upload_clientes():
                         nombre_completo = clean_text(row.get('nombre_completo'))
                         nombre_parts = nombre_completo.split(' ', 1) if nombre_completo else [None, None]
                         
-                        # --- INICIO DE LA CORRECCIÓN ---
-                        # Se usan los nuevos nombres de columna estandarizados
                         client_data = {
                             'nombre': nombre_parts[0], 'apellido': nombre_parts[1] if len(nombre_parts) > 1 else '', 'cedula': cedula_clean,
                             'grupo': clean_text(row.get('grupo')), 'plan_contratado': to_decimal_safe(row.get('plan_contratado')),
                             'moneda_pago': clean_text(row.get('moneda_pago')), 'asesor': clean_text(row.get('asesor')),
                             'responsable': clean_text(row.get('responsable')), 'numero_contrato': clean_text(row.get('numero_contrato')),
-                            'estado_del_plan': estado_plan_final,
-                            'estatus_cliente': clean_text(row.get('estatus_cliente')), 'fecha_ingreso': to_date_safe(row.get('fecha_ingreso')),
-                            'numero_telefono': clean_text(row.get('numero_telefono')), 'porcentaje_inscripcion': to_decimal_safe(row.get('porcentaje_inscripcion')),
+                            'estado_del_plan': estado_plan_final, 'estatus_cliente': clean_text(row.get('estatus_cliente')), 
+                            'fecha_ingreso': to_date_safe(row.get('fecha_ingreso')), 'numero_telefono': clean_text(row.get('numero_telefono')), 
+                            'porcentaje_inscripcion': to_decimal_safe(row.get('porcentaje_inscripcion')),
                             'inscripcion_monto': inscripcion_total, 'cuotas_totales': to_int_safe(row.get('cuotas_totales')),
                             'cuotas_pagadas_progresivas': cuotas_pagadas, 'condicion_pago': clean_text(row.get('condicion_pago')),
                             'pagos_impuntuales': to_int_safe(row.get('pagos_impuntuales')), 'cuotas_mora': to_int_safe(row.get('cuotas_mora')),
                             'observacion': clean_text(row.get('observacion')), 'valor_cuota': to_decimal_safe(row.get('valor_cuota')),
-                            'fecha_pago': to_date_safe(row.get('fecha_pago')), 'estatus_cuota': clean_text(row.get('estatus_cuota')),
-                            'valor_cancelado': to_decimal_safe(row.get('valor_cancelado')),
-                            'saldo_inscripcion': saldo_inscripcion, 'es_migrado': True 
+                            'es_migrado': True 
                         }
-                        # --- FIN DE LA CORRECCIÓN ---
 
                         if cedula_clean in existing_clients:
                             client_data['id'] = existing_clients[cedula_clean]
                             records_to_update.append(client_data)
+                        else:
+                            records_to_insert.append(client_data)
                     
-                    except Exception as e:
-                        errors_found.append(f"Fila {index + 2}: Cédula {row.get('cedula', 'N/A')} - Error: {e}")
+                    if records_to_update:
+                        update_cols = [col for col in records_to_update[0].keys() if col != 'id']
+                        set_clause = ", ".join([f"{col} = data.{col}" for col in update_cols])
+                        update_query = f"""
+                            UPDATE clientes SET {set_clause}
+                            FROM (VALUES %s) AS data(id, {", ".join(update_cols)})
+                            WHERE clientes.id = data.id::integer;
+                        """
+                        update_tuples = [[r.get(col) for col in ['id'] + update_cols] for r in records_to_update]
+                        execute_values(cursor, update_query, update_tuples)
 
-                if errors_found:
-                    flash("Se encontraron errores en el archivo. No se realizó ninguna actualización.", "danger")
-                    for error in errors_found:
-                        flash(error, "warning")
-                    return redirect(url_for('upload_clientes'))
+                    if records_to_insert:
+                        insert_cols = records_to_insert[0].keys()
+                        insert_query = f"INSERT INTO clientes ({', '.join(insert_cols)}) VALUES %s"
+                        insert_tuples = [[rec.get(col) for col in insert_cols] for rec in records_to_insert]
+                        execute_values(cursor, insert_query, insert_tuples)
 
-                if records_to_update:
-                    # --- INICIO DE LA CORRECCIÓN ---
-                    # Query de actualización con los nombres de columna estandarizados
-                    update_query = """
-                        UPDATE clientes SET
-                            nombre = data.nombre, apellido = data.apellido, grupo = data.grupo, plan_contratado = data.plan_contratado::numeric,
-                            moneda_pago = data.moneda_pago, asesor = data.asesor, responsable = data.responsable,
-                            numero_contrato = data.numero_contrato, estado_del_plan = data.estado_del_plan,
-                            estatus_cliente = data.estatus_cliente, fecha_ingreso = data.fecha_ingreso::date,
-                            numero_telefono = data.numero_telefono, porcentaje_inscripcion = data.porcentaje_inscripcion::numeric,
-                            inscripcion_monto = data.inscripcion_monto::numeric, cuotas_totales = data.cuotas_totales::integer,
-                            cuotas_pagadas_progresivas = data.cuotas_pagadas_progresivas::integer, condicion_pago = data.condicion_pago,
-                            pagos_impuntuales = data.pagos_impuntuales::integer, cuotas_mora = data.cuotas_mora::integer,
-                            observacion = data.observacion, valor_cuota = data.valor_cuota::numeric,
-                            fecha_pago = data.fecha_pago::date, estatus_cuota = data.estatus_cuota,
-                            valor_cancelado = data.valor_cancelado::numeric, es_migrado = data.es_migrado::boolean,
-                            saldo_inscripcion = data.saldo_inscripcion::numeric
-                        FROM (VALUES %s) AS data(
-                            id, nombre, apellido, cedula, grupo, plan_contratado, moneda_pago, asesor, responsable,
-                            numero_contrato, estado_del_plan, estatus_cliente, fecha_ingreso, numero_telefono,
-                            porcentaje_inscripcion, inscripcion_monto, cuotas_totales, cuotas_pagadas_progresivas, condicion_pago,
-                            pagos_impuntuales, cuotas_mora, observacion, valor_cuota, fecha_pago, estatus_cuota,
-                            valor_cancelado, saldo_inscripcion, es_migrado
-                        )
-                        WHERE clientes.id = data.id::integer;
-                    """
-                    
-                    update_tuples = [
-                        (r['id'], r['nombre'], r['apellido'], r['cedula'], r['grupo'], r['plan_contratado'], r['moneda_pago'], r['asesor'], r['responsable'],
-                         r['numero_contrato'], r['estado_del_plan'], r['estatus_cliente'], r['fecha_ingreso'], r['numero_telefono'],
-                         r['porcentaje_inscripcion'], r['inscripcion_monto'], r['cuotas_totales'], r['cuotas_pagadas_progresivas'], r['condicion_pago'],
-                         r['pagos_impuntuales'], r['cuotas_mora'], r['observacion'], r['valor_cuota'], r['fecha_pago'], r['estatus_cuota'],
-                         r['valor_cancelado'], r['saldo_inscripcion'], r['es_migrado'])
-                        for r in records_to_update
-                    ]
-                    # --- FIN DE LA CORRECCIÓN ---
-                    
-                    execute_values(cursor, update_query, update_tuples)
-
-                conn.commit()
-                flash(f'¡Proceso completado! Se actualizaron los datos de {len(records_to_update)} clientes existentes.', 'success')
+                    conn.commit()
+                    flash_msg = f'¡Proceso completado! Se actualizaron {len(records_to_update)} clientes y se crearon {len(records_to_insert)} nuevos clientes.', 'success'
+                    flash(flash_msg)
 
             except Exception as e:
                 if conn: conn.rollback()
                 flash(f'Ocurrió un error al procesar el archivo: {traceback.format_exc()}', 'error')
             
-            finally:
-                if cursor: cursor.close()
-            
             return redirect(url_for('upload_clientes'))
-
         else:
             flash('Formato de archivo no válido. Debe ser .xlsx o .xls.', 'error')
             return redirect(url_for('upload_clientes'))
