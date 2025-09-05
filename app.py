@@ -2763,7 +2763,7 @@ def reporte_metricas():
         'ingresos_ultimos_meses': {'labels': [], 'values': []},
         'composicion_clientes': {'labels': [], 'values': []},
         'mapa_clientes': {},
-        'resumen_condicion': [] # <-- Se inicializa la nueva métrica aquí
+        'resumen_condicion': []
     }
     if conn:
         try:
@@ -2789,7 +2789,6 @@ def reporte_metricas():
                 if mapa_counts:
                     dashboard_metrics['mapa_clientes'] = dict(mapa_counts)
 
-                # El resto de las consultas para ingresos, morosidad, etc., se mantienen igual
                 first_day_of_month = today.replace(day=1)
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
                 dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
@@ -2823,26 +2822,21 @@ def reporte_metricas():
                 comp_values = [row['total'] for row in client_composition]
                 dashboard_metrics['composicion_clientes'] = {'labels': comp_labels, 'values': comp_values}
 
-                # --- NUEVA LÓGICA INTEGRADA DE FORMA SEGURA ---
-                try:
-                    cur.execute("""
-                        SELECT 
-                            COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS') as condicion, 
-                            COUNT(*) as total 
-                        FROM clientes 
-                        WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO'
-                        GROUP BY COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS')
-                        ORDER BY total DESC
-                    """)
-                    dashboard_metrics['resumen_condicion'] = cur.fetchall()
-                except psycopg2.Error as e:
-                    # Este error es esperado si la columna no existe, pero no detiene el resto de la página
-                    logging.warning(f"No se pudo generar el resumen por condición de pago: {e}")
-                    # No hacemos rollback para no perder las métricas anteriores
-                # --- FIN DE LA NUEVA LÓGICA ---
+                cur.execute("""
+                    SELECT 
+                        COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS') as condicion, 
+                        COUNT(*) as total 
+                    FROM clientes 
+                    WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO'
+                    GROUP BY COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS')
+                    ORDER BY total DESC
+                """)
+                dashboard_metrics['resumen_condicion'] = cur.fetchall()
 
         except psycopg2.Error as e:
-            flash(f"No se pudieron cargar las métricas del dashboard: {e}", "error")
+            # --- CAMBIO IMPORTANTE: Mostramos el error detallado ---
+            flash(f"Error DETALLADO en las métricas: {e}", "danger")
+            logging.error(f"Error detallado en reporte_metricas: {traceback.format_exc()}")
             
     return render_template('reporte_metricas.html', anio_actual=get_venezuela_current_date().year, metrics=dashboard_metrics)
 
