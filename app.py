@@ -2762,7 +2762,8 @@ def reporte_metricas():
         'mes_actual': get_nombre_mes(today.month), 'anio_actual': today.year,
         'ingresos_ultimos_meses': {'labels': [], 'values': []},
         'composicion_clientes': {'labels': [], 'values': []},
-        'mapa_clientes': {}
+        'mapa_clientes': {},
+        'resumen_condicion': [] # <-- Se inicializa la nueva métrica aquí
     }
     if conn:
         try:
@@ -2815,15 +2816,30 @@ def reporte_metricas():
                     current_date = month_start - timedelta(days=1)
                 dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
                 
-                # ***** INICIO DE LA MODIFICACIÓN *****
-                # Se elimina el filtro "WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO'" para incluir a todos los clientes
                 cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as proceso, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
                 client_composition = cur.fetchall()
-                # ***** FIN DE LA MODIFICACIÓN *****
 
                 comp_labels = [row['proceso'].capitalize() for row in client_composition]
                 comp_values = [row['total'] for row in client_composition]
                 dashboard_metrics['composicion_clientes'] = {'labels': comp_labels, 'values': comp_values}
+
+                # --- NUEVA LÓGICA INTEGRADA DE FORMA SEGURA ---
+                try:
+                    cur.execute("""
+                        SELECT 
+                            COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS') as condicion, 
+                            COUNT(*) as total 
+                        FROM clientes 
+                        WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO'
+                        GROUP BY COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS')
+                        ORDER BY total DESC
+                    """)
+                    dashboard_metrics['resumen_condicion'] = cur.fetchall()
+                except psycopg2.Error as e:
+                    # Este error es esperado si la columna no existe, pero no detiene el resto de la página
+                    logging.warning(f"No se pudo generar el resumen por condición de pago: {e}")
+                    # No hacemos rollback para no perder las métricas anteriores
+                # --- FIN DE LA NUEVA LÓGICA ---
 
         except psycopg2.Error as e:
             flash(f"No se pudieron cargar las métricas del dashboard: {e}", "error")
