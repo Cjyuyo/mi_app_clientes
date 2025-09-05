@@ -2,7 +2,6 @@
 
 {% block title %}Reporte de Métricas{% endblock %}
 
-{# --- CORRECCIÓN 1: Se cambia 'content' por 'body' para que coincida con la plantilla base --- #}
 {% block body %}
 <div class="px-4 sm:px-6 lg:px-8 py-8 bg-slate-50 min-h-screen">
     <div class="max-w-7xl mx-auto">
@@ -171,8 +170,9 @@
     document.addEventListener('DOMContentLoaded', function () {
         // Gráfico de Composición de Clientes
         const clientCompositionCtx = document.getElementById('clientCompositionChart').getContext('2d');
-        const clientCompositionData = {{ metrics.composicion_clientes.values|tojson }};
-        const clientCompositionLabels = {{ metrics.composicion_clientes.labels|tojson }};
+        {# --- CORRECCIÓN 1: Se usa la notación de corchetes ['values'] y ['labels'] para evitar ambigüedad --- #}
+        const clientCompositionData = {{ metrics.composicion_clientes['values']|tojson }};
+        const clientCompositionLabels = {{ metrics.composicion_clientes['labels']|tojson }};
         new Chart(clientCompositionCtx, {
             type: 'pie',
             data: {
@@ -189,16 +189,8 @@
                         'rgba(139, 92, 246, 0.7)',
                         'rgba(236, 72, 153, 0.7)'
                     ],
-                    borderColor: [
-                        'rgba(59, 130, 246, 1)',
-                        'rgba(16, 185, 129, 1)',
-                        'rgba(239, 68, 68, 1)',
-                        'rgba(245, 158, 11, 1)',
-                        'rgba(99, 102, 241, 1)',
-                        'rgba(139, 92, 246, 1)',
-                        'rgba(236, 72, 153, 1)'
-                    ],
-                    borderWidth: 1
+                    borderColor: '#ffffff',
+                    borderWidth: 2
                 }]
             },
             options: {
@@ -206,20 +198,6 @@
                 plugins: {
                     legend: {
                         position: 'top',
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed !== null) {
-                                    label += context.parsed;
-                                }
-                                return label;
-                            }
-                        }
                     }
                 }
             }
@@ -227,8 +205,9 @@
 
         // Gráfico de Ingresos por Mes
         const incomeByMonthCtx = document.getElementById('incomeByMonthChart').getContext('2d');
-        const incomeLabels = {{ metrics.ingresos_ultimos_meses.labels|tojson }};
-        const incomeData = {{ metrics.ingresos_ultimos_meses.values|tojson }};
+        {# --- CORRECCIÓN 1: Se usa la notación de corchetes ['labels'] y ['values'] --- #}
+        const incomeLabels = {{ metrics.ingresos_ultimos_meses['labels']|tojson }};
+        const incomeData = {{ metrics.ingresos_ultimos_meses['values']|tojson }};
         new Chart(incomeByMonthCtx, {
             type: 'bar',
             data: {
@@ -247,7 +226,7 @@
                     y: {
                         beginAtZero: true,
                         ticks: {
-                            callback: function(value, index, values) {
+                            callback: function(value) {
                                 return '$' + value.toLocaleString();
                             }
                         }
