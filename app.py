@@ -2872,9 +2872,10 @@ def lista_clientes(filtro):
 
     try:
         with conn.cursor() as cur:
-            filtro_upper = filtro.upper().replace(' ', '_') # Normaliza el filtro
+            # --- CORRECCIÓN: Se elimina la conversión de espacios a guiones bajos ---
+            filtro_upper = filtro.upper()
             
-            # Determina en qué columna buscar
+            # Determina en qué columna buscar (esta lógica ahora funcionará correctamente)
             if filtro_upper in estados_de_plan:
                 columna_a_filtrar = "estado_del_plan"
             elif filtro_upper in estatus_de_cliente:
@@ -2890,6 +2891,7 @@ def lista_clientes(filtro):
                 WHERE TRIM(UPPER({columna_a_filtrar})) = %s
                 ORDER BY nombre, apellido;
             """
+            # La consulta ahora recibe el término correcto (ej. 'COBRANZA DIFERIDA')
             cur.execute(query, (filtro_upper,))
             clientes = cur.fetchall()
 
