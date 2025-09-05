@@ -2851,7 +2851,7 @@ def reporte_metricas():
         logging.error(f"ERROR en reporte_metricas: {traceback.format_exc()}")
 
     return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
-    
+
 @app.route('/reportes/morosidad')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -2900,117 +2900,115 @@ def reporte_morosidad():
                            anio_actual=today.year, 
                            resumen=resumen)
 
-@app.route('/asignar_gestor/<int:cliente_id>', methods=['POST'])
+@app.route('/reportes/metricas')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
-def asignar_gestor(cliente_id):
+def reporte_metricas():
     conn = get_db()
-    gestor_id = request.form.get('gestor_id')
-    gestor_id_para_db = int(gestor_id) if gestor_id and gestor_id.isdigit() else None
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                cur.execute("SELECT nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
-                cliente = cur.fetchone()
-                nombre_gestor = "nadie"
-                if gestor_id_para_db:
-                    cur.execute("SELECT usuario FROM administradores WHERE id = %s", (gestor_id_para_db,))
-                    gestor = cur.fetchone()
-                    if gestor: nombre_gestor = gestor['usuario']
-                cur.execute("UPDATE clientes SET gestor_id = %s WHERE id = %s", (gestor_id_para_db, cliente_id))
-                descripcion = f"Asignó al cliente {cliente['nombre']} {cliente['apellido']} al gestor '{nombre_gestor}'."
-                registrar_accion_auditoria('ASIGNACION_GESTOR', descripcion, cliente_id)
-                conn.commit()
-                flash(f"Cliente asignado al gestor '{nombre_gestor}' exitosamente.", 'success')
-        except (psycopg2.Error, ValueError) as e:
-            conn.rollback()
-            flash(f"Error al asignar el gestor: {e}", "error")
-    return redirect(url_for('reporte_morosidad'))
-
-@app.route('/admin/tasa_bcv', methods=['GET', 'POST'])
-@admin_required
-@rol_requerido('superadmin', 'gerente')
-def admin_tasa_bcv():
-    conn = get_db()
-    now_vet, today_date = get_venezuela_current_datetime(), get_venezuela_current_date()
-    tasas_de_hoy = {'usd': None, 'eur': None, 'binance': None}
-    historial_tasas = []
+    today = get_venezuela_current_date()
     
+    dashboard_metrics = {
+        'ingresos_mes_conciliados': Decimal('0.0'),
+        'indice_morosidad': 0.0,
+        'mes_actual': get_nombre_mes(today.month),
+        'anio_actual': today.year,
+        'ingresos_ultimos_meses': {'labels': [], 'values': []},
+        'composicion_clientes': {'labels': [], 'values': []},
+        'mapa_clientes': {
+            'total_clientes': 0, 'dentro_sistema': 0, 'ahorrador': 0, 'adjudicado': 0,
+            'cobranza_diferida': 0, 'inscrito': 0, 'estatus_congelado': 0, 'plan_congelado': 0,
+            'reserva': 0, 'retirados': 0, 'completado': 0, 'inactivos': 0
+        },
+        'resumen_condicion': []
+    }
+
     if not conn:
-        flash('Error de conexión a la base de datos.', 'danger')
-        return render_template('admin_tasa_bcv.html', tasas_de_hoy=tasas_de_hoy, historial_tasas=historial_tasas, anio_actual=today_date.year)
+        flash("Error de conexión a la base de datos.", "danger")
+        return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
 
     try:
         with conn.cursor() as cur:
-            if request.method == 'POST':
-                tasa_usd_str = request.form.get('tasa_usd', '').replace(',', '.')
-                tasa_eur_str = request.form.get('tasa_eur', '').replace(',', '.')
-                tasa_binance_str = request.form.get('tasa_binance', '').replace(',', '.')
+            # --- 1. MAPA DE CLIENTES ---
+            cur.execute("""
+                SELECT
+                    COUNT(*) AS total_clientes,
+                    COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) IN ('ACTIVO', 'RESERVA', 'CONGELADO') OR TRIM(UPPER(estado_del_plan)) IN ('ADJUDICADO', 'AHORRADOR', 'COBRANZA DIFERIDA', 'INSCRITO', 'CONGELADO', 'RESERVA') THEN 1 END) as dentro_sistema,
+                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' THEN 1 END) AS ahorrador,
+                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'ADJUDICADO' THEN 1 END) AS adjudicado,
+                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COBRANZA DIFERIDA' THEN 1 END) AS cobranza_diferida,
+                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'INSCRITO' THEN 1 END) AS inscrito,
+                    COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'CONGELADO' THEN 1 END) AS estatus_congelado,
+                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'CONGELADO' THEN 1 END) as plan_congelado,
+                    COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'RESERVA' THEN 1 END) AS reserva,
+                    COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'RETIRO' THEN 1 END) AS retirados,
+                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COMPLETADO' THEN 1 END) AS completado,
+                    COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'INACTIVO' THEN 1 END) AS inactivos
+                FROM clientes
+            """)
+            mapa_counts_row = cur.fetchone()
+            if mapa_counts_row:
+                dashboard_metrics['mapa_clientes'] = dict(mapa_counts_row)
 
-                if not tasa_usd_str and not tasa_eur_str and not tasa_binance_str:
-                    flash('Debe ingresar al menos un valor de tasa para guardar.', 'warning')
-                    return redirect(url_for('admin_tasa_bcv'))
-                
-                tasa_usd = Decimal(tasa_usd_str) if tasa_usd_str else None
-                tasa_eur = Decimal(tasa_eur_str) if tasa_eur_str else None
-                tasa_binance = Decimal(tasa_binance_str) if tasa_binance_str else None
+            # --- 2. INGRESOS Y MOROSIDAD ---
+            first_day_of_month = today.replace(day=1)
+            cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
+            dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
 
-                # Validación de valores no negativos
-                if any(t is not None and t < 0 for t in [tasa_usd, tasa_eur, tasa_binance]):
-                    flash('Los valores de las tasas no pueden ser negativos.', 'danger')
-                    return redirect(url_for('admin_tasa_bcv'))
+            cur.execute("SELECT COUNT(*) FROM clientes WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(estatus_cliente)) = 'ACTIVO'")
+            total_ahorradores = cur.fetchone()[0]
 
-                cur.execute("SELECT tasa, tasa_euro, tasa_binance_p2p FROM historial_tasas_bcv WHERE fecha = %s", (today_date,))
-                tasa_actual = cur.fetchone()
-
-                final_tasa_usd = tasa_usd if tasa_usd is not None else (tasa_actual['tasa'] if tasa_actual else None)
-                final_tasa_eur = tasa_eur if tasa_eur is not None else (tasa_actual['tasa_euro'] if tasa_actual else None)
-                final_tasa_binance = tasa_binance if tasa_binance is not None else (tasa_actual['tasa_binance_p2p'] if tasa_actual else None)
-                
-                sql_upsert = """
-                    INSERT INTO historial_tasas_bcv (fecha, tasa, tasa_euro, tasa_binance_p2p, establecida_por_id) VALUES (%s, %s, %s, %s, %s)
-                    ON CONFLICT (fecha) DO UPDATE SET 
-                        tasa = EXCLUDED.tasa, 
-                        tasa_euro = EXCLUDED.tasa_euro, 
-                        tasa_binance_p2p = EXCLUDED.tasa_binance_p2p,
-                        establecida_por_id = EXCLUDED.establecida_por_id;
-                """
-                cur.execute(sql_upsert, (today_date, final_tasa_usd, final_tasa_eur, final_tasa_binance, g.admin['id']))
-                
-                if now_vet.hour >= 17 and now_vet.weekday() < 5: 
-                    if now_vet.weekday() == 4: # Si es viernes después de las 5pm
-                        for i in range(1, 4):
-                            next_day = today_date + timedelta(days=i)
-                            cur.execute(sql_upsert, (next_day, final_tasa_usd, final_tasa_eur, final_tasa_binance, g.admin['id']))
-                        flash('Tasa de Viernes guardada para todo el fin de semana y el Lunes.', 'success')
-                    else: # Cualquier otro día de semana
-                        tomorrow_date = today_date + timedelta(days=1)
-                        cur.execute(sql_upsert, (tomorrow_date, final_tasa_usd, final_tasa_eur, final_tasa_binance, g.admin['id']))
-                        flash('Tasa guardada para hoy y mañana.', 'success')
-                else:
-                    flash('¡Tasa guardada exitosamente para hoy!', 'success')
-                
-                conn.commit()
-                return redirect(url_for('admin_tasa_bcv'))
-
-            # Lógica para GET
-            cur.execute("SELECT tasa, tasa_euro, tasa_binance_p2p FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_date,))
-            resultado = cur.fetchone()
-            if resultado:
-                tasas_de_hoy['usd'] = resultado['tasa']
-                tasas_de_hoy['eur'] = resultado['tasa_euro']
-                tasas_de_hoy['binance'] = resultado['tasa_binance_p2p']
+            if total_ahorradores > 0:
+                cur.execute("""
+                    SELECT COUNT(DISTINCT p.cliente_id) FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
+                    WHERE p.tipo_pago = 'Cuota' AND p.estado_pago = 'Conciliado' 
+                    AND TRIM(UPPER(c.estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(c.estatus_cliente)) = 'ACTIVO' 
+                    AND p.fecha_pago >= %s
+                """, (first_day_of_month,))
+                ahorradores_al_dia = cur.fetchone()[0]
+                clientes_en_mora = total_ahorradores - ahorradores_al_dia
+                dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100
             
-            cur.execute("SELECT h.fecha, h.tasa, h.tasa_euro, h.tasa_binance_p2p, a.usuario FROM historial_tasas_bcv h LEFT JOIN administradores a ON h.establecida_por_id = a.id ORDER BY h.fecha DESC LIMIT 30")
-            historial_tasas = cur.fetchall()
+            # --- 3. INGRESOS ÚLTIMOS MESES ---
+            income_labels, income_values = [], []
+            current_date = today
+            for _ in range(6):
+                month_start = current_date.replace(day=1)
+                _, days_in_month = monthrange(current_date.year, current_date.month)
+                month_end = current_date.replace(day=days_in_month)
+                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (month_start, month_end))
+                total = cur.fetchone()[0]
+                income_labels.insert(0, get_nombre_mes(current_date.month))
+                income_values.insert(0, float(total))
+                current_date = month_start - timedelta(days=1)
+            dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
 
-    except InvalidOperation:
-        flash('Por favor, introduce un número válido para las tasas. Use el punto como separador decimal.', 'danger')
+            # --- 4. COMPOSICIÓN DE CLIENTES ---
+            cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado_plan, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
+            composition_rows = cur.fetchall()
+            client_composition_list = [dict(row) for row in composition_rows] if composition_rows else []
+            comp_labels = [row.get('estado_plan', 'Sin Datos').capitalize() for row in client_composition_list]
+            comp_values = [row.get('total', 0) for row in client_composition_list]
+            dashboard_metrics['composicion_clientes'] = {'labels': comp_labels, 'values': comp_values}
+
+            # --- 5. RESUMEN POR CONDICIÓN DE PAGO ---
+            cur.execute("""
+                SELECT
+                    COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS') as condicion,
+                    COUNT(*) as total
+                FROM clientes
+                WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO'
+                GROUP BY COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS')
+                ORDER BY total DESC
+            """)
+            resumen_rows = cur.fetchall()
+            dashboard_metrics['resumen_condicion'] = [dict(row) for row in resumen_rows] if resumen_rows else []
+
     except psycopg2.Error as e:
-        if conn: conn.rollback()
-        flash(f'Error al procesar la solicitud: {e}', 'danger')
+        flash(f"No se pudieron cargar las métricas del dashboard. Contacte a soporte.", "danger")
+        logging.error(f"ERROR en reporte_metricas: {traceback.format_exc()}")
         
-    return render_template('admin_tasa_bcv.html', tasas_de_hoy=tasas_de_hoy, historial_tasas=historial_tasas, anio_actual=today_date.year)
+    # --- CORRECCIÓN FINAL: Se elimina el paréntesis extra ---
+    return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
 
 # ====== INICIO: REEMPLAZA TU FUNCIÓN DE GESTIÓN DE EGRESOS CON ESTA ======
 @app.route('/admin/gestion_egresos', methods=['GET', 'POST'])
