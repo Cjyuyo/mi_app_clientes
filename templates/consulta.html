@@ -221,7 +221,7 @@
             <form class="oferta-form-admin" 
                   action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" 
                   method="POST" 
-                  data-plan="{{ cliente.plan|float(0) }}">
+                  data-plan="{{ cliente.plan_contratado|float(0) }}">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                     <div>
                         <label class="block text-sm font-medium text-slate-700">Modelo a Ofertar</label>
@@ -259,7 +259,7 @@
                                 <h4 class="text-sm font-semibold text-slate-600 mb-1">Progreso Inscripción</h4>
                                 
                                 {% set inscripcion_pagada_final = cliente.inscripcion_pagada|float(0) %}
-                                {% set inscripcion_monto = cliente.inscripcion|float(1) %}
+                                {% set inscripcion_monto = cliente.inscripcion_monto|float(1) %}
                                 {% set inscripcion_percent_final = (inscripcion_pagada_final / inscripcion_monto * 100) if inscripcion_monto > 0 else 0 %}
                                 <div class="pt-1">
                                     <div class="flex justify-between items-center mb-1">
@@ -363,7 +363,7 @@
                                 <div class="space-y-4 text-sm">
                                     <div class="flex justify-between items-center">
                                         <span class="text-slate-500">Valor del Bien/Plan:</span>
-                                        <span class="font-bold text-slate-800">${{ "%.2f"|format(cliente.plan|float) if cliente.plan else '0.00' }}</span>
+                                        <span class="font-bold text-slate-800">${{ "%.2f"|format(cliente.plan_contratado|float) if cliente.plan_contratado else '0.00' }}</span>
                                     </div>
                                     <div class="flex justify-between items-center">
                                         <span class="text-slate-500">Valor de Cuota:</span>
