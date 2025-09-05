@@ -2853,7 +2853,7 @@ def reporte_metricas():
         flash(f"No se pudieron cargar las métricas del dashboard debido a un error de base de datos. Por favor, contacte a soporte.", "danger")
         logging.error(f"ERROR en reporte_metricas: {traceback.format_exc()}")
 
-    return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics))
+    return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
 
 @app.route('/reportes/morosidad')
 @admin_required
