@@ -169,7 +169,7 @@
                 </div>
 
                 {% set total_financiado = (cliente.valor_cuota|float(0) * cliente.cuotas_totales|int(0)) %}
-                {% set total_pagado_plan = (cliente.cuotas_pagas|int(0) * cliente.valor_cuota|float(0)) %}
+                {% set total_pagado_plan = (cliente.cuotas_pagadas_progresivas|int(0) * cliente.valor_cuota|float(0)) %}
                 {% set saldo_pendiente = total_financiado - total_pagado_plan %}
                 
                 <div class="flex-grow w-full bg-slate-50 border border-slate-200 rounded-lg p-3">
