@@ -1,4 +1,4 @@
-{% extends "base_admin.html" %}
+{% extends "base_sidebar.html" %}
 
 {% block title %}Reporte de Métricas{% endblock %}
 
@@ -154,7 +154,7 @@
                             </div>
                         {% endfor %}
                     {% else %}
-                        <p class="text-sm text-gray-500">No hay datos de condición para mostrar.</p>
+                        <p class="text-sm text-gray-500">No hay datos de condición para mostrar o la columna no existe.</p>
                     {% endif %}
                 </div>
             </div>
