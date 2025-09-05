@@ -92,85 +92,88 @@
         </div>
 
         <div class="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
+            {# --- INICIO DE LA CORRECCIÓN: Se han añadido enlaces a las tarjetas --- #}
             <div class="lg:col-span-2 bg-white rounded-lg shadow p-5">
                 <h3 class="text-base font-semibold text-gray-900">Mapa General de Clientes</h3>
+                <p class="text-sm text-gray-500 mt-1">Haz clic en una categoría para ver la lista de clientes.</p>
                 <div class="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div class="bg-slate-50 p-4 rounded-md">
-                        <dt class="text-sm font-medium text-gray-500 truncate">Total Clientes</dt>
-                        <dd class="text-2xl font-bold text-gray-900">{{ metrics.mapa_clientes.total_clientes or '0' }}</dd>
+                    
+                    <div class="bg-slate-100 p-4 rounded-lg border border-slate-200">
+                        <dt class="text-sm font-medium text-gray-600 truncate">Total Clientes (Histórico)</dt>
+                        <dd class="text-2xl font-bold text-gray-900 mt-1">{{ metrics.mapa_clientes.total_clientes or '0' }}</dd>
                     </div>
-                    <div class="bg-slate-50 p-4 rounded-md">
-                        <dt class="text-sm font-medium text-gray-500 truncate">Dentro del Sistema</dt>
-                        <dd class="text-2xl font-bold text-gray-900">{{ metrics.mapa_clientes.dentro_sistema or '0' }}</dd>
+                    <div class="bg-slate-100 p-4 rounded-lg border border-slate-200">
+                        <dt class="text-sm font-medium text-gray-600 truncate">Dentro del Sistema</dt>
+                        <dd class="text-2xl font-bold text-gray-900 mt-1">{{ metrics.mapa_clientes.dentro_sistema or '0' }}</dd>
                     </div>
-                    <div class="bg-green-50 p-4 rounded-md">
+
+                    <a href="{{ url_for('lista_clientes', filtro='Ahorrador') }}" class="block bg-green-50 p-4 rounded-lg border border-green-200 hover:shadow-md hover:border-green-400 transition">
                         <dt class="text-sm font-medium text-green-700 truncate">Ahorrador</dt>
-                        <dd class="text-2xl font-bold text-green-800">{{ metrics.mapa_clientes.ahorrador or '0' }}</dd>
-                    </div>
-                     <div class="bg-yellow-50 p-4 rounded-md">
+                        <dd class="text-2xl font-bold text-green-800 mt-1">{{ metrics.mapa_clientes.ahorrador or '0' }}</dd>
+                    </a>
+                     <a href="{{ url_for('lista_clientes', filtro='Adjudicado') }}" class="block bg-yellow-50 p-4 rounded-lg border border-yellow-200 hover:shadow-md hover:border-yellow-400 transition">
                         <dt class="text-sm font-medium text-yellow-700 truncate">Adjudicado</dt>
-                        <dd class="text-2xl font-bold text-yellow-800">{{ metrics.mapa_clientes.adjudicado or '0' }}</dd>
-                    </div>
-                     <div class="bg-sky-50 p-4 rounded-md">
+                        <dd class="text-2xl font-bold text-yellow-800 mt-1">{{ metrics.mapa_clientes.adjudicado or '0' }}</dd>
+                    </a>
+                     <a href="{{ url_for('lista_clientes', filtro='Cobranza Diferida') }}" class="block bg-sky-50 p-4 rounded-lg border border-sky-200 hover:shadow-md hover:border-sky-400 transition">
                         <dt class="text-sm font-medium text-sky-700 truncate">Cobranza Diferida</dt>
-                        <dd class="text-2xl font-bold text-sky-800">{{ metrics.mapa_clientes.cobranza_diferida or '0' }}</dd>
-                    </div>
-                    <div class="bg-indigo-50 p-4 rounded-md">
+                        <dd class="text-2xl font-bold text-sky-800 mt-1">{{ metrics.mapa_clientes.cobranza_diferida or '0' }}</dd>
+                    </a>
+                    <a href="{{ url_for('lista_clientes', filtro='Inscrito') }}" class="block bg-indigo-50 p-4 rounded-lg border border-indigo-200 hover:shadow-md hover:border-indigo-400 transition">
                         <dt class="text-sm font-medium text-indigo-700 truncate">Inscrito</dt>
-                        <dd class="text-2xl font-bold text-indigo-800">{{ metrics.mapa_clientes.inscrito or '0' }}</dd>
-                    </div>
-                    <div class="bg-blue-50 p-4 rounded-md">
+                        <dd class="text-2xl font-bold text-indigo-800 mt-1">{{ metrics.mapa_clientes.inscrito or '0' }}</dd>
+                    </a>
+                    <a href="{{ url_for('lista_clientes', filtro='Congelado') }}" class="block bg-blue-50 p-4 rounded-lg border border-blue-200 hover:shadow-md hover:border-blue-400 transition">
                         <dt class="text-sm font-medium text-blue-700 truncate">Congelado</dt>
-                        <dd class="text-2xl font-bold text-blue-800">{{ metrics.mapa_clientes.estatus_congelado or '0' }}</dd>
-                    </div>
-                     <div class="bg-orange-50 p-4 rounded-md">
+                        <dd class="text-2xl font-bold text-blue-800 mt-1">{{ metrics.mapa_clientes.estatus_congelado or '0' }}</dd>
+                    </a>
+                     <a href="{{ url_for('lista_clientes', filtro='Reserva') }}" class="block bg-orange-50 p-4 rounded-lg border border-orange-200 hover:shadow-md hover:border-orange-400 transition">
                         <dt class="text-sm font-medium text-orange-700 truncate">Reserva</dt>
-                        <dd class="text-2xl font-bold text-orange-800">{{ metrics.mapa_clientes.reserva or '0' }}</dd>
-                    </div>
-                    <div class="bg-red-50 p-4 rounded-md">
+                        <dd class="text-2xl font-bold text-orange-800 mt-1">{{ metrics.mapa_clientes.reserva or '0' }}</dd>
+                    </a>
+                    <a href="{{ url_for('lista_clientes', filtro='Retiro') }}" class="block bg-red-50 p-4 rounded-lg border border-red-200 hover:shadow-md hover:border-red-400 transition">
                         <dt class="text-sm font-medium text-red-700 truncate">Retirados</dt>
-                        <dd class="text-2xl font-bold text-red-800">{{ metrics.mapa_clientes.retirados or '0' }}</dd>
-                    </div>
-                    <div class="bg-teal-50 p-4 rounded-md">
+                        <dd class="text-2xl font-bold text-red-800 mt-1">{{ metrics.mapa_clientes.retirados or '0' }}</dd>
+                    </a>
+                    <a href="{{ url_for('lista_clientes', filtro='Completado') }}" class="block bg-teal-50 p-4 rounded-lg border border-teal-200 hover:shadow-md hover:border-teal-400 transition">
                         <dt class="text-sm font-medium text-teal-700 truncate">Completado</dt>
-                        <dd class="text-2xl font-bold text-teal-800">{{ metrics.mapa_clientes.completado or '0' }}</dd>
-                    </div>
-                    <div class="bg-gray-200 p-4 rounded-md">
+                        <dd class="text-2xl font-bold text-teal-800 mt-1">{{ metrics.mapa_clientes.completado or '0' }}</dd>
+                    </a>
+                    <a href="{{ url_for('lista_clientes', filtro='Inactivo') }}" class="block bg-gray-200 p-4 rounded-lg border border-gray-300 hover:shadow-md hover:border-gray-400 transition">
                         <dt class="text-sm font-medium text-gray-700 truncate">Inactivos</dt>
-                        <dd class="text-2xl font-bold text-gray-800">{{ metrics.mapa_clientes.inactivos or '0' }}</dd>
-                    </div>
+                        <dd class="text-2xl font-bold text-gray-800 mt-1">{{ metrics.mapa_clientes.inactivos or '0' }}</dd>
+                    </a>
                 </div>
             </div>
+            {# --- FIN DE LA CORRECCIÓN --- #}
             <div class="bg-white rounded-lg shadow p-5">
-    <h3 class="text-base font-semibold text-gray-900 mb-4">Resumen por Condición de Pago (Activos)</h3>
-    <div class="space-y-3">
-        {% if metrics.resumen_condicion %}
-            {% for item in metrics.resumen_condicion %}
-                <div>
-                    <div class="flex justify-between items-center mb-1">
-                        <p class="text-sm font-medium text-gray-600">{{ item.condicion }}</p>
-                        <p class="text-sm font-semibold text-gray-800">{{ item.total }}</p>
-                    </div>
+                <h3 class="text-base font-semibold text-gray-900 mb-4">Resumen por Condición de Pago (Activos)</h3>
+                <div class="space-y-3">
+                    {% if metrics.resumen_condicion %}
+                        {% for item in metrics.resumen_condicion %}
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <p class="text-sm font-medium text-gray-600">{{ item.condicion }}</p>
+                                    <p class="text-sm font-semibold text-gray-800">{{ item.total }}</p>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-sm text-gray-500">No hay datos de condición para mostrar.</p>
+                    {% endif %}
                 </div>
-            {% endfor %}
-        {% else %}
-            <p class="text-sm text-gray-500">No hay datos de condición para mostrar.</p>
-        {% endif %}
-    </div>
-</div>
             </div>
+        </div>
     </div>
 </div>
 {% endblock %}
 
-{# --- CORRECCIÓN 2: Se cambia 'scripts' por 'scripts_extra' para coincidir con la plantilla base --- #}
 {% block scripts_extra %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         // Gráfico de Composición de Clientes
         const clientCompositionCtx = document.getElementById('clientCompositionChart').getContext('2d');
-        {# --- CORRECCIÓN 1: Se usa la notación de corchetes ['values'] y ['labels'] para evitar ambigüedad --- #}
         const clientCompositionData = {{ metrics.composicion_clientes['values']|tojson }};
         const clientCompositionLabels = {{ metrics.composicion_clientes['labels']|tojson }};
         new Chart(clientCompositionCtx, {
@@ -198,6 +201,20 @@
                 plugins: {
                     legend: {
                         position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed !== null) {
+                                    label += context.parsed;
+                                }
+                                return label;
+                            }
+                        }
                     }
                 }
             }
@@ -205,7 +222,6 @@
 
         // Gráfico de Ingresos por Mes
         const incomeByMonthCtx = document.getElementById('incomeByMonthChart').getContext('2d');
-        {# --- CORRECCIÓN 1: Se usa la notación de corchetes ['labels'] y ['values'] --- #}
         const incomeLabels = {{ metrics.ingresos_ultimos_meses['labels']|tojson }};
         const incomeData = {{ metrics.ingresos_ultimos_meses['values']|tojson }};
         new Chart(incomeByMonthCtx, {
@@ -226,7 +242,7 @@
                     y: {
                         beginAtZero: true,
                         ticks: {
-                            callback: function(value) {
+                            callback: function(value, index, values) {
                                 return '$' + value.toLocaleString();
                             }
                         }

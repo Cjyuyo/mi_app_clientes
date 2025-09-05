@@ -2851,6 +2851,53 @@ def reporte_metricas():
         
     # --- CORRECCIÓN FINAL: Se elimina el paréntesis extra ---
     return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
+
+@app.route('/lista_clientes/<string:filtro>')
+@admin_required
+def lista_clientes(filtro):
+    """
+    Muestra una lista de clientes filtrada por un estado específico.
+    El filtro puede ser un 'estado_del_plan' o un 'estatus_cliente'.
+    """
+    conn = get_db()
+    clientes = []
+    
+    # Define qué estados pertenecen a qué columna para hacer la consulta correcta
+    estados_de_plan = ['AHORRADOR', 'ADJUDICADO', 'COBRANZA DIFERIDA', 'INSCRITO', 'COMPLETADO', 'RESERVA']
+    estatus_de_cliente = ['ACTIVO', 'INACTIVO', 'RETIRO', 'CONGELADO']
+
+    if not conn:
+        flash("Error de conexión con la base de datos.", "danger")
+        return render_template('lista_clientes.html', clientes=clientes, filtro=filtro)
+
+    try:
+        with conn.cursor() as cur:
+            filtro_upper = filtro.upper().replace(' ', '_') # Normaliza el filtro
+            
+            # Determina en qué columna buscar
+            if filtro_upper in estados_de_plan:
+                columna_a_filtrar = "estado_del_plan"
+            elif filtro_upper in estatus_de_cliente:
+                columna_a_filtrar = "estatus_cliente"
+            else:
+                flash(f"Filtro '{filtro}' no válido.", "warning")
+                return redirect(url_for('reporte_metricas'))
+
+            # Construye y ejecuta la consulta
+            query = f"""
+                SELECT id, nombre, apellido, cedula 
+                FROM clientes 
+                WHERE TRIM(UPPER({columna_a_filtrar})) = %s
+                ORDER BY nombre, apellido;
+            """
+            cur.execute(query, (filtro_upper,))
+            clientes = cur.fetchall()
+
+    except psycopg2.Error as e:
+        flash(f"Error al buscar clientes: {e}", "danger")
+        logging.error(f"Error en lista_clientes con filtro '{filtro}': {traceback.format_exc()}")
+
+    return render_template('lista_clientes.html', clientes=clientes, filtro=filtro)
     
 @app.route('/reportes/morosidad')
 @admin_required
