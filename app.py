@@ -3716,11 +3716,14 @@ def finalizar_registro():
             flash('Ambas firmas son obligatorias para registrar al cliente.', 'error')
             return redirect(url_for('registrar'))
             
+        # --- CORRECCIÓN INICIA ---
+        # Leemos los valores del formulario con sus nombres originales
         plan_valor = Decimal(form_data.get('plan', '0').replace(',', '.'))
         cuotas_totales = int(form_data.get('cuotas_totales', 0))
         moneda_pago = form_data.get('moneda_pago')
 
-        form_data['inscripcion'] = (plan_valor * Decimal('0.16')).quantize(Decimal('0.01'))
+        # Calculamos los valores necesarios
+        inscripcion_calculada = (plan_valor * Decimal('0.16')).quantize(Decimal('0.01'))
 
         if moneda_pago == 'USD':
             base = Decimal('0.0496')
@@ -3729,7 +3732,6 @@ def finalizar_registro():
         
         factor_cuota = base * (Decimal('24') / Decimal(cuotas_totales))
         valor_cuota_calculado = (plan_valor * factor_cuota).quantize(Decimal('0.01'))
-        form_data['valor_cuota'] = valor_cuota_calculado
         
         responsable_cierre = form_data.get('responsable', '') 
 
@@ -3741,6 +3743,7 @@ def finalizar_registro():
             beneficiario_nombre = beneficiario_completo[0]
             beneficiario_apellido = beneficiario_completo[1] if len(beneficiario_completo) > 1 else ''
 
+            # Preparamos el diccionario para insertar en la BD con los NOMBRES DE COLUMNA CORRECTOS
             insert_dict = {
                 'nombre': nombre, 'apellido': apellido, 'cedula': cedula_cliente_limpia,
                 'cuotas_pagadas_progresivas': 0, 'cuotas_pagadas_regresivas': 0, 
@@ -3748,50 +3751,42 @@ def finalizar_registro():
                 'fecha_firma': datetime.now(VENEZUELA_TZ), 'proceso': 'RESERVA',
                 'ruta_foto_cliente_s3': ruta_s3_cliente,
                 'ruta_foto_cedula_s3': ruta_s3_cedula,
-                'estatus': 'PENDIENTE',
+                'estatus_cliente': 'PENDIENTE', # Cambiado de 'estatus' a 'estatus_cliente'
                 'beneficiario_nombre': beneficiario_nombre,
-                'beneficiario_apellido': beneficiario_apellido
+                'beneficiario_apellido': beneficiario_apellido,
+                'numero_contrato': form_data.get('contrato_nro'),
+                'numero_telefono': form_data.get('telefono'),
+                'responsable': form_data.get('responsable'),
+                'fecha_ingreso': form_data.get('fecha_ingreso'),
+                'grupo': form_data.get('grupo'),
+                'plan_contratado': plan_valor, # <-- Usamos el nombre de columna nuevo
+                'cuotas_totales': cuotas_totales,
+                'moneda_pago': moneda_pago,
+                'valor_cuota': valor_cuota_calculado,
+                'inscripcion_monto': inscripcion_calculada, # <-- Usamos el nombre de columna nuevo
+                'ciclo_cobranza': form_data.get('ciclo_cobranza'),
+                'direccion': form_data.get('direccion'),
+                'email': form_data.get('email'),
+                'beneficiario_cedula': form_data.get('beneficiario_cedula'),
+                'beneficiario_telefono': form_data.get('beneficiario_telefono'),
+                'beneficiario_email': form_data.get('beneficiario_email'),
+                'beneficiario_direccion': form_data.get('beneficiario_direccion'),
+                'cerrado_por_id': form_data.get('cerrado_por_id'),
+                'escenario_cierre': form_data.get('escenario_cierre'),
+                'asesor': form_data.get('responsable') # Asesor es el mismo que el responsable
             }
+            # --- CORRECCIÓN TERMINA ---
             
-            optional_fields_map = {
-                'contrato_nro': 'numero_contrato',
-                'telefono': 'numero_telefono',
-                'responsable': 'responsable', # CAMBIO: 'asesor' se elimina, 'responsable' es el dueño
-                'fecha_ingreso': 'fecha_ingreso',
-                'grupo': 'grupo',
-                'plan_contratado': 'plan',
-                'cuotas_totales': 'cuotas_totales',
-                'moneda_pago': 'moneda_pago',
-                'valor_cuota': 'valor_cuota',
-                'inscripcion_monto': 'inscripcion',
-                'ciclo_cobranza': 'ciclo_cobranza',
-                'direccion': 'direccion',
-                'email': 'email',
-                'beneficiario_cedula': 'beneficiario_cedula',
-                'beneficiario_telefono': 'beneficiario_telefono',
-                'beneficiario_email': 'beneficiario_email',
-                'beneficiario_direccion': 'beneficiario_direccion',
-                'cerrado_por_id': 'cerrado_por_id', # CAMBIO: Se añade el ID del cerrador
-                'escenario_cierre': 'escenario_cierre' # CAMBIO: Se añade el escenario
-            }
-
-            for form_key, db_key in optional_fields_map.items():
-                if form_data.get(form_key):
-                    insert_dict[db_key] = form_data.get(form_key)
-
-            # Asignar asesor basado en el responsable
-            insert_dict['asesor'] = form_data.get('responsable')
-                
             columns = insert_dict.keys()
-            values = insert_dict.values()
+            values = [insert_dict.get(col) for col in columns] # Asegura el orden correcto
             query = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))}) RETURNING id"
             
-            cur.execute(query, list(values))
+            cur.execute(query, values)
             new_client_id = cur.fetchone()[0]
 
-            if Decimal(form_data.get('inscripcion', 0)) > 0:
+            if inscripcion_calculada > 0:
                 cur.execute("INSERT INTO caja_inscripciones (numero_contrato, cliente_id, monto_inscripcion, responsable_cierre) VALUES (%s, %s, %s, %s)",
-                            (form_data.get('numero_contrato'), new_client_id, form_data.get('inscripcion'), responsable_cierre))
+                            (form_data.get('contrato_nro'), new_client_id, inscripcion_calculada, responsable_cierre))
             
             descripcion_audit = f"Registró y firmó contrato para nuevo cliente: {form_data.get('nombre_apellido')} (C.I. {cedula_cliente_limpia})."
             registrar_accion_auditoria('REGISTRO_CLIENTE_FIRMADO', descripcion_audit, new_client_id)
