@@ -247,12 +247,6 @@ def portal_contabilidad_login():
 
     return render_template('contabilidad_login.html', anio_actual=get_venezuela_current_date().year)
 
-@app.route('/portal/contabilidad/logout')
-def portal_contabilidad_logout():
-    session.pop('contador_id', None)
-    flash('Has cerrado la sesión del portal de contabilidad.', 'info')
-    return redirect(url_for('portal_contabilidad_login'))
-
 @app.route('/portal/contabilidad/hub')
 @contador_required
 def portal_contabilidad_hub():
