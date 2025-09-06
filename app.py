@@ -161,6 +161,7 @@ def setup_session_and_user():
                 cur.execute("SELECT id, usuario, nombre_completo FROM contadores WHERE id = %s", (contador_id,))
                 g.contador = cur.fetchone()
 
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -180,6 +181,24 @@ def rol_requerido(*roles):
             return f(*args, **kwargs)
         return decorated_function
     return wrapper
+
+def portal_login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'cliente_id' not in session:
+            flash('Por favor, inicia sesión para acceder a tu portal.', 'warning')
+            return redirect(url_for('portal_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def contador_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if g.contador is None:
+            flash('Acceso denegado. Debes iniciar sesión en el portal de contabilidad.', 'warning')
+            return redirect(url_for('portal_contabilidad_login'))
+        return f(*args, **kwargs)
+    return decorated_function
     
 # =================================================================================
 # ===== INICIO: NUEVAS RUTAS DEL PORTAL DE CONTABILIDAD (FASE 1) =====
