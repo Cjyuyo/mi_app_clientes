@@ -2808,21 +2808,20 @@ def _get_dashboard_metrics():
                 
             # Gráfica de ingresos históricos
             income_labels, income_values = [], []
-            current_date = today
-            for _ in range(6):
-                month_start = current_date.replace(day=1)
-                _, days_in_month = monthrange(current_date.year, current_date.month)
-                month_end = current_date.replace(day=days_in_month)
-                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (month_start, month_end))
-                total = cur.fetchone()[0] or Decimal('0.0')
-                income_labels.insert(0, get_nombre_mes(current_date.month))
-                
-                # ===== CAMBIO INSERTADO AQUÍ =====
-                # Se invoca el método normalize() con paréntesis para obtener el valor
-                income_values.insert(0, float(total.normalize()))
-                
-                current_date = month_start - timedelta(days=1)
-            dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
+current_date = today
+for _ in range(6):
+    month_start = current_date.replace(day=1)
+    _, days_in_month = monthrange(current_date.year, current_date.month)
+    month_end = current_date.replace(day=days_in_month)
+    cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (month_start, month_end))
+    total = cur.fetchone()[0] or Decimal('0.0')
+    income_labels.insert(0, get_nombre_mes(current_date.month))
+    
+    # This is the corrected line. Note the parentheses on normalize().
+    income_values.insert(0, float(total.normalize()))
+
+    current_date = month_start - timedelta(days=1)
+dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
 
             # Gráfica de composición de cartera
             cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado_plan, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
