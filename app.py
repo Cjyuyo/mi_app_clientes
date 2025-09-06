@@ -2808,20 +2808,17 @@ def _get_dashboard_metrics():
                 
             # Gráfica de ingresos históricos
             income_labels, income_values = [], []
-current_date = today
-for _ in range(6):
-    month_start = current_date.replace(day=1)
-    _, days_in_month = monthrange(current_date.year, current_date.month)
-    month_end = current_date.replace(day=days_in_month)
-    cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (month_start, month_end))
-    total = cur.fetchone()[0] or Decimal('0.0')
-    income_labels.insert(0, get_nombre_mes(current_date.month))
-    
-    # This is the corrected line. Note the parentheses on normalize().
-    income_values.insert(0, float(total.normalize()))
-
-    current_date = month_start - timedelta(days=1)
-dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
+            current_date = today
+            for _ in range(6):
+                month_start = current_date.replace(day=1)
+                _, days_in_month = monthrange(current_date.year, current_date.month)
+                month_end = current_date.replace(day=days_in_month)
+                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (month_start, month_end))
+                total = cur.fetchone()[0] or Decimal('0.0')
+                income_labels.insert(0, get_nombre_mes(current_date.month))
+                income_values.insert(0, float(total.normalize()))
+                current_date = month_start - timedelta(days=1)
+            dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
 
             # Gráfica de composición de cartera
             cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado_plan, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
@@ -2844,6 +2841,23 @@ dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values'
         logging.error(f"Error en _get_dashboard_metrics: {traceback.format_exc()}")
 
     return dashboard_metrics
+
+# ===== INICIO DE LA SOLUCIÓN =====
+# Esta es la ruta que faltaba. Llama a la función auxiliar y renderiza la plantilla.
+@app.route('/reportes/metricas')
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def reporte_metricas():
+    today = get_venezuela_current_date()
+    # La lógica de conexión y cálculo ahora está centralizada en la función auxiliar.
+    dashboard_metrics = _get_dashboard_metrics()
+    
+    # La función auxiliar ya no muestra un flash, así que lo manejamos aquí si es necesario.
+    if not get_db():
+         flash("Error de conexión a la base de datos.", "danger")
+
+    return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
+# ===== FIN DE LA SOLUCIÓN =====
 
 @app.route('/reportes/metricas')
 @admin_required
