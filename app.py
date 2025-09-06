@@ -2736,13 +2736,14 @@ def mi_cartera():
             flash(f"No se pudo cargar tu cartera de clientes: {e}", "error")
     return render_template('mi_cartera.html', clientes=clientes_asignados, anio_actual=get_venezuela_current_date().year)
 
-@app.route('/reportes/metricas')
-@admin_required
-@rol_requerido('superadmin', 'gerente')
-def reporte_metricas():
+def _get_dashboard_metrics():
+    """
+    Función auxiliar para calcular y obtener todas las métricas del dashboard.
+    """
     conn = get_db()
     today = get_venezuela_current_date()
     
+    # Inicializa el diccionario de métricas con valores por defecto
     dashboard_metrics = {
         'ingresos_mes_conciliados': Decimal('0.0'), 'indice_morosidad': 0.0, 'mes_actual': get_nombre_mes(today.month),
         'anio_actual': today.year, 'ingresos_ultimos_meses': {'labels': [], 'values': []},
@@ -2751,51 +2752,39 @@ def reporte_metricas():
     }
 
     if not conn:
-        flash("Error de conexión a la base de datos.", "danger")
-        return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
+        logging.error("Error de conexión a la base de datos en _get_dashboard_metrics.")
+        return dashboard_metrics
+
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            # ===== INICIO DE LA CORRECCIÓN =====
-            # Esta consulta ahora unifica la lógica de conteo para los estados clave.
+            # Consulta unificada para el mapa de clientes
             cur.execute("""
                 SELECT
                     COUNT(*) AS total_clientes,
-                    
-                    -- CORREGIDO: Cuenta a todos los que no estén explícitamente fuera del sistema.
                     COUNT(*) FILTER (WHERE TRIM(UPPER(estatus_cliente)) NOT IN ('RETIRO', 'INACTIVO')) as dentro_sistema,
-                    
-                    -- Los conteos individuales se mantienen, pero los problemáticos se unifican.
                     COUNT(*) FILTER (WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR') AS ahorrador,
                     COUNT(*) FILTER (WHERE TRIM(UPPER(estado_del_plan)) = 'ADJUDICADO') AS adjudicado,
                     COUNT(*) FILTER (WHERE TRIM(UPPER(estado_del_plan)) = 'COMPLETADO') AS completado,
                     COUNT(*) FILTER (WHERE TRIM(UPPER(estado_del_plan)) = 'COBRANZA DIFERIDA') AS cobranza_diferida,
                     COUNT(*) FILTER (WHERE TRIM(UPPER(estado_del_plan)) = 'INSCRITO') AS inscrito,
-                    
-                    -- CORREGIDO: Unifica el conteo de CONGELADOS desde ambas columnas.
                     COUNT(*) FILTER (WHERE TRIM(UPPER(estatus_cliente)) = 'CONGELADO' OR TRIM(UPPER(estado_del_plan)) = 'CONGELADO') AS congelados,
-                    
-                    -- CORREGIDO: Unifica el conteo de RESERVAS desde ambas columnas.
                     COUNT(*) FILTER (WHERE TRIM(UPPER(estatus_cliente)) = 'RESERVA' OR TRIM(UPPER(estado_del_plan)) = 'RESERVA') AS reserva,
-                    
-                    -- CORREGIDO: Mantiene el conteo de retiros que ya era correcto.
                     COUNT(*) FILTER (WHERE TRIM(UPPER(estatus_cliente)) = 'RETIRO') AS retirados,
                     COUNT(*) FILTER (WHERE TRIM(UPPER(estatus_cliente)) = 'INACTIVO') AS inactivos
                 FROM clientes
             """)
-            # ===== FIN DE LA CORRECCIÓN =====
-            
             mapa_counts_row = cur.fetchone()
             if mapa_counts_row:
-                # Se fusionan los conteos en el diccionario de métricas
                 dashboard_metrics['mapa_clientes'].update(mapa_counts_row)
             
+            # Ingresos del mes
             first_day_of_month = today.replace(day=1)
             cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
             dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
 
+            # Índice de morosidad
             cur.execute("SELECT COUNT(*) FROM clientes WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(estatus_cliente)) = 'ACTIVO'")
             total_ahorradores = cur.fetchone()[0]
-
             if total_ahorradores > 0:
                 cur.execute("""
                     SELECT COUNT(DISTINCT p.cliente_id) FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
@@ -2803,11 +2792,11 @@ def reporte_metricas():
                     AND TRIM(UPPER(c.estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(c.estatus_cliente)) = 'ACTIVO' 
                     AND p.fecha_pago >= %s
                 """, (first_day_of_month,))
-                ahorradores_al_dia_row = cur.fetchone()
-                ahorradores_al_dia = ahorradores_al_dia_row[0] if ahorradores_al_dia_row else 0
+                ahorradores_al_dia = cur.fetchone()[0] or 0
                 clientes_en_mora = total_ahorradores - ahorradores_al_dia
-                dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100 if total_ahorradores > 0 else 0
+                dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100
                 
+            # Gráfica de ingresos históricos
             income_labels, income_values = [], []
             current_date = today
             for _ in range(6):
@@ -2815,36 +2804,45 @@ def reporte_metricas():
                 _, days_in_month = monthrange(current_date.year, current_date.month)
                 month_end = current_date.replace(day=days_in_month)
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (month_start, month_end))
-                total_row = cur.fetchone()
-                total = total_row[0] if total_row else Decimal('0.0')
+                total = cur.fetchone()[0] or Decimal('0.0')
                 income_labels.insert(0, get_nombre_mes(current_date.month))
-
-                # ===== LÍNEA CORREGIDA =====
-                # Se ejecuta el método normalize() y se convierte el resultado a float
                 income_values.insert(0, float(total.normalize()))
-                
                 current_date = month_start - timedelta(days=1)
-            
             dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
 
+            # Gráfica de composición de cartera
             cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado_plan, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
             composition_rows = cur.fetchall()
-            client_composition_list = [dict(row) for row in composition_rows] if composition_rows else []
-            comp_labels = [row.get('estado_plan', 'Sin Datos').capitalize() for row in client_composition_list]
-            comp_values = [row.get('total', 0) for row in client_composition_list]
-            dashboard_metrics['composicion_clientes'] = {'labels': comp_labels, 'values': comp_values}
+            dashboard_metrics['composicion_clientes'] = {
+                'labels': [dict(row).get('estado_plan', 'Sin Datos').capitalize() for row in composition_rows],
+                'values': [dict(row).get('total', 0) for row in composition_rows]
+            }
 
+            # Resumen por condición de pago
             cur.execute("""
                 SELECT COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS') as condicion, COUNT(*) as total
                 FROM clientes WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO'
                 GROUP BY COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS') ORDER BY total DESC
             """)
-            resumen_rows = cur.fetchall()
-            dashboard_metrics['resumen_condicion'] = [dict(row) for row in resumen_rows] if resumen_rows else []
+            dashboard_metrics['resumen_condicion'] = [dict(row) for row in cur.fetchall()]
 
     except psycopg2.Error as e:
         flash(f"No se pudieron cargar las métricas del dashboard. Contacte a soporte.", "danger")
-        logging.error(f"Error en reporte_metricas: {traceback.format_exc()}")
+        logging.error(f"Error en _get_dashboard_metrics: {traceback.format_exc()}")
+
+    return dashboard_metrics
+
+@app.route('/reportes/metricas')
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def reporte_metricas():
+    today = get_venezuela_current_date()
+    # La lógica de conexión y cálculo ahora está centralizada en la función auxiliar.
+    dashboard_metrics = _get_dashboard_metrics()
+    
+    # La función auxiliar ya no muestra un flash, así que lo manejamos aquí si es necesario.
+    if not get_db():
+         flash("Error de conexión a la base de datos.", "danger")
 
     return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
 
