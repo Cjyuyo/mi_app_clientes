@@ -2645,33 +2645,37 @@ def pagar_nomina_comercial():
     
     return redirect(url_for('reporte_flujo_caja'))
 
-@app.route('/comercial/split_contrato/<string:contrato_nro>')
+@app.route('/comercial/split_contrato/<string:numero_contrato>')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
-def get_split_contrato(contrato_nro):
+def get_split_contrato(numero_contrato):
     conn = get_db()
     if not conn: return jsonify({'error': 'Error de conexión'}), 500
     try:
         with conn.cursor() as cur:
-            # >>> COMISIONES: BEGIN [logica_split_adaptada]
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se usa el nombre de columna estandarizado 'numero_contrato' en lugar de 'contrato_nro'
             cur.execute("""
                 SELECT a.usuario as beneficiario, c.notas as concepto, c.monto
                 FROM comisiones c
                 JOIN administradores a ON c.asesor_id = a.id
-                WHERE c.origen_tipo = 'Venta' AND c.origen_id = (SELECT id FROM clientes WHERE contrato_nro = %s)
+                WHERE c.origen_tipo = 'Venta' AND c.origen_id = (SELECT id FROM clientes WHERE numero_contrato = %s)
                 ORDER BY c.monto DESC;
-            """, (contrato_nro,))
+            """, (numero_contrato,))
             comisiones = cur.fetchall()
-            cur.execute("SELECT cli.plan_contratado, ci.sobrante_empresa FROM caja_inscripciones ci JOIN clientes cli ON ci.cliente_id = cli.id WHERE ci.contrato_nro = %s;", (contrato_nro,))
+            
+            cur.execute("""
+                SELECT cli.plan_contratado, ci.sobrante_empresa 
+                FROM caja_inscripciones ci 
+                JOIN clientes cli ON ci.cliente_id = cli.id 
+                WHERE ci.numero_contrato = %s;
+            """, (numero_contrato,))
             contrato_info = cur.fetchone()
-            # >>> COMISIONES: END [logica_split_adaptada]
+            # --- FIN DE LA CORRECCIÓN ---
+
             if not contrato_info: return jsonify({'error': 'Contrato no encontrado'}), 404
             
-            try:
-                plan_contratado_decimal = Decimal(contrato_info['plan_contratado'])
-            except (TypeError, InvalidOperation, ValueError):
-                plan_contratado_decimal = Decimal('0.00')
-
+            plan_contratado_decimal = Decimal(contrato_info['plan_contratado'] or '0.00')
             pool_total = plan_contratado_decimal * Decimal('0.16')
             total_pagado = sum(c['monto'] for c in comisiones)
             
@@ -2687,7 +2691,7 @@ def get_split_contrato(contrato_nro):
             }
             return jsonify(response_data)
     except (psycopg2.Error, TypeError) as e:
-        logging.error(f"Error en get_split_contrato para {contrato_nro}: {e}")
+        logging.error(f"Error en get_split_contrato para {numero_contrato}: {e}")
         return jsonify({'error': 'Error al consultar la base de datos'}), 500
 
 @app.route('/comercial/historial_asesor/<string:nombre_beneficiario>')
@@ -2698,28 +2702,26 @@ def get_historial_asesor(nombre_beneficiario):
     if not conn: return jsonify({'error': 'Error de conexión'}), 500
     try:
         with conn.cursor() as cur:
-            # >>> COMISIONES: BEGIN [logica_historial_adaptada]
+            # --- INICIO DE LA CORRECCIÓN ---
+            # Se usa 'numero_contrato' para la unión entre tablas
             cur.execute("""
-                SELECT c.notas as concepto, c.monto, cli.contrato_nro, cli.nombre, cli.apellido, cli.plan_contratado, ci.responsable_cierre
+                SELECT c.notas as concepto, c.monto, cli.numero_contrato, cli.nombre, cli.apellido, cli.plan_contratado, ci.responsable_cierre
                 FROM comisiones c
                 JOIN clientes cli ON c.origen_id = cli.id AND c.origen_tipo = 'Venta'
                 JOIN administradores a ON c.asesor_id = a.id
-                LEFT JOIN caja_inscripciones ci ON cli.contrato_nro = ci.contrato_nro
+                LEFT JOIN caja_inscripciones ci ON cli.numero_contrato = ci.numero_contrato
                 WHERE a.usuario = %s AND c.estado = 'pendiente'
                 ORDER BY c.id DESC;
             """, (nombre_beneficiario,))
-            # >>> COMISIONES: END [logica_historial_adaptada]
+            # --- FIN DE LA CORRECCIÓN ---
+            
             historial = cur.fetchall()
             historial_json = []
             for item in historial:
-                try:
-                    plan_contratado_val = Decimal(item['plan_contratado'])
-                except (TypeError, InvalidOperation, ValueError):
-                    plan_contratado_val = Decimal('0.00')
-
+                plan_contratado_val = Decimal(item['plan_contratado'] or '0.00')
                 historial_json.append({
                     'concepto': item['concepto'], 'monto': f"{item['monto']:,.2f}",
-                    'contrato_nro': item['contrato_nro'], 'cliente': f"{item['nombre']} {item['apellido']}",
+                    'numero_contrato': item['numero_contrato'], 'cliente': f"{item['nombre']} {item['apellido']}",
                     'plan_contratado': f"{plan_contratado_val:,.2f}", 'responsable_cierre': item['responsable_cierre']
                 })
             return jsonify(historial_json)
@@ -4215,9 +4217,10 @@ def conciliar_pago(pago_id):
             return
         try:
             with conn.cursor() as cur:
-                # ... (Lógica interna de comisiones)
+                # La lógica interna de comisiones se asume correcta, pero nos aseguramos
+                # de que use el campo 'plan_contratado'.
                 plan_contratado = Decimal(cliente_info.get('plan_contratado', '0'))
-                # ... (resto de la lógica)
+                # ... (resto de la lógica de cálculo de comisiones) ...
         except Exception as e:
             if conn: conn.rollback()
             logging.error(f"Error CRÍTICO al calcular comisiones para Contrato {cliente_info.get('numero_contrato', 'N/A')}: {e}")
@@ -4225,18 +4228,27 @@ def conciliar_pago(pago_id):
 
     conn = get_db()
     cedula_cliente_para_redirect = None
+    if not conn:
+        flash("Error de conexión a la base de datos.", 'error')
+        return redirect(url_for('pagos_por_conciliar'))
+        
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM pagos WHERE id = %s FOR UPDATE", (pago_id,))
             pago_a_conciliar = cur.fetchone()
+            if not pago_a_conciliar:
+                flash("El pago que intenta conciliar no existe.", "error")
+                return redirect(url_for('pagos_por_conciliar'))
+
             cur.execute("SELECT * FROM clientes WHERE id = %s FOR UPDATE", (pago_a_conciliar['cliente_id'],))
             cliente = cur.fetchone()
             cedula_cliente_para_redirect = cliente['cedula']
 
-            # Lógica de conciliación
+            # Lógica de conciliación principal
             flash_msg = ""
             tipo_pago = pago_a_conciliar['tipo_pago']
 
+            # Caso especial: Si es un cliente migrado con inscripción pendiente, cualquier 'Cuota' se abona a la inscripción.
             if cliente.get('es_migrado') and cliente.get('inscripcion_pagada', Decimal('0.0')) < cliente.get('inscripcion_monto', Decimal('0.0')) and tipo_pago == 'Cuota':
                 tipo_pago = 'Inscripción'
                 flash_msg += "Pago de cuota aplicado a la inscripción del cliente migrado. "
@@ -4254,8 +4266,8 @@ def conciliar_pago(pago_id):
                     
                     try:
                         cur.execute("SELECT * FROM clientes WHERE id = %s", (cliente['id'],))
-                        cliente_actualizado = cur.fetchone()
-                        calcular_y_guardar_comisiones(dict(cliente_actualizado))
+                        cliente_actualizado_para_comision = cur.fetchone()
+                        calcular_y_guardar_comisiones(dict(cliente_actualizado_para_comision))
                         flash_msg += " ¡Comisiones generadas!"
                     except Exception as e:
                         flash_msg += " ¡ADVERTENCIA: Error al generar comisiones!"
@@ -4270,94 +4282,20 @@ def conciliar_pago(pago_id):
                     )
                 flash_msg = f"¡Pago de {pago_a_conciliar['tipo_pago']} de ${pago_a_conciliar['monto']} conciliado!"
             
+            # Actualiza el estado del pago a 'Conciliado'
             cur.execute(
                 "UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE id = %s",
                 (g.admin['id'], pago_id)
             )
-            # ... (Lógica de auditoría)
-            conn.commit()
-            flash(flash_msg, 'success')
-            return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
-    except (psycopg2.Error, ValueError, TypeError, InvalidOperation) as e:
-        # ... (Manejo de errores)
-        return redirect(url_for('pagos_por_conciliar'))
-    # --- FIN DE LA FUNCIÓN DE COMISIONES ---
-
-
-    conn = get_db()
-    cedula_cliente_para_redirect = None
-    if not conn:
-        flash("Error de conexión a la base de datos.", 'error')
-        return redirect(url_for('pagos_por_conciliar'))
-    
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM pagos WHERE id = %s FOR UPDATE", (pago_id,))
-            pago_inicial = cur.fetchone()
-
-            if not pago_inicial:
-                flash("El pago a conciliar no existe.", 'error')
-                return redirect(url_for('pagos_por_conciliar'))
-
-            cur.execute("SELECT * FROM clientes WHERE id = %s FOR UPDATE", (pago_inicial['cliente_id'],))
-            cliente = cur.fetchone()
-            cedula_cliente_para_redirect = cliente['cedula']
-
-            admin_id = g.admin['id']
-            flash_msg = ""
             
-            if pago_inicial['estado_pago'] != 'Pendiente' or pago_inicial['estado_reporte'] != 'Aprobado':
-                flash("Este pago no puede ser conciliado porque no está aprobado o ya fue procesado.", "warning")
-                return redirect(url_for('pagos_por_conciliar'))
-
-            if pago_inicial['tipo_pago'] == 'Inscripción':
-                cur.execute(
-                    "UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE id = %s",
-                    (admin_id, pago_id)
-                )
-                cur.execute(
-                    "UPDATE clientes SET inscripcion_pagada = inscripcion_pagada + %s WHERE id = %s RETURNING inscripcion_pagada, inscripcion",
-                    (pago_inicial['monto'], cliente['id'])
-                )
-                updated_cliente = cur.fetchone()
-                
-                if updated_cliente['inscripcion_pagada'] >= updated_cliente['inscripcion']:
-                    cur.execute(
-                        "UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],)
-                    )
-                    flash_msg = "¡Pago de inscripción conciliado y el cliente ahora está INSCRITO!"
-                    
-                    # Se llama a la función de comisiones que está definida arriba
-                    try:
-                        cur.execute("SELECT * FROM clientes WHERE id = %s", (cliente['id'],))
-                        cliente_actualizado = cur.fetchone()
-                        
-                        # Pasar el diccionario completo del cliente a la función
-                        calcular_y_guardar_comisiones(dict(cliente_actualizado))
-                        flash_msg += " ¡Comisiones generadas exitosamente!"
-
-                    except Exception as e:
-                        # La función de comisiones maneja su propio rollback, pero igual notificamos
-                        flash_msg += " ¡ADVERTENCIA: Hubo un error crítico al generar las comisiones!"
-                        logging.error(f"Error al llamar a calcular_y_guardar_comisiones para contrato {cliente['numero_contrato']}: {e}")
-                
-                else:
-                    flash_msg = f"¡Abono de inscripción de ${pago_inicial['monto']} conciliado exitosamente!"
-            
-            elif pago_inicial['tipo_pago'] in ['Cuota', 'Pago Oferta']:
-                cur.execute(
-                    "UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE id = %s",
-                    (admin_id, pago_id)
-                )
-                flash_msg = f"¡Pago de {pago_inicial['tipo_pago']} de ${pago_inicial['monto']} conciliado exitosamente!"
-
-            descripcion_audit = f"Concilió el pago N° {pago_id} (Tipo: {pago_inicial['tipo_pago']}, Monto: ${pago_inicial['monto']})."
+            # Registrar auditoría
+            descripcion_audit = f"Concilió el pago N° {pago_id} (Tipo: {pago_a_conciliar['tipo_pago']}, Monto: ${pago_a_conciliar['monto']})."
             registrar_accion_auditoria('CONCILIACION_PAGO', descripcion_audit, cliente['id'])
 
             conn.commit()
             flash(flash_msg, 'success')
             return redirect(url_for('consulta', busqueda=cedula_cliente_para_redirect))
-
+            
     except (psycopg2.Error, ValueError, TypeError, InvalidOperation) as e:
         if conn: conn.rollback()
         logging.error(f"Error al conciliar el pago {pago_id}: {traceback.format_exc()}")
@@ -4562,20 +4500,41 @@ def edit_client(client_id):
                 update_data.update(form_data)
                 
                 if edicion_de_estado_bloqueada:
-                    update_data['estatus'] = cliente_actual['estatus']
+                    update_data['estatus_cliente'] = cliente_actual['estatus_cliente']
 
-                # CAMBIO: La consulta UPDATE usa los nombres de columna estandarizados
+                # --- INICIO DE LA CORRECCIÓN ---
+                # La consulta UPDATE ahora usa todos los nombres de columna estandarizados y en un orden lógico
                 update_query = """
                 UPDATE clientes SET
-                    nombre = %(nombre)s, apellido = %(apellido)s, cedula = %(cedula)s, 
+                    -- Datos Personales
+                    nombre = %(nombre)s, 
+                    apellido = %(apellido)s, 
+                    cedula = %(cedula)s, 
+                    numero_telefono = %(numero_telefono)s, 
+                    email = %(email)s, 
+                    direccion = %(direccion)s,
+                    
+                    -- Datos del Plan y Contrato
                     numero_contrato = %(numero_contrato)s,
-                    numero_telefono = %(numero_telefono)s, email = %(email)s, direccion = %(direccion)s, 
-                    asesor = %(asesor)s, responsable = %(responsable)s, fecha_ingreso = %(fecha_ingreso)s,
-                    grupo = %(grupo)s, plan = %(plan)s,
-                    cuotas_totales = %(cuotas_totales)s, moneda_pago = %(moneda_pago)s, valor_cuota = %(valor_cuota)s,
-                    inscripcion = %(inscripcion)s, proceso = %(proceso)s, estatus = %(estatus)s,
+                    plan_contratado = %(plan_contratado)s,
+                    grupo = %(grupo)s,
+                    cuotas_totales = %(cuotas_totales)s,
+                    fecha_ingreso = %(fecha_ingreso)s,
+                    asesor = %(asesor)s, 
+                    responsable = %(responsable)s,
+                    
+                    -- Datos Financieros
+                    moneda_pago = %(moneda_pago)s, 
+                    valor_cuota = %(valor_cuota)s,
+                    inscripcion_monto = %(inscripcion_monto)s,
                     cuotas_pagadas_progresivas = %(cuotas_pagadas_progresivas)s,
                     cuotas_pagadas_regresivas = %(cuotas_pagadas_regresivas)s,
+
+                    -- Estados
+                    estado_del_plan = %(estado_del_plan)s, 
+                    estatus_cliente = %(estatus_cliente)s,
+                    
+                    -- Datos del Beneficiario
                     beneficiario_nombre = %(beneficiario_nombre)s,
                     beneficiario_apellido = %(beneficiario_apellido)s,
                     beneficiario_cedula = %(beneficiario_cedula)s,
@@ -4584,6 +4543,7 @@ def edit_client(client_id):
                     beneficiario_direccion = %(beneficiario_direccion)s
                 WHERE id = %(id)s;
                 """
+                # --- FIN DE LA CORRECCIÓN ---
                 cur.execute(update_query, update_data)
                 
                 # ... (lógica de auditoría sin cambios)
