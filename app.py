@@ -172,7 +172,7 @@ def admin_required(f):
     return decorated_function
 
 def rol_requerido(*roles):
-    def wrapper(f):
+    def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             admin_rol = session.get('admin_rol') or (g.admin['rol'] if g.admin else None)
@@ -180,8 +180,8 @@ def rol_requerido(*roles):
                 flash("No tienes los permisos necesarios para acceder a esta función.", "danger")
                 return redirect(url_for('home'))
             return f(*args, **kwargs)
-        return wrapper
-    return wrapper
+        return decorated_function
+    return decorator
 
 # ===== INICIO: DECORADORES FALTANTES =====
 def contador_required(f):
