@@ -207,6 +207,11 @@ def portal_login_required(f):
 # =================================================================================
 
 # === Autenticación del Contador ===
+# =================================================================================
+# ===== INICIO: NUEVAS RUTAS DEL PORTAL DE CONTABILIDAD (FASE 1) =====
+# =================================================================================
+
+# === Autenticación del Contador ===
 @app.route('/portal/contabilidad/login', methods=['GET', 'POST'])
 def portal_contabilidad_login():
     if g.contador:
@@ -241,7 +246,7 @@ def portal_contabilidad_login():
         return redirect(url_for('portal_contabilidad_login'))
 
     return render_template('contabilidad_login.html', anio_actual=get_venezuela_current_date().year)
-    
+
 @app.route('/portal/contabilidad/logout')
 def portal_contabilidad_logout():
     session.pop('contador_id', None)
