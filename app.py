@@ -183,6 +183,14 @@ def rol_requerido(*roles):
             return f(*args, **kwargs)
         return wrapper
     return wrapper
+def contador_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'contador_id' not in session:
+            flash("Debes iniciar sesión en el portal de contabilidad para acceder.", "warning")
+            return redirect(url_for('portal_contabilidad_login'))
+        return f(*args, **kwargs)
+    return decorated_function
     
 @app.before_request
 def load_logged_in_user():
