@@ -5689,12 +5689,6 @@ def _get_estado_cuenta_data(cliente_id):
         flash('Ocurrió un error al generar el estado de cuenta.', 'error')
         return None
 
-@app.route('/portal/logout')
-def portal_logout():    
-    session.clear()
-    flash('Has cerrado sesión exitosamente.', 'success')
-    return redirect(url_for('portal_login'))
-
 @app.route('/citas/disponibilidad')
 @portal_login_required
 def citas_disponibilidad():
