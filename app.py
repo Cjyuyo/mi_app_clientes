@@ -4013,7 +4013,8 @@ def upload_clientes():
                 'NUMERO DE CEDULA': 'cedula', 'N⁰ CEDULA': 'cedula', 'N° CEDULA': 'cedula', 'CEDULA': 'cedula',
                 'NOMBRE Y APELLIDO': 'nombre_completo',
                 'ESTADO DEL PLAN': 'estado_del_plan',
-                'ESTATUS': 'estatus_cliente', 'ESTATUS CLIENTE': 'estatus_cliente'
+                'ESTATUS': 'estatus_cliente', 'ESTATUS CLIENTE': 'estatus_cliente',
+                'CONDICION': 'condicion_pago' # <-- NUEVO: Lee la columna CONDICION
             }
             df.rename(columns=column_map, inplace=True)
 
@@ -4044,13 +4045,15 @@ def upload_clientes():
                     apellido = ' '.join(partes[1:]) if len(partes) > 1 else ''
 
                     # Creamos una tupla con los datos en un orden consistente
+                    # NOTA: Asegúrate de que la columna 'condicion_pago' exista en tu tabla 'clientes'
                     data_tuple = (
                         cedula,
                         nombre,
                         apellido,
                         row.get('estado_del_plan', ''),
                         row.get('estatus_cliente', ''),
-                        row.get('numero_contrato', '')
+                        row.get('numero_contrato', ''),
+                        row.get('condicion_pago', '') # <-- NUEVO: Añade la condición a los datos
                     )
 
                     if cedula in clientes_existentes:
@@ -4061,7 +4064,7 @@ def upload_clientes():
                 # INSERCIÓN MASIVA (BULK INSERT) para todos los clientes nuevos
                 if inserts_data:
                     insert_query = """
-                        INSERT INTO clientes (cedula, nombre, apellido, estado_del_plan, estatus_cliente, numero_contrato) 
+                        INSERT INTO clientes (cedula, nombre, apellido, estado_del_plan, estatus_cliente, numero_contrato, condicion_pago) 
                         VALUES %s
                     """
                     execute_values(cur, insert_query, inserts_data)
@@ -4074,8 +4077,9 @@ def upload_clientes():
                             apellido = data.apellido,
                             estado_del_plan = data.estado_del_plan,
                             estatus_cliente = data.estatus_cliente,
-                            numero_contrato = data.numero_contrato
-                        FROM (VALUES %s) AS data (cedula, nombre, apellido, estado_del_plan, estatus_cliente, numero_contrato)
+                            numero_contrato = data.numero_contrato,
+                            condicion_pago = data.condicion_pago
+                        FROM (VALUES %s) AS data (cedula, nombre, apellido, estado_del_plan, estatus_cliente, numero_contrato, condicion_pago)
                         WHERE clientes.cedula = data.cedula
                     """
                     execute_values(cur, update_query, updates_data)
@@ -4091,7 +4095,7 @@ def upload_clientes():
         return redirect(url_for('upload_clientes'))
 
     return render_template('upload_clientes.html')
-
+    
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 @admin_required
 def registrar_pago(client_id):
