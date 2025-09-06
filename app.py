@@ -182,7 +182,7 @@ def rol_requerido(*roles):
                 return redirect(url_for('home'))
             return f(*args, **kwargs)
         return wrapper
-    return wrapper
+    
 def contador_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -191,7 +191,7 @@ def contador_required(f):
             return redirect(url_for('portal_contabilidad_login'))
         return f(*args, **kwargs)
     return decorated_function
-    
+
 @app.before_request
 def load_logged_in_user():
     admin_id = session.get('admin_id')
