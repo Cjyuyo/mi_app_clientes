@@ -2858,21 +2858,6 @@ def reporte_metricas():
 
 @app.route('/lista_clientes/<string:filtro>')
 @admin_required
-@rol_requerido('superadmin', 'gerente')
-def reporte_metricas():
-    today = get_venezuela_current_date()
-    # La lógica de conexión y cálculo ahora está centralizada en la función auxiliar.
-    dashboard_metrics = _get_dashboard_metrics()
-    
-    # La función auxiliar ya no muestra un flash, así que lo manejamos aquí si es necesario.
-    if not get_db():
-         flash("Error de conexión a la base de datos.", "danger")
-
-    return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
-# ===== FIN DE LA SOLUCIÓN =====
-
-@app.route('/lista_clientes/<string:filtro>')
-@admin_required
 def lista_clientes(filtro):
     """
     Muestra una lista de clientes filtrada por un estado específico.
