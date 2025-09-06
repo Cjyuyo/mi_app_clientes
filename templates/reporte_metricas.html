@@ -1,129 +1,108 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="h-full bg-gray-100">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reporte de Métricas del Sistema</title>
+    <title>Dashboard de Métricas</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
-        /* Estilo personalizado para un look consistente */
-        body {
-            background-color: #f8fafc; /* gris claro de Tailwind */
+        /* Pequeño ajuste para transiciones suaves */
+        .transition-all {
+            transition: all 0.3s ease-in-out;
         }
     </style>
 </head>
-<body class="p-4 md:p-8">
-    <div class="max-w-7xl mx-auto">
-        <header class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-800">Dashboard de Métricas</h1>
-            <p class="text-gray-500">Resumen del rendimiento del sistema para {{ metrics.mes_actual }} {{ metrics.anio_actual }}</p>
-        </header>
-
-        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
-                <div class="bg-green-100 text-green-600 p-3 rounded-full">
-                    <i class="bi bi-cash-coin text-2xl"></i>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-500">Ingresos Conciliados (Mes)</p>
-                    <p class="text-2xl font-bold text-gray-800">${ metrics.ingresos_mes_conciliados|format_decimal(2) }</p>
-                </div>
+<body class="h-full">
+    <div class="flex h-full">
+        <aside class="w-64 flex-shrink-0 bg-slate-800 text-white flex flex-col">
+            <div class="h-16 flex items-center justify-center text-2xl font-bold border-b border-slate-700">
+                <span>MotoPlan</span>
             </div>
-            
-            <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
-                <div class="bg-blue-100 text-blue-600 p-3 rounded-full">
-                    <i class="bi bi-people-fill text-2xl"></i>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-500">Clientes en Cartera</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ metrics.mapa_clientes.dentro_sistema }}</p>
-                </div>
+            <nav class="flex-grow p-4">
+                <ul class="space-y-2">
+                    <li><a href="#" class="flex items-center p-2 text-slate-300 hover:bg-slate-700 rounded-md"><i class="bi bi-house-door-fill mr-3"></i> Hub</a></li>
+                    <li><a href="#" class="flex items-center p-2 text-white bg-slate-900 rounded-md"><i class="bi bi-bar-chart-line-fill mr-3"></i> Reportes</a></li>
+                    <li><a href="#" class="flex items-center p-2 text-slate-300 hover:bg-slate-700 rounded-md"><i class="bi bi-people-fill mr-3"></i> Clientes</a></li>
+                    <li><a href="#" class="flex items-center p-2 text-slate-300 hover:bg-slate-700 rounded-md"><i class="bi bi-gear-fill mr-3"></i> Configuración</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="flex-1 p-6 md:p-10 overflow-y-auto">
+            <div class="max-w-7xl mx-auto">
+                <header class="mb-8">
+                    <h1 class="text-3xl font-bold text-gray-900">Dashboard de Métricas</h1>
+                    <p class="text-gray-500 mt-1">Resumen del rendimiento del sistema para {{ metrics.mes_actual }} {{ metrics.anio_actual }}</p>
+                </header>
+
+                <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 relative">
+                        <div class="absolute top-4 right-4 bg-green-100 text-green-600 p-3 rounded-lg">
+                            <i class="bi bi-cash-coin text-2xl"></i>
+                        </div>
+                        <p class="text-sm text-gray-500">Ingresos Conciliados (Mes)</p>
+                        <p class="text-3xl font-bold text-gray-800 mt-2">${{ metrics.ingresos_mes_conciliados|format_decimal(2) }}</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 relative">
+                        <div class="absolute top-4 right-4 bg-blue-100 text-blue-600 p-3 rounded-lg">
+                            <i class="bi bi-people-fill text-2xl"></i>
+                        </div>
+                        <p class="text-sm text-gray-500">Clientes en Cartera</p>
+                        <p class="text-3xl font-bold text-gray-800 mt-2">{{ metrics.mapa_clientes.dentro_sistema }}</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 relative">
+                        <div class="absolute top-4 right-4 bg-yellow-100 text-yellow-600 p-3 rounded-lg">
+                            <i class="bi bi-exclamation-triangle-fill text-2xl"></i>
+                        </div>
+                        <p class="text-sm text-gray-500">Índice de Morosidad</p>
+                        <p class="text-3xl font-bold text-gray-800 mt-2">{{ "%.2f"|format(metrics.indice_morosidad) }}%</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 relative">
+                        <div class="absolute top-4 right-4 bg-red-100 text-red-600 p-3 rounded-lg">
+                            <i class="bi bi-person-x-fill text-2xl"></i>
+                        </div>
+                        <p class="text-sm text-gray-500">Clientes Retirados</p>
+                        <p class="text-3xl font-bold text-gray-800 mt-2">{{ metrics.mapa_clientes.retirados }}</p>
+                    </div>
+                </section>
+
+                <section class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
+                    <div class="lg:col-span-3 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-700 mb-4">Ingresos en los Últimos 6 Meses</h2>
+                        <canvas id="ingresosChart"></canvas>
+                    </div>
+                    <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-700 mb-4">Composición de Cartera</h2>
+                        <canvas id="composicionChart"></canvas>
+                    </div>
+                </section>
+
+                <section class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h2 class="text-lg font-semibold text-gray-700 mb-4">Mapa General de Clientes (Total: {{ metrics.mapa_clientes.total_clientes }})</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                        {% for status, data in {
+                            'AHORRADOR': {'icon': 'bi-piggy-bank-fill', 'color': 'text-cyan-600', 'label': 'Ahorradores', 'value': metrics.mapa_clientes.ahorrador},
+                            'ADJUDICADO': {'icon': 'bi-trophy-fill', 'color': 'text-indigo-600', 'label': 'Adjudicados', 'value': metrics.mapa_clientes.adjudicado},
+                            'INSCRITO': {'icon': 'bi-check-circle-fill', 'color': 'text-blue-600', 'label': 'Inscritos', 'value': metrics.mapa_clientes.inscrito},
+                            'COMPLETADO': {'icon': 'bi-star-fill', 'color': 'text-green-600', 'label': 'Plan Completado', 'value': metrics.mapa_clientes.completado},
+                            'RESERVA': {'icon': 'bi-hourglass-split', 'color': 'text-teal-600', 'label': 'En Reserva', 'value': metrics.mapa_clientes.reserva},
+                            'CONGELADO': {'icon': 'bi-snow', 'color': 'text-gray-600', 'label': 'Congelados', 'value': metrics.mapa_clientes.congelados},
+                            'COBRANZA DIFERIDA': {'icon': 'bi-calendar-x-fill', 'color': 'text-orange-600', 'label': 'Cobranza Diferida', 'value': metrics.mapa_clientes.cobranza_diferida},
+                            'RETIRO': {'icon': 'bi-box-arrow-left', 'color': 'text-red-600', 'label': 'Retiros', 'value': metrics.mapa_clientes.retirados},
+                            'INACTIVO': {'icon': 'bi-slash-circle-fill', 'color': 'text-gray-500', 'label': 'Inactivos', 'value': metrics.mapa_clientes.inactivos}
+                        }.items() %}
+                        <a href="{{ url_for('lista_clientes', filtro=status) }}" class="block p-4 bg-gray-50 hover:bg-gray-100 rounded-lg text-center transition-all border border-gray-200 hover:shadow-md">
+                            <i class="{{ data.icon }} {{ data.color }} text-3xl mb-2"></i>
+                            <p class="text-2xl font-bold {{ data.color }}">{{ data.value }}</p>
+                            <p class="text-sm text-gray-600">{{ data.label }}</p>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </section>
             </div>
-
-            <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
-                <div class="bg-yellow-100 text-yellow-600 p-3 rounded-full">
-                    <i class="bi bi-exclamation-triangle-fill text-2xl"></i>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-500">Índice de Morosidad</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ "%.2f"|format(metrics.indice_morosidad) }}%</p>
-                </div>
-            </div>
-
-            <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
-                <div class="bg-red-100 text-red-600 p-3 rounded-full">
-                    <i class="bi bi-person-x-fill text-2xl"></i>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-500">Clientes Retirados</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ metrics.mapa_clientes.retirados }}</p>
-                </div>
-            </div>
-        </section>
-
-        <section class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
-            <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-lg font-semibold text-gray-700 mb-4">Ingresos en los Últimos 6 Meses</h2>
-                <canvas id="ingresosChart"></canvas>
-            </div>
-            <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-lg font-semibold text-gray-700 mb-4">Composición de Cartera</h2>
-                <canvas id="composicionChart"></canvas>
-            </div>
-        </section>
-
-        <section class="bg-white p-6 rounded-xl shadow-md">
-            <h2 class="text-lg font-semibold text-gray-700 mb-4">Mapa General de Clientes (Total: {{ metrics.mapa_clientes.total_clientes }})</h2>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                
-                <a href="{{ url_for('lista_clientes', filtro='AHORRADOR') }}" class="block p-4 bg-gray-50 hover:bg-gray-100 rounded-lg text-center transition-colors">
-                    <p class="text-2xl font-bold text-cyan-600">{{ metrics.mapa_clientes.ahorrador }}</p>
-                    <p class="text-sm text-gray-600">Ahorradores</p>
-                </a>
-                
-                <a href="{{ url_for('lista_clientes', filtro='ADJUDICADO') }}" class="block p-4 bg-gray-50 hover:bg-gray-100 rounded-lg text-center transition-colors">
-                    <p class="text-2xl font-bold text-indigo-600">{{ metrics.mapa_clientes.adjudicado }}</p>
-                    <p class="text-sm text-gray-600">Adjudicados</p>
-                </a>
-
-                <a href="{{ url_for('lista_clientes', filtro='INSCRITO') }}" class="block p-4 bg-gray-50 hover:bg-gray-100 rounded-lg text-center transition-colors">
-                    <p class="text-2xl font-bold text-blue-600">{{ metrics.mapa_clientes.inscrito }}</p>
-                    <p class="text-sm text-gray-600">Inscritos</p>
-                </a>
-                
-                <a href="{{ url_for('lista_clientes', filtro='COMPLETADO') }}" class="block p-4 bg-gray-50 hover:bg-gray-100 rounded-lg text-center transition-colors">
-                    <p class="text-2xl font-bold text-green-600">{{ metrics.mapa_clientes.completado }}</p>
-                    <p class="text-sm text-gray-600">Plan Completado</p>
-                </a>
-                
-                <a href="{{ url_for('lista_clientes', filtro='RESERVA') }}" class="block p-4 bg-gray-50 hover:bg-gray-100 rounded-lg text-center transition-colors">
-                    <p class="text-2xl font-bold text-teal-600">{{ metrics.mapa_clientes.reserva }}</p>
-                    <p class="text-sm text-gray-600">En Reserva</p>
-                </a>
-
-                <a href="{{ url_for('lista_clientes', filtro='CONGELADO') }}" class="block p-4 bg-gray-50 hover:bg-gray-100 rounded-lg text-center transition-colors">
-                    <p class="text-2xl font-bold text-gray-600">{{ metrics.mapa_clientes.congelados }}</p>
-                    <p class="text-sm text-gray-600">Congelados</p>
-                </a>
-
-                <a href="{{ url_for('lista_clientes', filtro='COBRANZA DIFERIDA') }}" class="block p-4 bg-gray-50 hover:bg-gray-100 rounded-lg text-center transition-colors">
-                    <p class="text-2xl font-bold text-orange-600">{{ metrics.mapa_clientes.cobranza_diferida }}</p>
-                    <p class="text-sm text-gray-600">Cobranza Diferida</p>
-                </a>
-
-                <a href="{{ url_for('lista_clientes', filtro='RETIRO') }}" class="block p-4 bg-red-50 hover:bg-red-100 rounded-lg text-center transition-colors">
-                    <p class="text-2xl font-bold text-red-600">{{ metrics.mapa_clientes.retirados }}</p>
-                    <p class="text-sm text-gray-600">Retiros</p>
-                </a>
-
-                <a href="{{ url_for('lista_clientes', filtro='INACTIVO') }}" class="block p-4 bg-gray-50 hover:bg-gray-100 rounded-lg text-center transition-colors">
-                    <p class="text-2xl font-bold text-gray-500">{{ metrics.mapa_clientes.inactivos }}</p>
-                    <p class="text-sm text-gray-600">Inactivos</p>
-                </a>
-            </div>
-        </section>
+        </main>
     </div>
 
     <script>
@@ -137,19 +116,15 @@
                     datasets: [{
                         label: 'Ingresos ($)',
                         data: {{ metrics.ingresos_ultimos_meses.values|tojson }},
-                        borderColor: 'rgb(79, 70, 229)',
-                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        borderColor: 'rgb(14 116 144)', // cyan-700
+                        backgroundColor: 'rgba(14, 116, 144, 0.1)',
                         fill: true,
-                        tension: 0.3
+                        tension: 0.4
                     }]
                 },
                 options: {
                     responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
+                    scales: { y: { beginAtZero: true } }
                 }
             });
 
@@ -163,19 +138,17 @@
                         label: 'Clientes',
                         data: {{ metrics.composicion_clientes.values|tojson }},
                         backgroundColor: [
-                            'rgb(59, 130, 246)',
-                            'rgb(16, 185, 129)',
-                            'rgb(234, 179, 8)',
-                            'rgb(139, 92, 246)',
-                            'rgb(236, 72, 153)',
-                            'rgb(107, 114, 128)'
+                            'rgb(30, 64, 175)',  // blue-800
+                            'rgb(4, 120, 87)',   // emerald-700
+                            'rgb(180, 83, 9)',  // amber-700
+                            'rgb(107, 33, 168)',// purple-800
+                            'rgb(190, 24, 93)', // pink-700
+                            'rgb(75, 85, 99)'   // gray-600
                         ],
-                        hoverOffset: 4
+                        hoverOffset: 8
                     }]
                 },
-                options: {
-                    responsive: true
-                }
+                options: { responsive: true }
             });
         });
     </script>
