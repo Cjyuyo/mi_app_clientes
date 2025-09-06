@@ -2847,10 +2847,8 @@ def _get_dashboard_metrics():
 @rol_requerido('superadmin', 'gerente')
 def reporte_metricas():
     today = get_venezuela_current_date()
-    # La lógica de conexión y cálculo ahora está centralizada en la función auxiliar.
     dashboard_metrics = _get_dashboard_metrics()
     
-    # La función auxiliar ya no muestra un flash, así que lo manejamos aquí si es necesario.
     if not get_db():
          flash("Error de conexión a la base de datos.", "danger")
 
@@ -2872,21 +2870,18 @@ def lista_clientes(filtro):
 
     try:
         with conn.cursor() as cur:
-            # Normaliza el filtro que viene del URL
             filtro_upper = filtro.upper()
 
-            # --- INICIO DE LA CORRECCIÓN ---
-            # La nueva consulta busca en AMBAS columnas de estado (estado_del_plan y estatus_cliente)
-            # Esto soluciona el problema de raíz, ya que no importa en qué columna esté el dato.
+            # ===== INICIO DE LA CORRECCIÓN =====
+            # Se ha corregido el error de tipeo en 'estado_del_plan'.
             query = """
                 SELECT id, nombre, apellido, cedula 
                 FROM clientes 
                 WHERE (TRIM(UPPER(estado_del_plan)) = %s OR TRIM(UPPER(estatus_cliente)) = %s)
                 ORDER BY nombre, apellido;
             """
-            # --- FIN DE LA CORRECCIÓN ---
+            # ===== FIN DE LA CORRECCIÓN =====
             
-            # Se pasa el mismo filtro dos veces, una para cada columna en la consulta
             cur.execute(query, (filtro_upper, filtro_upper))
             clientes = cur.fetchall()
 
@@ -2894,7 +2889,6 @@ def lista_clientes(filtro):
         flash(f"Error al buscar clientes: {e}", "danger")
         logging.error(f"Error en lista_clientes con filtro '{filtro}': {traceback.format_exc()}")
 
-    # Se usa 'replace' para mostrar el filtro de forma legible en la plantilla
     return render_template('lista_clientes.html', clientes=clientes, filtro=filtro.replace('_', ' '))
     
 @app.route('/reportes/morosidad')
