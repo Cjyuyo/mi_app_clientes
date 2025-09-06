@@ -2771,12 +2771,14 @@ def reporte_metricas():
 
     try:
         with conn.cursor() as cur:
+            # --- INICIO DE LA CORRECCIÓN ---
+            # La consulta ahora busca 'COMPLETADO' para la métrica de 'adjudicado'
             cur.execute("""
                 SELECT
                     COUNT(*) AS total_clientes,
-                    COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) IN ('ACTIVO', 'RESERVA', 'CONGELADO') OR TRIM(UPPER(estado_del_plan)) IN ('ADJUDICADO', 'AHORRADOR', 'COBRANZA DIFERIDA', 'INSCRITO', 'CONGELADO', 'RESERVA') THEN 1 END) as dentro_sistema,
+                    COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) IN ('ACTIVO', 'RESERVA', 'CONGELADO') OR TRIM(UPPER(estado_del_plan)) IN ('ADJUDICADO', 'AHORRADOR', 'COBRANZA DIFERIDA', 'INSCRITO', 'CONGELADO', 'RESERVA', 'COMPLETADO') THEN 1 END) as dentro_sistema,
                     COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' THEN 1 END) AS ahorrador,
-                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'ADJUDICADO' THEN 1 END) AS adjudicado,
+                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COMPLETADO' THEN 1 END) AS adjudicado, -- ¡AQUÍ ESTÁ EL CAMBIO!
                     COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COBRANZA DIFERIDA' THEN 1 END) AS cobranza_diferida,
                     COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'INSCRITO' THEN 1 END) AS inscrito,
                     COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'CONGELADO' THEN 1 END) AS estatus_congelado,
@@ -2787,17 +2789,63 @@ def reporte_metricas():
                     COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'INACTIVO' THEN 1 END) AS inactivos
                 FROM clientes
             """)
+            # --- FIN DE LA CORRECCIÓN ---
             mapa_counts_row = cur.fetchone()
             if mapa_counts_row:
                 dashboard_metrics['mapa_clientes'] = dict(mapa_counts_row)
             
-            # (El resto de las consultas para las otras métricas...)
+            first_day_of_month = today.replace(day=1)
+            cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
+            dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
+
+            cur.execute("SELECT COUNT(*) FROM clientes WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(estatus_cliente)) = 'ACTIVO'")
+            total_ahorradores = cur.fetchone()[0]
+
+            if total_ahorradores > 0:
+                cur.execute("""
+                    SELECT COUNT(DISTINCT p.cliente_id) FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
+                    WHERE p.tipo_pago = 'Cuota' AND p.estado_pago = 'Conciliado' 
+                    AND TRIM(UPPER(c.estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(c.estatus_cliente)) = 'ACTIVO' 
+                    AND p.fecha_pago >= %s
+                """, (first_day_of_month,))
+                ahorradores_al_dia = cur.fetchone()[0]
+                clientes_en_mora = total_ahorradores - ahorradores_al_dia
+                dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100
+                
+            # --- Se añaden las consultas restantes para que la función esté completa ---
+            income_labels, income_values = [], []
+            current_date = today
+            for _ in range(6):
+                month_start = current_date.replace(day=1)
+                _, days_in_month = monthrange(current_date.year, current_date.month)
+                month_end = current_date.replace(day=days_in_month)
+                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (month_start, month_end))
+                total = cur.fetchone()[0]
+                income_labels.insert(0, get_nombre_mes(current_date.month))
+                income_values.insert(0, float(total))
+                current_date = month_start - timedelta(days=1)
+            dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
+
+            cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado_plan, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
+            composition_rows = cur.fetchall()
+            client_composition_list = [dict(row) for row in composition_rows] if composition_rows else []
+            comp_labels = [row.get('estado_plan', 'Sin Datos').capitalize() for row in client_composition_list]
+            comp_values = [row.get('total', 0) for row in client_composition_list]
+            dashboard_metrics['composicion_clientes'] = {'labels': comp_labels, 'values': comp_values}
+
+            cur.execute("""
+                SELECT COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS') as condicion, COUNT(*) as total
+                FROM clientes WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO'
+                GROUP BY COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS') ORDER BY total DESC
+            """)
+            resumen_rows = cur.fetchall()
+            dashboard_metrics['resumen_condicion'] = [dict(row) for row in resumen_rows] if resumen_rows else []
 
     except psycopg2.Error as e:
         flash(f"No se pudieron cargar las métricas del dashboard. Contacte a soporte.", "danger")
+        logging.error(f"Error en reporte_metricas: {traceback.format_exc()}")
 
     return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
-
 
 # =================================================================================
 # ===== RUTA DE DIAGNÓSTICO (INTEGRADA) =====
@@ -4005,7 +4053,7 @@ def upload_clientes():
             conn = get_db()
             try:
                 with conn.cursor() as cursor:
-                    # --- Funciones de limpieza de datos ---
+                    # --- Funciones de limpieza de datos (sin cambios) ---
                     def clean_text(val): return str(val).strip() if pd.notna(val) and str(val).strip() != '' else None
                     def to_int_safe(val):
                         if pd.isna(val) or val == '': return 0
@@ -4021,21 +4069,39 @@ def upload_clientes():
                         return dt.date() if pd.notna(dt) else None
 
                     df = pd.read_excel(file, dtype=str).fillna('')
+                    
+                    # --- INICIO DE LA CORRECCIÓN ---
+                    # Limpia los nombres de las columnas del Excel para manejar espacios y 'N⁰'
                     df.columns = [str(col).strip().upper().replace('N⁰', 'NUMERO') for col in df.columns]
 
-                    # Mapeo estandarizado de columnas
+                    # Mapeo EXACTO a los nombres de columna de tu Excel ya limpios
                     column_mapping = {
-                        'NOMBRE Y APELLIDO': 'nombre_completo', 'GRUPO': 'grupo', 'PLAN CONTRATADO': 'plan_contratado',
-                        'MONEDA DE PAGO': 'moneda_pago', 'ASESOR': 'asesor', 'RESPONSABLE': 'responsable',
-                        'NUMERO DE CONTRATO': 'numero_contrato', 'NUMERO DE CEDULA': 'cedula', 'ESTADO DEL PLAN': 'estado_del_plan',
-                        'ESTATUS': 'estatus_cliente', 'FECHA DE INGRESO': 'fecha_ingreso',
-                        'NUMERO DE TELEFONO': 'numero_telefono', '% INSCRIPCION': 'porcentaje_inscripcion',
-                        'INSCRIPCION TOTAL': 'inscripcion_monto', 'SALDO INSCRIPCION': 'saldo_inscripcion', 'CUOTAS TOTALES': 'cuotas_totales',
-                        'CUOTAS PAGAS': 'cuotas_pagadas_progresivas', 'CONDICION': 'condicion_pago',
-                        'PAGOS IMPUNTUALES': 'pagos_impuntuales', 'CUOTAS EN MORA': 'cuotas_mora',
-                        'OBSERVACIÓN': 'observacion', 'VALOR DE CUOTA': 'valor_cuota'
+                        'NOMBRE Y APELLIDO': 'nombre_completo',
+                        'GRUPO': 'grupo',
+                        'PLAN CONTRATADO': 'plan_contratado',
+                        'MONEDA DE PAGO': 'moneda_pago',
+                        'ASESOR': 'asesor',
+                        'RESPONSABLE': 'responsable',
+                        'NUMERO DE CONTRATO': 'numero_contrato',
+                        'NUMERO DE CEDULA': 'cedula',
+                        'ESTADO DEL PLAN': 'estado_del_plan',
+                        'ESTATUS': 'estatus_cliente',
+                        'FECHA DE INGRESO': 'fecha_ingreso',
+                        'NUMERO DE TELEFONO': 'numero_telefono',
+                        'PORCENTAJE DE INSCRIPCION': 'porcentaje_inscripcion',
+                        '% INSCRIPCION': 'porcentaje_inscripcion', # Mapeo alternativo
+                        'INSCRIPCION TOTAL': 'inscripcion_monto',
+                        'SALDO INSCRIPCION': 'saldo_inscripcion',
+                        'CUOTAS TOTALES': 'cuotas_totales',
+                        'CUOTAS PAGAS': 'cuotas_pagadas_progresivas',
+                        'CONDICION': 'condicion_pago',
+                        'PAGOS IMPUNTUALES': 'pagos_impuntuales',
+                        'CUOTAS EN MORA': 'cuotas_mora',
+                        'OBSERVACIÓN': 'observacion',
+                        'VALOR DE CUOTA': 'valor_cuota'
                     }
                     df.rename(columns=column_mapping, inplace=True)
+                    # --- FIN DE LA CORRECCIÓN ---
                     
                     cursor.execute("SELECT cedula, id FROM clientes")
                     existing_clients = {row['cedula']: row['id'] for row in cursor.fetchall()}
@@ -4046,17 +4112,6 @@ def upload_clientes():
                         cedula_clean = clean_text(row.get('cedula'))
                         if not cedula_clean: continue
                         
-                        estado_plan_final = clean_text(row.get('estado_del_plan'))
-                        cuotas_pagadas = to_int_safe(row.get('cuotas_pagadas_progresivas'))
-                        saldo_inscripcion = to_decimal_safe(row.get('saldo_inscripcion', '0.0'))
-                        inscripcion_total = to_decimal_safe(row.get('inscripcion_monto', '0.0'))
-
-                        if saldo_inscripcion is not None and inscripcion_total is not None and inscripcion_total > 0:
-                            if saldo_inscripcion <= 0:
-                                estado_plan_final = 'AHORRADOR' if cuotas_pagadas >= 1 else 'INSCRITO'
-                            else:
-                                estado_plan_final = 'RESERVA'
-                        
                         nombre_completo = clean_text(row.get('nombre_completo'))
                         nombre_parts = nombre_completo.split(' ', 1) if nombre_completo else [None, None]
                         
@@ -4065,11 +4120,11 @@ def upload_clientes():
                             'grupo': clean_text(row.get('grupo')), 'plan_contratado': to_decimal_safe(row.get('plan_contratado')),
                             'moneda_pago': clean_text(row.get('moneda_pago')), 'asesor': clean_text(row.get('asesor')),
                             'responsable': clean_text(row.get('responsable')), 'numero_contrato': clean_text(row.get('numero_contrato')),
-                            'estado_del_plan': estado_plan_final, 'estatus_cliente': clean_text(row.get('estatus_cliente')), 
+                            'estado_del_plan': clean_text(row.get('estado_del_plan')), 'estatus_cliente': clean_text(row.get('estatus_cliente')), 
                             'fecha_ingreso': to_date_safe(row.get('fecha_ingreso')), 'numero_telefono': clean_text(row.get('numero_telefono')), 
                             'porcentaje_inscripcion': to_decimal_safe(row.get('porcentaje_inscripcion')),
-                            'inscripcion_monto': inscripcion_total, 'cuotas_totales': to_int_safe(row.get('cuotas_totales')),
-                            'cuotas_pagadas_progresivas': cuotas_pagadas, 'condicion_pago': clean_text(row.get('condicion_pago')),
+                            'inscripcion_monto': to_decimal_safe(row.get('inscripcion_monto')), 'cuotas_totales': to_int_safe(row.get('cuotas_totales')),
+                            'cuotas_pagadas_progresivas': to_int_safe(row.get('cuotas_pagadas_progresivas')), 'condicion_pago': clean_text(row.get('condicion_pago')),
                             'pagos_impuntuales': to_int_safe(row.get('pagos_impuntuales')), 'cuotas_mora': to_int_safe(row.get('cuotas_mora')),
                             'observacion': clean_text(row.get('observacion')), 'valor_cuota': to_decimal_safe(row.get('valor_cuota')),
                             'es_migrado': True 
@@ -4084,38 +4139,21 @@ def upload_clientes():
                     if records_to_update:
                         update_query = """
                             UPDATE clientes SET
-                                nombre = data.nombre, apellido = data.apellido, grupo = data.grupo, 
-                                plan_contratado = data.plan_contratado::numeric, moneda_pago = data.moneda_pago, 
-                                asesor = data.asesor, responsable = data.responsable, numero_contrato = data.numero_contrato,
-                                estado_del_plan = data.estado_del_plan, estatus_cliente = data.estatus_cliente, 
-                                fecha_ingreso = data.fecha_ingreso::date, numero_telefono = data.numero_telefono, 
-                                porcentaje_inscripcion = data.porcentaje_inscripcion::numeric,
-                                inscripcion_monto = data.inscripcion_monto::numeric, 
-                                cuotas_totales = data.cuotas_totales::integer,
-                                cuotas_pagadas_progresivas = data.cuotas_pagadas_progresivas::integer, 
-                                condicion_pago = data.condicion_pago, pagos_impuntuales = data.pagos_impuntuales::integer, 
-                                cuotas_mora = data.cuotas_mora::integer, observacion = data.observacion, 
-                                valor_cuota = data.valor_cuota::numeric, es_migrado = data.es_migrado::boolean
-                            FROM (VALUES %s) AS data(
-                                id, nombre, apellido, cedula, grupo, plan_contratado, moneda_pago, asesor, responsable,
-                                numero_contrato, estado_del_plan, estatus_cliente, fecha_ingreso, numero_telefono,
-                                porcentaje_inscripcion, inscripcion_monto, cuotas_totales, cuotas_pagadas_progresivas,
-                                condicion_pago, pagos_impuntuales, cuotas_mora, observacion, valor_cuota, es_migrado
-                            )
+                                nombre = data.nombre, apellido = data.apellido, grupo = data.grupo, plan_contratado = data.plan_contratado::numeric, moneda_pago = data.moneda_pago, 
+                                asesor = data.asesor, responsable = data.responsable, numero_contrato = data.numero_contrato, estado_del_plan = data.estado_del_plan, 
+                                estatus_cliente = data.estatus_cliente, fecha_ingreso = data.fecha_ingreso::date, numero_telefono = data.numero_telefono, 
+                                porcentaje_inscripcion = data.porcentaje_inscripcion::numeric, inscripcion_monto = data.inscripcion_monto::numeric, 
+                                cuotas_totales = data.cuotas_totales::integer, cuotas_pagadas_progresivas = data.cuotas_pagadas_progresivas::integer, 
+                                condicion_pago = data.condicion_pago, pagos_impuntuales = data.pagos_impuntuales::integer, cuotas_mora = data.cuotas_mora::integer, 
+                                observacion = data.observacion, valor_cuota = data.valor_cuota::numeric, es_migrado = data.es_migrado::boolean
+                            FROM (VALUES %s) AS data(id, nombre, apellido, cedula, grupo, plan_contratado, moneda_pago, asesor, responsable, numero_contrato, estado_del_plan, estatus_cliente, fecha_ingreso, numero_telefono, porcentaje_inscripcion, inscripcion_monto, cuotas_totales, cuotas_pagadas_progresivas, condicion_pago, pagos_impuntuales, cuotas_mora, observacion, valor_cuota, es_migrado)
                             WHERE clientes.id = data.id::integer;
                         """
-                        update_tuples = [[r.get(col) for col in [
-                            'id', 'nombre', 'apellido', 'cedula', 'grupo', 'plan_contratado', 'moneda_pago', 'asesor', 
-                            'responsable', 'numero_contrato', 'estado_del_plan', 'estatus_cliente', 'fecha_ingreso', 
-                            'numero_telefono', 'porcentaje_inscripcion', 'inscripcion_monto', 'cuotas_totales', 
-                            'cuotas_pagadas_progresivas', 'condicion_pago', 'pagos_impuntuales', 'cuotas_mora', 
-                            'observacion', 'valor_cuota', 'es_migrado'
-                        ]] for r in records_to_update]
-                        
+                        update_tuples = [[r.get(col) for col in ['id', 'nombre', 'apellido', 'cedula', 'grupo', 'plan_contratado', 'moneda_pago', 'asesor', 'responsable', 'numero_contrato', 'estado_del_plan', 'estatus_cliente', 'fecha_ingreso', 'numero_telefono', 'porcentaje_inscripcion', 'inscripcion_monto', 'cuotas_totales', 'cuotas_pagadas_progresivas', 'condicion_pago', 'pagos_impuntuales', 'cuotas_mora', 'observacion', 'valor_cuota', 'es_migrado']] for r in records_to_update]
                         execute_values(cursor, update_query, update_tuples)
 
                     if records_to_insert:
-                        insert_cols = records_to_insert[0].keys()
+                        insert_cols = [k for k in client_data.keys() if k != 'id']
                         insert_query = f"INSERT INTO clientes ({', '.join(insert_cols)}) VALUES %s"
                         insert_tuples = [[rec.get(col) for col in insert_cols] for rec in records_to_insert]
                         execute_values(cursor, insert_query, insert_tuples)
