@@ -114,18 +114,20 @@ def inject_utility_functions():
 
 def get_db():
     if 'db' not in g:
-        DATABASE_URL = os.getenv('DATABASE_URL')
-        if not DATABASE_URL:
-            raise ValueError("FATAL: La variable de entorno DATABASE_URL no está configurada.")
         try:
-            g.db = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
+            g.db = psycopg2.connect(
+                dbname=os.getenv("DB_NAME"),
+                user=os.getenv("DB_USER"),
+                password=os.getenv("DB_PASSWORD"),
+                host=os.getenv("DB_HOST")
+            )
         except psycopg2.OperationalError as e:
-            logging.error(f"Error de conexión a la base de datos: {e}")
+            logging.error(f"Error connecting to the database: {e}")
             g.db = None
     return g.db
 
 @app.teardown_appcontext
-def close_db(exception):
+def close_db(e=None):
     db = g.pop('db', None)
     if db is not None:
         db.close()
@@ -165,9 +167,9 @@ def setup_session_and_user():
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if g.admin is None:
-            flash('Acceso denegado. Debes iniciar sesión como administrador.', 'warning')
-            return redirect(url_for('admin_login'))
+        if 'admin_id' not in session:
+            flash("Debes iniciar sesión para acceder a esta página.", "warning")
+            return redirect(url_for('login_admin'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -175,30 +177,27 @@ def rol_requerido(*roles):
     def wrapper(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            if g.admin is None or g.admin['rol'] not in roles:
-                flash('No tienes los permisos necesarios para acceder a esta página.', 'danger')
-                return redirect(url_for('hub'))
+            if 'admin_rol' not in session or session['admin_rol'] not in roles:
+                flash("No tienes los permisos necesarios para acceder a esta función.", "danger")
+                return redirect(url_for('home'))
             return f(*args, **kwargs)
-        return decorated_function
+        return wrapper
     return wrapper
-
-def portal_login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'cliente_id' not in session:
-            flash('Por favor, inicia sesión para acceder a tu portal.', 'warning')
-            return redirect(url_for('portal_login'))
-        return f(*args, **kwargs)
-    return decorated_function
-
-def contador_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if g.contador is None:
-            flash('Acceso denegado. Debes iniciar sesión en el portal de contabilidad.', 'warning')
-            return redirect(url_for('portal_contabilidad_login'))
-        return f(*args, **kwargs)
-    return decorated_function
+    
+@app.before_request
+def load_logged_in_user():
+    admin_id = session.get('admin_id')
+    if admin_id is None:
+        g.admin = None
+    else:
+        conn = get_db()
+        if conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            cur.execute("SELECT * FROM administradores WHERE id = %s", (admin_id,))
+            g.admin = cur.fetchone()
+            cur.close()
+        else:
+            g.admin = None
     
 # =================================================================================
 # ===== INICIO: NUEVAS RUTAS DEL PORTAL DE CONTABILIDAD (FASE 1) =====
@@ -2770,15 +2769,13 @@ def reporte_metricas():
         return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
 
     try:
-        with conn.cursor() as cur:
-            # --- INICIO DE LA CORRECCIÓN ---
-            # La consulta ahora busca 'COMPLETADO' para la métrica de 'adjudicado'
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("""
                 SELECT
                     COUNT(*) AS total_clientes,
                     COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) IN ('ACTIVO', 'RESERVA', 'CONGELADO') OR TRIM(UPPER(estado_del_plan)) IN ('ADJUDICADO', 'AHORRADOR', 'COBRANZA DIFERIDA', 'INSCRITO', 'CONGELADO', 'RESERVA', 'COMPLETADO') THEN 1 END) as dentro_sistema,
                     COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' THEN 1 END) AS ahorrador,
-                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COMPLETADO' THEN 1 END) AS adjudicado, -- ¡AQUÍ ESTÁ EL CAMBIO!
+                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COMPLETADO' THEN 1 END) AS adjudicado,
                     COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COBRANZA DIFERIDA' THEN 1 END) AS cobranza_diferida,
                     COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'INSCRITO' THEN 1 END) AS inscrito,
                     COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'CONGELADO' THEN 1 END) AS estatus_congelado,
@@ -2789,7 +2786,6 @@ def reporte_metricas():
                     COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'INACTIVO' THEN 1 END) AS inactivos
                 FROM clientes
             """)
-            # --- FIN DE LA CORRECCIÓN ---
             mapa_counts_row = cur.fetchone()
             if mapa_counts_row:
                 dashboard_metrics['mapa_clientes'] = dict(mapa_counts_row)
@@ -2808,11 +2804,11 @@ def reporte_metricas():
                     AND TRIM(UPPER(c.estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(c.estatus_cliente)) = 'ACTIVO' 
                     AND p.fecha_pago >= %s
                 """, (first_day_of_month,))
-                ahorradores_al_dia = cur.fetchone()[0]
+                ahorradores_al_dia_row = cur.fetchone()
+                ahorradores_al_dia = ahorradores_al_dia_row[0] if ahorradores_al_dia_row else 0
                 clientes_en_mora = total_ahorradores - ahorradores_al_dia
-                dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100
+                dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100 if total_ahorradores > 0 else 0
                 
-            # --- Se añaden las consultas restantes para que la función esté completa ---
             income_labels, income_values = [], []
             current_date = today
             for _ in range(6):
@@ -2820,7 +2816,8 @@ def reporte_metricas():
                 _, days_in_month = monthrange(current_date.year, current_date.month)
                 month_end = current_date.replace(day=days_in_month)
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (month_start, month_end))
-                total = cur.fetchone()[0]
+                total_row = cur.fetchone()
+                total = total_row[0] if total_row else Decimal('0.0')
                 income_labels.insert(0, get_nombre_mes(current_date.month))
                 income_values.insert(0, float(total))
                 current_date = month_start - timedelta(days=1)
@@ -2846,61 +2843,6 @@ def reporte_metricas():
         logging.error(f"Error en reporte_metricas: {traceback.format_exc()}")
 
     return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
-
-# =================================================================================
-# ===== RUTA DE DIAGNÓSTICO (INTEGRADA) =====
-# =================================================================================
-
-@app.route('/debug/revisar_estados')
-@admin_required
-def revisar_estados_db():
-    conn = get_db()
-    if not conn:
-        return "<h1>Error de conexión a la base de datos.</h1>"
-    
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT estado_del_plan, COUNT(*) as total FROM clientes GROUP BY estado_del_plan ORDER BY total DESC;")
-            resultados_plan = cur.fetchall()
-
-            cur.execute("SELECT estatus_cliente, COUNT(*) as total FROM clientes GROUP BY estatus_cliente ORDER BY total DESC;")
-            resultados_estatus = cur.fetchall()
-
-            html = """
-            <html><head><title>Diagnóstico de Estados</title></head>
-            <body style='font-family: sans-serif; padding: 20px;'>
-                <h2>Diagnóstico de la Base de Datos</h2>
-                <p>Esta página lee directamente de la base de datos para mostrar exactamente qué datos existen.</p>
-                
-                <h3>Conteo por 'estado_del_plan'</h3>
-                <table border='1' cellpadding='5' cellspacing='0' style='border-collapse: collapse; width: 400px;'>
-                    <tr style='background-color: #f2f2f2;'><th>Valor en la Base de Datos</th><th>Total de Clientes</th></tr>
-            """
-            if resultados_plan:
-                for row in resultados_plan:
-                    estado = row['estado_del_plan'] if row['estado_del_plan'] else '<i>NULO (vacío)</i>'
-                    html += f"<tr><td>{estado}</td><td>{row['total']}</td></tr>"
-            else:
-                html += "<tr><td colspan='2'>No se encontraron datos en esta columna.</td></tr>"
-            html += "</table>"
-
-            html += "<h3 style='margin-top: 30px;'>Conteo por 'estatus_cliente'</h3>"
-            html += """
-                <table border='1' cellpadding='5' cellspacing='0' style='border-collapse: collapse; width: 400px;'>
-                    <tr style='background-color: #f2f2f2;'><th>Valor en la Base de Datos</th><th>Total de Clientes</th></tr>
-            """
-            if resultados_estatus:
-                for row in resultados_estatus:
-                    estatus = row['estatus_cliente'] if row['estatus_cliente'] else '<i>NULO (vacío)</i>'
-                    html += f"<tr><td>{estatus}</td><td>{row['total']}</td></tr>"
-            else:
-                html += "<tr><td colspan='2'>No se encontraron datos en esta columna.</td></tr>"
-            html += "</table></body></html>"
-            
-            return html
-
-    except psycopg2.Error as e:
-        return f"<h1>Error al consultar la base de datos</h1><p>El servidor encontró un problema al intentar leer los datos: {e}</p>"
 
 @app.route('/lista_clientes/<string:filtro>')
 @admin_required
@@ -4033,143 +3975,91 @@ def consulta():
                            busqueda=termino_busqueda, 
                            admin_rol=g.admin['rol'])
 
-# COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
 # --- REEMPLAZA TU FUNCIÓN ACTUAL CON ESTA VERSIÓN CORREGIDA ---
-# COPIA Y REEMPLAZA ESTA FUNCIÓN COMPLETA EN TU ARCHIVO app.py
 @app.route('/upload_clientes', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def upload_clientes():
     if request.method == 'POST':
-        if 'archivo_excel' not in request.files:
-            flash('No se encontró el archivo en la solicitud.', 'error')
-            return redirect(url_for('upload_clientes'))
-        file = request.files['archivo_excel']
-        if file.filename == '':
-            flash('No se seleccionó ningún archivo.', 'error')
-            return redirect(url_for('upload_clientes'))
+        archivo = request.files.get('archivo_excel')
+        if not archivo or archivo.filename == '':
+            flash('No se seleccionó ningún archivo.', 'warning')
+            return redirect(request.url)
 
-        if file and (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
-            conn = get_db()
-            try:
-                with conn.cursor() as cursor:
-                    # --- Funciones de limpieza de datos (sin cambios) ---
-                    def clean_text(val): return str(val).strip() if pd.notna(val) and str(val).strip() != '' else None
-                    def to_int_safe(val):
-                        if pd.isna(val) or val == '': return 0
-                        try: return int(float(val))
-                        except (ValueError, TypeError): return 0
-                    def to_decimal_safe(val):
-                        if pd.isna(val) or val == '' or str(val).isspace(): return None
-                        try: return Decimal(str(val).replace(',', '.'))
-                        except (ValueError, TypeError, InvalidOperation): return None
-                    def to_date_safe(date_val):
-                        if pd.isna(date_val) or date_val == '': return None
-                        dt = pd.to_datetime(date_val, errors='coerce', dayfirst=True)
-                        return dt.date() if pd.notna(dt) else None
+        if not (archivo.filename.endswith('.xlsx') or archivo.filename.endswith('.xls')):
+            flash('Formato de archivo no válido. Por favor, sube un archivo Excel (.xlsx o .xls).', 'danger')
+            return redirect(request.url)
 
-                    df = pd.read_excel(file, dtype=str).fillna('')
-                    
-                    # --- INICIO DE LA CORRECCIÓN ---
-                    # Limpia los nombres de las columnas del Excel para manejar espacios y 'N⁰'
-                    df.columns = [str(col).strip().upper().replace('N⁰', 'NUMERO') for col in df.columns]
+        conn = get_db()
+        if not conn:
+            flash("Error de conexión a la base de datos.", "danger")
+            return redirect(request.url)
 
-                    # Mapeo EXACTO a los nombres de columna de tu Excel ya limpios
-                    column_mapping = {
-                        'NOMBRE Y APELLIDO': 'nombre_completo',
-                        'GRUPO': 'grupo',
-                        'PLAN CONTRATADO': 'plan_contratado',
-                        'MONEDA DE PAGO': 'moneda_pago',
-                        'ASESOR': 'asesor',
-                        'RESPONSABLE': 'responsable',
-                        'NUMERO DE CONTRATO': 'numero_contrato',
-                        'NUMERO DE CEDULA': 'cedula',
-                        'ESTADO DEL PLAN': 'estado_del_plan',
-                        'ESTATUS': 'estatus_cliente',
-                        'FECHA DE INGRESO': 'fecha_ingreso',
-                        'NUMERO DE TELEFONO': 'numero_telefono',
-                        'PORCENTAJE DE INSCRIPCION': 'porcentaje_inscripcion',
-                        '% INSCRIPCION': 'porcentaje_inscripcion', # Mapeo alternativo
-                        'INSCRIPCION TOTAL': 'inscripcion_monto',
-                        'SALDO INSCRIPCION': 'saldo_inscripcion',
-                        'CUOTAS TOTALES': 'cuotas_totales',
-                        'CUOTAS PAGAS': 'cuotas_pagadas_progresivas',
-                        'CONDICION': 'condicion_pago',
-                        'PAGOS IMPUNTUALES': 'pagos_impuntuales',
-                        'CUOTAS EN MORA': 'cuotas_mora',
-                        'OBSERVACIÓN': 'observacion',
-                        'VALOR DE CUOTA': 'valor_cuota'
-                    }
-                    df.rename(columns=column_mapping, inplace=True)
-                    # --- FIN DE LA CORRECCIÓN ---
-                    
-                    cursor.execute("SELECT cedula, id FROM clientes")
-                    existing_clients = {row['cedula']: row['id'] for row in cursor.fetchall()}
-                    
-                    records_to_update, records_to_insert = [], []
+        try:
+            df = pd.read_excel(archivo, engine='openpyxl', dtype=str)
+            df.columns = [str(c).strip().upper() for c in df.columns]
 
-                    for index, row in df.iterrows():
-                        cedula_clean = clean_text(row.get('cedula'))
-                        if not cedula_clean: continue
-                        
-                        nombre_completo = clean_text(row.get('nombre_completo'))
-                        nombre_parts = nombre_completo.split(' ', 1) if nombre_completo else [None, None]
-                        
-                        client_data = {
-                            'nombre': nombre_parts[0], 'apellido': nombre_parts[1] if len(nombre_parts) > 1 else '', 'cedula': cedula_clean,
-                            'grupo': clean_text(row.get('grupo')), 'plan_contratado': to_decimal_safe(row.get('plan_contratado')),
-                            'moneda_pago': clean_text(row.get('moneda_pago')), 'asesor': clean_text(row.get('asesor')),
-                            'responsable': clean_text(row.get('responsable')), 'numero_contrato': clean_text(row.get('numero_contrato')),
-                            'estado_del_plan': clean_text(row.get('estado_del_plan')), 'estatus_cliente': clean_text(row.get('estatus_cliente')), 
-                            'fecha_ingreso': to_date_safe(row.get('fecha_ingreso')), 'numero_telefono': clean_text(row.get('numero_telefono')), 
-                            'porcentaje_inscripcion': to_decimal_safe(row.get('porcentaje_inscripcion')),
-                            'inscripcion_monto': to_decimal_safe(row.get('inscripcion_monto')), 'cuotas_totales': to_int_safe(row.get('cuotas_totales')),
-                            'cuotas_pagadas_progresivas': to_int_safe(row.get('cuotas_pagadas_progresivas')), 'condicion_pago': clean_text(row.get('condicion_pago')),
-                            'pagos_impuntuales': to_int_safe(row.get('pagos_impuntuales')), 'cuotas_mora': to_int_safe(row.get('cuotas_mora')),
-                            'observacion': clean_text(row.get('observacion')), 'valor_cuota': to_decimal_safe(row.get('valor_cuota')),
-                            'es_migrado': True 
-                        }
+            column_map = {
+                'NUMERO DE CONTRATO': 'numero_contrato', 'N⁰ CONTRATO': 'numero_contrato', 'N° CONTRATO': 'numero_contrato',
+                'NUMERO DE CEDULA': 'cedula', 'N⁰ CEDULA': 'cedula', 'N° CEDULA': 'cedula', 'CEDULA': 'cedula',
+                'NOMBRE Y APELLIDO': 'nombre_completo',
+                'ESTADO DEL PLAN': 'estado_del_plan',
+                'ESTATUS': 'estatus_cliente', 'ESTATUS CLIENTE': 'estatus_cliente'
+            }
+            df.rename(columns=column_map, inplace=True)
 
-                        if cedula_clean in existing_clients:
-                            client_data['id'] = existing_clients[cedula_clean]
-                            records_to_update.append(client_data)
-                        else:
-                            records_to_insert.append(client_data)
-                    
-                    if records_to_update:
-                        update_query = """
-                            UPDATE clientes SET
-                                nombre = data.nombre, apellido = data.apellido, grupo = data.grupo, plan_contratado = data.plan_contratado::numeric, moneda_pago = data.moneda_pago, 
-                                asesor = data.asesor, responsable = data.responsable, numero_contrato = data.numero_contrato, estado_del_plan = data.estado_del_plan, 
-                                estatus_cliente = data.estatus_cliente, fecha_ingreso = data.fecha_ingreso::date, numero_telefono = data.numero_telefono, 
-                                porcentaje_inscripcion = data.porcentaje_inscripcion::numeric, inscripcion_monto = data.inscripcion_monto::numeric, 
-                                cuotas_totales = data.cuotas_totales::integer, cuotas_pagadas_progresivas = data.cuotas_pagadas_progresivas::integer, 
-                                condicion_pago = data.condicion_pago, pagos_impuntuales = data.pagos_impuntuales::integer, cuotas_mora = data.cuotas_mora::integer, 
-                                observacion = data.observacion, valor_cuota = data.valor_cuota::numeric, es_migrado = data.es_migrado::boolean
-                            FROM (VALUES %s) AS data(id, nombre, apellido, cedula, grupo, plan_contratado, moneda_pago, asesor, responsable, numero_contrato, estado_del_plan, estatus_cliente, fecha_ingreso, numero_telefono, porcentaje_inscripcion, inscripcion_monto, cuotas_totales, cuotas_pagadas_progresivas, condicion_pago, pagos_impuntuales, cuotas_mora, observacion, valor_cuota, es_migrado)
-                            WHERE clientes.id = data.id::integer;
-                        """
-                        update_tuples = [[r.get(col) for col in ['id', 'nombre', 'apellido', 'cedula', 'grupo', 'plan_contratado', 'moneda_pago', 'asesor', 'responsable', 'numero_contrato', 'estado_del_plan', 'estatus_cliente', 'fecha_ingreso', 'numero_telefono', 'porcentaje_inscripcion', 'inscripcion_monto', 'cuotas_totales', 'cuotas_pagadas_progresivas', 'condicion_pago', 'pagos_impuntuales', 'cuotas_mora', 'observacion', 'valor_cuota', 'es_migrado']] for r in records_to_update]
-                        execute_values(cursor, update_query, update_tuples)
+            cedulas_en_archivo = [c for c in df['cedula'].dropna().unique() if c]
+            if not cedulas_en_archivo:
+                flash("La columna de cédula es necesaria y no se encontró o está vacía.", "warning")
+                return redirect(request.url)
 
-                    if records_to_insert:
-                        insert_cols = [k for k in client_data.keys() if k != 'id']
-                        insert_query = f"INSERT INTO clientes ({', '.join(insert_cols)}) VALUES %s"
-                        insert_tuples = [[rec.get(col) for col in insert_cols] for rec in records_to_insert]
-                        execute_values(cursor, insert_query, insert_tuples)
-
-                    conn.commit()
-                    flash_msg = f'¡Proceso completado! Se actualizaron {len(records_to_update)} clientes y se crearon {len(records_to_insert)} nuevos clientes.', 'success'
-                    flash(flash_msg)
-
-            except Exception as e:
-                if conn: conn.rollback()
-                flash(f'Ocurrió un error al procesar el archivo: {traceback.format_exc()}', 'error')
+            cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            cur.execute("SELECT id, cedula FROM clientes WHERE cedula = ANY(%s)", (cedulas_en_archivo,))
+            clientes_existentes = {row['cedula']: row['id'] for row in cur.fetchall()}
             
-            return redirect(url_for('upload_clientes'))
-        else:
-            flash('Formato de archivo no válido. Debe ser .xlsx o .xls.', 'error')
-            return redirect(url_for('upload_clientes'))
+            updates = 0
+            inserts = 0
+
+            for _, row in df.iterrows():
+                cedula = row.get('cedula')
+                if not cedula: continue
+
+                nombre_completo = row.get('nombre_completo', '')
+                partes = nombre_completo.split()
+                nombre = partes[0] if partes else ''
+                apellido = ' '.join(partes[1:]) if len(partes) > 1 else ''
+
+                data = {
+                    'cedula': cedula, 'nombre': nombre, 'apellido': apellido,
+                    'estado_del_plan': row.get('estado_del_plan'),
+                    'estatus_cliente': row.get('estatus_cliente'),
+                    'numero_contrato': row.get('numero_contrato')
+                }
+                data = {k: v for k, v in data.items() if pd.notna(v) and v}
+
+                if not data: continue
+
+                if cedula in clientes_existentes:
+                    fields = ", ".join([f"{k} = %s" for k in data])
+                    values = list(data.values()) + [cedula]
+                    cur.execute(f"UPDATE clientes SET {fields} WHERE cedula = %s", tuple(values))
+                    updates += 1
+                else:
+                    cols = ", ".join(data.keys())
+                    placeholders = ", ".join(["%s"] * len(data))
+                    cur.execute(f"INSERT INTO clientes ({cols}) VALUES ({placeholders})", list(data.values()))
+                    inserts += 1
+            
+            conn.commit()
+            cur.close()
+            flash(f"Carga completada: {inserts} clientes creados, {updates} actualizados.", "success")
+
+        except Exception as e:
+            conn.rollback()
+            flash(f"Error crítico al procesar el archivo: {e}", "danger")
+            logging.error(f"Error en upload_clientes: {traceback.format_exc()}")
+        
+        return redirect(url_for('upload_clientes'))
 
     return render_template('upload_clientes.html')
 
