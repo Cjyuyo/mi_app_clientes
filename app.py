@@ -264,11 +264,6 @@ def portal_contabilidad_logout():
     flash('Has cerrado la sesión del portal de contabilidad.', 'info')
     return redirect(url_for('portal_contabilidad_login'))
 
-@app.route('/portal/contabilidad/hub')
-@contador_required
-def portal_contabilidad_hub():
-    return render_template('contabilidad_hub.html')
-
 @app.route('/portal/contabilidad/peticiones', methods=['GET', 'POST'])
 @contador_required
 def portal_contabilidad_peticiones():
