@@ -2818,8 +2818,13 @@ def reporte_metricas():
                 total_row = cur.fetchone()
                 total = total_row[0] if total_row else Decimal('0.0')
                 income_labels.insert(0, get_nombre_mes(current_date.month))
-                income_values.insert(0, float(total))
+
+                # ===== LÍNEA CORREGIDA =====
+                # Se ejecuta el método normalize() y se convierte el resultado a float
+                income_values.insert(0, float(total.normalize()))
+                
                 current_date = month_start - timedelta(days=1)
+            
             dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
 
             cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado_plan, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
