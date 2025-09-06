@@ -921,51 +921,27 @@ def admin_logout():
 
 @app.route('/portal/login', methods=['GET', 'POST'])
 def portal_login():
-    """
-    Gestiona el inicio de sesión para los clientes en su portal.
-    Verifica la cédula y el número de contrato contra la base de datos.
-    """
-    if g.cliente: 
-        return redirect(url_for('portal_dashboard'))
-        
+    if g.cliente: return redirect(url_for('portal_dashboard'))
     if request.method == 'POST':
-        # Limpia y prepara los datos de entrada del formulario
         cedula = request.form.get('cedula', '').strip().replace('V-', '').replace('v-', '')
         contrato_nro = request.form.get('contrato_nro', '').strip().upper().replace('MP-', '')
-        
         conn = get_db()
         if not conn:
             flash('Error de conexión. Intente más tarde.', 'error')
             return render_template('portal_login.html', anio_actual=g.anio_actual)
-            
-        try:
-            with conn.cursor() as cur:
-                # Busca al cliente que coincida con la cédula y el contrato
-                cur.execute("""
-                    SELECT id, (nombre || ' ' || apellido) as nombre_apellido 
-                    FROM clientes 
-                    WHERE TRIM(cedula) = %s AND REPLACE(TRIM(UPPER(numero_contrato)), 'MP-', '') = %s;
-                """, (cedula, contrato_nro))
-                cliente = cur.fetchone()
-            
-            if cliente:
-                # Si el cliente existe, limpia la sesión anterior y crea una nueva
-                session.clear()
-                session['cliente_id'] = cliente['id']
-                session['cliente_nombre'] = cliente['nombre_apellido']
-                return redirect(url_for('portal_dashboard'))
-            else:
-                flash('Credenciales incorrectas.', 'error')
-        except Exception as e:
-            flash(f'Ocurrió un error: {e}', 'danger')
-
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE TRIM(cedula) = %s AND REPLACE(TRIM(UPPER(numero_contrato)), 'MP-', '') = %s;", (cedula, contrato_nro))
+            cliente = cur.fetchone()
+        if cliente:
+            session.clear()
+            session['cliente_id'], session['cliente_nombre'] = cliente['id'], cliente['nombre_apellido']
+            return redirect(url_for('portal_dashboard'))
+        else:
+            flash('Credenciales incorrectas.', 'error')
     return render_template('portal_login.html', anio_actual=g.anio_actual)
 
 @app.route('/portal/logout')
 def portal_logout():
-    """
-    Cierra la sesión del cliente y lo redirige a la página de login del portal.
-    """
     session.clear()
     flash('Has cerrado sesión exitosamente.', 'success')
     return redirect(url_for('portal_login'))
@@ -2753,7 +2729,8 @@ def mi_cartera():
     if conn and g.admin:
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT id, nombre, apellido, cedula, telefono, proceso FROM clientes WHERE gestor_id = %s ORDER BY nombre, apellido;", (g.admin['id'],))
+                # CORRECCIÓN: Se usa 'estado_del_plan' en lugar de 'proceso' para consistencia
+                cur.execute("SELECT id, nombre, apellido, cedula, telefono, estado_del_plan FROM clientes WHERE gestor_id = %s ORDER BY nombre, apellido;", (g.admin['id'],))
                 clientes_asignados = cur.fetchall()
         except psycopg2.Error as e:
             flash(f"No se pudo cargar tu cartera de clientes: {e}", "error")
@@ -2778,19 +2755,20 @@ def reporte_metricas():
         return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            # CORRECCIÓN: Se diferencia correctamente entre ADJUDICADO y COMPLETADO
             cur.execute("""
                 SELECT
                     COUNT(*) AS total_clientes,
                     COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) IN ('ACTIVO', 'RESERVA', 'CONGELADO') OR TRIM(UPPER(estado_del_plan)) IN ('ADJUDICADO', 'AHORRADOR', 'COBRANZA DIFERIDA', 'INSCRITO', 'CONGELADO', 'RESERVA', 'COMPLETADO') THEN 1 END) as dentro_sistema,
                     COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' THEN 1 END) AS ahorrador,
-                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COMPLETADO' THEN 1 END) AS adjudicado,
+                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'ADJUDICADO' THEN 1 END) AS adjudicado,
+                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COMPLETADO' THEN 1 END) AS completado,
                     COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COBRANZA DIFERIDA' THEN 1 END) AS cobranza_diferida,
                     COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'INSCRITO' THEN 1 END) AS inscrito,
                     COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'CONGELADO' THEN 1 END) AS estatus_congelado,
                     COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'CONGELADO' THEN 1 END) as plan_congelado,
                     COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'RESERVA' THEN 1 END) AS reserva,
                     COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'RETIRO' THEN 1 END) AS retirados,
-                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COMPLETADO' THEN 1 END) AS completado,
                     COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'INACTIVO' THEN 1 END) AS inactivos
                 FROM clientes
             """)
@@ -2911,12 +2889,13 @@ def reporte_morosidad():
                 
                 first_day_of_month = today.replace(day=1)
                 
+                # CORRECCIÓN: Se usan las columnas estandarizadas 'estado_del_plan' y 'estatus_cliente'
                 query_morosos = """
                     SELECT c.id, c.nombre, c.apellido, c.cedula, c.telefono, c.valor_cuota, c.gestor_id,
                            a.usuario as gestor_asignado,
                            (SELECT MAX(p.fecha_pago) FROM pagos p WHERE p.cliente_id = c.id AND p.estado_pago = 'Conciliado') as ultimo_pago_fecha
                     FROM clientes c LEFT JOIN administradores a ON c.gestor_id = a.id
-                    WHERE TRIM(UPPER(c.proceso)) = 'AHORRADOR' AND TRIM(UPPER(c.estatus)) = 'ACTIVO'
+                    WHERE TRIM(UPPER(c.estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(c.estatus_cliente)) = 'ACTIVO'
                     AND c.id NOT IN (SELECT DISTINCT cliente_id FROM pagos WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s) 
                     ORDER BY c.nombre, c.apellido;
                 """
@@ -4095,7 +4074,7 @@ def upload_clientes():
         return redirect(url_for('upload_clientes'))
 
     return render_template('upload_clientes.html')
-    
+
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 @admin_required
 def registrar_pago(client_id):
