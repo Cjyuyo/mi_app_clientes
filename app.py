@@ -143,35 +143,23 @@ def setup_session_and_user():
     g.contador = None
     g.anio_actual = get_venezuela_current_date().year
     
-    admin_id = session.get('admin_id')
-    cliente_id = session.get('cliente_id')
-    contador_id = session.get('contador_id')
-
     db = get_db()
     if db:
         with db.cursor() as cur:
+            admin_id = session.get('admin_id')
             if admin_id:
                 cur.execute("SELECT id, usuario, rol FROM administradores WHERE id = %s", (admin_id,))
                 g.admin = cur.fetchone()
-            elif cliente_id:
-                cur.execute("SELECT id, nombre, apellido, estatus FROM clientes WHERE id = %s", (cliente_id,))
+            
+            cliente_id = session.get('cliente_id')
+            if cliente_id:
+                cur.execute("SELECT id, nombre, apellido, estatus_cliente FROM clientes WHERE id = %s", (cliente_id,))
                 g.cliente = cur.fetchone()
-            elif contador_id:
+
+            contador_id = session.get('contador_id')
+            if contador_id:
                 cur.execute("SELECT id, usuario, nombre_completo FROM contadores WHERE id = %s", (contador_id,))
                 g.contador = cur.fetchone()
-
-@app.before_request
-def setup_session_and_user():
-    session.permanent = True
-    app.permanent_session_lifetime = timedelta(minutes=60)
-    g.admin = None
-    db = get_db()
-    if db:
-        admin_id = session.get('admin_id')
-        if admin_id:
-            with db.cursor() as cur:
-                cur.execute("SELECT id, usuario, rol FROM administradores WHERE id = %s", (admin_id,))
-                g.admin = cur.fetchone()
 
 def admin_required(f):
     @wraps(f)
@@ -188,12 +176,11 @@ def rol_requerido(*roles):
         def decorated_function(*args, **kwargs):
             if g.admin is None or g.admin['rol'] not in roles:
                 flash('No tienes los permisos necesarios para acceder a esta página.', 'danger')
-                return redirect(url_for('hub')) # Asumiendo que 'hub' es tu página principal de admin
+                return redirect(url_for('hub'))
             return f(*args, **kwargs)
         return decorated_function
     return wrapper
     
-
 # =================================================================================
 # ===== INICIO: NUEVAS RUTAS DEL PORTAL DE CONTABILIDAD (FASE 1) =====
 # =================================================================================
