@@ -47,7 +47,10 @@ def get_venezuela_current_date():
     return get_venezuela_current_datetime().date()
 
 def get_nombre_mes(month_number):
-    meses = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
+    meses = {
+        1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
+        7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+    }
     return meses.get(month_number, "")
 
 # =================================================================================
@@ -55,7 +58,6 @@ def get_nombre_mes(month_number):
 # =================================================================================
 
 def format_decimal_smart(value):
-    """Filtro de Jinja para formatear un número decimal con alta precisión."""
     if value is None: return ''
     try:
         d = Decimal(value)
@@ -64,7 +66,6 @@ def format_decimal_smart(value):
         return str(value)
 
 def time_ago(time_value):
-    """Convierte un datetime a un formato legible 'hace X tiempo'."""
     if not time_value: return "Nunca"
     now = datetime.now(pytz.utc)
     if time_value.tzinfo is None:
@@ -84,7 +85,6 @@ app.jinja_env.filters['format_decimal'] = format_decimal_smart
 app.jinja_env.filters['time_ago'] = time_ago
 
 def get_proximo_dia_habil(fecha):
-    """Calcula el próximo día hábil a partir de una fecha dada."""
     proximo_dia = fecha + timedelta(days=1)
     while proximo_dia.weekday() >= 5:
         proximo_dia += timedelta(days=1)
@@ -92,20 +92,18 @@ def get_proximo_dia_habil(fecha):
 
 @app.template_filter('format_datetime')
 def format_datetime_filter(value, format='%d/%m/%Y %I:%M %p'):
+    if value and isinstance(value, (datetime, date)):
+        return value.strftime(format)
     return value
-
-def get_nombre_mes(month_number):
-    """Convierte el número de un mes a su nombre en español."""
-    meses = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
-    return meses.get(month_number, "")
 
 @app.template_filter('format_date')
 def format_date_filter(value, format='%d/%m/%Y'):
+    if value and isinstance(value, (datetime, date)):
+        return value.strftime(format)
     return value
 
 @app.context_processor
 def inject_utility_functions():
-    """Hace que ciertas funciones de Python estén disponibles en todas las plantillas Jinja."""
     return dict(get_venezuela_current_date=get_venezuela_current_date)
 
 # =================================================================================
@@ -119,7 +117,8 @@ def get_db():
                 dbname=os.getenv("DB_NAME"),
                 user=os.getenv("DB_USER"),
                 password=os.getenv("DB_PASSWORD"),
-                host=os.getenv("DB_HOST")
+                host=os.getenv("DB_HOST"),
+                cursor_factory=psycopg2.extras.DictCursor
             )
         except psycopg2.OperationalError as e:
             logging.error(f"Error connecting to the database: {e}")
@@ -144,32 +143,31 @@ def setup_session_and_user():
     g.cliente = None
     g.contador = None
     g.anio_actual = get_venezuela_current_date().year
-    
+
     db = get_db()
     if db:
         with db.cursor() as cur:
             admin_id = session.get('admin_id')
             if admin_id:
-                cur.execute("SELECT id, usuario, rol FROM administradores WHERE id = %s", (admin_id,))
+                cur.execute("SELECT * FROM administradores WHERE id = %s", (admin_id,))
                 g.admin = cur.fetchone()
-            
+
             cliente_id = session.get('cliente_id')
             if cliente_id:
-                cur.execute("SELECT id, nombre, apellido, estatus_cliente FROM clientes WHERE id = %s", (cliente_id,))
+                cur.execute("SELECT * FROM clientes WHERE id = %s", (cliente_id,))
                 g.cliente = cur.fetchone()
 
             contador_id = session.get('contador_id')
             if contador_id:
-                cur.execute("SELECT id, usuario, nombre_completo FROM contadores WHERE id = %s", (contador_id,))
+                cur.execute("SELECT * FROM contadores WHERE id = %s", (contador_id,))
                 g.contador = cur.fetchone()
-
 
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'admin_id' not in session:
             flash("Debes iniciar sesión para acceder a esta página.", "warning")
-            return redirect(url_for('login_admin'))
+            return redirect(url_for('admin_login'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -177,12 +175,15 @@ def rol_requerido(*roles):
     def wrapper(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            if 'admin_rol' not in session or session['admin_rol'] not in roles:
+            admin_rol = session.get('admin_rol') or (g.admin['rol'] if g.admin else None)
+            if not admin_rol or admin_rol not in roles:
                 flash("No tienes los permisos necesarios para acceder a esta función.", "danger")
                 return redirect(url_for('home'))
             return f(*args, **kwargs)
         return wrapper
-    
+    return wrapper
+
+# ===== INICIO: DECORADORES FALTANTES =====
 def contador_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -192,21 +193,15 @@ def contador_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-@app.before_request
-def load_logged_in_user():
-    admin_id = session.get('admin_id')
-    if admin_id is None:
-        g.admin = None
-    else:
-        conn = get_db()
-        if conn:
-            cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            cur.execute("SELECT * FROM administradores WHERE id = %s", (admin_id,))
-            g.admin = cur.fetchone()
-            cur.close()
-        else:
-            g.admin = None
-    
+def portal_login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'cliente_id' not in session:
+            flash("Debes iniciar sesión para acceder a tu portal.", "warning")
+            return redirect(url_for('portal_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+# ===== FIN: DECORADORES FALTANTES =====
 # =================================================================================
 # ===== INICIO: NUEVAS RUTAS DEL PORTAL DE CONTABILIDAD (FASE 1) =====
 # =================================================================================
@@ -216,48 +211,41 @@ def load_logged_in_user():
 def portal_contabilidad_login():
     if g.contador:
         return redirect(url_for('portal_contabilidad_hub'))
-    
+
     if request.method == 'POST':
         usuario = request.form.get('usuario', '').strip()
         password = request.form.get('password', '')
-
-        # --- INICIO: LOGS DE DIAGNÓSTICO ---
-        logging.info(f"Intento de login para usuario: '{usuario}'")
-        logging.info(f"Contraseña recibida: {'*' * len(password) if password else 'NINGUNA'}")
-        # --- FIN: LOGS DE DIAGNÓSTICO ---
-
         conn = get_db()
-
         if not conn:
             flash('Error de conexión con la base de datos.', 'danger')
             return render_template('contabilidad_login.html')
-
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM contadores WHERE lower(usuario) = lower(%s)", (usuario,))
             contador = cur.fetchone()
-
-            # --- INICIO: LOGS DE DIAGNÓSTICO ---
-            logging.info(f"Usuario encontrado en BD: {contador['usuario'] if contador else 'No encontrado'}")
-            # --- FIN: LOGS DE DIAGNÓSTICO ---
-
-            if contador:
-                # --- INICIO: LOGS DE DIAGNÓSTICO ---
-                is_password_correct = check_password_hash(contador['password_hash'], password)
-                logging.info(f"Verificación de contraseña para '{contador['usuario']}': {is_password_correct}")
-                # --- FIN: LOGS DE DIAGNÓSTICO ---
-
-                if is_password_correct:
-                    if contador['estatus'] != 'Activo':
-                        flash('Tu cuenta de contador está inactiva. Contacta a un administrador.', 'danger')
-                        return redirect(url_for('portal_contabilidad_login'))
-
+            if contador and check_password_hash(contador['password_hash'], password):
+                if contador['estatus'] != 'Activo':
+                    flash('Tu cuenta está inactiva. Contacta a un administrador.', 'danger')
+                else:
                     session.clear()
                     session['contador_id'] = contador['id']
                     cur.execute("UPDATE contadores SET ultimo_login = NOW() WHERE id = %s", (contador['id'],))
                     conn.commit()
-                    
                     flash(f"¡Bienvenido, {contador['nombre_completo']}!", 'success')
                     return redirect(url_for('portal_contabilidad_hub'))
+            else:
+                flash('Usuario o contraseña incorrectos.', 'danger')
+    return render_template('contabilidad_login.html', anio_actual=get_venezuela_current_date().year)
+
+@app.route('/portal/contabilidad/logout')
+def portal_contabilidad_logout():
+    session.pop('contador_id', None)
+    flash('Has cerrado la sesión del portal de contabilidad.', 'info')
+    return redirect(url_for('portal_contabilidad_login'))
+
+@app.route('/portal/contabilidad/hub')
+@contador_required
+def portal_contabilidad_hub():
+    return render_template('contabilidad_hub.html')
 
             # Si el contador no existe o la contraseña es incorrecta, llega aquí.
             flash('Usuario o contraseña incorrectos.', 'danger')
@@ -899,14 +887,9 @@ def recalcular_totales_bulk(bulk_id):
 
 @app.route('/')
 def home():
-    # Si un administrador ya inició sesión, lo llevamos a su hub.
-    if g.admin:
-        return redirect(url_for('hub'))
-    # Si un cliente ya inició sesión, lo llevamos a su portal.
-    elif g.cliente:
-        return redirect(url_for('portal_dashboard'))
-    # Si nadie ha iniciado sesión, mostramos la nueva landing page.
-    return render_template('landing.html', anio_actual=get_venezuela_current_date().year)
+    if g.admin: return redirect(url_for('hub'))
+    if g.cliente: return redirect(url_for('portal_dashboard'))
+    return render_template('landing.html', anio_actual=g.anio_actual)
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -916,29 +899,24 @@ def admin_login():
         conn = get_db()
         if not conn:
             flash('Error de conexión con la base de datos.', 'danger')
-            return render_template('admin_login.html', anio_actual=get_venezuela_current_date().year)
+            return render_template('admin_login.html', anio_actual=g.anio_actual)
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM administradores WHERE usuario = %s", (usuario,))
             admin = cur.fetchone()
             if admin and check_password_hash(admin['password_hash'], password):
                 session.clear()
                 session['admin_id'] = admin['id']
+                session['admin_rol'] = admin['rol'] # Guardar rol en sesión
                 cur.execute("UPDATE administradores SET ultimo_login = NOW(), estatus_online = TRUE, ultimo_visto = NOW() WHERE id = %s", (admin['id'],))
                 conn.commit()
-                
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se guarda un mensaje especial en la sesión en lugar de usar flash.
-                # Esto solo ocurrirá una vez al día.
                 today_str = get_venezuela_current_date().isoformat()
                 if session.get('last_welcome_date') != today_str:
                     session['show_welcome_modal'] = f"¡Bienvenido de nuevo, {admin['usuario']}!"
                     session['last_welcome_date'] = today_str
-                # --- FIN DE LA CORRECCIÓN ---
-
                 return redirect(url_for('hub'))
             else:
                 flash('Usuario o contraseña incorrectos.', 'danger')
-    return render_template('admin_login.html', anio_actual=get_venezuela_current_date().year)
+    return render_template('admin_login.html', anio_actual=g.anio_actual)
 
 @app.route('/admin/logout')
 def admin_logout():
@@ -953,6 +931,33 @@ def admin_logout():
     flash('Has cerrado la sesión exitosamente.', 'info')
     return redirect(url_for('admin_login'))
 
+@app.route('/portal/login', methods=['GET', 'POST'])
+def portal_login():
+    if g.cliente: return redirect(url_for('portal_dashboard'))
+    if request.method == 'POST':
+        cedula = request.form.get('cedula', '').strip().replace('V-', '').replace('v-', '')
+        contrato_nro = request.form.get('contrato_nro', '').strip().upper().replace('MP-', '')
+        conn = get_db()
+        if not conn:
+            flash('Error de conexión. Intente más tarde.', 'error')
+            return render_template('portal_login.html', anio_actual=g.anio_actual)
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE TRIM(cedula) = %s AND REPLACE(TRIM(UPPER(numero_contrato)), 'MP-', '') = %s;", (cedula, contrato_nro))
+            cliente = cur.fetchone()
+        if cliente:
+            session.clear()
+            session['cliente_id'], session['cliente_nombre'] = cliente['id'], cliente['nombre_apellido']
+            return redirect(url_for('portal_dashboard'))
+        else:
+            flash('Credenciales incorrectas.', 'error')
+    return render_template('portal_login.html', anio_actual=g.anio_actual)
+
+@app.route('/portal/logout')
+def portal_logout():
+    session.clear()
+    flash('Has cerrado sesión exitosamente.', 'success')
+    return redirect(url_for('portal_login'))
+
 # =================================================================================
 # ===== RUTAS DEL PANEL DE ADMINISTRADOR =====
 # =================================================================================
@@ -960,11 +965,12 @@ def admin_logout():
 @app.route('/hub')
 @admin_required
 def hub():
+    # 1. Se inicializa el diccionario UNA SOLA VEZ con todos los valores por defecto.
     stats = {
         'clientes_cartera': 0,
         'recaudado_mes': Decimal('0.0'),
         'solicitudes_pendientes': 0,
-        'reportes_pendientes': 0, 
+        'reportes_pendientes': 0,
         'pagos_por_conciliar': 0,
         'tasa_bcv': 'N/A'
     }
@@ -972,36 +978,25 @@ def hub():
     if conn:
         try:
             with conn.cursor() as cur:
-                if g.admin['rol'] in ['superadmin', 'gerente', 'administradora']:
-                     cur.execute("SELECT COUNT(*) FROM clientes WHERE estatus_cliente = 'ACTIVO'")
-                else:
-                    cur.execute("SELECT COUNT(*) FROM clientes WHERE gestor_id = %s AND estatus_cliente = 'ACTIVO'", (g.admin['id'],))
+                # 2. Se actualizan los valores del diccionario con los datos de la base de datos.
+                cur.execute("SELECT COUNT(*) FROM clientes WHERE estatus_cliente = 'ACTIVO'")
                 stats['clientes_cartera'] = cur.fetchone()[0]
 
-                if g.admin['rol'] in ['superadmin', 'gerente']:
-                    pass # Lógica de recaudación
-                
-                if g.admin['rol'] in ['superadmin', 'gerente', 'administradora']:
-                    cur.execute("SELECT COUNT(DISTINCT b.id) FROM payment_bulks b JOIN pagos p ON p.bulk_id = b.id WHERE b.status IN ('OPEN', 'UNDER_REVIEW') AND p.estado_reporte NOT LIKE 'Anulado%'")
-                    stats['reportes_pendientes'] = cur.fetchone()[0]
-
-                    cur.execute("SELECT COUNT(DISTINCT bulk_id) FROM pagos WHERE estado_reporte = 'Aprobado' AND estado_pago = 'Pendiente' AND bulk_id IS NOT NULL")
-                    count_bulks = cur.fetchone()[0]
-
-                    cur.execute("SELECT COUNT(*) FROM pagos WHERE estado_reporte = 'Aprobado' AND estado_pago = 'Pendiente' AND bulk_id IS NULL")
-                    count_individuales = cur.fetchone()[0]
-
-                    stats['pagos_por_conciliar'] = (count_bulks or 0) + (count_individuales or 0)
+                cur.execute("SELECT COUNT(DISTINCT b.id) FROM payment_bulks b JOIN pagos p ON p.bulk_id = b.id WHERE b.status IN ('OPEN', 'UNDER_REVIEW') AND p.estado_reporte NOT LIKE 'Anulado%'")
+                stats['reportes_pendientes'] = cur.fetchone()[0]
 
                 cur.execute("SELECT tasa FROM historial_tasas_bcv ORDER BY fecha DESC LIMIT 1")
                 tasa_row = cur.fetchone()
                 if tasa_row and tasa_row['tasa']:
                     stats['tasa_bcv'] = f"{tasa_row['tasa']:,.2f} Bs"
 
+                # (Aquí se pueden añadir más consultas para los otros KPIs en el futuro)
+
         except psycopg2.Error as e:
             logging.error(f"Error al calcular estadísticas para el HUB: {e}")
             flash("No se pudieron cargar todas las estadísticas del panel.", "warning")
 
+    # 3. Se gestiona el mensaje de bienvenida y se renderiza la plantilla.
     welcome_message = session.pop('show_welcome_modal', None)
     return render_template('hub.html', stats=stats, welcome_message=welcome_message)
 
@@ -2760,22 +2755,15 @@ def reporte_metricas():
     today = get_venezuela_current_date()
     
     dashboard_metrics = {
-        'ingresos_mes_conciliados': Decimal('0.0'), 'indice_morosidad': 0.0,
-        'mes_actual': get_nombre_mes(today.month), 'anio_actual': today.year,
-        'ingresos_ultimos_meses': {'labels': [], 'values': []},
+        'ingresos_mes_conciliados': Decimal('0.0'), 'indice_morosidad': 0.0, 'mes_actual': get_nombre_mes(today.month),
+        'anio_actual': today.year, 'ingresos_ultimos_meses': {'labels': [], 'values': []},
         'composicion_clientes': {'labels': [], 'values': []},
-        'mapa_clientes': {
-            'total_clientes': 0, 'dentro_sistema': 0, 'ahorrador': 0, 'adjudicado': 0,
-            'cobranza_diferida': 0, 'inscrito': 0, 'estatus_congelado': 0, 'plan_congelado': 0,
-            'reserva': 0, 'retirados': 0, 'completado': 0, 'inactivos': 0
-        },
-        'resumen_condicion': []
+        'mapa_clientes': defaultdict(int), 'resumen_condicion': []
     }
 
     if not conn:
         flash("Error de conexión a la base de datos.", "danger")
         return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
-
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("""
@@ -2796,7 +2784,7 @@ def reporte_metricas():
             """)
             mapa_counts_row = cur.fetchone()
             if mapa_counts_row:
-                dashboard_metrics['mapa_clientes'] = dict(mapa_counts_row)
+                dashboard_metrics['mapa_clientes'].update(mapa_counts_row)
             
             first_day_of_month = today.replace(day=1)
             cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
