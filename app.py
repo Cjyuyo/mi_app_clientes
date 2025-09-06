@@ -921,27 +921,51 @@ def admin_logout():
 
 @app.route('/portal/login', methods=['GET', 'POST'])
 def portal_login():
-    if g.cliente: return redirect(url_for('portal_dashboard'))
+    """
+    Gestiona el inicio de sesión para los clientes en su portal.
+    Verifica la cédula y el número de contrato contra la base de datos.
+    """
+    if g.cliente: 
+        return redirect(url_for('portal_dashboard'))
+        
     if request.method == 'POST':
+        # Limpia y prepara los datos de entrada del formulario
         cedula = request.form.get('cedula', '').strip().replace('V-', '').replace('v-', '')
         contrato_nro = request.form.get('contrato_nro', '').strip().upper().replace('MP-', '')
+        
         conn = get_db()
         if not conn:
             flash('Error de conexión. Intente más tarde.', 'error')
             return render_template('portal_login.html', anio_actual=g.anio_actual)
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE TRIM(cedula) = %s AND REPLACE(TRIM(UPPER(numero_contrato)), 'MP-', '') = %s;", (cedula, contrato_nro))
-            cliente = cur.fetchone()
-        if cliente:
-            session.clear()
-            session['cliente_id'], session['cliente_nombre'] = cliente['id'], cliente['nombre_apellido']
-            return redirect(url_for('portal_dashboard'))
-        else:
-            flash('Credenciales incorrectas.', 'error')
+            
+        try:
+            with conn.cursor() as cur:
+                # Busca al cliente que coincida con la cédula y el contrato
+                cur.execute("""
+                    SELECT id, (nombre || ' ' || apellido) as nombre_apellido 
+                    FROM clientes 
+                    WHERE TRIM(cedula) = %s AND REPLACE(TRIM(UPPER(numero_contrato)), 'MP-', '') = %s;
+                """, (cedula, contrato_nro))
+                cliente = cur.fetchone()
+            
+            if cliente:
+                # Si el cliente existe, limpia la sesión anterior y crea una nueva
+                session.clear()
+                session['cliente_id'] = cliente['id']
+                session['cliente_nombre'] = cliente['nombre_apellido']
+                return redirect(url_for('portal_dashboard'))
+            else:
+                flash('Credenciales incorrectas.', 'error')
+        except Exception as e:
+            flash(f'Ocurrió un error: {e}', 'danger')
+
     return render_template('portal_login.html', anio_actual=g.anio_actual)
 
 @app.route('/portal/logout')
 def portal_logout():
+    """
+    Cierra la sesión del cliente y lo redirige a la página de login del portal.
+    """
     session.clear()
     flash('Has cerrado sesión exitosamente.', 'success')
     return redirect(url_for('portal_login'))
