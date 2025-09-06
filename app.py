@@ -2850,9 +2850,74 @@ def reporte_metricas():
 
     except psycopg2.Error as e:
         flash(f"No se pudieron cargar las métricas del dashboard. Contacte a soporte.", "danger")
-        logging.error(f"ERROR en reporte_metricas: {traceback.format_exc()}")
+        # logging.error(f"ERROR en reporte_metricas: {traceback.format_exc()}") # Descomenta si necesitas el traceback completo
 
     return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
+
+
+# --- NUEVA RUTA DE DIAGNÓSTICO ---
+# Accede a esta ruta desde tu navegador en /debug/revisar_estados para ver los datos
+@app.route('/debug/revisar_estados')
+@admin_required
+def revisar_estados_db():
+    conn = get_db()
+    if not conn:
+        return "<h1>Error de conexión a la base de datos.</h1>"
+    
+    try:
+        with conn.cursor() as cur:
+            # Tabla para la columna 'estado_del_plan'
+            cur.execute("""
+                SELECT estado_del_plan, COUNT(*) as total
+                FROM clientes
+                GROUP BY estado_del_plan
+                ORDER BY total DESC;
+            """)
+            resultados_plan = cur.fetchall()
+
+            # Tabla para la columna 'estatus_cliente'
+            cur.execute("""
+                SELECT estatus_cliente, COUNT(*) as total
+                FROM clientes
+                GROUP BY estatus_cliente
+                ORDER BY total DESC;
+            """)
+            resultados_estatus = cur.fetchall()
+
+            # Construcción de la respuesta HTML
+            html = """
+            <html>
+            <head><title>Diagnóstico de Estados de Clientes</title></head>
+            <body style='font-family: sans-serif; padding: 20px;'>
+                <h1>Conteo de Clientes por 'estado_del_plan'</h1>
+                <table border='1' cellpadding='5' cellspacing='0'>
+                    <tr style='background-color: #f2f2f2;'><th>Estado del Plan</th><th>Total de Clientes</th></tr>
+            """
+            if resultados_plan:
+                for row in resultados_plan:
+                    estado = row['estado_del_plan'] if row['estado_del_plan'] else '<i>NULO (vacío)</i>'
+                    html += f"<tr><td>{estado}</td><td>{row['total']}</td></tr>"
+            else:
+                html += "<tr><td colspan='2'>No se encontraron clientes.</td></tr>"
+            html += "</table>"
+
+            html += "<h1>Conteo de Clientes por 'estatus_cliente'</h1>"
+            html += """
+                <table border='1' cellpadding='5' cellspacing='0'>
+                    <tr style='background-color: #f2f2f2;'><th>Estatus Cliente</th><th>Total de Clientes</th></tr>
+            """
+            if resultados_estatus:
+                for row in resultados_estatus:
+                    estatus = row['estatus_cliente'] if row['estatus_cliente'] else '<i>NULO (vacío)</i>'
+                    html += f"<tr><td>{estatus}</td><td>{row['total']}</td></tr>"
+            else:
+                html += "<tr><td colspan='2'>No se encontraron clientes.</td></tr>"
+            html += "</table></body></html>"
+            
+            return html
+
+    except psycopg2.Error as e:
+        return f"<h1>Error de base de datos</h1><p>{e}</p>"
 
 @app.route('/lista_clientes/<string:filtro>')
 @admin_required
