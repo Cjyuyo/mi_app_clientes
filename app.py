@@ -201,16 +201,11 @@ def portal_login_required(f):
             return redirect(url_for('portal_login'))
         return f(*args, **kwargs)
     return decorated_function
+
 # ===== FIN: DECORADORES FALTANTES =====
 # =================================================================================
 # ===== INICIO: NUEVAS RUTAS DEL PORTAL DE CONTABILIDAD (FASE 1) =====
 # =================================================================================
-
-# === Autenticación del Contador ===
-# =================================================================================
-# ===== INICIO: NUEVAS RUTAS DEL PORTAL DE CONTABILIDAD (FASE 1) =====
-# =================================================================================
-
 # === Autenticación del Contador ===
 @app.route('/portal/contabilidad/login', methods=['GET', 'POST'])
 def portal_contabilidad_login():
@@ -251,12 +246,6 @@ def portal_contabilidad_login():
 @contador_required
 def portal_contabilidad_hub():
     return render_template('contabilidad_hub.html')
-
-@app.route('/portal/contabilidad/peticiones', methods=['GET', 'POST'])
-@contador_required
-def portal_contabilidad_peticiones():
-
-    return render_template('contabilidad_login.html', anio_actual=get_venezuela_current_date().year)
 
 @app.route('/portal/contabilidad/logout')
 def portal_contabilidad_logout():
