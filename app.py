@@ -4004,7 +4004,8 @@ def upload_clientes():
             return redirect(request.url)
 
         try:
-            df = pd.read_excel(archivo, engine='openpyxl', dtype=str)
+            # Usamos fillna('') para reemplazar valores NaN (vacíos) por strings vacíos
+            df = pd.read_excel(archivo, engine='openpyxl', dtype=str).fillna('')
             df.columns = [str(c).strip().upper() for c in df.columns]
 
             column_map = {
@@ -4016,51 +4017,71 @@ def upload_clientes():
             }
             df.rename(columns=column_map, inplace=True)
 
-            cedulas_en_archivo = [c for c in df['cedula'].dropna().unique() if c]
-            if not cedulas_en_archivo:
-                flash("La columna de cédula es necesaria y no se encontró o está vacía.", "warning")
+            if 'cedula' not in df.columns:
+                flash("El archivo debe contener una columna de 'Cédula' o 'Numero de Cedula'.", "danger")
                 return redirect(request.url)
 
-            cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            cur.execute("SELECT id, cedula FROM clientes WHERE cedula = ANY(%s)", (cedulas_en_archivo,))
-            clientes_existentes = {row['cedula']: row['id'] for row in cur.fetchall()}
+            cedulas_en_archivo = [c for c in df['cedula'].dropna().unique() if c]
+            if not cedulas_en_archivo:
+                flash("La columna de cédula está vacía.", "warning")
+                return redirect(request.url)
             
-            updates = 0
-            inserts = 0
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, cedula FROM clientes WHERE cedula = ANY(%s)", (cedulas_en_archivo,))
+                clientes_existentes = {row['cedula']: row['id'] for row in cur.fetchall()}
+                
+                updates_data = []
+                inserts_data = []
 
-            for _, row in df.iterrows():
-                cedula = row.get('cedula')
-                if not cedula: continue
+                for _, row in df.iterrows():
+                    cedula = row.get('cedula', '').strip()
+                    if not cedula:
+                        continue
 
-                nombre_completo = row.get('nombre_completo', '')
-                partes = nombre_completo.split()
-                nombre = partes[0] if partes else ''
-                apellido = ' '.join(partes[1:]) if len(partes) > 1 else ''
+                    nombre_completo = row.get('nombre_completo', '')
+                    partes = nombre_completo.split()
+                    nombre = partes[0] if partes else ''
+                    apellido = ' '.join(partes[1:]) if len(partes) > 1 else ''
 
-                data = {
-                    'cedula': cedula, 'nombre': nombre, 'apellido': apellido,
-                    'estado_del_plan': row.get('estado_del_plan'),
-                    'estatus_cliente': row.get('estatus_cliente'),
-                    'numero_contrato': row.get('numero_contrato')
-                }
-                data = {k: v for k, v in data.items() if pd.notna(v) and v}
+                    # Creamos una tupla con los datos en un orden consistente
+                    data_tuple = (
+                        cedula,
+                        nombre,
+                        apellido,
+                        row.get('estado_del_plan', ''),
+                        row.get('estatus_cliente', ''),
+                        row.get('numero_contrato', '')
+                    )
 
-                if not data: continue
+                    if cedula in clientes_existentes:
+                        updates_data.append(data_tuple)
+                    else:
+                        inserts_data.append(data_tuple)
 
-                if cedula in clientes_existentes:
-                    fields = ", ".join([f"{k} = %s" for k in data])
-                    values = list(data.values()) + [cedula]
-                    cur.execute(f"UPDATE clientes SET {fields} WHERE cedula = %s", tuple(values))
-                    updates += 1
-                else:
-                    cols = ", ".join(data.keys())
-                    placeholders = ", ".join(["%s"] * len(data))
-                    cur.execute(f"INSERT INTO clientes ({cols}) VALUES ({placeholders})", list(data.values()))
-                    inserts += 1
-            
-            conn.commit()
-            cur.close()
-            flash(f"Carga completada: {inserts} clientes creados, {updates} actualizados.", "success")
+                # INSERCIÓN MASIVA (BULK INSERT) para todos los clientes nuevos
+                if inserts_data:
+                    insert_query = """
+                        INSERT INTO clientes (cedula, nombre, apellido, estado_del_plan, estatus_cliente, numero_contrato) 
+                        VALUES %s
+                    """
+                    execute_values(cur, insert_query, inserts_data)
+
+                # ACTUALIZACIÓN MASIVA (BULK UPDATE) para todos los clientes existentes
+                if updates_data:
+                    update_query = """
+                        UPDATE clientes SET
+                            nombre = data.nombre,
+                            apellido = data.apellido,
+                            estado_del_plan = data.estado_del_plan,
+                            estatus_cliente = data.estatus_cliente,
+                            numero_contrato = data.numero_contrato
+                        FROM (VALUES %s) AS data (cedula, nombre, apellido, estado_del_plan, estatus_cliente, numero_contrato)
+                        WHERE clientes.cedula = data.cedula
+                    """
+                    execute_values(cur, update_query, updates_data)
+
+                conn.commit()
+                flash(f"Carga completada: {len(inserts_data)} clientes creados, {len(updates_data)} actualizados.", "success")
 
         except Exception as e:
             conn.rollback()
