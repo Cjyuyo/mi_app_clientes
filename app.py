@@ -2746,6 +2746,7 @@ def mi_cartera():
             flash(f"No se pudo cargar tu cartera de clientes: {e}", "error")
     return render_template('mi_cartera.html', clientes=clientes_asignados, anio_actual=get_venezuela_current_date().year)
 
+Python
 def _get_dashboard_metrics():
     """
     Función auxiliar para calcular y obtener todas las métricas del dashboard.
@@ -2816,7 +2817,11 @@ def _get_dashboard_metrics():
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (month_start, month_end))
                 total = cur.fetchone()[0] or Decimal('0.0')
                 income_labels.insert(0, get_nombre_mes(current_date.month))
+                
+                # ===== CAMBIO INSERTADO AQUÍ =====
+                # Se invoca el método normalize() con paréntesis para obtener el valor
                 income_values.insert(0, float(total.normalize()))
+                
                 current_date = month_start - timedelta(days=1)
             dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
 
