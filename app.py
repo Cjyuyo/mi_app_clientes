@@ -57,12 +57,22 @@ def get_nombre_mes(month_number):
 # ===== FUNCIONES DE UTILIDAD Y FILTROS JINJA =====
 # =================================================================================
 
-def format_decimal_smart(value):
-    if value is None: return ''
+def format_decimal_smart(value, places=2):
+    """
+    Formatea un valor decimal como una cadena con comas y un número
+    específico de decimales. Si `places` es None, usa la lógica original.
+    """
+    if value is None:
+        return ''
     try:
         d = Decimal(value)
-        return d.normalize().to_eng_string()
-    except (TypeError, InvalidOperation):
+        if places is not None:
+            # Formatea con separador de miles y número fijo de decimales
+            return f"{d:,.{places}f}"
+        else:
+            # Lógica original si no se especifican los decimales
+            return d.normalize().to_eng_string()
+    except (TypeError, InvalidOperation, ValueError):
         return str(value)
 
 def time_ago(time_value):
