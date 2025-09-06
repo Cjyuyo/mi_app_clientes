@@ -211,12 +211,12 @@ def portal_login_required(f):
 def portal_contabilidad_login():
     if g.contador:
         return redirect(url_for('portal_contabilidad_hub'))
-    
+
     if request.method == 'POST':
         usuario = request.form.get('usuario', '').strip()
         password = request.form.get('password', '')
-
         conn = get_db()
+
         if not conn:
             flash('Error de conexión con la base de datos.', 'danger')
             return render_template('contabilidad_login.html')
@@ -224,27 +224,24 @@ def portal_contabilidad_login():
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM contadores WHERE lower(usuario) = lower(%s)", (usuario,))
             contador = cur.fetchone()
-
             if contador and check_password_hash(contador['password_hash'], password):
                 if contador['estatus'] != 'Activo':
-                    flash('Tu cuenta de contador está inactiva. Contacta a un administrador.', 'danger')
+                    flash('Tu cuenta está inactiva. Contacta a un administrador.', 'danger')
                     return redirect(url_for('portal_contabilidad_login'))
 
                 session.clear()
                 session['contador_id'] = contador['id']
                 cur.execute("UPDATE contadores SET ultimo_login = NOW() WHERE id = %s", (contador['id'],))
                 conn.commit()
-                
                 flash(f"¡Bienvenido, {contador['nombre_completo']}!", 'success')
                 return redirect(url_for('portal_contabilidad_hub'))
 
-        # Esta es la línea que se corrige. Se saca del bloque 'with'.
-        # Se ejecutará si el 'if' de arriba falla (usuario no encontrado o contraseña incorrecta).
+        # Si el usuario o contraseña son incorrectos, la ejecución llega aquí.
         flash('Usuario o contraseña incorrectos.', 'danger')
         return redirect(url_for('portal_contabilidad_login'))
 
     return render_template('contabilidad_login.html', anio_actual=get_venezuela_current_date().year)
-
+    
 @app.route('/portal/contabilidad/logout')
 def portal_contabilidad_logout():
     session.pop('contador_id', None)
