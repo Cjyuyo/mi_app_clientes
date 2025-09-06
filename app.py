@@ -2755,25 +2755,38 @@ def reporte_metricas():
         return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            # CORRECCIÓN: Se diferencia correctamente entre ADJUDICADO y COMPLETADO
+            # ===== INICIO DE LA CORRECCIÓN =====
+            # Esta consulta ahora unifica la lógica de conteo para los estados clave.
             cur.execute("""
                 SELECT
                     COUNT(*) AS total_clientes,
-                    COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) IN ('ACTIVO', 'RESERVA', 'CONGELADO') OR TRIM(UPPER(estado_del_plan)) IN ('ADJUDICADO', 'AHORRADOR', 'COBRANZA DIFERIDA', 'INSCRITO', 'CONGELADO', 'RESERVA', 'COMPLETADO') THEN 1 END) as dentro_sistema,
-                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' THEN 1 END) AS ahorrador,
-                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'ADJUDICADO' THEN 1 END) AS adjudicado,
-                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COMPLETADO' THEN 1 END) AS completado,
-                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COBRANZA DIFERIDA' THEN 1 END) AS cobranza_diferida,
-                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'INSCRITO' THEN 1 END) AS inscrito,
-                    COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'CONGELADO' THEN 1 END) AS estatus_congelado,
-                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'CONGELADO' THEN 1 END) as plan_congelado,
-                    COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'RESERVA' THEN 1 END) AS reserva,
-                    COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'RETIRO' THEN 1 END) AS retirados,
-                    COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'INACTIVO' THEN 1 END) AS inactivos
+                    
+                    -- CORREGIDO: Cuenta a todos los que no estén explícitamente fuera del sistema.
+                    COUNT(*) FILTER (WHERE TRIM(UPPER(estatus_cliente)) NOT IN ('RETIRO', 'INACTIVO')) as dentro_sistema,
+                    
+                    -- Los conteos individuales se mantienen, pero los problemáticos se unifican.
+                    COUNT(*) FILTER (WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR') AS ahorrador,
+                    COUNT(*) FILTER (WHERE TRIM(UPPER(estado_del_plan)) = 'ADJUDICADO') AS adjudicado,
+                    COUNT(*) FILTER (WHERE TRIM(UPPER(estado_del_plan)) = 'COMPLETADO') AS completado,
+                    COUNT(*) FILTER (WHERE TRIM(UPPER(estado_del_plan)) = 'COBRANZA DIFERIDA') AS cobranza_diferida,
+                    COUNT(*) FILTER (WHERE TRIM(UPPER(estado_del_plan)) = 'INSCRITO') AS inscrito,
+                    
+                    -- CORREGIDO: Unifica el conteo de CONGELADOS desde ambas columnas.
+                    COUNT(*) FILTER (WHERE TRIM(UPPER(estatus_cliente)) = 'CONGELADO' OR TRIM(UPPER(estado_del_plan)) = 'CONGELADO') AS congelados,
+                    
+                    -- CORREGIDO: Unifica el conteo de RESERVAS desde ambas columnas.
+                    COUNT(*) FILTER (WHERE TRIM(UPPER(estatus_cliente)) = 'RESERVA' OR TRIM(UPPER(estado_del_plan)) = 'RESERVA') AS reserva,
+                    
+                    -- CORREGIDO: Mantiene el conteo de retiros que ya era correcto.
+                    COUNT(*) FILTER (WHERE TRIM(UPPER(estatus_cliente)) = 'RETIRO') AS retirados,
+                    COUNT(*) FILTER (WHERE TRIM(UPPER(estatus_cliente)) = 'INACTIVO') AS inactivos
                 FROM clientes
             """)
+            # ===== FIN DE LA CORRECCIÓN =====
+            
             mapa_counts_row = cur.fetchone()
             if mapa_counts_row:
+                # Se fusionan los conteos en el diccionario de métricas
                 dashboard_metrics['mapa_clientes'].update(mapa_counts_row)
             
             first_day_of_month = today.replace(day=1)
