@@ -2746,7 +2746,6 @@ def mi_cartera():
             flash(f"No se pudo cargar tu cartera de clientes: {e}", "error")
     return render_template('mi_cartera.html', clientes=clientes_asignados, anio_actual=get_venezuela_current_date().year)
 
-Python
 def _get_dashboard_metrics():
     """
     Función auxiliar para calcular y obtener todas las métricas del dashboard.
