@@ -5241,40 +5241,6 @@ def ver_recibo_consolidado(receipt_id):
 # ===== RUTAS DEL PORTAL DEL CLIENTE (EXISTENTES) =====
 # =================================================================================
 
-@app.route('/portal/login', methods=['GET', 'POST'])
-def portal_login():
-    if 'cliente_id' in session:
-        flash('Ya tienes una sesión activa. Redirigiendo a tu portal.', 'info')
-        return redirect(url_for('portal_dashboard'))
-    if request.method == 'POST':
-        cedula, contrato_nro = request.form.get('cedula', '').strip().replace('V-', '').replace('v-', ''), request.form.get('contrato_nro', '').strip().upper().replace('MP-', '')
-        if not cedula or not contrato_nro:
-            flash('La cédula y el número de contrato son obligatorios.', 'error')
-            return render_template('portal_login.html', anio_actual=get_venezuela_current_date().year)
-        conn = get_db()
-        if not conn:
-            flash('Error de conexión con el servidor. Intente más tarde.', 'error')
-            return render_template('portal_login.html', anio_actual=get_venezuela_current_date().year)
-        try:
-            with conn.cursor() as cur:
-                # CAMBIO: Usa la columna estandarizada 'numero_contrato'
-                sql_query = """
-                    SELECT id, (nombre || ' ' || apellido) as nombre_apellido 
-                    FROM clientes 
-                    WHERE TRIM(cedula) = %s AND REPLACE(TRIM(UPPER(numero_contrato)), 'MP-', '') = %s;
-                """
-                cur.execute(sql_query, (cedula, contrato_nro))
-                cliente = cur.fetchone()
-            if cliente:
-                session.clear()
-                session['cliente_id'], session['cliente_nombre'] = cliente['id'], cliente['nombre_apellido']
-                return redirect(url_for('portal_dashboard'))
-            else:
-                flash('Credenciales incorrectas. Verifique sus datos e intente de nuevo.', 'error')
-        except psycopg2.Error as e:
-            flash(f'Error de base de datos: {e}', 'error')
-    return render_template('portal_login.html', anio_actual=get_venezuela_current_date().year)
-
 @app.route('/portal/pagos')
 @portal_login_required
 def portal_pagos():
