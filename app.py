@@ -258,10 +258,9 @@ def portal_contabilidad_logout():
 def portal_contabilidad_hub():
     return render_template('contabilidad_hub.html')
 
-            # Si el contador no existe o la contraseña es incorrecta, llega aquí.
-            flash('Usuario o contraseña incorrectos.', 'danger')
-            return redirect(url_for('portal_contabilidad_login'))
-
+@app.route('/portal/contabilidad/peticiones', methods=['GET', 'POST'])
+@contador_required
+def portal_contabilidad_peticiones():
 
     return render_template('contabilidad_login.html', anio_actual=get_venezuela_current_date().year)
 
