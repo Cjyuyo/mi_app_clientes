@@ -2756,7 +2756,7 @@ def mi_cartera():
 @rol_requerido('superadmin', 'gerente')
 def reporte_metricas_v2():
     """
-    Versión reconstruida de la ruta de métricas para garantizar estabilidad y claridad.
+    Versión reconstruida y depurada de la ruta de métricas, CON LOGGING DE DIAGNÓSTICO.
     """
     conn = get_db()
     if not conn:
@@ -2769,109 +2769,79 @@ def reporte_metricas_v2():
         'fecha_actualizacion': get_venezuela_current_datetime().strftime('%d/%m/%Y %I:%M %p'),
         'mes_actual': get_nombre_mes(today.month),
         'anio_actual': today.year,
-        'kpis': {
-            'ingresos_mes_conciliados': Decimal('0.0'),
-            'clientes_en_cartera': 0,
-            'indice_morosidad': 0.0,
-            'clientes_retirados': 0
-        },
-        'graficas': {
-            'ingresos_ultimos_meses': {'labels': [], 'values': []},
-            'composicion_cartera': {'labels': [], 'values': []}
-        },
-        'tablas': {
-            'mapa_clientes': {},
-            'resumen_condicion': []
-        }
+        'kpis': {},
+        'graficas': {},
+        'tablas': {}
     }
 
     try:
         with conn.cursor() as cur:
-            # --- INGRESOS CONCILIADOS DEL MES ACTUAL ---
             first_day_of_month = today.replace(day=1)
-            cur.execute("""
-                SELECT COALESCE(SUM(monto), 0) as total 
-                FROM pagos 
-                WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s
-            """, (first_day_of_month,))
-            dashboard_metrics['kpis']['ingresos_mes_conciliados'] = cur.fetchone()['total']
 
-            # --- MAPA GENERAL DE CLIENTES (para KPIs y tabla) ---
+            # --- CONSULTA 1: KPIs Principales ---
             cur.execute("""
                 SELECT
-                    COUNT(*) AS total_clientes,
-                    COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) IN ('ACTIVO', 'RESERVA', 'CONGELADO') THEN 1 END) as dentro_sistema,
+                    (SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s) as ingresos_mes,
+                    COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) IN ('ACTIVO', 'RESERVA', 'CONGELADO') THEN 1 END) as en_cartera,
                     COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'RETIRO' THEN 1 END) AS retirados,
-                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' THEN 1 END) AS ahorrador,
-                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'ADJUDICADO' THEN 1 END) AS adjudicado,
-                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'INSCRITO' THEN 1 END) AS inscrito,
-                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COMPLETADO' THEN 1 END) AS completado,
-                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'CONGELADO' THEN 1 END) as congelados,
-                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COBRANZA DIFERIDA' THEN 1 END) AS cobranza_diferida,
-                    COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'INACTIVO' THEN 1 END) AS inactivos
+                    COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(estatus_cliente)) = 'ACTIVO' THEN 1 END) AS total_ahorradores
                 FROM clientes
-            """)
-            mapa_data = cur.fetchone()
-            if mapa_data:
-                dashboard_metrics['kpis']['clientes_en_cartera'] = mapa_data.get('dentro_sistema', 0)
-                dashboard_metrics['kpis']['clientes_retirados'] = mapa_data.get('retirados', 0)
-                dashboard_metrics['tablas']['mapa_clientes'] = dict(mapa_data)
-                
-                total_ahorradores = mapa_data.get('ahorrador', 0) or 0
+            """, (first_day_of_month,))
+            kpi_data = cur.fetchone()
 
-                # --- CÁLCULO DE MOROSIDAD ---
-                cur.execute("""
-                    SELECT COUNT(DISTINCT cliente_id) as al_dia FROM pagos
-                    WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s
-                    AND cliente_id IN (
-                        SELECT id FROM clientes 
-                        WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(estatus_cliente)) = 'ACTIVO'
-                    )
-                """, (first_day_of_month,))
-                ahorradores_al_dia = cur.fetchone()['al_dia'] or 0
-                clientes_en_mora = total_ahorradores - ahorradores_al_dia
-                
-                dashboard_metrics['kpis']['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100 if total_ahorradores > 0 else 0.0
+            cur.execute("""
+                SELECT COUNT(DISTINCT cliente_id) as al_dia FROM pagos
+                WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s
+                AND cliente_id IN (SELECT id FROM clientes WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(estatus_cliente)) = 'ACTIVO')
+            """, (first_day_of_month,))
+            ahorradores_al_dia = cur.fetchone()['al_dia'] or 0
+            
+            total_ahorradores = kpi_data['total_ahorradores'] or 0
+            clientes_en_mora = total_ahorradores - ahorradores_al_dia
+            indice_morosidad = (clientes_en_mora / total_ahorradores) * 100 if total_ahorradores > 0 else 0.0
 
-            # --- GRÁFICA DE INGRESOS EN ÚLTIMOS 6 MESES ---
+            dashboard_metrics['kpis'] = {
+                'ingresos_mes_conciliados': kpi_data['ingresos_mes'],
+                'clientes_en_cartera': kpi_data['en_cartera'],
+                'indice_morosidad': indice_morosidad,
+                'clientes_retirados': kpi_data['retirados']
+            }
+
+            # --- CONSULTA 2: GRÁFICA DE INGRESOS MENSUALES ---
             labels, values = [], []
             for i in range(6):
                 month_start = (today.replace(day=1) - timedelta(days=i*30)).replace(day=1)
                 _, days_in_month = monthrange(month_start.year, month_start.month)
                 month_end = month_start.replace(day=days_in_month)
-                
-                cur.execute("""
-                    SELECT COALESCE(SUM(monto), 0) as total 
-                    FROM pagos 
-                    WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s
-                """, (month_start, month_end))
-                total_mes = cur.fetchone()['total']
-                
+                cur.execute("SELECT COALESCE(SUM(monto), 0) as total FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (month_start, month_end))
                 labels.insert(0, get_nombre_mes(month_start.month))
-                values.insert(0, float(total_mes or 0))
-            
+                values.insert(0, float(cur.fetchone()['total'] or 0))
             dashboard_metrics['graficas']['ingresos_ultimos_meses'] = {'labels': labels, 'values': values}
 
-            # --- GRÁFICA DE COMPOSICIÓN DE CARTERA (ÚNICA VEZ) ---
-            cur.execute("""
-                SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado, COUNT(*) as total 
-                FROM clientes GROUP BY estado ORDER BY total DESC
-            """)
+            # --- CONSULTA 3: GRÁFICA Y TABLA DE COMPOSICIÓN DE CARTERA ---
+            cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado, COUNT(*) as total FROM clientes GROUP BY estado ORDER BY total DESC")
             composicion_data = cur.fetchall()
             dashboard_metrics['graficas']['composicion_cartera'] = {
                 'labels': [str(row['estado']).capitalize() for row in composicion_data],
-                'values': [row['total'] for row in composicion_data]
+                'values': [int(row['total']) for row in composicion_data]
             }
 
-            # --- TABLA DE RESUMEN POR CONDICIÓN DE PAGO ---
-            cur.execute("""
-                SELECT COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS') as condicion, COUNT(*) as total
-                FROM clientes WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO'
-                GROUP BY condicion ORDER BY total DESC
-            """)
+            # --- CONSULTA 4: TABLA MAPA DE CLIENTES ---
+            cur.execute("SELECT COUNT(*) as total_clientes, COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'ADJUDICADO' THEN 1 END) AS adjudicado, COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'INSCRITO' THEN 1 END) AS inscrito, COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COMPLETADO' THEN 1 END) AS completado, COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'CONGELADO' THEN 1 END) as congelados, COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COBRANZA DIFERIDA' THEN 1 END) AS cobranza_diferida, COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'INACTIVO' THEN 1 END) AS inactivos FROM clientes")
+            mapa_extra_data = cur.fetchone()
+            dashboard_metrics['tablas']['mapa_clientes'] = {
+                'total_clientes': mapa_extra_data['total_clientes'], 'ahorrador': total_ahorradores,
+                'adjudicado': mapa_extra_data['adjudicado'], 'inscrito': mapa_extra_data['inscrito'],
+                'completado': mapa_extra_data['completado'], 'congelados': mapa_extra_data['congelados'],
+                'cobranza_diferida': mapa_extra_data['cobranza_diferida'], 'retirados': kpi_data['retirados'],
+                'inactivos': mapa_extra_data['inactivos']
+            }
+
+            # --- CONSULTA 5: TABLA RESUMEN POR CONDICIÓN DE PAGO ---
+            cur.execute("SELECT COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS') as condicion, COUNT(*) as total FROM clientes WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO' GROUP BY condicion ORDER BY total DESC")
             resumen_condicion_raw = cur.fetchall()
             dashboard_metrics['tablas']['resumen_condicion'] = [
-                {'condicion': str(row['condicion']).capitalize(), 'total': row['total']} 
+                {'condicion': str(row['condicion']).capitalize(), 'total': int(row['total'])}
                 for row in resumen_condicion_raw
             ]
 
@@ -2879,6 +2849,11 @@ def reporte_metricas_v2():
         flash(f"No se pudieron cargar las métricas del dashboard debido a un error: {e}", "danger")
         logging.error(f"ERROR en reporte_metricas_v2: {traceback.format_exc()}")
         return render_template('reporte_metricas_v2.html', metrics=dashboard_metrics, error=True)
+
+    # VAMOS A IMPRIMIR LOS DATOS EN LOS LOGS ANTES DE ENVIARLOS A LA PLANTILLA
+    logging.info("--- INICIO DE DATOS DE DIAGNÓSTICO PARA MÉTRICAS V2 ---")
+    logging.info(f"DATOS DE COMPOSICION: {dashboard_metrics['graficas']['composicion_cartera']}")
+    logging.info("--- FIN DE DATOS DE DIAGNÓSTICO ---")
 
     return render_template('reporte_metricas_v2.html', metrics=dashboard_metrics, error=False)
 
