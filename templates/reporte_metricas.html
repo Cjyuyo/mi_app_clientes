@@ -1,255 +1,251 @@
 {% extends 'base_sidebar.html' %}
 
 {% block title %}Dashboard de Rendimiento{% endblock %}
-
 {% block page_title %}Dashboard de Rendimiento{% endblock %}
 
 {% block body %}
 <div class="bg-slate-50 p-4 sm:p-6 lg:p-8 min-h-screen">
-    <header class="mb-8">
-        <h1 class="text-3xl md:text-4xl font-bold text-slate-800 tracking-tight">Dashboard de Rendimiento</h1>
-        <p class="text-slate-500 mt-1">Análisis de los indicadores clave para <strong>{{ metrics.mes_actual }} {{ metrics.anio_actual }}</strong>.</p>
-    </header>
+  <!-- Header -->
+  <header class="mb-8">
+    <h1 class="text-3xl md:text-4xl font-bold text-slate-800 tracking-tight">Dashboard de Rendimiento</h1>
+    <p class="text-slate-500 mt-1">
+      Análisis de los indicadores clave para
+      <strong>{{ metrics.mes_actual }} {{ metrics.anio_actual }}</strong>.
+    </p>
+  </header>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-
-        <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200/80 transition-shadow hover:shadow-lg">
-            <div class="flex items-start justify-between">
-                <div class="flex flex-col">
-                    <span class="text-slate-500 font-semibold">Ingresos del Mes</span>
-                    <span class="text-3xl font-bold text-slate-800 mt-2">${{ "{:,.2f}".format(metrics.ingresos_mes_conciliados) }}</span>
-                </div>
-                <div class="p-3 bg-emerald-100 rounded-xl">
-                    <i class="bi bi-cash-stack text-emerald-600 text-2xl"></i>
-                </div>
-            </div>
-            <div class="mt-4 flex items-center gap-2 text-sm">
-                <span class="text-slate-400">Total conciliado en el mes.</span>
-            </div>
+  <!-- KPIs -->
+  <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+    <!-- Ingresos del mes -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 hover:shadow-md transition-shadow">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-slate-500 font-semibold">Ingresos del Mes</p>
+          <p class="text-3xl font-bold text-slate-800 mt-2">
+            ${{ "{:,.2f}".format(metrics.ingresos_mes_conciliados) }}
+          </p>
         </div>
-
-        <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200/80 transition-shadow hover:shadow-lg">
-            <div class="flex items-start justify-between">
-                <div class="flex flex-col">
-                    <span class="text-slate-500 font-semibold">Índice de Morosidad</span>
-                    <span class="text-3xl font-bold text-red-600 mt-2">{{ metrics.indice_morosidad|round(1) }}%</span>
-                </div>
-                <div class="p-3 bg-red-100 rounded-xl">
-                    <i class="bi bi-graph-down-arrow text-red-600 text-2xl"></i>
-                </div>
-            </div>
-            <div class="mt-4 flex items-center gap-2 text-sm">
-                <span class="text-slate-400">Ahorradores sin pago en el mes.</span>
-            </div>
+        <div class="p-3 bg-emerald-100 rounded-xl">
+          <i class="bi bi-cash-stack text-emerald-600 text-2xl"></i>
         </div>
-
-        <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200/80 transition-shadow hover:shadow-lg">
-            <div class="flex items-start justify-between">
-                <div class="flex flex-col">
-                    <span class="text-slate-500 font-semibold">Clientes Activos</span>
-                    <span class="text-3xl font-bold text-slate-800 mt-2">{{ metrics.clientes_activos }}</span>
-                </div>
-                <div class="p-3 bg-sky-100 rounded-xl">
-                    <i class="bi bi-person-check-fill text-sky-600 text-2xl"></i>
-                </div>
-            </div>
-             <div class="mt-4 flex items-center gap-2 text-sm">
-                <span class="text-slate-400">Clientes actualmente en cartera.</span>
-            </div>
-        </div>
-        
-        <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200/80 transition-shadow hover:shadow-lg">
-            <div class="flex items-start justify-between">
-                <div class="flex flex-col">
-                    <span class="text-slate-500 font-semibold">Total Adjudicados</span>
-                    <span class="text-3xl font-bold text-slate-800 mt-2">{{ metrics.clientes_adjudicados }}</span>
-                </div>
-            <div class="p-3 bg-indigo-100 rounded-xl">
-                <i class="bi bi-award-fill text-indigo-600 text-2xl"></i>
-            </div>
-            </div>
-            <div class="mt-4 flex items-center gap-2 text-sm">
-                <span class="text-slate-400">Clientes que han sido adjudicados.</span>
-            </div>
-        </div>
+      </div>
+      <p class="mt-3 text-sm text-slate-400">Total conciliado en el mes.</p>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
-        <div class="lg:col-span-7 bg-white p-6 rounded-2xl shadow-md border border-slate-200/80">
-            <h3 class="text-lg font-bold text-slate-800 mb-1">Evolución de Ingresos</h3>
-            <p class="text-sm text-slate-500 mb-4">Ingresos conciliados en los últimos 6 meses.</p>
-            <div class="h-80">
-                <canvas id="ingresosChart"></canvas>
-            </div>
+    <!-- Índice de morosidad -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 hover:shadow-md transition-shadow">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-slate-500 font-semibold">Índice de Morosidad</p>
+          <p class="text-3xl font-bold text-red-600 mt-2">
+            {{ metrics.indice_morosidad|round(1) }}%
+          </p>
         </div>
-        <div class="lg:col-span-5 bg-white p-6 rounded-2xl shadow-md border border-slate-200/80">
-            <h3 class="text-lg font-bold text-slate-800 mb-1">Composición de Cartera</h3>
-            <p class="text-sm text-slate-500 mb-4">Distribución de clientes por estado del plan.</p>
-            <div class="h-80 flex items-center justify-center">
-                <canvas id="composicionChart"></canvas>
-            </div>
+        <div class="p-3 bg-red-100 rounded-xl">
+          <i class="bi bi-graph-down-arrow text-red-600 text-2xl"></i>
         </div>
-    </div>
-    
-    <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200/80">
-        <h3 class="text-lg font-bold text-slate-800 mb-4">Desglose por Estatus de Cliente</h3>
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            
-            <!-- Activos (clickeable) -->
-            <a href="{{ url_for('consulta') }}?estatus=ACTIVO" class="block bg-slate-100 border border-slate-200/80 p-4 rounded-xl text-center hover:shadow transition">
-                <p class="text-slate-600 font-semibold">Activos</p>
-                <p class="text-4xl font-bold text-emerald-600 mt-1">{{ metrics.clientes_activos }}</p>
-            </a>
-
-            <!-- Estados del plan (clickeables) -->
-            {% for estado, total in metrics.estados_del_plan.items()|sort %}
-            <a href="{{ url_for('consulta') }}?estado={{ estado|upper }}" class="block bg-slate-100 border border-slate-200/80 p-4 rounded-xl text-center hover:shadow transition">
-                <p class="text-slate-600 font-semibold">{{ estado|replace('_', ' ')|capitalize }}</p>
-                <p class="text-4xl font-bold text-slate-800 mt-1">{{ total }}</p>
-            </a>
-            {% endfor %}
-
-            <!-- Inactivos (clickeable) -->
-            <a href="{{ url_for('consulta') }}?estatus=INACTIVO" class="block bg-slate-100 border border-slate-200/80 p-4 rounded-xl text-center hover:shadow transition">
-                <p class="text-slate-600 font-semibold">Inactivos</p>
-                <p class="text-4xl font-bold text-slate-500 mt-1">{{ metrics.clientes_inactivos }}</p>
-            </a>
-
-            <!-- Retirados (clickeable) -->
-            <a href="{{ url_for('consulta') }}?estatus=RETIRO" class="block bg-red-50 border border-red-200/80 p-4 rounded-xl text-center hover:shadow transition">
-                <p class="text-red-800 font-semibold">Retirados</p>
-                <p class="text-4xl font-bold text-red-600 mt-1">{{ metrics.clientes_retirados }}</p>
-            </a>
-        </div>
+      </div>
+      <p class="mt-3 text-sm text-slate-400">Ahorradores sin pago en el mes.</p>
     </div>
 
-    {% if metrics.composicion_condicion and metrics.composicion_condicion['labels'] %}
-    <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200/80 mt-8">
-      <h3 class="text-lg font-bold text-slate-800 mb-4">Desglose por Condición</h3>
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        {% for i in range(metrics.composicion_condicion['labels']|length) %}
-          {% set cond = metrics.composicion_condicion['labels'][i] %}
-          {% set cant = metrics.composicion_condicion['values'][i] %}
-          <a href="{{ url_for('consulta') }}?condicion={{ cond|upper }}"
-             class="block bg-slate-100 border border-slate-200/80 p-4 rounded-xl text-center hover:shadow transition">
-            <p class="text-slate-600 font-semibold">{{ cond }}</p>
-            <p class="text-4xl font-bold text-slate-800 mt-1">{{ cant }}</p>
-          </a>
-        {% endfor %}
+    <!-- Clientes activos -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 hover:shadow-md transition-shadow">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-slate-500 font-semibold">Clientes Activos</p>
+          <p class="text-3xl font-bold text-slate-800 mt-2">{{ metrics.clientes_activos }}</p>
+        </div>
+        <div class="p-3 bg-sky-100 rounded-xl">
+          <i class="bi bi-person-check-fill text-sky-600 text-2xl"></i>
+        </div>
+      </div>
+      <p class="mt-3 text-sm text-slate-400">Clientes actualmente en cartera.</p>
+    </div>
+
+    <!-- Adjudicados -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 hover:shadow-md transition-shadow">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-slate-500 font-semibold">Total Adjudicados</p>
+          <p class="text-3xl font-bold text-slate-800 mt-2">{{ metrics.clientes_adjudicados }}</p>
+        </div>
+        <div class="p-3 bg-indigo-100 rounded-xl">
+          <i class="bi bi-award-fill text-indigo-600 text-2xl"></i>
+        </div>
+      </div>
+      <p class="mt-3 text-sm text-slate-400">Clientes que han sido adjudicados.</p>
+    </div>
+  </section>
+
+  <!-- Charts -->
+  <section class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
+    <div class="lg:col-span-7 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+      <h3 class="text-lg font-bold text-slate-800 mb-1">Evolución de Ingresos</h3>
+      <p class="text-sm text-slate-500 mb-4">Ingresos conciliados en los últimos 6 meses.</p>
+      <div class="h-80">
+        <canvas id="ingresosChart"></canvas>
       </div>
     </div>
-    {% endif %}
+
+    <div class="lg:col-span-5 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+      <h3 class="text-lg font-bold text-slate-800 mb-1">Composición de Cartera</h3>
+      <p class="text-sm text-slate-500 mb-4">Distribución de clientes por estado del plan.</p>
+      <div class="h-80 flex items-center justify-center">
+        <canvas id="composicionChart"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- Resumen por estatus/estado -->
+  <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-bold text-slate-800">Desglose por Estatus de Cliente</h3>
+      <div class="text-xs text-slate-400">Toque una tarjeta para ver el detalle</div>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
+      <!-- Activos -->
+      <a href="{{ url_for('consulta') }}?estatus=ACTIVO"
+         class="group block bg-slate-50 hover:bg-white border border-slate-200 rounded-xl p-4 text-center hover:shadow-sm transition">
+        <p class="text-slate-600 font-semibold">Activos</p>
+        <p class="text-4xl font-extrabold text-emerald-600 mt-1">{{ metrics.clientes_activos }}</p>
+      </a>
+
+      <!-- Estados del plan -->
+      {% for estado, total in metrics.estados_del_plan.items()|sort %}
+      <a href="{{ url_for('consulta') }}?estado={{ estado|upper }}"
+         class="group block bg-slate-50 hover:bg-white border border-slate-200 rounded-xl p-4 text-center hover:shadow-sm transition">
+        <p class="text-slate-600 font-semibold">{{ estado|replace('_',' ')|capitalize }}</p>
+        <p class="text-4xl font-extrabold text-slate-800 mt-1">{{ total }}</p>
+      </a>
+      {% endfor %}
+
+      <!-- Inactivos -->
+      <a href="{{ url_for('consulta') }}?estatus=INACTIVO"
+         class="group block bg-slate-50 hover:bg-white border border-slate-200 rounded-xl p-4 text-center hover:shadow-sm transition">
+        <p class="text-slate-600 font-semibold">Inactivos</p>
+        <p class="text-4xl font-extrabold text-slate-500 mt-1">{{ metrics.clientes_inactivos }}</p>
+      </a>
+
+      {# Nota: Se quita la tarjeta de “Retirados” como pediste #}
+    </div>
+  </section>
+
+  <!-- Condición de pago -->
+  {% if metrics.composicion_condicion and metrics.composicion_condicion['labels'] %}
+  <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 mt-8">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-bold text-slate-800">Desglose por Condición</h3>
+      <div class="text-xs text-slate-400">Clic para filtrar resultados</div>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
+      {% for i in range(metrics.composicion_condicion['labels']|length) %}
+        {% set cond = metrics.composicion_condicion['labels'][i] %}
+        {% set cant = metrics.composicion_condicion['values'][i] %}
+        <a href="{{ url_for('consulta') }}?condicion={{ cond|upper }}"
+           class="group block bg-slate-50 hover:bg-white border border-slate-200 rounded-xl p-4 text-center hover:shadow-sm transition">
+          <p class="text-slate-600 font-semibold">{{ cond }}</p>
+          <p class="text-4xl font-extrabold text-slate-800 mt-1">{{ cant }}</p>
+        </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
 </div>
 {% endblock %}
 
 {% block scripts_extra %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // LA LÓGICA DE JAVASCRIPT Y CHART.JS NO SE HA MODIFICADO
-    document.addEventListener('DOMContentLoaded', function () {
-        Chart.defaults.font.family = "'Inter', 'sans-serif'";
-        Chart.defaults.color = '#64748b'; // slate-500
+  document.addEventListener('DOMContentLoaded', function () {
+    Chart.defaults.font.family = "'Inter','ui-sans-serif','system-ui',sans-serif";
+    Chart.defaults.color = '#64748b'; // slate-500
 
-        // --- GRÁFICO DE INGRESOS ---
-        const ingresosCtx = document.getElementById('ingresosChart').getContext('2d');
-        new Chart(ingresosCtx, {
-            type: 'bar',
-            data: {
-                labels: {{ metrics.ingresos_ultimos_meses['labels']|tojson|safe }},
-                datasets: [{
-                    label: 'Ingresos ($)',
-                    data: {{ metrics.ingresos_ultimos_meses['values']|tojson|safe }},
-                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
-                    borderColor: 'rgba(59, 130, 246, 1)',
-                    borderWidth: 1,
-                    borderRadius: 8,
-                    barPercentage: 0.6,
-                    categoryPercentage: 0.8
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: '#e2e8f0' // slate-200
-                        },
-                        ticks: {
-                            callback: function(value) {
-                                return '$' + new Intl.NumberFormat().format(value);
-                            }
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        backgroundColor: '#1e293b', // slate-800
-                        titleFont: { size: 14, weight: 'bold' },
-                        bodyFont: { size: 12 },
-                        padding: 12,
-                        cornerRadius: 8,
-                        displayColors: false
-                    }
-                }
+    // Ingresos (Bar)
+    const ingresosCtx = document.getElementById('ingresosChart').getContext('2d');
+    new Chart(ingresosCtx, {
+      type: 'bar',
+      data: {
+        labels: {{ metrics.ingresos_ultimos_meses['labels']|tojson|safe }},
+        datasets: [{
+          label: 'Ingresos ($)',
+          data: {{ metrics.ingresos_ultimos_meses['values']|tojson|safe }},
+          backgroundColor: 'rgba(59, 130, 246, 0.7)',
+          borderColor: 'rgba(59, 130, 246, 1)',
+          borderWidth: 1,
+          borderRadius: 8,
+          barPercentage: 0.6,
+          categoryPercentage: 0.8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { color: '#e2e8f0' },
+            ticks: {
+              callback: (value) => '$' + new Intl.NumberFormat().format(value)
             }
-        });
-
-        // --- GRÁFICO DE COMPOSICIÓN ---
-        const composicionCtx = document.getElementById('composicionChart').getContext('2d');
-        new Chart(composicionCtx, {
-            type: 'doughnut',
-            data: {
-                labels: {{ metrics.composicion_clientes['labels']|tojson|safe }},
-                datasets: [{
-                    label: 'Clientes',
-                    data: {{ metrics.composicion_clientes['values']|tojson|safe }},
-                    backgroundColor: [
-                        '#3b82f6', // blue-500
-                        '#10b981', // emerald-500
-                        '#f59e0b', // amber-500
-                        '#8b5cf6', // violet-500
-                        '#ef4444', // red-500
-                        '#64748b', // slate-500
-                        '#ec4899'  // pink-500
-                    ],
-                    borderColor: '#fff',
-                    borderWidth: 4,
-                    hoverOffset: 8
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            padding: 20,
-                            boxWidth: 12,
-                            usePointStyle: true,
-                            pointStyle: 'circle'
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: '#1e293b',
-                        titleFont: { size: 14, weight: 'bold' },
-                        bodyFont: { size: 12 },
-                        padding: 12,
-                        cornerRadius: 8,
-                    }
-                }
-            }
-        });
+          },
+          x: { grid: { display: false } }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1e293b',
+            titleFont: { size: 14, weight: 'bold' },
+            bodyFont: { size: 12 },
+            padding: 12,
+            cornerRadius: 8,
+            displayColors: false
+          }
+        }
+      }
     });
+
+    // Composición (Doughnut)
+    const composicionCtx = document.getElementById('composicionChart').getContext('2d');
+    new Chart(composicionCtx, {
+      type: 'doughnut',
+      data: {
+        labels: {{ metrics.composicion_clientes['labels']|tojson|safe }},
+        datasets: [{
+          label: 'Clientes',
+          data: {{ metrics.composicion_clientes['values']|tojson|safe }},
+          backgroundColor: [
+            '#3b82f6','#10b981','#f59e0b','#8b5cf6',
+            '#ef4444','#64748b','#ec4899'
+          ],
+          borderColor: '#fff',
+          borderWidth: 4,
+          hoverOffset: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              padding: 20,
+              boxWidth: 12,
+              usePointStyle: true,
+              pointStyle: 'circle'
+            }
+          },
+          tooltip: {
+            backgroundColor: '#1e293b',
+            titleFont: { size: 14, weight: 'bold' },
+            bodyFont: { size: 12 },
+            padding: 12,
+            cornerRadius: 8
+          }
+        }
+      }
+    });
+  });
 </script>
 {% endblock %}
