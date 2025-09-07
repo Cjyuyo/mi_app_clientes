@@ -2860,8 +2860,6 @@ def reporte_metricas_v2():
         logging.error(f"ERROR en reporte_metricas_v2: {traceback.format_exc()}")
         return render_template('reporte_metricas_v2.html', metrics=dashboard_metrics, error=True)
 
-    return render_template('reporte_metricas_v2.html', metrics=dashboard_metrics, error=False)
-
 # =================================================================================
 # ===== FIN: MÓDULO DE MÉTRICAS RECONSTRUIDO (V2) =====
 # =================================================================================
