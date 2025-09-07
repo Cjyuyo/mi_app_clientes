@@ -2751,6 +2751,7 @@ def mi_cartera():
 def _get_dashboard_metrics():
     """
     Función auxiliar para calcular y obtener todas las métricas del dashboard.
+    Esta función está optimizada y corregida.
     """
     conn = get_db()
     today = get_venezuela_current_date()
@@ -2769,7 +2770,7 @@ def _get_dashboard_metrics():
 
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            # Consulta unificada para el mapa de clientes
+            # Consulta unificada para el mapa de clientes (más eficiente)
             cur.execute("""
                 SELECT
                     COUNT(*) AS total_clientes,
@@ -2808,7 +2809,7 @@ def _get_dashboard_metrics():
                 clientes_en_mora = total_ahorradores - ahorradores_al_dia
                 dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100
                 
-            # Gráfica de ingresos históricos
+            # Gráfica de ingresos históricos (CORRECCIÓN APLICADA AQUÍ)
             income_labels, income_values = [], []
             current_date = today
             for _ in range(6):
@@ -2818,7 +2819,7 @@ def _get_dashboard_metrics():
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (month_start, month_end))
                 total = cur.fetchone()[0] or Decimal('0.0')
                 income_labels.insert(0, get_nombre_mes(current_date.month))
-                income_values.insert(0, float(total.normalize()))
+                income_values.insert(0, float(total)) # Se convierte a float directamente
                 current_date = month_start - timedelta(days=1)
             dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
 
@@ -2873,17 +2874,12 @@ def lista_clientes(filtro):
     try:
         with conn.cursor() as cur:
             filtro_upper = filtro.upper()
-
-            # ===== INICIO DE LA CORRECCIÓN =====
-            # Se ha corregido el error de tipeo en 'estado_del_plan'.
             query = """
                 SELECT id, nombre, apellido, cedula 
                 FROM clientes 
                 WHERE (TRIM(UPPER(estado_del_plan)) = %s OR TRIM(UPPER(estatus_cliente)) = %s)
                 ORDER BY nombre, apellido;
             """
-            # ===== FIN DE LA CORRECCIÓN =====
-            
             cur.execute(query, (filtro_upper, filtro_upper))
             clientes = cur.fetchall()
 
