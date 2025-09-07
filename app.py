@@ -2848,18 +2848,6 @@ def reporte_metricas():
 
     return render_template('reporte_metricas.html', anio_actual=get_venezuela_current_date().year, metrics=dashboard_metrics)
 
-@app.route('/reportes/metricas')
-@admin_required
-@rol_requerido('superadmin', 'gerente')
-def reporte_metricas():
-    today = get_venezuela_current_date()
-    dashboard_metrics = _get_dashboard_metrics()
-    
-    if not get_db():
-         flash("Error de conexión a la base de datos.", "danger")
-
-    return render_template('reporte_metricas.html', anio_actual=today.year, metrics=dashboard_metrics)
-
 @app.route('/lista_clientes/<string:filtro>')
 @admin_required
 def lista_clientes(filtro):
