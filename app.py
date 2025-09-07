@@ -2753,6 +2753,11 @@ def mi_cartera():
 # ===== INICIO: MÓDULO DE MÉTRICAS RECONSTRUIDO (V1) =====
 # ================================================================================
 
+# Asegúrate de tener arriba:
+# from calendar import monthrange
+# from datetime import timedelta
+# import psycopg2
+
 @app.route('/reportes/metricas')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -2790,14 +2795,13 @@ def reporte_metricas():
                 """)
                 row = cur.fetchone()
                 if row:
-                    # row puede ser dict-like; aseguremos ints
-                    dashboard_metrics['total_clientes']      = int(row['total_clientes'])
-                    dashboard_metrics['clientes_activos']     = int(row['clientes_activos'])
-                    dashboard_metrics['clientes_inactivos']   = int(row['clientes_inactivos'])
-                    dashboard_metrics['clientes_retirados']   = int(row['clientes_retirados'])
-                    dashboard_metrics['clientes_congelados']  = int(row['clientes_congelados'])
-                    dashboard_metrics['clientes_reserva']     = int(row['clientes_reserva'])
-                    dashboard_metrics['clientes_adjudicados'] = int(row['clientes_adjudicados'])
+                    dashboard_metrics['total_clientes']      = int(row['total_clientes'] or 0)
+                    dashboard_metrics['clientes_activos']     = int(row['clientes_activos'] or 0)
+                    dashboard_metrics['clientes_inactivos']   = int(row['clientes_inactivos'] or 0)
+                    dashboard_metrics['clientes_retirados']   = int(row['clientes_retirados'] or 0)
+                    dashboard_metrics['clientes_congelados']  = int(row['clientes_congelados'] or 0)
+                    dashboard_metrics['clientes_reserva']     = int(row['clientes_reserva'] or 0)
+                    dashboard_metrics['clientes_adjudicados'] = int(row['clientes_adjudicados'] or 0)
 
                 # Estados del plan
                 cur.execute("""
@@ -2809,7 +2813,7 @@ def reporte_metricas():
                 """)
                 estados_plan = cur.fetchall() or []
                 dashboard_metrics['estados_del_plan'] = {
-                    (item['estado_del_plan'] or 'SIN PROCESO'): int(item['total'])
+                    (item['estado_del_plan'] or 'SIN PROCESO'): int(item['total'] or 0)
                     for item in estados_plan
                 }
 
@@ -2820,7 +2824,7 @@ def reporte_metricas():
                     FROM pagos
                     WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s
                 """, (first_day_of_month,))
-                ingresos_mes = cur.fetchone()[0] if cur.rowcount is not None else 0
+                ingresos_mes = cur.fetchone()[0]
                 dashboard_metrics['ingresos_mes_conciliados'] = float(ingresos_mes or 0)
 
                 # Índice de morosidad
@@ -2830,8 +2834,7 @@ def reporte_metricas():
                     WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR'
                       AND TRIM(UPPER(estatus_cliente)) = 'ACTIVO'
                 """)
-                total_ahorradores = (cur.fetchone()[0] or 0)
-                total_ahorradores = int(total_ahorradores)
+                total_ahorradores = int((cur.fetchone()[0] or 0))
 
                 if total_ahorradores > 0:
                     cur.execute("""
@@ -2846,8 +2849,7 @@ def reporte_metricas():
                     """, (first_day_of_month,))
                     al_dia = int(cur.fetchone()[0] or 0)
                     clientes_en_mora = max(total_ahorradores - al_dia, 0)
-                    indice = (clientes_en_mora / total_ahorradores) * 100
-                    dashboard_metrics['indice_morosidad'] = round(indice, 2)
+                    dashboard_metrics['indice_morosidad'] = round((clientes_en_mora / total_ahorradores) * 100, 2)
 
                 # Serie: últimos 6 meses (conciliado)
                 income_labels, income_values = [], []
@@ -2882,7 +2884,7 @@ def reporte_metricas():
                 """)
                 comp = cur.fetchall() or []
                 comp_labels = [str(row['proceso']).capitalize() for row in comp]
-                comp_values = [int(row['count']) for row in comp]
+                comp_values = [int(row['count'] or 0) for row in comp]
                 dashboard_metrics['composicion_clientes'] = {
                     'labels': comp_labels,
                     'values': comp_values
