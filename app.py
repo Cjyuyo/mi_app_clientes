@@ -2750,7 +2750,6 @@ def mi_cartera():
 # =================================================================================
 # ===== INICIO: MÓDULO DE MÉTRICAS RECONSTRUIDO (V2) =====
 # =================================================================================
-
 @app.route('/reportes/metricas_v2')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -2818,10 +2817,8 @@ def reporte_metricas_v2():
                 dashboard_metrics['kpis']['clientes_retirados'] = mapa_data['retirados']
                 dashboard_metrics['tablas']['mapa_clientes'] = dict(mapa_data)
                 
-                # Se define la variable 'total_ahorradores' a partir de los datos ya consultados.
-                # Se usa .get() con un valor por defecto de 0 para evitar errores.
                 total_ahorradores = mapa_data.get('ahorrador', 0) or 0
-                
+
                 # --- 4. Composición de la Cartera ---
                 cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado_plan, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
                 composicion_raw = cur.fetchall()
@@ -2843,7 +2840,6 @@ def reporte_metricas_v2():
                 ahorradores_al_dia = cur.fetchone()['al_dia']
                 clientes_en_mora = total_ahorradores - ahorradores_al_dia
                 
-                # Se añade una validación para evitar división por cero.
                 if total_ahorradores > 0:
                     dashboard_metrics['kpis']['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100
                 else:
@@ -2882,11 +2878,8 @@ def reporte_metricas_v2():
                 ORDER BY total DESC
             """)
             composicion_data = cur.fetchall()
-            # >>> INICIO DE LA CORRECCIÓN <<<
-            # Se añaden los paréntesis a .capitalize() para llamar a la función
-            # en lugar de pasar una referencia a ella.
+            # Corrección del bug de `capitalize` aplicada de forma segura
             comp_labels = [str(row['estado']).capitalize() for row in composicion_data]
-            # >>> FIN DE LA CORRECCIÓN <<<
             comp_values = [row['total'] for row in composicion_data]
             dashboard_metrics['graficas']['composicion_cartera'] = {'labels': comp_labels, 'values': comp_values}
 
