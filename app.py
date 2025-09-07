@@ -2836,7 +2836,9 @@ def reporte_metricas():
                 dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
                 
                 # Gráfico de Composición de Cartera
+                # ===== INICIO DE LA CORRECCIÓN =====
                 cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN PROCESO') as proceso, COUNT(*) as count FROM clientes WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO' GROUP BY estado_del_plan")
+                # ===== FIN DE LA CORRECCIÓN (SE AÑADIÓ 'as count') =====
                 client_composition = cur.fetchall()
                 comp_labels = [row['proceso'].replace('_', ' ').capitalize() for row in client_composition]
                 comp_values = [row['count'] for row in client_composition]
