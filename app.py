@@ -2817,13 +2817,11 @@ def reporte_metricas_v2():
                 dashboard_metrics['kpis']['clientes_en_cartera'] = mapa_data['dentro_sistema']
                 dashboard_metrics['kpis']['clientes_retirados'] = mapa_data['retirados']
                 dashboard_metrics['tablas']['mapa_clientes'] = dict(mapa_data)
-
-                # >>> INICIO DE LA CORRECCIÓN <<<
+                
                 # Se define la variable 'total_ahorradores' a partir de los datos ya consultados.
                 # Se usa .get() con un valor por defecto de 0 para evitar errores.
                 total_ahorradores = mapa_data.get('ahorrador', 0) or 0
-                # >>> FIN DE LA CORRECCIÓN <<<
-
+                
                 # --- 4. Composición de la Cartera ---
                 cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado_plan, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
                 composicion_raw = cur.fetchall()
@@ -2845,14 +2843,11 @@ def reporte_metricas_v2():
                 ahorradores_al_dia = cur.fetchone()['al_dia']
                 clientes_en_mora = total_ahorradores - ahorradores_al_dia
                 
-                # >>> INICIO DE LA CORRECCIÓN <<<
                 # Se añade una validación para evitar división por cero.
                 if total_ahorradores > 0:
                     dashboard_metrics['kpis']['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100
                 else:
                     dashboard_metrics['kpis']['indice_morosidad'] = 0.0
-                # >>> FIN DE LA CORRECCIÓN <<<
-
 
             # --- CONSULTA 4: GRÁFICA DE INGRESOS EN ÚLTIMOS 6 MESES ---
             labels, values = [], []
