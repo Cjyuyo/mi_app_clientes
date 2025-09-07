@@ -2750,6 +2750,7 @@ def mi_cartera():
 # =================================================================================
 # ===== INICIO: MÓDULO DE MÉTRICAS RECONSTRUIDO (V2) =====
 # =================================================================================
+
 @app.route('/reportes/metricas_v2')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -2878,7 +2879,6 @@ def reporte_metricas_v2():
                 ORDER BY total DESC
             """)
             composicion_data = cur.fetchall()
-            # Corrección del bug de `capitalize` aplicada de forma segura
             comp_labels = [str(row['estado']).capitalize() for row in composicion_data]
             comp_values = [row['total'] for row in composicion_data]
             dashboard_metrics['graficas']['composicion_cartera'] = {'labels': comp_labels, 'values': comp_values}
@@ -2894,10 +2894,13 @@ def reporte_metricas_v2():
                 ORDER BY total DESC
             """)
             resumen_condicion_raw = cur.fetchall()
+            # >>> INICIO DE LA CORRECCIÓN <<<
+            # Se añaden los paréntesis a .capitalize() para ejecutar la función
             dashboard_metrics['tablas']['resumen_condicion'] = [
                 {'condicion': str(row['condicion']).capitalize(), 'total': row['total']} 
                 for row in resumen_condicion_raw
             ]
+            # >>> FIN DE LA CORRECCIÓN <<<
 
     except (psycopg2.Error, ValueError) as e:
         flash(f"No se pudieron cargar las métricas del dashboard debido a un error: {e}", "danger")
