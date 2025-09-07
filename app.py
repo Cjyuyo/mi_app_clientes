@@ -2751,7 +2751,7 @@ def mi_cartera():
 # ===== INICIO: MÓDULO DE MÉTRICAS RECONSTRUIDO (V2) =====
 # =================================================================================
 
-@app.route('/reportes/metricas_v2') # Usamos una nueva URL para evitar conflictos
+@app.route('/reportes/metricas_v2')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def reporte_metricas_v2():
@@ -2817,15 +2817,15 @@ def reporte_metricas_v2():
                 dashboard_metrics['kpis']['clientes_en_cartera'] = mapa_data['dentro_sistema']
                 dashboard_metrics['kpis']['clientes_retirados'] = mapa_data['retirados']
                 dashboard_metrics['tablas']['mapa_clientes'] = dict(mapa_data)
+                # --- 4. Composición de la Cartera ---
+                cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado_plan, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
+                composicion_raw = cur.fetchall()
+                dashboard_metrics['graficas']['composicion_cartera'] = {
+                    'labels': [row['estado_plan'].capitalize() if row['estado_plan'] else 'Sin Datos' for row in composicion_raw],
+                    'values': [row['total'] for row in composicion_raw]
+                }
 
-            # --- CONSULTA 3: ÍNDICE DE MOROSIDAD ---
-            cur.execute("""
-                SELECT COUNT(*) as total FROM clientes 
-                WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(estatus_cliente)) = 'ACTIVO'
-            """)
-            total_ahorradores = cur.fetchone()['total']
-
-            if total_ahorradores > 0:
+                # --- 5. Resumen por Condición de Pago ---
                 cur.execute("""
                     SELECT COUNT(DISTINCT cliente_id) as al_dia FROM pagos
                     WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'
