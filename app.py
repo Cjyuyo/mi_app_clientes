@@ -123,14 +123,16 @@ def inject_utility_functions():
 def get_db():
     if 'db' not in g:
         try:
+            # Usamos la variable DATABASE_URL que Render provee automáticamente
+            database_url = os.getenv("DATABASE_URL")
+            if not database_url:
+                raise ValueError("La variable de entorno DATABASE_URL no está configurada.")
+            
             g.db = psycopg2.connect(
-                dbname=os.getenv("DB_NAME"),
-                user=os.getenv("DB_USER"),
-                password=os.getenv("DB_PASSWORD"),
-                host=os.getenv("DB_HOST"),
+                database_url,
                 cursor_factory=psycopg2.extras.DictCursor
             )
-        except psycopg2.OperationalError as e:
+        except (psycopg2.OperationalError, ValueError) as e:
             logging.error(f"Error connecting to the database: {e}")
             g.db = None
     return g.db
