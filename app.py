@@ -2907,7 +2907,6 @@ def reporte_morosidad():
                 
                 first_day_of_month = today.replace(day=1)
                 
-                # CORRECCIÓN: Se usan las columnas estandarizadas 'estado_del_plan' y 'estatus_cliente'
                 query_morosos = """
                     SELECT c.id, c.nombre, c.apellido, c.cedula, c.telefono, c.valor_cuota, c.gestor_id,
                            a.usuario as gestor_asignado,
