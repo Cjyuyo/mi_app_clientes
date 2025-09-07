@@ -27,6 +27,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 # Imports de Flask
 from flask import Flask, render_template, request, g, flash, redirect, url_for, session, Response, jsonify
+from types import SimpleNamespace
 
 # =================================================================================
 # ===== CONFIGURACIÓN INICIAL Y DE ENTORNO =====
@@ -2758,19 +2759,24 @@ def mi_cartera():
 def reporte_metricas():
     conn = get_db()
     today = get_venezuela_current_date()
+
     dashboard_metrics = {
-        'ingresos_mes_conciliados': 0, 'indice_morosidad': 0.0,
-        'mes_actual': get_nombre_mes(today.month), 'anio_actual': today.year,
+        'ingresos_mes_conciliados': 0.0,
+        'indice_morosidad': 0.0,
+        'mes_actual': get_nombre_mes(today.month),
+        'anio_actual': today.year,
         'ingresos_ultimos_meses': {'labels': [], 'values': []},
         'composicion_clientes': {'labels': [], 'values': []},
         'total_clientes': 0, 'clientes_activos': 0, 'clientes_inactivos': 0,
-        'clientes_retirados': 0, 'clientes_adjudicados': 0, 'clientes_congelados': 0,
-        'clientes_reserva': 0,
+        'clientes_retirados': 0, 'clientes_adjudicados': 0,
+        'clientes_congelados': 0, 'clientes_reserva': 0,
         'estados_del_plan': {}
     }
+
     if conn:
         try:
             with conn.cursor() as cur:
+                # Totales por estatus
                 cur.execute("""
                     SELECT
                         COUNT(*) AS total_clientes,
@@ -2782,61 +2788,115 @@ def reporte_metricas():
                         COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'ADJUDICADO' THEN 1 END) AS clientes_adjudicados
                     FROM clientes
                 """)
-                client_counts = cur.fetchone()
-                if client_counts:
-                    dashboard_metrics.update(dict(client_counts))
+                row = cur.fetchone()
+                if row:
+                    # row puede ser dict-like; aseguremos ints
+                    dashboard_metrics['total_clientes']      = int(row['total_clientes'])
+                    dashboard_metrics['clientes_activos']     = int(row['clientes_activos'])
+                    dashboard_metrics['clientes_inactivos']   = int(row['clientes_inactivos'])
+                    dashboard_metrics['clientes_retirados']   = int(row['clientes_retirados'])
+                    dashboard_metrics['clientes_congelados']  = int(row['clientes_congelados'])
+                    dashboard_metrics['clientes_reserva']     = int(row['clientes_reserva'])
+                    dashboard_metrics['clientes_adjudicados'] = int(row['clientes_adjudicados'])
 
+                # Estados del plan
                 cur.execute("""
                     SELECT estado_del_plan, COUNT(*) as total
                     FROM clientes
-                    WHERE estado_del_plan IS NOT NULL AND estado_del_plan != ''
+                    WHERE estado_del_plan IS NOT NULL AND estado_del_plan <> ''
                     GROUP BY estado_del_plan
                     ORDER BY estado_del_plan
                 """)
-                estados_plan = cur.fetchall()
+                estados_plan = cur.fetchall() or []
                 dashboard_metrics['estados_del_plan'] = {
-                    item['estado_del_plan']: item['total'] for item in estados_plan
+                    (item['estado_del_plan'] or 'SIN PROCESO'): int(item['total'])
+                    for item in estados_plan
                 }
 
+                # Ingresos conciliados mes actual
                 first_day_of_month = today.replace(day=1)
-                cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
-                dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
-                
-                cur.execute("SELECT COUNT(*) FROM clientes WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(estatus_cliente)) = 'ACTIVO'")
-                total_ahorradores = cur.fetchone()[0] or 0
-                
+                cur.execute("""
+                    SELECT COALESCE(SUM(monto), 0)
+                    FROM pagos
+                    WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s
+                """, (first_day_of_month,))
+                ingresos_mes = cur.fetchone()[0] if cur.rowcount is not None else 0
+                dashboard_metrics['ingresos_mes_conciliados'] = float(ingresos_mes or 0)
+
+                # Índice de morosidad
+                cur.execute("""
+                    SELECT COUNT(*)
+                    FROM clientes
+                    WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR'
+                      AND TRIM(UPPER(estatus_cliente)) = 'ACTIVO'
+                """)
+                total_ahorradores = (cur.fetchone()[0] or 0)
+                total_ahorradores = int(total_ahorradores)
+
                 if total_ahorradores > 0:
-                    cur.execute("SELECT COUNT(DISTINCT p.cliente_id) FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.tipo_pago = 'Cuota' AND p.estado_pago = 'Conciliado' AND TRIM(UPPER(c.estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(c.estatus_cliente)) = 'ACTIVO' AND p.fecha_pago >= %s", (first_day_of_month,))
-                    ahorradores_al_dia = cur.fetchone()[0] or 0
-                    clientes_en_mora = total_ahorradores - ahorradores_al_dia
-                    dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100
-                
+                    cur.execute("""
+                        SELECT COUNT(DISTINCT p.cliente_id)
+                        FROM pagos p
+                        JOIN clientes c ON p.cliente_id = c.id
+                        WHERE p.tipo_pago = 'Cuota'
+                          AND p.estado_pago = 'Conciliado'
+                          AND TRIM(UPPER(c.estado_del_plan)) = 'AHORRADOR'
+                          AND TRIM(UPPER(c.estatus_cliente)) = 'ACTIVO'
+                          AND p.fecha_pago >= %s
+                    """, (first_day_of_month,))
+                    al_dia = int(cur.fetchone()[0] or 0)
+                    clientes_en_mora = max(total_ahorradores - al_dia, 0)
+                    indice = (clientes_en_mora / total_ahorradores) * 100
+                    dashboard_metrics['indice_morosidad'] = round(indice, 2)
+
+                # Serie: últimos 6 meses (conciliado)
                 income_labels, income_values = [], []
                 current_date = today
                 for _ in range(6):
                     month_start = current_date.replace(day=1)
                     _, days_in_month = monthrange(current_date.year, current_date.month)
                     month_end = current_date.replace(day=days_in_month)
-                    cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (month_start, month_end))
+                    cur.execute("""
+                        SELECT COALESCE(SUM(monto), 0)
+                        FROM pagos
+                        WHERE estado_pago = 'Conciliado'
+                          AND fecha_pago BETWEEN %s AND %s
+                    """, (month_start, month_end))
                     total = cur.fetchone()[0]
                     income_labels.insert(0, get_nombre_mes(current_date.month))
                     income_values.insert(0, float(total or 0))
                     current_date = month_start - timedelta(days=1)
-                dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
-                
-                # ===== ESTA ES LA LÍNEA QUE RESTAURA LA LÓGICA DE TU VERSIÓN FUNCIONAL =====
-                cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN PROCESO') as proceso, COUNT(*) as count FROM clientes WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO' GROUP BY estado_del_plan")
-                
-                client_composition = cur.fetchall()
-                comp_labels = [row['proceso'].capitalize() for row in client_composition]
-                comp_values = [row['count'] for row in client_composition]
-                dashboard_metrics['composicion_clientes'] = {'labels': comp_labels, 'values': comp_values}
+
+                dashboard_metrics['ingresos_ultimos_meses'] = {
+                    'labels': income_labels,
+                    'values': income_values
+                }
+
+                # Composición de clientes activos por proceso
+                cur.execute("""
+                    SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN PROCESO') AS proceso,
+                           COUNT(*) AS count
+                    FROM clientes
+                    WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO'
+                    GROUP BY estado_del_plan
+                """)
+                comp = cur.fetchall() or []
+                comp_labels = [str(row['proceso']).capitalize() for row in comp]
+                comp_values = [int(row['count']) for row in comp]
+                dashboard_metrics['composicion_clientes'] = {
+                    'labels': comp_labels,
+                    'values': comp_values
+                }
 
         except psycopg2.Error as e:
             flash(f"No se pudieron cargar las métricas del dashboard: {e}", "error")
             logging.error(f"Error en reporte_metricas: {traceback.format_exc()}")
-            
-    return render_template('reporte_metricas.html', anio_actual=get_venezuela_current_date().year, metrics=dashboard_metrics)
+
+    return render_template(
+        'reporte_metricas.html',
+        anio_actual=get_venezuela_current_date().year,
+        metrics=dashboard_metrics
+    )
 
 # =================================================================================
 # ===== FIN: MÓDULO DE MÉTRICAS RECONSTRUIDO (V1) =====

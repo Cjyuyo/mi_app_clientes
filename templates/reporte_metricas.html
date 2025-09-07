@@ -1,234 +1,115 @@
-{% extends 'base_sidebar.html' %}
-
-{% block title %}Dashboard de Rendimiento{% endblock %}
-
-{% block page_title %}Dashboard de Rendimiento{% endblock %}
-
-{% block body %}
-<div class="bg-slate-50 p-4 sm:p-6 lg:p-8 min-h-screen">
-    <header class="mb-8">
-        <h1 class="text-3xl md:text-4xl font-bold text-slate-800 tracking-tight">Dashboard de Rendimiento</h1>
-        <p class="text-slate-500 mt-1">Análisis de los indicadores clave para <strong>{{ metrics.mes_actual }} {{ metrics.anio_actual }}</strong>.</p>
-    </header>
-
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-
-        <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200/80 transition-shadow hover:shadow-lg">
-            <div class="flex items-start justify-between">
-                <div class="flex flex-col">
-                    <span class="text-slate-500 font-semibold">Ingresos del Mes</span>
-                    <span class="text-3xl font-bold text-slate-800 mt-2">${{ "{:,.2f}".format(metrics.ingresos_mes_conciliados) }}</span>
-                </div>
-                <div class="p-3 bg-emerald-100 rounded-xl">
-                    <i class="bi bi-cash-stack text-emerald-600 text-2xl"></i>
-                </div>
-            </div>
-            <div class="mt-4 flex items-center gap-2 text-sm">
-                <span class="text-slate-400">Total conciliado en el mes.</span>
-            </div>
-        </div>
-
-        <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200/80 transition-shadow hover:shadow-lg">
-            <div class="flex items-start justify-between">
-                <div class="flex flex-col">
-                    <span class="text-slate-500 font-semibold">Índice de Morosidad</span>
-                    <span class="text-3xl font-bold text-red-600 mt-2">{{ metrics.indice_morosidad|round(1) }}%</span>
-                </div>
-                <div class="p-3 bg-red-100 rounded-xl">
-                    <i class="bi bi-graph-down-arrow text-red-600 text-2xl"></i>
-                </div>
-            </div>
-            <div class="mt-4 flex items-center gap-2 text-sm">
-                <span class="text-slate-400">Ahorradores sin pago en el mes.</span>
-            </div>
-        </div>
-
-        <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200/80 transition-shadow hover:shadow-lg">
-            <div class="flex items-start justify-between">
-                <div class="flex flex-col">
-                    <span class="text-slate-500 font-semibold">Clientes Activos</span>
-                    <span class="text-3xl font-bold text-slate-800 mt-2">{{ metrics.clientes_activos }}</span>
-                </div>
-                <div class="p-3 bg-sky-100 rounded-xl">
-                    <i class="bi bi-person-check-fill text-sky-600 text-2xl"></i>
-                </div>
-            </div>
-             <div class="mt-4 flex items-center gap-2 text-sm">
-                <span class="text-slate-400">Clientes actualmente en cartera.</span>
-            </div>
-        </div>
-        
-        <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200/80 transition-shadow hover:shadow-lg">
-            <div class="flex items-start justify-between">
-                <div class="flex flex-col">
-                    <span class="text-slate-500 font-semibold">Total Adjudicados</span>
-                    <span class="text-3xl font-bold text-slate-800 mt-2">{{ metrics.clientes_adjudicados }}</span>
-                </div>
-                <div class="p-3 bg-indigo-100 rounded-xl">
-                    <i class="bi bi-award-fill text-indigo-600 text-2xl"></i>
-                </div>
-            </div>
-            <div class="mt-4 flex items-center gap-2 text-sm">
-                <span class="text-slate-400">Clientes que han sido adjudicados.</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
-        <div class="lg:col-span-7 bg-white p-6 rounded-2xl shadow-md border border-slate-200/80">
-            <h3 class="text-lg font-bold text-slate-800 mb-1">Evolución de Ingresos</h3>
-            <p class="text-sm text-slate-500 mb-4">Ingresos conciliados en los últimos 6 meses.</p>
-            <div class="h-80">
-                <canvas id="ingresosChart"></canvas>
-            </div>
-        </div>
-        <div class="lg:col-span-5 bg-white p-6 rounded-2xl shadow-md border border-slate-200/80">
-            <h3 class="text-lg font-bold text-slate-800 mb-1">Composición de Cartera</h3>
-            <p class="text-sm text-slate-500 mb-4">Distribución de clientes por estado del plan.</p>
-            <div class="h-80 flex items-center justify-center">
-                <canvas id="composicionChart"></canvas>
-            </div>
-        </div>
-    </div>
-    
-    <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200/80">
-        <h3 class="text-lg font-bold text-slate-800 mb-4">Desglose por Estatus de Cliente</h3>
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            
-            <div class="bg-slate-100 border border-slate-200/80 p-4 rounded-xl text-center">
-                <p class="text-slate-600 font-semibold">Activos</p>
-                <p class="text-4xl font-bold text-emerald-600 mt-1">{{ metrics.clientes_activos }}</p>
-            </div>
-
-            {% for estado, total in metrics.estados_del_plan.items()|sort %}
-            <div class="bg-slate-100 border border-slate-200/80 p-4 rounded-xl text-center">
-                <p class="text-slate-600 font-semibold">{{ estado|replace('_', ' ')|capitalize }}</p>
-                <p class="text-4xl font-bold text-slate-800 mt-1">{{ total }}</p>
-            </div>
-            {% endfor %}
-
-            <div class="bg-slate-100 border border-slate-200/80 p-4 rounded-xl text-center">
-                <p class="text-slate-600 font-semibold">Inactivos</p>
-                <p class="text-4xl font-bold text-slate-500 mt-1">{{ metrics.clientes_inactivos }}</p>
-            </div>
-
-            <div class="bg-red-50 border border-red-200/80 p-4 rounded-xl text-center">
-                <p class="text-red-800 font-semibold">Retirados</p>
-                <p class="text-4xl font-bold text-red-600 mt-1">{{ metrics.clientes_retirados }}</p>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block scripts_extra %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    // LA LÓGICA DE JAVASCRIPT Y CHART.JS NO SE HA MODIFICADO
-    document.addEventListener('DOMContentLoaded', function () {
-        Chart.defaults.font.family = "'Inter', 'sans-serif'";
-        Chart.defaults.color = '#64748b'; // slate-500
-
-        // --- GRÁFICO DE INGRESOS ---
-        const ingresosCtx = document.getElementById('ingresosChart').getContext('2d');
-        new Chart(ingresosCtx, {
-            type: 'bar',
-            data: {
-                labels: {{ metrics.ingresos_ultimos_meses.labels|tojson|safe }},
-                datasets: [{
-                    label: 'Ingresos ($)',
-                    data: {{ metrics.ingresos_ultimos_meses.values|tojson|safe }},
-                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
-                    borderColor: 'rgba(59, 130, 246, 1)',
-                    borderWidth: 1,
-                    borderRadius: 8,
-                    barPercentage: 0.6,
-                    categoryPercentage: 0.8
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: '#e2e8f0' // slate-200
-                        },
-                        ticks: {
-                            callback: function(value) {
-                                return '$' + new Intl.NumberFormat().format(value);
-                            }
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        backgroundColor: '#1e293b', // slate-800
-                        titleFont: { size: 14, weight: 'bold' },
-                        bodyFont: { size: 12 },
-                        padding: 12,
-                        cornerRadius: 8,
-                        displayColors: false
-                    }
-                }
-            }
-        });
-
-        // --- GRÁFICO DE COMPOSICIÓN ---
-        const composicionCtx = document.getElementById('composicionChart').getContext('2d');
-        new Chart(composicionCtx, {
-            type: 'doughnut',
-            data: {
-                labels: {{ metrics.composicion_clientes.labels|tojson|safe }},
-                datasets: [{
-                    label: 'Clientes',
-                    data: {{ metrics.composicion_clientes.values|tojson|safe }},
-                    backgroundColor: [
-                        '#3b82f6', // blue-500
-                        '#10b981', // emerald-500
-                        '#f59e0b', // amber-500
-                        '#8b5cf6', // violet-500
-                        '#ef4444', // red-500
-                        '#64748b', // slate-500
-                        '#ec4899'  // pink-500
-                    ],
-                    borderColor: '#fff',
-                    borderWidth: 4,
-                    hoverOffset: 8
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            padding: 20,
-                            boxWidth: 12,
-                            usePointStyle: true,
-                            pointStyle: 'circle'
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: '#1e293b',
-                        titleFont: { size: 14, weight: 'bold' },
-                        bodyFont: { size: 12 },
-                        padding: 12,
-                        cornerRadius: 8,
-                    }
-                }
-            }
-        });
-    });
-</script>
-{% endblock %}
+ {% block scripts_extra %}
+ <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+ <script>
+     // LA LÓGICA DE JAVASCRIPT Y CHART.JS NO SE HA MODIFICADO
+     document.addEventListener('DOMContentLoaded', function () {
+         Chart.defaults.font.family = "'Inter', 'sans-serif'";
+         Chart.defaults.color = '#64748b'; // slate-500
+ 
+         // --- GRÁFICO DE INGRESOS ---
+         const ingresosCtx = document.getElementById('ingresosChart').getContext('2d');
+         new Chart(ingresosCtx, {
+             type: 'bar',
+             data: {
+-                data: {{ metrics.ingresos_ultimos_meses.values|tojson|safe }},
++                labels: {{ metrics.ingresos_ultimos_meses['labels']|tojson|safe }},
+                 datasets: [{
+                     label: 'Ingresos ($)',
+-                    data: {{ metrics.ingresos_ultimos_meses.values|tojson|safe }},
++                    data: {{ metrics.ingresos_ultimos_meses['values']|tojson|safe }},
+                     backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                     borderColor: 'rgba(59, 130, 246, 1)',
+                     borderWidth: 1,
+                     borderRadius: 8,
+                     barPercentage: 0.6,
+                     categoryPercentage: 0.8
+                 }]
+             },
+             options: {
+                 responsive: true,
+                 maintainAspectRatio: false,
+                 scales: {
+                     y: {
+                         beginAtZero: true,
+                         grid: {
+                             color: '#e2e8f0' // slate-200
+                         },
+                         ticks: {
+                             callback: function(value) {
+                                 return '$' + new Intl.NumberFormat().format(value);
+                             }
+                         }
+                     },
+                     x: {
+                         grid: {
+                             display: false
+                         }
+                     }
+                 },
+                 plugins: {
+                     legend: {
+                         display: false
+                     },
+                     tooltip: {
+                         backgroundColor: '#1e293b', // slate-800
+                         titleFont: { size: 14, weight: 'bold' },
+                         bodyFont: { size: 12 },
+                         padding: 12,
+                         cornerRadius: 8,
+                         displayColors: false
+                     }
+                 }
+             }
+         });
+ 
+         // --- GRÁFICO DE COMPOSICIÓN ---
+         const composicionCtx = document.getElementById('composicionChart').getContext('2d');
+         new Chart(composicionCtx, {
+             type: 'doughnut',
+             data: {
+-                labels: {{ metrics.composicion_clientes['labels']|tojson|safe }},
++                labels: {{ metrics.composicion_clientes['labels']|tojson|safe }},
+                 datasets: [{
+                     label: 'Clientes',
+-                    data: {{ metrics.composicion_clientes['values']|tojson|safe }},
++                    data: {{ metrics.composicion_clientes['values']|tojson|safe }},
+                     backgroundColor: [
+                         '#3b82f6', // blue-500
+                         '#10b981', // emerald-500
+                         '#f59e0b', // amber-500
+                         '#8b5cf6', // violet-500
+                         '#ef4444', // red-500
+                         '#64748b', // slate-500
+                         '#ec4899'  // pink-500
+                     ],
+                     borderColor: '#fff',
+                     borderWidth: 4,
+                     hoverOffset: 8
+                 }]
+             },
+             options: {
+                 responsive: true,
+                 maintainAspectRatio: false,
+                 plugins: {
+                     legend: {
+                         position: 'bottom',
+                         labels: {
+                             padding: 20,
+                             boxWidth: 12,
+                             usePointStyle: true,
+                             pointStyle: 'circle'
+                         }
+                     },
+                     tooltip: {
+                         backgroundColor: '#1e293b',
+                         titleFont: { size: 14, weight: 'bold' },
+                         bodyFont: { size: 12 },
+                         padding: 12,
+                         cornerRadius: 8,
+                     }
+                 }
+             }
+         });
+     });
+ </script>
+ {% endblock %}
