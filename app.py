@@ -2847,7 +2847,7 @@ def reporte_metricas():
             logging.error(f"ERROR en reporte_metricas: {traceback.format_exc()}")
 
     return render_template('reporte_metricas.html', anio_actual=get_venezuela_current_date().year, metrics=dashboard_metrics)
-
+    
 @app.route('/lista_clientes/<string:filtro>')
 @admin_required
 def lista_clientes(filtro):
