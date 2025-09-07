@@ -2882,8 +2882,11 @@ def reporte_metricas_v2():
                 ORDER BY total DESC
             """)
             composicion_data = cur.fetchall()
-            # Corrección del bug de `capitalize` aplicada de forma segura
+            # >>> INICIO DE LA CORRECCIÓN <<<
+            # Se añaden los paréntesis a .capitalize() para llamar a la función
+            # en lugar de pasar una referencia a ella.
             comp_labels = [str(row['estado']).capitalize() for row in composicion_data]
+            # >>> FIN DE LA CORRECCIÓN <<<
             comp_values = [row['total'] for row in composicion_data]
             dashboard_metrics['graficas']['composicion_cartera'] = {'labels': comp_labels, 'values': comp_values}
 
