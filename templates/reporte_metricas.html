@@ -1,7 +1,7 @@
 {% extends 'base_sidebar.html' %}
 
-{% block title %}Dashboard de Rendimiento v2{% endblock %}
-{% block page_title %}Dashboard de Rendimiento v2{% endblock %}
+{% block title %}Dashboard de Rendimiento{% endblock %}
+{% block page_title %}Dashboard de Rendimiento{% endblock %}
 
 {% block body %}
 <div class="min-h-screen bg-slate-50 font-sans">
@@ -110,10 +110,10 @@
         <p class="text-sm text-slate-500">Toca una tarjeta para filtrar y ver el detalle.</p>
       </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
+      <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8 gap-4">
         <a href="{{ url_for('consulta') }}?estatus=ACTIVO"
            class="group rounded-lg p-4 text-center transition-all bg-slate-100 hover:bg-emerald-500">
-          <p class="text-slate-600 font-semibold group-hover:text-white">Activos</p>
+          <p class="text-sm whitespace-nowrap text-slate-600 font-semibold group-hover:text-white">Activos</p>
           <p class="mt-1 text-4xl font-black text-emerald-600 group-hover:text-white">{{ metrics.clientes_activos }}</p>
         </a>
 
@@ -121,14 +121,14 @@
           {% set destino = url_for('consulta') + '?estado=' + (estado|upper) %}
           <a href="{{ destino }}"
              class="group rounded-lg p-4 text-center transition-all bg-slate-100 hover:bg-slate-800">
-            <p class="text-slate-600 font-semibold group-hover:text-white">{{ estado|replace('_', ' ')|capitalize }}</p>
+            <p class="text-sm whitespace-nowrap text-slate-600 font-semibold group-hover:text-white">{{ estado|replace('_', ' ')|capitalize }}</p>
             <p class="mt-1 text-4xl font-black text-slate-900 group-hover:text-white">{{ total }}</p>
           </a>
         {% endfor %}
 
         <a href="{{ url_for('consulta') }}?estatus=INACTIVO"
            class="group rounded-lg p-4 text-center transition-all bg-slate-100 hover:bg-slate-500">
-          <p class="text-slate-600 font-semibold group-hover:text-white">Inactivos</p>
+          <p class="text-sm whitespace-nowrap text-slate-600 font-semibold group-hover:text-white">Inactivos</p>
           <p class="mt-1 text-4xl font-black text-slate-500 group-hover:text-white">{{ metrics.clientes_inactivos }}</p>
         </a>
 
@@ -149,7 +149,7 @@
           {% set cant = metrics.composicion_condicion['values'][i] %}
           <a href="{{ url_for('consulta') }}?condicion={{ cond|upper }}"
              class="group rounded-lg p-4 text-center transition-all bg-slate-100 hover:bg-sky-500">
-            <p class="text-slate-600 font-semibold group-hover:text-white">{{ cond }}</p>
+            <p class="text-sm whitespace-nowrap text-slate-600 font-semibold group-hover:text-white">{{ cond }}</p>
             <p class="mt-1 text-4xl font-black text-sky-600 group-hover:text-white">{{ cant }}</p>
           </a>
         {% endfor %}
