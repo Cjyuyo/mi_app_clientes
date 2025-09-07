@@ -2758,7 +2758,7 @@ def mi_cartera():
 def reporte_metricas():
     conn = get_db()
     today = get_venezuela_current_date()
-    # Inicialización del diccionario con todas las claves que la plantilla espera
+    # Initialize the dictionary with all the keys the template expects
     dashboard_metrics = {
         'ingresos_mes_conciliados': 0, 'indice_morosidad': 0.0,
         'mes_actual': get_nombre_mes(today.month), 'anio_actual': today.year,
@@ -2772,7 +2772,7 @@ def reporte_metricas():
     if conn:
         try:
             with conn.cursor() as cur:
-                # Consulta principal para conteos de clientes
+                # Main query for client counts
                 cur.execute("""
                     SELECT
                         COUNT(*) AS total_clientes,
@@ -2788,7 +2788,7 @@ def reporte_metricas():
                 if client_counts:
                     dashboard_metrics.update(dict(client_counts))
 
-                # Consulta para la tabla de desglose dinámico
+                # Query for the dynamic breakdown table
                 cur.execute("""
                     SELECT estado_del_plan, COUNT(*) as total
                     FROM clientes
@@ -2801,12 +2801,12 @@ def reporte_metricas():
                     item['estado_del_plan']: item['total'] for item in estados_plan
                 }
 
-                # Ingresos del mes
+                # Income for the month
                 first_day_of_month = today.replace(day=1)
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
                 dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
                 
-                # Cálculo de Morosidad
+                # Delinquency calculation
                 cur.execute("SELECT COUNT(*) FROM clientes WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(estatus_cliente)) = 'ACTIVO'")
                 total_ahorradores = cur.fetchone()[0] or 0
                 
@@ -2821,7 +2821,7 @@ def reporte_metricas():
                     clientes_en_mora = total_ahorradores - ahorradores_al_dia
                     dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100
                 
-                # Gráfico de Ingresos (Últimos 6 meses)
+                # Income chart (Last 6 months)
                 income_labels, income_values = [], []
                 current_date = today
                 for _ in range(6):
@@ -2835,17 +2835,17 @@ def reporte_metricas():
                     current_date = month_start - timedelta(days=1)
                 dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
                 
-                # Gráfico de Composición de Cartera
-                # ===== INICIO DE LA CORRECCIÓN =====
+                # Portfolio Composition Chart
+                # ===== FIX START =====
                 cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN PROCESO') as proceso, COUNT(*) as count FROM clientes WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO' GROUP BY estado_del_plan")
-                # ===== FIN DE LA CORRECCIÓN (SE AÑADIÓ 'as count') =====
+                # ===== FIX END ('as count' was added) =====
                 client_composition = cur.fetchall()
                 comp_labels = [row['proceso'].replace('_', ' ').capitalize() for row in client_composition]
                 comp_values = [row['count'] for row in client_composition]
                 dashboard_metrics['composicion_clientes'] = {'labels': comp_labels, 'values': comp_values}
 
         except psycopg2.Error as e:
-            flash(f"No se pudieron cargar las métricas del dashboard: {e}", "error")
+            flash(f"Could not load the dashboard metrics: {e}", "error")
             
     return render_template('reporte_metricas.html', anio_actual=get_venezuela_current_date().year, metrics=dashboard_metrics)
 
