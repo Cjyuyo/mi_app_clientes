@@ -114,7 +114,8 @@ def format_date_filter(value, format='%d/%m/%Y'):
 
 @app.context_processor
 def inject_utility_functions():
-    return dict(get_venezuela_current_date=get_venezuela_current_date)
+    # CORRECCIÓN: Se llama a la función con () para inyectar el VALOR, no la función.
+    return dict(get_venezuela_current_date=get_venezuela_current_date())
 
 # =================================================================================
 # ===== CONEXIÓN A LA BASE DE DATOS =====
