@@ -4107,8 +4107,6 @@ def consulta():
     )
 
 # --- REEMPLAZA TU FUNCIÓN ACTUAL CON ESTA VERSIÓN CORREGIDA ---
-from psycopg2.extras import execute_values
-import pandas as pd
 
 @app.route('/upload_clientes', methods=['GET', 'POST'])
 @admin_required
