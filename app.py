@@ -2815,7 +2815,7 @@ def reporte_metricas():
                     cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago BETWEEN %s AND %s", (month_start, month_end))
                     total = cur.fetchone()[0]
                     income_labels.insert(0, get_nombre_mes(current_date.month))
-                    income_values.insert(0, float(total))
+                    income_values.insert(0, float(total or 0))
                     current_date = month_start - timedelta(days=1)
                 dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
 
@@ -2847,7 +2847,7 @@ def reporte_metricas():
             logging.error(f"ERROR en reporte_metricas: {traceback.format_exc()}")
 
     return render_template('reporte_metricas.html', anio_actual=get_venezuela_current_date().year, metrics=dashboard_metrics)
-    
+
 @app.route('/lista_clientes/<string:filtro>')
 @admin_required
 def lista_clientes(filtro):
