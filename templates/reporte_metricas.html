@@ -1,156 +1,217 @@
-<!DOCTYPE html>
-<html lang="es" class="h-full bg-gray-100">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard de Métricas</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+{% extends "base_sidebar.html" %}
+
+{% block title %}Dashboard de Métricas{% endblock %}
+
+{% block page_title %}Dashboard de Métricas{% endblock %}
+
+{% block head_extra %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
     <style>
-        /* Pequeño ajuste para transiciones suaves */
-        .transition-all {
-            transition: all 0.3s ease-in-out;
+        .chart-container {
+            position: relative;
+            height: 350px;
+            width: 100%;
         }
     </style>
-</head>
-<body class="h-full">
-    <div class="flex h-full">
-        <aside class="w-64 flex-shrink-0 bg-slate-800 text-white flex flex-col">
-            <div class="h-16 flex items-center justify-center text-2xl font-bold border-b border-slate-700">
-                <span>MotoPlan</span>
+{% endblock %}
+
+{% block body %}
+<div class="space-y-8">
+    <header>
+        <p class="text-gray-600">Análisis de rendimiento para <strong>{{ metrics.mes_actual }} {{ metrics.anio_actual }}</strong>.</p>
+    </header>
+
+    <!-- Stat Cards -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex items-center">
+            <div class="bg-green-100 text-green-600 p-3 rounded-full mr-4">
+                <i class="bi bi-cash-coin text-2xl"></i>
             </div>
-            <nav class="flex-grow p-4">
-                <ul class="space-y-2">
-                    <li><a href="#" class="flex items-center p-2 text-slate-300 hover:bg-slate-700 rounded-md"><i class="bi bi-house-door-fill mr-3"></i> Hub</a></li>
-                    <li><a href="#" class="flex items-center p-2 text-white bg-slate-900 rounded-md"><i class="bi bi-bar-chart-line-fill mr-3"></i> Reportes</a></li>
-                    <li><a href="#" class="flex items-center p-2 text-slate-300 hover:bg-slate-700 rounded-md"><i class="bi bi-people-fill mr-3"></i> Clientes</a></li>
-                    <li><a href="#" class="flex items-center p-2 text-slate-300 hover:bg-slate-700 rounded-md"><i class="bi bi-gear-fill mr-3"></i> Configuración</a></li>
-                </ul>
-            </nav>
-        </aside>
+            <div>
+                <p class="text-sm font-medium text-gray-500">Ingresos del Mes</p>
+                <p class="text-2xl font-bold text-gray-800">${{ metrics.ingresos_mes_conciliados|format_decimal(2) }}</p>
+            </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex items-center">
+            <div class="bg-blue-100 text-blue-600 p-3 rounded-full mr-4">
+                <i class="bi bi-people-fill text-2xl"></i>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-500">Clientes Activos</p>
+                <p class="text-2xl font-bold text-gray-800">{{ metrics.mapa_clientes.get('dentro_sistema', 0) }}</p>
+            </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex items-center">
+            <div class="bg-yellow-100 text-yellow-600 p-3 rounded-full mr-4">
+                <i class="bi bi-graph-down-arrow text-2xl"></i>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-500">Índice de Morosidad</p>
+                <p class="text-2xl font-bold text-gray-800">{{ "%.1f"|format(metrics.indice_morosidad) }}%</p>
+            </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex items-center">
+            <div class="bg-red-100 text-red-600 p-3 rounded-full mr-4">
+                 <i class="bi bi-person-x-fill text-2xl"></i>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-500">Clientes Retirados</p>
+                <p class="text-2xl font-bold text-gray-800">{{ metrics.mapa_clientes.get('retirados', 0) }}</p>
+            </div>
+        </div>
+    </section>
 
-        <main class="flex-1 p-6 md:p-10 overflow-y-auto">
-            <div class="max-w-7xl mx-auto">
-                <header class="mb-8">
-                    <h1 class="text-3xl font-bold text-gray-900">Dashboard de Métricas</h1>
-                    <p class="text-gray-500 mt-1">Resumen del rendimiento del sistema para {{ metrics.mes_actual }} {{ metrics.anio_actual }}</p>
-                </header>
+    <!-- Charts -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-700 mb-4">Evolución de Ingresos (Últimos 6 Meses)</h2>
+            <div class="chart-container">
+                <canvas id="ingresosChart"></canvas>
+            </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col">
+            <h2 class="text-lg font-semibold text-gray-700 mb-4">Composición de Cartera</h2>
+            <div class="chart-container flex-grow">
+                <canvas id="composicionChart"></canvas>
+            </div>
+        </div>
+    </section>
 
-                <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 relative">
-                        <div class="absolute top-4 right-4 bg-green-100 text-green-600 p-3 rounded-lg">
-                            <i class="bi bi-cash-coin text-2xl"></i>
-                        </div>
-                        <p class="text-sm text-gray-500">Ingresos Conciliados (Mes)</p>
-                        <p class="text-3xl font-bold text-gray-800 mt-2">${{ metrics.ingresos_mes_conciliados|format_decimal(2) }}</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 relative">
-                        <div class="absolute top-4 right-4 bg-blue-100 text-blue-600 p-3 rounded-lg">
-                            <i class="bi bi-people-fill text-2xl"></i>
-                        </div>
-                        <p class="text-sm text-gray-500">Clientes en Cartera</p>
-                        <p class="text-3xl font-bold text-gray-800 mt-2">{{ metrics.mapa_clientes.dentro_sistema }}</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 relative">
-                        <div class="absolute top-4 right-4 bg-yellow-100 text-yellow-600 p-3 rounded-lg">
-                            <i class="bi bi-exclamation-triangle-fill text-2xl"></i>
-                        </div>
-                        <p class="text-sm text-gray-500">Índice de Morosidad</p>
-                        <p class="text-3xl font-bold text-gray-800 mt-2">{{ "%.2f"|format(metrics.indice_morosidad) }}%</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 relative">
-                        <div class="absolute top-4 right-4 bg-red-100 text-red-600 p-3 rounded-lg">
-                            <i class="bi bi-person-x-fill text-2xl"></i>
-                        </div>
-                        <p class="text-sm text-gray-500">Clientes Retirados</p>
-                        <p class="text-3xl font-bold text-gray-800 mt-2">{{ metrics.mapa_clientes.retirados }}</p>
-                    </div>
-                </section>
-
-                <section class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
-                    <div class="lg:col-span-3 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <h2 class="text-lg font-semibold text-gray-700 mb-4">Ingresos en los Últimos 6 Meses</h2>
-                        <canvas id="ingresosChart"></canvas>
-                    </div>
-                    <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <h2 class="text-lg font-semibold text-gray-700 mb-4">Composición de Cartera</h2>
-                        <canvas id="composicionChart"></canvas>
-                    </div>
-                </section>
-
-                <section class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                    <h2 class="text-lg font-semibold text-gray-700 mb-4">Mapa General de Clientes (Total: {{ metrics.mapa_clientes.total_clientes }})</h2>
-                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                        {% for status, data in {
-                            'AHORRADOR': {'icon': 'bi-piggy-bank-fill', 'color': 'text-cyan-600', 'label': 'Ahorradores', 'value': metrics.mapa_clientes.ahorrador},
-                            'ADJUDICADO': {'icon': 'bi-trophy-fill', 'color': 'text-indigo-600', 'label': 'Adjudicados', 'value': metrics.mapa_clientes.adjudicado},
-                            'INSCRITO': {'icon': 'bi-check-circle-fill', 'color': 'text-blue-600', 'label': 'Inscritos', 'value': metrics.mapa_clientes.inscrito},
-                            'COMPLETADO': {'icon': 'bi-star-fill', 'color': 'text-green-600', 'label': 'Plan Completado', 'value': metrics.mapa_clientes.completado},
-                            'RESERVA': {'icon': 'bi-hourglass-split', 'color': 'text-teal-600', 'label': 'En Reserva', 'value': metrics.mapa_clientes.reserva},
-                            'CONGELADO': {'icon': 'bi-snow', 'color': 'text-gray-600', 'label': 'Congelados', 'value': metrics.mapa_clientes.congelados},
-                            'COBRANZA DIFERIDA': {'icon': 'bi-calendar-x-fill', 'color': 'text-orange-600', 'label': 'Cobranza Diferida', 'value': metrics.mapa_clientes.cobranza_diferida},
-                            'RETIRO': {'icon': 'bi-box-arrow-left', 'color': 'text-red-600', 'label': 'Retiros', 'value': metrics.mapa_clientes.retirados},
-                            'INACTIVO': {'icon': 'bi-slash-circle-fill', 'color': 'text-gray-500', 'label': 'Inactivos', 'value': metrics.mapa_clientes.inactivos}
-                        }.items() %}
-                        <a href="{{ url_for('lista_clientes', filtro=status) }}" class="block p-4 bg-gray-50 hover:bg-gray-100 rounded-lg text-center transition-all border border-gray-200 hover:shadow-md">
-                            <i class="{{ data.icon }} {{ data.color }} text-3xl mb-2"></i>
-                            <p class="text-2xl font-bold {{ data.color }}">{{ data.value }}</p>
-                            <p class="text-sm text-gray-600">{{ data.label }}</p>
-                        </a>
+    <!-- Client Map -->
+    <section>
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Mapa General de Clientes (Total: {{ metrics.mapa_clientes.get('total_clientes', 0) }})</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {% set mapa_info = {
+                'AHORRADOR': {'icon': 'bi-piggy-bank-fill', 'color': 'text-cyan-600', 'bg': 'bg-cyan-50', 'label': 'Ahorradores', 'value': metrics.mapa_clientes.get('ahorrador', 0)},
+                'ADJUDICADO': {'icon': 'bi-trophy-fill', 'color': 'text-indigo-600', 'bg': 'bg-indigo-50', 'label': 'Adjudicados', 'value': metrics.mapa_clientes.get('adjudicado', 0)},
+                'INSCRITO': {'icon': 'bi-check-circle-fill', 'color': 'text-blue-600', 'bg': 'bg-blue-50', 'label': 'Inscritos', 'value': metrics.mapa_clientes.get('inscrito', 0)},
+                'COMPLETADO': {'icon': 'bi-star-fill', 'color': 'text-green-600', 'bg': 'bg-green-50', 'label': 'Plan Completado', 'value': metrics.mapa_clientes.get('completado', 0)},
+                'RESERVA': {'icon': 'bi-hourglass-split', 'color': 'text-teal-600', 'bg': 'bg-teal-50', 'label': 'En Reserva', 'value': metrics.mapa_clientes.get('reserva', 0)},
+                'CONGELADO': {'icon': 'bi-snow', 'color': 'text-gray-600', 'bg': 'bg-gray-100', 'label': 'Congelados', 'value': metrics.mapa_clientes.get('estatus_congelado', 0)},
+                'COBRANZA DIFERIDA': {'icon': 'bi-calendar-x-fill', 'color': 'text-orange-600', 'bg': 'bg-orange-50', 'label': 'Cobranza Diferida', 'value': metrics.mapa_clientes.get('cobranza_diferida', 0)},
+                'RETIRO': {'icon': 'bi-box-arrow-left', 'color': 'text-red-600', 'bg': 'bg-red-50', 'label': 'Retiros', 'value': metrics.mapa_clientes.get('retirados', 0)},
+                'INACTIVO': {'icon': 'bi-slash-circle-fill', 'color': 'text-slate-500', 'bg': 'bg-slate-100', 'label': 'Inactivos', 'value': metrics.mapa_clientes.get('inactivos', 0)}
+            } %}
+            {% for status, data in mapa_info.items() %}
+            <a href="{{ url_for('lista_clientes', filtro=status) }}" class="block p-4 {{ data.bg }} hover:shadow-lg rounded-lg text-center transition-all duration-300 border border-gray-200/50 hover:border-gray-300">
+                <i class="{{ data.icon }} {{ data.color }} text-4xl"></i>
+                <p class="text-3xl font-bold {{ data.color }} mt-2">{{ data.value }}</p>
+                <p class="text-sm font-medium text-gray-700">{{ data.label }}</p>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    
+    <!-- Payment Condition Summary -->
+    <section>
+         <h2 class="text-xl font-semibold text-gray-800 mb-4">Resumen por Condición de Pago</h2>
+         <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Condición de Pago</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Nº de Clientes</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for item in metrics.resumen_condicion %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">{{ item.condicion }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.total }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="2" class="px-6 py-4 text-center text-sm text-gray-500">No hay datos de condición de pago para mostrar.</td>
+                        </tr>
                         {% endfor %}
-                    </div>
-                </section>
+                    </tbody>
+                </table>
             </div>
-        </main>
-    </div>
+         </div>
+    </section>
+</div>
+{% endblock %}
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            // Gráfica de Ingresos (Líneas)
-            const ingresosCtx = document.getElementById('ingresosChart').getContext('2d');
+{% block scripts_extra %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const chartColors = [
+            '#3b82f6', '#10b981', '#f97316', '#8b5cf6',
+            '#ec4899', '#6b7280', '#14b8a6', '#ef4444',
+        ];
+
+        // Gráfica de Ingresos (Líneas)
+        const ingresosCtx = document.getElementById('ingresosChart')?.getContext('2d');
+        if (ingresosCtx) {
             new Chart(ingresosCtx, {
                 type: 'line',
                 data: {
-                    labels: {{ metrics.ingresos_ultimos_meses.labels|tojson }},
+                    labels: {{ metrics.ingresos_ultimos_meses.labels|tojson|safe }},
                     datasets: [{
                         label: 'Ingresos ($)',
-                        data: {{ metrics.ingresos_ultimos_meses.values|tojson }},
-                        borderColor: 'rgb(14 116 144)', // cyan-700
-                        backgroundColor: 'rgba(14, 116, 144, 0.1)',
+                        data: {{ metrics.ingresos_ultimos_meses.values|tojson|safe }},
+                        borderColor: '#0e7490',
+                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
                         fill: true,
-                        tension: 0.4
+                        tension: 0.4,
+                        pointBackgroundColor: '#0e7490',
+                        pointRadius: 5,
+                        pointHoverRadius: 7
                     }]
                 },
                 options: {
                     responsive: true,
-                    scales: { y: { beginAtZero: true } }
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { 
+                            beginAtZero: true,
+                            grid: { color: '#e5e7eb' },
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + new Intl.NumberFormat('en-US').format(value);
+                                }
+                            }
+                        },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: { legend: { display: false } }
                 }
             });
+        }
 
-            // Gráfica de Composición (Dona)
-            const composicionCtx = document.getElementById('composicionChart').getContext('2d');
+        // Gráfica de Composición (Dona)
+        const composicionCtx = document.getElementById('composicionChart')?.getContext('2d');
+        if (composicionCtx) {
             new Chart(composicionCtx, {
                 type: 'doughnut',
                 data: {
-                    labels: {{ metrics.composicion_clientes.labels|tojson }},
+                    labels: {{ metrics.composicion_clientes.labels|tojson|safe }},
                     datasets: [{
                         label: 'Clientes',
-                        data: {{ metrics.composicion_clientes.values|tojson }},
-                        backgroundColor: [
-                            'rgb(30, 64, 175)',  // blue-800
-                            'rgb(4, 120, 87)',   // emerald-700
-                            'rgb(180, 83, 9)',  // amber-700
-                            'rgb(107, 33, 168)',// purple-800
-                            'rgb(190, 24, 93)', // pink-700
-                            'rgb(75, 85, 99)'   // gray-600
-                        ],
-                        hoverOffset: 8
+                        data: {{ metrics.composicion_clientes.values|tojson|safe }},
+                        backgroundColor: chartColors,
+                        borderColor: '#ffffff',
+                        borderWidth: 2,
+                        hoverOffset: 10
                     }]
                 },
-                options: { responsive: true }
+                options: { 
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                boxWidth: 12,
+                                font: { size: 12 }
+                            }
+                        }
+                    }
+                }
             });
-        });
-    </script>
-</body>
-</html>
+        }
+    });
+</script>
+{% endblock %}
