@@ -2753,11 +2753,6 @@ def mi_cartera():
 # ===== INICIO: MÓDULO DE MÉTRICAS RECONSTRUIDO (V1) =====
 # ================================================================================
 
-# Asegúrate de tener arriba:
-# from calendar import monthrange
-# from datetime import timedelta
-# import psycopg2
-
 @app.route('/reportes/metricas')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -2772,7 +2767,7 @@ def reporte_metricas():
         'anio_actual': today.year,
         'ingresos_ultimos_meses': {'labels': [], 'values': []},
         'composicion_clientes': {'labels': [], 'values': []},
-        'composicion_condicion': {'labels': [], 'values': []},  # NUEVO
+        'composicion_condicion': {'labels': [], 'values': []},  # mantiene clave
         'total_clientes': 0, 'clientes_activos': 0, 'clientes_inactivos': 0,
         'clientes_retirados': 0, 'clientes_adjudicados': 0,
         'clientes_congelados': 0, 'clientes_reserva': 0,
@@ -2786,29 +2781,17 @@ def reporte_metricas():
                 cur.execute("""
                     SELECT
                         COUNT(*) AS total_clientes,
-                        COUNT(CASE
-                              WHEN TRIM(UPPER(estatus_cliente)) IN ('ACTIVO','ACTIVOS') THEN 1 END
-                        ) AS clientes_activos,
-                        COUNT(CASE
-                              WHEN TRIM(UPPER(estatus_cliente)) IN ('INACTIVO','INACTIVOS') THEN 1 END
-                        ) AS clientes_inactivos,
-                        COUNT(CASE
-                              WHEN TRIM(UPPER(estatus_cliente)) IN ('RETIRO','RETIRADO','RETIRADA','RETIRADOS') THEN 1 END
-                        ) AS clientes_retirados,
-                        COUNT(CASE
-                              WHEN TRIM(UPPER(estatus_cliente)) = 'CONGELADO' THEN 1 END
-                        ) AS clientes_congelados,
-                        COUNT(CASE
-                              WHEN TRIM(UPPER(estatus_cliente)) = 'RESERVA' THEN 1 END
-                        ) AS clientes_reserva,
-                        COUNT(CASE
-                              WHEN TRIM(UPPER(estado_del_plan)) = 'ADJUDICADO' THEN 1 END
-                        ) AS clientes_adjudicados
+                        COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) IN ('ACTIVO','ACTIVOS') THEN 1 END) AS clientes_activos,
+                        COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) IN ('INACTIVO','INACTIVOS') THEN 1 END) AS clientes_inactivos,
+                        COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) IN ('RETIRO','RETIRADO','RETIRADA','RETIRADOS') THEN 1 END) AS clientes_retirados,
+                        COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'CONGELADO' THEN 1 END) AS clientes_congelados,
+                        COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'RESERVA' THEN 1 END) AS clientes_reserva,
+                        COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'ADJUDICADO' THEN 1 END) AS clientes_adjudicados
                     FROM clientes
                 """)
                 row = cur.fetchone()
                 if row:
-                    dashboard_metrics['total_clientes']      = int(row['total_clientes'] or 0)
+                    dashboard_metrics['total_clientes']       = int(row['total_clientes'] or 0)
                     dashboard_metrics['clientes_activos']     = int(row['clientes_activos'] or 0)
                     dashboard_metrics['clientes_inactivos']   = int(row['clientes_inactivos'] or 0)
                     dashboard_metrics['clientes_retirados']   = int(row['clientes_retirados'] or 0)
@@ -2816,9 +2799,9 @@ def reporte_metricas():
                     dashboard_metrics['clientes_reserva']     = int(row['clientes_reserva'] or 0)
                     dashboard_metrics['clientes_adjudicados'] = int(row['clientes_adjudicados'] or 0)
 
-                # Estados del plan (mantiene tu lógica, con saneo básico)
+                # Estados del plan
                 cur.execute("""
-                    SELECT TRIM(UPPER(estado_del_plan)) AS estado_del_plan, COUNT(*) as total
+                    SELECT TRIM(UPPER(estado_del_plan)) AS estado_del_plan, COUNT(*) AS total
                     FROM clientes
                     WHERE estado_del_plan IS NOT NULL AND TRIM(estado_del_plan) <> ''
                     GROUP BY TRIM(UPPER(estado_del_plan))
@@ -2835,7 +2818,8 @@ def reporte_metricas():
                 cur.execute("""
                     SELECT COALESCE(SUM(monto), 0)
                     FROM pagos
-                    WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s
+                    WHERE estado_pago = 'Conciliado'
+                      AND fecha_pago >= %s
                 """, (first_day_of_month,))
                 ingresos_mes = cur.fetchone()[0]
                 dashboard_metrics['ingresos_mes_conciliados'] = float(ingresos_mes or 0)
@@ -2903,12 +2887,14 @@ def reporte_metricas():
                     'values': comp_values
                 }
 
-                # NUEVO: Composición por condicion (para "ver todas las columnas incluyendo condicion")
+                # --- Composición por CONDICIÓN DE PAGO (FIX: usar condicion_pago) ---
                 cur.execute("""
-                    SELECT COALESCE(TRIM(UPPER(condicion)), 'SIN CONDICION') AS condicion, COUNT(*) AS total
+                    SELECT
+                        COALESCE(TRIM(UPPER(condicion_pago)), 'SIN CONDICION') AS condicion,
+                        COUNT(*) AS total
                     FROM clientes
-                    GROUP BY condicion
-                    ORDER BY condicion
+                    GROUP BY 1
+                    ORDER BY 1
                 """)
                 rows_cond = cur.fetchall() or []
                 dashboard_metrics['composicion_condicion'] = {
