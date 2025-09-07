@@ -64,9 +64,9 @@
                     <span class="text-slate-500 font-semibold">Total Adjudicados</span>
                     <span class="text-3xl font-bold text-slate-800 mt-2">{{ metrics.clientes_adjudicados }}</span>
                 </div>
-                <div class="p-3 bg-indigo-100 rounded-xl">
-                    <i class="bi bi-award-fill text-indigo-600 text-2xl"></i>
-                </div>
+            <div class="p-3 bg-indigo-100 rounded-xl">
+                <i class="bi bi-award-fill text-indigo-600 text-2xl"></i>
+            </div>
             </div>
             <div class="mt-4 flex items-center gap-2 text-sm">
                 <span class="text-slate-400">Clientes que han sido adjudicados.</span>
@@ -95,29 +95,50 @@
         <h3 class="text-lg font-bold text-slate-800 mb-4">Desglose por Estatus de Cliente</h3>
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             
-            <div class="bg-slate-100 border border-slate-200/80 p-4 rounded-xl text-center">
+            <!-- Activos (clickeable) -->
+            <a href="{{ url_for('consulta') }}?estatus=ACTIVO" class="block bg-slate-100 border border-slate-200/80 p-4 rounded-xl text-center hover:shadow transition">
                 <p class="text-slate-600 font-semibold">Activos</p>
                 <p class="text-4xl font-bold text-emerald-600 mt-1">{{ metrics.clientes_activos }}</p>
-            </div>
+            </a>
 
+            <!-- Estados del plan (clickeables) -->
             {% for estado, total in metrics.estados_del_plan.items()|sort %}
-            <div class="bg-slate-100 border border-slate-200/80 p-4 rounded-xl text-center">
+            <a href="{{ url_for('consulta') }}?estado={{ estado|upper }}" class="block bg-slate-100 border border-slate-200/80 p-4 rounded-xl text-center hover:shadow transition">
                 <p class="text-slate-600 font-semibold">{{ estado|replace('_', ' ')|capitalize }}</p>
                 <p class="text-4xl font-bold text-slate-800 mt-1">{{ total }}</p>
-            </div>
+            </a>
             {% endfor %}
 
-            <div class="bg-slate-100 border border-slate-200/80 p-4 rounded-xl text-center">
+            <!-- Inactivos (clickeable) -->
+            <a href="{{ url_for('consulta') }}?estatus=INACTIVO" class="block bg-slate-100 border border-slate-200/80 p-4 rounded-xl text-center hover:shadow transition">
                 <p class="text-slate-600 font-semibold">Inactivos</p>
                 <p class="text-4xl font-bold text-slate-500 mt-1">{{ metrics.clientes_inactivos }}</p>
-            </div>
+            </a>
 
-            <div class="bg-red-50 border border-red-200/80 p-4 rounded-xl text-center">
+            <!-- Retirados (clickeable) -->
+            <a href="{{ url_for('consulta') }}?estatus=RETIRO" class="block bg-red-50 border border-red-200/80 p-4 rounded-xl text-center hover:shadow transition">
                 <p class="text-red-800 font-semibold">Retirados</p>
                 <p class="text-4xl font-bold text-red-600 mt-1">{{ metrics.clientes_retirados }}</p>
-            </div>
+            </a>
         </div>
     </div>
+
+    {% if metrics.composicion_condicion and metrics.composicion_condicion['labels'] %}
+    <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200/80 mt-8">
+      <h3 class="text-lg font-bold text-slate-800 mb-4">Desglose por Condición</h3>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        {% for i in range(metrics.composicion_condicion['labels']|length) %}
+          {% set cond = metrics.composicion_condicion['labels'][i] %}
+          {% set cant = metrics.composicion_condicion['values'][i] %}
+          <a href="{{ url_for('consulta') }}?condicion={{ cond|upper }}"
+             class="block bg-slate-100 border border-slate-200/80 p-4 rounded-xl text-center hover:shadow transition">
+            <p class="text-slate-600 font-semibold">{{ cond }}</p>
+            <p class="text-4xl font-bold text-slate-800 mt-1">{{ cant }}</p>
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 

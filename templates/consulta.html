@@ -135,11 +135,17 @@
 }">
 
     {% for cliente in clientes %}
-    <div x-data="{ 
+<div x-data="{ 
     showOfferForm: false, 
     activeTab: 'resumen',
     openCards: { progress: true, dossier: true } 
-}" class="w-full space-y-6 mb-8">
+}" 
+class="cliente-card w-full space-y-6 mb-8"
+data-estatus="{{ (cliente.estatus_cliente or '')|upper }}"
+data-estado="{{ (cliente.estado_del_plan or '')|upper }}"
+data-condicion="{{ (cliente.condicion or cliente.condicion_pago or '')|upper }}"
+data-inconsistente="{% set _incs = cliente.pagos|selectattr('estado_reporte','equalto','Inconsistente')|list %}{{ '1' if _incs|length > 0 else '0' }}"
+>
 
         {% set bucket_url = 'https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/' %}
 
@@ -154,7 +160,11 @@
                         </div>
                     {% endif %}
                     <div>
-                        <h1 class="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">{{ cliente.nombre }} {{ cliente.apellido }}</h1>
+                        <h1 class="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
+  <a href="{{ url_for('consulta') }}?busqueda={{ cliente.cedula }}" class="hover:text-blue-600">
+    {{ cliente.nombre }} {{ cliente.apellido }}
+  </a>
+</h1>
                         <p class="text-slate-500 font-mono text-sm">C.I: {{ cliente.cedula }}</p>
                         <div class="mt-2 flex items-center gap-2">
                             <span class="text-xs font-semibold py-1 px-3 rounded-full bg-blue-100 text-blue-800">{{ cliente.estado_del_plan }}</span>
@@ -678,52 +688,109 @@
 
 {% block scripts_extra %}
 <script>
-    function confirmDelete(form) {
-        Swal.fire({
-            title: '¿Estás seguro?',
-            text: "¡Esta acción eliminará al cliente y todos sus datos permanentemente!",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Sí, ¡eliminar!',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                form.submit();
-            }
-        });
-    }
-
-    function confirmEdit(url) {
-        window.location.href = url;
-    }
-    
-    document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.oferta-form-admin').forEach(offerForm => {
-            const planModels = {
-                1400: ['Bera SBR', 'Bera BRF', 'Águila', 'ES Hero'], 1500: ['Ávila', 'X1', 'Cardenal', 'TR Jaguar', 'New Jog'], 1600: ['Milan', 'Xpress', 'Colibrí', 'Cuervo', 'Canario', 'Cóndor II', 'Tucán II', 'Tauro'], 1700: ['Bera León', 'Bera Tezo', 'Adventure'], 1800: ['New Horsen', 'New Owen', 'Fénix', 'Toro León'], 1900: ['Runner', 'Horse RL', 'Horse II', 'Abeja'], 2000: ['Kavak', 'BWS', 'BR', 'Cobra', 'Owen 200', 'Fénix', 'Power', 'Extreme'], 2100: ['TR Tank'], 2300: ['EK Foton', 'TX 150cc', 'TX 200cc'], 2400: ['Antiking', 'Optimus', 'Arsen II', 'RK 200'], 2500: ['Bera GBR', 'Matrix II', 'Cruiser', 'Lechuza'], 2700: ['RK 250', 'Thunder 180', 'Lechuza II', 'Falco'], 2800: ['Bera DTx', 'Toro Rex', 'ES EM200'], 2900: ['Outlook II'], 3200: ['TX GT 250', 'Superlight'], 3300: ['TR R3X 250'], 3500: ['BRZ 250', 'GR 250', 'TX GS 250'], 3800: ['Kiwi'], 4500: ['EK Atlas'], 5200: ['Carguero'], 5600: ['Outlook XL'], 5900: ['Carguero Transporte', 'Carguero Cava'], 6300: ['Zontes 350']
-            };
-
-            const clientPlan = parseFloat(offerForm.dataset.plan);
-            const modeloSelect = offerForm.querySelector('.modelo-select');
-
-            if (modeloSelect) {
-                modeloSelect.innerHTML = ''; 
-                const models = planModels[clientPlan];
-
-                if (models && models.length > 0) {
-                    modeloSelect.appendChild(new Option('-- Seleccione un modelo --', '', true, true));
-                    models.forEach(model => {
-                        modeloSelect.appendChild(new Option(model, model));
-                    });
-                } else {
-                    const option = new Option('No hay modelos para este plan', '', true, true);
-                    option.disabled = true;
-                    modeloSelect.appendChild(option);
-                }
-            }
-        });
+  function confirmDelete(form) {
+    Swal.fire({
+      title: '¿Estás seguro?',
+      text: "¡Esta acción eliminará al cliente y todos sus datos permanentemente!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sí, ¡eliminar!',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        form.submit();
+      }
     });
+  }
+
+  function confirmEdit(url) {
+    window.location.href = url;
+  }
+
+  // Poblar modelos de oferta
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.oferta-form-admin').forEach(offerForm => {
+      const planModels = {
+        1400: ['Bera SBR', 'Bera BRF', 'Águila', 'ES Hero'],
+        1500: ['Ávila', 'X1', 'Cardenal', 'TR Jaguar', 'New Jog'],
+        1600: ['Milan', 'Xpress', 'Colibrí', 'Cuervo', 'Canario', 'Cóndor II', 'Tucán II', 'Tauro'],
+        1700: ['Bera León', 'Bera Tezo', 'Adventure'],
+        1800: ['New Horsen', 'New Owen', 'Fénix', 'Toro León'],
+        1900: ['Runner', 'Horse RL', 'Horse II', 'Abeja'],
+        2000: ['Kavak', 'BWS', 'BR', 'Cobra', 'Owen 200', 'Fénix', 'Power', 'Extreme'],
+        2100: ['TR Tank'],
+        2300: ['EK Foton', 'TX 150cc', 'TX 200cc'],
+        2400: ['Antiking', 'Optimus', 'Arsen II', 'RK 200'],
+        2500: ['Bera GBR', 'Matrix II', 'Cruiser', 'Lechuza'],
+        2700: ['RK 250', 'Thunder 180', 'Lechuza II', 'Falco'],
+        2800: ['Bera DTx', 'Toro Rex', 'ES EM200'],
+        2900: ['Outlook II'],
+        3200: ['TX GT 250', 'Superlight'],
+        3300: ['TR R3X 250'],
+        3500: ['BRZ 250', 'GR 250', 'TX GS 250'],
+        3800: ['Kiwi'],
+        4500: ['EK Atlas'],
+        5200: ['Carguero'],
+        5600: ['Outlook XL'],
+        5900: ['Carguero Transporte', 'Carguero Cava'],
+        6300: ['Zontes 350']
+      };
+
+      const clientPlan = parseFloat(offerForm.dataset.plan);
+      const modeloSelect = offerForm.querySelector('.modelo-select');
+
+      if (modeloSelect) {
+        modeloSelect.innerHTML = '';
+        const models = planModels[clientPlan];
+
+        if (models && models.length > 0) {
+          modeloSelect.appendChild(new Option('-- Seleccione un modelo --', '', true, true));
+          models.forEach(model => {
+            modeloSelect.appendChild(new Option(model, model));
+          });
+        } else {
+          const option = new Option('No hay modelos para este plan', '', true, true);
+          option.disabled = true;
+          modeloSelect.appendChild(option);
+        }
+      }
+    });
+  });
+
+  // Filtro por querystring: estatus, estado, condicion, inconsistentes
+  document.addEventListener('DOMContentLoaded', () => {
+    const params   = new URLSearchParams(window.location.search);
+    const estatusQ = (params.get('estatus') || '').toUpperCase().trim();
+    const estadoQ  = (params.get('estado')  || '').toUpperCase().trim();
+    const condQ    = (params.get('condicion') || '').toUpperCase().trim();
+    const incQ     = (params.get('inconsistentes') || '').trim(); // '1' => solo inconsistentes
+
+    // Normalización de familias de estatus
+    const retiroSet    = new Set(['RETIRO','RETIRADO','RETIRADA','RETIRADOS']);
+    const activoSet    = new Set(['ACTIVO','ACTIVOS']);
+    const inactivoSet  = new Set(['INACTIVO','INACTIVOS']);
+
+    const cards = document.querySelectorAll('.cliente-card');
+    cards.forEach(card => {
+      const estatus = (card.dataset.estatus || '').toUpperCase().trim();
+      const estado  = (card.dataset.estado  || '').toUpperCase().trim();
+      const cond    = (card.dataset.condicion || '').toUpperCase().trim();
+
+      const okEstatus = !estatusQ || (
+        (estatusQ === 'RETIRO'   && retiroSet.has(estatus))   ||
+        (estatusQ === 'ACTIVO'   && activoSet.has(estatus))   ||
+        (estatusQ === 'INACTIVO' && inactivoSet.has(estatus)) ||
+        estatus === estatusQ
+      );
+
+      const okEstado  = !estadoQ || estado === estadoQ;
+      const okCond    = !condQ   || cond === condQ;
+      const okInc     = !incQ    || card.dataset.inconsistente === '1';
+
+      card.style.display = (okEstatus && okEstado && okCond && okInc) ? '' : 'none';
+    });
+  });
 </script>
 {% endblock %}
