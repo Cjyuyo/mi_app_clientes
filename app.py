@@ -3992,65 +3992,119 @@ def consulta():
     clientes_encontrados = []
     termino_busqueda_raw = request.form.get('busqueda', request.args.get('busqueda', ''))
     termino_busqueda = termino_busqueda_raw.strip()
-    
-    if termino_busqueda:
-        conn = get_db()
-        if not conn:
-            flash("Error de conexión a la base de datos.", "error")
-        else:
-            try:
-                with conn.cursor() as cur:
-                    # CAMBIO: Se asegura que la consulta use el nuevo nombre de columna 'numero_contrato'
-                    query_clientes = """
-                        SELECT * FROM clientes 
-                        WHERE cedula = %s OR (nombre || ' ' || apellido) ILIKE %s OR numero_contrato ILIKE %s
-                        ORDER BY nombre, apellido LIMIT 10;
-                    """
-                    
-                    patron_like = f'%{termino_busqueda}%'
-                    cur.execute(query_clientes, (termino_busqueda, patron_like, patron_like))
-                    
-                    for cliente_row in cur.fetchall():
-                        cliente_dict = dict(cliente_row)
-                        cliente_id = cliente_dict['id']
 
-                        # Cargar pagos
-                        cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_creacion DESC", (cliente_id,))
-                        cliente_dict['pagos'] = cur.fetchall()
-                        cliente_dict['conteo_pagos'] = len(cliente_dict['pagos'])
+    # nuevos filtros
+    estatus_q = (request.args.get('estatus') or '').strip().upper()
+    estado_q  = (request.args.get('estado') or '').strip().upper()
+    cond_q    = (request.args.get('condicion') or '').strip().upper()
+    inc_q     = request.args.get('inconsistentes')
 
-                        # Cargar ofertas
-                        cur.execute("SELECT * FROM ofertas WHERE cliente_id = %s ORDER BY fecha_oferta DESC", (cliente_id,))
-                        cliente_dict['ofertas'] = cur.fetchall()
-                        cliente_dict['conteo_ofertas'] = len(cliente_dict['ofertas'])
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", "error")
+    else:
+        try:
+            with conn.cursor() as cur:
+                where = []
+                params = []
 
-                        # Cargar gestiones
-                        cur.execute("""
-                            SELECT g.*, a.usuario as gestor_nombre FROM gestiones_cobranza g
-                            LEFT JOIN administradores a ON g.gestor_id = a.id
-                            WHERE g.cliente_id = %s ORDER BY g.fecha_creacion DESC;
-                        """, (cliente_id,))
-                        cliente_dict['gestiones'] = cur.fetchall()
-                        cliente_dict['conteo_gestiones'] = len(cliente_dict['gestiones'])
-                        
-                        # Cargar documentos del expediente
-                        cur.execute("""
-                            SELECT d.*, a.usuario as subido_por_nombre
-                            FROM documentos_cliente d
-                            LEFT JOIN administradores a ON d.subido_por_id = a.id
-                            WHERE d.cliente_id = %s ORDER BY d.fecha_subida DESC;
-                        """, (cliente_id,))
-                        cliente_dict['documentos'] = cur.fetchall()
-                        
-                        clientes_encontrados.append(cliente_dict)
-                        
-            except psycopg2.Error as e:
-                flash(f"Error al consultar la base de datos: {e}", "error")
+                # búsqueda por cédula/nombre/contrato
+                if termino_busqueda:
+                    where.append("""(
+                        c.cedula = %s OR
+                        (c.nombre || ' ' || c.apellido) ILIKE %s OR
+                        c.numero_contrato ILIKE %s
+                    )""")
+                    like = f"%{termino_busqueda}%"
+                    params += [termino_busqueda, like, like]
 
-    return render_template('consulta.html', 
-                           clientes=clientes_encontrados, 
-                           busqueda=termino_busqueda, 
-                           admin_rol=g.admin['rol'])
+                # estatus
+                if estatus_q:
+                    if estatus_q == 'RETIRO':
+                        where.append("TRIM(UPPER(c.estatus_cliente)) IN ('RETIRO','RETIRADO','RETIRADA','RETIRADOS')")
+                    elif estatus_q == 'ACTIVO':
+                        where.append("TRIM(UPPER(c.estatus_cliente)) IN ('ACTIVO','ACTIVOS')")
+                    elif estatus_q == 'INACTIVO':
+                        where.append("TRIM(UPPER(c.estatus_cliente)) IN ('INACTIVO','INACTIVOS')")
+                    else:
+                        where.append("TRIM(UPPER(c.estatus_cliente)) = %s")
+                        params.append(estatus_q)
+
+                # estado del plan
+                if estado_q:
+                    where.append("TRIM(UPPER(c.estado_del_plan)) = %s")
+                    params.append(estado_q)
+
+                # condición de pago
+                if cond_q:
+                    where.append("TRIM(UPPER(COALESCE(c.condicion, c.condicion_pago))) = %s")
+                    params.append(cond_q)
+
+                # inconsistentes
+                if inc_q == '1':
+                    where.append("""EXISTS (
+                        SELECT 1 FROM pagos p
+                        WHERE p.cliente_id = c.id
+                          AND TRIM(UPPER(p.estado_reporte)) = 'INCONSISTENTE'
+                    )""")
+
+                # armar query final
+                sql = """
+                    SELECT c.*
+                    FROM clientes c
+                    {where_clause}
+                    ORDER BY c.nombre, c.apellido
+                    LIMIT 2000;
+                """.format(where_clause=("WHERE " + " AND ".join(where)) if where else "")
+
+                cur.execute(sql, params)
+
+                for cliente_row in cur.fetchall():
+                    cliente_dict = dict(cliente_row)
+                    cliente_id = cliente_dict['id']
+
+                    # pagos
+                    cur.execute("SELECT * FROM pagos WHERE cliente_id = %s ORDER BY fecha_creacion DESC", (cliente_id,))
+                    cliente_dict['pagos'] = cur.fetchall()
+                    cliente_dict['conteo_pagos'] = len(cliente_dict['pagos'])
+
+                    # ofertas
+                    cur.execute("SELECT * FROM ofertas WHERE cliente_id = %s ORDER BY fecha_oferta DESC", (cliente_id,))
+                    cliente_dict['ofertas'] = cur.fetchall()
+                    cliente_dict['conteo_ofertas'] = len(cliente_dict['ofertas'])
+
+                    # gestiones
+                    cur.execute("""
+                        SELECT g.*, a.usuario as gestor_nombre
+                        FROM gestiones_cobranza g
+                        LEFT JOIN administradores a ON g.gestor_id = a.id
+                        WHERE g.cliente_id = %s
+                        ORDER BY g.fecha_creacion DESC;
+                    """, (cliente_id,))
+                    cliente_dict['gestiones'] = cur.fetchall()
+                    cliente_dict['conteo_gestiones'] = len(cliente_dict['gestiones'])
+
+                    # documentos
+                    cur.execute("""
+                        SELECT d.*, a.usuario as subido_por_nombre
+                        FROM documentos_cliente d
+                        LEFT JOIN administradores a ON d.subido_por_id = a.id
+                        WHERE d.cliente_id = %s
+                        ORDER BY d.fecha_subida DESC;
+                    """, (cliente_id,))
+                    cliente_dict['documentos'] = cur.fetchall()
+
+                    clientes_encontrados.append(cliente_dict)
+
+        except psycopg2.Error as e:
+            flash(f"Error al consultar la base de datos: {e}", "error")
+
+    return render_template(
+        'consulta.html',
+        clientes=clientes_encontrados,
+        busqueda=termino_busqueda,
+        admin_rol=g.admin['rol']
+    )
 
 # --- REEMPLAZA TU FUNCIÓN ACTUAL CON ESTA VERSIÓN CORREGIDA ---
 @app.route('/upload_clientes', methods=['GET', 'POST'])
