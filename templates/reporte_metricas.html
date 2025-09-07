@@ -1,182 +1,185 @@
 {% extends 'base_sidebar.html' %}
 
-{% block title %}
-    Dashboard de Métricas
-{% endblock %}
+{% block title %}Dashboard de Métricas{% endblock %}
 
-{% block head_extra %}
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-{% endblock %}
+{% block page_title %}Métricas del Negocio{% endblock %}
 
 {% block body %}
 <div class="space-y-8">
-    <div class="bg-white p-6 rounded-xl shadow-sm">
-        <h1 class="text-3xl font-bold text-slate-800">Dashboard de Rendimiento</h1>
-        <p class="text-slate-500 mt-1">Análisis de los indicadores clave para {{ metrics.mes_actual }} {{ metrics.anio_actual }}.</p>
+    <header class="flex flex-col md:flex-row justify-between items-start md:items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Dashboard de Métricas</h1>
+            <p class="text-slate-500 mt-1">Análisis de los indicadores clave (KPIs) del negocio.</p>
+        </div>
+        <div class="text-sm text-slate-500 mt-4 md:mt-0 flex items-center gap-2">
+            <i class="bi bi-clock"></i>
+            <span>Mes Actual: <strong>{{ metrics.mes_actual }} {{ metrics.anio_actual }}</strong></span>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between">
+                    <h3 class="text-slate-500 font-semibold">Ingresos del Mes (Conciliados)</h3>
+                    <div class="h-10 w-10 flex items-center justify-center rounded-full bg-green-100 text-green-600">
+                        <i class="bi bi-cash-coin text-xl"></i>
+                    </div>
+                </div>
+                <p class="text-4xl font-bold text-slate-800 mt-2">${{ "{:,.2f}".format(metrics.ingresos_mes_conciliados) }}</p>
+            </div>
+            <p class="text-xs text-slate-400 mt-4">Total facturado y confirmado en el mes en curso.</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between">
+                    <h3 class="text-slate-500 font-semibold">Índice de Morosidad</h3>
+                    <div class="h-10 w-10 flex items-center justify-center rounded-full bg-red-100 text-red-600">
+                        <i class="bi bi-graph-down-arrow text-xl"></i>
+                    </div>
+                </div>
+                <p class="text-4xl font-bold text-slate-800 mt-2">{{ metrics.indice_morosidad|round(1) }}%</p>
+            </div>
+            <p class="text-xs text-slate-400 mt-4">Porcentaje de clientes ahorradores que no han pagado en el mes.</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between">
+                    <h3 class="text-slate-500 font-semibold">Clientes en Cartera</h3>
+                     <div class="h-10 w-10 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                        <i class="bi bi-people-fill text-xl"></i>
+                    </div>
+                </div>
+                <p class="text-4xl font-bold text-slate-800 mt-2">{{ metrics.clientes_activos }}</p>
+            </div>
+            <p class="text-xs text-slate-400 mt-4">Total de clientes con estatus 'Activo'.</p>
+        </div>
+        
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between">
+                    <h3 class="text-slate-500 font-semibold">Total Clientes (Histórico)</h3>
+                     <div class="h-10 w-10 flex items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                        <i class="bi bi-person-lines-fill text-xl"></i>
+                    </div>
+                </div>
+                <p class="text-4xl font-bold text-slate-800 mt-2">{{ metrics.total_clientes }}</p>
+            </div>
+            <p class="text-xs text-slate-400 mt-4">Número total de clientes registrados en el sistema.</p>
+        </div>
     </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6">
-        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
-            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-green-100 text-green-600">
-                <i class="bi bi-cash-stack text-2xl"></i>
-            </div>
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Ingresos Conciliados (Últimos 6 Meses)</h3>
             <div>
-                <div class="text-sm text-slate-500 font-medium">Ingresos del Mes</div>
-                <div class="text-2xl font-bold text-slate-800">${{ "{:,.2f}".format(metrics.ingresos_mes_conciliados) }}</div>
+                <canvas id="ingresosChart"></canvas>
             </div>
         </div>
-        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
-            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-red-100 text-red-600">
-                <i class="bi bi-graph-down-arrow text-2xl"></i>
-            </div>
+        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Composición de Cartera Activa</h3>
             <div>
-                <div class="text-sm text-slate-500 font-medium">Índice de Morosidad</div>
-                <div class="text-2xl font-bold text-slate-800">{{ "%.1f"|format(metrics.indice_morosidad) }}%</div>
-            </div>
-        </div>
-        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
-            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-sky-100 text-sky-600">
-                <i class="bi bi-people-fill text-2xl"></i>
-            </div>
-            <div>
-                <div class="text-sm text-slate-500 font-medium">Total Clientes</div>
-                <div class="text-2xl font-bold text-slate-800">{{ metrics.total_clientes }}</div>
-            </div>
-        </div>
-        <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4">
-            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-purple-100 text-purple-600">
-                <i class="bi bi-award-fill text-2xl"></i>
-            </div>
-            <div>
-                <div class="text-sm text-slate-500 font-medium">Total Adjudicados</div>
-                <div class="text-2xl font-bold text-slate-800">{{ metrics.clientes_adjudicados }}</div>
+                <canvas id="composicionChart"></canvas>
             </div>
         </div>
     </div>
     
-    <div class="p-4 bg-slate-50 rounded-xl border">
-        <h3 class="text-md font-bold text-slate-700 mb-4">Desglose por Estatus de Cliente</h3>
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            <div class="bg-white p-3 rounded-lg shadow-sm text-center border">
-                <div class="text-sm font-semibold text-green-600">Activos</div>
-                <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_activos }}</div>
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <h3 class="text-lg font-bold text-slate-800 mb-4">Desglose Detallado de Clientes</h3>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            
+            {% for estado, total in metrics.estados_del_plan.items() %}
+            <div class="bg-slate-50 border border-slate-200 p-4 rounded-lg">
+                <p class="text-slate-500 text-sm font-medium">{{ estado|replace('_', ' ')|capitalize }}</p>
+                <p class="text-2xl font-bold text-slate-800">{{ total }}</p>
             </div>
-            <div class="bg-white p-3 rounded-lg shadow-sm text-center border">
-                <div class="text-sm font-semibold text-yellow-600">Reserva</div>
-                <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_reserva }}</div>
+            {% endfor %}
+
+            <div class="bg-slate-50 border border-slate-200 p-4 rounded-lg">
+                <p class="text-slate-500 text-sm font-medium">Retirados</p>
+                <p class="text-2xl font-bold text-red-600">{{ metrics.clientes_retirados }}</p>
             </div>
-            <div class="bg-white p-3 rounded-lg shadow-sm text-center border">
-                <div class="text-sm font-semibold text-blue-600">Congelados</div>
-                <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_congelados }}</div>
-            </div>
-            <div class="bg-white p-3 rounded-lg shadow-sm text-center border">
-                <div class="text-sm font-semibold text-slate-500">Inactivos</div>
-                <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_inactivos }}</div>
-            </div>
-            <div class="bg-white p-3 rounded-lg shadow-sm text-center border">
-                <div class="text-sm font-semibold text-red-600">Retirados</div>
-                <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ metrics.clientes_retirados }}</div>
+             <div class="bg-slate-50 border border-slate-200 p-4 rounded-lg">
+                <p class="text-slate-500 text-sm font-medium">Inactivos</p>
+                <p class="text-2xl font-bold text-slate-800">{{ metrics.clientes_inactivos }}</p>
             </div>
         </div>
     </div>
 
-    <div class="p-4 bg-slate-50 rounded-xl border">
-        <h3 class="text-md font-bold text-slate-700 mb-4">Desglose por Estado del Plan</h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {% for estado, total in metrics.estados_del_plan.items() %}
-            <div class="bg-white p-3 rounded-lg shadow-sm text-center border">
-                <div class="text-sm font-semibold text-gray-600 truncate" title="{{ estado }}">{{ estado | title }}</div>
-                <div class="text-3xl font-extrabold text-slate-800 mt-1">{{ total }}</div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-sm">
-            <h2 class="text-lg font-bold text-slate-800 mb-4">Ingresos Mensuales (Últimos 6 Meses)</h2>
-            <div class="h-80">
-                <canvas id="incomeChart"></canvas>
-            </div>
-        </div>
-        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm">
-            <h2 class="text-lg font-bold text-slate-800 mb-4">Composición de Clientes Activos</h2>
-            <div class="h-80">
-                <canvas id="clientsChart"></canvas>
-            </div>
-        </div>
-    </div>
 </div>
 {% endblock %}
 
 {% block scripts_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const incomeData = JSON.parse('{{ metrics.ingresos_ultimos_meses | tojson | safe }}');
-    const clientData = JSON.parse('{{ metrics.composicion_clientes | tojson | safe }}');
-    
-    // Gráfico de Ingresos
-    const incomeCtx = document.getElementById('incomeChart')?.getContext('2d');
-    if (incomeCtx) { 
-        new Chart(incomeCtx, { 
-            type: 'bar', 
-            data: { 
-                labels: incomeData.labels, 
-                datasets: [{ 
-                    label: 'Ingresos ($)', 
-                    data: incomeData.values, 
-                    backgroundColor: 'rgba(59, 130, 246, 0.6)', 
-                    borderColor: 'rgba(59, 130, 246, 1)', 
-                    borderWidth: 1, 
-                    borderRadius: 5 
-                }] 
-            }, 
-            options: { 
-                scales: { 
-                    y: { 
-                        beginAtZero: true, 
-                        ticks: { 
-                            callback: function(value) { return '$' + new Intl.NumberFormat().format(value); } 
-                        } 
-                    } 
-                }, 
-                responsive: true, 
-                maintainAspectRatio: false,
-                plugins: { 
-                    legend: { display: false }, 
-                    tooltip: { 
-                        callbacks: { 
-                            label: function(context) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y); } 
-                        } 
-                    } 
-                } 
-            } 
-        }); 
-    }
+    document.addEventListener('DOMContentLoaded', function () {
+        // --- GRÁFICO DE INGRESOS ---
+        const ingresosCtx = document.getElementById('ingresosChart').getContext('2d');
+        new Chart(ingresosCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ metrics.ingresos_ultimos_meses.labels|tojson|safe }},
+                datasets: [{
+                    label: 'Ingresos ($)',
+                    data: {{ metrics.ingresos_ultimos_meses.values|tojson|safe }},
+                    backgroundColor: 'rgba(79, 70, 229, 0.8)',
+                    borderColor: 'rgba(79, 70, 229, 1)',
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + new Intl.NumberFormat().format(value);
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
 
-    // Gráfico de Clientes
-    const clientsCtx = document.getElementById('clientsChart')?.getContext('2d');
-    if (clientsCtx) { 
-        new Chart(clientsCtx, { 
-            type: 'doughnut', 
-            data: { 
-                labels: clientData.labels, 
-                datasets: [{ 
-                    label: 'Clientes', 
-                    data: clientData.values, 
-                    backgroundColor: ['#1f2937', '#3b82f6', '#f97316', '#16a34a', '#8b5cf6', '#6b7280'], 
-                    borderColor: '#fff', 
-                    borderWidth: 3 
-                }] 
-            }, 
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false,
-                plugins: { 
-                    legend: { position: 'top' } 
-                } 
-            } 
-        }); 
-    }
-});
+        // --- GRÁFICO DE COMPOSICIÓN ---
+        const composicionCtx = document.getElementById('composicionChart').getContext('2d');
+        new Chart(composicionCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ metrics.composicion_clientes.labels|tojson|safe }},
+                datasets: [{
+                    label: 'Clientes',
+                    data: {{ metrics.composicion_clientes.values|tojson|safe }},
+                    backgroundColor: [
+                        'rgba(79, 70, 229, 0.8)',
+                        'rgba(59, 130, 246, 0.8)',
+                        'rgba(16, 185, 129, 0.8)',
+                        'rgba(245, 158, 11, 0.8)',
+                        'rgba(139, 92, 246, 0.8)',
+                        'rgba(239, 68, 68, 0.8)'
+                    ],
+                    borderColor: '#fff',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    }
+                }
+            }
+        });
+    });
 </script>
 {% endblock %}

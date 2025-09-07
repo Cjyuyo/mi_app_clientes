@@ -2758,6 +2758,7 @@ def mi_cartera():
 def reporte_metricas():
     conn = get_db()
     today = get_venezuela_current_date()
+    # Inicialización del diccionario con todas las claves que la plantilla espera
     dashboard_metrics = {
         'ingresos_mes_conciliados': 0, 'indice_morosidad': 0.0,
         'mes_actual': get_nombre_mes(today.month), 'anio_actual': today.year,
@@ -2766,11 +2767,12 @@ def reporte_metricas():
         'total_clientes': 0, 'clientes_activos': 0, 'clientes_inactivos': 0,
         'clientes_retirados': 0, 'clientes_adjudicados': 0, 'clientes_congelados': 0,
         'clientes_reserva': 0,
-        'estados_del_plan': {}  # NUEVO: Diccionario para los conteos dinámicos
+        'estados_del_plan': {}
     }
     if conn:
         try:
             with conn.cursor() as cur:
+                # Consulta principal para conteos de clientes
                 cur.execute("""
                     SELECT
                         COUNT(*) AS total_clientes,
@@ -2786,32 +2788,40 @@ def reporte_metricas():
                 if client_counts:
                     dashboard_metrics.update(dict(client_counts))
 
-                # NUEVO: Consulta para obtener todos los 'estado_del_plan' y sus conteos
+                # Consulta para la tabla de desglose dinámico
                 cur.execute("""
                     SELECT estado_del_plan, COUNT(*) as total
                     FROM clientes
                     WHERE estado_del_plan IS NOT NULL AND estado_del_plan != ''
                     GROUP BY estado_del_plan
-                    ORDER BY estado_del_plan
+                    ORDER BY total DESC
                 """)
                 estados_plan = cur.fetchall()
                 dashboard_metrics['estados_del_plan'] = {
                     item['estado_del_plan']: item['total'] for item in estados_plan
                 }
 
+                # Ingresos del mes
                 first_day_of_month = today.replace(day=1)
                 cur.execute("SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s", (first_day_of_month,))
                 dashboard_metrics['ingresos_mes_conciliados'] = cur.fetchone()[0]
                 
+                # Cálculo de Morosidad
                 cur.execute("SELECT COUNT(*) FROM clientes WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(estatus_cliente)) = 'ACTIVO'")
-                total_ahorradores = cur.fetchone()[0]
+                total_ahorradores = cur.fetchone()[0] or 0
                 
                 if total_ahorradores > 0:
-                    cur.execute("SELECT COUNT(DISTINCT p.cliente_id) FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.tipo_pago = 'Cuota' AND p.estado_pago = 'Conciliado' AND TRIM(UPPER(c.estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(c.estatus_cliente)) = 'ACTIVO' AND p.fecha_pago >= %s", (first_day_of_month,))
-                    ahorradores_al_dia = cur.fetchone()[0]
+                    cur.execute("""
+                        SELECT COUNT(DISTINCT p.cliente_id) FROM pagos p JOIN clientes c ON p.cliente_id = c.id 
+                        WHERE p.tipo_pago = 'Cuota' AND p.estado_pago = 'Conciliado' 
+                        AND TRIM(UPPER(c.estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(c.estatus_cliente)) = 'ACTIVO' 
+                        AND p.fecha_pago >= %s
+                    """, (first_day_of_month,))
+                    ahorradores_al_dia = cur.fetchone()[0] or 0
                     clientes_en_mora = total_ahorradores - ahorradores_al_dia
-                    dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100 if total_ahorradores > 0 else 0
+                    dashboard_metrics['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100
                 
+                # Gráfico de Ingresos (Últimos 6 meses)
                 income_labels, income_values = [], []
                 current_date = today
                 for _ in range(6):
@@ -2825,9 +2835,10 @@ def reporte_metricas():
                     current_date = month_start - timedelta(days=1)
                 dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
                 
-                cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN PROCESO') as proceso, COUNT(*) FROM clientes WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO' GROUP BY estado_del_plan")
+                # Gráfico de Composición de Cartera
+                cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN PROCESO') as proceso, COUNT(*) as count FROM clientes WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO' GROUP BY estado_del_plan")
                 client_composition = cur.fetchall()
-                comp_labels = [row['proceso'].capitalize() for row in client_composition]
+                comp_labels = [row['proceso'].replace('_', ' ').capitalize() for row in client_composition]
                 comp_values = [row['count'] for row in client_composition]
                 dashboard_metrics['composicion_clientes'] = {'labels': comp_labels, 'values': comp_values}
 
