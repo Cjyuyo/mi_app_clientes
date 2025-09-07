@@ -2823,7 +2823,7 @@ def reporte_metricas_v2():
             cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado, COUNT(*) as total FROM clientes GROUP BY estado ORDER BY total DESC")
             composicion_data = cur.fetchall()
             dashboard_metrics['graficas']['composicion_cartera'] = {
-                'labels': [str(row['estado']).capitalize() for row in composicion_data], # <-- CORREGIDO AQUÍ
+                'labels': [str(row['estado']).capitalize() for row in composicion_data],
                 'values': [int(row['total'] or 0) for row in composicion_data]
             }
 
@@ -2845,7 +2845,7 @@ def reporte_metricas_v2():
             cur.execute("SELECT COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS') as condicion, COUNT(*) as total FROM clientes WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO' GROUP BY condicion ORDER BY total DESC")
             resumen_condicion_raw = cur.fetchall()
             dashboard_metrics['tablas']['resumen_condicion'] = [
-                {'condicion': str(row['condicion']).capitalize(), 'total': int(row['total'] or 0)} # <-- CORREGIDO AQUÍ
+                {'condicion': str(row['condicion']).capitalize(), 'total': int(row['total'] or 0)}
                 for row in resumen_condicion_raw
             ]
 
@@ -2853,6 +2853,22 @@ def reporte_metricas_v2():
         flash(f"No se pudieron cargar las métricas del dashboard debido a un error: {e}", "danger")
         logging.error(f"ERROR en reporte_metricas_v2: {traceback.format_exc()}")
         return render_template('reporte_metricas_v2.html', metrics=dashboard_metrics, error=True)
+
+    # --- INICIO: CÓDIGO DE DIAGNÓSTICO ---
+    try:
+        # Intentamos convertir el diccionario a JSON para ver qué falla
+        logging.info("--- INICIO DE DATOS PARA MÉTRICAS ---")
+        # Usamos default=str para manejar objetos Decimal y de fecha/hora
+        logging.info(json.dumps(dashboard_metrics, indent=4, default=str))
+        logging.info("--- FIN DE DATOS PARA MÉTRICAS (Conversión a JSON exitosa en backend) ---")
+    except TypeError as e:
+        # Si falla aquí, el log nos dirá exactamente por qué
+        logging.error(f"!!! ERROR DE SERIALIZACIÓN DETECTADO EN EL BACKEND: {e}")
+        import pprint
+        logging.error("--- DICCIONARIO COMPLETO CON PROBLEMAS ---")
+        logging.error(pprint.pformat(dashboard_metrics))
+        logging.error("--- FIN DEL DICCIONARIO ---")
+    # --- FIN: CÓDIGO DE DIAGNÓSTICO ---
 
     return render_template('reporte_metricas_v2.html', metrics=dashboard_metrics, error=False)
 
