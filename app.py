@@ -6444,7 +6444,8 @@ def resetear_password(user_type, user_id):
         flash(f"Error al resetear la contraseña: {e}", "danger")
 
     return redirect(url_for('gestion_usuarios'))
-
+    
+# touch: invalidate template cache 2025-09-07
 # --- FIN DEL NUEVO MÓDULO ---
 
 
