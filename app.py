@@ -4107,6 +4107,9 @@ def consulta():
     )
 
 # --- REEMPLAZA TU FUNCIÓN ACTUAL CON ESTA VERSIÓN CORREGIDA ---
+from psycopg2.extras import execute_values
+import pandas as pd
+
 @app.route('/upload_clientes', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -4127,93 +4130,184 @@ def upload_clientes():
             return redirect(request.url)
 
         try:
-            # Usamos fillna('') para reemplazar valores NaN (vacíos) por strings vacíos
-            df = pd.read_excel(archivo, engine='openpyxl', dtype=str).fillna('')
-            df.columns = [str(c).strip().upper() for c in df.columns]
+            # Lee TODAS las hojas (dict: nombre_hoja -> DataFrame)
+            sheets = pd.read_excel(archivo, engine='openpyxl', dtype=str, sheet_name=None)
 
+            if not sheets:
+                flash("El archivo no contiene hojas legibles.", "warning")
+                return redirect(request.url)
+
+            # Normaliza nombres esperados de hojas
+            target_names = set()
+            for name in sheets.keys():
+                nup = (name or '').strip().upper()
+                if nup == 'CYK':
+                    target_names.add(name)
+                if nup in ('COPY OF MOTO PLAN MOTORS', 'MOTO PLAN', 'MOTO PLAN MOTORS'):
+                    target_names.add(name)
+
+            # Si no encontró las esperadas, procesa todas las hojas no vacías
+            if not target_names:
+                target_names = {n for n, df in sheets.items() if not df.empty}
+
+            # Mapeo de columnas (en mayúsculas) -> nombres internos
             column_map = {
-                'NUMERO DE CONTRATO': 'numero_contrato', 'N⁰ CONTRATO': 'numero_contrato', 'N° CONTRATO': 'numero_contrato',
-                'NUMERO DE CEDULA': 'cedula', 'N⁰ CEDULA': 'cedula', 'N° CEDULA': 'cedula', 'CEDULA': 'cedula',
+                'NUMERO DE CONTRATO': 'numero_contrato',
+                'N⁰ CONTRATO': 'numero_contrato',
+                'N° CONTRATO': 'numero_contrato',
+                'NUMERO CONTRATO': 'numero_contrato',
+                'NUMERO DE CEDULA': 'cedula',
+                'N⁰ CEDULA': 'cedula',
+                'N° CEDULA': 'cedula',
+                'CEDULA': 'cedula',
+                'CÉDULA': 'cedula',
                 'NOMBRE Y APELLIDO': 'nombre_completo',
+                'NOMBRE': 'nombre',        # por si alguna hoja los separa
+                'APELLIDO': 'apellido',    # por si alguna hoja los separa
                 'ESTADO DEL PLAN': 'estado_del_plan',
-                'ESTATUS': 'estatus_cliente', 'ESTATUS CLIENTE': 'estatus_cliente',
-                'CONDICION': 'condicion_pago' # <-- NUEVO: Lee la columna CONDICION
+                'ESTADO DEL PLAN ': 'estado_del_plan',  # algunas hojas traen espacio
+                'ESTATUS': 'estatus_cliente',
+                'ESTATUS CLIENTE': 'estatus_cliente',
+                'CONDICION': 'condicion_pago',
+                'CONDICIÓN': 'condicion_pago',
+                'CONDICION PAGO': 'condicion_pago',
+                'CONDICION DE PAGO': 'condicion_pago',
+                'CONDICION_DE_PAGO': 'condicion_pago',
             }
-            df.rename(columns=column_map, inplace=True)
 
-            if 'cedula' not in df.columns:
-                flash("El archivo debe contener una columna de 'Cédula' o 'Numero de Cedula'.", "danger")
+            # Acumuladores para un solo SELECT y dos operaciones masivas
+            all_rows = []  # (cedula, nombre, apellido, estado_del_plan, estatus_cliente, numero_contrato, condicion_pago, empresa)
+
+            for sheet_name in target_names:
+                df = sheets.get(sheet_name)
+                if df is None or df.empty:
+                    continue
+
+                # Limpia NaN a '' y columnas a UPPER
+                df = df.fillna('')
+                df.columns = [str(c).strip().upper() for c in df.columns]
+
+                # Renombra a nuestros internos
+                df = df.rename(columns={k: v for k, v in column_map.items() if k in df.columns})
+
+                # Asegura columnas mínimas
+                for col in ['cedula', 'estado_del_plan', 'estatus_cliente', 'numero_contrato', 'condicion_pago']:
+                    if col not in df.columns:
+                        df[col] = ''
+
+                # Nombre/apellido: si viene "NOMBRE Y APELLIDO", sepáralo
+                if 'nombre_completo' in df.columns and ('nombre' not in df.columns or 'apellido' not in df.columns):
+                    def split_nombre(nc: str):
+                        nc = (nc or '').strip()
+                        if not nc:
+                            return '', ''
+                        partes = nc.split()
+                        nombre = partes[0]
+                        apellido = ' '.join(partes[1:]) if len(partes) > 1 else ''
+                        return nombre, apellido
+                    tmp = df['nombre_completo'].apply(split_nombre).tolist()
+                    nombres = [t[0] for t in tmp]
+                    apellidos = [t[1] for t in tmp]
+                    if 'nombre' not in df.columns:
+                        df['nombre'] = nombres
+                    if 'apellido' not in df.columns:
+                        df['apellido'] = apellidos
+
+                if 'nombre' not in df.columns:
+                    df['nombre'] = ''
+                if 'apellido' not in df.columns:
+                    df['apellido'] = ''
+
+                # Determina empresa por hoja
+                sn_up = (sheet_name or '').strip().upper()
+                if sn_up == 'CYK':
+                    empresa_label = 'CYK'
+                else:
+                    empresa_label = 'MOTO PLAN'
+
+                # Normaliza strings (trim) y UPPER en algunos campos
+                df['cedula'] = df['cedula'].astype(str).str.strip()
+                df['nombre'] = df['nombre'].astype(str).str.strip()
+                df['apellido'] = df['apellido'].astype(str).str.strip()
+                df['numero_contrato'] = df['numero_contrato'].astype(str).str.strip()
+                df['estado_del_plan'] = df['estado_del_plan'].astype(str).str.strip().str.upper()
+                df['estatus_cliente'] = df['estatus_cliente'].astype(str).str.strip().str.upper()
+                df['condicion_pago']  = df['condicion_pago'].astype(str).str.strip().str.upper()
+
+                # Filtra filas sin cédula
+                df = df[df['cedula'] != '']
+
+                # Empuja a acumulador
+                for _, r in df.iterrows():
+                    all_rows.append((
+                        r['cedula'],
+                        r['nombre'],
+                        r['apellido'],
+                        r['estado_del_plan'],
+                        r['estatus_cliente'],
+                        r['numero_contrato'],
+                        r['condicion_pago'],
+                        empresa_label
+                    ))
+
+            if not all_rows:
+                flash("No se encontraron filas válidas (con cédula) en las hojas procesadas.", "warning")
                 return redirect(request.url)
 
-            cedulas_en_archivo = [c for c in df['cedula'].dropna().unique() if c]
-            if not cedulas_en_archivo:
-                flash("La columna de cédula está vacía.", "warning")
-                return redirect(request.url)
-            
+            # Consulta existentes en un solo viaje
+            cedulas_unicas = list({t[0] for t in all_rows})
             with conn.cursor() as cur:
-                cur.execute("SELECT id, cedula FROM clientes WHERE cedula = ANY(%s)", (cedulas_en_archivo,))
-                clientes_existentes = {row['cedula']: row['id'] for row in cur.fetchall()}
-                
-                updates_data = []
+                cur.execute("SELECT id, cedula FROM clientes WHERE cedula = ANY(%s)", (cedulas_unicas,))
+                existentes = {row['cedula']: row['id'] for row in cur.fetchall()}
+
                 inserts_data = []
-
-                for _, row in df.iterrows():
-                    cedula = row.get('cedula', '').strip()
-                    if not cedula:
-                        continue
-
-                    nombre_completo = row.get('nombre_completo', '')
-                    partes = nombre_completo.split()
-                    nombre = partes[0] if partes else ''
-                    apellido = ' '.join(partes[1:]) if len(partes) > 1 else ''
-
-                    # Creamos una tupla con los datos en un orden consistente
-                    # NOTA: Asegúrate de que la columna 'condicion_pago' exista en tu tabla 'clientes'
-                    data_tuple = (
-                        cedula,
-                        nombre,
-                        apellido,
-                        row.get('estado_del_plan', ''),
-                        row.get('estatus_cliente', ''),
-                        row.get('numero_contrato', ''),
-                        row.get('condicion_pago', '') # <-- NUEVO: Añade la condición a los datos
-                    )
-
-                    if cedula in clientes_existentes:
-                        updates_data.append(data_tuple)
+                updates_data = []
+                for t in all_rows:
+                    cedula = t[0]
+                    if cedula in existentes:
+                        updates_data.append(t)
                     else:
-                        inserts_data.append(data_tuple)
+                        inserts_data.append(t)
 
-                # INSERCIÓN MASIVA (BULK INSERT) para todos los clientes nuevos
+                # Aseguramos columna empresa por si falta en algunos entornos
+                cur.execute("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS empresa TEXT;")
+
+                # INSERT masivo
                 if inserts_data:
                     insert_query = """
-                        INSERT INTO clientes (cedula, nombre, apellido, estado_del_plan, estatus_cliente, numero_contrato, condicion_pago) 
+                        INSERT INTO clientes (
+                            cedula, nombre, apellido, estado_del_plan, estatus_cliente, numero_contrato, condicion_pago, empresa
+                        )
                         VALUES %s
                     """
                     execute_values(cur, insert_query, inserts_data)
 
-                # ACTUALIZACIÓN MASIVA (BULK UPDATE) para todos los clientes existentes
+                # UPDATE masivo
                 if updates_data:
+                    # Usamos VALUES + FROM para update por lote
                     update_query = """
-                        UPDATE clientes SET
-                            nombre = data.nombre,
-                            apellido = data.apellido,
-                            estado_del_plan = data.estado_del_plan,
-                            estatus_cliente = data.estatus_cliente,
-                            numero_contrato = data.numero_contrato,
-                            condicion_pago = data.condicion_pago
-                        FROM (VALUES %s) AS data (cedula, nombre, apellido, estado_del_plan, estatus_cliente, numero_contrato, condicion_pago)
-                        WHERE clientes.cedula = data.cedula
+                        UPDATE clientes AS c SET
+                            nombre          = NULLIF(data.nombre, '')          ,
+                            apellido        = NULLIF(data.apellido, '')        ,
+                            estado_del_plan = NULLIF(data.estado_del_plan, '') ,
+                            estatus_cliente = NULLIF(data.estatus_cliente, '') ,
+                            numero_contrato = NULLIF(data.numero_contrato, '') ,
+                            condicion_pago  = NULLIF(data.condicion_pago, '')  ,
+                            empresa         = NULLIF(data.empresa, '')
+                        FROM (VALUES %s) AS data (
+                            cedula, nombre, apellido, estado_del_plan, estatus_cliente, numero_contrato, condicion_pago, empresa
+                        )
+                        WHERE c.cedula = data.cedula
                     """
                     execute_values(cur, update_query, updates_data)
 
                 conn.commit()
-                flash(f"Carga completada: {len(inserts_data)} clientes creados, {len(updates_data)} actualizados.", "success")
 
+            flash(f"Carga completada. Creados: {len(inserts_data)}, Actualizados: {len(updates_data)}. Hojas procesadas: {len(target_names)}.", "success")
         except Exception as e:
             conn.rollback()
+            logging.error("Error crítico al procesar el archivo: %s\n%s", e, traceback.format_exc())
             flash(f"Error crítico al procesar el archivo: {e}", "danger")
-            logging.error(f"Error en upload_clientes: {traceback.format_exc()}")
         
         return redirect(url_for('upload_clientes'))
 
