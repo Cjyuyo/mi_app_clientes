@@ -2822,6 +2822,7 @@ def reporte_metricas():
                 # --- CONSULTA 4: COMPOSICIÓN DE CLIENTES (CORREGIDA) ---
                 cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado_plan, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
                 client_composition = cur.fetchall()
+                # ===== ¡ESTA ES LA LÍNEA CORREGIDA! =====
                 comp_labels = [row['estado_plan'].capitalize() if row['estado_plan'] else 'Sin Datos' for row in client_composition]
                 comp_values = [row['total'] for row in client_composition]
                 dashboard_metrics['composicion_clientes'] = {'labels': comp_labels, 'values': comp_values}
@@ -2838,7 +2839,7 @@ def reporte_metricas():
                         ORDER BY total DESC
                     """)
                     resumen_condicion_raw = cur.fetchall()
-                    dashboard_metrics['resumen_condicion'] = [{'condicion': row['condicion'], 'total': row['total']} for row in resumen_condicion_raw]
+                    dashboard_metrics['resumen_condicion'] = [{'condicion': row['condicion'].capitalize(), 'total': row['total']} for row in resumen_condicion_raw]
                 except psycopg2.Error as e:
                     logging.warning(f"No se pudo generar el resumen por condición de pago: {e}")
 
