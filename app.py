@@ -2756,8 +2756,7 @@ def mi_cartera():
 @rol_requerido('superadmin', 'gerente')
 def reporte_metricas_v2():
     """
-    Versión final a prueba de balas. Asegura que todos los tipos de datos
-    sean 100% compatibles con JSON antes de renderizar.
+    Versión de prueba para aislar el error de TypeError.
     """
     conn = get_db()
     if not conn:
@@ -2765,7 +2764,6 @@ def reporte_metricas_v2():
         return render_template('reporte_metricas_v2.html', metrics=None, error=True)
 
     today = get_venezuela_current_date()
-
     dashboard_metrics = {
         'fecha_actualizacion': get_venezuela_current_datetime().strftime('%d/%m/%Y %I:%M %p'),
         'mes_actual': str(get_nombre_mes(today.month)),
@@ -2777,9 +2775,8 @@ def reporte_metricas_v2():
 
     try:
         with conn.cursor() as cur:
+            # --- Mantenemos los KPIs porque son tipos de datos simples y seguros ---
             first_day_of_month = today.replace(day=1)
-
-            # --- KPIs Y CONTEOS PRINCIPALES ---
             cur.execute("""
                 SELECT
                     (SELECT COALESCE(SUM(monto), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND fecha_pago >= %s) as ingresos_mes,
@@ -2789,18 +2786,15 @@ def reporte_metricas_v2():
                 FROM clientes
             """, (first_day_of_month,))
             kpi_data = cur.fetchone()
-
             cur.execute("""
                 SELECT COUNT(DISTINCT cliente_id) as al_dia FROM pagos
                 WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s
                 AND cliente_id IN (SELECT id FROM clientes WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(estatus_cliente)) = 'ACTIVO')
             """, (first_day_of_month,))
             ahorradores_al_dia = cur.fetchone()['al_dia'] or 0
-
             total_ahorradores = int(kpi_data.get('total_ahorradores', 0) or 0)
             clientes_en_mora = total_ahorradores - int(ahorradores_al_dia)
             indice_morosidad = (clientes_en_mora / total_ahorradores) * 100 if total_ahorradores > 0 else 0.0
-
             dashboard_metrics['kpis'] = {
                 'ingresos_mes_conciliados': float(kpi_data.get('ingresos_mes', 0) or 0),
                 'clientes_en_cartera': int(kpi_data.get('en_cartera', 0) or 0),
@@ -2808,7 +2802,7 @@ def reporte_metricas_v2():
                 'clientes_retirados': int(kpi_data.get('retirados', 0) or 0)
             }
 
-            # --- GRÁFICA DE INGRESOS MENSUALES ---
+            # --- Mantenemos solo la gráfica que el error menciona ---
             labels, values = [], []
             for i in range(6):
                 month_start = (today.replace(day=1) - timedelta(days=i*30)).replace(day=1)
@@ -2818,57 +2812,18 @@ def reporte_metricas_v2():
                 labels.insert(0, str(get_nombre_mes(month_start.month)))
                 values.insert(0, float(cur.fetchone()['total'] or 0))
             dashboard_metrics['graficas']['ingresos_ultimos_meses'] = {'labels': labels, 'values': values}
-
-            # --- GRÁFICA DE COMPOSICIÓN DE CARTERA ---
-            cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado, COUNT(*) as total FROM clientes GROUP BY estado ORDER BY total DESC")
-            composicion_data = cur.fetchall()
-            dashboard_metrics['graficas']['composicion_cartera'] = {
-                'labels': [str(row['estado']).capitalize() for row in composicion_data],
-                'values': [int(row['total'] or 0) for row in composicion_data]
-            }
-
-            # --- TABLAS DE RESUMEN ---
-            cur.execute("SELECT COUNT(*) as total_clientes, COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'ADJUDICADO' THEN 1 END) AS adjudicado, COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'INSCRITO' THEN 1 END) AS inscrito, COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COMPLETADO' THEN 1 END) AS completado, COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'CONGELADO' THEN 1 END) as congelados, COUNT(CASE WHEN TRIM(UPPER(estado_del_plan)) = 'COBRANZA DIFERIDA' THEN 1 END) AS cobranza_diferida, COUNT(CASE WHEN TRIM(UPPER(estatus_cliente)) = 'INACTIVO' THEN 1 END) AS inactivos FROM clientes")
-            mapa_extra_data = cur.fetchone()
-            dashboard_metrics['tablas']['mapa_clientes'] = {
-                'total_clientes': int(mapa_extra_data.get('total_clientes', 0) or 0),
-                'ahorrador': total_ahorradores,
-                'adjudicado': int(mapa_extra_data.get('adjudicado', 0) or 0),
-                'inscrito': int(mapa_extra_data.get('inscrito', 0) or 0),
-                'completado': int(mapa_extra_data.get('completado', 0) or 0),
-                'congelados': int(mapa_extra_data.get('congelados', 0) or 0),
-                'cobranza_diferida': int(mapa_extra_data.get('cobranza_diferida', 0) or 0),
-                'retirados': int(dashboard_metrics['kpis']['clientes_retirados']),
-                'inactivos': int(mapa_extra_data.get('inactivos', 0) or 0)
-            }
-
-            cur.execute("SELECT COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS') as condicion, COUNT(*) as total FROM clientes WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO' GROUP BY condicion ORDER BY total DESC")
-            resumen_condicion_raw = cur.fetchall()
-            dashboard_metrics['tablas']['resumen_condicion'] = [
-                {'condicion': str(row['condicion']).capitalize(), 'total': int(row['total'] or 0)}
-                for row in resumen_condicion_raw
-            ]
+            
+            # --- SECCIÓN DESACTIVADA PARA LA PRUEBA ---
+            # Se inicializan las claves vacías para que la plantilla no falle al buscarlas
+            dashboard_metrics['graficas']['composicion_cartera'] = {'labels': [], 'values': []}
+            dashboard_metrics['tablas']['mapa_clientes'] = {}
+            dashboard_metrics['tablas']['resumen_condicion'] = []
+            # --- FIN DE LA SECCIÓN DESACTIVADA ---
 
     except (psycopg2.Error, ValueError) as e:
         flash(f"No se pudieron cargar las métricas del dashboard debido a un error: {e}", "danger")
         logging.error(f"ERROR en reporte_metricas_v2: {traceback.format_exc()}")
         return render_template('reporte_metricas_v2.html', metrics=dashboard_metrics, error=True)
-
-    # --- INICIO: CÓDIGO DE DIAGNÓSTICO ---
-    try:
-        # Intentamos convertir el diccionario a JSON para ver qué falla
-        logging.info("--- INICIO DE DATOS PARA MÉTRICAS ---")
-        # Usamos default=str para manejar objetos Decimal y de fecha/hora
-        logging.info(json.dumps(dashboard_metrics, indent=4, default=str))
-        logging.info("--- FIN DE DATOS PARA MÉTRICAS (Conversión a JSON exitosa en backend) ---")
-    except TypeError as e:
-        # Si falla aquí, el log nos dirá exactamente por qué
-        logging.error(f"!!! ERROR DE SERIALIZACIÓN DETECTADO EN EL BACKEND: {e}")
-        import pprint
-        logging.error("--- DICCIONARIO COMPLETO CON PROBLEMAS ---")
-        logging.error(pprint.pformat(dashboard_metrics))
-        logging.error("--- FIN DEL DICCIONARIO ---")
-    # --- FIN: CÓDIGO DE DIAGNÓSTICO ---
 
     return render_template('reporte_metricas_v2.html', metrics=dashboard_metrics, error=False)
 
