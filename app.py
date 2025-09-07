@@ -2766,7 +2766,6 @@ def reporte_metricas_v2():
 
     today = get_venezuela_current_date()
 
-    # El diccionario base se mantiene igual
     dashboard_metrics = {
         'fecha_actualizacion': get_venezuela_current_datetime().strftime('%d/%m/%Y %I:%M %p'),
         'mes_actual': str(get_nombre_mes(today.month)),
@@ -2802,7 +2801,6 @@ def reporte_metricas_v2():
             clientes_en_mora = total_ahorradores - int(ahorradores_al_dia)
             indice_morosidad = (clientes_en_mora / total_ahorradores) * 100 if total_ahorradores > 0 else 0.0
 
-            # Conversión explícita a tipos seguros para JSON
             dashboard_metrics['kpis'] = {
                 'ingresos_mes_conciliados': float(kpi_data.get('ingresos_mes', 0) or 0),
                 'clientes_en_cartera': int(kpi_data.get('en_cartera', 0) or 0),
@@ -2825,7 +2823,7 @@ def reporte_metricas_v2():
             cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado, COUNT(*) as total FROM clientes GROUP BY estado ORDER BY total DESC")
             composicion_data = cur.fetchall()
             dashboard_metrics['graficas']['composicion_cartera'] = {
-                'labels': [str(row['estado']).capitalize() for row in composicion_data],
+                'labels': [str(row['estado']).capitalize() for row in composicion_data], # <-- CORREGIDO AQUÍ
                 'values': [int(row['total'] or 0) for row in composicion_data]
             }
 
@@ -2847,7 +2845,7 @@ def reporte_metricas_v2():
             cur.execute("SELECT COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS') as condicion, COUNT(*) as total FROM clientes WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO' GROUP BY condicion ORDER BY total DESC")
             resumen_condicion_raw = cur.fetchall()
             dashboard_metrics['tablas']['resumen_condicion'] = [
-                {'condicion': str(row['condicion']).capitalize(), 'total': int(row['total'] or 0)}
+                {'condicion': str(row['condicion']).capitalize(), 'total': int(row['total'] or 0)} # <-- CORREGIDO AQUÍ
                 for row in resumen_condicion_raw
             ]
 
@@ -2857,7 +2855,7 @@ def reporte_metricas_v2():
         return render_template('reporte_metricas_v2.html', metrics=dashboard_metrics, error=True)
 
     return render_template('reporte_metricas_v2.html', metrics=dashboard_metrics, error=False)
-    
+
 # =================================================================================
 # ===== FIN: MÓDULO DE MÉTRICAS RECONSTRUIDO (V2) =====
 # =================================================================================
