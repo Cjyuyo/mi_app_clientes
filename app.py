@@ -2765,7 +2765,6 @@ def reporte_metricas_v2():
 
     today = get_venezuela_current_date()
     
-    # Estructura de datos inicial para las métricas
     dashboard_metrics = {
         'fecha_actualizacion': get_venezuela_current_datetime().strftime('%d/%m/%Y %I:%M %p'),
         'mes_actual': get_nombre_mes(today.month),
@@ -2788,7 +2787,7 @@ def reporte_metricas_v2():
 
     try:
         with conn.cursor() as cur:
-            # --- CONSULTA 1: INGRESOS CONCILIADOS DEL MES ACTUAL ---
+            # --- INGRESOS CONCILIADOS DEL MES ACTUAL ---
             first_day_of_month = today.replace(day=1)
             cur.execute("""
                 SELECT COALESCE(SUM(monto), 0) as total 
@@ -2797,7 +2796,7 @@ def reporte_metricas_v2():
             """, (first_day_of_month,))
             dashboard_metrics['kpis']['ingresos_mes_conciliados'] = cur.fetchone()['total']
 
-            # --- CONSULTA 2: MAPA GENERAL DE CLIENTES (para KPIs y tabla) ---
+            # --- MAPA GENERAL DE CLIENTES (para KPIs y tabla) ---
             cur.execute("""
                 SELECT
                     COUNT(*) AS total_clientes,
@@ -2814,45 +2813,32 @@ def reporte_metricas_v2():
             """)
             mapa_data = cur.fetchone()
             if mapa_data:
-                dashboard_metrics['kpis']['clientes_en_cartera'] = mapa_data['dentro_sistema']
-                dashboard_metrics['kpis']['clientes_retirados'] = mapa_data['retirados']
+                dashboard_metrics['kpis']['clientes_en_cartera'] = mapa_data.get('dentro_sistema', 0)
+                dashboard_metrics['kpis']['clientes_retirados'] = mapa_data.get('retirados', 0)
                 dashboard_metrics['tablas']['mapa_clientes'] = dict(mapa_data)
                 
                 total_ahorradores = mapa_data.get('ahorrador', 0) or 0
 
-                # --- 4. Composición de la Cartera ---
-                cur.execute("SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado_plan, COUNT(*) as total FROM clientes GROUP BY estado_del_plan")
-                composicion_raw = cur.fetchall()
-                dashboard_metrics['graficas']['composicion_cartera'] = {
-                    'labels': [row['estado_plan'].capitalize() if row['estado_plan'] else 'Sin Datos' for row in composicion_raw],
-                    'values': [row['total'] for row in composicion_raw]
-                }
-
-                # --- 5. Resumen por Condición de Pago ---
+                # --- CÁLCULO DE MOROSIDAD ---
                 cur.execute("""
                     SELECT COUNT(DISTINCT cliente_id) as al_dia FROM pagos
-                    WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'
-                    AND fecha_pago >= %s
+                    WHERE tipo_pago = 'Cuota' AND estado_pago = 'Conciliado' AND fecha_pago >= %s
                     AND cliente_id IN (
                         SELECT id FROM clientes 
                         WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR' AND TRIM(UPPER(estatus_cliente)) = 'ACTIVO'
                     )
                 """, (first_day_of_month,))
-                ahorradores_al_dia = cur.fetchone()['al_dia']
+                ahorradores_al_dia = cur.fetchone()['al_dia'] or 0
                 clientes_en_mora = total_ahorradores - ahorradores_al_dia
                 
-                if total_ahorradores > 0:
-                    dashboard_metrics['kpis']['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100
-                else:
-                    dashboard_metrics['kpis']['indice_morosidad'] = 0.0
+                dashboard_metrics['kpis']['indice_morosidad'] = (clientes_en_mora / total_ahorradores) * 100 if total_ahorradores > 0 else 0.0
 
-            # --- CONSULTA 4: GRÁFICA DE INGRESOS EN ÚLTIMOS 6 MESES ---
+            # --- GRÁFICA DE INGRESOS EN ÚLTIMOS 6 MESES ---
             labels, values = [], []
-            current_date = today
-            for _ in range(6):
-                month_start = current_date.replace(day=1)
-                _, days_in_month = monthrange(current_date.year, current_date.month)
-                month_end = current_date.replace(day=days_in_month)
+            for i in range(6):
+                month_start = (today.replace(day=1) - timedelta(days=i*30)).replace(day=1)
+                _, days_in_month = monthrange(month_start.year, month_start.month)
+                month_end = month_start.replace(day=days_in_month)
                 
                 cur.execute("""
                     SELECT COALESCE(SUM(monto), 0) as total 
@@ -2861,46 +2847,33 @@ def reporte_metricas_v2():
                 """, (month_start, month_end))
                 total_mes = cur.fetchone()['total']
                 
-                labels.insert(0, get_nombre_mes(current_date.month))
+                labels.insert(0, get_nombre_mes(month_start.month))
                 values.insert(0, float(total_mes or 0))
-                
-                # Retroceder al mes anterior
-                current_date = month_start - timedelta(days=1)
             
             dashboard_metrics['graficas']['ingresos_ultimos_meses'] = {'labels': labels, 'values': values}
 
-            # --- CONSULTA 5: GRÁFICA DE COMPOSICIÓN DE CARTERA ---
+            # --- GRÁFICA DE COMPOSICIÓN DE CARTERA (ÚNICA VEZ) ---
             cur.execute("""
-                SELECT 
-                    COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado, 
-                    COUNT(*) as total 
-                FROM clientes 
-                GROUP BY estado
-                ORDER BY total DESC
+                SELECT COALESCE(TRIM(UPPER(estado_del_plan)), 'SIN DATOS') as estado, COUNT(*) as total 
+                FROM clientes GROUP BY estado ORDER BY total DESC
             """)
             composicion_data = cur.fetchall()
-            comp_labels = [str(row['estado']).capitalize() for row in composicion_data]
-            comp_values = [row['total'] for row in composicion_data]
-            dashboard_metrics['graficas']['composicion_cartera'] = {'labels': comp_labels, 'values': comp_values}
+            dashboard_metrics['graficas']['composicion_cartera'] = {
+                'labels': [str(row['estado']).capitalize() for row in composicion_data],
+                'values': [row['total'] for row in composicion_data]
+            }
 
-            # --- CONSULTA 6: TABLA DE RESUMEN POR CONDICIÓN DE PAGO ---
+            # --- TABLA DE RESUMEN POR CONDICIÓN DE PAGO ---
             cur.execute("""
-                SELECT
-                    COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS') as condicion,
-                    COUNT(*) as total
-                FROM clientes
-                WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO'
-                GROUP BY condicion
-                ORDER BY total DESC
+                SELECT COALESCE(TRIM(UPPER(condicion_pago)), 'SIN DATOS') as condicion, COUNT(*) as total
+                FROM clientes WHERE TRIM(UPPER(estatus_cliente)) = 'ACTIVO'
+                GROUP BY condicion ORDER BY total DESC
             """)
             resumen_condicion_raw = cur.fetchall()
-            # >>> INICIO DE LA CORRECCIÓN <<<
-            # Se añaden los paréntesis a .capitalize() para ejecutar la función
             dashboard_metrics['tablas']['resumen_condicion'] = [
                 {'condicion': str(row['condicion']).capitalize(), 'total': row['total']} 
                 for row in resumen_condicion_raw
             ]
-            # >>> FIN DE LA CORRECCIÓN <<<
 
     except (psycopg2.Error, ValueError) as e:
         flash(f"No se pudieron cargar las métricas del dashboard debido a un error: {e}", "danger")
