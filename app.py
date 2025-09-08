@@ -4013,7 +4013,7 @@ def registrar():
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT id, nombre_completo, rol
-                FROM admins
+                FROM public.administradores
                 WHERE es_comercial = TRUE
                 ORDER BY nombre_completo
             """)
@@ -4051,63 +4051,111 @@ REGLAS_COMISIONES_DEFECTO = {
 def _q2(v):
     return (Decimal(v).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
 
-def calcular_y_guardar_comisiones(conn, cliente_info, reglas=None):
-    reglas = reglas or REGLAS_COMISIONES_DEFECTO
+def calcular_y_guardar_comisiones(conn, cliente_info):
+    """
+    Escenarios (terminología: Asesor comercial / Gerencia / Presidencia A / Presidencia B):
+    1A: cierra 'asesor' y cerrador_id != asesor_id → 2% Asesor, 3% Pres A, 3% Pres B, 1% Gerencia (+ bono $5 al cerrador)
+    1B: cierra 'asesor' y cerrador_id == asesor_id → igual a 1A pero sin bono
+    2 : cierra 'superadmin'                        → 5.5% Pres A, 5.5% Pres B, 0.5% Gerencia, 0% Asesor (+ bono $5 al asesor)
+    3 : cierra 'gerente'                           → 5.5% Pres A, 5.5% Pres B, 1.0% Gerencia, 0% Asesor (sin bono)
 
-    escenario = (cliente_info.get('escenario') or 'asesor').lower()
-    dist = reglas.get(escenario) or {'ASESOR': Decimal('1.00')}
+    Notas de implementación:
+    - Tabla public.comisiones NO tiene beneficiario_rol (lo mandamos a 'notas'/'tipo' si hace falta).
+    - 'fecha_origen' es DATE → guardamos fecha_hoy.date().
+    - 'tipo' lo usamos como 'COMISION' o 'BONO' para diferenciar en reportes.
+    """
+    from decimal import Decimal, ROUND_HALF_UP
+    def q2(x): return Decimal(x).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    plan = Decimal(cliente_info['plan_contratado'] or 0)
-    pool = _q2(plan * Decimal('0.16'))
+    P = Decimal(cliente_info.get('plan_contratado') or 0)
+    if P <= 0:
+        return
 
-    fecha_hoy = datetime.now(VENEZUELA_TZ)
-    origen_id = cliente_info['cliente_id']
-    moneda = cliente_info.get('moneda_pago') or 'USD'
-    notas_base = f"Comisión por venta; escenario={escenario}"
+    fecha_hoy   = datetime.now(VENEZUELA_TZ)
+    fecha_dia   = fecha_hoy.date()  # ← IMPORTANT: DATE para la columna fecha_origen
+    origen_id   = cliente_info['cliente_id']
+    moneda      = cliente_info.get('moneda_pago') or 'USD'
+    escenario   = (cliente_info.get('escenario') or 'asesor').strip().lower()
 
-    total_ratio = sum(dist.values()) or Decimal('1.00')
-    norm_dist = {rol: (Decimal(val) / total_ratio) for rol, val in dist.items()}
+    asesor_id   = cliente_info.get('asesor_id')
+    cerrador_id = cliente_info.get('cerrador_id')
+    gerente_id  = cliente_info.get('gerente_id')
+    pres_a_id   = cliente_info.get('presidencia_a_id')
+    pres_b_id   = cliente_info.get('presidencia_b_id')
 
-    def _beneficiario_id(rol: str):
-        ru = rol.upper()
-        if ru == 'ASESOR':   return cliente_info.get('asesor_id')
-        if ru == 'GERENCIA': return cliente_info.get('gerente_id')     or cliente_info.get('asesor_id')
-        if ru.startswith('PRESIDEN'):
-                             return cliente_info.get('presidencia_id') or cliente_info.get('asesor_id')
-        return cliente_info.get('asesor_id')
+    # Define % sobre el plan según escenario
+    partes = []  # [(beneficiario_id, pct_plan_decimal, etiqueta_opcional)]
+    bono   = None  # (beneficiario_id, monto_decimal, etiqueta_bono)
+
+    if escenario == 'asesor':
+        # 1A vs 1B según si el cerrador es distinto al asesor
+        partes = [
+            (asesor_id,  Decimal('2.0'),  'ASESOR COMERCIAL'),
+            (pres_a_id,  Decimal('3.0'),  'PRESIDENCIA A'),
+            (pres_b_id,  Decimal('3.0'),  'PRESIDENCIA B'),
+            (gerente_id, Decimal('1.0'),  'GERENCIA'),
+        ]
+        if cerrador_id and asesor_id and cerrador_id != asesor_id:
+            bono = (cerrador_id, Decimal('5.00'), 'BONO_CIERRE')  # 1A
+    elif escenario == 'superadmin':
+        # 2: cierra Presidencia → bono $5 al asesor
+        partes = [
+            (pres_a_id,  Decimal('5.5'), 'PRESIDENCIA A'),
+            (pres_b_id,  Decimal('5.5'), 'PRESIDENCIA B'),
+            (gerente_id, Decimal('0.5'), 'GERENCIA'),
+            (asesor_id,  Decimal('0.0'), 'ASESOR COMERCIAL'),
+        ]
+        bono = (asesor_id, Decimal('5.00'), 'BONO_ASESOR')
+    elif escenario == 'gerente':
+        # 3: cierra Gerencia para Presidencia
+        partes = [
+            (pres_a_id,  Decimal('5.5'), 'PRESIDENCIA A'),
+            (pres_b_id,  Decimal('5.5'), 'PRESIDENCIA B'),
+            (gerente_id, Decimal('1.0'), 'GERENCIA'),
+            (asesor_id,  Decimal('0.0'), 'ASESOR COMERCIAL'),
+        ]
+        bono = None
+    else:
+        # Fallback: todo 16% al asesor (seguro)
+        partes = [(asesor_id, Decimal('16.0'), 'ASESOR COMERCIAL')]
+        bono = None
+
+    # Filtra los que tienen % > 0 para normalizar split a 100
+    partes_pos = [(bid or asesor_id, pct, etiqueta) for (bid, pct, etiqueta) in partes if pct > 0]
+    total_pct  = sum(pct for (_, pct, _) in partes_pos) or Decimal('0')
 
     with conn.cursor() as cur:
-        # Distribución del pool (16%)
-        for rol, ratio in norm_dist.items():
-            pct_split    = _q2(Decimal(ratio) * Decimal('100'))
-            pct_comision = _q2(Decimal('16.0') * Decimal(ratio))
-            monto        = _q2(pool * Decimal(ratio))
-            beneficiario = _beneficiario_id(rol)
+        # Inserta comisiones por porcentaje
+        for beneficiario, pct, etiqueta in partes_pos:
+            monto        = q2(P * (pct / Decimal('100')))
+            pct_comision = pct  # % real sobre plan
+            # split normalizado a 100 entre los que cobran %
+            pct_split    = (pct / total_pct * Decimal('100')) if total_pct > 0 else Decimal('0.00')
 
-            # Quita columnas si tu tabla no las tiene (beneficiario_rol/moneda/notas)
             cur.execute("""
-                INSERT INTO comisiones
-                (origen_id, origen_tipo, asesor_id, beneficiario_rol, pct_comision, pct_split, base, monto, moneda, estado, fecha_origen, notas)
+                INSERT INTO public.comisiones
+                (origen_id, origen_tipo, asesor_id, pct_comision, pct_split, base, monto, moneda, estado, fecha_origen, notas, tipo)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
-                origen_id, 'Venta', beneficiario, rol,
-                pct_comision, pct_split, plan, monto, moneda,
-                'pendiente', fecha_hoy, notas_base
+                origen_id, 'Venta', beneficiario,
+                pct_comision, pct_split, P, monto, moneda,
+                'pendiente', fecha_dia, f"Escenario={escenario}; {etiqueta}", 'COMISION'
             ))
 
-        # Bono de cierre: 5 USD si cerrador != asesor
-        cerrador = cliente_info.get('cerrador_id')
-        asesor   = cliente_info.get('asesor_id')
-        if cerrador and asesor and cerrador != asesor:
-            cur.execute("""
-                INSERT INTO comisiones
-                (origen_id, origen_tipo, asesor_id, beneficiario_rol, pct_comision, pct_split, base, monto, moneda, estado, fecha_origen, notas)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (
-                origen_id, 'Venta', cerrador, 'BONO_CIERRE',
-                Decimal('0.00'), Decimal('0.00'), Decimal('0.00'),
-                _q2('5.00'), 'USD', 'pendiente', fecha_hoy, 'Bono de cierre $5'
-            ))
+        # Inserta bono fijo (si aplica)
+        if bono:
+            beneficiario_bono, monto_bono, etiqueta_bono = bono
+            if beneficiario_bono:
+                cur.execute("""
+                    INSERT INTO public.comisiones
+                    (origen_id, origen_tipo, asesor_id, pct_comision, pct_split, base, monto, moneda, estado, fecha_origen, notas, tipo)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    origen_id, 'Venta', beneficiario_bono,
+                    Decimal('0.00'), Decimal('0.00'), Decimal('0.00'),
+                    Decimal('5.00'), 'USD', 'pendiente', fecha_dia, etiqueta_bono, 'BONO'
+                ))
+
 # ================== FIN COMISIONES (GLOBAL) ===================================
 
 @app.route('/finalizar_registro', methods=['POST'])
@@ -4209,7 +4257,7 @@ def finalizar_registro():
                 'beneficiario_telefono': form_data.get('beneficiario_telefono'),
                 'beneficiario_email': form_data.get('beneficiario_email'),
                 'beneficiario_direccion': form_data.get('beneficiario_direccion'),
-                'asesor': asesor_id                         # dueño/beneficiario (¡corregido!)
+                'asesor': asesor_id                         # dueño/beneficiario
             }
 
             columns = insert_dict.keys()
@@ -4217,21 +4265,26 @@ def finalizar_registro():
             query = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))}) RETURNING id"
             cur.execute(query, values)
             new_client_id = cur.fetchone()[0]
-        # --- FIN DE LA CORRECCIÓN ---
+        # --- FIN DEL with ---
+
+        # NUEVO: resolver beneficiarios (Presidencia A/B y Gerencia) desde parámetros
+        benef = resolver_beneficiarios(conn, asesor_id)
 
         # Calcular comisiones del contrato recién creado (pool 16% + bono $5 si aplica)
         cliente_info = {
             'cliente_id': new_client_id,
             'plan_contratado': plan_valor,
             'inscripcion_monto': inscripcion_valor,
-            'escenario': (escenario or 'asesor').lower(),
+            'escenario': (escenario or 'asesor').lower(),   # 'asesor' | 'gerente' | 'superadmin'
             'asesor_id': asesor_id,
             'cerrador_id': cerrador_id,
             'moneda_pago': form_data.get('moneda_pago') or 'USD',
-            # 'gerente_id': form_data.get('gerente_id'),
-            # 'presidencia_id': form_data.get('presidencia_id'),
+            'gerente_id': benef.get('gerente_id'),
+            'presidencia_a_id': benef.get('presidencia_a_id'),
+            'presidencia_b_id': benef.get('presidencia_b_id'),
         }
         calcular_y_guardar_comisiones(conn, cliente_info)
+        # --- FIN DE LA CORRECCIÓN ---
 
         # Caja: registra inscripción si corresponde
         if inscripcion_valor > 0:
