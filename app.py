@@ -3588,8 +3588,8 @@ def reporte_proyecciones():
                 # Cobranza por moneda (activos/ahorradores) con filtros
                 cur.execute(f"""
                     SELECT c.moneda_pago,
-                           COUNT(c.id)  AS total_clientes,
-                           COALESCE(SUM(c.valor_cuota),0) AS monto_total
+                           COUNT(c.id) AS total_clientes,
+                           COALESCE(SUM(c.valor_cuota), 0) AS monto_total
                     FROM clientes c
                     {where_sql if where_sql else "WHERE TRUE"}
                       AND c.estatus_cliente IN ('ACTIVO','AHORRADOR')
