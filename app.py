@@ -3490,59 +3490,59 @@ def reporte_proyecciones():
         tasa_bcv_dolar_str = f"{tasa_dolar_db:.4f}" if tasa_dolar_db is not None else ""
         tasa_bcv_euro_str  = f"{tasa_euro_db:.4f}"  if tasa_euro_db  is not None else ""
 
-    # ---------- Filtros del UI ----------
-    empresa = (request.args.get('empresa') or '').strip()
+    # ---- Filtros macro (multi-select desde el UI) ----
+empresa = (request.args.get('empresa') or '').strip()
 
-    # Multi-selección para estado_plan (checkbox + select como respaldo)
-    estados_sel = [e for e in request.args.getlist('estado_plan') if e]
-    estado_single = (request.args.get('estado_plan') or '').strip()
-    if estado_single and estado_single not in estados_sel:
-        estados_sel.append(estado_single)
+# Multi-selección para estado_plan (checkbox + select como respaldo)
+estados_sel = [e for e in request.args.getlist('estado_plan') if e]
+estado_single = (request.args.get('estado_plan') or '').strip()
+if estado_single and estado_single not in estados_sel:
+    estados_sel.append(estado_single)
 
-    estatus = (request.args.get('estatus') or '').strip()
+estatus = (request.args.get('estatus') or '').strip()
 
-    # Multi-selección para bloque de cuotas (checkbox + select)
-    buckets_sel = [b for b in request.args.getlist('cuota_bucket') if b]
-    bucket_single = (request.args.get('cuota_bucket') or '').strip()
-    if bucket_single and bucket_single not in buckets_sel:
-        buckets_sel.append(bucket_single)
+# Multi-selección para bloque de cuotas (checkbox + select)
+buckets_sel = [b for b in request.args.getlist('cuota_bucket') if b]
+bucket_single = (request.args.get('cuota_bucket') or '').strip()
+if bucket_single and bucket_single not in buckets_sel:
+    buckets_sel.append(bucket_single)
 
-    excluir_rc = (request.args.get('excluir_rc') == '1')
+excluir_rc = (request.args.get('excluir_rc') == '1')
 
-    # Construcción dinámica del WHERE
-    where, params = [], []
+# Construcción dinámica del WHERE
+where, params = [], []
 
-    if empresa:
-        # Normaliza "Moto Plan" vs "MOTO PLAN" etc.
-        where.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(%s, ' ', ''))")
-        params.append(empresa)
+if empresa:
+    # Normaliza "Moto Plan" vs "MOTO PLAN" (espacios y mayúsculas)
+    where.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(%s, ' ', ''))")
+    params.append(empresa)
 
-    if estados_sel:
-        where.append("(" + " OR ".join(["c.estado_del_plan = %s"] * len(estados_sel)) + ")")
-        params.extend(estados_sel)
+if estados_sel:
+    where.append("(" + " OR ".join(["c.estado_del_plan = %s"] * len(estados_sel)) + ")")
+    params.extend(estados_sel)
 
-    if estatus:
-        where.append("c.estatus_cliente = %s")
-        params.append(estatus)
+if estatus:
+    where.append("c.estatus_cliente = %s")
+    params.append(estatus)
 
-    if excluir_rc:
-        where.append("(c.estado_del_plan <> 'RETIRO' AND c.estado_del_plan <> 'COMPLETADO')")
+if excluir_rc:
+    where.append("(c.estado_del_plan IS DISTINCT FROM 'RETIRO' AND c.estado_del_plan IS DISTINCT FROM 'COMPLETADO')")
 
-    if buckets_sel:
-        rangos = []
-        for b in buckets_sel:
-            if b == '1':
-                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 1 AND 6")
-            elif b == '2':
-                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 7 AND 12")
-            elif b == '3':
-                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 13 AND 24")
-            elif b == '4':
-                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 25 AND 36")
-        if rangos:
-            where.append("(" + " OR ".join(rangos) + ")")
+if buckets_sel:
+    rangos = []
+    for b in buckets_sel:
+        if b == '1':
+            rangos.append("c.cuotas_pagadas_progresivas BETWEEN 1 AND 6")
+        elif b == '2':
+            rangos.append("c.cuotas_pagadas_progresivas BETWEEN 7 AND 12")
+        elif b == '3':
+            rangos.append("c.cuotas_pagadas_progresivas BETWEEN 13 AND 24")
+        elif b == '4':
+            rangos.append("c.cuotas_pagadas_progresivas BETWEEN 25 AND 36")
+    if rangos:
+        where.append("(" + " OR ".join(rangos) + ")")
 
-    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
     # --------- Objeto base de respuesta ---------
     proyecciones = {
