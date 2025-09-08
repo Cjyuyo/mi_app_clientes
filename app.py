@@ -2197,6 +2197,45 @@ def dashboard_comercial():
         filters=filters,
         anio_actual=get_venezuela_current_date().year
     )
+
+@app.route('/comisiones/lotes', methods=['POST'])
+@admin_required
+def crear_lote_comisiones():
+    """
+    Aprueba en bloque las comisiones seleccionadas desde el dashboard.
+    Espera checkboxes con name='comision_ids[]'.
+    """
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", "error")
+        return redirect(url_for('dashboard_comercial'))
+
+    # Acepta name="comision_ids[]" o "ids[]" por compatibilidad
+    comision_ids = request.form.getlist('comision_ids[]') or request.form.getlist('ids[]')
+    if not comision_ids:
+        flash("No seleccionaste comisiones.", "warning")
+        return redirect(url_for('dashboard_comercial'))
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE public.comisiones
+                   SET estado = 'aprobado',
+                       approved_at = NOW(),
+                       approved_by = %s
+                 WHERE id = ANY(%s)
+                   AND estado = 'pendiente'
+            """, (getattr(g, 'user_id', None), comision_ids))
+
+        conn.commit()
+        flash(f"Se aprobaron {len(comision_ids)} comisiones.", "success")
+    except Exception as e:
+        conn.rollback()
+        logging.exception(e)
+        flash(f"No se pudo aprobar el lote: {e}", "error")
+
+    return redirect(url_for('dashboard_comercial'))
+
 # >>> COMISIONES: END [dashboard_comercial]
 
 
@@ -4017,7 +4056,7 @@ def registrar():
                 WHERE es_comercial = TRUE
                 ORDER BY nombre_completo
             """)
-            admins_comerciales = cur.fetchall()
+            asesores = [{'id': r['id'], 'nombre': r['nombre_completo']} for r in cur.fetchall()]
 
             todos_los_admins = [
                 {'id': a['id'], 'nombre': a['nombre_completo']}
@@ -4048,8 +4087,9 @@ REGLAS_COMISIONES_DEFECTO = {
     'superadmin': {'PRESIDENCIA': Decimal('1.00')},
 }
 
-def _q2(v):
-    return (Decimal(v).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+def _q2(v, default='0'):
+    s = default if v in (None, '') else str(v)
+    return Decimal(s).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
 def calcular_y_guardar_comisiones(conn, cliente_info):
     """
