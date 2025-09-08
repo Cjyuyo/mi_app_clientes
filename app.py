@@ -4005,36 +4005,110 @@ def registrar():
         flash('Error de conexión a la base de datos.', 'error')
         return redirect(url_for('hub'))
 
-    admins_por_rol = {}
+    # Defaults seguros (evitan NameError si falla el try)
+    admins_por_rol = {'superadmin': [], 'gerente': [], 'asesor': []}
     todos_los_admins = []
+
     try:
         with conn.cursor() as cur:
-            # --- INICIO DE LA CORRECCIÓN ---
-            # Ahora la consulta filtra directamente por la capacidad 'es_comercial'
             cur.execute("""
-                SELECT id, nombre_completo, rol 
-                FROM administradores 
-                WHERE es_comercial = TRUE 
+                SELECT id, nombre_completo, rol
+                FROM admins
+                WHERE es_comercial = TRUE
                 ORDER BY nombre_completo
             """)
             admins_comerciales = cur.fetchall()
-            
-            # La lista para "Cerrado Por" ahora usa esta lista pre-filtrada
-            todos_los_admins = [{'id': admin['id'], 'nombre': admin['nombre_completo']} for admin in admins_comerciales]
 
-            # El diccionario para "Asesor" también se construye con la lista pre-filtrada
+            todos_los_admins = [
+                {'id': a['id'], 'nombre': a['nombre_completo']}
+                for a in admins_comerciales
+            ]
+
             admins_por_rol = {'superadmin': [], 'gerente': [], 'asesor': []}
             for admin in admins_comerciales:
-                # Normalizamos el rol para la lógica del desplegable dinámico
-                rol = admin['rol'].strip().lower()
+                rol = (admin['rol'] or '').strip().lower()
                 if rol in admins_por_rol:
-                    admins_por_rol[rol].append({'id': admin['id'], 'nombre': admin['nombre_completo']})
-            # --- FIN DE LA CORRECCIÓN ---
-
+                    admins_por_rol[rol].append({
+                        'id': admin['id'],
+                        'nombre': admin['nombre_completo']
+                    })
     except psycopg2.Error as e:
         flash(f"Error al cargar los datos para el formulario: {e}", "error")
 
-    return render_template('registrar.html', admins_por_rol=admins_por_rol, todos_los_admins=todos_los_admins)
+    return render_template(
+        'registrar.html',
+        admins_por_rol=admins_por_rol,
+        todos_los_admins=todos_los_admins
+    )
+
+# Reglas por defecto (puedes moverlas a BD luego)
+REGLAS_COMISIONES_DEFECTO = {
+    'asesor':     {'ASESOR': Decimal('1.00')},
+    'gerente':    {'GERENCIA': Decimal('1.00')},
+    'superadmin': {'PRESIDENCIA': Decimal('1.00')},
+}
+
+def _q2(v):
+    return (Decimal(v).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+
+def calcular_y_guardar_comisiones(conn, cliente_info, reglas=None):
+    reglas = reglas or REGLAS_COMISIONES_DEFECTO
+
+    escenario = (cliente_info.get('escenario') or 'asesor').lower()
+    dist = reglas.get(escenario) or {'ASESOR': Decimal('1.00')}
+
+    plan = Decimal(cliente_info['plan_contratado'] or 0)
+    pool = _q2(plan * Decimal('0.16'))
+
+    fecha_hoy = datetime.now(VENEZUELA_TZ)
+    origen_id = cliente_info['cliente_id']
+    moneda = cliente_info.get('moneda_pago') or 'USD'
+    notas_base = f"Comisión por venta; escenario={escenario}"
+
+    total_ratio = sum(dist.values()) or Decimal('1.00')
+    norm_dist = {rol: (Decimal(val) / total_ratio) for rol, val in dist.items()}
+
+    def _beneficiario_id(rol: str):
+        ru = rol.upper()
+        if ru == 'ASESOR':   return cliente_info.get('asesor_id')
+        if ru == 'GERENCIA': return cliente_info.get('gerente_id')     or cliente_info.get('asesor_id')
+        if ru.startswith('PRESIDEN'):
+                             return cliente_info.get('presidencia_id') or cliente_info.get('asesor_id')
+        return cliente_info.get('asesor_id')
+
+    with conn.cursor() as cur:
+        # Distribución del pool (16%)
+        for rol, ratio in norm_dist.items():
+            pct_split    = _q2(Decimal(ratio) * Decimal('100'))
+            pct_comision = _q2(Decimal('16.0') * Decimal(ratio))
+            monto        = _q2(pool * Decimal(ratio))
+            beneficiario = _beneficiario_id(rol)
+
+            # Quita columnas si tu tabla no las tiene (beneficiario_rol/moneda/notas)
+            cur.execute("""
+                INSERT INTO comisiones
+                (origen_id, origen_tipo, asesor_id, beneficiario_rol, pct_comision, pct_split, base, monto, moneda, estado, fecha_origen, notas)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                origen_id, 'Venta', beneficiario, rol,
+                pct_comision, pct_split, plan, monto, moneda,
+                'pendiente', fecha_hoy, notas_base
+            ))
+
+        # Bono de cierre: 5 USD si cerrador != asesor
+        cerrador = cliente_info.get('cerrador_id')
+        asesor   = cliente_info.get('asesor_id')
+        if cerrador and asesor and cerrador != asesor:
+            cur.execute("""
+                INSERT INTO comisiones
+                (origen_id, origen_tipo, asesor_id, beneficiario_rol, pct_comision, pct_split, base, monto, moneda, estado, fecha_origen, notas)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                origen_id, 'Venta', cerrador, 'BONO_CIERRE',
+                Decimal('0.00'), Decimal('0.00'), Decimal('0.00'),
+                _q2('5.00'), 'USD', 'pendiente', fecha_hoy, 'Bono de cierre $5'
+            ))
+# ================== FIN COMISIONES (GLOBAL) ===================================
 
 @app.route('/finalizar_registro', methods=['POST'])
 @admin_required
@@ -4045,13 +4119,13 @@ def finalizar_registro():
         return redirect(url_for('registrar'))
 
     form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
-    
-    # Lógica para subir fotos (sin cambios)
+
+    # Subida de fotos (sin cambios)
     foto_cliente_base64 = form_data.get('foto_cliente')
-    foto_cedula_base64 = form_data.get('foto_cedula')
+    foto_cedula_base64  = form_data.get('foto_cedula')
     ruta_s3_cliente = None
-    ruta_s3_cedula = None
-    cedula_cliente_limpia = form_data.get('cedula', '').replace(' ', '').replace('.', '')
+    ruta_s3_cedula  = None
+    cedula_cliente_limpia = (form_data.get('cedula', '') or '').replace(' ', '').replace('.', '')
 
     if foto_cliente_base64 and foto_cliente_base64.startswith('data:image'):
         nombre_archivo_s3 = f"documentos/{cedula_cliente_limpia}/foto_cliente_{int(datetime.now().timestamp())}.jpg"
@@ -4070,44 +4144,61 @@ def finalizar_registro():
             return redirect(url_for('registrar'))
 
     try:
-        firma_cliente, firma_empresa = form_data.get('firma_cliente'), form_data.get('firma_empresa')
+        firma_cliente  = form_data.get('firma_cliente')
+        firma_empresa  = form_data.get('firma_empresa')
         if not firma_cliente or not firma_empresa:
             flash('Ambas firmas son obligatorias para registrar al cliente.', 'error')
             return redirect(url_for('registrar'))
-        
+
         # --- INICIO DE LA CORRECCIÓN ---
-        # Se leen los valores del formulario con los nuevos nombres estandarizados
-        plan_valor = Decimal(form_data.get('plan_contratado', '0').replace(',', '.'))
-        inscripcion_valor = Decimal(form_data.get('inscripcion_monto', '0').replace(',', '.'))
-        valor_cuota_valor = Decimal(form_data.get('valor_cuota', '0').replace(',', '.'))
-        responsable_cierre = form_data.get('responsable', '') 
+        # Helper seguro para números tipo '1.400,00' → Decimal('1400.00')
+        def to_decimal(s):
+            s = (s or '0').strip()
+            s = s.replace('.', '').replace(',', '.')
+            return Decimal(s)
+
+        # Lecturas estandarizadas
+        plan_valor        = to_decimal(form_data.get('plan_contratado'))
+        inscripcion_valor = to_decimal(form_data.get('inscripcion_monto'))
+        valor_cuota_valor = to_decimal(form_data.get('valor_cuota'))
+
+        escenario   = form_data.get('escenario_dueño')      # 'superadmin' | 'gerente' | 'asesor'
+        asesor_id   = form_data.get('asesor_id')            # dueño/beneficiario
+        cerrador_id = form_data.get('cerrado_por_id')       # responsable del cierre
+        responsable_cierre = cerrador_id
 
         with conn.cursor() as cur:
-            nombre_completo = form_data.get('nombre_apellido').split(' ', 1)
-            nombre, apellido = nombre_completo[0], nombre_completo[1] if len(nombre_completo) > 1 else ''
-            
-            beneficiario_completo = form_data.get('beneficiario_nombre_apellido', '').split(' ', 1)
-            beneficiario_nombre = beneficiario_completo[0]
-            beneficiario_apellido = beneficiario_completo[1] if len(beneficiario_completo) > 1 else ''
+            nombre_completo = (form_data.get('nombre_apellido', '') or '').split(' ', 1)
+            nombre   = nombre_completo[0] if nombre_completo and nombre_completo[0] else ''
+            apellido = nombre_completo[1] if len(nombre_completo) > 1 else ''
+
+            beneficiario_completo  = (form_data.get('beneficiario_nombre_apellido', '') or '').split(' ', 1)
+            beneficiario_nombre    = beneficiario_completo[0] if beneficiario_completo and beneficiario_completo[0] else ''
+            beneficiario_apellido  = beneficiario_completo[1] if len(beneficiario_completo) > 1 else ''
 
             # Diccionario para insertar en la BD con los nombres de columna correctos
             insert_dict = {
-                'nombre': nombre, 'apellido': apellido, 'cedula': cedula_cliente_limpia,
-                'cuotas_pagadas_progresivas': 0, 'cuotas_pagadas_regresivas': 0, 
-                'firma_digital': firma_cliente, 'firma_empresa': firma_empresa, 
-                'fecha_firma': datetime.now(VENEZUELA_TZ), 'estado_del_plan': 'RESERVA',
+                'nombre': nombre,
+                'apellido': apellido,
+                'cedula': cedula_cliente_limpia,
+                'cuotas_pagadas_progresivas': 0,
+                'cuotas_pagadas_regresivas': 0,
+                'firma_digital': firma_cliente,
+                'firma_empresa': firma_empresa,
+                'fecha_firma': datetime.now(VENEZUELA_TZ),
+                'estado_del_plan': 'RESERVA',
                 'ruta_foto_cliente_s3': ruta_s3_cliente,
                 'ruta_foto_cedula_s3': ruta_s3_cedula,
-                'estatus_cliente': 'ACTIVO', 
+                'estatus_cliente': 'ACTIVO',
                 'beneficiario_nombre': beneficiario_nombre,
                 'beneficiario_apellido': beneficiario_apellido,
                 'numero_contrato': form_data.get('numero_contrato'),
                 'numero_telefono': form_data.get('telefono'),
-                'responsable': responsable_cierre,
+                'responsable': responsable_cierre,         # quien cerró
                 'fecha_ingreso': form_data.get('fecha_ingreso'),
                 'grupo': form_data.get('grupo'),
                 'plan_contratado': plan_valor,
-                'cuotas_totales': int(form_data.get('cuotas_totales', 0)),
+                'cuotas_totales': int(form_data.get('cuotas_totales') or 0),
                 'moneda_pago': form_data.get('moneda_pago'),
                 'valor_cuota': valor_cuota_valor,
                 'inscripcion_monto': inscripcion_valor,
@@ -4118,27 +4209,46 @@ def finalizar_registro():
                 'beneficiario_telefono': form_data.get('beneficiario_telefono'),
                 'beneficiario_email': form_data.get('beneficiario_email'),
                 'beneficiario_direccion': form_data.get('beneficiario_direccion'),
-                'asesor': responsable_cierre
+                'asesor': asesor_id                         # dueño/beneficiario (¡corregido!)
             }
-            # --- FIN DE LA CORRECCIÓN ---
-            
+
             columns = insert_dict.keys()
             values = [insert_dict.get(col) for col in columns]
             query = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))}) RETURNING id"
-            
             cur.execute(query, values)
             new_client_id = cur.fetchone()[0]
+        # --- FIN DE LA CORRECCIÓN ---
 
-            if inscripcion_valor > 0:
-                cur.execute("INSERT INTO caja_inscripciones (numero_contrato, cliente_id, monto_inscripcion, responsable_cierre) VALUES (%s, %s, %s, %s)",
-                            (form_data.get('numero_contrato'), new_client_id, inscripcion_valor, responsable_cierre))
-            
-            descripcion_audit = f"Registró y firmó contrato para nuevo cliente: {form_data.get('nombre_apellido')} (C.I. {cedula_cliente_limpia})."
-            registrar_accion_auditoria('REGISTRO_CLIENTE_FIRMADO', descripcion_audit, new_client_id)
-            
-            conn.commit()
-            flash(f"¡Cliente {form_data.get('nombre_apellido')} registrado exitosamente como RESERVA!", 'success')
-            return redirect(url_for('consulta', busqueda=form_data.get('cedula')))
+        # Calcular comisiones del contrato recién creado (pool 16% + bono $5 si aplica)
+        cliente_info = {
+            'cliente_id': new_client_id,
+            'plan_contratado': plan_valor,
+            'inscripcion_monto': inscripcion_valor,
+            'escenario': (escenario or 'asesor').lower(),
+            'asesor_id': asesor_id,
+            'cerrador_id': cerrador_id,
+            'moneda_pago': form_data.get('moneda_pago') or 'USD',
+            # 'gerente_id': form_data.get('gerente_id'),
+            # 'presidencia_id': form_data.get('presidencia_id'),
+        }
+        calcular_y_guardar_comisiones(conn, cliente_info)
+
+        # Caja: registra inscripción si corresponde
+        if inscripcion_valor > 0:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO caja_inscripciones (numero_contrato, cliente_id, monto_inscripcion, responsable_cierre)
+                    VALUES (%s, %s, %s, %s)
+                """, (form_data.get('numero_contrato'), new_client_id, inscripcion_valor, responsable_cierre))
+
+        # Auditoría
+        descripcion_audit = f"Registró y firmó contrato para nuevo cliente: {form_data.get('nombre_apellido')} (C.I. {cedula_cliente_limpia})."
+        registrar_accion_auditoria('REGISTRO_CLIENTE_FIRMADO', descripcion_audit, new_client_id)
+
+        # Commit final (cliente + comisiones + caja + auditoría)
+        conn.commit()
+        flash(f"¡Cliente {form_data.get('nombre_apellido')} registrado exitosamente como RESERVA!", 'success')
+        return redirect(url_for('consulta', busqueda=form_data.get('cedula')))
 
     except psycopg2.IntegrityError:
         conn.rollback()
@@ -4146,10 +4256,9 @@ def finalizar_registro():
         return redirect(url_for('registrar'))
     except (psycopg2.Error, ValueError, ConnectionError, InvalidOperation) as e:
         conn.rollback()
-        logging.error(f"Error en finalizar_registro: {e}")
+        logging.error(f"Error en finalizar_registro: {e}", exc_info=True)
         flash(f"Registro fallido: Ocurrió un error inesperado: {e}", 'error')
-    
-    return redirect(url_for('registrar'))
+        return redirect(url_for('registrar'))
 
 @app.route('/subir_documento/<int:cliente_id>', methods=['POST'])
 @admin_required
