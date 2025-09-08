@@ -4,7 +4,7 @@
 {% block page_title %}Dashboard de Rendimiento{% endblock %}
 
 {% block body %}
-<div class="min-h-screen bg-slate-50 font-sans">
+<div class="min-h-screen bg-slate-100 font-sans">
 
   <header class="px-4 sm:px-6 lg:px-8 py-8">
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -16,8 +16,7 @@
           Indicadores clave de <strong>{{ metrics.mes_actual }} {{ metrics.anio_actual }}</strong>
         </p>
       </div>
-
-      <div class="inline-flex items-center gap-2 rounded-lg bg-white p-2 border border-slate-200">
+      <div class="inline-flex items-center gap-2 rounded-lg bg-white p-2 border border-slate-200 shadow-sm">
         <span class="text-sm font-medium text-slate-500">Estado:</span>
         <span class="inline-flex items-center gap-2 text-sm font-semibold text-teal-700 bg-teal-50 px-3 py-1 rounded-md">
           <span class="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span> En vivo
@@ -29,7 +28,7 @@
   <main class="px-4 sm:px-6 lg:px-8 pb-12 space-y-8">
 
     <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-      <div class="bg-white border border-slate-200/80 rounded-xl p-6 transition-all hover:shadow-lg hover:-translate-y-1">
+      <div class="bg-white border border-slate-200/80 rounded-xl p-6 transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1">
         <div class="flex items-center justify-between">
           <p class="text-base font-medium text-slate-500">Ingresos del Mes</p>
           <span class="flex items-center justify-center w-12 h-12 rounded-full bg-emerald-100">
@@ -41,8 +40,7 @@
         </p>
         <p class="mt-1 text-sm text-slate-400">Total conciliado en el periodo.</p>
       </div>
-
-      <div class="bg-white border border-slate-200/80 rounded-xl p-6 transition-all hover:shadow-lg hover:-translate-y-1">
+      <div class="bg-white border border-slate-200/80 rounded-xl p-6 transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1">
         <div class="flex items-center justify-between">
           <p class="text-base font-medium text-slate-500">Índice de Morosidad</p>
           <span class="flex items-center justify-center w-12 h-12 rounded-full bg-rose-100">
@@ -54,9 +52,7 @@
         </p>
         <p class="mt-1 text-sm text-slate-400">Ahorradores sin pago de cuota.</p>
       </div>
-
-      <a href="{{ url_for('consulta') }}?estatus=ACTIVO"
-         class="block bg-white border border-slate-200/80 rounded-xl p-6 transition-all hover:shadow-lg hover:-translate-y-1">
+      <a href="{{ url_for('consulta') }}?estatus=ACTIVO" class="block bg-white border border-slate-200/80 rounded-xl p-6 transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1">
         <div class="flex items-center justify-between">
           <p class="text-base font-medium text-slate-500">Clientes Activos</p>
           <span class="flex items-center justify-center w-12 h-12 rounded-full bg-sky-100">
@@ -68,9 +64,7 @@
         </p>
         <p class="mt-1 text-sm text-slate-400">Clic para ver el detalle.</p>
       </a>
-
-      <a href="{{ url_for('consulta') }}?estado=ADJUDICADO"
-         class="block bg-white border border-slate-200/80 rounded-xl p-6 transition-all hover:shadow-lg hover:-translate-y-1">
+      <a href="{{ url_for('consulta') }}?estado=ADJUDICADO" class="block bg-white border border-slate-200/80 rounded-xl p-6 transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1">
         <div class="flex items-center justify-between">
           <p class="text-base font-medium text-slate-500">Total Adjudicados</p>
           <span class="flex items-center justify-center w-12 h-12 rounded-full bg-indigo-100">
@@ -92,7 +86,6 @@
         </div>
         <div class="mt-4 h-80"><canvas id="ingresosChart"></canvas></div>
       </div>
-
       <div class="lg:col-span-5 bg-white border border-slate-200/80 rounded-xl p-6">
         <div class="flex items-center justify-between">
           <h3 class="text-lg font-semibold text-slate-800">Composición de Cartera</h3>
@@ -105,52 +98,42 @@
     </section>
 
     <section class="bg-white border border-slate-200/80 rounded-xl p-6">
-      <div class="border-b border-slate-200 pb-4 mb-4">
+      <div class="pb-4 mb-4">
         <h3 class="text-lg font-semibold text-slate-800">Desglose por Estatus de Cliente</h3>
         <p class="text-sm text-slate-500">Toca una tarjeta para filtrar y ver el detalle.</p>
       </div>
-
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        <a href="{{ url_for('consulta') }}?estatus=ACTIVO"
-           class="group rounded-lg p-4 text-center transition-all bg-slate-100 hover:bg-emerald-500">
-          <p class="text-sm whitespace-nowrap text-slate-600 font-semibold group-hover:text-white">Activos</p>
-          <p class="mt-1 text-4xl font-black text-emerald-600 group-hover:text-white">{{ metrics.clientes_activos }}</p>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-5">
+        <a href="{{ url_for('consulta') }}?estatus=ACTIVO" class="group rounded-lg p-4 text-center bg-slate-50 border border-slate-200 transition-all duration-300 ease-in-out hover:border-emerald-500 hover:shadow-md hover:scale-105">
+          <p class="text-sm whitespace-nowrap text-slate-500 font-semibold group-hover:text-emerald-600">Activos</p>
+          <p class="mt-1 text-4xl font-black text-emerald-600">{{ metrics.clientes_activos }}</p>
         </a>
-
         {% for estado, total in metrics.estados_del_plan.items()|sort %}
           {% set destino = url_for('consulta') + '?estado=' + (estado|upper) %}
-          <a href="{{ destino }}"
-             class="group rounded-lg p-4 text-center transition-all bg-slate-100 hover:bg-slate-800">
-            <p class="text-sm whitespace-nowrap text-slate-600 font-semibold group-hover:text-white">{{ estado|replace('_', ' ')|capitalize }}</p>
-            <p class="mt-1 text-4xl font-black text-slate-900 group-hover:text-white">{{ total }}</p>
+          <a href="{{ destino }}" class="group rounded-lg p-4 text-center bg-slate-50 border border-slate-200 transition-all duration-300 ease-in-out hover:border-slate-800 hover:shadow-md hover:scale-105">
+            <p class="text-sm whitespace-nowrap text-slate-500 font-semibold group-hover:text-slate-900">{{ estado|replace('_', ' ')|capitalize }}</p>
+            <p class="mt-1 text-4xl font-black text-slate-900">{{ total }}</p>
           </a>
         {% endfor %}
-
-        <a href="{{ url_for('consulta') }}?estatus=INACTIVO"
-           class="group rounded-lg p-4 text-center transition-all bg-slate-100 hover:bg-slate-500">
-          <p class="text-sm whitespace-nowrap text-slate-600 font-semibold group-hover:text-white">Inactivos</p>
-          <p class="mt-1 text-4xl font-black text-slate-500 group-hover:text-white">{{ metrics.clientes_inactivos }}</p>
+        <a href="{{ url_for('consulta') }}?estatus=INACTIVO" class="group rounded-lg p-4 text-center bg-slate-50 border border-slate-200 transition-all duration-300 ease-in-out hover:border-gray-500 hover:shadow-md hover:scale-105">
+          <p class="text-sm whitespace-nowrap text-slate-500 font-semibold group-hover:text-gray-600">Inactivos</p>
+          <p class="mt-1 text-4xl font-black text-slate-500 group-hover:text-gray-600">{{ metrics.clientes_inactivos }}</p>
         </a>
-
-        {# Retirados oculto por solicitud #}
       </div>
     </section>
 
     {% if metrics.composicion_condicion and metrics.composicion_condicion['labels'] %}
     <section class="bg-white border border-slate-200/80 rounded-xl p-6">
-        <div class="border-b border-slate-200 pb-4 mb-4">
-            <h3 class="text-lg font-semibold text-slate-800">Desglose por Condición</h3>
-            <p class="text-sm text-slate-500">Clic para filtrar resultados.</p>
-        </div>
-
-      <div class="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <div class="pb-4 mb-4">
+        <h3 class="text-lg font-semibold text-slate-800">Desglose por Condición</h3>
+        <p class="text-sm text-slate-500">Clic para filtrar resultados.</p>
+      </div>
+      <div class="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-5">
         {% for i in range(metrics.composicion_condicion['labels']|length) %}
           {% set cond = metrics.composicion_condicion['labels'][i] %}
           {% set cant = metrics.composicion_condicion['values'][i] %}
-          <a href="{{ url_for('consulta') }}?condicion={{ cond|upper }}"
-             class="group rounded-lg p-4 text-center transition-all bg-slate-100 hover:bg-sky-500">
-            <p class="text-sm whitespace-nowrap text-slate-600 font-semibold group-hover:text-white">{{ cond }}</p>
-            <p class="mt-1 text-4xl font-black text-sky-600 group-hover:text-white">{{ cant }}</p>
+          <a href="{{ url_for('consulta') }}?condicion={{ cond|upper }}" class="group rounded-lg p-4 text-center bg-slate-50 border border-slate-200 transition-all duration-300 ease-in-out hover:border-sky-500 hover:shadow-md hover:scale-105">
+            <p class="text-sm whitespace-nowrap text-slate-500 font-semibold group-hover:text-sky-600">{{ cond }}</p>
+            <p class="mt-1 text-4xl font-black text-sky-600">{{ cant }}</p>
           </a>
         {% endfor %}
       </div>
@@ -190,13 +173,7 @@
         responsive: true,
         maintainAspectRatio: false,
         scales: {
-          y: {
-            beginAtZero: true,
-            grid: { color: '#e2e8f0' },
-            ticks: {
-              callback: (v) => '$' + new Intl.NumberFormat('en-US').format(v)
-            }
-          },
+          y: { beginAtZero: true, grid: { color: '#e2e8f0' } },
           x: { grid: { display: false } }
         },
         plugins: {
@@ -211,9 +188,7 @@
             callbacks: {
               label: function(context) {
                 let label = context.dataset.label || '';
-                if (label) {
-                  label += ': ';
-                }
+                if (label) { label += ': '; }
                 if (context.parsed.y !== null) {
                   label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
                 }
