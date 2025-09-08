@@ -2911,6 +2911,7 @@ def reporte_metricas():
         anio_actual=get_venezuela_current_date().year,
         metrics=dashboard_metrics
     )
+
 @app.route('/reporte_flujo_caja', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -3051,6 +3052,12 @@ def _resumen_vacio():
         'acumulado_perdida_devaluacion': 0.0,
         'acumulado_perdida_conversion': 0.0
     }
+
+@app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def reporte_flujo_caja_alias():
+    return reporte_flujo_caja()
 
 # =================================================================================
 # ===== FIN: MÓDULO DE MÉTRICAS RECONSTRUIDO (V1) =====
@@ -3450,117 +3457,6 @@ def gestion_egresos():
     return render_template('gestion_egresos.html', egresos=egresos, clientes_retiro=clientes_retiro)
 
 # ====== FIN: REEMPLAZA TU FUNCIÓN DE GESTIÓN DE EGRESOS CON ESTA ======
-
-@app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
-@admin_required
-@rol_requerido('superadmin', 'gerente')
-def reporte_flujo_caja():
-    conn, today = get_db(), get_venezuela_current_date()
-    fecha_reporte_str = request.form.get('fecha_reporte') or request.args.get('fecha_reporte') or today.strftime('%Y-%m-%d')
-    try:
-        fecha_reporte_dt = datetime.strptime(fecha_reporte_str, '%Y-%m-%d').date()
-    except ValueError:
-        flash("Formato de fecha inválido. Usando fecha actual.", "warning")
-        fecha_reporte_str, fecha_reporte_dt = today.strftime('%Y-%m-%d'), today
-    
-    tasas_del_dia = {'usd': Decimal('0.0'), 'eur': Decimal('0.0')}
-    if conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (fecha_reporte_dt,))
-            resultado_tasa = cur.fetchone()
-            if resultado_tasa:
-                tasas_del_dia['usd'], tasas_del_dia['eur'] = resultado_tasa['tasa'] or Decimal('0.0'), resultado_tasa['tasa_euro'] or Decimal('0.0')
-
-    balances = calcular_balances_tesoreria(fecha_hasta=fecha_reporte_dt)
-    resumen = {}
-    resumen.update(balances)
-    tasa_usd, tasa_eur = tasas_del_dia['usd'], tasas_del_dia['eur']
-    resumen['balance_bs_usd_usd'] = balances['CAJA_BS_USD'] / tasa_usd if tasa_usd > 0 else Decimal('0.0')
-    resumen['balance_bs_eur_eur'] = balances['CAJA_BS_EUR'] / tasa_eur if tasa_eur > 0 else Decimal('0.0')
-    resumen['balance_bs_consolidado_bs'] = balances['CAJA_BS_TOTAL']
-    balance_bs_eur_en_usd = balances['CAJA_BS_EUR'] / tasa_usd if tasa_usd > 0 else Decimal('0.0') # Re-calculado con la tasa correcta
-    resumen['balance_bs_consolidado_usd'] = resumen['balance_bs_usd_usd'] + balance_bs_eur_en_usd
-    resumen['tasa_ponderada_bs'] = resumen['balance_bs_consolidado_bs'] / resumen['balance_bs_consolidado_usd'] if resumen['balance_bs_consolidado_usd'] > 0 else Decimal('0.0')
-    resumen['balance_general_consolidado_usd'] = balances['EFECTIVO_USD'] + balances['BINANCE_USDT'] + resumen['balance_bs_consolidado_usd']
-    resumen['acumulado_perdida_devaluacion'], resumen['acumulado_perdida_conversion'] = Decimal('0.0'), Decimal('0.0')
-    
-    if conn and tasa_usd > 0:
-        try:
-            with conn.cursor() as cur:
-                fecha_fin_timestamp = datetime.combine(fecha_reporte_dt, datetime.max.time())
-                cur.execute("SELECT COALESCE(SUM(CASE WHEN tasa_dia > 0 THEN monto_bs / tasa_dia ELSE 0 END), 0) FROM pagos WHERE estado_pago = 'Conciliado' AND monto_bs > 0 AND moneda_referencia = 'USD' AND fecha_pago <= %s", (fecha_reporte_dt,))
-                valor_historico_ingresos_bs_usd = cur.fetchone()[0] or Decimal('0.0')
-                cur.execute("SELECT COALESCE(SUM(CASE WHEN tasa_aplicada > 0 THEN monto_origen / tasa_aplicada ELSE 0 END), 0) FROM operaciones_tesoreria WHERE caja_origen = 'CAJA_BS_USD' AND fecha_operacion <= %s", (fecha_fin_timestamp,))
-                valor_historico_egresos_bs_usd = cur.fetchone()[0] or Decimal('0.0')
-                saldo_teorico_bs_usd_en_usd = valor_historico_ingresos_bs_usd - valor_historico_egresos_bs_usd
-                resumen['acumulado_perdida_devaluacion'] = saldo_teorico_bs_usd_en_usd - resumen['balance_bs_usd_usd']
-                cur.execute("SELECT COALESCE(SUM(perdida_cambiaria), 0) FROM operaciones_tesoreria WHERE fecha_operacion <= %s", (fecha_fin_timestamp,))
-                resumen['acumulado_perdida_conversion'] = cur.fetchone()[0] or Decimal('0.0')
-        except psycopg2.Error as e:
-            flash(f"Error calculando las pérdidas financieras: {e}", "warning")
-
-    # >>> INICIO DE LA INTEGRACIÓN: BUSCAR PROYECCIÓN ACTIVA <<<
-    comparativa_proyeccion = None
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                mes_reporte, anio_reporte = fecha_reporte_dt.month, fecha_reporte_dt.year
-                cur.execute("""
-                    SELECT * FROM proyecciones_activas 
-                    WHERE mes_proyeccion = %s AND ano_proyeccion = %s AND estado = 'Activa' 
-                    LIMIT 1
-                """, (mes_reporte, anio_reporte))
-                proyeccion_activa = cur.fetchone()
-
-                if proyeccion_activa:
-                    # Usamos .get() para evitar errores si las claves no existen
-                    resultados = json.loads(proyeccion_activa.get('resultados_resumen', '{}'))
-                    parametros = json.loads(proyeccion_activa.get('parametros_simulacion', '{}'))
-                    fecha_inicio_proyeccion_str = parametros.get('fecha_inicio')
-                    
-                    if fecha_inicio_proyeccion_str:
-                        fecha_inicio_proyeccion = datetime.strptime(fecha_inicio_proyeccion_str, '%Y-%m-%d').date()
-                        ingreso_real_a_fecha = calcular_ingreso_real_acumulado(fecha_inicio_proyeccion)
-
-                        comparativa_proyeccion = {
-                            "ingreso_proyectado_mes": Decimal(resultados.get('resumen', {}).get('ingresos_totales_proyectados', '0.0')),
-                            "ingreso_real_a_fecha": ingreso_real_a_fecha,
-                            "devaluacion_proyectada_mes": Decimal(resultados.get('kpis', {}).get('perdida_devaluacion_usd', '0.0')),
-                            "devaluacion_real_a_fecha": resumen.get('acumulado_perdida_devaluacion', Decimal('0.0'))
-                        }
-        except (psycopg2.Error, json.JSONDecodeError, KeyError) as e:
-            flash(f"No se pudo cargar la comparativa con la proyección activa: {e}", "warning")
-            logging.error(f"Error cargando comparativa de proyección en flujo de caja: {e}")
-    # >>> FIN DE LA INTEGRACIÓN <<<
-
-    historial_unificado = []
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                fecha_inicio_periodo, fecha_fin_periodo = datetime.combine(fecha_reporte_dt, datetime.min.time()), datetime.combine(fecha_reporte_dt, datetime.max.time())
-                query_unificada = """
-                    SELECT p.fecha_pago AS timestamp, 'Pago Conciliado' AS tipo_operacion, (c.nombre || ' ' || c.apellido || ' (Ref: ' || COALESCE(p.referencia, 'N/A') || ')') AS detalle,
-                           CASE WHEN p.monto_bs > 0 THEN p.monto_bs ELSE p.monto END AS monto_ingreso, CASE WHEN p.monto_bs > 0 THEN 'BS' ELSE 'USD' END AS moneda_ingreso,
-                           NULL AS monto_egreso, NULL AS moneda_egreso, (SELECT usuario FROM administradores WHERE id = p.conciliado_por_id) AS usuario
-                    FROM pagos p JOIN clientes c ON p.cliente_id = c.id WHERE p.estado_pago = 'Conciliado' AND p.fecha_pago = %s
-                    UNION ALL
-                    SELECT ot.fecha_operacion AS timestamp, ot.tipo_operacion, ot.nota AS detalle, CASE WHEN ot.tipo_operacion != 'PAGO_GASTO' AND ot.tipo_operacion != 'PAGO_NOMINA' THEN ot.monto_destino ELSE NULL END AS monto_ingreso,
-                           CASE WHEN ot.tipo_operacion != 'PAGO_GASTO' AND ot.tipo_operacion != 'PAGO_NOMINA' THEN ot.moneda_destino ELSE NULL END AS moneda_ingreso, ot.monto_origen AS monto_egreso, ot.moneda_origen AS moneda_egreso, adm.usuario
-                    FROM operaciones_tesoreria ot JOIN administradores adm ON ot.realizada_por = adm.id WHERE ot.fecha_operacion BETWEEN %s AND %s
-                    ORDER BY timestamp ASC;
-                """
-                cur.execute(query_unificada, (fecha_reporte_dt, fecha_inicio_periodo, fecha_fin_periodo))
-                historial_unificado = cur.fetchall()
-        except (psycopg2.Error, ValueError) as e:
-            flash(f"Error al obtener historial de movimientos: {e}", "error")
-
-    return render_template('reporte_flujo_caja.html', 
-                           fecha_reporte=fecha_reporte_str, 
-                           resumen=resumen, 
-                           tasas_del_dia=tasas_del_dia, 
-                           historial=historial_unificado, 
-                           anio_actual=today.year,
-                           comparativa_proyeccion=comparativa_proyeccion)
 
 # ===================================================================
 # RUTA PARA CERRAR PROYECCIÓN Y GUARDAR INFORME HISTÓRICO
