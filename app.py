@@ -3484,38 +3484,43 @@ def reporte_proyecciones():
         tasa_bcv_dolar_str = f"{tasa_dolar_db:.4f}" if tasa_dolar_db else ""
         tasa_bcv_euro_str  = f"{tasa_euro_db:.4f}"  if tasa_euro_db  else ""
 
-    # ---- Filtros macro desde querystring (NORMALIZADO) ----
-    empresa      = (request.args.get('empresa')      or '').strip()
-    estado_plan  = (request.args.get('estado_plan')  or '').strip()
-    estatus      = (request.args.get('estatus')      or '').strip()
-    cuota_bucket = (request.args.get('cuota_bucket') or '').strip()
-    excluir_rc   = request.args.get('excluir_rc') == '1'
+    # ---- Filtros macro desde querystring (NORMALIZADO y sin “filtros duros”) ----
+empresa      = (request.args.get('empresa')      or '').strip()
+estado_plan  = (request.args.get('estado_plan')  or '').strip()
+estatus      = (request.args.get('estatus')      or '').strip()
+cuota_bucket = (request.args.get('cuota_bucket') or '').strip()
+excluir_rc   = request.args.get('excluir_rc') == '1'
 
-    where = []
-    params = []
+where = []
+params = []
 
-    if empresa:
-        # tolerante a mayúsculas y espacios (MOTO PLAN vs Moto Plan)
-        where.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(%s, ' ', ''))")
-        params.append(empresa)
+# Empresa: ignora espacios y mayúsculas
+if empresa:
+    where.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(%s, ' ', ''))")
+    params.append(empresa)
 
-    if estado_plan:
-        where.append("c.estado_del_plan = %s")
-        params.append(estado_plan)
+# Estado del plan (solo si se selecciona)
+if estado_plan:
+    where.append("c.estado_del_plan = %s")
+    params.append(estado_plan)
 
-    if estatus:
-        where.append("c.estatus_cliente = %s")
-        params.append(estatus)
+# Estatus cliente (solo si se selecciona)
+if estatus:
+    where.append("c.estatus_cliente = %s")
+    params.append(estatus)
 
-    if excluir_rc:
-        where.append("c.estado_del_plan NOT IN ('RETIRO','COMPLETADO')")
+# Excluir RETIRO / COMPLETADO (solo si está marcada la casilla)
+if excluir_rc:
+    where.append("(c.estado_del_plan IS DISTINCT FROM 'RETIRO' AND c.estado_del_plan IS DISTINCT FROM 'COMPLETADO')")
 
-    if   cuota_bucket == '1': where.append("c.cuotas_pagadas_progresivas BETWEEN 1  AND 6")
-    elif cuota_bucket == '2': where.append("c.cuotas_pagadas_progresivas BETWEEN 7  AND 12")
-    elif cuota_bucket == '3': where.append("c.cuotas_pagadas_progresivas BETWEEN 13 AND 24")
-    elif cuota_bucket == '4': where.append("c.cuotas_pagadas_progresivas BETWEEN 25 AND 36")
+# Bucket de cuotas (opcional)
+if   cuota_bucket == '1': where.append("c.cuotas_pagadas_progresivas BETWEEN 1  AND 6")
+elif cuota_bucket == '2': where.append("c.cuotas_pagadas_progresivas BETWEEN 7  AND 12")
+elif cuota_bucket == '3': where.append("c.cuotas_pagadas_progresivas BETWEEN 13 AND 24")
+elif cuota_bucket == '4': where.append("c.cuotas_pagadas_progresivas BETWEEN 25 AND 36")
 
-    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+logging.info("PROYECCIONES where_sql=%s params=%s", where_sql, params)  # útil en logs de Render
 
     proyecciones = {
         'parametros': {
@@ -3545,7 +3550,6 @@ def reporte_proyecciones():
                            COALESCE(SUM(c.valor_cuota), 0) AS base_mensual
                     FROM clientes c
                     {where_sql if where_sql else "WHERE TRUE"}
-                      AND c.estatus_cliente IN ('ACTIVO','AHORRADOR','ADJUDICADO')
                 """, params)
                 ingresos_data = cur.fetchone() or {}
                 proyecciones['ingresos'].update(ingresos_data or {})
@@ -3592,7 +3596,6 @@ def reporte_proyecciones():
                            COALESCE(SUM(c.valor_cuota), 0) AS monto_total
                     FROM clientes c
                     {where_sql if where_sql else "WHERE TRUE"}
-                      AND c.estatus_cliente IN ('ACTIVO','AHORRADOR')
                     GROUP BY c.moneda_pago
                 """, params)
                 for row in cur.fetchall():
