@@ -1,11 +1,12 @@
 import os
 import io
+from io import BytesIO
 import csv
 import json
 import base64
 import logging
 import random
-import re # <-- AÑADIDO PARA LA LIMPIEZA DE DATOS
+import re  # <-- AÑADIDO PARA LA LIMPIEZA DE DATOS
 import traceback
 from calendar import monthrange
 from collections import defaultdict
@@ -18,7 +19,7 @@ import boto3
 import pandas as pd
 import psycopg2
 import psycopg2.extras
-from psycopg2.extras import execute_values # <-- AÑADIDO PARA CARGA MASIVA
+from psycopg2.extras import execute_values  # <-- AÑADIDO PARA CARGA MASIVA
 from botocore.exceptions import NoCredentialsError
 from dotenv import load_dotenv
 from fpdf import FPDF
@@ -26,9 +27,21 @@ import pytz
 from werkzeug.security import check_password_hash, generate_password_hash
 
 # Imports de Flask
-from flask import Flask, render_template, request, g, flash, redirect, url_for, session, Response, jsonify
+from flask import (
+    Flask,
+    render_template,
+    request,
+    g,
+    flash,
+    redirect,
+    url_for,
+    session,
+    Response,
+    jsonify,
+    send_file,
+    abort
+)
 from types import SimpleNamespace
-from datetime import datetime, date
 
 # =================================================================================
 # ===== CONFIGURACIÓN INICIAL Y DE ENTORNO =====
@@ -3718,6 +3731,34 @@ def reporte_proyecciones():
                            proyecciones=proyecciones,
                            simulacion_realizada=simulacion_realizada)
 
+@app.route('/reportes/proyecciones/export/<formato>')
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def exportar_proyecciones(formato):
+    # Acepta solo xlsx o pdf
+    if formato not in ('xlsx', 'pdf'):
+        abort(404)
+
+    from io import BytesIO
+    buf = BytesIO()
+    contenido = (
+        "Export de Proyecciones\n"
+        f"Fecha inicio: {request.args.get('fecha_inicio','')}\n"
+        f"Filtros: estado_plan={request.args.get('estado_plan','')}, "
+        f"estatus={request.args.get('estatus','')}, empresa={request.args.get('empresa','')}, "
+        f"cuota_bucket={request.args.get('cuota_bucket','')}, excluir_rc={request.args.get('excluir_rc','')}\n"
+    )
+    buf.write(contenido.encode('utf-8'))
+    buf.seek(0)
+
+    mimetype = (
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        if formato == 'xlsx' else
+        'application/pdf'
+    )
+    filename = f"proyeccion.{formato}"
+    return send_file(buf, as_attachment=True, download_name=filename, mimetype=mimetype)
+    
 # ====== FIN DE LA FUNCIÓN MODIFICADA ======
 
 # ====== INICIO: NUEVAS RUTAS PARA GESTIÓN DE PROYECCIONES ======
