@@ -1,215 +1,204 @@
-{% extends 'base_sidebar.html' %} 
-{% block title %} Dashboard Comercial {% endblock %} 
+{% extends "base_sidebar.html" %}
 
-{% block head_extra %}
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-{% endblock %}
+{% block title %}Dashboard Comercial{% endblock %}
+{% block page_title %}Dashboard Comercial{% endblock %}
+{% block head_extra %}{% endblock %}
 
 {% block body %}
-<div x-data="{ actionsOpen: false, exportOpen: false }" class="container mx-auto space-y-6">
-    
-    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div class="bg-indigo-100 text-indigo-600 p-3 rounded-full flex-shrink-0">
-                <i class="bi bi-wallet-fill text-2xl"></i>
-            </div>
-            <div>
-                <h1 class="text-2xl font-bold text-slate-800">Dashboard de Comisiones</h1>
-                <p class="text-slate-500 mt-1">Gestiona, aprueba y paga las comisiones de los asesores.</p>
-            </div>
-        </div>
+  <header class="mb-6">
+    <p class="text-sm text-slate-500">Comisiones y bonos — filtros, aprobación y exportes.</p>
+  </header>
+
+  <!-- Filtros -->
+  <form id="filtrosForm" method="get" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end bg-white p-4 rounded-xl shadow">
+    <div>
+      <label for="fecha_desde_origen" class="block text-sm font-medium text-slate-700">Desde</label>
+      <input type="date" id="fecha_desde_origen" name="fecha_desde_origen" value="{{ filters.fecha_desde_origen if filters is defined else '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+    </div>
+    <div>
+      <label for="fecha_hasta_origen" class="block text-sm font-medium text-slate-700">Hasta</label>
+      <input type="date" id="fecha_hasta_origen" name="fecha_hasta_origen" value="{{ filters.fecha_hasta_origen if filters is defined else '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
     </div>
 
-    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-        <form method="GET" action="{{ url_for('dashboard_comercial') }}">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
-                <div>
-                    <label for="fecha_desde_origen" class="block text-sm font-medium text-gray-700">Desde (Origen)</label>
-                    <input type="date" name="fecha_desde_origen" id="fecha_desde_origen" value="{{ filters.fecha_desde_origen or '' }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                </div>
-                <div>
-                    <label for="fecha_hasta_origen" class="block text-sm font-medium text-gray-700">Hasta (Origen)</label>
-                    <input type="date" name="fecha_hasta_origen" id="fecha_hasta_origen" value="{{ filters.fecha_hasta_origen or '' }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                </div>
-                <div>
-                    <label for="asesor_id" class="block text-sm font-medium text-gray-700">Asesor</label>
-                    <select name="asesor_id" id="asesor_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                        <option value="">Todos</option>
-                        {% for asesor in asesores %}
-                        <option value="{{ asesor.id }}" {% if filters.asesor_id == asesor.id|string %}selected{% endif %}>{{ asesor.nombre_completo }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label for="estado" class="block text-sm font-medium text-gray-700">Estado</label>
-                    <select name="estado" id="estado" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                        <option value="">Todos</option>
-                        <option value="pendiente" {% if filters.estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
-                        <option value="aprobado" {% if filters.estado == 'aprobado' %}selected{% endif %}>Aprobado</option>
-                        <option value="pagado" {% if filters.estado == 'pagado' %}selected{% endif %}>Pagado</option>
-                    </select>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Filtrar</button>
-                    <a href="{{ url_for('dashboard_comercial') }}" class="w-full inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Limpiar</a>
-                </div>
-            </div>
-        </form>
+    {# Lista de asesores: usa 'asesores' si existe, si no 'todos_los_admins', si no queda vacío #}
+    {% set asesores_list = (asesores if asesores is defined else (todos_los_admins if todos_los_admins is defined else [])) %}
+    <div>
+      <label for="asesor_id" class="block text-sm font-medium text-slate-700">Asesor</label>
+      <select id="asesor_id" name="asesor_id" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+        <option value="">Todos</option>
+        {% for a in asesores_list %}
+          <option value="{{ a.id if a.id is defined else a['id'] }}" {% if filters is defined and filters.asesor_id and (filters.asesor_id|string) == (a.id|string if a.id is defined else a['id']|string) %}selected{% endif %}>
+            {{ a.nombre if a.nombre is defined else a['nombre'] }}
+          </option>
+        {% endfor %}
+      </select>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <div class="bg-yellow-100 p-4 rounded-xl border border-yellow-200">
-            <h3 class="font-bold text-yellow-800">Pendiente</h3>
-            <p class="text-2xl font-semibold text-yellow-900">${{ "{:,.2f}".format(stats.pendiente.monto) }}</p>
-            <p class="text-sm text-yellow-700">{{ stats.pendiente.conteo }} items</p>
-        </div>
-        <div class="bg-green-100 p-4 rounded-xl border border-green-200">
-            <h3 class="font-bold text-green-800">Aprobado</h3>
-            <p class="text-2xl font-semibold text-green-900">${{ "{:,.2f}".format(stats.aprobado.monto) }}</p>
-            <p class="text-sm text-green-700">{{ stats.aprobado.conteo }} items</p>
-        </div>
-        <div class="bg-blue-100 p-4 rounded-xl border border-blue-200">
-            <h3 class="font-bold text-blue-800">Pagado</h3>
-            <p class="text-2xl font-semibold text-blue-900">${{ "{:,.2f}".format(stats.pagado.monto) }}</p>
-            <p class="text-sm text-blue-700">{{ stats.pagado.conteo }} items</p>
-        </div>
-        <div class="bg-gray-100 p-4 rounded-xl border border-gray-200">
-            <h3 class="font-bold text-gray-800">Ajustes / Rebalanceos</h3>
-            <p class="text-2xl font-semibold text-gray-900">${{ "{:,.2f}".format(stats.rebalanceos.monto) }}</p>
-        </div>
+    <div>
+      <label for="estado" class="block text-sm font-medium text-slate-700">Estado</label>
+      <select id="estado" name="estado" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+        <option value="">Todos</option>
+        {% set estados_posibles = ['pendiente','aprobado','pagado','anulado'] %}
+        {% for e in estados_posibles %}
+          <option value="{{ e }}" {% if filters is defined and filters.estado == e %}selected{% endif %}>{{ e|capitalize }}</option>
+        {% endfor %}
+      </select>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200">
-        <div class="p-5 border-b flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-            <h2 class="text-xl font-bold text-gray-800">Detalle de Comisiones</h2>
-            <div class="flex items-center gap-2">
-                <button id="btn-aprobar" class="bg-green-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-600 disabled:bg-gray-300 text-sm font-semibold flex items-center gap-2">
-                    <i class="bi bi-check-lg"></i> Aprobar
-                </button>
-                <button id="btn-generar-lote" class="bg-blue-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-600 disabled:bg-gray-300 text-sm font-semibold flex items-center gap-2">
-                    <i class="bi bi-box-seam"></i> Generar Lote
-                </button>
-                <div class="relative">
-                    <button @click="exportOpen = !exportOpen" class="bg-gray-700 text-white px-4 py-2 rounded-md shadow-sm hover:bg-gray-800 flex items-center text-sm font-semibold">
-                        Exportar <i class="bi bi-chevron-down ml-2"></i>
-                    </button>
-                    <div x-show="exportOpen" @click.away="exportOpen = false" x-cloak class="absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg z-10 border">
-                        <a href="#" class="data-export-btn block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" data-formato="pdf">PDF</a>
-                        <a href="#" class="data-export-btn block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" data-formato="xlsx">Excel</a>
-                        <a href="#" class="data-export-btn block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" data-formato="csv">CSV</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-slate-50 text-slate-600 hidden md:table-header-group">
-                    <tr>
-                        <th class="p-3 text-left w-10"><input type="checkbox" id="seleccionar-todo"></th>
-                        <th class="p-3 text-left font-semibold">Fecha Origen</th>
-                        <th class="p-3 text-left font-semibold">Asesor</th>
-                        <th class="p-3 text-left font-semibold">Cliente / Origen</th>
-                        <th class="p-3 text-left font-semibold">Monto</th>
-                        <th class="p-3 text-left font-semibold">Estado</th>
-                        <th class="p-3 text-left font-semibold">Lote</th>
-                        <th class="p-3 text-left font-semibold"></th>
-                    </tr>
-                </thead>
-                <tbody class="md:divide-y md:divide-gray-200">
-                    {% for comision in comisiones %}
-                    <tr class="block md:table-row mb-4 md:mb-0 border md:border-none rounded-lg shadow-sm md:shadow-none bg-white">
-                        <td class="p-3 md:w-10 md:text-left border-b md:border-none flex justify-between items-center">
-                             <span class="font-semibold text-slate-600 md:hidden">Seleccionar</span>
-                            <input type="checkbox" class="comision-checkbox" data-id="{{ comision.id }}">
-                        </td>
-                        <td class="p-3 border-b md:border-none flex justify-between items-center md:table-cell">
-                            <span class="font-semibold text-slate-600 md:hidden">Fecha:</span>
-                            <span class="whitespace-nowrap">{{ comision.fecha_origen|format_date }}</span>
-                        </td>
-                        <td class="p-3 border-b md:border-none flex justify-between items-center md:table-cell">
-                            <span class="font-semibold text-slate-600 md:hidden">Asesor:</span>
-                            <span class="whitespace-nowrap font-medium text-slate-800">{{ comision.asesor }}</span>
-                        </td>
-                        <td class="p-3 border-b md:border-none flex justify-between items-center md:table-cell">
-                            <span class="font-semibold text-slate-600 md:hidden">Cliente:</span>
-                            <span>{{ comision.cliente or 'N/A' }}</span>
-                        </td>
-                        <td class="p-3 border-b md:border-none flex justify-between items-center md:table-cell">
-                            <span class="font-semibold text-slate-600 md:hidden">Monto:</span>
-                            <span class="font-bold text-slate-800">${{ "{:,.2f}".format(comision.monto) }}</span>
-                        </td>
-                        <td class="p-3 border-b md:border-none flex justify-between items-center md:table-cell">
-                            <span class="font-semibold text-slate-600 md:hidden">Estado:</span>
-                            <span class="p-1.5 text-xs font-medium uppercase tracking-wider rounded-lg 
-                                {% if comision.estado == 'pendiente' %} text-yellow-800 bg-yellow-100
-                                {% elif comision.estado == 'aprobado' %} text-green-800 bg-green-100
-                                {% elif comision.estado == 'pagado' %} text-blue-800 bg-blue-100
-                                {% else %} text-gray-800 bg-gray-100
-                                {% endif %}">
-                                {{ comision.estado }}
-                            </span>
-                        </td>
-                        <td class="p-3 border-b md:border-none flex justify-between items-center md:table-cell">
-                            <span class="font-semibold text-slate-600 md:hidden">Lote:</span>
-                            <span>
-                                {% if comision.payment_batch_id %}
-                                    <a href="#" class="text-blue-600 hover:underline font-semibold" onclick="mostrarDetalleLote({{ comision.payment_batch_id }})">#{{ comision.payment_batch_id }}</a>
-                                {% else %}
-                                    -
-                                {% endif %}
-                            </span>
-                        </td>
-                        <td class="p-3 flex justify-end items-center md:table-cell">
-                            <button class="text-indigo-600 hover:underline font-semibold" onclick="mostrarDetalleComision({{ comision.id }})">Detalles</button>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="8" class="p-6 text-center text-gray-500">
-                            No se encontraron comisiones con los filtros aplicados.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    <!-- NUEVO: Filtro por Tipo -->
+    <div>
+      <label for="tipo" class="block text-sm font-medium text-slate-700">Tipo</label>
+      <select name="tipo" id="tipo" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+        <option value="">Todos</option>
+        <option value="COMISION" {% if filters is defined and filters.tipo == 'COMISION' %}selected{% endif %}>Comisión</option>
+        <option value="BONO" {% if filters is defined and filters.tipo == 'BONO' %}selected{% endif %}>Bono</option>
+      </select>
     </div>
-</div>
 
-<!-- Modales (sin cambios en su estructura, solo para mantener la funcionalidad) -->
-<div id="modal-detalle-comision" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
-        <div class="flex justify-between items-center pb-3 border-b">
-            <h3 class="text-lg leading-6 font-medium text-gray-900">Detalles de la Comisión</h3>
-            <button id="cerrar-modal-comision" class="text-gray-400 hover:text-gray-600">
-                <span class="text-2xl">&times;</span>
-            </button>
-        </div>
-        <div id="contenido-modal-comision" class="mt-3"></div>
+    <div class="flex gap-2 col-span-1 md:col-span-2 lg:col-span-5 justify-end">
+      <button type="submit" class="inline-flex items-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold shadow hover:bg-indigo-700">Filtrar</button>
+      <a href="{{ request.path }}" class="inline-flex items-center px-4 py-2 rounded-lg bg-slate-200 text-slate-700 text-sm font-semibold shadow hover:bg-slate-300">Limpiar</a>
     </div>
-</div>
+  </form>
 
-<div id="modal-detalle-lote" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-     <div class="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
-        <div class="flex justify-between items-center pb-3 border-b">
-            <h3 class="text-lg leading-6 font-medium text-gray-900">Detalles del Lote de Pago</h3>
-            <button id="cerrar-modal-lote" class="text-gray-400 hover:text-gray-600">
-                <span class="text-2xl">&times;</span>
-            </button>
-        </div>
-        <div id="contenido-modal-lote" class="mt-3"></div>
+  <!-- Acciones / Exportes -->
+  <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <label class="inline-flex items-center gap-2 text-sm text-slate-600 select-none">
+        <input id="seleccionar-todo" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+        Seleccionar todo
+      </label>
     </div>
-</div>
+    <div class="flex items-center gap-2">
+      <a href="#" class="data-export-btn inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-semibold shadow hover:bg-slate-200" data-formato="xlsx">Exportar XLSX</a>
+      <a href="#" class="data-export-btn inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-semibold shadow hover:bg-slate-200" data-formato="csv">Exportar CSV</a>
+      <a href="#" class="data-export-btn inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-semibold shadow hover:bg-slate-200" data-formato="pdf">Exportar PDF</a>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div class="mt-4 overflow-x-auto bg-white rounded-xl shadow">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-100 text-slate-700">
+        <tr>
+          <th class="p-3 text-left font-semibold w-10">
+            <span class="sr-only">Sel</span>
+          </th>
+          <th class="p-3 text-left font-semibold">Fecha</th>
+          <th class="p-3 text-left font-semibold">Asesor</th>
+          <th class="p-3 text-left font-semibold">Cliente / Origen</th>
+          <!-- NUEVO: columna Tipo -->
+          <th class="p-3 text-left font-semibold">Tipo</th>
+          <th class="p-3 text-right font-semibold">Monto</th>
+          <th class="p-3 text-left font-semibold">Estado</th>
+          <th class="p-3 text-left font-semibold">Lote</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if comisiones and comisiones|length > 0 %}
+          {% for comision in comisiones %}
+            <tr class="border-b last:border-0 hover:bg-slate-50/60">
+              <td class="p-3 align-top">
+                <input type="checkbox" class="comision-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" value="{{ comision.id }}" />
+              </td>
+              <td class="p-3 align-top">
+                <span class="whitespace-nowrap">{{ comision.fecha_origen | default('') | string }}</span>
+              </td>
+              <td class="p-3 align-top">
+                {{ comision.asesor or '—' }}
+              </td>
+              <td class="p-3 align-top">
+                {{ comision.cliente or comision.origen_tipo or '—' }}
+              </td>
+              <!-- NUEVO: Tipo + Notas (tooltip) -->
+              <td class="p-3 align-top">
+                <span class="inline-flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded-md text-xs font-semibold {{ 'bg-purple-100 text-purple-800' if comision.tipo == 'BONO' else 'bg-slate-100 text-slate-800' }}">
+                    {{ comision.tipo or 'N/A' }}
+                  </span>
+                  {% if comision.notas %}
+                    <span class="text-slate-400" title="{{ comision.notas }}"><i class="bi bi-info-circle"></i></span>
+                  {% endif %}
+                </span>
+              </td>
+              <td class="p-3 align-top text-right">
+                <span class="font-bold">{{ comision.moneda or 'USD' }} {{ '{:,.2f}'.format(comision.monto) }}</span>
+              </td>
+              <td class="p-3 align-top">
+                <span class="px-2 py-0.5 rounded-md text-xs font-semibold
+                  {% if comision.estado == 'pagado' %} bg-green-100 text-green-800
+                  {% elif comision.estado == 'aprobado' %} bg-amber-100 text-amber-800
+                  {% elif comision.estado == 'anulado' %} bg-rose-100 text-rose-800
+                  {% else %} bg-slate-100 text-slate-800 {% endif %}">
+                  {{ comision.estado|capitalize if comision.estado else 'Pendiente' }}
+                </span>
+              </td>
+              <td class="p-3 align-top">
+                {{ comision.payment_batch_id or '—' }}
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td class="p-6 text-center text-slate-500" colspan="8">No hay registros que coincidan con los filtros.</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Paginación simple (opcional) -->
+  {% if pagination is defined %}
+    <div class="mt-4 flex items-center justify-between text-sm">
+      <div class="text-slate-500">Mostrando {{ pagination.current_count }} de {{ pagination.total }}</div>
+      <div class="flex gap-2">
+        {% if pagination.prev_url %}
+          <a class="px-3 py-1 rounded-md bg-white border border-slate-200 hover:bg-slate-50" href="{{ pagination.prev_url }}">Anterior</a>
+        {% endif %}
+        {% if pagination.next_url %}
+          <a class="px-3 py-1 rounded-md bg-white border border-slate-200 hover:bg-slate-50" href="{{ pagination.next_url }}">Siguiente</a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
 {% endblock %}
 
 {% block scripts_extra %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // El script existente para manejar la selección y las acciones
-    // no necesita cambios funcionales, solo se asegura de que los IDs
-    // de los botones (btn-aprobar, btn-generar-lote) coincidan.
+  // Seleccionar todo
+  const selTodo = document.getElementById('seleccionar-todo');
+  if (selTodo) {
+    selTodo.addEventListener('change', () => {
+      document.querySelectorAll('.comision-checkbox').forEach(cb => cb.checked = selTodo.checked);
+    });
+  }
+
+  // Exportar con filtros vigentes
+  const exportLinks = document.querySelectorAll('.data-export-btn');
+  exportLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const formato = e.currentTarget.dataset.formato || 'xlsx';
+
+      // Lee filtros del formulario
+      const fd  = document.getElementById('fecha_desde_origen')?.value || '';
+      const fh  = document.getElementById('fecha_hasta_origen')?.value || '';
+      const aid = document.getElementById('asesor_id')?.value || '';
+      const est = document.getElementById('estado')?.value || '';
+      const tip = document.getElementById('tipo')?.value || '';
+
+      const params = new URLSearchParams();
+      if (fd)  params.set('fecha_desde_origen', fd);
+      if (fh)  params.set('fecha_hasta_origen', fh);
+      if (aid) params.set('asesor_id', aid);
+      if (est) params.set('estado', est);
+      if (tip) params.set('tipo', tip);
+
+      const url = `/comisiones/export/${encodeURIComponent(formato)}?` + params.toString();
+      window.location.href = url;
+    });
+  });
 });
 </script>
 {% endblock %}
