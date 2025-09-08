@@ -3459,106 +3459,159 @@ def reporte_proyecciones():
         return redirect(url_for('gestion_administrativa'))
 
     hoy = get_venezuela_current_date()
-    simulacion_realizada = 'fecha_inicio' in request.args
+    simulacion_realizada = ('fecha_inicio' in request.args) or bool(request.args)
 
-    # Tasas recientes
+    # Tasas recientes (último registro)
     tasa_dolar_db, tasa_euro_db = None, None
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT tasa, tasa_euro FROM historial_tasas_bcv ORDER BY fecha DESC LIMIT 1")
-            tasas_recientes = cur.fetchone()
-            if tasas_recientes:
-                tasa_dolar_db = tasas_recientes['tasa']
-                tasa_euro_db = tasas_recientes['tasa_euro']
+            cur.execute("""
+                SELECT tasa, tasa_euro
+                FROM historial_tasas_bcv
+                ORDER BY fecha DESC
+                LIMIT 1
+            """)
+            row = cur.fetchone()
+            if row:
+                tasa_dolar_db = row['tasa']
+                tasa_euro_db  = row['tasa_euro']
     except psycopg2.Error:
         flash("No se pudieron cargar las tasas de cambio automáticamente.", "warning")
 
     # Parámetros del formulario
     try:
-        fecha_inicio_str = request.args.get('fecha_inicio', hoy.strftime('%Y-%m-%d'))
-        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
-        tasa_bcv_dolar_str = request.args.get('tasa_bcv_dolar_inicio') or (f"{tasa_dolar_db:.4f}" if tasa_dolar_db else "")
-        tasa_bcv_euro_str  = request.args.get('tasa_bcv_euro_inicio')  or (f"{tasa_euro_db:.4f}"  if tasa_euro_db  else "")
+        fecha_inicio_str   = request.args.get('fecha_inicio', (hoy.strftime('%Y-%m-%d')))
+        fecha_inicio       = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        tasa_bcv_dolar_str = request.args.get('tasa_bcv_dolar_inicio') or (f"{tasa_dolar_db:.4f}" if tasa_dolar_db is not None else "")
+        tasa_bcv_euro_str  = request.args.get('tasa_bcv_euro_inicio')  or (f"{tasa_euro_db:.4f}"  if tasa_euro_db  is not None else "")
     except (ValueError, InvalidOperation):
-        fecha_inicio = hoy
-        tasa_bcv_dolar_str = f"{tasa_dolar_db:.4f}" if tasa_dolar_db else ""
-        tasa_bcv_euro_str  = f"{tasa_euro_db:.4f}"  if tasa_euro_db  else ""
+        # fallback robusto
+        fecha_inicio = hoy.date() if isinstance(hoy, datetime) else hoy
+        tasa_bcv_dolar_str = f"{tasa_dolar_db:.4f}" if tasa_dolar_db is not None else ""
+        tasa_bcv_euro_str  = f"{tasa_euro_db:.4f}"  if tasa_euro_db  is not None else ""
 
-    # ---- Filtros macro (solo lo que el UI pida) ----
-    empresa      = (request.args.get('empresa')      or '').strip()
-    estado_plan  = (request.args.get('estado_plan')  or '').strip()
-    estatus      = (request.args.get('estatus')      or '').strip()
-    cuota_bucket = (request.args.get('cuota_bucket') or '').strip()
-    excluir_rc   = request.args.get('excluir_rc') == '1'
+    # ---------- Filtros del UI ----------
+    empresa = (request.args.get('empresa') or '').strip()
 
-    where = []
-    params = []
+    # Multi-selección para estado_plan (checkbox + select como respaldo)
+    estados_sel = [e for e in request.args.getlist('estado_plan') if e]
+    estado_single = (request.args.get('estado_plan') or '').strip()
+    if estado_single and estado_single not in estados_sel:
+        estados_sel.append(estado_single)
 
-    # Empresa: ignora espacios y mayúsculas
+    estatus = (request.args.get('estatus') or '').strip()
+
+    # Multi-selección para bloque de cuotas (checkbox + select)
+    buckets_sel = [b for b in request.args.getlist('cuota_bucket') if b]
+    bucket_single = (request.args.get('cuota_bucket') or '').strip()
+    if bucket_single and bucket_single not in buckets_sel:
+        buckets_sel.append(bucket_single)
+
+    excluir_rc = (request.args.get('excluir_rc') == '1')
+
+    # Construcción dinámica del WHERE
+    where, params = [], []
+
     if empresa:
+        # Normaliza "Moto Plan" vs "MOTO PLAN" etc.
         where.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(%s, ' ', ''))")
         params.append(empresa)
 
-    if estado_plan:
-        where.append("c.estado_del_plan = %s")
-        params.append(estado_plan)
+    if estados_sel:
+        where.append("(" + " OR ".join(["c.estado_del_plan = %s"] * len(estados_sel)) + ")")
+        params.extend(estados_sel)
 
     if estatus:
         where.append("c.estatus_cliente = %s")
         params.append(estatus)
 
     if excluir_rc:
-        where.append("(c.estado_del_plan IS DISTINCT FROM 'RETIRO' AND c.estado_del_plan IS DISTINCT FROM 'COMPLETADO')")
+        where.append("(c.estado_del_plan <> 'RETIRO' AND c.estado_del_plan <> 'COMPLETADO')")
 
-    if   cuota_bucket == '1': where.append("c.cuotas_pagadas_progresivas BETWEEN 1  AND 6")
-    elif cuota_bucket == '2': where.append("c.cuotas_pagadas_progresivas BETWEEN 7  AND 12")
-    elif cuota_bucket == '3': where.append("c.cuotas_pagadas_progresivas BETWEEN 13 AND 24")
-    elif cuota_bucket == '4': where.append("c.cuotas_pagadas_progresivas BETWEEN 25 AND 36")
+    if buckets_sel:
+        rangos = []
+        for b in buckets_sel:
+            if b == '1':
+                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 1 AND 6")
+            elif b == '2':
+                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 7 AND 12")
+            elif b == '3':
+                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 13 AND 24")
+            elif b == '4':
+                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 25 AND 36")
+        if rangos:
+            where.append("(" + " OR ".join(rangos) + ")")
 
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
-    # --------- Objeto de respuesta base ---------
+    # --------- Objeto base de respuesta ---------
     proyecciones = {
         'parametros': {
             'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
             'tasa_bcv_dolar_inicio': tasa_bcv_dolar_str,
             'tasa_bcv_euro_inicio':  tasa_bcv_euro_str,
-            'margen_dolar_pct':   Decimal(request.args.get('margen_dolar_pct', '15.0')),
-            'margen_euro_pct':    Decimal(request.args.get('margen_euro_pct',  '15.0')),
-            'margen_binance_pct': Decimal(request.args.get('margen_binance_pct','65.0')),
+            'margen_dolar_pct':   Decimal(request.args.get('margen_dolar_pct',   '15.0')),
+            'margen_euro_pct':    Decimal(request.args.get('margen_euro_pct',    '15.0')),
+            'margen_binance_pct': Decimal(request.args.get('margen_binance_pct', '65.0')),
             'devaluacion_ponderada_bcv': None,
             'devaluacion_ponderada_total': None
         },
-        'simulacion_exitosa': False, 'mensaje_error': None,
-        'ingresos': { 'clientes_activos': 0, 'base_mensual': Decimal('0.0'), 'tasa_pago_historica_pct': Decimal('100.0'), 'ingreso_mensual_proyectado': Decimal('0.0') },
-        'egresos':  { 'promedio_gastos_fijos': Decimal('0.0'), 'gasto_proyectado_primer_mes': Decimal('0.0') },
-        'resumen':  { 'ingresos_totales_proyectados': Decimal('0.0'), 'ingreso_real_acumulado': Decimal('0.0'), 'gastos_totales_proyectados': Decimal('0.0'), 'balance_neto_proyectado': Decimal('0.0') },
-        'kpis':     { 'margen_maniobra_pct': Decimal('0.0'), 'perdida_devaluacion_usd': Decimal('0.0'), 'margen_color': 'bg-gray-500', 'progreso_ingreso_pct': 0 },
-        'gestion_cobranza': { 'USD': {'clientes': 0, 'monto': Decimal('0.0')}, 'BsBCV': {'clientes': 0, 'monto': Decimal('0.0')}, 'EuroBCV': {'clientes': 0, 'monto': Decimal('0.0')}, 'USDT': {'clientes': 0, 'monto': Decimal('0.0')} }
+        'simulacion_exitosa': False,
+        'mensaje_error': None,
+        'ingresos': {
+            'clientes_activos': 0,
+            'base_mensual': Decimal('0.0'),
+            'tasa_pago_historica_pct': Decimal('100.0'),
+            'ingreso_mensual_proyectado': Decimal('0.0')
+        },
+        'egresos': {
+            'promedio_gastos_fijos': Decimal('0.0'),
+            'gasto_proyectado_primer_mes': Decimal('0.0')
+        },
+        'resumen': {
+            'ingresos_totales_proyectados': Decimal('0.0'),
+            'ingreso_real_acumulado': Decimal('0.0'),
+            'gastos_totales_proyectados': Decimal('0.0'),
+            'balance_neto_proyectado': Decimal('0.0')
+        },
+        'kpis': {
+            'margen_maniobra_pct': Decimal('0.0'),
+            'perdida_devaluacion_usd': Decimal('0.0'),
+            'margen_color': 'bg-gray-500',
+            'progreso_ingreso_pct': 0
+        },
+        'gestion_cobranza': {
+            'USD': {'clientes': 0, 'monto': Decimal('0.0')},
+            'BsBCV': {'clientes': 0, 'monto': Decimal('0.0')},
+            'EuroBCV': {'clientes': 0, 'monto': Decimal('0.0')},
+            'USDT': {'clientes': 0, 'monto': Decimal('0.0')}
+        }
     }
 
+    # ============= Cálculos de la simulación =============
     if simulacion_realizada:
         try:
             with conn.cursor() as cur:
-                # Ingresos base — respeta SOLO los filtros del UI
+                # Ingresos base según filtros aplicados
                 cur.execute(f"""
-                    SELECT COUNT(*) AS clientes_activos,
-                           COALESCE(SUM(c.valor_cuota), 0) AS base_mensual
+                    SELECT
+                        COUNT(*) AS clientes_activos,
+                        COALESCE(SUM(c.valor_cuota), 0) AS base_mensual
                     FROM clientes c
                     {where_sql if where_sql else "WHERE TRUE"}
                 """, params)
-                ingresos_data = cur.fetchone() or {}
-                proyecciones['ingresos'].update(ingresos_data or {})
+                base = cur.fetchone() or {}
+                proyecciones['ingresos'].update(base or {})
                 ingreso_proyectado = proyecciones['ingresos'].get('base_mensual', Decimal('0.0')) or Decimal('0.0')
                 proyecciones['ingresos']['ingreso_mensual_proyectado'] = ingreso_proyectado
 
-                # Ingreso real a la fecha (tu helper)
+                # Ingreso real acumulado (helper existente)
                 ingreso_real = calcular_ingreso_real_acumulado(fecha_inicio)
                 proyecciones['resumen']['ingreso_real_acumulado'] = ingreso_real
-                if ingreso_proyectado and ingreso_proyectado > 0:
+                if ingreso_proyectado > 0:
                     proyecciones['kpis']['progreso_ingreso_pct'] = float(min((ingreso_real / ingreso_proyectado) * 100, Decimal('100')))
 
-                # Gastos fijos promedio
+                # Gastos fijos activos
                 cur.execute("""
                     SELECT COALESCE(SUM(monto), 0)
                     FROM egresos_planificados
@@ -3567,25 +3620,28 @@ def reporte_proyecciones():
                 gastos_fijos = cur.fetchone()[0] or Decimal('0.0')
                 proyecciones['egresos']['promedio_gastos_fijos'] = gastos_fijos
 
-                # Variables/devoluciones (30 días desde fecha_inicio)
+                # Gastos variables/devoluciones (ventana 30 días)
                 fecha_fin_primer_mes = fecha_inicio + timedelta(days=30)
                 cur.execute("""
-                    SELECT metodo_pago_referencia, COALESCE(SUM(monto), 0) as total 
-                    FROM egresos_planificados 
-                    WHERE tipo_egreso IN ('Variable', 'Devolución')
+                    SELECT metodo_pago_referencia, COALESCE(SUM(monto), 0) AS total
+                    FROM egresos_planificados
+                    WHERE tipo_egreso IN ('Variable','Devolución')
                       AND estado = 'Activo'
                       AND fecha_pago_programada BETWEEN %s AND %s
                     GROUP BY metodo_pago_referencia
                 """, (fecha_inicio, fecha_fin_primer_mes))
-                gastos_variables_por_metodo = {row['metodo_pago_referencia']: row['total'] for row in cur.fetchall()}
-                gastos_variables_total = sum(gastos_variables_por_metodo.values()) if gastos_variables_por_metodo else Decimal('0.0')
+                var_por_metodo = {r['metodo_pago_referencia']: r['total'] for r in cur.fetchall()}
+                gastos_variables_total = sum(var_por_metodo.values()) if var_por_metodo else Decimal('0.0')
                 gasto_proyectado = gastos_fijos + gastos_variables_total
                 proyecciones['egresos']['gasto_proyectado_primer_mes'] = gasto_proyectado
 
-                # Mapa de monedas
-                moneda_map = {'USD': 'USD', 'BsBCV': 'BsBCV', 'BCV': 'BsBCV', 'EURO': 'EuroBCV', 'USDT': 'USDT', 'NEQUI': 'USDT'}
-
-                # Cobranza por moneda — respeta SOLO los filtros del UI
+                # Distribución de cobranza por moneda (respetando filtros)
+                moneda_map = {
+                    'USD': 'USD',
+                    'BsBCV': 'BsBCV', 'BCV': 'BsBCV',
+                    'EURO': 'EuroBCV',
+                    'USDT': 'USDT', 'NEQUI': 'USDT'
+                }
                 cur.execute(f"""
                     SELECT c.moneda_pago,
                            COUNT(c.id) AS total_clientes,
@@ -3594,66 +3650,70 @@ def reporte_proyecciones():
                     {where_sql if where_sql else "WHERE TRUE"}
                     GROUP BY c.moneda_pago
                 """, params)
-                for row in cur.fetchall():
-                    clave_proyeccion = moneda_map.get(row['moneda_pago'])
-                    if clave_proyeccion:
-                        proyecciones['gestion_cobranza'][clave_proyeccion]['clientes'] += row['total_clientes']
-                        proyecciones['gestion_cobranza'][clave_proyeccion]['monto']    += row['monto_total']
+                for r in cur.fetchall():
+                    clave = moneda_map.get(r['moneda_pago'])
+                    if clave:
+                        proyecciones['gestion_cobranza'][clave]['clientes'] += r['total_clientes']
+                        proyecciones['gestion_cobranza'][clave]['monto']    += r['monto_total']
 
-                # Pérdidas por devaluación / transaccionales
-                margen_dolar_pct   = proyecciones['parametros']['margen_dolar_pct']
-                margen_euro_pct    = proyecciones['parametros']['margen_euro_pct']
-                margen_binance_pct = proyecciones['parametros']['margen_binance_pct']
+                # Pérdidas por devaluación/transacción
+                margen_dolar   = proyecciones['parametros']['margen_dolar_pct']
+                margen_euro    = proyecciones['parametros']['margen_euro_pct']
+                margen_binance = proyecciones['parametros']['margen_binance_pct']
 
-                gastos_dolar   = gastos_variables_por_metodo.get('Zelle',        Decimal('0.0'))
-                gastos_euro    = gastos_variables_por_metodo.get('Efectivo EUR', Decimal('0.0'))
-                gastos_binance = gastos_variables_por_metodo.get('Binance',      Decimal('0.0'))
+                g_zelle   = var_por_metodo.get('Zelle',        Decimal('0.0'))
+                g_eur     = var_por_metodo.get('Efectivo EUR', Decimal('0.0'))
+                g_binance = var_por_metodo.get('Binance',      Decimal('0.0'))
 
-                total_gastos_bcv = gastos_dolar + gastos_euro
+                total_bcv = g_zelle + g_eur
                 ponderado_bcv = Decimal('0.0')
-                if total_gastos_bcv > 0:
-                    ponderado_bcv = ((gastos_dolar * margen_dolar_pct) + (gastos_euro * margen_euro_pct)) / total_gastos_bcv
+                if total_bcv > 0:
+                    ponderado_bcv = ((g_zelle * margen_dolar) + (g_eur * margen_euro)) / total_bcv
                 proyecciones['parametros']['devaluacion_ponderada_bcv'] = ponderado_bcv
 
                 perdida_devaluacion_caja = Decimal('0.0')
                 valor_usd_inicial_bs = Decimal('0.0')
                 if tasa_bcv_dolar_str:
-                    tasa_bcv_inicio = Decimal(tasa_bcv_dolar_str)
-                    if tasa_bcv_inicio > 0:
-                        balances_caja = calcular_balances_tesoreria()
-                        saldo_bs = balances_caja.get('CAJA_BS_TOTAL', Decimal('0.0'))
-                        valor_usd_inicial_bs = saldo_bs / tasa_bcv_inicio if tasa_bcv_inicio > 0 else Decimal('0.0')
-                        tasa_bcv_final = tasa_bcv_inicio * (1 + (ponderado_bcv / 100))
-                        valor_usd_final = saldo_bs / tasa_bcv_final if tasa_bcv_final > 0 else Decimal('0.0')
+                    t_ini = Decimal(tasa_bcv_dolar_str)
+                    if t_ini > 0:
+                        balances = calcular_balances_tesoreria()  # devuelve dict con 'CAJA_BS_TOTAL', etc.
+                        saldo_bs = balances.get('CAJA_BS_TOTAL', Decimal('0.0'))
+                        valor_usd_inicial_bs = (saldo_bs / t_ini) if t_ini > 0 else Decimal('0.0')
+                        t_fin = t_ini * (1 + (ponderado_bcv / 100))
+                        valor_usd_final = (saldo_bs / t_fin) if t_fin > 0 else Decimal('0.0')
                         perdida_devaluacion_caja = valor_usd_inicial_bs - valor_usd_final
 
-                perdida_transaccional_binance = gastos_binance * (margen_binance_pct / 100)
-                perdida_total_proyectada = perdida_devaluacion_caja + perdida_transaccional_binance
-                proyecciones['kpis']['perdida_devaluacion_usd'] = perdida_total_proyectada
+                perdida_transaccional_binance = g_binance * (margen_binance / 100)
+                perdida_total = perdida_devaluacion_caja + perdida_transaccional_binance
+                proyecciones['kpis']['perdida_devaluacion_usd'] = perdida_total
 
                 if valor_usd_inicial_bs > 0:
-                    ponderado_total = (perdida_total_proyectada / valor_usd_inicial_bs) * 100
-                    proyecciones['parametros']['devaluacion_ponderada_total'] = ponderado_total
+                    proyecciones['parametros']['devaluacion_ponderada_total'] = (perdida_total / valor_usd_inicial_bs) * 100
 
                 # Resumen y KPIs
                 proyecciones['simulacion_exitosa'] = True
                 proyecciones['resumen']['ingresos_totales_proyectados'] = ingreso_proyectado
                 proyecciones['resumen']['gastos_totales_proyectados']   = gasto_proyectado
-                balance_neto_proyectado = ingreso_proyectado - gasto_proyectado - perdida_total_proyectada
-                proyecciones['resumen']['balance_neto_proyectado']      = balance_neto_proyectado
+                balance_neto = ingreso_proyectado - gasto_proyectado - perdida_total
+                proyecciones['resumen']['balance_neto_proyectado']      = balance_neto
 
-                if ingreso_proyectado and ingreso_proyectado > 0:
-                    margen = (balance_neto_proyectado / ingreso_proyectado) * 100
+                if ingreso_proyectado > 0:
+                    margen = (balance_neto / ingreso_proyectado) * 100
                     proyecciones['kpis']['margen_maniobra_pct'] = margen
-                    proyecciones['kpis']['margen_color'] = 'bg-green-500' if margen > 30 else ('bg-yellow-500' if margen > 10 else 'bg-red-500')
+                    proyecciones['kpis']['margen_color'] = (
+                        'bg-green-500' if margen > 30
+                        else ('bg-yellow-500' if margen > 10 else 'bg-red-500')
+                    )
 
         except (psycopg2.Error, InvalidOperation, TypeError) as e:
             proyecciones['mensaje_error'] = f"Error al calcular la proyección: {e}"
-            logging.error(f"Error en reporte_proyecciones: {traceback.format_exc()}")
+            logging.error(f"Error en reporte_proyecciones:\n{traceback.format_exc()}")
 
-    return render_template('reporte_proyecciones.html',
-                           proyecciones=proyecciones,
-                           simulacion_realizada=simulacion_realizada)
+    return render_template(
+        'reporte_proyecciones.html',
+        proyecciones=proyecciones,
+        simulacion_realizada=simulacion_realizada
+    )
 
 # =========================
 # EXPORTAR PROYECCIONES (placeholder)
@@ -3767,6 +3827,7 @@ def desactivar_proyeccion(proyeccion_id):
         flash(f"Error al desactivar la proyección: {e}", "danger")
 
     return redirect(url_for('proyecciones_guardadas'))
+    
 # ====== FIN: NUEVAS RUTAS PARA GESTIÓN DE PROYECCIONES =====
 # =================================================================================
 # --- GESTIÓN DE CLIENTES Y PAGOS ---
