@@ -3186,7 +3186,7 @@ def gestion_egresos():
     try:
         with conn.cursor() as cur:
             # Cambio aquí: Cargar solo clientes con estatus de RETIRO
-            cur.execute("SELECT id, nombre, apellido FROM clientes WHERE estatus = 'RETIRO' ORDER BY nombre, apellido")
+            cur.execute("SELECT id, nombre, apellido FROM clientes WHERE estatus_cliente = 'RETIRO' ORDER BY nombre, apellido")
             clientes_raw = cur.fetchall()
             clientes_retiro = [{'id': c['id'], 'nombre_completo': f"{c['nombre']} {c['apellido']}"} for c in clientes_raw]
             
