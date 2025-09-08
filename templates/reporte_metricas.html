@@ -104,18 +104,18 @@
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-5">
         <a href="{{ url_for('consulta') }}?estatus=ACTIVO" class="group rounded-lg p-4 text-center bg-slate-50 border border-slate-200 transition-all duration-300 ease-in-out hover:border-emerald-500 hover:shadow-md hover:scale-105">
-          <p class="text-sm whitespace-nowrap text-slate-500 font-semibold group-hover:text-emerald-600">Activos</p>
+          <p class="text-xs whitespace-nowrap text-slate-500 font-semibold group-hover:text-emerald-600">Activos</p>
           <p class="mt-1 text-4xl font-black text-emerald-600">{{ metrics.clientes_activos }}</p>
         </a>
         {% for estado, total in metrics.estados_del_plan.items()|sort %}
           {% set destino = url_for('consulta') + '?estado=' + (estado|upper) %}
           <a href="{{ destino }}" class="group rounded-lg p-4 text-center bg-slate-50 border border-slate-200 transition-all duration-300 ease-in-out hover:border-slate-800 hover:shadow-md hover:scale-105">
-            <p class="text-sm whitespace-nowrap text-slate-500 font-semibold group-hover:text-slate-900">{{ estado|replace('_', ' ')|capitalize }}</p>
+            <p class="text-xs whitespace-nowrap text-slate-500 font-semibold group-hover:text-slate-900">{{ estado|replace('_', ' ')|capitalize }}</p>
             <p class="mt-1 text-4xl font-black text-slate-900">{{ total }}</p>
           </a>
         {% endfor %}
         <a href="{{ url_for('consulta') }}?estatus=INACTIVO" class="group rounded-lg p-4 text-center bg-slate-50 border border-slate-200 transition-all duration-300 ease-in-out hover:border-gray-500 hover:shadow-md hover:scale-105">
-          <p class="text-sm whitespace-nowrap text-slate-500 font-semibold group-hover:text-gray-600">Inactivos</p>
+          <p class="text-xs whitespace-nowrap text-slate-500 font-semibold group-hover:text-gray-600">Inactivos</p>
           <p class="mt-1 text-4xl font-black text-slate-500 group-hover:text-gray-600">{{ metrics.clientes_inactivos }}</p>
         </a>
       </div>
@@ -132,7 +132,7 @@
           {% set cond = metrics.composicion_condicion['labels'][i] %}
           {% set cant = metrics.composicion_condicion['values'][i] %}
           <a href="{{ url_for('consulta') }}?condicion={{ cond|upper }}" class="group rounded-lg p-4 text-center bg-slate-50 border border-slate-200 transition-all duration-300 ease-in-out hover:border-sky-500 hover:shadow-md hover:scale-105">
-            <p class="text-sm whitespace-nowrap text-slate-500 font-semibold group-hover:text-sky-600">{{ cond }}</p>
+            <p class="text-xs whitespace-nowrap text-slate-500 font-semibold group-hover:text-sky-600">{{ cond }}</p>
             <p class="mt-1 text-4xl font-black text-sky-600">{{ cant }}</p>
           </a>
         {% endfor %}
