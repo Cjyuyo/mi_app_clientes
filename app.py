@@ -2911,6 +2911,146 @@ def reporte_metricas():
         anio_actual=get_venezuela_current_date().year,
         metrics=dashboard_metrics
     )
+@app.route('/reporte_flujo_caja', methods=['GET', 'POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def reporte_flujo_caja():
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", "error")
+        hoy = get_venezuela_current_date().date()
+        return render_template(
+            'reporte_flujo_caja.html',
+            fecha_reporte=hoy.isoformat(),
+            tasas_del_dia=SimpleNamespace(usd=0.0, eur=0.0),
+            comparativa_proyeccion=None,
+            resumen=_resumen_vacio(),
+            historial=[]
+        )
+
+    # Fecha seleccionada o hoy
+    hoy_dt = get_venezuela_current_date()
+    if request.method == 'POST':
+        raw = (request.form.get('fecha_reporte') or '').strip()
+    else:
+        raw = (request.args.get('fecha_reporte') or '').strip()
+    try:
+        fecha_reporte = datetime.strptime(raw, "%Y-%m-%d").date() if raw else hoy_dt.date()
+    except Exception:
+        fecha_reporte = hoy_dt.date()
+
+    primer_dia, ultimo_dia = _first_last_day(datetime(fecha_reporte.year, fecha_reporte.month, 1))
+
+    try:
+        # Tasas al día (o última previa)
+        tasas_del_dia = _fetch_tasas_bcv_al_dia(conn, fecha_reporte)
+
+        # ===== Proyecciones enlazadas (igual que "Métricas"): MOTO PLAN + CYK =====
+        # Proyectado del mes (completo) por empresa
+        datos_empresas, resumen_mes = _proyeccion_por_empresa(conn, primer_dia, ultimo_dia)
+
+        # Real a la fecha (desde el 1 del mes hasta fecha_reporte)
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT COALESCE(SUM(p.monto), 0) AS real_a_fecha
+                FROM pagos p
+                WHERE p.estado_pago = 'Conciliado'
+                  AND p.fecha_pago BETWEEN %s AND %s
+            """, (primer_dia, fecha_reporte))
+            real_a_fecha = float((cur.fetchone() or [0])[0] or 0.0)
+
+        ingreso_proyectado_mes = float(resumen_mes['proyectado_mes'])
+        # Modelo simple de devaluación: “pérdida” sobre la caja en Bs (si la tuvieras);
+        # si aún no integras tus saldos de caja en Bs aquí, lo dejamos a 0.0 para no romper.
+        caja_bs_total = 0.0
+
+        # Riesgo devaluación proyectada del mes (ejemplo simple)
+        RIESGO_MENSUAL = 0.02  # 2% referencial; ajusta a tu modelo
+        devaluacion_proyectada_mes = (caja_bs_total / (tasas_del_dia.usd or 1)) * RIESGO_MENSUAL
+
+        # Devaluación real proporcional al avance del mes
+        dias_del_mes = monthrange(fecha_reporte.year, fecha_reporte.month)[1]
+        dias_transcurridos = fecha_reporte.day
+        factor = dias_transcurridos / dias_del_mes
+        devaluacion_real_a_fecha = devaluacion_proyectada_mes * factor
+
+        comparativa_proyeccion = SimpleNamespace(
+            ingreso_proyectado_mes=round(ingreso_proyectado_mes, 2),
+            ingreso_real_a_fecha=round(real_a_fecha, 2),
+            devaluacion_proyectada_mes=round(devaluacion_proyectada_mes, 2),
+            devaluacion_real_a_fecha=round(devaluacion_real_a_fecha, 2)
+        )
+
+        # ===== Resumen de balances (placeholders seguros; integra tus fuentes reales cuando gustes) =====
+        resumen = _resumen_vacio()
+        # Si ya tienes tus saldos (EFECTIVO_USD, BINANCE_USDT, caja en Bs, etc.) en una tabla,
+        # consulta aquí y llénalos. Mientras, mostramos 0s para no romper la UI.
+
+        # ===== Historial de movimientos del día (best-effort) =====
+        historial = []
+        try:
+            with conn.cursor() as cur:
+                # Ajusta nombres de columnas según tu tabla real de tesorería
+                cur.execute("""
+                    SELECT 
+                        COALESCE(timestamp, fecha_creacion, NOW()) AS ts,
+                        COALESCE(tipo_operacion, concepto, 'operacion') AS tipo_operacion,
+                        detalle,
+                        monto_ingreso, moneda_ingreso,
+                        monto_egreso, moneda_egreso,
+                        usuario
+                    FROM operaciones_tesoreria
+                    WHERE DATE(COALESCE(timestamp, fecha_creacion, NOW())) = %s
+                    ORDER BY ts DESC
+                """, (fecha_reporte,))
+                for r in cur.fetchall():
+                    historial.append(SimpleNamespace(
+                        timestamp=r['ts'],
+                        tipo_operacion=r['tipo_operacion'],
+                        detalle=r.get('detalle') if isinstance(r, dict) else getattr(r, 'detalle', ''),
+                        monto_ingreso=float(r.get('monto_ingreso', 0) if isinstance(r, dict) else getattr(r, 'monto_ingreso', 0) or 0),
+                        moneda_ingreso=(r.get('moneda_ingreso') if isinstance(r, dict) else getattr(r, 'moneda_ingreso', None)) or '',
+                        monto_egreso=float(r.get('monto_egreso', 0) if isinstance(r, dict) else getattr(r, 'monto_egreso', 0) or 0),
+                        moneda_egreso=(r.get('moneda_egreso') if isinstance(r, dict) else getattr(r, 'moneda_egreso', None)) or '',
+                        usuario=(r.get('usuario') if isinstance(r, dict) else getattr(r, 'usuario', '')) or ''
+                    ))
+        except Exception:
+            # Si la tabla/columnas no coinciden, no rompemos la página.
+            historial = []
+
+        return render_template(
+            'reporte_flujo_caja.html',
+            fecha_reporte=fecha_reporte.isoformat(),
+            tasas_del_dia=tasas_del_dia,
+            comparativa_proyeccion=comparativa_proyeccion,
+            resumen=resumen,
+            historial=historial
+        )
+
+    except Exception as e:
+        logging.error(f"Error en reporte_flujo_caja: {traceback.format_exc()}")
+        flash(f"No se pudo generar el flujo de caja: {e}", "error")
+        return render_template(
+            'reporte_flujo_caja.html',
+            fecha_reporte=fecha_reporte.isoformat(),
+            tasas_del_dia=SimpleNamespace(usd=0.0, eur=0.0),
+            comparativa_proyeccion=None,
+            resumen=_resumen_vacio(),
+            historial=[]
+        )
+
+def _resumen_vacio():
+    return {
+        'balance_general_consolidado_usd': 0.0,
+        'EFECTIVO_USD': 0.0,
+        'BINANCE_USDT': 0.0,
+        'CAJA_BS_USD': 0.0,     # mostrado en tu card como "Caja Bs (USD Ref)" (texto viene de plantilla)
+        'CAJA_BS_EUR': 0.0,     # "Caja Bs (EUR Ref)"
+        'balance_bs_consolidado_bs': 0.0,
+        'balance_bs_consolidado_usd': 0.0,
+        'acumulado_perdida_devaluacion': 0.0,
+        'acumulado_perdida_conversion': 0.0
+    }
 
 # =================================================================================
 # ===== FIN: MÓDULO DE MÉTRICAS RECONSTRUIDO (V1) =====
@@ -2995,6 +3135,107 @@ def reporte_morosidad():
                            mes_actual=get_nombre_mes(today.month), 
                            anio_actual=today.year, 
                            resumen=resumen)
+
+TOLERANCIA_INFERIOR = 0.92
+TOLERANCIA_SUPERIOR = 1.05
+
+def _first_last_day(dt: datetime):
+    first = dt.replace(day=1)
+    _, days = monthrange(dt.year, dt.month)
+    last = dt.replace(day=days)
+    return first, last
+
+def _fetch_tasas_bcv_al_dia(conn, dia):
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT usd, eur
+                FROM historial_tasas_bcv
+                WHERE fecha::date <= %s
+                ORDER BY fecha DESC
+                LIMIT 1
+            """, (dia,))
+            row = cur.fetchone()
+            if row:
+                usd = float(row['usd']) if row['usd'] is not None else 0.0
+                eur = float(row['eur']) if row['eur'] is not None else 0.0
+                return SimpleNamespace(usd=usd, eur=eur)
+    except Exception:
+        pass
+    return SimpleNamespace(usd=0.0, eur=0.0)
+
+def _proyeccion_por_empresa(conn, first_day, last_day):
+    datos = {}
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT 
+                COALESCE(NULLIF(TRIM(empresa), ''), 'SIN EMPRESA') AS empresa,
+                COUNT(*) AS activos_ahorradores,
+                COALESCE(SUM(COALESCE(valor_cuota,0)), 0) AS proyectado_mes
+            FROM clientes
+            WHERE TRIM(UPPER(estado_del_plan)) = 'AHORRADOR'
+              AND TRIM(UPPER(estatus_cliente)) IN ('ACTIVO','ACTIVOS')
+            GROUP BY COALESCE(NULLIF(TRIM(empresa), ''), 'SIN EMPRESA')
+            ORDER BY 1
+        """)
+        for r in cur.fetchall():
+            emp = r['empresa']
+            datos[emp] = {
+                'empresa': emp,
+                'activos_ahorradores': int(r['activos_ahorradores'] or 0),
+                'proyectado_mes': float(r['proyectado_mes'] or 0.0),
+                'real_conciliado': 0.0,
+                'cumplimiento': 0.0,
+                'brecha': 0.0,
+                'dentro_tolerancia': True
+            }
+
+        cur.execute("""
+            SELECT 
+                COALESCE(NULLIF(TRIM(c.empresa), ''), 'SIN EMPRESA') AS empresa,
+                COALESCE(SUM(p.monto), 0) AS real_conciliado
+            FROM pagos p
+            JOIN clientes c ON c.id = p.cliente_id
+            WHERE p.estado_pago = 'Conciliado'
+              AND p.fecha_pago BETWEEN %s AND %s
+            GROUP BY COALESCE(NULLIF(TRIM(c.empresa), ''), 'SIN EMPRESA')
+        """, (first_day, last_day))
+        for r in cur.fetchall():
+            emp = r['empresa']
+            if emp not in datos:
+                datos[emp] = {
+                    'empresa': emp,
+                    'activos_ahorradores': 0,
+                    'proyectado_mes': 0.0,
+                    'real_conciliado': float(r['real_conciliado'] or 0.0),
+                    'cumplimiento': 0.0,
+                    'brecha': 0.0,
+                    'dentro_tolerancia': True
+                }
+            else:
+                datos[emp]['real_conciliado'] = float(r['real_conciliado'] or 0.0)
+
+    for d in datos.values():
+        objetivo = d['proyectado_mes']
+        real = d['real_conciliado']
+        d['cumplimiento'] = round((real / objetivo) * 100, 2) if objetivo > 0 else (100.0 if real == 0 else 0.0)
+        d['brecha'] = round(real - objetivo, 2)
+        if objetivo > 0:
+            inf = objetivo * TOLERANCIA_INFERIOR
+            sup = objetivo * TOLERANCIA_SUPERIOR
+            d['dentro_tolerancia'] = (real >= inf) and (real <= sup)
+        else:
+            d['dentro_tolerancia'] = True
+
+    total_proy = sum(d['proyectado_mes'] for d in datos.values())
+    total_real = sum(d['real_conciliado'] for d in datos.values())
+    resumen = {
+        'proyectado_mes': total_proy,
+        'real_conciliado': total_real,
+        'cumplimiento': round((total_real / total_proy) * 100, 2) if total_proy > 0 else (100.0 if total_real == 0 else 0.0),
+        'brecha': round(total_real - total_proy, 2)
+    }
+    return datos, resumen                       
 
 @app.route('/asignar_gestor/<int:cliente_id>', methods=['POST'])
 @admin_required
