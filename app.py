@@ -2930,15 +2930,23 @@ def reporte_flujo_caja():
         )
 
     # Fecha seleccionada o hoy
+        # Fecha seleccionada o hoy
     hoy_dt = get_venezuela_current_date()
+    # Normaliza: puede venir como datetime o date
+    if isinstance(hoy_dt, datetime):
+        hoy_date = hoy_dt.date()
+    else:
+        hoy_date = hoy_dt
+
     if request.method == 'POST':
         raw = (request.form.get('fecha_reporte') or '').strip()
     else:
         raw = (request.args.get('fecha_reporte') or '').strip()
+
     try:
-        fecha_reporte = datetime.strptime(raw, "%Y-%m-%d").date() if raw else hoy_dt.date()
+        fecha_reporte = datetime.strptime(raw, "%Y-%m-%d").date() if raw else hoy_date
     except Exception:
-        fecha_reporte = hoy_dt.date()
+        fecha_reporte = hoy_date
 
     primer_dia, ultimo_dia = _first_last_day(datetime(fecha_reporte.year, fecha_reporte.month, 1))
 
