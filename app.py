@@ -2931,7 +2931,6 @@ def reporte_flujo_caja():
         )
 
     # Fecha seleccionada o hoy
-        # Fecha seleccionada o hoy
     hoy_dt = get_venezuela_current_date()
     # Normaliza: puede venir como datetime o date
     if isinstance(hoy_dt, datetime):
@@ -2951,101 +2950,6 @@ def reporte_flujo_caja():
 
     primer_dia, ultimo_dia = _first_last_day(datetime(fecha_reporte.year, fecha_reporte.month, 1))
 
-# --- Filtros para Proyecciones ---
-
-def _parse_multi_arg(args, key):
-    """Lee ?key=A&key=B&key=C devolviendo lista normalizada (upper/strip)."""
-    vals = args.getlist(key)
-    out = []
-    for v in vals:
-        v = (v or '').strip()
-        if v:
-            out.append(v.upper())
-    return out
-
-_RETIRO_SET = {'RETIRO', 'RETIRADO', 'RETIRADA', 'RETIRADOS', 'COMPLETADO', 'COMPLETADA', 'COMPLETADOS'}
-
-def _cuota_bucket_to_range(bucket):
-    """
-    bucket: int o str. 
-    1 => 1-6, 2 => 7-12, 3 => 13-18, etc.
-    """
-    try:
-        b = int(bucket)
-        if b <= 0:
-            return None
-        start = (b - 1) * 6 + 1
-        end = b * 6
-        return (start, end)
-    except Exception:
-        return None
-
-def _build_clientes_filters(args):
-    """
-    Construye WHERE/params para filtrar CLIENTES, excluyendo por defecto retiros/completados.
-    Soporta:
-      - estado_plan[]=AHORRADOR&estado_plan[]=ADJUDICADO ...
-      - estatus[]=ACTIVO&estatus[]=INACTIVO ...
-      - cuota_bucket=1 (1–6), 2 (7–12), ... O bien cuota_min / cuota_max personalizados
-      - empresa[]=MOTO PLAN&empresa[]=CYK (si no viene, se asume ambas)
-    """
-    where = []
-    params = []
-
-    # Excluir retiros/completados SIEMPRE
-    where.append("COALESCE(TRIM(UPPER(estatus_cliente)), '') NOT IN %s")
-    params.append(tuple(_RETIRO_SET))
-    where.append("COALESCE(TRIM(UPPER(estado_del_plan)), '') NOT IN %s")
-    params.append(tuple(_RETIRO_SET))
-
-    # Filtro por estado_del_plan (multi)
-    estados_plan = _parse_multi_arg(args, 'estado_plan')
-    if estados_plan:
-        where.append("TRIM(UPPER(estado_del_plan)) = ANY(%s)")
-        params.append(estados_plan)
-
-    # Filtro por estatus_cliente (multi)
-    estatus = _parse_multi_arg(args, 'estatus')
-    if estatus:
-        where.append("TRIM(UPPER(estatus_cliente)) = ANY(%s)")
-        params.append(estatus)
-
-    # Filtro por empresa (multi). Si no llega: usar ambas (MOTO PLAN, CYK) de forma implícita
-    empresas = _parse_multi_arg(args, 'empresa')
-    if empresas:
-        where.append("TRIM(UPPER(empresa)) = ANY(%s)")
-        params.append(empresas)
-    else:
-        # Si deseas forzar explícitamente ambas empresas cuando no llega filtro:
-        where.append("TRIM(UPPER(empresa)) IN %s")
-        params.append(tuple(['MOTO PLAN', 'CYK']))
-
-    # Bloques 6-en-6 por cuotas_totales (o personalizados)
-    bucket = (args.get('cuota_bucket') or '').strip()
-    cmin = (args.get('cuota_min') or '').strip()
-    cmax = (args.get('cuota_max') or '').strip()
-
-    if bucket:
-        rng = _cuota_bucket_to_range(bucket)
-        if rng:
-            where.append("COALESCE(cuotas_totales, 0) BETWEEN %s AND %s")
-            params.extend([rng[0], rng[1]])
-    else:
-        # Rango personalizado si viene alguno
-        try:
-            if cmin:
-                where.append("COALESCE(cuotas_totales, 0) >= %s")
-                params.append(int(cmin))
-            if cmax:
-                where.append("COALESCE(cuotas_totales, 0) <= %s")
-                params.append(int(cmax))
-        except Exception:
-            pass
-
-    sql = " AND ".join(where) if where else "TRUE"
-    return sql, params
-
-    try:
     # Tasas al día (o última previa)
     tasas_del_dia = _fetch_tasas_bcv_al_dia(conn, fecha_reporte)
 
@@ -3088,27 +2992,41 @@ def _build_clientes_filters(args):
     factor = dias_transcurridos / dias_del_mes
     devaluacion_real_a_fecha = devaluacion_proyectada_mes * factor
 
+    # Comparativa proyectado vs. real
+    proyeccion_restante = max(ingreso_proyectado_mes - real_a_fecha, 0.0)
     comparativa_proyeccion = SimpleNamespace(
-        ingreso_proyectado_mes=round(ingreso_proyectado_mes, 2),
-        ingreso_real_a_fecha=round(real_a_fecha, 2),
-        devaluacion_proyectada_mes=round(devaluacion_proyectada_mes, 2),
-        devaluacion_real_a_fecha=round(devaluacion_real_a_fecha, 2)
+        proyectado_mes=ingreso_proyectado_mes,
+        real_a_fecha=real_a_fecha,
+        proyeccion_restante=proyeccion_restante,
+        devaluacion_proyectada_mes=devaluacion_proyectada_mes,
+        devaluacion_real_a_fecha=devaluacion_real_a_fecha
     )
 
-    # Resumen de balances (placeholder; integra tu fuente real cuando quieras)
-    resumen = _resumen_vacio()
+    # Resumen para la vista
+    avance_pct = (real_a_fecha / ingreso_proyectado_mes * 100.0) if ingreso_proyectado_mes > 0 else 0.0
+    restante_pct = (proyeccion_restante / ingreso_proyectado_mes * 100.0) if ingreso_proyectado_mes > 0 else 0.0
+    resumen = SimpleNamespace(
+        proyectado_mes=ingreso_proyectado_mes,
+        real_a_fecha=real_a_fecha,
+        avance_pct=avance_pct,
+        restante_pct=restante_pct,
+        tasa_usd=tasas_del_dia.usd,
+        tasa_eur=tasas_del_dia.eur
+    )
 
-    # Historial de movimientos del día (best-effort)
+    # Historial del día desde operaciones_tesoreria (defensivo)
     historial = []
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT 
+                SELECT
                     COALESCE(timestamp, fecha_creacion, NOW()) AS ts,
-                    COALESCE(tipo_operacion, concepto, 'operacion') AS tipo_operacion,
+                    tipo_operacion,
                     detalle,
-                    monto_ingreso, moneda_ingreso,
-                    monto_egreso, moneda_egreso,
+                    monto_ingreso,
+                    moneda_ingreso,
+                    monto_egreso,
+                    moneda_egreso,
                     usuario
                 FROM operaciones_tesoreria
                 WHERE DATE(COALESCE(timestamp, fecha_creacion, NOW())) = %s
@@ -3139,17 +3057,6 @@ def _build_clientes_filters(args):
         historial=historial
     )
 
-except Exception as e:
-    logging.error(f"Error en reporte_flujo_caja: {traceback.format_exc()}")
-    flash(f"No se pudo generar el flujo de caja: {e}", "error")
-    return render_template(
-        'reporte_flujo_caja.html',
-        fecha_reporte=fecha_reporte.isoformat(),
-        tasas_del_dia=SimpleNamespace(usd=0.0, eur=0.0),
-        comparativa_proyeccion=None,
-        resumen=_resumen_vacio(),
-        historial=[]
-    )
 def _resumen_vacio():
     return {
         'balance_general_consolidado_usd': 0.0,
