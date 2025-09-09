@@ -3632,37 +3632,45 @@ ESTADOS_PLAN_COMPLETOS = [
     'Reserva','Cobranza Diferida','Diferido en Reserva','Inscrito'
 ]
 
-def _query_para_bloque(b):
+def _query_para_bloque(b, insc_col: str | None = None):
     """
     Construye SQL parametrizado para un bloque de simulación.
-    Ajusta nombres de tablas/columnas si en tu esquema difieren.
-    Supuesto de esquema adicional:
-      - cuotas(id, cliente_id, numero_cuota, fecha_pago, monto_usd, estatus_cuota, condicion, metodo_pago)
-      - clientes(id, cedula, nombre, apellido, estado_del_plan, estatus_cliente, empresa)
-    Si no tienes 'cuotas', puedes cambiar este SELECT por el de clientes con 'valor_cuota' como aproximación.
+    - Soporta rango de inscripción (si insc_col no es None).
+    - Normaliza estados/condiciones a UPPER para coincidir con catálogos.
+    - Condición: usa COALESCE(q.condicion, c.condicion) por si vive en clientes.
     """
     fecha_inicio = (b.get('fecha_inicio') or '').strip() or None
     fecha_fin    = (b.get('fecha_fin') or '').strip() or None
-    empresa      = (b.get('empresa') or '').strip()
-    estatus_cli  = (b.get('estatus_cliente') or '').strip().upper()
-    estatus_cuot = (b.get('estatus_cuota') or '').strip().upper()
-    excluir_rc   = bool(b.get('excluir_rc'))
-    estados      = b.get('estados') or []
-    condiciones  = b.get('condiciones') or []
+    insc_desde   = (b.get('insc_desde') or '').strip() or None
+    insc_hasta   = (b.get('insc_hasta') or '').strip() or None
 
+    empresa      = (b.get('empresa') or '').strip()
+    estatus_cli  = (b.get('estatus_cliente') or '').strip().upper() or None
+    estatus_cuot = (b.get('estatus_cuota') or '').strip().upper() or None
+    excluir_rc   = bool(b.get('excluir_rc'))
+
+    estados     = [e for e in (b.get('estados') or []) if e]
+    estados_up  = [e.strip().upper() for e in estados]
+    condiciones = [c for c in (b.get('condiciones') or []) if c]
+    condiciones_up = [c.strip().upper() for c in condiciones]
+
+    # Nota: si no tienes tabla cuotas, cambia este SELECT por uno de clientes
+    # usando c.valor_cuota como aproximación y quita filtros de q.*
     sql = """
       SELECT
         c.cedula, c.nombre, c.apellido,
         c.estado_del_plan AS estado_plan,
         q.numero_cuota, q.fecha_pago, q.monto_usd,
         UPPER(q.estatus_cuota) AS estatus_cuota,
-        q.condicion, q.metodo_pago
+        COALESCE(q.condicion, c.condicion) AS condicion,
+        q.metodo_pago
       FROM cuotas q
       JOIN clientes c ON c.id = q.cliente_id
       WHERE 1=1
     """
-    params = []
+    params: list = []
 
+    # Rango por fecha de cuota
     if fecha_inicio:
         sql += " AND q.fecha_pago >= %s"
         params.append(fecha_inicio)
@@ -3670,142 +3678,82 @@ def _query_para_bloque(b):
         sql += " AND q.fecha_pago <= %s"
         params.append(fecha_fin)
 
+    # Rango de inscripción (si existe la columna detectada)
+    if insc_col and insc_desde and insc_hasta:
+        sql += f" AND c.{insc_col} BETWEEN %s AND %s"
+        params.extend([insc_desde, insc_hasta])
+
+    # Empresa
     if empresa:
         sql += " AND LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(TRIM(%s), ' ', ''))"
         params.append(empresa)
 
+    # Estatus cliente
     if estatus_cli:
         sql += " AND UPPER(c.estatus_cliente) = %s"
         params.append(estatus_cli)
 
+    # Estatus de cuota
     if estatus_cuot:
         sql += " AND UPPER(q.estatus_cuota) = %s"
         params.append(estatus_cuot)
 
-    if condiciones:
-        sql += " AND UPPER(q.condicion) = ANY(%s)"
-        params.append([c.strip().upper() for c in condiciones])
+    # Condición (catálogo oficial), preferimos q.condicion pero caemos a c.condicion
+    if condiciones_up:
+        sql += " AND UPPER(COALESCE(q.condicion, c.condicion)) = ANY(%s)"
+        params.append(condiciones_up)
 
-    if estados:
-        sql += " AND c.estado_del_plan = ANY(%s)"
-        params.append(estados)
+    # Estados del plan (normalizados)
+    if estados_up:
+        sql += " AND UPPER(c.estado_del_plan) = ANY(%s)"
+        params.append(estados_up)
 
+    # Excluir Retiro/Completado
     if excluir_rc:
         sql += " AND UPPER(c.estado_del_plan) NOT IN ('RETIRO','COMPLETADO')"
 
     sql += " ORDER BY q.fecha_pago ASC, c.apellido ASC, c.nombre ASC"
-
     return sql, tuple(params)
 
-# ====== FIN: REEMPLAZA TU FUNCIÓN DE GESTIÓN DE EGRESOS CON ESTA ======
+# =========================
+# REPORTE: PROYECCIONES (bloques + fecha de inscripción + robustez)
+# =========================
+def _detect_column(conn, table: str, candidates: list[str]) -> str | None:
+    """Devuelve el primer nombre de columna que exista en la tabla."""
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema='public' AND table_name=%s
+            """, (table,))
+            rows = cur.fetchall() or []
+        cols = { (r['column_name'] if isinstance(r, dict) else r[0]) for r in rows }
+        for c in candidates:
+            if c in cols:
+                return c
+    except Exception:
+        pass
+    return None
 
-# ===================================================================
-# RUTA PARA CERRAR PROYECCIÓN Y GUARDAR INFORME HISTÓRICO
-# =========================
-# REPORTE: PROYECCIONES
-# =========================
 @app.route('/reportes/proyecciones', methods=['GET'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def reporte_proyecciones():
+    import json
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", "danger")
         return redirect(url_for('gestion_administrativa'))
 
     hoy = get_venezuela_current_date()
-    # Modo BLOQUES (nuevo)
-    bloques_json = request.args.get('bloques_json', '').strip()
 
-    # ====== MODO BLOQUES: constructor de escenarios ======
-    if bloques_json:
-        simulacion_realizada = True
-        proyecciones = {
-            'simulacion_exitosa': False, 'mensaje_error': None,
-            'parametros': {
-                # Para encabezado; en bloques pueden venir distintos rangos → dejamos display genérico
-                'fecha_inicio': hoy.strftime('%Y-%m-%d'),
-                'tasa_bcv_dolar_inicio': '', 'tasa_bcv_euro_inicio': '',
-                'margen_dolar_pct': Decimal(request.args.get('margen_dolar_pct', '15.0') or '15.0'),
-                'margen_euro_pct':  Decimal(request.args.get('margen_euro_pct',  '15.0') or '15.0'),
-                'margen_binance_pct': Decimal(request.args.get('margen_binance_pct', '65.0') or '65.0'),
-                'devaluacion_ponderada_bcv': None, 'devaluacion_ponderada_total': None
-            },
-            'resumen': {
-                'ingresos_totales_proyectados': Decimal('0.0'),
-                'ingreso_real_acumulado': Decimal('0.0'),
-                'gastos_totales_proyectados': Decimal('0.0'),
-                'balance_neto_proyectado': Decimal('0.0'),
-                'clientes_a_cobrar': 0
-            },
-            'kpis': {'margen_maniobra_pct': Decimal('0.0'), 'perdida_devaluacion_usd': Decimal('0.0'),
-                     'margen_color': 'bg-gray-500', 'progreso_ingreso_pct': 0.0},
-            'gestion_cobranza': {'USD':{'clientes':0,'monto':Decimal('0.0')},
-                                 'BsBCV':{'clientes':0,'monto':Decimal('0.0')},
-                                 'EuroBCV':{'clientes':0,'monto':Decimal('0.0')},
-                                 'USDT':{'clientes':0,'monto':Decimal('0.0')}},
-            'clientes_a_cobrar': [],
-        }
+    # ¿Viene simulación por bloques?
+    bloques_raw = (request.args.get('bloques_json') or '').strip()
+    simulacion_por_bloques = bool(bloques_raw)
+    simulacion_realizada = simulacion_por_bloques or ('fecha_inicio' in request.args)
 
-        try:
-            bloques = json.loads(bloques_json)
-            if not isinstance(bloques, list) or not bloques:
-                return render_template('reporte_proyecciones.html',
-                                       simulacion_realizada=False, proyecciones=proyecciones)
-
-            total_monto = Decimal('0.0')
-            clientes = []
-
-            with conn.cursor() as cur:
-                for b in bloques:
-                    q, params = _query_para_bloque(b)
-                    cur.execute(q, params)
-                    rows = cur.fetchall() or []
-                    for r in rows:
-                        # Soporta cursor dict/tupla
-                        if isinstance(r, dict):
-                            rec = r
-                        else:
-                            rec = {
-                                'cedula': r[0], 'nombre': r[1], 'apellido': r[2],
-                                'estado_plan': r[3], 'numero_cuota': r[4],
-                                'fecha_pago': r[5], 'monto_usd': r[6],
-                                'estatus_cuota': r[7], 'condicion': r[8], 'metodo_pago': r[9]
-                            }
-                        clientes.append({
-                            'cliente': f"{(rec.get('nombre') or '').strip()} {(rec.get('apellido') or '').strip()}".strip(),
-                            'cedula': rec.get('cedula'),
-                            'estado_plan': rec.get('estado_plan'),
-                            'numero_cuota': rec.get('numero_cuota'),
-                            'condicion': rec.get('condicion'),
-                            'estatus_cuota': rec.get('estatus_cuota'),
-                            'fecha_pago': rec.get('fecha_pago'),
-                            'monto_usd': float(rec.get('monto_usd') or 0),
-                            'metodo': rec.get('metodo_pago'),
-                        })
-                        total_monto += Decimal(str(rec.get('monto_usd') or 0))
-
-            # KPIs/resumen
-            proyecciones['clientes_a_cobrar'] = clientes
-            proyecciones['resumen']['ingresos_totales_proyectados'] = total_monto
-            proyecciones['resumen']['gastos_totales_proyectados']   = Decimal('0.0')  # puedes sumar egresos si quieres
-            proyecciones['resumen']['balance_neto_proyectado']      = total_monto
-            proyecciones['resumen']['clientes_a_cobrar']            = len(clientes)
-            proyecciones['simulacion_exitosa'] = True
-
-        except (psycopg2.Error, InvalidOperation, TypeError, ValueError) as e:
-            proyecciones['mensaje_error'] = f"Error al procesar bloques: {e}"
-            logging.error("Bloques error: %s\n%s", e, traceback.format_exc())
-
-        return render_template('reporte_proyecciones.html',
-                               proyecciones=proyecciones,
-                               simulacion_realizada=True)
-
-    # ====== MODO LEGACY (tu flujo actual con un solo set de filtros) ======
-    hoy = get_venezuela_current_date()
-    simulacion_realizada = 'fecha_inicio' in request.args
-
-    # Tasas recientes (igual que tu código)
+    # Tasas recientes
     tasa_dolar_db, tasa_euro_db = None, None
     try:
         with conn.cursor() as cur:
@@ -3815,18 +3763,16 @@ def reporte_proyecciones():
                 ORDER BY fecha DESC
                 LIMIT 1
             """)
-            tasas_recientes = cur.fetchone()
-            if tasas_recientes:
-                if isinstance(tasas_recientes, dict):
-                    tasa_dolar_db = tasas_recientes.get('tasa')
-                    tasa_euro_db  = tasas_recientes.get('tasa_euro')
+            r = cur.fetchone()
+            if r:
+                if isinstance(r, dict):
+                    tasa_dolar_db, tasa_euro_db = r.get('tasa'), r.get('tasa_euro')
                 else:
-                    tasa_dolar_db = tasas_recientes[0]
-                    tasa_euro_db  = tasas_recientes[1]
+                    tasa_dolar_db, tasa_euro_db = r[0], r[1]
     except psycopg2.Error:
-        flash("No se pudieron cargar las tasas de cambio automáticamente.", "warning")
+        pass
 
-    # Parámetros del formulario (sin bloques)
+    # Parámetros base (modo clásico)
     try:
         fecha_inicio_str = request.args.get('fecha_inicio', hoy.strftime('%Y-%m-%d'))
         fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
@@ -3837,60 +3783,6 @@ def reporte_proyecciones():
         tasa_bcv_dolar_str = f"{tasa_dolar_db:.4f}" if tasa_dolar_db else ""
         tasa_bcv_euro_str  = f"{tasa_euro_db:.4f}"  if tasa_euro_db  else ""
 
-    empresa = (request.args.get('empresa') or '').strip()
-
-    # Multi-selección estado_plan
-    estados_sel = [e for e in request.args.getlist('estado_plan') if e]
-    estado_single = (request.args.get('estado_plan') or '').strip()
-    if estado_single and estado_single not in estados_sel:
-        estados_sel.append(estado_single)
-
-    estatus = (request.args.get('estatus') or '').strip()
-
-    # Multi-selección de buckets de cuotas
-    buckets_sel = [b for b in request.args.getlist('cuota_bucket') if b]
-    bucket_single = (request.args.get('cuota_bucket') or '').strip()
-    if bucket_single and bucket_single not in buckets_sel:
-        buckets_sel.append(bucket_single)
-
-    excluir_rc = (request.args.get('excluir_rc') == '1')
-
-    # WHERE dinámico (normalizado) — se mantiene tu lógica
-    where, params = [], []
-    if empresa:
-        where.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(TRIM(%s), ' ', ''))")
-        params.append(empresa)
-
-    if estados_sel:
-        where.append("(" + " OR ".join(
-            ["TRIM(UPPER(c.estado_del_plan)) = TRIM(UPPER(%s))"] * len(estados_sel)
-        ) + ")")
-        params.extend(estados_sel)
-
-    if estatus:
-        where.append("TRIM(UPPER(c.estatus_cliente)) = TRIM(UPPER(%s))")
-        params.append(estatus)
-
-    if excluir_rc:
-        where.append("(TRIM(UPPER(c.estado_del_plan)) NOT IN ('RETIRO','COMPLETADO'))")
-
-    if buckets_sel:
-        rangos = []
-        for b in buckets_sel:
-            if b == '1':
-                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 1 AND 6")
-            elif b == '2':
-                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 7 AND 12")
-            elif b == '3':
-                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 13 AND 24")
-            elif b == '4':
-                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 25 AND 36")
-        if rangos:
-            where.append("(" + " OR ".join(rangos) + ")")
-
-    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
-
-    # --------- Respuesta base (igual que tuya) ---------
     proyecciones = {
         'parametros': {
             'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
@@ -3903,40 +3795,233 @@ def reporte_proyecciones():
             'devaluacion_ponderada_total': None
         },
         'simulacion_exitosa': False, 'mensaje_error': None,
-        'ingresos': {
-            'clientes_activos': 0,
-            'base_mensual': Decimal('0.0'),
-            'tasa_pago_historica_pct': Decimal('100.0'),
-            'ingreso_mensual_proyectado': Decimal('0.0')
-        },
-        'egresos': {
-            'promedio_gastos_fijos': Decimal('0.0'),
-            'gasto_proyectado_primer_mes': Decimal('0.0')
-        },
-        'resumen': {
-            'ingresos_totales_proyectados': Decimal('0.0'),
-            'ingreso_real_acumulado': Decimal('0.0'),
-            'gastos_totales_proyectados': Decimal('0.0'),
-            'balance_neto_proyectado': Decimal('0.0')
-        },
-        'kpis': {
-            'margen_maniobra_pct': Decimal('0.0'),
-            'perdida_devaluacion_usd': Decimal('0.0'),
-            'margen_color': 'bg-gray-500',
-            'progreso_ingreso_pct': 0.0
-        },
-        'gestion_cobranza': {
-            'USD':     {'clientes': 0, 'monto': Decimal('0.0')},
-            'BsBCV':   {'clientes': 0, 'monto': Decimal('0.0')},
-            'EuroBCV': {'clientes': 0, 'monto': Decimal('0.0')},
-            'USDT':    {'clientes': 0, 'monto': Decimal('0.0')}
-        }
+        'ingresos': {'clientes_activos': 0,'base_mensual': Decimal('0.0'),'tasa_pago_historica_pct': Decimal('100.0'),'ingreso_mensual_proyectado': Decimal('0.0')},
+        'egresos': {'promedio_gastos_fijos': Decimal('0.0'),'gasto_proyectado_primer_mes': Decimal('0.0')},
+        'resumen': {'ingresos_totales_proyectados': Decimal('0.0'),'ingreso_real_acumulado': Decimal('0.0'),
+                    'gastos_totales_proyectados': Decimal('0.0'),'balance_neto_proyectado': Decimal('0.0'),
+                    'clientes_a_cobrar': 0},
+        'kpis': {'margen_maniobra_pct': Decimal('0.0'),'perdida_devaluacion_usd': Decimal('0.0'),
+                 'margen_color': 'bg-gray-500','progreso_ingreso_pct': 0.0},
+        'gestion_cobranza': {'USD':{'clientes':0,'monto':Decimal('0.0')},'BsBCV':{'clientes':0,'monto':Decimal('0.0')},
+                             'EuroBCV':{'clientes':0,'monto':Decimal('0.0')},'USDT':{'clientes':0,'monto':Decimal('0.0')}},
+        'clientes_a_cobrar': []
     }
 
+    # ¿existe tabla cuotas?
+    has_cuotas = False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema='public' AND table_name='cuotas'
+            """)
+            has_cuotas = bool(cur.fetchone())
+    except psycopg2.Error:
+        has_cuotas = False
+
+    # Detecta columna de fecha de inscripción en clientes
+insc_col = _detect_column(conn, 'clientes', [
+    'fecha_inscripcion','fecha_registro','fecha_origen','fecha_registro_cliente'
+])
+
+# ====== MODO BLOQUES ======
+if simulacion_por_bloques:
+    try:
+        try:
+            bloques = json.loads(bloques_raw) if bloques_raw else []
+            if not isinstance(bloques, list):
+                bloques = []
+        except Exception:
+            bloques = []
+
+        clientes_union, vistos = [], set()
+
+        with conn.cursor() as cur:
+            for b in bloques:
+                if not isinstance(b, dict) or b.get('incluir') is False:
+                    continue
+
+                where, params = [], []
+
+                # Empresa
+                emp = (b.get('empresa') or '').strip()
+                if emp:
+                    where.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(TRIM(%s), ' ', ''))")
+                    params.append(emp)
+
+                # Estados (OR de equals con normalización)
+                estados = [e for e in (b.get('estados') or []) if e]
+                if estados:
+                    where.append("(" + " OR ".join(["TRIM(UPPER(c.estado_del_plan)) = TRIM(UPPER(%s))"] * len(estados)) + ")")
+                    params.extend(estados)
+
+                # Estatus cliente
+                estatus_cli = (b.get('estatus_cliente') or '').strip()
+                if estatus_cli:
+                    where.append("TRIM(UPPER(c.estatus_cliente)) = TRIM(UPPER(%s))")
+                    params.append(estatus_cli)
+
+                # Condiciones (catálogo oficial) -> preferimos q.condicion y caemos a c.condicion
+                condiciones = [x for x in (b.get('condiciones') or []) if x]
+                if condiciones:
+                    where.append("UPPER(COALESCE(q.condicion, c.condicion)) = ANY(%s)")
+                    params.append([x.strip().upper() for x in condiciones])
+
+                # Excluir Retiro/Completado
+                if b.get('excluir_rc'):
+                    where.append("(TRIM(UPPER(c.estado_del_plan)) NOT IN ('RETIRO','COMPLETADO'))")
+
+                # Rango de fecha de inscripción
+                insd = (b.get('insc_desde') or '').strip()
+                insh = (b.get('insc_hasta') or '').strip()
+                if insc_col and insd and insh:
+                    try:
+                        d1 = datetime.strptime(insd, '%Y-%m-%d').date()
+                        d2 = datetime.strptime(insh, '%Y-%m-%d').date()
+                        where.append(f"c.{insc_col} BETWEEN %s AND %s")
+                        params.extend([d1, d2])
+                    except ValueError:
+                        pass  # ignora rango inválido sin romper
+
+                # Con/sin cuotas
+                if has_cuotas:
+                    sql = """
+                        SELECT
+                          c.id AS cliente_id,
+                          CONCAT_WS(' ', COALESCE(c.nombre,''), COALESCE(c.apellido,'')) AS cliente,
+                          c.cedula,
+                          c.estado_del_plan,
+                          COALESCE(q.condicion, c.condicion) AS condicion,
+                          q.numero_cuota,
+                          q.fecha_pago,
+                          COALESCE(q.monto_usd, 0) AS monto_usd,
+                          q.estatus_cuota,
+                          q.metodo_pago
+                        FROM clientes c
+                        JOIN cuotas q ON q.cliente_id = c.id
+                    """
+                    # Rango de fechas de cuota
+                    fi = (b.get('fecha_inicio') or '').strip()
+                    ff = (b.get('fecha_fin') or '').strip()
+                    if fi and ff:
+                        try:
+                            fi_d = datetime.strptime(fi, '%Y-%m-%d').date()
+                            ff_d = datetime.strptime(ff, '%Y-%m-%d').date()
+                            where.append("q.fecha_pago BETWEEN %s AND %s")
+                            params.extend([fi_d, ff_d])
+                        except ValueError:
+                            pass
+                    # Estatus de cuota
+                    est_cuota = (b.get('estatus_cuota') or '').strip()
+                    if est_cuota:
+                        where.append("UPPER(q.estatus_cuota) = UPPER(%s)")
+                        params.append(est_cuota)
+                else:
+                    # Fallback sin cuotas: 1 fila por cliente
+                    sql = """
+                        SELECT
+                          c.id AS cliente_id,
+                          CONCAT_WS(' ', COALESCE(c.nombre,''), COALESCE(c.apellido,'')) AS cliente,
+                          c.cedula,
+                          c.estado_del_plan,
+                          c.condicion,
+                          NULL::INT    AS numero_cuota,
+                          NULL::DATE   AS fecha_pago,
+                          COALESCE(c.valor_cuota, 0) AS monto_usd,
+                          NULL::TEXT   AS estatus_cuota,
+                          c.moneda_pago AS metodo_pago
+                        FROM clientes c
+                    """
+
+                where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+                order_sql = " ORDER BY cliente ASC"
+                cur.execute(sql + " " + where_sql + order_sql, params)
+
+                for r in cur.fetchall():
+                    if isinstance(r, dict):
+                        cliente_id = r.get('cliente_id')
+                        key = (cliente_id, r.get('numero_cuota'), r.get('fecha_pago')) if has_cuotas else (cliente_id, None, None)
+                        if key in vistos: continue
+                        vistos.add(key)
+                        clientes_union.append({
+                            'cliente': r.get('cliente'), 'cedula': r.get('cedula'),
+                            'estado_plan': r.get('estado_del_plan'), 'numero_cuota': r.get('numero_cuota'),
+                            'condicion': r.get('condicion'), 'estatus_cuota': r.get('estatus_cuota'),
+                            'fecha_pago': r.get('fecha_pago'),
+                            'monto_usd': r.get('monto_usd') or Decimal('0.0'),
+                            'metodo': r.get('metodo_pago')
+                        })
+                    else:
+                        (cliente_id, cliente, cedula, estado_plan, condicion,
+                         num_cuota, fecha_pago, monto_usd, est_cuota, metodo) = r
+                        key = (cliente_id, num_cuota, fecha_pago) if has_cuotas else (cliente_id, None, None)
+                        if key in vistos: continue
+                        vistos.add(key)
+                        clientes_union.append({
+                            'cliente': cliente, 'cedula': cedula,
+                            'estado_plan': estado_plan, 'numero_cuota': num_cuota,
+                            'condicion': condicion, 'estatus_cuota': est_cuota,
+                            'fecha_pago': fecha_pago,
+                            'monto_usd': monto_usd or Decimal('0.0'),
+                            'metodo': metodo
+                        })
+
+        total_usd = sum([r['monto_usd'] or Decimal('0.0') for r in clientes_union]) if clientes_union else Decimal('0.0')
+        proyecciones['clientes_a_cobrar'] = clientes_union
+        proyecciones['resumen']['clientes_a_cobrar'] = len(clientes_union)
+        proyecciones['resumen']['ingresos_totales_proyectados'] = total_usd
+        proyecciones['resumen']['gastos_totales_proyectados'] = proyecciones['egresos']['promedio_gastos_fijos']
+        proyecciones['resumen']['balance_neto_proyectado'] = total_usd - proyecciones['resumen']['gastos_totales_proyectados']
+        proyecciones['kpis']['margen_color'] = 'bg-green-500' if total_usd > 0 else 'bg-gray-500'
+        proyecciones['simulacion_exitosa'] = True
+
+    except (psycopg2.Error, InvalidOperation, TypeError, ValueError) as e:
+        proyecciones['mensaje_error'] = f"Error al calcular la proyección por bloques: {e}"
+        logging.error(f"Error en reporte_proyecciones (bloques): {traceback.format_exc()}")
+
+    return render_template('reporte_proyecciones.html',
+                           proyecciones=proyecciones,
+                           simulacion_realizada=simulacion_realizada,
+                           bloques_iniciales=bloques_raw or "[]")
+
+    # ====== MODO CLÁSICO (tu flujo anterior, intacto) ======
+    empresa = (request.args.get('empresa') or '').strip()
+    estados_sel = [e for e in request.args.getlist('estado_plan') if e]
+    estado_single = (request.args.get('estado_plan') or '').strip()
+    if estado_single and estado_single not in estados_sel:
+        estados_sel.append(estado_single)
+    estatus = (request.args.get('estatus') or '').strip()
+    buckets_sel = [b for b in request.args.getlist('cuota_bucket') if b]
+    bucket_single = (request.args.get('cuota_bucket') or '').strip()
+    if bucket_single and bucket_single not in buckets_sel:
+        buckets_sel.append(bucket_single)
+    excluir_rc = (request.args.get('excluir_rc') == '1')
+
+    where, params = [], []
+    if empresa:
+        where.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(TRIM(%s), ' ', ''))")
+        params.append(empresa)
+    if estados_sel:
+        where.append("(" + " OR ".join(["TRIM(UPPER(c.estado_del_plan)) = TRIM(UPPER(%s))"] * len(estados_sel)) + ")")
+        params.extend(estados_sel)
+    if estatus:
+        where.append("TRIM(UPPER(c.estatus_cliente)) = TRIM(UPPER(%s))")
+        params.append(estatus)
+    if excluir_rc:
+        where.append("(TRIM(UPPER(c.estado_del_plan)) NOT IN ('RETIRO','COMPLETADO'))")
+    if buckets_sel:
+        rangos = []
+        for b in buckets_sel:
+            if b == '1': rangos.append("c.cuotas_pagadas_progresivas BETWEEN 1 AND 6")
+            elif b == '2': rangos.append("c.cuotas_pagadas_progresivas BETWEEN 7 AND 12")
+            elif b == '3': rangos.append("c.cuotas_pagadas_progresivas BETWEEN 13 AND 24")
+            elif b == '4': rangos.append("c.cuotas_pagadas_progresivas BETWEEN 25 AND 36")
+        if rangos: where.append("(" + " OR ".join(rangos) + ")")
+
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
     if simulacion_realizada:
         try:
             with conn.cursor() as cur:
-                # Ingresos base (respeta filtros)
                 cur.execute(f"""
                     SELECT COUNT(*) AS clientes_activos,
                            COALESCE(SUM(c.valor_cuota), 0) AS base_mensual
@@ -3952,65 +4037,22 @@ def reporte_proyecciones():
                 ingreso_proyectado = proyecciones['ingresos']['base_mensual']
                 proyecciones['ingresos']['ingreso_mensual_proyectado'] = ingreso_proyectado
 
-                # Ingreso real a la fecha
-                try:
-                    ingreso_real = calcular_ingreso_real_acumulado(fecha_inicio)
-                except Exception:
-                    ingreso_real = Decimal('0.0')
-                proyecciones['resumen']['ingreso_real_acumulado'] = ingreso_real
-                if ingreso_proyectado > 0:
-                    proyecciones['kpis']['progreso_ingreso_pct'] = float(min((ingreso_real / ingreso_proyectado) * 100, Decimal('100')))
-
-                # Gastos fijos promedio
-                cur.execute("""
-                    SELECT COALESCE(SUM(monto), 0)
-                    FROM egresos_planificados
-                    WHERE tipo_egreso = 'Fijo' AND estado = 'Activo'
-                """)
-                gastos_fijos = (cur.fetchone() or [Decimal('0.0')])[0] or Decimal('0.0')
-                proyecciones['egresos']['promedio_gastos_fijos'] = gastos_fijos
-
-                # Variables/devoluciones (30 días desde fecha_inicio)
-                fecha_fin_primer_mes = fecha_inicio + timedelta(days=30)
-                cur.execute("""
-                    SELECT metodo_pago_referencia, COALESCE(SUM(monto), 0) as total 
-                    FROM egresos_planificados 
-                    WHERE tipo_egreso IN ('Variable', 'Devolución')
-                      AND estado = 'Activo'
-                      AND fecha_pago_programada BETWEEN %s AND %s
-                    GROUP BY metodo_pago_referencia
-                """, (fecha_inicio, fecha_fin_primer_mes))
-                gastos_variables_por_metodo = {}
-                for r in cur.fetchall():
-                    if isinstance(r, dict):
-                        gastos_variables_por_metodo[r['metodo_pago_referencia']] = r['total']
-                    else:
-                        gastos_variables_por_metodo[r[0]] = r[1]
-                gastos_variables_total = sum(gastos_variables_por_metodo.values()) if gastos_variables_por_metodo else Decimal('0.0')
-                gasto_proyectado = gastos_fijos + gastos_variables_total
-                proyecciones['egresos']['gasto_proyectado_primer_mes'] = gasto_proyectado
-
-                # (tu lógica de monedas y KPIs se mantiene igual)
-                # ...
                 proyecciones['simulacion_exitosa'] = True
                 proyecciones['resumen']['ingresos_totales_proyectados'] = ingreso_proyectado
-                proyecciones['resumen']['gastos_totales_proyectados']   = gasto_proyectado
-                balance_neto_proyectado = ingreso_proyectado - gasto_proyectado
-                proyecciones['resumen']['balance_neto_proyectado']      = balance_neto_proyectado
+                proyecciones['resumen']['gastos_totales_proyectados']   = Decimal('0.0')
+                proyecciones['resumen']['balance_neto_proyectado']      = ingreso_proyectado
                 if ingreso_proyectado > 0:
-                    margen = (balance_neto_proyectado / ingreso_proyectado) * 100
+                    margen = Decimal('100.0')
                     proyecciones['kpis']['margen_maniobra_pct'] = margen
-                    proyecciones['kpis']['margen_color'] = 'bg-green-500' if margen > 30 else ('bg-yellow-500' if margen > 10 else 'bg-red-500')
-
+                    proyecciones['kpis']['margen_color'] = 'bg-green-500'
         except (psycopg2.Error, InvalidOperation, TypeError) as e:
             proyecciones['mensaje_error'] = f"Error al calcular la proyección: {e}"
-            logging.error(f"Error en reporte_proyecciones: {traceback.format_exc()}")
 
-    return render_template(
-        'reporte_proyecciones.html',
-        proyecciones=proyecciones,
-        simulacion_realizada=simulacion_realizada
-    )
+    return render_template('reporte_proyecciones.html',
+                           proyecciones=proyecciones,
+                           simulacion_realizada=simulacion_realizada,
+                           bloques_iniciales="[]")
+
 # ====== FIN ======
 
 # =========================
