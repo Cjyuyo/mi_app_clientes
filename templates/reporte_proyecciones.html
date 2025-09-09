@@ -2,375 +2,395 @@
 
 {% block title %}Planificación Financiera{% endblock %}
 
+{% block head_extra %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<style>
+  .card { border-radius: 16px; border: 1px solid #e2e8f0; }
+  .card-header { background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+  .metric { display: grid; grid-template-columns: 1fr auto; align-items: center; }
+  .metric .label { color: #475569; font-size: .85rem; }
+  .metric .value { font-weight: 700; color: #0f172a; }
+  .table thead th { white-space: nowrap; }
+  .table td, .table th { vertical-align: middle; }
+  .badge-soft { background: #f1f5f9; color: #334155; }
+  .divider { height: 1px; background: #e5e7eb; margin: .5rem 0; }
+  .kpi { display: flex; align-items: center; gap: .5rem; }
+</style>
+{% endblock %}
+
 {% block body %}
-<div class="space-y-8">
+<div class="container-fluid py-4">
 
-  <header class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-    <div class="flex flex-col md:flex-row justify-between md:items-center">
-      <div class="flex items-center gap-4 mb-4 md:mb-0">
-        <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-sky-100 text-sky-600">
-          <i class="bi bi-sliders text-2xl"></i>
-        </div>
-        <div>
-          <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Planificación de Escenarios</h1>
-          <p class="text-slate-500 mt-1">Define las variables para simular el comportamiento financiero futuro.</p>
-        </div>
+  <!-- Encabezado -->
+  <div class="card mb-4">
+    <div class="card-body d-flex align-items-center gap-3">
+      <div class="p-3 rounded-3 bg-primary-subtle">
+        <i class="bi bi-graph-up-arrow fs-4 text-primary"></i>
       </div>
-      <div class="flex items-center gap-2">
-        <a href="{{ url_for('proyecciones_guardadas') }}" class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 flex items-center">
-          <i class="bi bi-clock-history mr-2"></i> Ver Proyecciones Guardadas
-        </a>
-        <a href="{{ url_for('exportar_proyecciones', formato='xlsx') }}?{{ request.query_string|safe }}" class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center">
-          <i class="bi bi-file-earmark-excel mr-2"></i> Excel
-        </a>
-        <a href="{{ url_for('exportar_proyecciones', formato='pdf') }}?{{ request.query_string|safe }}" class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center">
-          <i class="bi bi-filetype-pdf mr-2"></i> PDF
+      <div>
+        <h1 class="h4 mb-0">Planificación Financiera</h1>
+        <div class="text-secondary small">Proyecciones mensuales y activación de escenarios</div>
+      </div>
+      <div class="ms-auto">
+        <a href="{{ url_for('reporte_flujo_caja') }}" class="btn btn-outline-secondary">
+          <i class="bi bi-arrow-left"></i> Volver a Flujo de Caja
         </a>
       </div>
     </div>
+  </div>
 
-    <form method="GET" action="{{ url_for('reporte_proyecciones') }}" class="mt-6">
-      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 items-end bg-slate-50 p-4 rounded-lg border border-slate-200">
-        <!-- Fecha -->
-        <div>
-          <label for="fecha_inicio" class="text-xs font-medium text-slate-600">Fecha de Inicio</label>
-          <input type="date" name="fecha_inicio" id="fecha_inicio" value="{{ proyecciones.parametros.fecha_inicio }}"
-                 class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-        </div>
-
-        <!-- Tasa BCV Dólar -->
-        <div>
-          <label for="tasa_bcv_dolar_inicio" class="text-xs font-medium text-slate-600">Tasa BCV Dólar</label>
-          <input type="text" inputmode="decimal" name="tasa_bcv_dolar_inicio" id="tasa_bcv_dolar_inicio"
-                 value="{{ proyecciones.parametros.tasa_bcv_dolar_inicio }}" placeholder="Auto"
-                 class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-        </div>
-
-        <!-- Tasa BCV Euro (nuevo) -->
-        <div>
-          <label for="tasa_bcv_euro_inicio" class="text-xs font-medium text-slate-600">Tasa BCV Euro</label>
-          <input type="text" inputmode="decimal" name="tasa_bcv_euro_inicio" id="tasa_bcv_euro_inicio"
-                 value="{{ proyecciones.parametros.tasa_bcv_euro_inicio }}" placeholder="Auto"
-                 class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-        </div>
-
-        <!-- Margen Dólar -->
-        <div>
-          <label for="margen_dolar_pct" class="text-xs font-medium text-slate-600">Margen Dólar (%)</label>
-          <div class="relative mt-1">
-            <input type="text" name="margen_dolar_pct" value="{{ proyecciones.parametros.margen_dolar_pct }}"
-                   class="form-input w-full rounded-md border-slate-300 text-sm pr-8">
-            <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span>
-          </div>
-        </div>
-
-        <!-- Margen Euro -->
-        <div>
-          <label for="margen_euro_pct" class="text-xs font-medium text-slate-600">Margen Euro (%)</label>
-          <div class="relative mt-1">
-            <input type="text" name="margen_euro_pct" value="{{ proyecciones.parametros.margen_euro_pct }}"
-                   class="form-input w-full rounded-md border-slate-300 text-sm pr-8">
-            <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span>
-          </div>
-        </div>
-
-        <!-- Margen Binance -->
-        <div>
-          <label for="margen_binance_pct" class="text-xs font-medium text-slate-600">Margen Binance (%)</label>
-          <div class="relative mt-1">
-            <input type="text" name="margen_binance_pct" value="{{ proyecciones.parametros.margen_binance_pct }}"
-                   class="form-input w-full rounded-md border-slate-300 text-sm pr-8">
-            <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span>
-          </div>
-        </div>
-
-        <!-- Estatus cliente (simple select mantiene comportamiento previo) -->
-        <div>
-          <label class="text-xs font-medium text-slate-600">Estatus cliente</label>
-          {% set sel_estatus = request.args.get('estatus','') %}
-          <select name="estatus" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            <option value="" {{ 'selected' if sel_estatus=='' else '' }}>Todos</option>
-            <option value="ACTIVO" {{ 'selected' if sel_estatus=='ACTIVO' else '' }}>ACTIVO</option>
-            <option value="INACTIVO" {{ 'selected' if sel_estatus=='INACTIVO' else '' }}>INACTIVO</option>
-          </select>
-        </div>
-
-        <!-- Empresa (normalizado) -->
-        <div>
-          <label class="text-xs font-medium text-slate-600">Empresa</label>
-          {% set sel_emp = request.args.get('empresa','') %}
-          <select name="empresa" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            <option value="" {{ 'selected' if sel_emp=='' else '' }}>Todas</option>
-            <option value="Moto Plan" {{ 'selected' if sel_emp=='Moto Plan' else '' }}>Moto Plan</option>
-            <option value="CYK" {{ 'selected' if sel_emp=='CYK' else '' }}>CYK</option>
-          </select>
-        </div>
-
-        <!-- Excluir RETIRO / COMPLETADO -->
-        <div class="flex items-center gap-2 mt-6">
-          <input id="excluir_rc" type="checkbox" name="excluir_rc" value="1" class="rounded"
-                 {% if request.args.get('excluir_rc') == '1' %}checked{% endif %}>
-          <label for="excluir_rc" class="text-xs font-medium text-slate-600">Excluir RETIRO y COMPLETADO</label>
-        </div>
-
-        <!-- Botón -->
-        <div class="col-span-2 md:col-span-3 lg:col-span-2 self-end">
-          <button type="submit" class="py-2 px-4 w-full rounded-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center">
-            <i class="bi bi-calculator-fill mr-2"></i> Simular
-          </button>
-        </div>
+  <!-- Parámetros (lectura) -->
+  <div class="card mb-4">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-sliders"></i>
+        <strong>Parámetros de Simulación</strong>
       </div>
+      <span class="badge rounded-pill text-bg-light">
+        Mes: <strong class="ms-1">{{ proyecciones.parametros.mes }}/{{ proyecciones.parametros.ano }}</strong>
+      </span>
+    </div>
+    <div class="card-body">
+      <div class="row g-4">
 
-      <!-- FILTROS MULTI COMO “SELECT” CON CASILLAS -->
-      <div class="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {% set estados_all = ['AHORRADOR','ADJUDICADO','COMPLETADO','RETIRO','CONGELADO'] %}
-        {% set estados_sel = request.args.getlist('estado_plan') %}
-        {% set resumen_estados = 'Todos' if not estados_sel else (estados_sel|join(', ') if estados_sel|length <= 2 else estados_sel|length ~ ' seleccionados') %}
+        <!-- Column 1 -->
+        <div class="col-12 col-md-4">
+          <div class="metric">
+            <div class="label">Fecha Inicio</div>
+            <div class="value">{{ proyecciones.parametros.fecha_inicio }}</div>
+          </div>
+          <div class="divider"></div>
 
-        <div>
-          <label class="text-xs font-medium text-slate-600">Estado del plan</label>
-          <details class="relative mt-1">
-            <summary class="form-input w-full rounded-md border border-slate-300 text-sm px-3 py-2 cursor-pointer list-none flex items-center justify-between">
-              <span class="truncate">{{ resumen_estados }}</span>
-              <i class="bi bi-caret-down-fill text-slate-500 text-xs ml-2"></i>
-            </summary>
-            <div class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg p-3">
-              <div class="flex flex-col gap-2 max-h-56 overflow-auto">
-                {% for e in estados_all %}
-                  <label class="inline-flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="estado_plan" value="{{ e }}" class="rounded"
-                           {% if e in estados_sel %}checked{% endif %}>
-                    <span>{{ e }}</span>
-                  </label>
-                {% endfor %}
+          <div class="metric">
+            <div class="label">Clientes nuevos estimados</div>
+            <div class="value">{{ proyecciones.parametros.clientes_nuevos }}</div>
+          </div>
+          <div class="divider"></div>
+
+          <div class="metric">
+            <div class="label">Promedio Plan (USD)</div>
+            <div class="value">{{ proyecciones.parametros.promedio_plan_usd }}</div>
+          </div>
+          <div class="divider"></div>
+
+          <div class="metric">
+            <div class="label">Inscripción %</div>
+            <div class="value">{{ proyecciones.parametros.inscripcion_pct }}%</div>
+          </div>
+          <div class="divider"></div>
+
+          <div class="metric">
+            <div class="label">Cuota base USD (24)</div>
+            <div class="value">{{ proyecciones.parametros.cuota_base_usd_24 }}</div>
+          </div>
+          <div class="divider"></div>
+        </div>
+
+        <!-- Column 2 -->
+        <div class="col-12 col-md-4">
+          <div class="metric">
+            <div class="label">Cuota base Bs (24)</div>
+            <div class="value">{{ proyecciones.parametros.cuota_base_bs_24 }}</div>
+          </div>
+          <div class="divider"></div>
+
+          <div class="metric">
+            <div class="label">Distribución por Moneda</div>
+            <div class="value">{{ proyecciones.parametros.distribucion_moneda.usd_pct }}% USD / {{ proyecciones.parametros.distribucion_moneda.bs_pct }}% Bs</div>
+          </div>
+          <div class="divider"></div>
+
+          <div class="metric">
+            <div class="label">Distribución por Plazo</div>
+            <div class="value">
+              24: {{ proyecciones.parametros.distribucion_plazo._24 }}% |
+              36: {{ proyecciones.parametros.distribucion_plazo._36 }}% |
+              48: {{ proyecciones.parametros.distribucion_plazo._48 }}%
+            </div>
+          </div>
+          <div class="divider"></div>
+
+          <div class="metric">
+            <div class="label">Tasa BCV USD</div>
+            <div class="value">{{ proyecciones.parametros.tasa_bcv_usd_inicio }}</div>
+          </div>
+          <div class="divider"></div>
+
+          <div class="metric">
+            <div class="label">Tasa BCV Euro</div>
+            <div class="value">{{ proyecciones.parametros.tasa_bcv_euro_inicio }}</div>
+          </div>
+          <div class="divider"></div>
+        </div>
+
+        <!-- Column 3 -->
+        <div class="col-12 col-md-4">
+          <div class="metric">
+            <div class="label">Margen Dólar (%)</div>
+            <div class="value">{{ proyecciones.parametros.margen_dolar_pct }}%</div>
+          </div>
+          <div class="divider"></div>
+
+          <div class="metric">
+            <div class="label">Margen Euro (%)</div>
+            <div class="value">{{ proyecciones.parametros.margen_euro_pct }}%</div>
+          </div>
+          <div class="divider"></div>
+
+          <div class="metric">
+            <div class="label">Días hábiles del mes</div>
+            <div class="value">{{ proyecciones.parametros.dias_habiles }}</div>
+          </div>
+          <div class="divider"></div>
+
+          <div class="metric">
+            <div class="label">Meta de adjudicaciones</div>
+            <div class="value">{{ proyecciones.parametros.meta_adjudicaciones }}</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Resultados / KPIs -->
+  <div class="card mb-4">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-speedometer"></i>
+        <strong>Resultados de la Simulación</strong>
+      </div>
+      <span class="badge rounded-pill text-bg-light">Versión: {{ proyecciones.version }}</span>
+    </div>
+    <div class="card-body">
+      <div class="row g-4">
+        <div class="col-12 col-md-6 col-lg-3">
+          <div class="p-3 rounded-3 border">
+            <div class="kpi">
+              <i class="bi bi-person-plus text-primary"></i>
+              <div>
+                <div class="text-secondary small">Clientes Nuevos</div>
+                <div class="h5 mb-0">{{ proyecciones.resumen.clientes_nuevos }}</div>
               </div>
             </div>
-          </details>
+          </div>
         </div>
 
-        {% set buckets_all = [('1','1–6'),('2','7–12'),('3','13–24'),('4','25–36')] %}
-        {% set buckets_sel = request.args.getlist('cuota_bucket') %}
-        {% set resumen_buckets = 'Todos' if not buckets_sel else (buckets_sel|length ~ ' seleccionados') %}
-
-        <div>
-          <label class="text-xs font-medium text-slate-600">Bloque de cuotas</label>
-          <details class="relative mt-1">
-            <summary class="form-input w-full rounded-md border border-slate-300 text-sm px-3 py-2 cursor-pointer list-none flex items-center justify-between">
-              <span class="truncate">
-                {% if not buckets_sel %}Todos{% else %}
-                  {%- for val,label in buckets_all if val in buckets_sel -%}
-                    {{ label }}{% if not loop.last %}, {% endif %}
-                  {%- endfor -%}
-                {% endif %}
-              </span>
-              <i class="bi bi-caret-down-fill text-slate-500 text-xs ml-2"></i>
-            </summary>
-            <div class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg p-3">
-              <div class="flex flex-col gap-2 max-h-56 overflow-auto">
-                {% for val,label in buckets_all %}
-                  <label class="inline-flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="cuota_bucket" value="{{ val }}" class="rounded"
-                           {% if val in buckets_sel %}checked{% endif %}>
-                    <span>{{ label }}</span>
-                  </label>
-                {% endfor %}
+        <div class="col-12 col-md-6 col-lg-3">
+          <div class="p-3 rounded-3 border">
+            <div class="kpi">
+              <i class="bi bi-cash-coin text-success"></i>
+              <div>
+                <div class="text-secondary small">Inscripciones (USD)</div>
+                <div class="h5 mb-0">${{ '%.2f'|format(proyecciones.resumen.total_inscripciones_usd) }}</div>
               </div>
             </div>
-          </details>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+          <div class="p-3 rounded-3 border">
+            <div class="kpi">
+              <i class="bi bi-calendar3 text-indigo"></i>
+              <div>
+                <div class="text-secondary small">Cuotas Mensuales (USD)</div>
+                <div class="h5 mb-0">${{ '%.2f'|format(proyecciones.resumen.total_cuotas_usd) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+          <div class="p-3 rounded-3 border">
+            <div class="kpi">
+              <i class="bi bi-piggy-bank text-warning"></i>
+              <div>
+                <div class="text-secondary small">Aporte Fondo Común</div>
+                <div class="h5 mb-0">${{ '%.2f'|format(proyecciones.resumen.fondo_comun_usd) }}</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="mt-4 grid grid-cols-1 md:grid-cols-2 text-center gap-4">
-        <div>
-          <span class="text-sm font-medium text-slate-600">Devaluación Ponderada BCV (calculada):</span>
-          {% if proyecciones.parametros.devaluacion_ponderada_bcv is not none %}
-            <span class="ml-2 font-bold text-lg text-indigo-700">{{ "{:,.2f}".format(proyecciones.parametros.devaluacion_ponderada_bcv) }}%</span>
-          {% else %}
-            <span class="ml-2 text-sm text-slate-400">Se calculará...</span>
-          {% endif %}
+      <!-- KPIs detalle -->
+      <div class="row g-4 mt-1">
+        <div class="col-12 col-lg-4">
+          <div class="card h-100">
+            <div class="card-header"><strong>Distribución por Moneda</strong></div>
+            <div class="card-body">
+              <div class="d-flex justify-content-between mb-2">
+                <span class="text-secondary">USD</span>
+                <span class="fw-bold">{{ proyecciones.kpis.usd.pct }}%</span>
+              </div>
+              <div class="progress" role="progressbar" aria-valuenow="{{ proyecciones.kpis.usd.pct }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar bg-success" style="width: {{ proyecciones.kpis.usd.pct }}%"></div>
+              </div>
+              <div class="d-flex justify-content-between mt-3 mb-2">
+                <span class="text-secondary">Bs</span>
+                <span class="fw-bold">{{ proyecciones.kpis.bs.pct }}%</span>
+              </div>
+              <div class="progress" role="progressbar" aria-valuenow="{{ proyecciones.kpis.bs.pct }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar bg-info" style="width: {{ proyecciones.kpis.bs.pct }}%"></div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div>
-          <span class="text-sm font-medium text-slate-600">Devaluación Ponderada Total (calculada):</span>
-          {% if proyecciones.parametros.devaluacion_ponderada_total is not none %}
-            <span class="ml-2 font-bold text-lg text-red-600">{{ "{:,.2f}".format(proyecciones.parametros.devaluacion_ponderada_total) }}%</span>
-          {% else %}
-            <span class="ml-2 text-sm text-slate-400">Se calculará...</span>
-          {% endif %}
+
+        <div class="col-12 col-lg-4">
+          <div class="card h-100">
+            <div class="card-header"><strong>Distribución por Plazo</strong></div>
+            <div class="card-body">
+              <div class="mb-2 d-flex justify-content-between">
+                <span>24 meses</span> <span class="fw-bold">{{ proyecciones.kpis.plazo._24 }}%</span>
+              </div>
+              <div class="progress">
+                <div class="progress-bar bg-primary" style="width: {{ proyecciones.kpis.plazo._24 }}%"></div>
+              </div>
+              <div class="mt-3 mb-2 d-flex justify-content-between">
+                <span>36 meses</span> <span class="fw-bold">{{ proyecciones.kpis.plazo._36 }}%</span>
+              </div>
+              <div class="progress">
+                <div class="progress-bar bg-warning" style="width: {{ proyecciones.kpis.plazo._36 }}%"></div>
+              </div>
+              <div class="mt-3 mb-2 d-flex justify-content-between">
+                <span>48 meses</span> <span class="fw-bold">{{ proyecciones.kpis.plazo._48 }}%</span>
+              </div>
+              <div class="progress">
+                <div class="progress-bar bg-secondary" style="width: {{ proyecciones.kpis.plazo._48 }}%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+          <div class="card h-100">
+            <div class="card-header"><strong>Ingresos Estimados</strong></div>
+            <div class="card-body">
+              <div class="metric">
+                <div class="label">Ingresos por Inscripción</div>
+                <div class="value">${{ '%.2f'|format(proyecciones.kpis.ingresos.inscripcion) }}</div>
+              </div>
+              <div class="divider"></div>
+              <div class="metric">
+                <div class="label">Ingresos por Cuotas</div>
+                <div class="value">${{ '%.2f'|format(proyecciones.kpis.ingresos.cuotas) }}</div>
+              </div>
+              <div class="divider"></div>
+              <div class="metric">
+                <div class="label">Total Ingresos Mes</div>
+                <div class="value">${{ '%.2f'|format(proyecciones.kpis.ingresos.total) }}</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </form>
-  </header>
 
-  {% if simulacion_realizada and proyecciones.simulacion_exitosa %}
-    <div class="bg-white p-4 rounded-xl shadow-sm border border-green-300 bg-green-50 flex flex-col md:flex-row items-center justify-between gap-4">
-      <p class="text-sm text-green-800 font-medium text-center md:text-left">
-        <i class="bi bi-info-circle-fill mr-2"></i>
-        Esta es una simulación. Si los resultados son correctos, puedes guardarla como la <strong>proyección activa</strong> para este mes.
-      </p>
-      <form method="POST" action="{{ url_for('activar_proyeccion') }}">
-        <input type="hidden" name="parametros_simulacion" value="{{ proyecciones.parametros|tojson }}">
-        <input type="hidden" name="resultados_resumen" value="{{ {'resumen': proyecciones.resumen, 'kpis': proyecciones.kpis}|tojson }}">
-        <button type="submit" class="py-2 px-6 rounded-md text-sm font-semibold text-white bg-green-600 hover:bg-green-700 flex items-center justify-center w-full md:w-auto">
-          <i class="bi bi-check-circle-fill mr-2"></i> Activar esta Proyección
-        </button>
-      </form>
     </div>
+  </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center">
-        <div class="flex items-center gap-3 text-slate-500">
-          <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-green-100 text-green-600"><i class="bi bi-arrow-down-circle-fill"></i></div>
-          <span class="text-sm font-medium">Ingresos Proyectados</span>
-        </div>
-        <div class="mt-2 flex-grow flex items-center">
-          <p class="text-2xl font-bold text-slate-800">${{ "{:,.2f}".format(proyecciones.resumen.ingresos_totales_proyectados) }}</p>
-        </div>
-      </div>
-
-      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center">
-        <div class="flex items-center gap-3 text-slate-500">
-          <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-teal-100 text-teal-600"><i class="bi bi-cash-stack"></i></div>
-          <span class="text-sm font-medium">Ingreso Real Acumulado</span>
-        </div>
-        <div class="mt-2 flex-grow flex items-center">
-          <p class="text-2xl font-bold text-teal-600">${{ "{:,.2f}".format(proyecciones.resumen.ingreso_real_acumulado) }}</p>
-        </div>
-      </div>
-
-      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center">
-        <div class="flex items-center gap-3 text-slate-500">
-          <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-red-100 text-red-600"><i class="bi bi-arrow-up-circle-fill"></i></div>
-          <span class="text-sm font-medium">Gastos Proyectados</span>
-        </div>
-        <div class="mt-2 flex-grow flex items-center">
-          <p class="text-2xl font-bold text-slate-800">${{ "{:,.2f}".format(proyecciones.resumen.gastos_totales_proyectados) }}</p>
-        </div>
-      </div>
-
-      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center">
-        <div class="flex items-center gap-3 text-slate-500">
-          <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-sky-100 text-sky-600"><i class="bi bi-bank"></i></div>
-          <span class="text-sm font-medium">Balance Neto Proyectado</span>
-        </div>
-        <div class="mt-2 flex-grow flex items-center">
-          <p class="text-2xl font-bold {{ 'text-green-600' if proyecciones.resumen.balance_neto_proyectado >= 0 else 'text-red-600' }}">${{ "{:,.2f}".format(proyecciones.resumen.balance_neto_proyectado) }}</p>
-        </div>
-      </div>
+  <!-- Tabla detalle por día (si aplica) -->
+  {% if proyecciones.detalle_dias %}
+  <div class="card mb-4">
+    <div class="card-header"><strong>Detalle de Colocaciones por Día</strong></div>
+    <div class="card-body table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th class="text-center">Nuevos</th>
+            <th class="text-end">Inscripción (USD)</th>
+            <th class="text-end">Cuotas (USD)</th>
+            <th class="text-center">Plazo</th>
+            <th class="text-center">Moneda</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for dia in proyecciones.detalle_dias %}
+          <tr>
+            <td>{{ dia.fecha }}</td>
+            <td class="text-center">{{ dia.nuevos }}</td>
+            <td class="text-end">${{ '%.2f'|format(dia.inscripcion_usd) }}</td>
+            <td class="text-end">${{ '%.2f'|format(dia.cuotas_usd) }}</td>
+            <td class="text-center">{{ dia.plazo }}</td>
+            <td class="text-center">
+              <span class="badge rounded-pill text-bg-light">{{ dia.moneda }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-
-    {# (secciones de Tesorería y progreso se mantienen) #}
-    <div class="bg-white p-6 rounded-xl shadow-sm border">
-      <h3 class="text-lg font-bold text-slate-800 mb-2">Progreso de Ingresos (Real vs. Proyectado)</h3>
-      <p class="text-xs text-slate-500 mb-3">Porcentaje del ingreso proyectado que ha sido conciliado a la fecha.</p>
-      <div class="w-full bg-slate-200 rounded-full h-8">
-        <div class="bg-teal-500 h-8 rounded-full text-center text-white text-sm font-bold flex items-center justify-center"
-             style="width: {{ proyecciones.kpis.progreso_ingreso_pct }}%;">
-          {{ "{:,.1f}".format(proyecciones.kpis.progreso_ingreso_pct) }}%
-        </div>
-      </div>
-    </div>
-
-    <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
-      <div class="flex items-center justify-between mb-2">
-        <h3 class="text-2xl font-extrabold text-slate-800">Gestión de Cobranza Proyectada</h3>
-        <i class="bi bi-wallet2 text-3xl text-slate-400"></i>
-      </div>
-      <p class="text-sm text-slate-500 mb-8">Desglose detallado de la cartera de clientes activos y ahorradores por método de pago.</p>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        <!-- USD -->
-        <div class="flex flex-col bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl shadow-md border border-blue-200">
-          <div class="flex items-center justify-between mb-6">
-            <h4 class="font-bold text-xl text-blue-800">Dólar Efectivo</h4>
-            <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-blue-200 text-blue-700 shadow-inner">
-              <i class="bi bi-cash-coin text-2xl"></i>
-            </div>
-          </div>
-          <div class="flex-grow">
-            <div class="mb-4 pb-4 border-b border-blue-200">
-              <span class="text-sm text-blue-700/80">Clientes</span>
-              <p class="font-extrabold text-blue-900 text-3xl mt-1 tracking-tight">{{ proyecciones.gestion_cobranza.USD.clientes }}</p>
-            </div>
-            <div>
-              <span class="text-sm text-blue-700/80">Monto a Cobrar</span>
-              <p class="font-extrabold text-green-700 text-3xl mt-1 tracking-tight">${{ "{:,.2f}".format(proyecciones.gestion_cobranza.USD.monto) }}</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- BsBCV -->
-        <div class="flex flex-col bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl shadow-md border border-green-200">
-          <div class="flex items-center justify-between mb-6">
-            <h4 class="font-bold text-xl text-green-800">Bolívares (BCV)</h4>
-            <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-green-200 text-green-700 shadow-inner">
-              <i class="bi bi-bank text-2xl"></i>
-            </div>
-          </div>
-          <div class="flex-grow">
-            <div class="mb-4 pb-4 border-b border-green-200">
-              <span class="text-sm text-green-700/80">Clientes</span>
-              <p class="font-extrabold text-green-900 text-3xl mt-1 tracking-tight">{{ proyecciones.gestion_cobranza.BsBCV.clientes }}</p>
-            </div>
-            <div>
-              <span class="text-sm text-green-700/80">Monto (USD Ref.)</span>
-              <p class="font-extrabold text-green-700 text-3xl mt-1 tracking-tight">${{ "{:,.2f}".format(proyecciones.gestion_cobranza.BsBCV.monto) }}</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- EuroBCV -->
-        <div class="flex flex-col bg-gradient-to-br from-indigo-50 to-indigo-100 p-6 rounded-xl shadow-md border border-indigo-200">
-          <div class="flex items-center justify-between mb-6">
-            <h4 class="font-bold text-xl text-indigo-800">Euros (BCV)</h4>
-            <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-indigo-200 text-indigo-700 shadow-inner">
-              <i class="bi bi-currency-euro text-2xl"></i>
-            </div>
-          </div>
-          <div class="flex-grow">
-            <div class="mb-4 pb-4 border-b border-indigo-200">
-              <span class="text-sm text-indigo-700/80">Clientes</span>
-              <p class="font-extrabold text-indigo-900 text-3xl mt-1 tracking-tight">{{ proyecciones.gestion_cobranza.EuroBCV.clientes }}</p>
-            </div>
-            <div>
-              <span class="text-sm text-indigo-700/80">Monto (EUR Ref.)</span>
-              <p class="font-extrabold text-green-700 text-3xl mt-1 tracking-tight">€{{ "{:,.2f}".format(proyecciones.gestion_cobranza.EuroBCV.monto) }}</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- USDT -->
-        <div class="flex flex-col bg-gradient-to-br from-amber-50 to-amber-100 p-6 rounded-xl shadow-md border border-amber-200">
-          <div class="flex items-center justify-between mb-6">
-            <h4 class="font-bold text-xl text-amber-800">Binance (USDT)</h4>
-            <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-amber-200 text-amber-700 shadow-inner">
-              <i class="bi bi-gem text-2xl"></i>
-            </div>
-          </div>
-          <div class="flex-grow">
-            <div class="mb-4 pb-4 border-b border-amber-200">
-              <span class="text-sm text-amber-700/80">Clientes</span>
-              <p class="font-extrabold text-amber-900 text-3xl mt-1 tracking-tight">{{ proyecciones.gestion_cobranza.USDT.clientes }}</p>
-            </div>
-            <div>
-              <span class="text-sm text-amber-700/80">Monto a Cobrar</span>
-              <p class="font-extrabold text-green-700 text-3xl mt-1 tracking-tight">${{ "{:,.2f}".format(proyecciones.gestion_cobranza.USDT.monto) }}</p>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  {% elif proyecciones.mensaje_error %}
-    <div class="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 p-4 rounded-md text-center">
-      <p><i class="bi bi-info-circle-fill mr-2"></i>{{ proyecciones.mensaje_error }}</p>
-    </div>
-  {% else %}
-    <div class="text-center py-12">
-      <div class="text-5xl text-slate-300 mb-4"><i class="bi bi-search"></i></div>
-      <h3 class="text-xl font-semibold text-slate-600">Define los parámetros y haz clic en "Simular Proyección"</h3>
-      <p class="text-slate-500 mt-2">Ingresa las variables para generar una nueva simulación financiera.</p>
-    </div>
+  </div>
   {% endif %}
 
+  <!-- Acciones -->
+  <div class="card">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <strong>Acciones</strong>
+      <span class="text-secondary small">Guardar y activar la proyección del mes</span>
+    </div>
+    <div class="card-body">
+      <form id="activarProyeccionForm" method="POST" action="{{ url_for('activar_proyeccion') }}">
+        <!-- Hidden: enviamos JSON válido siempre -->
+        <input type="hidden" name="parametros_simulacion" value="{{ proyecciones.parametros|tojson }}">
+        <input type="hidden" name="resultados_resumen" value="{{ {'resumen': proyecciones.resumen, 'kpis': proyecciones.kpis}|tojson }}">
+        <div class="d-flex gap-3">
+          <a href="{{ url_for('reporte_flujo_caja') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver
+          </a>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-toggle2-on"></i> Activar Proyección del Mes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 </div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+/**
+ * Sanitiza y asegura que los hidden inputs se envíen como JSON válido.
+ * Tolerante a:
+ *  - comillas simples
+ *  - claves sin comillas (estilo objeto JS)
+ *  - dicts de Python
+ */
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('activarProyeccionForm');
+  if (!form) return;
+
+  form.addEventListener('submit', function(ev) {
+    try {
+      const p = form.querySelector('input[name="parametros_simulacion"]');
+      const r = form.querySelector('input[name="resultados_resumen"]');
+
+      // Si el servidor ya renderizó JSON válido (|tojson), esto es un no-op
+      const pObj = (typeof p.value === 'string') ? JSON.parse(p.value) : p.value;
+      const rObj = (typeof r.value === 'string') ? JSON.parse(r.value) : r.value;
+
+      p.value = JSON.stringify(pObj);
+      r.value = JSON.stringify(rObj);
+    } catch (e) {
+      // Fallback: normaliza formatos comunes inválidos
+      const fix = (s) => {
+        try { return JSON.stringify(JSON.parse(s)); } catch (_){}
+        try {
+          // Reemplaza comillas simples por dobles y agrega comillas a claves sin comillas
+          const s1 = s.replace(/'/g, '"').replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g, '$1"$2":');
+          return JSON.stringify(JSON.parse(s1));
+        } catch (_){
+          // Último recurso: deja el string intacto para que el backend aplique su parser tolerante
+          return s;
+        }
+      };
+      const p = form.querySelector('input[name="parametros_simulacion"]');
+      const r = form.querySelector('input[name="resultados_resumen"]');
+      p.value = fix(p.value);
+      r.value = fix(r.value);
+    }
+  });
+});
+</script>
 {% endblock %}
