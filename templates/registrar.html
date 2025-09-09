@@ -1,187 +1,335 @@
 {% extends "base_sidebar.html" %}
 
-{% block title %}
-    Registrar Nuevo Cliente
-{% endblock %}
+{% block title %}Registrar Nuevo Cliente{% endblock %}
+{% block page_title %}Registrar Nuevo Cliente{% endblock %}
 
 {% block head_extra %}
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- SweetAlert -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- SignaturePad -->
+  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
 
-<style>
-    /* Estilos para la animación del spinner */
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { { transform: rotate(360deg); }
+  <style>
+    .card-shadow { box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08); }
+    .rounded-xl { border-radius: 1rem; }
+    .signature-wrapper { border: 1px dashed #cbd5e1; border-radius: 0.75rem; }
+    .signature-canvas { width: 100%; height: 200px; }
+    .preview-img {
+      width: 100%;
+      max-height: 220px;
+      object-fit: cover;
+      border-radius: 0.75rem;
+      border: 2px dashed #cbd5e1;
+      background: #f8fafc;
     }
-    .animate-spin {
-      animation: spin 1s linear infinite;
-      display: inline-block;
-    }
-</style>
+    .form-help { font-size: .8rem; color: #64748b; }
+    .required::after { content: " *"; color: #ef4444; font-weight: 600; }
+    .grid-gap { row-gap: 1rem; }
+    .btn-soft { background:#f1f5f9; color:#0f172a; border:1px solid #e2e8f0 }
+    .btn-soft:hover { background:#e2e8f0 }
+    .hr-soft { border:0; border-top:1px solid #e5e7eb; margin: 1.25rem 0 }
+    .table thead th { background:#f1f5f9; color:#334155 }
+    .w-120 { width: 120px; }
+    .w-160 { width: 160px; }
+    .w-200 { width: 200px; }
+    .w-240 { width: 240px; }
+    .w-300 { width: 300px; }
+    /* Modal de cámara */
+    .camera-video { width: 100%; background: #000; border-radius: 0.75rem; }
+  </style>
 {% endblock %}
 
 {% block body %}
-<div class="max-w-4xl mx-auto">
-    <div class="bg-white p-6 rounded-xl shadow-md mb-6">
-        <div class="flex items-center gap-4">
-            <div class="bg-blue-100 text-blue-600 p-3 rounded-full">
-                <i class="bi bi-person-plus-fill text-2xl"></i>
-            </div>
-            <div>
-                <h1 class="text-2xl font-bold text-slate-800">Registrar Nuevo Cliente</h1>
-                <p class="text-slate-500">Complete los campos para crear un nuevo perfil de cliente en el sistema.</p>
-            </div>
+<form id="form-registro" class="container-fluid" method="POST" action="{{ url_for('finalizar_registro') }}">
+  <!-- CSRF si usas Flask-WTF -->
+  {% if csrf_token is defined %}
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% endif %}
+
+  <!-- HIDDEN: imágenes y firmas -->
+  <input type="hidden" id="foto_cliente"  name="foto_cliente">
+  <input type="hidden" id="foto_cedula"   name="foto_cedula">
+  <input type="hidden" id="firma_cliente"  name="firma_cliente">
+  <input type="hidden" id="firma_empresa"  name="firma_empresa">
+
+  <!-- ENCABEZADO -->
+  <div class="mb-3">
+    <p class="text-muted mb-0">Completa los datos del cliente y captura las firmas. Los montos aceptan “1.400,00”.</p>
+  </div>
+
+  <!-- FILA 1: Escenario / Asesor / Cierre -->
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-4">
+      <div class="card rounded-xl card-shadow">
+        <div class="card-body">
+          <label for="escenario_dueno" class="form-label required">Escenario de Cierre</label>
+          <select id="escenario_dueno" name="escenario_dueño" class="form-select">
+            <option value="superadmin" {% if form_defaults and form_defaults.escenario == 'superadmin' %}selected{% endif %}>Superadmin / Presidencia</option>
+            <option value="gerente"    {% if form_defaults and form_defaults.escenario == 'gerente' %}selected{% endif %}>Gerente</option>
+            <option value="asesor"     {% if not form_defaults or form_defaults.escenario == 'asesor' %}selected{% endif %}>Asesor</option>
+          </select>
+          <div class="form-help mt-1">
+            Define quién ejecutó el cierre para aplicar el split correcto.
+          </div>
         </div>
+      </div>
     </div>
 
-    <form id="registroForm" action="{{ url_for('finalizar_registro') }}" method="POST" class="space-y-6">
-        <input type="hidden" name="foto_cliente" id="foto_cliente" required>
-        <input type="hidden" name="foto_cedula" id="foto_cedula" required>
-        
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                <div class="p-4 rounded-lg {% if category == 'error' %} bg-red-100 text-red-800 {% else %} bg-blue-100 text-blue-800 {% endif %}" role="alert">
-                    {{ message }}
-                </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <div class="bg-white p-6 rounded-xl shadow-md">
-            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-person-badge"></i>Información Personal y de Contacto</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div><label for="nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label><input type="text" id="nombre_apellido" name="nombre_apellido" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></div>
-                <div><label for="cedula" class="block text-sm font-medium text-slate-700">Número Cédula</label><input type="text" id="cedula" name="cedula" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></div>
-                <div><label for="telefono" class="block text-sm font-medium text-slate-700">Teléfono</label><input type="text" id="telefono" name="telefono" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></div>
-                <div><label for="email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label><input type="email" id="email" name="email" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50"></div>
-                <div class="md:col-span-2"><label for="direccion" class="block text-sm font-medium text-slate-700">Dirección</label><textarea id="direccion" name="direccion" rows="2" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50"></textarea></div>
-                <div><label for="fecha_ingreso" class="block text-sm font-medium text-slate-700">Fecha de Ingreso</label><input type="date" id="fecha_ingreso" name="fecha_ingreso" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></div>
-            </div>
+    <div class="col-12 col-md-4">
+      <div class="card rounded-xl card-shadow">
+        <div class="card-body">
+          <label for="asesor_id" class="form-label required">Asesor Responsable (Dueño)</label>
+          {% set asesores_list = (asesores if asesores is defined else []) %}
+          <select id="asesor_id" name="asesor_id" class="form-select" required>
+            <option value="">— Selecciona —</option>
+            {% for a in asesores_list %}
+              <option value="{{ a.id if a.id is defined else a['id'] }}">
+                {{ a.nombre if a.nombre is defined else (a['nombre'] if a['nombre'] is defined else a['nombre_completo']) }}
+              </option>
+            {% endfor %}
+          </select>
+          <div class="form-help mt-1">
+            Quien recibe la parte de <strong>Asesor</strong> en el split.
+          </div>
         </div>
-
-        <div class="bg-white p-6 rounded-xl shadow-md">
-            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-person-heart"></i>Beneficiario por Fallecimiento (Obligatorio)</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label for="beneficiario_nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label>
-                    <input type="text" id="beneficiario_nombre_apellido" name="beneficiario_nombre_apellido" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required>
-                </div>
-                <div>
-                    <label for="beneficiario_cedula" class="block text-sm font-medium text-slate-700">Número Cédula</label>
-                    <input type="text" id="beneficiario_cedula" name="beneficiario_cedula" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required>
-                </div>
-                <div>
-                    <label for="beneficiario_telefono" class="block text-sm font-medium text-slate-700">Teléfono</label>
-                    <input type="text" id="beneficiario_telefono" name="beneficiario_telefono" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required>
-                </div>
-                <div>
-                    <label for="beneficiario_email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label>
-                    <input type="email" id="beneficiario_email" name="beneficiario_email" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required>
-                </div>
-                <div class="md:col-span-2">
-                    <label for="beneficiario_direccion" class="block text-sm font-medium text-slate-700">Dirección</label>
-                    <textarea id="beneficiario_direccion" name="beneficiario_direccion" rows="2" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></textarea>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white p-6 rounded-xl shadow-md">
-            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-file-earmark-text"></i>Detalles del Plan y Contrato</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div><label for="contrato_nro" class="block text-sm font-medium text-slate-700">Número Contrato</label><input type="text" id="contrato_nro" name="contrato_nro" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required></div>
-                <div><label for="grupo" class="block text-sm font-medium text-slate-700">Número Grupo</label><input type="text" id="grupo" name="grupo" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50"></div>
-                <div><label for="plan_contratado" class="block text-sm font-medium text-slate-700">Plan Contratado (Valor USD)</label><select id="plan_contratado" name="plan_contratado" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required><option value="" disabled selected>-- Seleccione --</option></select></div>
-                <div><label for="inscripcion_monto" class="block text-sm font-medium text-slate-700">Monto Inscripción (16%)</label><input type="number" id="inscripcion_monto" step="0.01" name="inscripcion_monto" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100" required readonly></div>
-                <div><label for="cuotas_totales" class="block text-sm font-medium text-slate-700">Total de Cuotas</label><select id="cuotas_totales" name="cuotas_totales" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required><option value="24">24</option><option value="36">36</option><option value="48">48</option></select></div>
-                <div><label for="valor_cuota" class="block text-sm font-medium text-slate-700">Cuota Mensual</label><input type="number" id="valor_cuota" step="0.01" name="valor_cuota" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm bg-slate-100 focus:border-blue-500 focus:ring-blue-500" required readonly></div>
-                <div><label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label><select id="moneda_pago" name="moneda_pago" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" required><option value="USD">Divisas (USD)</option><option value="BsBCV">Bolívares (Tasa BCV)</option></select></div>
-            </div>
-        </div>
-        
-        <div class="bg-white p-6 rounded-xl shadow-md">
-            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-camera"></i>Verificación de Identidad</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="text-center">
-                    <h6 class="font-semibold text-slate-700 mb-2">Foto del Cliente</h6>
-                    <img id="preview-cliente" src="https://placehold.co/400x300/e2e8f0/94a3b8?text=Foto+Cliente" class="w-full h-48 object-cover rounded-lg border-2 border-dashed border-slate-300 mb-3">
-                    <button type="button" class="w-full bg-blue-500 text-white font-semibold py-2 px-4 border border-blue-600 rounded-lg shadow-sm hover:bg-blue-600 flex items-center justify-center gap-2" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cliente"><i class="bi bi-person-bounding-box"></i> Tomar Foto Cliente</button>
-                </div>
-                <div class="text-center">
-                    <h6 class="font-semibold text-slate-700 mb-2">Foto de la Cédula</h6>
-                    <img id="preview-cedula" src="https://placehold.co/400x300/e2e8f0/94a3b8?text=Foto+C%C3%A9dula" class="w-full h-48 object-cover rounded-lg border-2 border-dashed border-slate-300 mb-3">
-                    <button type="button" class="w-full bg-gray-700 text-white font-semibold py-2 px-4 border border-gray-800 rounded-lg shadow-sm hover:bg-gray-800 flex items-center justify-center gap-2" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cedula"><i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula</button>
-                </div>
-            </div>
-        </div>
-        
-        <div class="bg-white p-6 rounded-xl shadow-md">
-            <h3 class="text-lg font-semibold text-slate-800 border-b pb-3 mb-4 flex items-center gap-2"><i class="bi bi-briefcase"></i>Información Administrativa</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                    <label for="escenario_dueño" class="block text-sm font-medium text-slate-700">1. Escenario de Cierre</label>
-                    <select id="escenario_dueño" name="escenario_dueño" class="mt-1 form-select w-full" required>
-                        <option value="">Seleccione un cargo...</option>
-                        <option value="superadmin">Presidencia</option>
-                        <option value="gerente">Gerencia</option>
-                        <option value="asesor">Fuerza Comercial</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="asesor_id" class="block text-sm font-medium text-slate-700">2. Asesor</label>
-                    <select id="asesor_id" name="asesor_id" class="mt-1 form-select w-full" required disabled>
-                        <option value="">Primero seleccione un cargo...</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="cerrado_por_id" class="block text-sm font-medium text-slate-700">3. Cerrador</label>
-                    <select id="cerrado_por_id" name="cerrado_por_id" class="mt-1 form-select w-full" required>
-                        <option value="">Elige a un Cerrador</option>
-                        {% for admin in todos_los_admins %}
-                            <option value="{{ admin.id }}">{{ admin.nombre }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
-        </div>
-        
-        <div class="flex justify-end gap-4 pt-4">
-            <a href="{{ url_for('hub') }}" class="bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50">Cancelar</a>
-            <button type="submit" id="submitBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2" disabled>
-                <i class="bi bi-file-earmark-text"></i>
-                Continuar al Contrato
-            </button>
-        </div>
-    </form>
-</div>
-
-<div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="cameraModalLabel">Capturar Foto</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body text-center">
-        <div class="live-view">
-            <video id="video-feed" autoplay playsinline muted class="bg-dark rounded w-100"></video>
+    </div>
+
+    <div class="col-12 col-md-4">
+      <div class="card rounded-xl card-shadow">
+        <div class="card-body">
+          <label for="cerrado_por_id" class="form-label">Cerrado por</label>
+          {% set cerradores_list = (todos_los_admins if todos_los_admins is defined else asesores_list) %}
+          <select id="cerrado_por_id" name="cerrado_por_id" class="form-select">
+            <option value="">— Selecciona —</option>
+            {% for adm in cerradores_list %}
+              {% set _id = adm.id if adm.id is defined else adm['id'] %}
+              {% set _nom = (adm.nombre if adm.nombre is defined else (adm['nombre'] if adm['nombre'] is defined else adm['nombre_completo'])) %}
+              <option value="{{ _id }}">{{ _nom }}</option>
+            {% endfor %}
+          </select>
+          <div class="form-help mt-1">
+            Si el cerrador <em>no</em> es el asesor, más adelante se calcula su 0.4% extra.
+          </div>
         </div>
-        <div class="confirmation-view" style="display:none;">
-            <p><strong>¿Desea usar esta foto?</strong></p>
-            <canvas id="capture-canvas" class="rounded w-100"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILA 2: Datos del cliente -->
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-lg-8">
+      <div class="card rounded-xl card-shadow">
+        <div class="card-body">
+          <h5 class="mb-3">Datos del Cliente</h5>
+          <div class="row grid-gap">
+            <div class="col-12 col-md-6">
+              <label class="form-label required">Nombre y Apellido</label>
+              <input type="text" name="nombre_apellido" class="form-control" placeholder="Ej. Ana Pérez" required>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label required">Cédula</label>
+              <input type="text" name="cedula" class="form-control" placeholder="V-12345678" required>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">Teléfono</label>
+              <input type="text" name="telefono" class="form-control" placeholder="+58 ...">
+            </div>
+
+            <div class="col-12 col-md-6">
+              <label class="form-label">Dirección</label>
+              <input type="text" name="direccion" class="form-control">
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">Email</label>
+              <input type="email" name="email" class="form-control" placeholder="cliente@correo.com">
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label">Fecha Ingreso</label>
+              <input type="date" name="fecha_ingreso" class="form-control" value="{{ (now().date() if now is defined) }}">
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">Grupo</label>
+              <input type="text" name="grupo" class="form-control">
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">Ciclo de Cobranza</label>
+              <select name="ciclo_cobranza" class="form-select">
+                <option value="">—</option>
+                <option value="semanal">Semanal</option>
+                <option value="quincenal">Quincenal</option>
+                <option value="mensual">Mensual</option>
+              </select>
+            </div>
+
+            <hr class="hr-soft">
+
+            <div class="col-12 col-md-6">
+              <label class="form-label">Beneficiario (Nombre y Apellido)</label>
+              <input type="text" name="beneficiario_nombre_apellido" class="form-control" placeholder="(opcional)">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">Cédula Beneficiario</label>
+              <input type="text" name="beneficiario_cedula" class="form-control">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">Teléfono Beneficiario</label>
+              <input type="text" name="beneficiario_telefono" class="form-control">
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">Email Beneficiario</label>
+              <input type="email" name="beneficiario_email" class="form-control">
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">Dirección Beneficiario</label>
+              <input type="text" name="beneficiario_direccion" class="form-control">
+            </div>
+          </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Fotos -->
+    <div class="col-12 col-lg-4">
+      <div class="card rounded-xl card-shadow mb-3">
+        <div class="card-body">
+          <h6 class="mb-3">Foto del Cliente</h6>
+          <img id="preview-cliente" class="preview-img mb-3" src="" alt="Sin foto">
+          <div class="d-flex gap-2">
+            <button type="button" id="btn-cam-cliente" class="btn btn-soft w-100">
+              <i class="bi bi-camera"></i> Tomar foto
+            </button>
+            <label class="btn btn-soft w-100 mb-0">
+              <input id="file-cliente" type="file" accept="image/*" hidden>
+              <i class="bi bi-upload"></i> Subir
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card rounded-xl card-shadow">
+        <div class="card-body">
+          <h6 class="mb-3">Foto de la Cédula</h6>
+          <img id="preview-cedula" class="preview-img mb-3" src="" alt="Sin foto">
+          <div class="d-flex gap-2">
+            <button type="button" id="btn-cam-cedula" class="btn btn-soft w-100">
+              <i class="bi bi-camera"></i> Tomar foto
+            </button>
+            <label class="btn btn-soft w-100 mb-0">
+              <input id="file-cedula" type="file" accept="image/*" hidden>
+              <i class="bi bi-upload"></i> Subir
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILA 3: Contrato / Montos -->
+  <div class="row g-3 mb-3">
+    <div class="col-12">
+      <div class="card rounded-xl card-shadow">
+        <div class="card-body">
+          <h5 class="mb-3">Contrato y Montos</h5>
+          <div class="row grid-gap">
+            <div class="col-12 col-md-3">
+              <label class="form-label required">N° de Contrato</label>
+              <input type="text" name="numero_contrato" class="form-control" required>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label required">Plan Contratado</label>
+              <input type="text" name="plan_contratado" class="form-control" placeholder="Ej. 1.400,00" required>
+              <div class="form-help">Se aplica split de comisiones según escenario.</div>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">Inscripción</label>
+              <input type="text" name="inscripcion_monto" class="form-control" placeholder="Ej. 50,00">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label required">Moneda de Pago</label>
+              <select name="moneda_pago" class="form-select" required>
+                <option value="USD" selected>USD</option>
+                <option value="VES">VES</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label class="form-label">Cuotas Totales</label>
+              <input type="number" name="cuotas_totales" class="form-control" min="0" step="1">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">Valor de Cuota</label>
+              <input type="text" name="valor_cuota" class="form-control" placeholder="Ej. 120,00">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILA 4: Firmas -->
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-lg-6">
+      <div class="card rounded-xl card-shadow">
+        <div class="card-body">
+          <h5 class="mb-3">Firma del Cliente</h5>
+          <div class="signature-wrapper p-2">
+            <canvas id="sig-cliente" class="signature-canvas"></canvas>
+          </div>
+          <div class="d-flex gap-2 mt-2">
+            <button type="button" id="btn-clear-cliente" class="btn btn-soft w-120">Limpiar</button>
+            <button type="button" id="btn-save-cliente"  class="btn btn-primary w-160">Guardar Firma</button>
+          </div>
+          <div class="form-help mt-2">Requerida para poder registrar.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card rounded-xl card-shadow">
+        <div class="card-body">
+          <h5 class="mb-3">Firma de la Empresa</h5>
+          <div class="signature-wrapper p-2">
+            <canvas id="sig-empresa" class="signature-canvas"></canvas>
+          </div>
+          <div class="d-flex gap-2 mt-2">
+            <button type="button" id="btn-clear-empresa" class="btn btn-soft w-120">Limpiar</button>
+            <button type="button" id="btn-save-empresa"  class="btn btn-primary w-160">Guardar Firma</button>
+          </div>
+          <div class="form-help mt-2">También requerida.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACCIONES -->
+  <div class="d-flex justify-content-end gap-2">
+    <a href="{{ url_for('hub') }}" class="btn btn-soft w-160">Cancelar</a>
+    <button type="submit" class="btn btn-success w-200">
+      <i class="bi bi-check2-square"></i> Registrar
+    </button>
+  </div>
+</form>
+
+<!-- MODAL CÁMARA -->
+<div class="modal fade" id="modalCam" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content rounded-xl">
+      <div class="modal-header">
+        <h6 class="modal-title">Cámara</h6>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <video id="camera-video" class="camera-video" autoplay playsinline></video>
+        <canvas id="camera-canvas" class="d-none"></canvas>
       </div>
       <div class="modal-footer">
-        <div class="live-view-footer w-100 d-flex justify-content-between">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="button" id="flip-camera-btn" class="btn btn-info"><i class="bi bi-arrow-repeat"></i> Cambiar Cámara</button>
-            <button type="button" id="capture-btn" class="btn btn-primary"><i class="bi bi-camera-fill"></i> Capturar</button>
-        </div>
-        <div class="confirmation-view-footer w-100 d-flex justify-content-between" style="display:none;">
-            <button type="button" class="btn btn-secondary" id="retake-btn"><i class="bi bi-arrow-clockwise"></i> Volver a Tomar</button>
-            <button type="button" class="btn btn-success" id="save-photo-btn"><i class="bi bi-check-circle-fill"></i> Guardar Foto</button>
-        </div>
+        <button id="btn-capture" class="btn btn-primary"><i class="bi bi-camera"></i> Capturar</button>
+        <button id="btn-cam-close" class="btn btn-soft" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -189,210 +337,169 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-    function handleFormSubmit(form) {
-        const submitBtn = form.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
+  <!-- Bootstrap bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+  (function(){
+    // Helpers
+    function toBase64(file, cb) {
+      const reader = new FileReader();
+      reader.onload = () => cb(reader.result);
+      reader.readAsDataURL(file);
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        const adminsPorRol = {{ admins_por_rol | tojson | safe }};
+    // --- Selectores principales (IDs/names que el backend espera) ---
+    const selEscenario = document.getElementById('escenario_dueno');       // name="escenario_dueño"
+    const selAsesor    = document.getElementById('asesor_id');             // name="asesor_id"
+    const selCerrador  = document.getElementById('cerrado_por_id');        // name="cerrado_por_id"
 
-        const escenarioSelect = document.getElementById('escenario_dueño');
-        const dueñoSelect = document.getElementById('asesor_id');
-        
-        escenarioSelect.addEventListener('change', function() {
-            const escenario = this.value;
-            
-            dueñoSelect.innerHTML = '<option value="">Seleccione un asesor...</option>';
-            
-            let rolAsociado = escenario;
+    // Validación mínima al cambiar escenario (no ocultamos asesor; siempre requerido)
+    if (selEscenario) {
+      selEscenario.addEventListener('change', () => {
+        // Si quieres reglas visuales especiales por escenario, colócalas aquí.
+      });
+    }
 
-            if (rolAsociado && adminsPorRol[rolAsociado]) {
-                dueñoSelect.disabled = false;
-                
-                adminsPorRol[rolAsociado].forEach(function(admin) {
-                    const option = document.createElement('option');
-                    option.value = admin.id;
-                    option.textContent = admin.nombre;
-                    dueñoSelect.appendChild(option);
-                });
-            } else {
-                dueñoSelect.disabled = true;
-                dueñoSelect.innerHTML = '<option value="">Primero seleccione un cargo...</option>';
-            }
-        });
+    // --- Fotos: cliente / cédula (archivo) ---
+    const inputFileCliente = document.getElementById('file-cliente');
+    const inputFileCedula  = document.getElementById('file-cedula');
+    const prevCliente = document.getElementById('preview-cliente');
+    const prevCedula  = document.getElementById('preview-cedula');
+    const hidFotoCliente = document.getElementById('foto_cliente');
+    const hidFotoCedula  = document.getElementById('foto_cedula');
 
-        const planSelect = document.getElementById('plan_contratado');
-        const inscripcionInput = document.getElementById('inscripcion_monto');
-        const plazoSelect = document.getElementById('cuotas_totales');
-        const monedaSelect = document.getElementById('moneda_pago');
-        const cuotaInput = document.getElementById('valor_cuota');
-        const cuotaLabel = document.querySelector('label[for="valor_cuota"]');
+    if (inputFileCliente) {
+      inputFileCliente.addEventListener('change', (e) => {
+        const f = e.target.files?.[0];
+        if (!f) return;
+        toBase64(f, (b64) => { prevCliente.src = b64; hidFotoCliente.value = b64; });
+      });
+    }
+    if (inputFileCedula) {
+      inputFileCedula.addEventListener('change', (e) => {
+        const f = e.target.files?.[0];
+        if (!f) return;
+        toBase64(f, (b64) => { prevCedula.src = b64; hidFotoCedula.value = b64; });
+      });
+    }
 
-        const planMontos = [1400, 1500, 1600, 1700, 1800, 1900, 2000, 2100, 2300, 2400, 2500, 2700, 2800, 2900, 3200, 3300, 3500, 3800, 4500, 5200, 5600, 5900, 6300];
-        
-        planMontos.forEach(monto => {
-            const option = document.createElement('option');
-            option.value = monto;
-            option.textContent = `$${monto.toLocaleString('es-CO')}`;
-            planSelect.appendChild(option);
-        });
+    // --- Cámara compartida para ambos (cliente / cédula) ---
+    const btnCamCliente = document.getElementById('btn-cam-cliente');
+    const btnCamCedula  = document.getElementById('btn-cam-cedula');
+    const modalCamEl    = document.getElementById('modalCam');
+    const modalCam      = new bootstrap.Modal(modalCamEl);
+    const video         = document.getElementById('camera-video');
+    const canvas        = document.getElementById('camera-canvas');
+    const btnCapture    = document.getElementById('btn-capture');
 
-        function calcularYActualizarCuota() {
-            const montoPlan = parseFloat(planSelect.value);
-            const plazo = parseInt(plazoSelect.value, 10);
-            const tipoMoneda = monedaSelect.value;
-            cuotaLabel.textContent = `Cuota Mensual (${tipoMoneda === 'USD' ? 'USD' : 'Bs'})`;
-            if (isNaN(montoPlan) || montoPlan <= 0 || !tipoMoneda || ![24, 36, 48].includes(plazo)) {
-                cuotaInput.value = ''; return;
-            }
-            const base = (tipoMoneda === 'USD') ? 0.0496 : 0.0557;
-            const factorCuota = base * (24 / plazo);
-            const cuota = montoPlan * factorCuota;
-            cuotaInput.value = cuota.toFixed(2);
-            cuotaInput.dispatchEvent(new Event('input', { bubbles: true }));
+    let currentTarget = null; // 'cliente' | 'cedula'
+    let mediaStream   = null;
+
+    async function startCamera() {
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+        video.srcObject = mediaStream;
+      } catch (err) {
+        console.error(err);
+        Swal.fire('Cámara', 'No se pudo acceder a la cámara', 'error');
+      }
+    }
+    function stopCamera() {
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+      }
+      video.srcObject = null;
+    }
+
+    if (btnCamCliente) {
+      btnCamCliente.addEventListener('click', () => {
+        currentTarget = 'cliente';
+        modalCam.show();
+        startCamera();
+      });
+    }
+    if (btnCamCedula) {
+      btnCamCedula.addEventListener('click', () => {
+        currentTarget = 'cedula';
+        modalCam.show();
+        startCamera();
+      });
+    }
+
+    modalCamEl.addEventListener('hidden.bs.modal', stopCamera);
+
+    if (btnCapture) {
+      btnCapture.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!video.videoWidth) return;
+        canvas.width  = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const b64 = canvas.toDataURL('image/jpeg', 0.9);
+
+        if (currentTarget === 'cliente') {
+          prevCliente.src = b64; hidFotoCliente.value = b64;
+        } else if (currentTarget === 'cedula') {
+          prevCedula.src = b64;  hidFotoCedula.value  = b64;
         }
+        modalCam.hide();
+      });
+    }
 
-        planSelect.addEventListener('change', function() {
-            const valorPlan = parseFloat(this.value);
-            if (!isNaN(valorPlan)) {
-                inscripcionInput.value = (valorPlan * 0.16).toFixed(2);
-                inscripcionInput.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-            calcularYActualizarCuota();
-        });
+    // --- Firmas con SignaturePad ---
+    const canvasCliente = document.getElementById('sig-cliente');
+    const canvasEmpresa = document.getElementById('sig-empresa');
 
-        plazoSelect.addEventListener('change', calcularYActualizarCuota);
-        monedaSelect.addEventListener('change', calcularYActualizarCuota);
+    function resizeCanvasForHiDPI(cv) {
+      const ratio = Math.max(window.devicePixelRatio || 1, 1);
+      const rect = cv.getBoundingClientRect();
+      cv.width  = rect.width * ratio;
+      cv.height = rect.height * ratio;
+      const ctx = cv.getContext('2d');
+      ctx.scale(ratio, ratio);
+    }
 
-        // --- LÓGICA DE LA CÁMARA ---
-        const cameraModalEl = document.getElementById('cameraModal');
-        const video = document.getElementById('video-feed');
-        const canvas = document.getElementById('capture-canvas');
-        const captureBtn = document.getElementById('capture-btn');
-        const retakeBtn = document.getElementById('retake-btn');
-        const savePhotoBtn = document.getElementById('save-photo-btn');
-        const flipCameraBtn = document.getElementById('flip-camera-btn');
+    resizeCanvasForHiDPI(canvasCliente);
+    resizeCanvasForHiDPI(canvasEmpresa);
 
-        let stream, currentCaptureType, capturedImageDataUrl;
-        let currentFacingMode = 'user'; 
+    const sigCliente = new SignaturePad.SignaturePad(canvasCliente, { minWidth: 0.8, maxWidth: 2.2, penColor: "#111827" });
+    const sigEmpresa = new SignaturePad.SignaturePad(canvasEmpresa, { minWidth: 0.8, maxWidth: 2.2, penColor: "#111827" });
 
-        function toggleViews(showConfirmation) {
-            cameraModalEl.querySelector('.live-view').style.display = showConfirmation ? 'none' : 'block';
-            cameraModalEl.querySelector('.live-view-footer').style.display = showConfirmation ? 'none' : 'flex';
-            cameraModalEl.querySelector('.confirmation-view').style.display = showConfirmation ? 'block' : 'none';
-            cameraModalEl.querySelector('.confirmation-view-footer').style.display = showConfirmation ? 'flex' : 'none';
-        }
+    document.getElementById('btn-clear-cliente').addEventListener('click', () => sigCliente.clear());
+    document.getElementById('btn-clear-empresa').addEventListener('click', () => sigEmpresa.clear());
 
-        async function startCamera(facingMode) {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
-            try {
-                const constraints = { video: { facingMode: facingMode } };
-                stream = await navigator.mediaDevices.getUserMedia(constraints);
-                video.srcObject = stream;
-                await video.play();
-                video.style.transform = (facingMode === 'user') ? 'scaleX(-1)' : 'scaleX(1)';
-            } catch (err) {
-                console.error("Error al iniciar la cámara: ", err);
-                alert("No se pudo acceder a la cámara. Por favor, asegúrese de dar los permisos necesarios.");
-                bootstrap.Modal.getInstance(cameraModalEl).hide();
-            }
-        }
-        
-        cameraModalEl.addEventListener('show.bs.modal', async (event) => {
-            currentCaptureType = event.relatedTarget.getAttribute('data-capture-type');
-            
-            const modalTitle = cameraModalEl.querySelector('.modal-title');
-            if (currentCaptureType === 'cedula') {
-                modalTitle.textContent = 'Capturar Foto de la Cédula';
-                currentFacingMode = 'environment';
-            } else {
-                modalTitle.textContent = 'Capturar Foto del Cliente (Selfie)';
-                currentFacingMode = 'user';
-            }
-            
-            toggleViews(false);
-            await startCamera(currentFacingMode);
-        });
-
-        cameraModalEl.addEventListener('hide.bs.modal', () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
-        });
-
-        flipCameraBtn.addEventListener('click', () => {
-            currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
-            startCamera(currentFacingMode);
-        });
-
-        captureBtn.addEventListener('click', () => {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const context = canvas.getContext('2d');
-            
-            if (currentFacingMode === 'user') {
-                context.translate(canvas.width, 0);
-                context.scale(-1, 1);
-            }
-            
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            capturedImageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-            toggleViews(true);
-        });
-        
-        retakeBtn.addEventListener('click', () => toggleViews(false));
-        
-        savePhotoBtn.addEventListener('click', () => {
-            if (capturedImageDataUrl && currentCaptureType) {
-                document.getElementById(`preview-${currentCaptureType}`).src = capturedImageDataUrl;
-                const hiddenInput = document.getElementById(`foto_${currentCaptureType}`);
-                hiddenInput.value = capturedImageDataUrl;
-                hiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-            bootstrap.Modal.getInstance(cameraModalEl).hide();
-        });
-
-        // --- LÓGICA DE VALIDACIÓN Y SUBMIT ---
-        const submitBtn = document.getElementById('submitBtn');
-        const form = document.getElementById('registroForm');
-        
-        const validateForm = () => {
-            for (const field of form.querySelectorAll('[required]')) {
-                if (!field.value || field.value.trim() === '') return false;
-            }
-            return true;
-        };
-
-        const updateButtonState = () => { submitBtn.disabled = !validateForm(); };
-
-        form.addEventListener('input', updateButtonState);
-        form.addEventListener('change', updateButtonState);
-        updateButtonState();
-        
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            Swal.fire({
-                title: '¿Confirmar Registro?',
-                text: "Se creará un nuevo perfil de cliente. ¿Está seguro?",
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Sí, registrar',
-                cancelButtonText: 'Cancelar'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    handleFormSubmit(form);
-                    form.submit();
-                }
-            });
-        });
+    document.getElementById('btn-save-cliente').addEventListener('click', () => {
+      if (sigCliente.isEmpty()) { Swal.fire('Firma', 'Firma del cliente requerida', 'warning'); return; }
+      document.getElementById('firma_cliente').value = sigCliente.toDataURL('image/png');
+      Swal.fire('OK', 'Firma del cliente guardada', 'success');
     });
-</script>
+    document.getElementById('btn-save-empresa').addEventListener('click', () => {
+      if (sigEmpresa.isEmpty()) { Swal.fire('Firma', 'Firma de la empresa requerida', 'warning'); return; }
+      document.getElementById('firma_empresa').value = sigEmpresa.toDataURL('image/png');
+      Swal.fire('OK', 'Firma de la empresa guardada', 'success');
+    });
+
+    // --- Validación final de envío ---
+    const form = document.getElementById('form-registro');
+    form.addEventListener('submit', (e) => {
+      const firmaCliente = document.getElementById('firma_cliente').value;
+      const firmaEmpresa = document.getElementById('firma_empresa').value;
+      const asesorVal    = selAsesor?.value || '';
+
+      if (!asesorVal) {
+        e.preventDefault();
+        Swal.fire('Datos incompletos', 'Selecciona el asesor responsable.', 'warning');
+        return;
+      }
+      if (!firmaCliente || !firmaEmpresa) {
+        e.preventDefault();
+        Swal.fire('Firmas requeridas', 'Debes guardar ambas firmas antes de registrar.', 'warning');
+        return;
+      }
+    });
+  })();
+  </script>
 {% endblock %}

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import io
 from io import BytesIO
@@ -6,42 +7,35 @@ import json
 import base64
 import logging
 import random
-import re  # <-- AÑADIDO PARA LA LIMPIEZA DE DATOS
+import re
 import traceback
 from calendar import monthrange
 from collections import defaultdict
 from datetime import datetime, timedelta, date, time
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from functools import wraps
+from types import SimpleNamespace
 
-# Imports de Terceros
+# Terceros
 import boto3
 import pandas as pd
 import psycopg2
 import psycopg2.extras
-from psycopg2.extras import execute_values  # <-- AÑADIDO PARA CARGA MASIVA
+from psycopg2.extras import execute_values
 from botocore.exceptions import NoCredentialsError
 from dotenv import load_dotenv
 from fpdf import FPDF
 import pytz
 from werkzeug.security import check_password_hash, generate_password_hash
 
-# Imports de Flask
+# Flask
 from flask import (
-    Flask,
-    render_template,
-    request,
-    g,
-    flash,
-    redirect,
-    url_for,
-    session,
-    Response,
-    jsonify,
-    send_file,
-    abort
+    Flask, render_template, request, g, flash, redirect,
+    url_for, session, Response, jsonify, send_file, abort
 )
-from types import SimpleNamespace
+
+# Si realmente lo usas; si no, coméntalo
+from flask_login import current_user
 
 # =================================================================================
 # ===== CONFIGURACIÓN INICIAL Y DE ENTORNO =====
@@ -54,6 +48,75 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'una-clave-secreta-por-defecto-para-desarrollo')
 
 VENEZUELA_TZ = pytz.timezone('America/Caracas')
+
+# ========= 2) Cache de memoria (reglas de comisiones) =========
+# Estructura:
+#   - claves de escenarios: 'asesor', 'gerente', 'superadmin'
+#   - cada escenario: mapa de ROL->porcentaje_sobre_plan (Decimal o float)
+#   - extra_cerrador_pct: porcentaje adicional para el cerrador cuando NO es el asesor responsable
+DEFAULT_REGLAS_COMISIONES = {
+    "asesor": {
+        "ASESOR":        2.0,
+        "PRESIDENCIA_A": 3.0,
+        "PRESIDENCIA_B": 3.0,
+        "GERENCIA":      1.0
+    },
+    "gerente": {
+        "PRESIDENCIA_A": 5.5,
+        "PRESIDENCIA_B": 5.5,
+        "GERENCIA":      1.0,
+        "ASESOR":        0.0
+    },
+    "superadmin": {
+        "PRESIDENCIA_A": 5.5,
+        "PRESIDENCIA_B": 5.5,
+        "GERENCIA":      0.5,
+        "ASESOR":        0.0
+    },
+    "extra_cerrador_pct": 0.4
+}
+
+# Cache en memoria del proceso
+REGLAS_COMISIONES_CACHE = json.loads(json.dumps(DEFAULT_REGLAS_COMISIONES))
+
+def _copiar_reglas(r):
+    """Devuelve una copia 'segura' (sin referencias) de las reglas."""
+    return json.loads(json.dumps(r))
+
+def validar_reglas(reglas: dict):
+    """Valida forma y valores de las reglas (devuelve (ok, msg_error))."""
+    try:
+        if not isinstance(reglas, dict):
+            return False, "El payload debe ser un objeto JSON."
+        if "extra_cerrador_pct" not in reglas:
+            return False, "Falta 'extra_cerrador_pct'."
+        if not isinstance(reglas["extra_cerrador_pct"], (int, float)) or reglas["extra_cerrador_pct"] < 0:
+            return False, "'extra_cerrador_pct' debe ser numérico >= 0."
+
+        for esc in ("asesor", "gerente", "superadmin"):
+            if esc not in reglas or not isinstance(reglas[esc], dict):
+                return False, f"Falta el escenario '{esc}'."
+            for rol, pct in reglas[esc].items():
+                if rol not in ("ASESOR", "GERENCIA", "PRESIDENCIA_A", "PRESIDENCIA_B"):
+                    return False, f"Rol inválido en {esc}: {rol}"
+                if not isinstance(pct, (int, float)) or pct < 0:
+                    return False, f"Porcentaje inválido en {esc}.{rol}."
+        return True, ""
+    except Exception as e:
+        return False, f"Error validando reglas: {e}"
+
+def get_reglas_comisiones() -> dict:
+    """Lee reglas actuales (copia)."""
+    return _copiar_reglas(REGLAS_COMISIONES_CACHE)
+
+def set_reglas_comisiones(nuevas: dict):
+    """Sobrescribe reglas (valida antes)."""
+    ok, msg = validar_reglas(nuevas)
+    if not ok:
+        raise ValueError(msg)
+    REGLAS_COMISIONES_CACHE.clear()
+    REGLAS_COMISIONES_CACHE.update(_copiar_reglas(nuevas))
+# ======= FIN cache de memoria =======
 
 def get_venezuela_current_datetime():
     return datetime.now(VENEZUELA_TZ)
@@ -2198,6 +2261,40 @@ def dashboard_comercial():
         anio_actual=get_venezuela_current_date().year
     )
 
+@app.route('/config/comisiones', methods=['GET', 'POST'])
+@admin_required
+def config_comisiones():
+    # Asegura que solo Superadmin entre (ajusta a tu mecanismo real de roles)
+    rol_sesion = (session.get('rol') or '').strip().lower()
+    if rol_sesion != 'superadmin':
+        abort(403)
+
+    if request.method == 'POST':
+        # Soporta form tradicional (input hidden con JSON) o POST JSON.
+        payload = request.get_json(silent=True) or {}
+        rules_json = payload.get('rules_json') or request.form.get('rules_json')
+        try:
+            nuevas = json.loads(rules_json) if isinstance(rules_json, str) else (payload.get('rules') or {})
+            set_reglas_comisiones(nuevas)
+        except Exception as e:
+            logging.exception("Error actualizando reglas de comisiones")
+            flash(f"Error guardando reglas: {e}", "error")
+            # Si quieres responder JSON
+            if request.is_json:
+                return jsonify({"ok": False, "error": str(e)}), 400
+            return redirect(url_for('config_comisiones'))
+
+        flash("¡Reglas de comisiones actualizadas!", "success")
+        if request.is_json:
+            return jsonify({"ok": True})
+        return redirect(url_for('config_comisiones'))
+
+    # GET: muestra reglas actuales
+    reglas = get_reglas_comisiones()
+    # Puedes reutilizar tu dashboard o una plantilla aparte:
+    # return render_template('dashboard_comercial.html', reglas_comisiones=reglas, es_superadmin=True)
+    return render_template('config_comisiones.html', reglas_comisiones=reglas)
+
 @app.route('/comisiones/lotes', methods=['POST'])
 @admin_required
 def crear_lote_comisiones():
@@ -4036,6 +4133,7 @@ def agregar_gestion(cliente_id):
             
     return redirect(url_for('perfil_cliente', cliente_id=cliente_id))
 
+# ---------- REGISTRAR (GET) ----------
 @app.route('/registrar', methods=['GET'])
 @admin_required
 def registrar():
@@ -4044,76 +4142,105 @@ def registrar():
         flash('Error de conexión a la base de datos.', 'error')
         return redirect(url_for('hub'))
 
-    # Defaults seguros (evitan NameError si falla el try)
+    # Defaults seguros
     admins_por_rol = {'superadmin': [], 'gerente': [], 'asesor': []}
     todos_los_admins = []
+    asesores = []
 
     try:
-        with conn.cursor() as cur:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("""
-                SELECT id, nombre_completo, rol
+                SELECT id, nombre_completo, rol, es_comercial
                 FROM public.administradores
                 WHERE es_comercial = TRUE
                 ORDER BY nombre_completo
             """)
-            asesores = [{'id': r['id'], 'nombre': r['nombre_completo']} for r in cur.fetchall()]
+            filas = cur.fetchall()  # <- este es el origen canónico
 
-            todos_los_admins = [
-                {'id': a['id'], 'nombre': a['nombre_completo']}
-                for a in admins_comerciales
-            ]
+            # Lista “asesores” (para selects simples)
+            asesores = [{'id': r['id'], 'nombre': r['nombre_completo']} for r in filas]
 
+            # Lista “todos_los_admins” para compatibilidad con otras plantillas
+            todos_los_admins = [{'id': r['id'], 'nombre': r['nombre_completo']} for r in filas]
+
+            # Agrupación por rol (solo roles reconocidos)
             admins_por_rol = {'superadmin': [], 'gerente': [], 'asesor': []}
-            for admin in admins_comerciales:
-                rol = (admin['rol'] or '').strip().lower()
+            for r in filas:
+                rol = (r['rol'] or '').strip().lower()
                 if rol in admins_por_rol:
                     admins_por_rol[rol].append({
-                        'id': admin['id'],
-                        'nombre': admin['nombre_completo']
+                        'id': r['id'],
+                        'nombre': r['nombre_completo']
                     })
+
     except psycopg2.Error as e:
+        logging.exception("Error al cargar datos de /registrar")
         flash(f"Error al cargar los datos para el formulario: {e}", "error")
 
     return render_template(
         'registrar.html',
         admins_por_rol=admins_por_rol,
-        todos_los_admins=todos_los_admins
+        todos_los_admins=todos_los_admins,
+        asesores=asesores  # <- expone la lista para el selector
     )
 
-# Reglas por defecto (puedes moverlas a BD luego)
+# ---------- COMISIONES (helpers y lógica) ----------
+from decimal import Decimal, ROUND_HALF_UP
+
+# Reglas por defecto (hoy no se usan de forma directa, pero las dejamos por si luego parametrizas)
 REGLAS_COMISIONES_DEFECTO = {
     'asesor':     {'ASESOR': Decimal('1.00')},
     'gerente':    {'GERENCIA': Decimal('1.00')},
     'superadmin': {'PRESIDENCIA': Decimal('1.00')},
 }
+# === Reglas de comisiones en memoria (editable desde el dashboard) ===
+COMISIONES_REGLAS_DEFAULT = {
+    "asesor":     {"pct_asesor": 2.00, "pct_gerencia": 1.00, "pct_pres_a": 3.00, "pct_pres_b": 3.00, "pct_cerrador_extra": 0.40},
+    "gerente":    {"pct_asesor": 0.00, "pct_gerencia": 1.00, "pct_pres_a": 5.50, "pct_pres_b": 5.50, "pct_cerrador_extra": 0.40},
+    "superadmin": {"pct_asesor": 0.00, "pct_gerencia": 0.50, "pct_pres_a": 5.50, "pct_pres_b": 5.50, "pct_cerrador_extra": 0.40},
+}
+
+# Copia viva (se modifica vía POST /comisiones/config)
+COMISIONES_REGLAS = {k: dict(v) for k, v in COMISIONES_REGLAS_DEFAULT.items()}
+
+def _es_superadmin_actual():
+    # Usa flask_login si está disponible; si no, cae a session/g
+    rol = None
+    try:
+        from flask_login import current_user  # importa local para no romper si no lo usas
+        rol = getattr(current_user, "rol", None)
+    except Exception:
+        pass
+    if not rol:
+        rol = (session.get("rol") or g.get("rol"))
+    return (rol or "").strip().lower() == "superadmin"
 
 def _q2(v, default='0'):
+    """
+    Redondea a 2 decimales con HALF_UP. Soporta None y cadenas con números.
+    """
     s = default if v in (None, '') else str(v)
     return Decimal(s).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
+
 def calcular_y_guardar_comisiones(conn, cliente_info):
     """
-    Escenarios (terminología: Asesor comercial / Gerencia / Presidencia A / Presidencia B):
-    1A: cierra 'asesor' y cerrador_id != asesor_id → 2% Asesor, 3% Pres A, 3% Pres B, 1% Gerencia (+ bono $5 al cerrador)
-    1B: cierra 'asesor' y cerrador_id == asesor_id → igual a 1A pero sin bono
-    2 : cierra 'superadmin'                        → 5.5% Pres A, 5.5% Pres B, 0.5% Gerencia, 0% Asesor (+ bono $5 al asesor)
-    3 : cierra 'gerente'                           → 5.5% Pres A, 5.5% Pres B, 1.0% Gerencia, 0% Asesor (sin bono)
-
-    Notas de implementación:
-    - Tabla public.comisiones NO tiene beneficiario_rol (lo mandamos a 'notas'/'tipo' si hace falta).
-    - 'fecha_origen' es DATE → guardamos fecha_hoy.date().
-    - 'tipo' lo usamos como 'COMISION' o 'BONO' para diferenciar en reportes.
+    Aplica reglas dinámicas desde la cache en memoria.
+    - 'extra_cerrador_pct' se paga al cerrador solo si es distinto al asesor responsable.
+    - Inserta filas en public.comisiones con tipo='COMISION'.
+    - No hay bonos fijos en USD.
     """
     from decimal import Decimal, ROUND_HALF_UP
     def q2(x): return Decimal(x).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    P = Decimal(cliente_info.get('plan_contratado') or 0)
+    reglas = get_reglas_comisiones()  # <-- lee cache
+
+    P = Decimal(str(cliente_info.get('plan_contratado') or 0))
     if P <= 0:
         return
 
-    fecha_hoy   = datetime.now(VENEZUELA_TZ)
-    fecha_dia   = fecha_hoy.date()  # ← IMPORTANT: DATE para la columna fecha_origen
-    origen_id   = cliente_info['cliente_id']
+    fecha_dia   = datetime.now(VENEZUELA_TZ).date()
+    origen_id   = cliente_info.get('cliente_id')
     moneda      = cliente_info.get('moneda_pago') or 'USD'
     escenario   = (cliente_info.get('escenario') or 'asesor').strip().lower()
 
@@ -4123,78 +4250,51 @@ def calcular_y_guardar_comisiones(conn, cliente_info):
     pres_a_id   = cliente_info.get('presidencia_a_id')
     pres_b_id   = cliente_info.get('presidencia_b_id')
 
-    # Define % sobre el plan según escenario
-    partes = []  # [(beneficiario_id, pct_plan_decimal, etiqueta_opcional)]
-    bono   = None  # (beneficiario_id, monto_decimal, etiqueta_bono)
+    # Mapa rol -> beneficiario_id
+    def id_por_rol(rol: str):
+        rol = (rol or '').upper()
+        if rol == "ASESOR":         return asesor_id
+        if rol == "GERENCIA":       return gerente_id
+        if rol == "PRESIDENCIA_A":  return pres_a_id
+        if rol == "PRESIDENCIA_B":  return pres_b_id
+        return None
 
-    if escenario == 'asesor':
-        # 1A vs 1B según si el cerrador es distinto al asesor
-        partes = [
-            (asesor_id,  Decimal('2.0'),  'ASESOR COMERCIAL'),
-            (pres_a_id,  Decimal('3.0'),  'PRESIDENCIA A'),
-            (pres_b_id,  Decimal('3.0'),  'PRESIDENCIA B'),
-            (gerente_id, Decimal('1.0'),  'GERENCIA'),
-        ]
-        if cerrador_id and asesor_id and cerrador_id != asesor_id:
-            bono = (cerrador_id, Decimal('5.00'), 'BONO_CIERRE')  # 1A
-    elif escenario == 'superadmin':
-        # 2: cierra Presidencia → bono $5 al asesor
-        partes = [
-            (pres_a_id,  Decimal('5.5'), 'PRESIDENCIA A'),
-            (pres_b_id,  Decimal('5.5'), 'PRESIDENCIA B'),
-            (gerente_id, Decimal('0.5'), 'GERENCIA'),
-            (asesor_id,  Decimal('0.0'), 'ASESOR COMERCIAL'),
-        ]
-        bono = (asesor_id, Decimal('5.00'), 'BONO_ASESOR')
-    elif escenario == 'gerente':
-        # 3: cierra Gerencia para Presidencia
-        partes = [
-            (pres_a_id,  Decimal('5.5'), 'PRESIDENCIA A'),
-            (pres_b_id,  Decimal('5.5'), 'PRESIDENCIA B'),
-            (gerente_id, Decimal('1.0'), 'GERENCIA'),
-            (asesor_id,  Decimal('0.0'), 'ASESOR COMERCIAL'),
-        ]
-        bono = None
-    else:
-        # Fallback: todo 16% al asesor (seguro)
-        partes = [(asesor_id, Decimal('16.0'), 'ASESOR COMERCIAL')]
-        bono = None
+    # Porcentajes del escenario
+    escenario_map = reglas.get(escenario, {})
+    partes = []  # (beneficiario_id, pct, etiqueta)
+    for rol, pct in escenario_map.items():
+        bid = id_por_rol(rol)
+        pct = Decimal(str(pct or 0))
+        if bid and pct > 0:
+            partes.append((bid, pct, rol))
 
-    # Filtra los que tienen % > 0 para normalizar split a 100
-    partes_pos = [(bid or asesor_id, pct, etiqueta) for (bid, pct, etiqueta) in partes if pct > 0]
-    total_pct  = sum(pct for (_, pct, _) in partes_pos) or Decimal('0')
+    # Extra para el cerrador si es distinto al asesor
+    extra_pct = Decimal(str(reglas.get("extra_cerrador_pct", 0)))
+    if extra_pct > 0 and cerrador_id and asesor_id and cerrador_id != asesor_id:
+        partes.append((cerrador_id, extra_pct, "CERRADOR_EXTRA"))
+
+    # Si quedara todo vacío por alguna razón, evita crash y no inserta nada
+    if not partes:
+        return
+
+    total_pct = sum(p for (_, p, _) in partes)
 
     with conn.cursor() as cur:
-        # Inserta comisiones por porcentaje
-        for beneficiario, pct, etiqueta in partes_pos:
+        for beneficiario, pct, etiqueta in partes:
             monto        = q2(P * (pct / Decimal('100')))
-            pct_comision = pct  # % real sobre plan
-            # split normalizado a 100 entre los que cobran %
-            pct_split    = (pct / total_pct * Decimal('100')) if total_pct > 0 else Decimal('0.00')
+            pct_comision = pct
+            pct_split    = q2((pct / total_pct) * Decimal('100')) if total_pct > 0 else Decimal('0.00')
 
             cur.execute("""
                 INSERT INTO public.comisiones
-                (origen_id, origen_tipo, asesor_id, pct_comision, pct_split, base, monto, moneda, estado, fecha_origen, notas, tipo)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    (origen_id, origen_tipo, asesor_id, pct_comision, pct_split, base, monto, moneda, estado, fecha_origen, notas, tipo)
+                VALUES
+                    (%s, %s, %s, %s, %s, %s, %s, %s, 'pendiente', %s, %s, 'COMISION')
             """, (
                 origen_id, 'Venta', beneficiario,
                 pct_comision, pct_split, P, monto, moneda,
-                'pendiente', fecha_dia, f"Escenario={escenario}; {etiqueta}", 'COMISION'
+                fecha_dia, f"Escenario={escenario}; {etiqueta}"
             ))
-
-        # Inserta bono fijo (si aplica)
-        if bono:
-            beneficiario_bono, monto_bono, etiqueta_bono = bono
-            if beneficiario_bono:
-                cur.execute("""
-                    INSERT INTO public.comisiones
-                    (origen_id, origen_tipo, asesor_id, pct_comision, pct_split, base, monto, moneda, estado, fecha_origen, notas, tipo)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    origen_id, 'Venta', beneficiario_bono,
-                    Decimal('0.00'), Decimal('0.00'), Decimal('0.00'),
-                    Decimal('5.00'), 'USD', 'pendiente', fecha_dia, etiqueta_bono, 'BONO'
-                ))
 
 # ================== FIN COMISIONES (GLOBAL) ===================================
 
@@ -4208,14 +4308,14 @@ def finalizar_registro():
 
     form_data = {k: v.strip() if isinstance(v, str) else v for k, v in request.form.items()}
 
-    # Subida de fotos (sin cambios)
+    # Subida de fotos
     foto_cliente_base64 = form_data.get('foto_cliente')
     foto_cedula_base64  = form_data.get('foto_cedula')
     ruta_s3_cliente = None
     ruta_s3_cedula  = None
     cedula_cliente_limpia = (form_data.get('cedula', '') or '').replace(' ', '').replace('.', '')
 
-    if foto_cliente_base64 and foto_cliente_base64.startswith('data:image'):
+    if foto_cliente_base64 and str(foto_cliente_base64).startswith('data:image'):
         nombre_archivo_s3 = f"documentos/{cedula_cliente_limpia}/foto_cliente_{int(datetime.now().timestamp())}.jpg"
         if subir_archivo_a_s3(foto_cliente_base64, nombre_archivo_s3):
             ruta_s3_cliente = nombre_archivo_s3
@@ -4223,7 +4323,7 @@ def finalizar_registro():
             flash("Error crítico al subir la foto del cliente a S3. El registro ha sido cancelado.", "danger")
             return redirect(url_for('registrar'))
 
-    if foto_cedula_base64 and foto_cedula_base64.startswith('data:image'):
+    if foto_cedula_base64 and str(foto_cedula_base64).startswith('data:image'):
         nombre_archivo_s3 = f"documentos/{cedula_cliente_limpia}/foto_cedula_{int(datetime.now().timestamp())}.jpg"
         if subir_archivo_a_s3(foto_cedula_base64, nombre_archivo_s3):
             ruta_s3_cedula = nombre_archivo_s3
@@ -4232,29 +4332,38 @@ def finalizar_registro():
             return redirect(url_for('registrar'))
 
     try:
+        # Import local para evitar NameError de InvalidOperation si no está en módulo
+        from decimal import Decimal, InvalidOperation
+
         firma_cliente  = form_data.get('firma_cliente')
         firma_empresa  = form_data.get('firma_empresa')
         if not firma_cliente or not firma_empresa:
             flash('Ambas firmas son obligatorias para registrar al cliente.', 'error')
             return redirect(url_for('registrar'))
 
-        # --- INICIO DE LA CORRECCIÓN ---
-        # Helper seguro para números tipo '1.400,00' → Decimal('1400.00')
-        def to_decimal(s):
+        # Helper: '1.400,00' -> Decimal('1400.00')
+        def to_decimal(s: str) -> Decimal:
             s = (s or '0').strip()
             s = s.replace('.', '').replace(',', '.')
             return Decimal(s)
+
+        def to_int(s):
+            try:
+                return int(s) if s not in (None, '',) else None
+            except ValueError:
+                return None
 
         # Lecturas estandarizadas
         plan_valor        = to_decimal(form_data.get('plan_contratado'))
         inscripcion_valor = to_decimal(form_data.get('inscripcion_monto'))
         valor_cuota_valor = to_decimal(form_data.get('valor_cuota'))
 
-        escenario   = form_data.get('escenario_dueño')      # 'superadmin' | 'gerente' | 'asesor'
-        asesor_id   = form_data.get('asesor_id')            # dueño/beneficiario
-        cerrador_id = form_data.get('cerrado_por_id')       # responsable del cierre
+        escenario         = form_data.get('escenario_dueño')  # 'superadmin' | 'gerente' | 'asesor'
+        asesor_id         = to_int(form_data.get('asesor_id'))       # dueño/beneficiario
+        cerrador_id       = to_int(form_data.get('cerrado_por_id'))  # responsable del cierre
         responsable_cierre = cerrador_id
 
+        # Inserción del cliente
         with conn.cursor() as cur:
             nombre_completo = (form_data.get('nombre_apellido', '') or '').split(' ', 1)
             nombre   = nombre_completo[0] if nombre_completo and nombre_completo[0] else ''
@@ -4264,7 +4373,6 @@ def finalizar_registro():
             beneficiario_nombre    = beneficiario_completo[0] if beneficiario_completo and beneficiario_completo[0] else ''
             beneficiario_apellido  = beneficiario_completo[1] if len(beneficiario_completo) > 1 else ''
 
-            # Diccionario para insertar en la BD con los nombres de columna correctos
             insert_dict = {
                 'nombre': nombre,
                 'apellido': apellido,
@@ -4282,11 +4390,11 @@ def finalizar_registro():
                 'beneficiario_apellido': beneficiario_apellido,
                 'numero_contrato': form_data.get('numero_contrato'),
                 'numero_telefono': form_data.get('telefono'),
-                'responsable': responsable_cierre,         # quien cerró
+                'responsable': responsable_cierre,  # quien cerró
                 'fecha_ingreso': form_data.get('fecha_ingreso'),
                 'grupo': form_data.get('grupo'),
                 'plan_contratado': plan_valor,
-                'cuotas_totales': int(form_data.get('cuotas_totales') or 0),
+                'cuotas_totales': to_int(form_data.get('cuotas_totales')) or 0,
                 'moneda_pago': form_data.get('moneda_pago'),
                 'valor_cuota': valor_cuota_valor,
                 'inscripcion_monto': inscripcion_valor,
@@ -4297,34 +4405,39 @@ def finalizar_registro():
                 'beneficiario_telefono': form_data.get('beneficiario_telefono'),
                 'beneficiario_email': form_data.get('beneficiario_email'),
                 'beneficiario_direccion': form_data.get('beneficiario_direccion'),
-                'asesor': asesor_id                         # dueño/beneficiario
+                'asesor': asesor_id,  # dueño/beneficiario
             }
 
-            columns = insert_dict.keys()
-            values = [insert_dict.get(col) for col in columns]
-            query = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))}) RETURNING id"
+            columns = list(insert_dict.keys())
+            values  = [insert_dict[c] for c in columns]
+            query   = f"INSERT INTO clientes ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(values))}) RETURNING id"
             cur.execute(query, values)
             new_client_id = cur.fetchone()[0]
-        # --- FIN DEL with ---
 
-        # NUEVO: resolver beneficiarios (Presidencia A/B y Gerencia) desde parámetros
-        benef = resolver_beneficiarios(conn, asesor_id)
-
-        # Calcular comisiones del contrato recién creado (pool 16% + bono $5 si aplica)
+        # --- COMISIONES ---
+        # Payload base
         cliente_info = {
             'cliente_id': new_client_id,
             'plan_contratado': plan_valor,
             'inscripcion_monto': inscripcion_valor,
-            'escenario': (escenario or 'asesor').lower(),   # 'asesor' | 'gerente' | 'superadmin'
+            'escenario': (escenario or 'asesor').lower(),  # 'asesor' | 'gerente' | 'superadmin'
             'asesor_id': asesor_id,
             'cerrador_id': cerrador_id,
             'moneda_pago': form_data.get('moneda_pago') or 'USD',
-            'gerente_id': benef.get('gerente_id'),
-            'presidencia_a_id': benef.get('presidencia_a_id'),
-            'presidencia_b_id': benef.get('presidencia_b_id'),
         }
+
+        # Beneficiarios (Presidencia A/B y Gerencia) desde parámetros
+        benef = resolver_beneficiarios(conn, asesor_id)
+        if benef:
+            cliente_info.update({
+                'gerente_id':       benef.get('gerente_id'),
+                'presidencia_a_id': benef.get('presidencia_a_id'),
+                'presidencia_b_id': benef.get('presidencia_b_id'),
+            })
+
+        # Calcula y graba comisiones (incluye 0.4% al cerrador externo y bono $5 según reglas)
         calcular_y_guardar_comisiones(conn, cliente_info)
-        # --- FIN DE LA CORRECCIÓN ---
+        # --- FIN COMISIONES ---
 
         # Caja: registra inscripción si corresponde
         if inscripcion_valor > 0:
@@ -4335,7 +4448,10 @@ def finalizar_registro():
                 """, (form_data.get('numero_contrato'), new_client_id, inscripcion_valor, responsable_cierre))
 
         # Auditoría
-        descripcion_audit = f"Registró y firmó contrato para nuevo cliente: {form_data.get('nombre_apellido')} (C.I. {cedula_cliente_limpia})."
+        descripcion_audit = (
+            f"Registró y firmó contrato para nuevo cliente: {form_data.get('nombre_apellido')} "
+            f"(C.I. {cedula_cliente_limpia})."
+        )
         registrar_accion_auditoria('REGISTRO_CLIENTE_FIRMADO', descripcion_audit, new_client_id)
 
         # Commit final (cliente + comisiones + caja + auditoría)
@@ -4345,7 +4461,10 @@ def finalizar_registro():
 
     except psycopg2.IntegrityError:
         conn.rollback()
-        flash(f"Registro fallido: La cédula '{form_data.get('cedula')}' o el N° de Contrato '{form_data.get('numero_contrato')}' ya existen.", 'error')
+        flash(
+            f"Registro fallido: La cédula '{form_data.get('cedula')}' o el N° de Contrato '{form_data.get('numero_contrato')}' ya existen.",
+            'error'
+        )
         return redirect(url_for('registrar'))
     except (psycopg2.Error, ValueError, ConnectionError, InvalidOperation) as e:
         conn.rollback()

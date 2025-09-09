@@ -9,6 +9,114 @@
     <p class="text-sm text-slate-500">Comisiones y bonos — filtros, aprobación y exportes.</p>
   </header>
 
+  {# ===================== SOLO SUPERADMIN: CONFIGURACIÓN DE COMISIONES ===================== #}
+  {% set is_superadmin = (current_user and current_user.rol == 'superadmin') or (es_superadmin if es_superadmin is defined else false) %}
+  {% if is_superadmin %}
+  <section class="mb-6">
+    <div class="bg-white rounded-xl shadow p-4">
+      <div class="flex items-center justify-between gap-4">
+        <div>
+          <h2 class="text-base font-semibold text-slate-800">Configuración de Comisiones</h2>
+          <p class="text-xs text-slate-500">Administra los escenarios, splits del pool (16%) y el % extra para el cerrador (cuando es distinto del asesor responsable).</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnGuardarReglas" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold shadow hover:bg-indigo-700">Guardar</button>
+          <button id="btnResetReglas" class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-semibold shadow hover:bg-slate-200">Restablecer</button>
+        </div>
+      </div>
+
+      <div class="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Editor de reglas -->
+        <div class="lg:col-span-2">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700">Escenario</label>
+              <select id="escenarioSelect" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                <option value="asesor">Asesor</option>
+                <option value="gerente">Gerente</option>
+                <option value="superadmin">Superadmin</option>
+              </select>
+            </div>
+
+            <div class="flex items-end justify-between gap-2">
+              <div>
+                <span class="block text-xs text-slate-500">Suma del Split</span>
+                <span id="sumSplit" class="font-semibold text-slate-800">0.00%</span>
+              </div>
+              <div id="sumBadge" class="text-xs px-2 py-1 rounded-md bg-slate-100 text-slate-700">Pendiente</div>
+            </div>
+
+            <!-- Campos de split (pool 16%) -->
+            <div>
+              <label class="block text-sm font-medium text-slate-700">Asesor Comercial (%)</label>
+              <input id="pct_asesor" type="number" step="0.01" min="0" class="mt-1 w-full rounded-md border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700">Gerencia (%)</label>
+              <input id="pct_gerencia" type="number" step="0.01" min="0" class="mt-1 w-full rounded-md border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700">Presidencia A (%)</label>
+              <input id="pct_pres_a" type="number" step="0.01" min="0" class="mt-1 w-full rounded-md border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700">Presidencia B (%)</label>
+              <input id="pct_pres_b" type="number" step="0.01" min="0" class="mt-1 w-full rounded-md border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            </div>
+
+            <!-- Cerrador externo (fuera del 16%) -->
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-slate-700">% Extra Cerrador (cuando cerrador ≠ asesor)</label>
+              <div class="mt-1 flex items-center gap-3">
+                <input id="pct_cerrador_extra" type="number" step="0.01" min="0" class="w-32 rounded-md border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                <span class="text-xs text-slate-500">Este porcentaje se aplica sobre el plan y es adicional al split de 16%.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Simulador -->
+        <div class="lg:col-span-1">
+          <div class="rounded-lg border border-slate-200 p-3">
+            <h3 class="text-sm font-semibold text-slate-800">Simulador</h3>
+            <div class="mt-2 grid grid-cols-1 gap-2">
+              <div>
+                <label class="block text-xs font-medium text-slate-600">Monto del plan</label>
+                <input id="sim_plan" type="number" step="0.01" min="0" class="mt-1 w-full rounded-md border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0.00" />
+              </div>
+              <div class="flex items-center gap-2">
+                <input id="sim_cerrador_externo" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                <label for="sim_cerrador_externo" class="text-xs text-slate-600">Cerrador distinto al asesor</label>
+              </div>
+            </div>
+
+            <div class="mt-3 text-xs">
+              <div class="flex justify-between py-1 border-b">
+                <span>Asesor</span><span id="sim_out_asesor">$0.00</span>
+              </div>
+              <div class="flex justify-between py-1 border-b">
+                <span>Gerencia</span><span id="sim_out_gerencia">$0.00</span>
+              </div>
+              <div class="flex justify-between py-1 border-b">
+                <span>Presidencia A</span><span id="sim_out_pres_a">$0.00</span>
+              </div>
+              <div class="flex justify-between py-1 border-b">
+                <span>Presidencia B</span><span id="sim_out_pres_b">$0.00</span>
+              </div>
+              <div class="flex justify-between py-1">
+                <span>Cerrador (extra)</span><span id="sim_out_cerrador">$0.00</span>
+              </div>
+            </div>
+
+            <button id="btnSimular" class="mt-3 w-full px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200">Simular</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+  {# =================== FIN SOLO SUPERADMIN: CONFIGURACIÓN DE COMISIONES =================== #}
+
   <!-- Filtros -->
   <form id="filtrosForm" method="get" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end bg-white p-4 rounded-xl shadow">
     <div>
@@ -20,7 +128,6 @@
       <input type="date" id="fecha_hasta_origen" name="fecha_hasta_origen" value="{{ filters.fecha_hasta_origen if filters is defined else '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
     </div>
 
-    {# Lista de asesores: usa 'asesores' si existe, si no 'todos_los_admins', si no queda vacío #}
     {% set asesores_list = (asesores if asesores is defined else (todos_los_admins if todos_los_admins is defined else [])) %}
     <div>
       <label for="asesor_id" class="block text-sm font-medium text-slate-700">Asesor</label>
@@ -46,7 +153,6 @@
       </select>
     </div>
 
-    <!-- NUEVO: Filtro por Tipo -->
     <div>
       <label for="tipo" class="block text-sm font-medium text-slate-700">Tipo</label>
       <select name="tipo" id="tipo" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
@@ -82,13 +188,10 @@
     <table class="min-w-full text-sm">
       <thead class="bg-slate-100 text-slate-700">
         <tr>
-          <th class="p-3 text-left font-semibold w-10">
-            <span class="sr-only">Sel</span>
-          </th>
+          <th class="p-3 text-left font-semibold w-10"><span class="sr-only">Sel</span></th>
           <th class="p-3 text-left font-semibold">Fecha</th>
           <th class="p-3 text-left font-semibold">Asesor</th>
           <th class="p-3 text-left font-semibold">Cliente / Origen</th>
-          <!-- NUEVO: columna Tipo -->
           <th class="p-3 text-left font-semibold">Tipo</th>
           <th class="p-3 text-right font-semibold">Monto</th>
           <th class="p-3 text-left font-semibold">Estado</th>
@@ -105,13 +208,8 @@
               <td class="p-3 align-top">
                 <span class="whitespace-nowrap">{{ comision.fecha_origen | default('') | string }}</span>
               </td>
-              <td class="p-3 align-top">
-                {{ comision.asesor or '—' }}
-              </td>
-              <td class="p-3 align-top">
-                {{ comision.cliente or comision.origen_tipo or '—' }}
-              </td>
-              <!-- NUEVO: Tipo + Notas (tooltip) -->
+              <td class="p-3 align-top">{{ comision.asesor or '—' }}</td>
+              <td class="p-3 align-top">{{ comision.cliente or comision.origen_tipo or '—' }}</td>
               <td class="p-3 align-top">
                 <span class="inline-flex items-center gap-2">
                   <span class="px-2 py-0.5 rounded-md text-xs font-semibold {{ 'bg-purple-100 text-purple-800' if comision.tipo == 'BONO' else 'bg-slate-100 text-slate-800' }}">
@@ -134,9 +232,7 @@
                   {{ comision.estado|capitalize if comision.estado else 'Pendiente' }}
                 </span>
               </td>
-              <td class="p-3 align-top">
-                {{ comision.payment_batch_id or '—' }}
-              </td>
+              <td class="p-3 align-top">{{ comision.payment_batch_id or '—' }}</td>
             </tr>
           {% endfor %}
         {% else %}
@@ -148,7 +244,6 @@
     </table>
   </div>
 
-  <!-- Paginación simple (opcional) -->
   {% if pagination is defined %}
     <div class="mt-4 flex items-center justify-between text-sm">
       <div class="text-slate-500">Mostrando {{ pagination.current_count }} de {{ pagination.total }}</div>
@@ -167,7 +262,29 @@
 {% block scripts_extra %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // Seleccionar todo
+  // ========================= EXPORTES =========================
+  const exportLinks = document.querySelectorAll('.data-export-btn');
+  exportLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const formato = e.currentTarget.dataset.formato || 'xlsx';
+      const fd  = document.getElementById('fecha_desde_origen')?.value || '';
+      const fh  = document.getElementById('fecha_hasta_origen')?.value || '';
+      const aid = document.getElementById('asesor_id')?.value || '';
+      const est = document.getElementById('estado')?.value || '';
+      const tip = document.getElementById('tipo')?.value || '';
+      const params = new URLSearchParams();
+      if (fd)  params.set('fecha_desde_origen', fd);
+      if (fh)  params.set('fecha_hasta_origen', fh);
+      if (aid) params.set('asesor_id', aid);
+      if (est) params.set('estado', est);
+      if (tip) params.set('tipo', tip);
+      const url = `/comisiones/export/${encodeURIComponent(formato)}?` + params.toString();
+      window.location.href = url;
+    });
+  });
+
+  // =================== SELECCIONAR TODO EN TABLA ===================
   const selTodo = document.getElementById('seleccionar-todo');
   if (selTodo) {
     selTodo.addEventListener('change', () => {
@@ -175,31 +292,154 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Exportar con filtros vigentes
-  const exportLinks = document.querySelectorAll('.data-export-btn');
-  exportLinks.forEach(link => {
-    link.addEventListener('click', (e) => {
-      e.preventDefault();
-      const formato = e.currentTarget.dataset.formato || 'xlsx';
+  // =================== SUPERADMIN: CONFIGURACIÓN ===================
+  const isSuperadmin = {{ 'true' if is_superadmin else 'false' }};
+  if (!isSuperadmin) return;
 
-      // Lee filtros del formulario
-      const fd  = document.getElementById('fecha_desde_origen')?.value || '';
-      const fh  = document.getElementById('fecha_hasta_origen')?.value || '';
-      const aid = document.getElementById('asesor_id')?.value || '';
-      const est = document.getElementById('estado')?.value || '';
-      const tip = document.getElementById('tipo')?.value || '';
+  // Fallback de reglas (por si el backend aún no expone GET /comisiones/config)
+  const defaults = {
+    asesor:     { pct_asesor: 2.00, pct_gerencia: 1.00, pct_pres_a: 3.00, pct_pres_b: 3.00, pct_cerrador_extra: 0.40 },
+    gerente:    { pct_asesor: 0.00, pct_gerencia: 1.00, pct_pres_a: 5.50, pct_pres_b: 5.50, pct_cerrador_extra: 0.40 },
+    superadmin: { pct_asesor: 0.00, pct_gerencia: 0.50, pct_pres_a: 5.50, pct_pres_b: 5.50, pct_cerrador_extra: 0.40 }
+  };
 
-      const params = new URLSearchParams();
-      if (fd)  params.set('fecha_desde_origen', fd);
-      if (fh)  params.set('fecha_hasta_origen', fh);
-      if (aid) params.set('asesor_id', aid);
-      if (est) params.set('estado', est);
-      if (tip) params.set('tipo', tip);
+  let rulesByScenario = structuredClone(defaults);
 
-      const url = `/comisiones/export/${encodeURIComponent(formato)}?` + params.toString();
-      window.location.href = url;
-    });
+  const csrf = "{{ csrf_token() if csrf_token is defined else '' }}";
+  const escenarioSelect = document.getElementById('escenarioSelect');
+  const sumSplit = document.getElementById('sumSplit');
+  const sumBadge = document.getElementById('sumBadge');
+
+  const f = (id) => document.getElementById(id);
+  const inputs = {
+    pct_asesor: f('pct_asesor'),
+    pct_gerencia: f('pct_gerencia'),
+    pct_pres_a: f('pct_pres_a'),
+    pct_pres_b: f('pct_pres_b'),
+    pct_cerrador_extra: f('pct_cerrador_extra'),
+  };
+
+  const sim = {
+    plan: f('sim_plan'),
+    cerradorExt: f('sim_cerrador_externo'),
+    out: {
+      asesor: f('sim_out_asesor'),
+      gerencia: f('sim_out_gerencia'),
+      pres_a: f('sim_out_pres_a'),
+      pres_b: f('sim_out_pres_b'),
+      cerrador: f('sim_out_cerrador'),
+    }
+  };
+
+  function toNum(v){ return Number.isFinite(+v) ? +v : 0; }
+  function fmtMoney(n){ return '$' + (toNum(n)).toFixed(2); }
+
+  function loadScenarioUI(scn){
+    const r = rulesByScenario[scn] || defaults[scn];
+    inputs.pct_asesor.value = r.pct_asesor.toFixed(2);
+    inputs.pct_gerencia.value = r.pct_gerencia.toFixed(2);
+    inputs.pct_pres_a.value = r.pct_pres_a.toFixed(2);
+    inputs.pct_pres_b.value = r.pct_pres_b.toFixed(2);
+    inputs.pct_cerrador_extra.value = r.pct_cerrador_extra.toFixed(2);
+    updateSumBadge();
+  }
+
+  function captureScenarioUI(){
+    const scn = escenarioSelect.value;
+    rulesByScenario[scn] = {
+      pct_asesor: toNum(inputs.pct_asesor.value),
+      pct_gerencia: toNum(inputs.pct_gerencia.value),
+      pct_pres_a: toNum(inputs.pct_pres_a.value),
+      pct_pres_b: toNum(inputs.pct_pres_b.value),
+      pct_cerrador_extra: toNum(inputs.pct_cerrador_extra.value),
+    };
+    updateSumBadge();
+  }
+
+  function updateSumBadge(){
+    const scn = escenarioSelect.value;
+    const r = rulesByScenario[scn];
+    const sum = (r.pct_asesor + r.pct_gerencia + r.pct_pres_a + r.pct_pres_b);
+    sumSplit.textContent = sum.toFixed(2) + '% de 16%';
+    if (Math.abs(sum - 16.00) < 0.001){
+      sumBadge.textContent = 'OK: suma 16%';
+      sumBadge.className = 'text-xs px-2 py-1 rounded-md bg-green-100 text-green-800';
+    } else {
+      sumBadge.textContent = 'Debe sumar 16%';
+      sumBadge.className = 'text-xs px-2 py-1 rounded-md bg-rose-100 text-rose-800';
+    }
+  }
+
+  function simulate(){
+    const scn = escenarioSelect.value;
+    const r = rulesByScenario[scn];
+    const plan = toNum(sim.plan.value);
+    const asesorAmt   = plan * (r.pct_asesor/100);
+    const gerenciaAmt = plan * (r.pct_gerencia/100);
+    const presAAmt    = plan * (r.pct_pres_a/100);
+    const presBAmt    = plan * (r.pct_pres_b/100);
+    const cerradorAmt = sim.cerradorExt.checked ? plan * (r.pct_cerrador_extra/100) : 0;
+
+    sim.out.asesor.textContent   = fmtMoney(asesorAmt);
+    sim.out.gerencia.textContent = fmtMoney(gerenciaAmt);
+    sim.out.pres_a.textContent   = fmtMoney(presAAmt);
+    sim.out.pres_b.textContent   = fmtMoney(presBAmt);
+    sim.out.cerrador.textContent = fmtMoney(cerradorAmt);
+  }
+
+  // Eventos UI
+  escenarioSelect.addEventListener('change', () => loadScenarioUI(escenarioSelect.value));
+  Object.values(inputs).forEach(inp => inp.addEventListener('input', captureScenarioUI));
+  document.getElementById('btnSimular')?.addEventListener('click', (e)=>{ e.preventDefault(); simulate(); });
+
+  document.getElementById('btnResetReglas')?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    rulesByScenario = structuredClone(defaults);
+    loadScenarioUI(escenarioSelect.value);
   });
+
+  document.getElementById('btnGuardarReglas')?.addEventListener('click', async (e)=>{
+    e.preventDefault();
+    captureScenarioUI();
+    // simple validación
+    for (const scn of Object.keys(rulesByScenario)){
+      const r = rulesByScenario[scn];
+      const sum = r.pct_asesor + r.pct_gerencia + r.pct_pres_a + r.pct_pres_b;
+      if (Math.abs(sum - 16.00) > 0.001){
+        alert(`El split de "${scn}" debe sumar 16%. Actualmente: ${sum.toFixed(2)}%.`);
+        return;
+      }
+    }
+    try{
+      const resp = await fetch('/comisiones/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrf ? {'X-CSRFToken': csrf} : {})
+        },
+        body: JSON.stringify({ reglas: rulesByScenario })
+      });
+      if (!resp.ok) throw new Error('Error HTTP ' + resp.status);
+      alert('Reglas guardadas.');
+    }catch(err){
+      console.error(err);
+      alert('No se pudo guardar. Revisa el servidor.');
+    }
+  });
+
+  // Cargar desde backend (si existe)
+  (async () => {
+    try{
+      const resp = await fetch('/comisiones/config', {headers: {'Accept': 'application/json'}});
+      if (resp.ok){
+        const data = await resp.json();
+        if (data && data.reglas){
+          rulesByScenario = Object.assign(structuredClone(defaults), data.reglas);
+        }
+      }
+    }catch(_){}
+    loadScenarioUI(escenarioSelect.value);
+  })();
 });
 </script>
 {% endblock %}

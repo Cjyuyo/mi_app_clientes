@@ -1,0 +1,122 @@
+{% extends "base_sidebar.html" %}
+
+{% block title %}Configurar Comisiones{% endblock %}
+{% block page_title %}Configuración de Comisiones{% endblock %}
+
+{% block body %}
+  <div class="space-y-6">
+
+    <div class="bg-white p-5 rounded-xl shadow">
+      <p class="text-slate-600 text-sm">
+        Edita las reglas de comisiones en formato JSON. Solo usuarios <strong>Superadmin</strong> deberían acceder aquí.
+        El backend valida y guarda en memoria/BD según lo configurado. Recuerda que
+        <code>cerrador_extra_pct</code> aplica <em>solo</em> cuando el cerrador es distinto al asesor responsable.
+      </p>
+    </div>
+
+    <form id="form-reglas" method="post" action="{{ url_for('config_comisiones') }}" class="bg-white p-5 rounded-xl shadow space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-slate-800">Reglas de Comisiones (JSON)</h2>
+        <div class="flex items-center gap-2">
+          <span id="estado-json" class="text-xs px-2 py-1 rounded bg-slate-100 text-slate-700">Validando…</span>
+          <button id="btn-descargar" type="button" class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200">
+            Descargar backup
+          </button>
+        </div>
+      </div>
+
+      <textarea
+        id="json_reglas"
+        name="json_reglas"
+        class="w-full font-mono text-sm p-3 border rounded-lg min-h-[420px] outline-none focus:ring-2 focus:ring-indigo-500"
+        spellcheck="false"
+      >{{ reglas_json | safe }}</textarea>
+
+      <div class="flex items-center justify-between">
+        <div class="text-xs text-slate-500" id="mensaje-ayuda">
+          Esquema: <code>{"escenarios": {...}, "cerrador_extra_pct": 0.4}</code>
+        </div>
+        <div class="flex gap-2">
+          <button
+            type="submit"
+            class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold shadow hover:bg-indigo-700"
+            id="btn-guardar"
+          >
+            Guardar
+          </button>
+
+          <button
+            type="button"
+            id="btn-reset"
+            class="px-4 py-2 rounded-lg bg-rose-50 text-rose-700 text-sm font-semibold hover:bg-rose-100 border border-rose-200"
+            data-reset-url="{{ url_for('config_comisiones') }}?reset=1"
+          >
+            Restaurar por defecto
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <div class="bg-white p-5 rounded-xl shadow">
+      <h3 class="text-base font-semibold text-slate-800 mb-2">Notas</h3>
+      <ul class="list-disc pl-5 text-slate-600 text-sm space-y-1">
+        <li>Los porcentajes son sobre el <strong>valor del plan</strong> (no el 16%).</li>
+        <li>Si algún ID de beneficiario está ausente (None), esa parte queda como sobrante para la empresa.</li>
+        <li><code>cerrador_extra_pct</code> se ignora cuando <code>cerrador_id == asesor_id</code>.</li>
+      </ul>
+    </div>
+
+  </div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+(function() {
+  const ta = document.getElementById('json_reglas');
+  const estado = document.getElementById('estado-json');
+  const btnGuardar = document.getElementById('btn-guardar');
+  const btnReset = document.getElementById('btn-reset');
+  const btnDescargar = document.getElementById('btn-descargar');
+
+  function validateJSON() {
+    try {
+      JSON.parse(ta.value);
+      estado.textContent = 'JSON válido';
+      estado.className = 'text-xs px-2 py-1 rounded bg-green-100 text-green-700';
+      btnGuardar.disabled = false;
+      return true;
+    } catch (e) {
+      estado.textContent = 'JSON inválido';
+      estado.className = 'text-xs px-2 py-1 rounded bg-rose-100 text-rose-700';
+      btnGuardar.disabled = true;
+      return false;
+    }
+  }
+
+  ta.addEventListener('input', validateJSON);
+  validateJSON();
+
+  // Restaurar por defecto (POST a ?reset=1)
+  btnReset?.addEventListener('click', () => {
+    const url = btnReset.dataset.resetUrl;
+    if (!confirm('¿Restaurar reglas por defecto? Esta acción sobrescribirá las reglas actuales.')) return;
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = url;
+    document.body.appendChild(form);
+    form.submit();
+  });
+
+  // Descargar backup del contenido actual del textarea
+  btnDescargar?.addEventListener('click', () => {
+    const blob = new Blob([ta.value], {type: 'application/json;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'reglas_comisiones_backup.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+})();
+</script>
+{% endblock %}
