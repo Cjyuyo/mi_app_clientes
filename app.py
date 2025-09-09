@@ -2263,30 +2263,45 @@ def dashboard_comercial():
 
 @app.route('/config/comisiones', methods=['GET', 'POST'])
 @admin_required
+@rol_requerido('superadmin')  # usa tu decorador estándar
 def config_comisiones():
-    # Asegura que solo Superadmin entre (ajusta a tu mecanismo real de roles)
-    rol_sesion = (session.get('rol') or '').strip().lower()
-    if rol_sesion != 'superadmin':
-        abort(403)
+    # GET: muestra reglas actuales
+    if request.method == 'GET':
+        reglas = get_reglas_comisiones() or {}
+        reglas_json = json.dumps(reglas, ensure_ascii=False, indent=2)
+        return render_template('config_comisiones.html', reglas_json=reglas_json)
 
-    if request.method == 'POST':
-        # Soporta form tradicional (input hidden con JSON) o POST JSON.
-        payload = request.get_json(silent=True) or {}
-        rules_json = payload.get('rules_json') or request.form.get('rules_json')
-        try:
-            nuevas = json.loads(rules_json) if isinstance(rules_json, str) else (payload.get('rules') or {})
-            set_reglas_comisiones(nuevas)
-        except Exception as e:
-            logging.exception("Error actualizando reglas de comisiones")
-            flash(f"Error guardando reglas: {e}", "error")
-            # Si quieres responder JSON
-            if request.is_json:
-                return jsonify({"ok": False, "error": str(e)}), 400
+    # POST: guardar (o resetear)
+    try:
+        # Acepta tanto form como JSON, y múltiples nombres válidos
+        raw = (
+            request.form.get('json_reglas')
+            or request.form.get('reglas_json')
+            or request.form.get('rules_json')
+            or (request.is_json and (
+                request.json.get('json_reglas')
+                or request.json.get('reglas_json')
+                or request.json.get('rules_json')
+                or request.json.get('rules')  # compat
+            ))
+        )
+        if raw is None:
+            flash("No se recibió contenido", "error")
             return redirect(url_for('config_comisiones'))
 
+        # Reset opcional (?reset=1) desde el botón de la plantilla
+        if request.args.get('reset') == '1':
+            nuevas = get_reglas_comisiones_por_defecto()  # usa tu función/constante de defaults
+        else:
+            nuevas = json.loads(raw) if isinstance(raw, str) else raw
+
+        set_reglas_comisiones(nuevas)
         flash("¡Reglas de comisiones actualizadas!", "success")
-        if request.is_json:
-            return jsonify({"ok": True})
+        return redirect(url_for('config_comisiones'))
+
+    except Exception as e:
+        logging.exception("Error actualizando reglas de comisiones")
+        flash(f"Error guardando reglas: {e}", "error")
         return redirect(url_for('config_comisiones'))
 
     # GET: muestra reglas actuales
