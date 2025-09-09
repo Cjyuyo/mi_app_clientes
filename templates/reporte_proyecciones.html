@@ -3,7 +3,10 @@
 {% block title %}Planificación Financiera{% endblock %}
 
 {% block body %}
-<div class="space-y-8" x-data="escenariosBuilder()">
+<!-- Rehidratación desde backend -->
+<script>window.BLOQUES_INICIALES = {{ (bloques_iniciales or "[]")|safe }};</script>
+
+<div class="space-y-8" x-data="escenariosBuilder()" x-init="init()">
 
   <header class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
     <div class="flex flex-col md:flex-row justify-between md:items-center">
@@ -111,7 +114,7 @@
           </details>
         </div>
 
-        <!-- Condición (mora, solvente, pago adelantado, etc.) -->
+        <!-- Condición (catálogo oficial) -->
         <div>
           <label class="text-xs font-medium text-slate-600">Condición</label>
           <details class="relative mt-1">
@@ -204,7 +207,7 @@
   </section>
 
   {% if simulacion_realizada and proyecciones.simulacion_exitosa %}
-    <!-- KPIs/Resumen (se mantiene tu estética) -->
+    <!-- KPIs/Resumen -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 text-center">
         <div class="text-sm text-slate-500">Ingresos Proyectados</div>
@@ -230,7 +233,7 @@
     <div class="bg-white p-6 rounded-xl shadow-sm border">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-lg font-bold text-slate-800">Clientes a cobrar (global)</h3>
-        <form method="GET" action="{{ url_for('exportar_clientes_cobranza') }}">
+        <form method="GET" action="{{ url_for('exportar_proyecciones', formato='xlsx') }}">
           <input type="hidden" name="bloques_json" :value="jsonBloquesMarcados()">
           <button class="py-2 px-4 rounded-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700">
             Exportar clientes
@@ -283,9 +286,18 @@ function escenariosBuilder() {
       'Ahorrador','Adjudicado','Congelado','Retiro','Completado',
       'Reserva','Cobranza Diferida','Diferido en Reserva','Inscrito'
     ],
-    condicionesAll: ['Mora','Solvente','Pago adelantado','Refinanciado','Acuerdo de pago'],
+    // Catálogo oficial de condición
+    condicionesAll: ['Mora','Solvente','Pago impuntual','Pago parcial','Pago adelantado'],
+
     form: { fecha_inicio:'', fecha_fin:'', empresa:'', estatus_cliente:'', estatus_cuota:'', excluir_rc:false, estados:[], condiciones:[] },
     bloques: [],
+
+    init(){
+      try {
+        const bi = window.BLOQUES_INICIALES;
+        this.bloques = Array.isArray(bi) ? bi : JSON.parse(bi || '[]');
+      } catch(e) { this.bloques = []; }
+    },
 
     toggleEstado(e){ const i=this.form.estados.indexOf(e); if(i>-1) this.form.estados.splice(i,1); else this.form.estados.push(e); },
     toggleCondicion(c){ const i=this.form.condiciones.indexOf(c); if(i>-1) this.form.condiciones.splice(i,1); else this.form.condiciones.push(c); },
@@ -296,7 +308,7 @@ function escenariosBuilder() {
       const b = JSON.parse(JSON.stringify(this.form));
       b.incluir = true;
       this.bloques.push(b);
-      // opcional: limpiar form
+      // opcional: limpiar form de multiselecciones
       this.form.condiciones=[]; this.form.estados=[];
     },
     eliminarBloque(idx){ this.bloques.splice(idx,1); },
