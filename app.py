@@ -3663,44 +3663,39 @@ def reporte_proyecciones():
 
     excluir_rc = (request.args.get('excluir_rc') == '1')
 
-    # WHERE dinámico
-where, params = [], []
+    # WHERE dinámico (normalizado)
+    where, params = [], []
 
-if empresa:
-    # ya estaba robusto
-    where.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(TRIM(%s), ' ', ''))")
-    params.append(empresa)
+    if empresa:
+        where.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(TRIM(%s), ' ', ''))")
+        params.append(empresa)
 
-# Estado(s) del plan (acepta select + checkboxes) – normalizado
-if estados_sel:
-    where.append("(" + " OR ".join(
-        ["TRIM(UPPER(c.estado_del_plan)) = TRIM(UPPER(%s))"] * len(estados_sel)
-    ) + ")")
-    params.extend(estados_sel)
+    if estados_sel:
+        where.append("(" + " OR ".join(
+            ["TRIM(UPPER(c.estado_del_plan)) = TRIM(UPPER(%s))"] * len(estados_sel)
+        ) + ")")
+        params.extend(estados_sel)
 
-# Estatus del cliente – normalizado
-if estatus:
-    where.append("TRIM(UPPER(c.estatus_cliente)) = TRIM(UPPER(%s))")
-    params.append(estatus)
+    if estatus:
+        where.append("TRIM(UPPER(c.estatus_cliente)) = TRIM(UPPER(%s))")
+        params.append(estatus)
 
-# Excluir RETIRO / COMPLETADO – normalizado
-if excluir_rc:
-    where.append("(TRIM(UPPER(c.estado_del_plan)) NOT IN ('RETIRO','COMPLETADO'))")
+    if excluir_rc:
+        where.append("(TRIM(UPPER(c.estado_del_plan)) NOT IN ('RETIRO','COMPLETADO'))")
 
-# Bloque(s) de cuotas (igual que ya estaba)
-if buckets_sel:
-    rangos = []
-    for b in buckets_sel:
-        if b == '1':
-            rangos.append("c.cuotas_pagadas_progresivas BETWEEN 1 AND 6")
-        elif b == '2':
-            rangos.append("c.cuotas_pagadas_progresivas BETWEEN 7 AND 12")
-        elif b == '3':
-            rangos.append("c.cuotas_pagadas_progresivas BETWEEN 13 AND 24")
-        elif b == '4':
-            rangos.append("c.cuotas_pagadas_progresivas BETWEEN 25 AND 36")
-    if rangos:
-        where.append("(" + " OR ".join(rangos) + ")")
+    if buckets_sel:
+        rangos = []
+        for b in buckets_sel:
+            if b == '1':
+                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 1 AND 6")
+            elif b == '2':
+                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 7 AND 12")
+            elif b == '3':
+                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 13 AND 24")
+            elif b == '4':
+                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 25 AND 36")
+        if rangos:
+            where.append("(" + " OR ".join(rangos) + ")")
 
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
@@ -3737,20 +3732,20 @@ if buckets_sel:
             'margen_maniobra_pct': Decimal('0.0'),
             'perdida_devaluacion_usd': Decimal('0.0'),
             'margen_color': 'bg-gray-500',
-            'progreso_ingreso_pct': 0
+            'progreso_ingreso_pct': 0.0
         },
         'gestion_cobranza': {
-            'USD':    {'clientes': 0, 'monto': Decimal('0.0')},
-            'BsBCV':  {'clientes': 0, 'monto': Decimal('0.0')},
-            'EuroBCV':{'clientes': 0, 'monto': Decimal('0.0')},
-            'USDT':   {'clientes': 0, 'monto': Decimal('0.0')}
+            'USD':     {'clientes': 0, 'monto': Decimal('0.0')},
+            'BsBCV':   {'clientes': 0, 'monto': Decimal('0.0')},
+            'EuroBCV': {'clientes': 0, 'monto': Decimal('0.0')},
+            'USDT':    {'clientes': 0, 'monto': Decimal('0.0')}
         }
     }
 
     if simulacion_realizada:
         try:
             with conn.cursor() as cur:
-                # Ingresos base (respeta los filtros del UI)
+                # Ingresos base (respeta filtros)
                 cur.execute(f"""
                     SELECT COUNT(*) AS clientes_activos,
                            COALESCE(SUM(c.valor_cuota), 0) AS base_mensual
@@ -3760,12 +3755,17 @@ if buckets_sel:
                 row = cur.fetchone() or {}
                 if not isinstance(row, dict):
                     row = {'clientes_activos': row[0], 'base_mensual': row[1]}
-                proyecciones['ingresos'].update(row)
-                ingreso_proyectado = proyecciones['ingresos'].get('base_mensual', Decimal('0.0')) or Decimal('0.0')
+                proyecciones['ingresos']['clientes_activos'] = row.get('clientes_activos', 0)
+                proyecciones['ingresos']['base_mensual']     = row.get('base_mensual', Decimal('0.0')) or Decimal('0.0')
+
+                ingreso_proyectado = proyecciones['ingresos']['base_mensual']
                 proyecciones['ingresos']['ingreso_mensual_proyectado'] = ingreso_proyectado
 
                 # Ingreso real a la fecha
-                ingreso_real = calcular_ingreso_real_acumulado(fecha_inicio)
+                try:
+                    ingreso_real = calcular_ingreso_real_acumulado(fecha_inicio)
+                except Exception:
+                    ingreso_real = Decimal('0.0')
                 proyecciones['resumen']['ingreso_real_acumulado'] = ingreso_real
                 if ingreso_proyectado > 0:
                     proyecciones['kpis']['progreso_ingreso_pct'] = float(min((ingreso_real / ingreso_proyectado) * 100, Decimal('100')))
@@ -3799,10 +3799,15 @@ if buckets_sel:
                 gasto_proyectado = gastos_fijos + gastos_variables_total
                 proyecciones['egresos']['gasto_proyectado_primer_mes'] = gasto_proyectado
 
-                # Mapa de monedas
-                moneda_map = {'USD': 'USD', 'BsBCV': 'BsBCV', 'BCV': 'BsBCV', 'EURO': 'EuroBCV', 'USDT': 'USDT', 'NEQUI': 'USDT'}
+                # Mapa de monedas (normalizado)
+                moneda_map = {
+                    'USD': 'USD',
+                    'BsBCV': 'BsBCV', 'BCV': 'BsBCV', 'BSBCV': 'BsBCV', 'BS': 'BsBCV',
+                    'EURO': 'EuroBCV', 'EUR': 'EuroBCV', 'EUROBCV': 'EuroBCV',
+                    'USDT': 'USDT', 'NEQUI': 'USDT'  # tratamos NEQUI como USDT si lo usas para crypto
+                }
 
-                # Cobranza por moneda (respeta filtros del UI)
+                # Cobranza por moneda (respeta filtros)
                 cur.execute(f"""
                     SELECT c.moneda_pago,
                            COUNT(c.id) AS total_clientes,
@@ -3816,10 +3821,10 @@ if buckets_sel:
                         moneda_db, total, monto = r['moneda_pago'], r['total_clientes'], r['monto_total']
                     else:
                         moneda_db, total, monto = r
-                    clave = moneda_map.get(moneda_db)
+                    clave = moneda_map.get((moneda_db or '').upper(), None)
                     if clave:
-                        proyecciones['gestion_cobranza'][clave]['clientes'] += total
-                        proyecciones['gestion_cobranza'][clave]['monto']    += monto
+                        proyecciones['gestion_cobranza'][clave]['clientes'] += int(total or 0)
+                        proyecciones['gestion_cobranza'][clave]['monto']    += (monto or Decimal('0.0'))
 
                 # Pérdidas por devaluación / transaccionales
                 margen_dolar_pct   = proyecciones['parametros']['margen_dolar_pct']
@@ -3841,11 +3846,14 @@ if buckets_sel:
                 if tasa_bcv_dolar_str:
                     tasa_bcv_inicio = Decimal(tasa_bcv_dolar_str)
                     if tasa_bcv_inicio > 0:
-                        balances_caja = calcular_balances_tesoreria()
+                        try:
+                            balances_caja = calcular_balances_tesoreria()
+                        except Exception:
+                            balances_caja = {}
                         saldo_bs = balances_caja.get('CAJA_BS_TOTAL', Decimal('0.0'))
-                        valor_usd_inicial_bs = saldo_bs / tasa_bcv_inicio if tasa_bcv_inicio > 0 else Decimal('0.0')
+                        valor_usd_inicial_bs = (saldo_bs / tasa_bcv_inicio) if tasa_bcv_inicio > 0 else Decimal('0.0')
                         tasa_bcv_final = tasa_bcv_inicio * (1 + (ponderado_bcv / 100))
-                        valor_usd_final = saldo_bs / tasa_bcv_final if tasa_bcv_final > 0 else Decimal('0.0')
+                        valor_usd_final = (saldo_bs / tasa_bcv_final) if tasa_bcv_final > 0 else Decimal('0.0')
                         perdida_devaluacion_caja = valor_usd_inicial_bs - valor_usd_final
 
                 perdida_transaccional_binance = gastos_binance * (margen_binance_pct / 100)
