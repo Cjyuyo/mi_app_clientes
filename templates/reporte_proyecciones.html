@@ -37,6 +37,15 @@
       </div>
     </div>
 
+    {# ======= ALERTA DE ERRORES (NUEVO) ======= #}
+    {% if proyecciones.mensaje_error %}
+    <div class="mt-4 bg-rose-50 border border-rose-200 text-rose-700 px-3 py-2 rounded-md text-sm">
+      <i class="bi bi-exclamation-triangle-fill mr-2"></i>
+      {{ proyecciones.mensaje_error }}
+    </div>
+    {% endif %}
+    {# ====== FIN ALERTA ====== #}
+
     <!-- FILTROS DEL BLOQUE ACTUAL -->
     <form @submit.prevent="agregarBloqueActual()" class="mt-6">
       <!-- Primera fila: dos rangos de fechas, bien separados -->
