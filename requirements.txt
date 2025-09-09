@@ -7,4 +7,5 @@ tqdm
 fpdf2
 XlsxWriter
 boto3
-openpyxl
+openpyxlFlask-Login==0.6.3
+Flask-Login==0.6.3
