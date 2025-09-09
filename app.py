@@ -3702,7 +3702,7 @@ if buckets_sel:
     if rangos:
         where.append("(" + " OR ".join(rangos) + ")")
 
-where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
     # --------- Objeto base de respuesta ---------
     proyecciones = {
