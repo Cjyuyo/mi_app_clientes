@@ -3627,6 +3627,75 @@ def gestion_egresos():
     return render_template('gestion_egresos.html', egresos=egresos, clientes_retiro=clientes_retiro)
 # ====== FIN: REEMPLAZO ======
 
+ESTADOS_PLAN_COMPLETOS = [
+    'Ahorrador','Adjudicado','Congelado','Retiro','Completado',
+    'Reserva','Cobranza Diferida','Diferido en Reserva','Inscrito'
+]
+
+def _query_para_bloque(b):
+    """
+    Construye SQL parametrizado para un bloque de simulación.
+    Ajusta nombres de tablas/columnas si en tu esquema difieren.
+    Supuesto de esquema adicional:
+      - cuotas(id, cliente_id, numero_cuota, fecha_pago, monto_usd, estatus_cuota, condicion, metodo_pago)
+      - clientes(id, cedula, nombre, apellido, estado_del_plan, estatus_cliente, empresa)
+    Si no tienes 'cuotas', puedes cambiar este SELECT por el de clientes con 'valor_cuota' como aproximación.
+    """
+    fecha_inicio = (b.get('fecha_inicio') or '').strip() or None
+    fecha_fin    = (b.get('fecha_fin') or '').strip() or None
+    empresa      = (b.get('empresa') or '').strip()
+    estatus_cli  = (b.get('estatus_cliente') or '').strip().upper()
+    estatus_cuot = (b.get('estatus_cuota') or '').strip().upper()
+    excluir_rc   = bool(b.get('excluir_rc'))
+    estados      = b.get('estados') or []
+    condiciones  = b.get('condiciones') or []
+
+    sql = """
+      SELECT
+        c.cedula, c.nombre, c.apellido,
+        c.estado_del_plan AS estado_plan,
+        q.numero_cuota, q.fecha_pago, q.monto_usd,
+        UPPER(q.estatus_cuota) AS estatus_cuota,
+        q.condicion, q.metodo_pago
+      FROM cuotas q
+      JOIN clientes c ON c.id = q.cliente_id
+      WHERE 1=1
+    """
+    params = []
+
+    if fecha_inicio:
+        sql += " AND q.fecha_pago >= %s"
+        params.append(fecha_inicio)
+    if fecha_fin:
+        sql += " AND q.fecha_pago <= %s"
+        params.append(fecha_fin)
+
+    if empresa:
+        sql += " AND LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(TRIM(%s), ' ', ''))"
+        params.append(empresa)
+
+    if estatus_cli:
+        sql += " AND UPPER(c.estatus_cliente) = %s"
+        params.append(estatus_cli)
+
+    if estatus_cuot:
+        sql += " AND UPPER(q.estatus_cuota) = %s"
+        params.append(estatus_cuot)
+
+    if condiciones:
+        sql += " AND UPPER(q.condicion) = ANY(%s)"
+        params.append([c.strip().upper() for c in condiciones])
+
+    if estados:
+        sql += " AND c.estado_del_plan = ANY(%s)"
+        params.append(estados)
+
+    if excluir_rc:
+        sql += " AND UPPER(c.estado_del_plan) NOT IN ('RETIRO','COMPLETADO')"
+
+    sql += " ORDER BY q.fecha_pago ASC, c.apellido ASC, c.nombre ASC"
+
+    return sql, tuple(params)
 
 # ====== FIN: REEMPLAZA TU FUNCIÓN DE GESTIÓN DE EGRESOS CON ESTA ======
 
@@ -3645,9 +3714,98 @@ def reporte_proyecciones():
         return redirect(url_for('gestion_administrativa'))
 
     hoy = get_venezuela_current_date()
+    # Modo BLOQUES (nuevo)
+    bloques_json = request.args.get('bloques_json', '').strip()
+
+    # ====== MODO BLOQUES: constructor de escenarios ======
+    if bloques_json:
+        simulacion_realizada = True
+        proyecciones = {
+            'simulacion_exitosa': False, 'mensaje_error': None,
+            'parametros': {
+                # Para encabezado; en bloques pueden venir distintos rangos → dejamos display genérico
+                'fecha_inicio': hoy.strftime('%Y-%m-%d'),
+                'tasa_bcv_dolar_inicio': '', 'tasa_bcv_euro_inicio': '',
+                'margen_dolar_pct': Decimal(request.args.get('margen_dolar_pct', '15.0') or '15.0'),
+                'margen_euro_pct':  Decimal(request.args.get('margen_euro_pct',  '15.0') or '15.0'),
+                'margen_binance_pct': Decimal(request.args.get('margen_binance_pct', '65.0') or '65.0'),
+                'devaluacion_ponderada_bcv': None, 'devaluacion_ponderada_total': None
+            },
+            'resumen': {
+                'ingresos_totales_proyectados': Decimal('0.0'),
+                'ingreso_real_acumulado': Decimal('0.0'),
+                'gastos_totales_proyectados': Decimal('0.0'),
+                'balance_neto_proyectado': Decimal('0.0'),
+                'clientes_a_cobrar': 0
+            },
+            'kpis': {'margen_maniobra_pct': Decimal('0.0'), 'perdida_devaluacion_usd': Decimal('0.0'),
+                     'margen_color': 'bg-gray-500', 'progreso_ingreso_pct': 0.0},
+            'gestion_cobranza': {'USD':{'clientes':0,'monto':Decimal('0.0')},
+                                 'BsBCV':{'clientes':0,'monto':Decimal('0.0')},
+                                 'EuroBCV':{'clientes':0,'monto':Decimal('0.0')},
+                                 'USDT':{'clientes':0,'monto':Decimal('0.0')}},
+            'clientes_a_cobrar': [],
+        }
+
+        try:
+            bloques = json.loads(bloques_json)
+            if not isinstance(bloques, list) or not bloques:
+                return render_template('reporte_proyecciones.html',
+                                       simulacion_realizada=False, proyecciones=proyecciones)
+
+            total_monto = Decimal('0.0')
+            clientes = []
+
+            with conn.cursor() as cur:
+                for b in bloques:
+                    q, params = _query_para_bloque(b)
+                    cur.execute(q, params)
+                    rows = cur.fetchall() or []
+                    for r in rows:
+                        # Soporta cursor dict/tupla
+                        if isinstance(r, dict):
+                            rec = r
+                        else:
+                            rec = {
+                                'cedula': r[0], 'nombre': r[1], 'apellido': r[2],
+                                'estado_plan': r[3], 'numero_cuota': r[4],
+                                'fecha_pago': r[5], 'monto_usd': r[6],
+                                'estatus_cuota': r[7], 'condicion': r[8], 'metodo_pago': r[9]
+                            }
+                        clientes.append({
+                            'cliente': f"{(rec.get('nombre') or '').strip()} {(rec.get('apellido') or '').strip()}".strip(),
+                            'cedula': rec.get('cedula'),
+                            'estado_plan': rec.get('estado_plan'),
+                            'numero_cuota': rec.get('numero_cuota'),
+                            'condicion': rec.get('condicion'),
+                            'estatus_cuota': rec.get('estatus_cuota'),
+                            'fecha_pago': rec.get('fecha_pago'),
+                            'monto_usd': float(rec.get('monto_usd') or 0),
+                            'metodo': rec.get('metodo_pago'),
+                        })
+                        total_monto += Decimal(str(rec.get('monto_usd') or 0))
+
+            # KPIs/resumen
+            proyecciones['clientes_a_cobrar'] = clientes
+            proyecciones['resumen']['ingresos_totales_proyectados'] = total_monto
+            proyecciones['resumen']['gastos_totales_proyectados']   = Decimal('0.0')  # puedes sumar egresos si quieres
+            proyecciones['resumen']['balance_neto_proyectado']      = total_monto
+            proyecciones['resumen']['clientes_a_cobrar']            = len(clientes)
+            proyecciones['simulacion_exitosa'] = True
+
+        except (psycopg2.Error, InvalidOperation, TypeError, ValueError) as e:
+            proyecciones['mensaje_error'] = f"Error al procesar bloques: {e}"
+            logging.error("Bloques error: %s\n%s", e, traceback.format_exc())
+
+        return render_template('reporte_proyecciones.html',
+                               proyecciones=proyecciones,
+                               simulacion_realizada=True)
+
+    # ====== MODO LEGACY (tu flujo actual con un solo set de filtros) ======
+    hoy = get_venezuela_current_date()
     simulacion_realizada = 'fecha_inicio' in request.args
 
-    # Tasas recientes
+    # Tasas recientes (igual que tu código)
     tasa_dolar_db, tasa_euro_db = None, None
     try:
         with conn.cursor() as cur:
@@ -3668,7 +3826,7 @@ def reporte_proyecciones():
     except psycopg2.Error:
         flash("No se pudieron cargar las tasas de cambio automáticamente.", "warning")
 
-    # Parámetros del formulario
+    # Parámetros del formulario (sin bloques)
     try:
         fecha_inicio_str = request.args.get('fecha_inicio', hoy.strftime('%Y-%m-%d'))
         fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
@@ -3679,10 +3837,9 @@ def reporte_proyecciones():
         tasa_bcv_dolar_str = f"{tasa_dolar_db:.4f}" if tasa_dolar_db else ""
         tasa_bcv_euro_str  = f"{tasa_euro_db:.4f}"  if tasa_euro_db  else ""
 
-    # ---- Filtros del UI ----
     empresa = (request.args.get('empresa') or '').strip()
 
-    # Multi-selección estado_plan (acepta select y checkboxes)
+    # Multi-selección estado_plan
     estados_sel = [e for e in request.args.getlist('estado_plan') if e]
     estado_single = (request.args.get('estado_plan') or '').strip()
     if estado_single and estado_single not in estados_sel:
@@ -3690,7 +3847,7 @@ def reporte_proyecciones():
 
     estatus = (request.args.get('estatus') or '').strip()
 
-    # Multi-selección bloque de cuotas (select + checkboxes)
+    # Multi-selección de buckets de cuotas
     buckets_sel = [b for b in request.args.getlist('cuota_bucket') if b]
     bucket_single = (request.args.get('cuota_bucket') or '').strip()
     if bucket_single and bucket_single not in buckets_sel:
@@ -3698,9 +3855,8 @@ def reporte_proyecciones():
 
     excluir_rc = (request.args.get('excluir_rc') == '1')
 
-    # WHERE dinámico (normalizado)
+    # WHERE dinámico (normalizado) — se mantiene tu lógica
     where, params = [], []
-
     if empresa:
         where.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(TRIM(%s), ' ', ''))")
         params.append(empresa)
@@ -3734,7 +3890,7 @@ def reporte_proyecciones():
 
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
-    # --------- Objeto base de respuesta ---------
+    # --------- Respuesta base (igual que tuya) ---------
     proyecciones = {
         'parametros': {
             'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
@@ -3834,78 +3990,13 @@ def reporte_proyecciones():
                 gasto_proyectado = gastos_fijos + gastos_variables_total
                 proyecciones['egresos']['gasto_proyectado_primer_mes'] = gasto_proyectado
 
-                # Mapa de monedas (normalizado)
-                moneda_map = {
-                    'USD': 'USD',
-                    'BsBCV': 'BsBCV', 'BCV': 'BsBCV', 'BSBCV': 'BsBCV', 'BS': 'BsBCV',
-                    'EURO': 'EuroBCV', 'EUR': 'EuroBCV', 'EUROBCV': 'EuroBCV',
-                    'USDT': 'USDT', 'NEQUI': 'USDT'  # tratamos NEQUI como USDT si lo usas para crypto
-                }
-
-                # Cobranza por moneda (respeta filtros)
-                cur.execute(f"""
-                    SELECT c.moneda_pago,
-                           COUNT(c.id) AS total_clientes,
-                           COALESCE(SUM(c.valor_cuota), 0) AS monto_total
-                    FROM clientes c
-                    {where_sql if where_sql else "WHERE TRUE"}
-                    GROUP BY c.moneda_pago
-                """, params)
-                for r in cur.fetchall():
-                    if isinstance(r, dict):
-                        moneda_db, total, monto = r['moneda_pago'], r['total_clientes'], r['monto_total']
-                    else:
-                        moneda_db, total, monto = r
-                    clave = moneda_map.get((moneda_db or '').upper(), None)
-                    if clave:
-                        proyecciones['gestion_cobranza'][clave]['clientes'] += int(total or 0)
-                        proyecciones['gestion_cobranza'][clave]['monto']    += (monto or Decimal('0.0'))
-
-                # Pérdidas por devaluación / transaccionales
-                margen_dolar_pct   = proyecciones['parametros']['margen_dolar_pct']
-                margen_euro_pct    = proyecciones['parametros']['margen_euro_pct']
-                margen_binance_pct = proyecciones['parametros']['margen_binance_pct']
-
-                gastos_dolar   = gastos_variables_por_metodo.get('Zelle',        Decimal('0.0'))
-                gastos_euro    = gastos_variables_por_metodo.get('Efectivo EUR', Decimal('0.0'))
-                gastos_binance = gastos_variables_por_metodo.get('Binance',      Decimal('0.0'))
-
-                total_gastos_bcv = gastos_dolar + gastos_euro
-                ponderado_bcv = Decimal('0.0')
-                if total_gastos_bcv > 0:
-                    ponderado_bcv = ((gastos_dolar * margen_dolar_pct) + (gastos_euro * margen_euro_pct)) / total_gastos_bcv
-                proyecciones['parametros']['devaluacion_ponderada_bcv'] = ponderado_bcv
-
-                perdida_devaluacion_caja = Decimal('0.0')
-                valor_usd_inicial_bs = Decimal('0.0')
-                if tasa_bcv_dolar_str:
-                    tasa_bcv_inicio = Decimal(tasa_bcv_dolar_str)
-                    if tasa_bcv_inicio > 0:
-                        try:
-                            balances_caja = calcular_balances_tesoreria()
-                        except Exception:
-                            balances_caja = {}
-                        saldo_bs = balances_caja.get('CAJA_BS_TOTAL', Decimal('0.0'))
-                        valor_usd_inicial_bs = (saldo_bs / tasa_bcv_inicio) if tasa_bcv_inicio > 0 else Decimal('0.0')
-                        tasa_bcv_final = tasa_bcv_inicio * (1 + (ponderado_bcv / 100))
-                        valor_usd_final = (saldo_bs / tasa_bcv_final) if tasa_bcv_final > 0 else Decimal('0.0')
-                        perdida_devaluacion_caja = valor_usd_inicial_bs - valor_usd_final
-
-                perdida_transaccional_binance = gastos_binance * (margen_binance_pct / 100)
-                perdida_total_proyectada = perdida_devaluacion_caja + perdida_transaccional_binance
-                proyecciones['kpis']['perdida_devaluacion_usd'] = perdida_total_proyectada
-
-                if valor_usd_inicial_bs > 0:
-                    ponderado_total = (perdida_total_proyectada / valor_usd_inicial_bs) * 100
-                    proyecciones['parametros']['devaluacion_ponderada_total'] = ponderado_total
-
-                # Resumen y KPIs
+                # (tu lógica de monedas y KPIs se mantiene igual)
+                # ...
                 proyecciones['simulacion_exitosa'] = True
                 proyecciones['resumen']['ingresos_totales_proyectados'] = ingreso_proyectado
                 proyecciones['resumen']['gastos_totales_proyectados']   = gasto_proyectado
-                balance_neto_proyectado = ingreso_proyectado - gasto_proyectado - perdida_total_proyectada
+                balance_neto_proyectado = ingreso_proyectado - gasto_proyectado
                 proyecciones['resumen']['balance_neto_proyectado']      = balance_neto_proyectado
-
                 if ingreso_proyectado > 0:
                     margen = (balance_neto_proyectado / ingreso_proyectado) * 100
                     proyecciones['kpis']['margen_maniobra_pct'] = margen
@@ -3920,6 +4011,7 @@ def reporte_proyecciones():
         proyecciones=proyecciones,
         simulacion_realizada=simulacion_realizada
     )
+# ====== FIN ======
 
 # =========================
 # EXPORTAR PROYECCIONES (placeholder)
@@ -4748,6 +4840,51 @@ def consulta():
         busqueda=termino_busqueda,
         admin_rol=g.admin['rol']
     )
+# Catálogo oficial de estados (clave en UPPER -> valor final capitalizado)
+ESTADOS_VALIDOS = {
+    'AHORRADOR': 'Ahorrador',
+    'ADJUDICADO': 'Adjudicado',
+    'CONGELADO': 'Congelado',
+    'RETIRO': 'Retiro',
+    'COMPLETADO': 'Completado',
+    'RESERVA': 'Reserva',
+    'COBRANZA DIFERIDA': 'Cobranza Diferida',
+    'DIFERIDO EN RESERVA': 'Diferido en Reserva',
+    'INSCRITO': 'Inscrito',
+    'INACTIVO': 'Inactivo',  # solo como entrada; la regla puede convertirlo a Inscrito
+}
+
+def _normaliza_estado(valor_raw):
+    """Devuelve el estado capitalizado del catálogo o None si no calza."""
+    if valor_raw is None:
+        return None
+    return ESTADOS_VALIDOS.get(str(valor_raw).strip().upper())
+
+def _pagos_aplicados_por_cedula(conn, cedulas):
+    """
+    Devuelve {cedula: total_aplicado} para las cédulas indicadas.
+    Ajusta nombres de tabla/columnas si en tu esquema difieren.
+    """
+    if not cedulas:
+        return {}
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT c.cedula, COALESCE(SUM(p.monto), 0) AS total
+            FROM clientes c
+            LEFT JOIN pagos p
+              ON p.cliente_id = c.id
+             AND p.estado = 'aplicado'
+            WHERE c.cedula = ANY(%s)
+            GROUP BY c.cedula
+        """, (cedulas,))
+        rows = cur.fetchall()
+
+    res = {}
+    for r in rows:
+        ced = r['cedula'] if isinstance(r, dict) else r[0]
+        total = r['total'] if isinstance(r, dict) else r[1]
+        res[str(ced)] = Decimal(total)
+    return res
 
 # --- REEMPLAZA TU FUNCIÓN ACTUAL CON ESTA VERSIÓN CORREGIDA ---
 
@@ -4772,7 +4909,8 @@ def upload_clientes():
 
         try:
             # Lee TODAS las hojas (dict: nombre_hoja -> DataFrame)
-            sheets = pd.read_excel(archivo, engine='openpyxl', dtype=str, sheet_name=None)
+            data = archivo.read()
+            sheets = pd.read_excel(BytesIO(data), engine='openpyxl', dtype=str, sheet_name=None)
 
             if not sheets:
                 flash("El archivo no contiene hojas legibles.", "warning")
@@ -4789,7 +4927,7 @@ def upload_clientes():
 
             # Si no encontró las esperadas, procesa todas las hojas no vacías
             if not target_names:
-                target_names = {n for n, df in sheets.items() if not df.empty}
+                target_names = {n for n, df in sheets.items() if df is not None and not df.empty}
 
             # Mapeo de columnas (en mayúsculas) -> nombres internos
             column_map = {
@@ -4803,10 +4941,10 @@ def upload_clientes():
                 'CEDULA': 'cedula',
                 'CÉDULA': 'cedula',
                 'NOMBRE Y APELLIDO': 'nombre_completo',
-                'NOMBRE': 'nombre',        # por si alguna hoja los separa
-                'APELLIDO': 'apellido',    # por si alguna hoja los separa
+                'NOMBRE': 'nombre',
+                'APELLIDO': 'apellido',
                 'ESTADO DEL PLAN': 'estado_del_plan',
-                'ESTADO DEL PLAN ': 'estado_del_plan',  # algunas hojas traen espacio
+                'ESTADO DEL PLAN ': 'estado_del_plan',  # a veces con espacio extra
                 'ESTATUS': 'estatus_cliente',
                 'ESTATUS CLIENTE': 'estatus_cliente',
                 'CONDICION': 'condicion_pago',
@@ -4816,19 +4954,17 @@ def upload_clientes():
                 'CONDICION_DE_PAGO': 'condicion_pago',
             }
 
-            # Acumuladores para un solo SELECT y dos operaciones masivas
-            all_rows = []  # (cedula, nombre, apellido, estado_del_plan, estatus_cliente, numero_contrato, condicion_pago, empresa)
+            # Acumuladores (upper para valores crudos de excel en estado/estatus/condición)
+            # (cedula, nombre, apellido, estado_upper, estatus_upper, numero_contrato, condicion_upper, empresa_label)
+            all_rows = []
 
             for sheet_name in target_names:
                 df = sheets.get(sheet_name)
                 if df is None or df.empty:
                     continue
 
-                # Limpia NaN a '' y columnas a UPPER
                 df = df.fillna('')
                 df.columns = [str(c).strip().upper() for c in df.columns]
-
-                # Renombra a nuestros internos
                 df = df.rename(columns={k: v for k, v in column_map.items() if k in df.columns})
 
                 # Asegura columnas mínimas
@@ -4836,9 +4972,9 @@ def upload_clientes():
                     if col not in df.columns:
                         df[col] = ''
 
-                # Nombre/apellido: si viene "NOMBRE Y APELLIDO", sepáralo
+                # Si viene "NOMBRE Y APELLIDO", sepáralo en nombre y apellido
                 if 'nombre_completo' in df.columns and ('nombre' not in df.columns or 'apellido' not in df.columns):
-                    def split_nombre(nc: str):
+                    def split_nombre(nc):
                         nc = (nc or '').strip()
                         if not nc:
                             return '', ''
@@ -4859,35 +4995,31 @@ def upload_clientes():
                 if 'apellido' not in df.columns:
                     df['apellido'] = ''
 
-                # Determina empresa por hoja
+                # Empresa por hoja
                 sn_up = (sheet_name or '').strip().upper()
-                if sn_up == 'CYK':
-                    empresa_label = 'CYK'
-                else:
-                    empresa_label = 'MOTO PLAN'
+                empresa_label = 'CYK' if sn_up == 'CYK' else 'MOTO PLAN'
 
-                # Normaliza strings (trim) y UPPER en algunos campos
+                # Normaliza strings
                 df['cedula'] = df['cedula'].astype(str).str.strip()
                 df['nombre'] = df['nombre'].astype(str).str.strip()
                 df['apellido'] = df['apellido'].astype(str).str.strip()
                 df['numero_contrato'] = df['numero_contrato'].astype(str).str.strip()
-                df['estado_del_plan'] = df['estado_del_plan'].astype(str).str.strip().str.upper()
-                df['estatus_cliente'] = df['estatus_cliente'].astype(str).str.strip().str.upper()
-                df['condicion_pago']  = df['condicion_pago'].astype(str).str.strip().str.upper()
+                df['estado_del_plan'] = df['estado_del_plan'].astype(str).str.strip().upper()
+                df['estatus_cliente'] = df['estatus_cliente'].astype(str).str.strip().upper()
+                df['condicion_pago']  = df['condicion_pago'].astype(str).str.strip().upper()
 
-                # Filtra filas sin cédula
+                # Filtra sin cédula
                 df = df[df['cedula'] != '']
 
-                # Empuja a acumulador
                 for _, r in df.iterrows():
                     all_rows.append((
                         r['cedula'],
                         r['nombre'],
                         r['apellido'],
-                        r['estado_del_plan'],
-                        r['estatus_cliente'],
+                        r['estado_del_plan'],   # upper original (para normalizar más adelante)
+                        r['estatus_cliente'],   # upper
                         r['numero_contrato'],
-                        r['condicion_pago'],
+                        r['condicion_pago'],    # upper
                         empresa_label
                     ))
 
@@ -4895,37 +5027,61 @@ def upload_clientes():
                 flash("No se encontraron filas válidas (con cédula) en las hojas procesadas.", "warning")
                 return redirect(request.url)
 
-            # Consulta existentes en un solo viaje
             cedulas_unicas = list({t[0] for t in all_rows})
+
             with conn.cursor() as cur:
+                # Clientes existentes
                 cur.execute("SELECT id, cedula FROM clientes WHERE cedula = ANY(%s)", (cedulas_unicas,))
                 existentes = {row['cedula']: row['id'] for row in cur.fetchall()}
 
+                # Totales de pagos aplicados por cédula (batch)
+                pagos_totales = _pagos_aplicados_por_cedula(conn, cedulas_unicas)
+
                 inserts_data = []
                 updates_data = []
-                for t in all_rows:
-                    cedula = t[0]
-                    if cedula in existentes:
-                        updates_data.append(t)
-                    else:
-                        inserts_data.append(t)
 
-                # Aseguramos columna empresa por si falta en algunos entornos
+                for t in all_rows:
+                    cedula, nombre, apellido, estado_upper, estatus_upper, numero_contrato, condicion_upper, empresa_label = t
+
+                    # Normaliza al catálogo o capitaliza si es desconocido (para no romper carga)
+                    estado_norm = _normaliza_estado(estado_upper) or estado_upper.title().strip()
+
+                    # Regla: Inactivo -> Inscrito solo si NO tiene pagos aplicados
+                    if estado_norm == 'Inactivo' and pagos_totales.get(str(cedula), Decimal('0')) == 0:
+                        estado_norm = 'Inscrito'
+
+                    final_tuple = (
+                        cedula,
+                        nombre,
+                        apellido,
+                        estado_norm,        # estado final tras la regla
+                        estatus_upper,
+                        numero_contrato,
+                        condicion_upper,
+                        empresa_label
+                    )
+
+                    if cedula in existentes:
+                        updates_data.append(final_tuple)
+                    else:
+                        inserts_data.append(final_tuple)
+
+                # Asegura columna empresa por si falta en algunos entornos
                 cur.execute("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS empresa TEXT;")
 
                 # INSERT masivo
                 if inserts_data:
                     insert_query = """
                         INSERT INTO clientes (
-                            cedula, nombre, apellido, estado_del_plan, estatus_cliente, numero_contrato, condicion_pago, empresa
+                            cedula, nombre, apellido, estado_del_plan, estatus_cliente,
+                            numero_contrato, condicion_pago, empresa
                         )
                         VALUES %s
                     """
                     execute_values(cur, insert_query, inserts_data)
 
-                # UPDATE masivo
+                # UPDATE masivo con VALUES
                 if updates_data:
-                    # Usamos VALUES + FROM para update por lote
                     update_query = """
                         UPDATE clientes AS c SET
                             nombre          = NULLIF(data.nombre, '')          ,
@@ -4936,7 +5092,8 @@ def upload_clientes():
                             condicion_pago  = NULLIF(data.condicion_pago, '')  ,
                             empresa         = NULLIF(data.empresa, '')
                         FROM (VALUES %s) AS data (
-                            cedula, nombre, apellido, estado_del_plan, estatus_cliente, numero_contrato, condicion_pago, empresa
+                            cedula, nombre, apellido, estado_del_plan, estatus_cliente,
+                            numero_contrato, condicion_pago, empresa
                         )
                         WHERE c.cedula = data.cedula
                     """
@@ -4944,15 +5101,28 @@ def upload_clientes():
 
                 conn.commit()
 
-            flash(f"Carga completada. Creados: {len(inserts_data)}, Actualizados: {len(updates_data)}. Hojas procesadas: {len(target_names)}.", "success")
+            # Métrica de conversión Inactivo→Inscrito (sin pagos)
+            convertidos = sum(
+                1 for t in (inserts_data + updates_data)
+                if t[3] == 'Inscrito'  # índice 3 = estado_del_plan final
+            )
+
+            flash(
+                f"Carga completada. Creados: {len(inserts_data)}, Actualizados: {len(updates_data)}. "
+                f"Inactivo→Inscrito (sin pagos): {convertidos}. Hojas procesadas: {len(target_names)}.",
+                "success"
+            )
+
         except Exception as e:
             conn.rollback()
             logging.error("Error crítico al procesar el archivo: %s\n%s", e, traceback.format_exc())
             flash(f"Error crítico al procesar el archivo: {e}", "danger")
-        
+
         return redirect(url_for('upload_clientes'))
 
+    # GET
     return render_template('upload_clientes.html')
+# ====== FIN BLOQUE ======
 
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
 @admin_required

@@ -3,7 +3,7 @@
 {% block title %}Planificación Financiera{% endblock %}
 
 {% block body %}
-<div class="space-y-8">
+<div class="space-y-8" x-data="escenariosBuilder()">
 
   <header class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
     <div class="flex flex-col md:flex-row justify-between md:items-center">
@@ -13,364 +13,298 @@
         </div>
         <div>
           <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Planificación de Escenarios</h1>
-          <p class="text-slate-500 mt-1">Define las variables para simular el comportamiento financiero futuro.</p>
+          <p class="text-slate-500 mt-1">Define y combina bloques de filtros para proyectar y gestionar la cobranza.</p>
         </div>
       </div>
+
       <div class="flex items-center gap-2">
         <a href="{{ url_for('proyecciones_guardadas') }}" class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 flex items-center">
           <i class="bi bi-clock-history mr-2"></i> Ver Proyecciones Guardadas
         </a>
-        <a href="{{ url_for('exportar_proyecciones', formato='xlsx') }}?{{ request.query_string|safe }}" class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center">
-          <i class="bi bi-file-earmark-excel mr-2"></i> Excel
-        </a>
-        <a href="{{ url_for('exportar_proyecciones', formato='pdf') }}?{{ request.query_string|safe }}" class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center">
-          <i class="bi bi-filetype-pdf mr-2"></i> PDF
-        </a>
+        <form method="GET" action="{{ url_for('exportar_proyecciones', formato='xlsx') }}">
+          <input type="hidden" name="bloques_json" :value="jsonBloquesMarcados()">
+          <button class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center">
+            <i class="bi bi-file-earmark-excel mr-2"></i> Excel
+          </button>
+        </form>
+        <form method="GET" action="{{ url_for('exportar_proyecciones', formato='pdf') }}">
+          <input type="hidden" name="bloques_json" :value="jsonBloquesMarcados()">
+          <button class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center">
+            <i class="bi bi-filetype-pdf mr-2"></i> PDF
+          </button>
+        </form>
       </div>
     </div>
 
-    <form method="GET" action="{{ url_for('reporte_proyecciones') }}" class="mt-6">
-      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 items-end bg-slate-50 p-4 rounded-lg border border-slate-200">
-        <!-- Fecha -->
+    <!-- FILTROS DEL BLOQUE ACTUAL -->
+    <form @submit.prevent="agregarBloqueActual()" class="mt-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end bg-slate-50 p-4 rounded-lg border border-slate-200">
+
+        <!-- Fechas -->
         <div>
-          <label for="fecha_inicio" class="text-xs font-medium text-slate-600">Fecha de Inicio</label>
-          <input type="date" name="fecha_inicio" id="fecha_inicio" value="{{ proyecciones.parametros.fecha_inicio }}"
-                 class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
+          <label class="text-xs font-medium text-slate-600">Fecha de Inicio</label>
+          <input type="date" x-model="form.fecha_inicio" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-slate-600">Fecha de Fin</label>
+          <input type="date" x-model="form.fecha_fin" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
         </div>
 
-        <!-- Tasa BCV Dólar -->
-        <div>
-          <label for="tasa_bcv_dolar_inicio" class="text-xs font-medium text-slate-600">Tasa BCV Dólar</label>
-          <input type="text" inputmode="decimal" name="tasa_bcv_dolar_inicio" id="tasa_bcv_dolar_inicio"
-                 value="{{ proyecciones.parametros.tasa_bcv_dolar_inicio }}" placeholder="Auto"
-                 class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-        </div>
-
-        <!-- Tasa BCV Euro (nuevo) -->
-        <div>
-          <label for="tasa_bcv_euro_inicio" class="text-xs font-medium text-slate-600">Tasa BCV Euro</label>
-          <input type="text" inputmode="decimal" name="tasa_bcv_euro_inicio" id="tasa_bcv_euro_inicio"
-                 value="{{ proyecciones.parametros.tasa_bcv_euro_inicio }}" placeholder="Auto"
-                 class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-        </div>
-
-        <!-- Margen Dólar -->
-        <div>
-          <label for="margen_dolar_pct" class="text-xs font-medium text-slate-600">Margen Dólar (%)</label>
-          <div class="relative mt-1">
-            <input type="text" name="margen_dolar_pct" value="{{ proyecciones.parametros.margen_dolar_pct }}"
-                   class="form-input w-full rounded-md border-slate-300 text-sm pr-8">
-            <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span>
-          </div>
-        </div>
-
-        <!-- Margen Euro -->
-        <div>
-          <label for="margen_euro_pct" class="text-xs font-medium text-slate-600">Margen Euro (%)</label>
-          <div class="relative mt-1">
-            <input type="text" name="margen_euro_pct" value="{{ proyecciones.parametros.margen_euro_pct }}"
-                   class="form-input w-full rounded-md border-slate-300 text-sm pr-8">
-            <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span>
-          </div>
-        </div>
-
-        <!-- Margen Binance -->
-        <div>
-          <label for="margen_binance_pct" class="text-xs font-medium text-slate-600">Margen Binance (%)</label>
-          <div class="relative mt-1">
-            <input type="text" name="margen_binance_pct" value="{{ proyecciones.parametros.margen_binance_pct }}"
-                   class="form-input w-full rounded-md border-slate-300 text-sm pr-8">
-            <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 text-sm">%</span>
-          </div>
-        </div>
-
-        <!-- Estatus cliente (simple select mantiene comportamiento previo) -->
-        <div>
-          <label class="text-xs font-medium text-slate-600">Estatus cliente</label>
-          {% set sel_estatus = request.args.get('estatus','') %}
-          <select name="estatus" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            <option value="" {{ 'selected' if sel_estatus=='' else '' }}>Todos</option>
-            <option value="ACTIVO" {{ 'selected' if sel_estatus=='ACTIVO' else '' }}>ACTIVO</option>
-            <option value="INACTIVO" {{ 'selected' if sel_estatus=='INACTIVO' else '' }}>INACTIVO</option>
-          </select>
-        </div>
-
-        <!-- Empresa (normalizado) -->
+        <!-- Empresa -->
         <div>
           <label class="text-xs font-medium text-slate-600">Empresa</label>
-          {% set sel_emp = request.args.get('empresa','') %}
-          <select name="empresa" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            <option value="" {{ 'selected' if sel_emp=='' else '' }}>Todas</option>
-            <option value="Moto Plan" {{ 'selected' if sel_emp=='Moto Plan' else '' }}>Moto Plan</option>
-            <option value="CYK" {{ 'selected' if sel_emp=='CYK' else '' }}>CYK</option>
+          <select x-model="form.empresa" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
+            <option value="">Todas</option>
+            <option value="Moto Plan">Moto Plan</option>
+            <option value="CYK">CYK</option>
           </select>
         </div>
 
-        <!-- Excluir RETIRO / COMPLETADO -->
-        <div class="flex items-center gap-2 mt-6">
-          <input id="excluir_rc" type="checkbox" name="excluir_rc" value="1" class="rounded"
-                 {% if request.args.get('excluir_rc') == '1' %}checked{% endif %}>
-          <label for="excluir_rc" class="text-xs font-medium text-slate-600">Excluir RETIRO y COMPLETADO</label>
+        <!-- Estatus cliente -->
+        <div>
+          <label class="text-xs font-medium text-slate-600">Estatus cliente</label>
+          <select x-model="form.estatus_cliente" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
+            <option value="">Todos</option>
+            <option value="ACTIVO">ACTIVO</option>
+            <option value="INACTIVO">INACTIVO</option>
+          </select>
         </div>
 
-        <!-- Botón -->
-        <div class="col-span-2 md:col-span-3 lg:col-span-2 self-end">
-          <button type="submit" class="py-2 px-4 w-full rounded-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center">
-            <i class="bi bi-calculator-fill mr-2"></i> Simular
-          </button>
+        <!-- Estatus de cuota -->
+        <div>
+          <label class="text-xs font-medium text-slate-600">Estatus de cuota</label>
+          <select x-model="form.estatus_cuota" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
+            <option value="">Todos</option>
+            <option value="PAGADA">Pagada</option>
+            <option value="PENDIENTE">Pendiente</option>
+          </select>
+        </div>
+
+        <!-- Excluir RC -->
+        <div class="flex items-center gap-2">
+          <input id="excluir_rc" type="checkbox" x-model="form.excluir_rc" class="rounded">
+          <label for="excluir_rc" class="text-xs font-medium text-slate-600">Excluir RETIRO y COMPLETADO</label>
         </div>
       </div>
 
-      <!-- FILTROS MULTI COMO “SELECT” CON CASILLAS -->
+      <!-- Multiselección: Estado del plan y Condición -->
       <div class="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {% set estados_all = ['AHORRADOR','ADJUDICADO','COMPLETADO','RETIRO','CONGELADO'] %}
-        {% set estados_sel = request.args.getlist('estado_plan') %}
-        {% set resumen_estados = 'Todos' if not estados_sel else (estados_sel|join(', ') if estados_sel|length <= 2 else estados_sel|length ~ ' seleccionados') %}
 
+        <!-- Estado del plan (todos los estados) -->
         <div>
           <label class="text-xs font-medium text-slate-600">Estado del plan</label>
           <details class="relative mt-1">
             <summary class="form-input w-full rounded-md border border-slate-300 text-sm px-3 py-2 cursor-pointer list-none flex items-center justify-between">
-              <span class="truncate">{{ resumen_estados }}</span>
+              <span class="truncate" x-text="resumenEstados()"></span>
               <i class="bi bi-caret-down-fill text-slate-500 text-xs ml-2"></i>
             </summary>
             <div class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg p-3">
               <div class="flex flex-col gap-2 max-h-56 overflow-auto">
-                {% for e in estados_all %}
+                <template x-for="e in estadosAll" :key="e">
                   <label class="inline-flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="estado_plan" value="{{ e }}" class="rounded"
-                           {% if e in estados_sel %}checked{% endif %}>
-                    <span>{{ e }}</span>
+                    <input type="checkbox" class="rounded" :value="e" @change="toggleEstado(e)" :checked="form.estados.includes(e)">
+                    <span x-text="e"></span>
                   </label>
-                {% endfor %}
+                </template>
               </div>
             </div>
           </details>
         </div>
 
-        {% set buckets_all = [('1','1–6'),('2','7–12'),('3','13–24'),('4','25–36')] %}
-        {% set buckets_sel = request.args.getlist('cuota_bucket') %}
-        {% set resumen_buckets = 'Todos' if not buckets_sel else (buckets_sel|length ~ ' seleccionados') %}
-
+        <!-- Condición (mora, solvente, pago adelantado, etc.) -->
         <div>
-          <label class="text-xs font-medium text-slate-600">Bloque de cuotas</label>
+          <label class="text-xs font-medium text-slate-600">Condición</label>
           <details class="relative mt-1">
             <summary class="form-input w-full rounded-md border border-slate-300 text-sm px-3 py-2 cursor-pointer list-none flex items-center justify-between">
-              <span class="truncate">
-                {% if not buckets_sel %}Todos{% else %}
-                  {%- for val,label in buckets_all if val in buckets_sel -%}
-                    {{ label }}{% if not loop.last %}, {% endif %}
-                  {%- endfor -%}
-                {% endif %}
-              </span>
+              <span class="truncate" x-text="resumenCondiciones()"></span>
               <i class="bi bi-caret-down-fill text-slate-500 text-xs ml-2"></i>
             </summary>
             <div class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg p-3">
               <div class="flex flex-col gap-2 max-h-56 overflow-auto">
-                {% for val,label in buckets_all %}
+                <template x-for="c in condicionesAll" :key="c">
                   <label class="inline-flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="cuota_bucket" value="{{ val }}" class="rounded"
-                           {% if val in buckets_sel %}checked{% endif %}>
-                    <span>{{ label }}</span>
+                    <input type="checkbox" class="rounded" :value="c" @change="toggleCondicion(c)" :checked="form.condiciones.includes(c)">
+                    <span x-text="c"></span>
                   </label>
-                {% endfor %}
+                </template>
               </div>
             </div>
           </details>
         </div>
+
       </div>
 
-      <div class="mt-4 grid grid-cols-1 md:grid-cols-2 text-center gap-4">
-        <div>
-          <span class="text-sm font-medium text-slate-600">Devaluación Ponderada BCV (calculada):</span>
-          {% if proyecciones.parametros.devaluacion_ponderada_bcv is not none %}
-            <span class="ml-2 font-bold text-lg text-indigo-700">{{ "{:,.2f}".format(proyecciones.parametros.devaluacion_ponderada_bcv) }}%</span>
-          {% else %}
-            <span class="ml-2 text-sm text-slate-400">Se calculará...</span>
-          {% endif %}
-        </div>
-        <div>
-          <span class="text-sm font-medium text-slate-600">Devaluación Ponderada Total (calculada):</span>
-          {% if proyecciones.parametros.devaluacion_ponderada_total is not none %}
-            <span class="ml-2 font-bold text-lg text-red-600">{{ "{:,.2f}".format(proyecciones.parametros.devaluacion_ponderada_total) }}%</span>
-          {% else %}
-            <span class="ml-2 text-sm text-slate-400">Se calculará...</span>
-          {% endif %}
-        </div>
+      <!-- Acciones de bloque -->
+      <div class="mt-4 flex flex-wrap items-center gap-3">
+        <button type="submit" class="py-2 px-4 rounded-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700">
+          Agregar bloque
+        </button>
+        <button type="button" @click="limpiarActual()" class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200">
+          Limpiar bloque
+        </button>
       </div>
     </form>
+
   </header>
 
-  {% if simulacion_realizada and proyecciones.simulacion_exitosa %}
-    <div class="bg-white p-4 rounded-xl shadow-sm border border-green-300 bg-green-50 flex flex-col md:flex-row items-center justify-between gap-4">
-      <p class="text-sm text-green-800 font-medium text-center md:text-left">
-        <i class="bi bi-info-circle-fill mr-2"></i>
-        Esta es una simulación. Si los resultados son correctos, puedes guardarla como la <strong>proyección activa</strong> para este mes.
-      </p>
-      <form method="POST" action="{{ url_for('activar_proyeccion') }}">
-        <input type="hidden" name="parametros_simulacion" value="{{ proyecciones.parametros|tojson }}">
-        <input type="hidden" name="resultados_resumen" value="{{ {'resumen': proyecciones.resumen, 'kpis': proyecciones.kpis}|tojson }}">
-        <button type="submit" class="py-2 px-6 rounded-md text-sm font-semibold text-white bg-green-600 hover:bg-green-700 flex items-center justify-center w-full md:w-auto">
-          <i class="bi bi-check-circle-fill mr-2"></i> Activar esta Proyección
+  <!-- Constructor y lista de bloques -->
+  <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-xl font-bold text-slate-800">Bloques de simulación</h3>
+      <div class="flex items-center gap-2">
+        <button class="py-2 px-4 rounded-md text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700"
+                @click="simularBloques()">
+          <i class="bi bi-calculator-fill mr-1"></i> Simular bloques
         </button>
-      </form>
+        <form method="POST" action="{{ url_for('activar_proyeccion') }}">
+          <input type="hidden" name="bloques_json" :value="jsonBloquesMarcados()">
+          <button type="submit" class="py-2 px-4 rounded-md text-sm font-semibold text-white bg-green-600 hover:bg-green-700">
+            Activar Proyección Global
+          </button>
+        </form>
+      </div>
     </div>
 
+    <template x-if="!bloques.length">
+      <p class="text-slate-500 text-sm">Aún no hay bloques. Agrega al menos uno desde el formulario de arriba.</p>
+    </template>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" x-show="bloques.length">
+      <template x-for="(b, idx) in bloques" :key="idx">
+        <div class="border rounded-lg p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="font-semibold text-slate-800">Bloque <span x-text="idx+1"></span></h4>
+            <div class="flex items-center gap-2">
+              <label class="inline-flex items-center gap-2 text-sm">
+                <input type="checkbox" class="rounded" x-model="b.incluir">
+                <span>Incluir en global</span>
+              </label>
+              <button class="text-rose-600 hover:text-rose-700 text-sm" @click="eliminarBloque(idx)">
+                Eliminar
+              </button>
+            </div>
+          </div>
+          <p class="text-xs text-slate-500">
+            <strong>Rango:</strong> <span x-text="b.fecha_inicio || '—'"></span> → <span x-text="b.fecha_fin || '—'"></span>
+          </p>
+          <p class="text-xs text-slate-500"><strong>Empresa:</strong> <span x-text="b.empresa || 'Todas'"></span></p>
+          <p class="text-xs text-slate-500"><strong>Estatus cliente:</strong> <span x-text="b.estatus_cliente || 'Todos'"></span></p>
+          <p class="text-xs text-slate-500"><strong>Estatus cuota:</strong> <span x-text="b.estatus_cuota || 'Todos'"></span></p>
+          <p class="text-xs text-slate-500"><strong>Estados plan:</strong> <span x-text="(b.estados && b.estados.length)? b.estados.join(', '): 'Todos'"></span></p>
+          <p class="text-xs text-slate-500"><strong>Condición:</strong> <span x-text="(b.condiciones && b.condiciones.length)? b.condiciones.join(', '): 'Todas'"></span></p>
+          <p class="text-xs text-slate-500"><strong>Excluir RC:</strong> <span x-text="b.excluir_rc ? 'Sí' : 'No'"></span></p>
+        </div>
+      </template>
+    </div>
+
+    <!-- Submit oculto para GET de simulación -->
+    <form id="form-simular" method="GET" action="{{ url_for('reporte_proyecciones') }}">
+      <input type="hidden" name="bloques_json" :value="jsonBloques()">
+    </form>
+  </section>
+
+  {% if simulacion_realizada and proyecciones.simulacion_exitosa %}
+    <!-- KPIs/Resumen (se mantiene tu estética) -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center">
-        <div class="flex items-center gap-3 text-slate-500">
-          <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-green-100 text-green-600"><i class="bi bi-arrow-down-circle-fill"></i></div>
-          <span class="text-sm font-medium">Ingresos Proyectados</span>
-        </div>
-        <div class="mt-2 flex-grow flex items-center">
-          <p class="text-2xl font-bold text-slate-800">${{ "{:,.2f}".format(proyecciones.resumen.ingresos_totales_proyectados) }}</p>
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 text-center">
+        <div class="text-sm text-slate-500">Ingresos Proyectados</div>
+        <div class="text-2xl font-bold text-slate-800 mt-1">${{ "{:,.2f}".format(proyecciones.resumen.ingresos_totales_proyectados) }}</div>
+      </div>
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 text-center">
+        <div class="text-sm text-slate-500">Gastos Proyectados</div>
+        <div class="text-2xl font-bold text-slate-800 mt-1">${{ "{:,.2f}".format(proyecciones.resumen.gastos_totales_proyectados) }}</div>
+      </div>
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 text-center">
+        <div class="text-sm text-slate-500">Balance Neto Proyectado</div>
+        <div class="text-2xl font-bold {{ 'text-green-600' if proyecciones.resumen.balance_neto_proyectado >= 0 else 'text-red-600' }} mt-1">
+          ${{ "{:,.2f}".format(proyecciones.resumen.balance_neto_proyectado) }}
         </div>
       </div>
-
-      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center">
-        <div class="flex items-center gap-3 text-slate-500">
-          <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-teal-100 text-teal-600"><i class="bi bi-cash-stack"></i></div>
-          <span class="text-sm font-medium">Ingreso Real Acumulado</span>
-        </div>
-        <div class="mt-2 flex-grow flex items-center">
-          <p class="text-2xl font-bold text-teal-600">${{ "{:,.2f}".format(proyecciones.resumen.ingreso_real_acumulado) }}</p>
-        </div>
-      </div>
-
-      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center">
-        <div class="flex items-center gap-3 text-slate-500">
-          <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-red-100 text-red-600"><i class="bi bi-arrow-up-circle-fill"></i></div>
-          <span class="text-sm font-medium">Gastos Proyectados</span>
-        </div>
-        <div class="mt-2 flex-grow flex items-center">
-          <p class="text-2xl font-bold text-slate-800">${{ "{:,.2f}".format(proyecciones.resumen.gastos_totales_proyectados) }}</p>
-        </div>
-      </div>
-
-      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center">
-        <div class="flex items-center gap-3 text-slate-500">
-          <div class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-sky-100 text-sky-600"><i class="bi bi-bank"></i></div>
-          <span class="text-sm font-medium">Balance Neto Proyectado</span>
-        </div>
-        <div class="mt-2 flex-grow flex items-center">
-          <p class="text-2xl font-bold {{ 'text-green-600' if proyecciones.resumen.balance_neto_proyectado >= 0 else 'text-red-600' }}">${{ "{:,.2f}".format(proyecciones.resumen.balance_neto_proyectado) }}</p>
-        </div>
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 text-center">
+        <div class="text-sm text-slate-500">Clientes a Cobrar</div>
+        <div class="text-2xl font-bold text-slate-800 mt-1">{{ proyecciones.resumen.clientes_a_cobrar }}</div>
       </div>
     </div>
 
-    {# (secciones de Tesorería y progreso se mantienen) #}
+    <!-- Lista de clientes a cobrar -->
     <div class="bg-white p-6 rounded-xl shadow-sm border">
-      <h3 class="text-lg font-bold text-slate-800 mb-2">Progreso de Ingresos (Real vs. Proyectado)</h3>
-      <p class="text-xs text-slate-500 mb-3">Porcentaje del ingreso proyectado que ha sido conciliado a la fecha.</p>
-      <div class="w-full bg-slate-200 rounded-full h-8">
-        <div class="bg-teal-500 h-8 rounded-full text-center text-white text-sm font-bold flex items-center justify-center"
-             style="width: {{ proyecciones.kpis.progreso_ingreso_pct }}%;">
-          {{ "{:,.1f}".format(proyecciones.kpis.progreso_ingreso_pct) }}%
-        </div>
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-bold text-slate-800">Clientes a cobrar (global)</h3>
+        <form method="GET" action="{{ url_for('exportar_clientes_cobranza') }}">
+          <input type="hidden" name="bloques_json" :value="jsonBloquesMarcados()">
+          <button class="py-2 px-4 rounded-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700">
+            Exportar clientes
+          </button>
+        </form>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100 text-slate-600">
+            <tr>
+              <th class="px-3 py-2 text-left">Cliente</th>
+              <th class="px-3 py-2 text-left">Cédula</th>
+              <th class="px-3 py-2 text-left">Estado plan</th>
+              <th class="px-3 py-2 text-right">Cuota</th>
+              <th class="px-3 py-2 text-left">Condición</th>
+              <th class="px-3 py-2 text-left">Estatus cuota</th>
+              <th class="px-3 py-2 text-left">Fecha pago</th>
+              <th class="px-3 py-2 text-right">Monto (USD)</th>
+              <th class="px-3 py-2 text-left">Método</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200">
+            {% for r in proyecciones.clientes_a_cobrar %}
+              <tr>
+                <td class="px-3 py-2">{{ r.cliente }}</td>
+                <td class="px-3 py-2">{{ r.cedula }}</td>
+                <td class="px-3 py-2">{{ r.estado_plan }}</td>
+                <td class="px-3 py-2 text-right">{{ r.numero_cuota }}</td>
+                <td class="px-3 py-2">{{ r.condicion }}</td>
+                <td class="px-3 py-2">{{ r.estatus_cuota }}</td>
+                <td class="px-3 py-2">{{ r.fecha_pago }}</td>
+                <td class="px-3 py-2 text-right">{{ "{:,.2f}".format(r.monto_usd) }}</td>
+                <td class="px-3 py-2">{{ r.metodo }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
 
-    <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
-      <div class="flex items-center justify-between mb-2">
-        <h3 class="text-2xl font-extrabold text-slate-800">Gestión de Cobranza Proyectada</h3>
-        <i class="bi bi-wallet2 text-3xl text-slate-400"></i>
-      </div>
-      <p class="text-sm text-slate-500 mb-8">Desglose detallado de la cartera de clientes activos y ahorradores por método de pago.</p>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        <!-- USD -->
-        <div class="flex flex-col bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl shadow-md border border-blue-200">
-          <div class="flex items-center justify-between mb-6">
-            <h4 class="font-bold text-xl text-blue-800">Dólar Efectivo</h4>
-            <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-blue-200 text-blue-700 shadow-inner">
-              <i class="bi bi-cash-coin text-2xl"></i>
-            </div>
-          </div>
-          <div class="flex-grow">
-            <div class="mb-4 pb-4 border-b border-blue-200">
-              <span class="text-sm text-blue-700/80">Clientes</span>
-              <p class="font-extrabold text-blue-900 text-3xl mt-1 tracking-tight">{{ proyecciones.gestion_cobranza.USD.clientes }}</p>
-            </div>
-            <div>
-              <span class="text-sm text-blue-700/80">Monto a Cobrar</span>
-              <p class="font-extrabold text-green-700 text-3xl mt-1 tracking-tight">${{ "{:,.2f}".format(proyecciones.gestion_cobranza.USD.monto) }}</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- BsBCV -->
-        <div class="flex flex-col bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl shadow-md border border-green-200">
-          <div class="flex items-center justify-between mb-6">
-            <h4 class="font-bold text-xl text-green-800">Bolívares (BCV)</h4>
-            <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-green-200 text-green-700 shadow-inner">
-              <i class="bi bi-bank text-2xl"></i>
-            </div>
-          </div>
-          <div class="flex-grow">
-            <div class="mb-4 pb-4 border-b border-green-200">
-              <span class="text-sm text-green-700/80">Clientes</span>
-              <p class="font-extrabold text-green-900 text-3xl mt-1 tracking-tight">{{ proyecciones.gestion_cobranza.BsBCV.clientes }}</p>
-            </div>
-            <div>
-              <span class="text-sm text-green-700/80">Monto (USD Ref.)</span>
-              <p class="font-extrabold text-green-700 text-3xl mt-1 tracking-tight">${{ "{:,.2f}".format(proyecciones.gestion_cobranza.BsBCV.monto) }}</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- EuroBCV -->
-        <div class="flex flex-col bg-gradient-to-br from-indigo-50 to-indigo-100 p-6 rounded-xl shadow-md border border-indigo-200">
-          <div class="flex items-center justify-between mb-6">
-            <h4 class="font-bold text-xl text-indigo-800">Euros (BCV)</h4>
-            <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-indigo-200 text-indigo-700 shadow-inner">
-              <i class="bi bi-currency-euro text-2xl"></i>
-            </div>
-          </div>
-          <div class="flex-grow">
-            <div class="mb-4 pb-4 border-b border-indigo-200">
-              <span class="text-sm text-indigo-700/80">Clientes</span>
-              <p class="font-extrabold text-indigo-900 text-3xl mt-1 tracking-tight">{{ proyecciones.gestion_cobranza.EuroBCV.clientes }}</p>
-            </div>
-            <div>
-              <span class="text-sm text-indigo-700/80">Monto (EUR Ref.)</span>
-              <p class="font-extrabold text-green-700 text-3xl mt-1 tracking-tight">€{{ "{:,.2f}".format(proyecciones.gestion_cobranza.EuroBCV.monto) }}</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- USDT -->
-        <div class="flex flex-col bg-gradient-to-br from-amber-50 to-amber-100 p-6 rounded-xl shadow-md border border-amber-200">
-          <div class="flex items-center justify-between mb-6">
-            <h4 class="font-bold text-xl text-amber-800">Binance (USDT)</h4>
-            <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-amber-200 text-amber-700 shadow-inner">
-              <i class="bi bi-gem text-2xl"></i>
-            </div>
-          </div>
-          <div class="flex-grow">
-            <div class="mb-4 pb-4 border-b border-amber-200">
-              <span class="text-sm text-amber-700/80">Clientes</span>
-              <p class="font-extrabold text-amber-900 text-3xl mt-1 tracking-tight">{{ proyecciones.gestion_cobranza.USDT.clientes }}</p>
-            </div>
-            <div>
-              <span class="text-sm text-amber-700/80">Monto a Cobrar</span>
-              <p class="font-extrabold text-green-700 text-3xl mt-1 tracking-tight">${{ "{:,.2f}".format(proyecciones.gestion_cobranza.USDT.monto) }}</p>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  {% elif proyecciones.mensaje_error %}
-    <div class="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 p-4 rounded-md text-center">
-      <p><i class="bi bi-info-circle-fill mr-2"></i>{{ proyecciones.mensaje_error }}</p>
-    </div>
-  {% else %}
-    <div class="text-center py-12">
-      <div class="text-5xl text-slate-300 mb-4"><i class="bi bi-search"></i></div>
-      <h3 class="text-xl font-semibold text-slate-600">Define los parámetros y haz clic en "Simular Proyección"</h3>
-      <p class="text-slate-500 mt-2">Ingresa las variables para generar una nueva simulación financiera.</p>
-    </div>
   {% endif %}
 
 </div>
+
+<!-- Alpine: estado y helpers -->
+<script>
+function escenariosBuilder() {
+  return {
+    estadosAll: [
+      'Ahorrador','Adjudicado','Congelado','Retiro','Completado',
+      'Reserva','Cobranza Diferida','Diferido en Reserva','Inscrito'
+    ],
+    condicionesAll: ['Mora','Solvente','Pago adelantado','Refinanciado','Acuerdo de pago'],
+    form: { fecha_inicio:'', fecha_fin:'', empresa:'', estatus_cliente:'', estatus_cuota:'', excluir_rc:false, estados:[], condiciones:[] },
+    bloques: [],
+
+    toggleEstado(e){ const i=this.form.estados.indexOf(e); if(i>-1) this.form.estados.splice(i,1); else this.form.estados.push(e); },
+    toggleCondicion(c){ const i=this.form.condiciones.indexOf(c); if(i>-1) this.form.condiciones.splice(i,1); else this.form.condiciones.push(c); },
+    resumenEstados(){ return this.form.estados.length? (this.form.estados.length<=2? this.form.estados.join(', '): this.form.estados.length+' seleccionados') : 'Todos'; },
+    resumenCondiciones(){ return this.form.condiciones.length? (this.form.condiciones.length<=2? this.form.condiciones.join(', '): this.form.condiciones.length+' seleccionadas') : 'Todas'; },
+
+    agregarBloqueActual(){
+      const b = JSON.parse(JSON.stringify(this.form));
+      b.incluir = true;
+      this.bloques.push(b);
+      // opcional: limpiar form
+      this.form.condiciones=[]; this.form.estados=[];
+    },
+    eliminarBloque(idx){ this.bloques.splice(idx,1); },
+    limpiarActual(){ this.form={ fecha_inicio:'', fecha_fin:'', empresa:'', estatus_cliente:'', estatus_cuota:'', excluir_rc:false, estados:[], condiciones:[] }; },
+    jsonBloques(){ return JSON.stringify(this.bloques || []); },
+    jsonBloquesMarcados(){ return JSON.stringify((this.bloques||[]).filter(b=>b.incluir)); },
+    simularBloques(){ document.getElementById('form-simular').submit(); }
+  }
+}
+</script>
 {% endblock %}
