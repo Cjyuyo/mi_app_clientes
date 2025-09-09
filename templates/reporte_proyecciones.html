@@ -39,30 +39,47 @@
 
     <!-- FILTROS DEL BLOQUE ACTUAL -->
     <form @submit.prevent="agregarBloqueActual()" class="mt-6">
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4 items-end bg-slate-50 p-4 rounded-lg border border-slate-200">
+      <!-- Primera fila: dos rangos de fechas, bien separados -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end bg-slate-50 p-4 rounded-lg border border-slate-200">
+        <!-- Rango COBRANZA (cuotas) -->
+        <div class="lg:col-span-6">
+          <div class="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wide">Cobranza (cuotas)</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="text-[11px] text-slate-500 block">Fecha de inicio de cobranza</label>
+              <input type="date" x-model="form.fecha_inicio"
+                     class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
+            </div>
+            <div>
+              <label class="text-[11px] text-slate-500 block">Fecha de finalización de la cobranza</label>
+              <input type="date" x-model="form.fecha_fin"
+                     class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
+            </div>
+          </div>
+        </div>
 
-        <!-- Fechas de cuota (si hay tabla cuotas) -->
-        <div>
-          <label class="text-xs font-medium text-slate-600">Fecha de Inicio</label>
-          <input type="date" x-model="form.fecha_inicio" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-        </div>
-        <div>
-          <label class="text-xs font-medium text-slate-600">Fecha de Fin</label>
-          <input type="date" x-model="form.fecha_fin" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-        </div>
+        <!-- Separador visual -->
+        <div class="hidden lg:block lg:col-span-0 border-l border-slate-200 h-full mx-1"></div>
 
-        <!-- Rango de inscripción -->
-        <div>
-          <label class="text-xs font-medium text-slate-600">Inscripción desde</label>
-          <input type="date" x-model="form.insc_desde" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-        </div>
-        <div>
-          <label class="text-xs font-medium text-slate-600">Inscripción hasta</label>
-          <input type="date" x-model="form.insc_hasta" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
+        <!-- Rango INSCRIPCIÓN (clientes) -->
+        <div class="lg:col-span-6">
+          <div class="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wide">Inscripción (clientes)</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="text-[11px] text-slate-500 block">Inscripción desde</label>
+              <input type="date" x-model="form.insc_desde"
+                     class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
+            </div>
+            <div>
+              <label class="text-[11px] text-slate-500 block">Inscripción hasta</label>
+              <input type="date" x-model="form.insc_hasta"
+                     class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
+            </div>
+          </div>
         </div>
 
         <!-- Empresa -->
-        <div>
+        <div class="lg:col-span-3">
           <label class="text-xs font-medium text-slate-600">Empresa</label>
           <select x-model="form.empresa" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
             <option value="">Todas</option>
@@ -72,7 +89,7 @@
         </div>
 
         <!-- Estatus cliente -->
-        <div>
+        <div class="lg:col-span-3">
           <label class="text-xs font-medium text-slate-600">Estatus cliente</label>
           <select x-model="form.estatus_cliente" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
             <option value="">Todos</option>
@@ -82,7 +99,7 @@
         </div>
 
         <!-- Estatus de cuota -->
-        <div>
+        <div class="lg:col-span-3">
           <label class="text-xs font-medium text-slate-600">Estatus de cuota</label>
           <select x-model="form.estatus_cuota" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
             <option value="">Todos</option>
@@ -92,7 +109,7 @@
         </div>
 
         <!-- Excluir RC -->
-        <div class="flex items-center gap-2">
+        <div class="lg:col-span-3 flex items-center gap-2 pt-6">
           <input id="excluir_rc" type="checkbox" x-model="form.excluir_rc" class="rounded">
           <label for="excluir_rc" class="text-xs font-medium text-slate-600">Excluir RETIRO y COMPLETADO</label>
         </div>
@@ -100,7 +117,6 @@
 
       <!-- Multiselección: Estado del plan y Condición -->
       <div class="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4">
-
         <!-- Estado del plan -->
         <div x-data="{open:false}" @keydown.escape.window="open=false" class="relative">
           <label class="text-xs font-medium text-slate-600">Estado del plan</label>
@@ -140,7 +156,6 @@
             </div>
           </div>
         </div>
-
       </div>
 
       <!-- Acciones de bloque -->
@@ -193,7 +208,7 @@
               </button>
             </div>
           </div>
-          <p class="text-xs text-slate-500"><strong>Rango cuota:</strong> <span x-text="b.fecha_inicio || '—'"></span> → <span x-text="b.fecha_fin || '—'"></span></p>
+          <p class="text-xs text-slate-500"><strong>Cobranza:</strong> <span x-text="b.fecha_inicio || '—'"></span> → <span x-text="b.fecha_fin || '—'"></span></p>
           <p class="text-xs text-slate-500"><strong>Inscripción:</strong> <span x-text="b.insc_desde || '—'"></span> → <span x-text="b.insc_hasta || '—'"></span></p>
           <p class="text-xs text-slate-500"><strong>Empresa:</strong> <span x-text="b.empresa || 'Todas'"></span></p>
           <p class="text-xs text-slate-500"><strong>Estatus cliente:</strong> <span x-text="b.estatus_cliente || 'Todos'"></span></p>
@@ -206,9 +221,33 @@
     </div>
   </section>
 
+  <!-- Resultados por bloque (si el backend los envía) -->
+  {% set _rb = resultados_por_bloque|default([]) %}
+  {% if _rb %}
+  <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+    <h3 class="text-xl font-bold text-slate-800 mb-4">Resultados por bloque</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {% for r in _rb %}
+        <div class="border rounded-lg p-4">
+          <div class="text-sm text-slate-500">Bloque {{ r.indice }}</div>
+          <div class="mt-2 text-slate-800">
+            <div class="text-sm"><span class="text-slate-500">Clientes:</span> <strong>{{ r.clientes }}</strong></div>
+            <div class="text-sm"><span class="text-slate-500">Total USD:</span> <strong>${{ "{:,.2f}".format(r.total_usd) }}</strong></div>
+          </div>
+          {% if r.detalle %}
+          <div class="mt-3 text-xs text-slate-500">
+            <div><strong>Rango cobranza:</strong> {{ r.detalle.fecha_inicio or '—' }} → {{ r.detalle.fecha_fin or '—' }}</div>
+            <div><strong>Rango inscripción:</strong> {{ r.detalle.insc_desde or '—' }} → {{ r.detalle.insc_hasta or '—' }}</div>
+          </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
   {% if simulacion_realizada and proyecciones.simulacion_exitosa %}
-    <!-- KPIs y tabla (igual que antes) -->
-    <!-- ... (la misma sección de KPIs y tabla de clientes a cobrar que ya tienes) ... -->
+    <!-- KPIs -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       <div class="bg-white p-5 rounded-xl shadow-sm border text-center">
         <div class="text-sm text-slate-500">Ingresos Proyectados</div>
@@ -230,6 +269,7 @@
       </div>
     </div>
 
+    <!-- Lista de clientes a cobrar -->
     <div class="bg-white p-6 rounded-xl shadow-sm border">
       <div class="overflow-x-auto">
         <table class="min-w-full text-sm">
@@ -301,7 +341,6 @@ function escenariosBuilder() {
     jsonBloques(){ return JSON.stringify(this.bloques || []); },
     jsonBloquesMarcados(){ return JSON.stringify((this.bloques||[]).filter(b=>b.incluir)); },
 
-    // Navega por GET con el payload JSON (más robusto que submit de form oculto)
     simularBloques(){
       const marcados = this.jsonBloquesMarcados();
       if (!marcados || marcados === '[]') { alert('Agrega al menos un bloque marcado para simular.'); return; }
