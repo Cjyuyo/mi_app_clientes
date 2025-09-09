@@ -19,6 +19,12 @@
 {% endblock %}
 
 {% block body %}
+{% set P = proyecciones.parametros or {} %}
+{% set dist_mon = P.get('distribucion_moneda', {}) %}
+{% set dist_plz = P.get('distribucion_plazo', {}) %}
+{% set KPIS = proyecciones.kpis or {} %}
+{% set R = proyecciones.resumen or {} %}
+
 <div class="container-fluid py-4">
 
   <!-- Encabezado -->
@@ -47,7 +53,7 @@
         <strong>Parámetros de Simulación</strong>
       </div>
       <span class="badge rounded-pill text-bg-light">
-        Mes: <strong class="ms-1">{{ proyecciones.parametros.mes }}/{{ proyecciones.parametros.ano }}</strong>
+        Mes: <strong class="ms-1">{{ P.get('mes','-') }}/{{ P.get('ano','-') }}</strong>
       </span>
     </div>
     <div class="card-body">
@@ -57,31 +63,31 @@
         <div class="col-12 col-md-4">
           <div class="metric">
             <div class="label">Fecha Inicio</div>
-            <div class="value">{{ proyecciones.parametros.fecha_inicio }}</div>
+            <div class="value">{{ P.get('fecha_inicio','-') }}</div>
           </div>
           <div class="divider"></div>
 
           <div class="metric">
             <div class="label">Clientes nuevos estimados</div>
-            <div class="value">{{ proyecciones.parametros.clientes_nuevos }}</div>
+            <div class="value">{{ P.get('clientes_nuevos',0) }}</div>
           </div>
           <div class="divider"></div>
 
           <div class="metric">
             <div class="label">Promedio Plan (USD)</div>
-            <div class="value">{{ proyecciones.parametros.promedio_plan_usd }}</div>
+            <div class="value">{{ P.get('promedio_plan_usd',0) }}</div>
           </div>
           <div class="divider"></div>
 
           <div class="metric">
             <div class="label">Inscripción %</div>
-            <div class="value">{{ proyecciones.parametros.inscripcion_pct }}%</div>
+            <div class="value">{{ P.get('inscripcion_pct',16) }}%</div>
           </div>
           <div class="divider"></div>
 
           <div class="metric">
             <div class="label">Cuota base USD (24)</div>
-            <div class="value">{{ proyecciones.parametros.cuota_base_usd_24 }}</div>
+            <div class="value">{{ P.get('cuota_base_usd_24',0) }}</div>
           </div>
           <div class="divider"></div>
         </div>
@@ -90,35 +96,35 @@
         <div class="col-12 col-md-4">
           <div class="metric">
             <div class="label">Cuota base Bs (24)</div>
-            <div class="value">{{ proyecciones.parametros.cuota_base_bs_24 }}</div>
+            <div class="value">{{ P.get('cuota_base_bs_24',0) }}</div>
           </div>
           <div class="divider"></div>
 
           <div class="metric">
             <div class="label">Distribución por Moneda</div>
-            <div class="value">{{ proyecciones.parametros.distribucion_moneda.usd_pct }}% USD / {{ proyecciones.parametros.distribucion_moneda.bs_pct }}% Bs</div>
+            <div class="value">{{ dist_mon.get('usd_pct',0) }}% USD / {{ dist_mon.get('bs_pct',0) }}% Bs</div>
           </div>
           <div class="divider"></div>
 
           <div class="metric">
             <div class="label">Distribución por Plazo</div>
             <div class="value">
-              24: {{ proyecciones.parametros.distribucion_plazo._24 }}% |
-              36: {{ proyecciones.parametros.distribucion_plazo._36 }}% |
-              48: {{ proyecciones.parametros.distribucion_plazo._48 }}%
+              24: {{ dist_plz.get('_24',0) }}% |
+              36: {{ dist_plz.get('_36',0) }}% |
+              48: {{ dist_plz.get('_48',0) }}%
             </div>
           </div>
           <div class="divider"></div>
 
           <div class="metric">
             <div class="label">Tasa BCV USD</div>
-            <div class="value">{{ proyecciones.parametros.tasa_bcv_usd_inicio }}</div>
+            <div class="value">{{ P.get('tasa_bcv_usd_inicio',0) }}</div>
           </div>
           <div class="divider"></div>
 
           <div class="metric">
             <div class="label">Tasa BCV Euro</div>
-            <div class="value">{{ proyecciones.parametros.tasa_bcv_euro_inicio }}</div>
+            <div class="value">{{ P.get('tasa_bcv_euro_inicio',0) }}</div>
           </div>
           <div class="divider"></div>
         </div>
@@ -127,25 +133,25 @@
         <div class="col-12 col-md-4">
           <div class="metric">
             <div class="label">Margen Dólar (%)</div>
-            <div class="value">{{ proyecciones.parametros.margen_dolar_pct }}%</div>
+            <div class="value">{{ P.get('margen_dolar_pct',0) }}%</div>
           </div>
           <div class="divider"></div>
 
           <div class="metric">
             <div class="label">Margen Euro (%)</div>
-            <div class="value">{{ proyecciones.parametros.margen_euro_pct }}%</div>
+            <div class="value">{{ P.get('margen_euro_pct',0) }}%</div>
           </div>
           <div class="divider"></div>
 
           <div class="metric">
             <div class="label">Días hábiles del mes</div>
-            <div class="value">{{ proyecciones.parametros.dias_habiles }}</div>
+            <div class="value">{{ P.get('dias_habiles',0) }}</div>
           </div>
           <div class="divider"></div>
 
           <div class="metric">
             <div class="label">Meta de adjudicaciones</div>
-            <div class="value">{{ proyecciones.parametros.meta_adjudicaciones }}</div>
+            <div class="value">{{ P.get('meta_adjudicaciones',0) }}</div>
           </div>
         </div>
 
@@ -160,7 +166,7 @@
         <i class="bi bi-speedometer"></i>
         <strong>Resultados de la Simulación</strong>
       </div>
-      <span class="badge rounded-pill text-bg-light">Versión: {{ proyecciones.version }}</span>
+      <span class="badge rounded-pill text-bg-light">Versión: {{ proyecciones.version or '-' }}</span>
     </div>
     <div class="card-body">
       <div class="row g-4">
@@ -170,19 +176,18 @@
               <i class="bi bi-person-plus text-primary"></i>
               <div>
                 <div class="text-secondary small">Clientes Nuevos</div>
-                <div class="h5 mb-0">{{ proyecciones.resumen.clientes_nuevos }}</div>
+                <div class="h5 mb-0">{{ R.get('clientes_nuevos',0) }}</div>
               </div>
             </div>
           </div>
         </div>
-
         <div class="col-12 col-md-6 col-lg-3">
           <div class="p-3 rounded-3 border">
             <div class="kpi">
               <i class="bi bi-cash-coin text-success"></i>
               <div>
                 <div class="text-secondary small">Inscripciones (USD)</div>
-                <div class="h5 mb-0">${{ '%.2f'|format(proyecciones.resumen.total_inscripciones_usd) }}</div>
+                <div class="h5 mb-0">${{ '%.2f'|format(R.get('total_inscripciones_usd',0)) }}</div>
               </div>
             </div>
           </div>
@@ -193,7 +198,7 @@
               <i class="bi bi-calendar3 text-indigo"></i>
               <div>
                 <div class="text-secondary small">Cuotas Mensuales (USD)</div>
-                <div class="h5 mb-0">${{ '%.2f'|format(proyecciones.resumen.total_cuotas_usd) }}</div>
+                <div class="h5 mb-0">${{ '%.2f'|format(R.get('total_cuotas_usd',0)) }}</div>
               </div>
             </div>
           </div>
@@ -204,7 +209,7 @@
               <i class="bi bi-piggy-bank text-warning"></i>
               <div>
                 <div class="text-secondary small">Aporte Fondo Común</div>
-                <div class="h5 mb-0">${{ '%.2f'|format(proyecciones.resumen.fondo_comun_usd) }}</div>
+                <div class="h5 mb-0">${{ '%.2f'|format(R.get('fondo_comun_usd',0)) }}</div>
               </div>
             </div>
           </div>
@@ -219,17 +224,17 @@
             <div class="card-body">
               <div class="d-flex justify-content-between mb-2">
                 <span class="text-secondary">USD</span>
-                <span class="fw-bold">{{ proyecciones.kpis.usd.pct }}%</span>
+                <span class="fw-bold">{{ (KPIS.get('usd') or {}).get('pct',0) }}%</span>
               </div>
-              <div class="progress" role="progressbar" aria-valuenow="{{ proyecciones.kpis.usd.pct }}" aria-valuemin="0" aria-valuemax="100">
-                <div class="progress-bar bg-success" style="width: {{ proyecciones.kpis.usd.pct }}%"></div>
+              <div class="progress" role="progressbar" aria-valuenow="{{ (KPIS.get('usd') or {}).get('pct',0) }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar bg-success" style="width: {{ (KPIS.get('usd') or {}).get('pct',0) }}%"></div>
               </div>
               <div class="d-flex justify-content-between mt-3 mb-2">
                 <span class="text-secondary">Bs</span>
-                <span class="fw-bold">{{ proyecciones.kpis.bs.pct }}%</span>
+                <span class="fw-bold">{{ (KPIS.get('bs') or {}).get('pct',0) }}%</span>
               </div>
-              <div class="progress" role="progressbar" aria-valuenow="{{ proyecciones.kpis.bs.pct }}" aria-valuemin="0" aria-valuemax="100">
-                <div class="progress-bar bg-info" style="width: {{ proyecciones.kpis.bs.pct }}%"></div>
+              <div class="progress" role="progressbar" aria-valuenow="{{ (KPIS.get('bs') or {}).get('pct',0) }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar bg-info" style="width: {{ (KPIS.get('bs') or {}).get('pct',0) }}%"></div>
               </div>
             </div>
           </div>
@@ -240,22 +245,22 @@
             <div class="card-header"><strong>Distribución por Plazo</strong></div>
             <div class="card-body">
               <div class="mb-2 d-flex justify-content-between">
-                <span>24 meses</span> <span class="fw-bold">{{ proyecciones.kpis.plazo._24 }}%</span>
+                <span>24 meses</span> <span class="fw-bold">{{ (KPIS.get('plazo') or {}).get('_24',0) }}%</span>
               </div>
               <div class="progress">
-                <div class="progress-bar bg-primary" style="width: {{ proyecciones.kpis.plazo._24 }}%"></div>
+                <div class="progress-bar bg-primary" style="width: {{ (KPIS.get('plazo') or {}).get('_24',0) }}%"></div>
               </div>
               <div class="mt-3 mb-2 d-flex justify-content-between">
-                <span>36 meses</span> <span class="fw-bold">{{ proyecciones.kpis.plazo._36 }}%</span>
+                <span>36 meses</span> <span class="fw-bold">{{ (KPIS.get('plazo') or {}).get('_36',0) }}%</span>
               </div>
               <div class="progress">
-                <div class="progress-bar bg-warning" style="width: {{ proyecciones.kpis.plazo._36 }}%"></div>
+                <div class="progress-bar bg-warning" style="width: {{ (KPIS.get('plazo') or {}).get('_36',0) }}%"></div>
               </div>
               <div class="mt-3 mb-2 d-flex justify-content-between">
-                <span>48 meses</span> <span class="fw-bold">{{ proyecciones.kpis.plazo._48 }}%</span>
+                <span>48 meses</span> <span class="fw-bold">{{ (KPIS.get('plazo') or {}).get('_48',0) }}%</span>
               </div>
               <div class="progress">
-                <div class="progress-bar bg-secondary" style="width: {{ proyecciones.kpis.plazo._48 }}%"></div>
+                <div class="progress-bar bg-secondary" style="width: {{ (KPIS.get('plazo') or {}).get('_48',0) }}%"></div>
               </div>
             </div>
           </div>
@@ -267,17 +272,17 @@
             <div class="card-body">
               <div class="metric">
                 <div class="label">Ingresos por Inscripción</div>
-                <div class="value">${{ '%.2f'|format(proyecciones.kpis.ingresos.inscripcion) }}</div>
+                <div class="value">${{ '%.2f'|format(((KPIS.get('ingresos') or {}).get('inscripcion',0))) }}</div>
               </div>
               <div class="divider"></div>
               <div class="metric">
                 <div class="label">Ingresos por Cuotas</div>
-                <div class="value">${{ '%.2f'|format(proyecciones.kpis.ingresos.cuotas) }}</div>
+                <div class="value">${{ '%.2f'|format(((KPIS.get('ingresos') or {}).get('cuotas',0))) }}</div>
               </div>
               <div class="divider"></div>
               <div class="metric">
                 <div class="label">Total Ingresos Mes</div>
-                <div class="value">${{ '%.2f'|format(proyecciones.kpis.ingresos.total) }}</div>
+                <div class="value">${{ '%.2f'|format(((KPIS.get('ingresos') or {}).get('total',0))) }}</div>
               </div>
             </div>
           </div>
@@ -306,13 +311,13 @@
         <tbody>
           {% for dia in proyecciones.detalle_dias %}
           <tr>
-            <td>{{ dia.fecha }}</td>
-            <td class="text-center">{{ dia.nuevos }}</td>
-            <td class="text-end">${{ '%.2f'|format(dia.inscripcion_usd) }}</td>
-            <td class="text-end">${{ '%.2f'|format(dia.cuotas_usd) }}</td>
-            <td class="text-center">{{ dia.plazo }}</td>
+            <td>{{ dia.fecha or '-' }}</td>
+            <td class="text-center">{{ dia.nuevos or 0 }}</td>
+            <td class="text-end">${{ '%.2f'|format(dia.inscripcion_usd or 0) }}</td>
+            <td class="text-end">${{ '%.2f'|format(dia.cuotas_usd or 0) }}</td>
+            <td class="text-center">{{ dia.plazo or '-' }}</td>
             <td class="text-center">
-              <span class="badge rounded-pill text-bg-light">{{ dia.moneda }}</span>
+              <span class="badge rounded-pill text-bg-light">{{ dia.moneda or '-' }}</span>
             </td>
           </tr>
           {% endfor %}
@@ -331,8 +336,8 @@
     <div class="card-body">
       <form id="activarProyeccionForm" method="POST" action="{{ url_for('activar_proyeccion') }}">
         <!-- Hidden: enviamos JSON válido siempre -->
-        <input type="hidden" name="parametros_simulacion" value="{{ proyecciones.parametros|tojson }}">
-        <input type="hidden" name="resultados_resumen" value="{{ {'resumen': proyecciones.resumen, 'kpis': proyecciones.kpis}|tojson }}">
+        <input type="hidden" name="parametros_simulacion" value="{{ P|tojson }}">
+        <input type="hidden" name="resultados_resumen" value="{{ {'resumen': R, 'kpis': KPIS}|tojson }}">
         <div class="d-flex gap-3">
           <a href="{{ url_for('reporte_flujo_caja') }}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Volver
@@ -361,29 +366,21 @@ document.addEventListener('DOMContentLoaded', function() {
   const form = document.getElementById('activarProyeccionForm');
   if (!form) return;
 
-  form.addEventListener('submit', function(ev) {
+  form.addEventListener('submit', function() {
     try {
       const p = form.querySelector('input[name="parametros_simulacion"]');
       const r = form.querySelector('input[name="resultados_resumen"]');
-
-      // Si el servidor ya renderizó JSON válido (|tojson), esto es un no-op
       const pObj = (typeof p.value === 'string') ? JSON.parse(p.value) : p.value;
       const rObj = (typeof r.value === 'string') ? JSON.parse(r.value) : r.value;
-
       p.value = JSON.stringify(pObj);
       r.value = JSON.stringify(rObj);
     } catch (e) {
-      // Fallback: normaliza formatos comunes inválidos
       const fix = (s) => {
         try { return JSON.stringify(JSON.parse(s)); } catch (_){}
         try {
-          // Reemplaza comillas simples por dobles y agrega comillas a claves sin comillas
           const s1 = s.replace(/'/g, '"').replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g, '$1"$2":');
           return JSON.stringify(JSON.parse(s1));
-        } catch (_){
-          // Último recurso: deja el string intacto para que el backend aplique su parser tolerante
-          return s;
-        }
+        } catch (_){ return s; }
       };
       const p = form.querySelector('input[name="parametros_simulacion"]');
       const r = form.querySelector('input[name="resultados_resumen"]');
