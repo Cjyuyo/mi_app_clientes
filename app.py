@@ -3664,38 +3664,45 @@ def reporte_proyecciones():
     excluir_rc = (request.args.get('excluir_rc') == '1')
 
     # WHERE dinámico
-    where, params = [], []
+where, params = [], []
 
-    if empresa:
-        where.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(%s, ' ', ''))")
-        params.append(empresa)
+if empresa:
+    # ya estaba robusto
+    where.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(TRIM(%s), ' ', ''))")
+    params.append(empresa)
 
-    if estados_sel:
-        where.append("(" + " OR ".join(["c.estado_del_plan = %s"] * len(estados_sel)) + ")")
-        params.extend(estados_sel)
+# Estado(s) del plan (acepta select + checkboxes) – normalizado
+if estados_sel:
+    where.append("(" + " OR ".join(
+        ["TRIM(UPPER(c.estado_del_plan)) = TRIM(UPPER(%s))"] * len(estados_sel)
+    ) + ")")
+    params.extend(estados_sel)
 
-    if estatus:
-        where.append("c.estatus_cliente = %s")
-        params.append(estatus)
+# Estatus del cliente – normalizado
+if estatus:
+    where.append("TRIM(UPPER(c.estatus_cliente)) = TRIM(UPPER(%s))")
+    params.append(estatus)
 
-    if excluir_rc:
-        where.append("(c.estado_del_plan <> 'RETIRO' AND c.estado_del_plan <> 'COMPLETADO')")
+# Excluir RETIRO / COMPLETADO – normalizado
+if excluir_rc:
+    where.append("(TRIM(UPPER(c.estado_del_plan)) NOT IN ('RETIRO','COMPLETADO'))")
 
-    if buckets_sel:
-        rangos = []
-        for b in buckets_sel:
-            if b == '1':
-                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 1 AND 6")
-            elif b == '2':
-                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 7 AND 12")
-            elif b == '3':
-                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 13 AND 24")
-            elif b == '4':
-                rangos.append("c.cuotas_pagadas_progresivas BETWEEN 25 AND 36")
-        if rangos:
-            where.append("(" + " OR ".join(rangos) + ")")
+# Bloque(s) de cuotas (igual que ya estaba)
+if buckets_sel:
+    rangos = []
+    for b in buckets_sel:
+        if b == '1':
+            rangos.append("c.cuotas_pagadas_progresivas BETWEEN 1 AND 6")
+        elif b == '2':
+            rangos.append("c.cuotas_pagadas_progresivas BETWEEN 7 AND 12")
+        elif b == '3':
+            rangos.append("c.cuotas_pagadas_progresivas BETWEEN 13 AND 24")
+        elif b == '4':
+            rangos.append("c.cuotas_pagadas_progresivas BETWEEN 25 AND 36")
+    if rangos:
+        where.append("(" + " OR ".join(rangos) + ")")
 
-    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
     # --------- Objeto base de respuesta ---------
     proyecciones = {
@@ -3931,37 +3938,67 @@ def proyecciones_guardadas():
 def activar_proyeccion():
     conn = get_db()
     try:
-        # Se obtienen los datos serializados del formulario
-        parametros_str = request.form.get('parametros_simulacion')
-        resultados_str = request.form.get('resultados_resumen')
-        
-        if not all([parametros_str, resultados_str]):
+        # 1) Leer desde form; si vino JSON puro, tomar del body
+        parametros_raw = request.form.get('parametros_simulacion')
+        resultados_raw = request.form.get('resultados_resumen')
+
+        if (not parametros_raw or not resultados_raw) and request.is_json:
+            body = request.get_json(silent=True) or {}
+            parametros_raw = parametros_raw or body.get('parametros_simulacion')
+            resultados_raw = resultados_raw or body.get('resultados_resumen')
+
+        if not all([parametros_raw, resultados_raw]):
             flash("Faltan datos para activar la proyección.", "danger")
             return redirect(url_for('reporte_proyecciones'))
 
-        parametros = json.loads(parametros_str)
-        
-        # Determinar mes y año a partir de la fecha de inicio
+        # 2) Parser tolerante: JSON -> (si falla) JS object con claves sin comillas -> (si falla) dict de Python
+        def parse_json_flexible(s):
+            if isinstance(s, (dict, list)):
+                return s
+            if not isinstance(s, str):
+                raise ValueError("Payload inválido")
+
+            import re, ast, json as _json
+            try:
+                return _json.loads(s)  # JSON válido (claves entre comillas dobles)
+            except _json.JSONDecodeError:
+                # Intento 1: objeto JS -> meter comillas a claves y cambiar comillas simples a dobles
+                s1 = re.sub(r'([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:', r'\1"\2":', s)
+                s1 = s1.replace("'", '"')
+                try:
+                    return _json.loads(s1)
+                except _json.JSONDecodeError:
+                    # Intento 2: dict de Python
+                    return ast.literal_eval(s)
+
+        parametros = parse_json_flexible(parametros_raw)
+        resultados = parse_json_flexible(resultados_raw)
+
+        # 3) Mes/Año desde fecha_inicio
         fecha_inicio = datetime.strptime(parametros['fecha_inicio'], '%Y-%m-%d').date()
         mes = fecha_inicio.month
         ano = fecha_inicio.year
 
+        # 4) Guardar/activar (forzamos tipo jsonb en DB)
         with conn.cursor() as cur:
-            # UPSERT: Inserta una nueva proyección o actualiza la existente para el mismo mes/año
             cur.execute("""
-                INSERT INTO proyecciones_activas (mes_proyeccion, ano_proyeccion, parametros_simulacion, resultados_resumen, creado_por_id)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO proyecciones_activas
+                    (mes_proyeccion, ano_proyeccion, parametros_simulacion, resultados_resumen, creado_por_id, estado, fecha_creacion)
+                VALUES (%s, %s, %s::jsonb, %s::jsonb, %s, 'Activa', NOW())
                 ON CONFLICT (mes_proyeccion, ano_proyeccion) DO UPDATE SET
                     parametros_simulacion = EXCLUDED.parametros_simulacion,
                     resultados_resumen = EXCLUDED.resultados_resumen,
                     creado_por_id = EXCLUDED.creado_por_id,
                     fecha_creacion = NOW(),
                     estado = 'Activa'
-            """, (mes, ano, parametros_str, resultados_str, g.admin['id']))
+            """, (mes, ano, json.dumps(parametros), json.dumps(resultados), g.admin['id']))
         conn.commit()
+
         flash(f"Proyección para {get_nombre_mes(mes)}/{ano} guardada y activada exitosamente.", "success")
-    except (psycopg2.Error, json.JSONDecodeError, KeyError) as e:
-        conn.rollback()
+
+    except (psycopg2.Error, json.JSONDecodeError, KeyError, ValueError) as e:
+        if conn:
+            conn.rollback()
         flash(f"Error al activar la proyección: {e}", "danger")
         logging.error(f"Error en activar_proyeccion: {traceback.format_exc()}")
 
