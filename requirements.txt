@@ -1,4 +1,4 @@
-Flask
+Flask==3.1.1
 gunicorn
 psycopg2-binary
 python-dotenv
@@ -7,5 +7,5 @@ tqdm
 fpdf2
 XlsxWriter
 boto3
-openpyxlFlask-Login==0.6.3
+openpyxl
 Flask-Login==0.6.3
