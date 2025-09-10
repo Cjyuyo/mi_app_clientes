@@ -2917,7 +2917,6 @@ def mi_cartera():
 # =================================================================================
 # ===== INICIO: MÓDULO DE MÉTRICAS RECONSTRUIDO (V1) =====
 # ================================================================================
-
 @app.route('/reportes/metricas')
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -2938,6 +2937,7 @@ def reporte_metricas():
         'fecha_inscripcion','fecha_registro','fecha_origen','fecha_registro_cliente'
     ])
 
+    # ------------------ WHERE dinámico para c.* ------------------
     where_parts, where_params = [], []
     if empresa:
         where_parts.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(TRIM(%s), ' ', ''))")
@@ -2946,7 +2946,10 @@ def reporte_metricas():
         where_parts.append("(" + " OR ".join(["TRIM(UPPER(c.estado_del_plan)) = TRIM(UPPER(%s))"] * len(estados_sel)) + ")")
         where_params.extend(estados_sel)
     if estatus_cli:
-        where_parts.append("TRIM(UPPER(c.estatus_cliente)) = TRIM(UPPER(%s))")
+        # <-- CORREGIDO: filtra por cualquier columna de estatus disponible
+        where_parts.append(
+            "TRIM(UPPER(COALESCE(NULLIF(c.estatus_cliente,''), NULLIF(c.estatus,''), NULLIF(c.estado,'')))) = TRIM(UPPER(%s))"
+        )
         where_params.append(estatus_cli)
     if condiciones_sel:
         where_parts.append("(" + " OR ".join([
@@ -2973,6 +2976,7 @@ def reporte_metricas():
     where_sql_c = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
     and_sql_c   = (" AND " + " AND ".join(where_parts)) if where_parts else ""
 
+    # ------------------ Estructura base ------------------
     dashboard_metrics = {
         'ingresos_mes_conciliados': 0.0,
         'indice_morosidad': 0.0,
@@ -2996,7 +3000,7 @@ def reporte_metricas():
 
     try:
         with conn.cursor() as cur:
-            # --- Distinct empresas para el selector (no condicionado por filtros) ---
+            # --- Empresas para selector (sin filtros) ---
             cur.execute("""
                 SELECT DISTINCT TRIM(c.empresa) AS empresa
                 FROM clientes c
@@ -3005,19 +3009,58 @@ def reporte_metricas():
             """)
             rows_emp = cur.fetchall() or []
             empresas_opciones = [
-                (r['empresa'] if isinstance(r, dict) else r[0]) for r in rows_emp if (r and (r['empresa'] if isinstance(r, dict) else r[0]))
+                (r['empresa'] if isinstance(r, dict) else r[0])
+                for r in rows_emp if (r and (r['empresa'] if isinstance(r, dict) else r[0]))
             ]
 
-            # --- Totales con filtros ---
+            # --- Totales (CORREGIDO: KPIs robustos por estatus y estado_del_plan) ---
             cur.execute(f"""
                 SELECT
                     COUNT(*) AS total_clientes,
-                    COUNT(CASE WHEN TRIM(UPPER(c.estatus_cliente)) IN ('ACTIVO','ACTIVOS') THEN 1 END) AS clientes_activos,
-                    COUNT(CASE WHEN TRIM(UPPER(c.estatus_cliente)) IN ('INACTIVO','INACTIVOS') THEN 1 END) AS clientes_inactivos,
-                    COUNT(CASE WHEN TRIM(UPPER(c.estatus_cliente)) IN ('RETIRADO','RETIRADA','RETIRADOS') THEN 1 END) AS clientes_retirados,
-                    COUNT(CASE WHEN TRIM(UPPER(c.estatus_cliente)) = 'CONGELADO' THEN 1 END) AS clientes_congelados,
-                    COUNT(CASE WHEN TRIM(UPPER(c.estatus_cliente)) = 'RESERVA' THEN 1 END) AS clientes_reserva,
-                    COUNT(CASE WHEN TRIM(UPPER(c.estado_del_plan)) = 'ADJUDICADO' THEN 1 END) AS clientes_adjudicados
+
+                    COUNT(
+                      CASE
+                        WHEN TRIM(UPPER(COALESCE(NULLIF(c.estatus_cliente,''), NULLIF(c.estatus,''), NULLIF(c.estado,''))))
+                             IN ('ACTIVO','ACTIVOS') THEN 1
+                      END
+                    ) AS clientes_activos,
+
+                    COUNT(
+                      CASE
+                        WHEN TRIM(UPPER(COALESCE(NULLIF(c.estatus_cliente,''), NULLIF(c.estatus,''), NULLIF(c.estado,''))))
+                             IN ('INACTIVO','INACTIVOS') THEN 1
+                      END
+                    ) AS clientes_inactivos,
+
+                    COUNT(
+                      CASE
+                        WHEN TRIM(UPPER(COALESCE(NULLIF(c.estatus_cliente,''), NULLIF(c.estatus,''), NULLIF(c.estado,''))))
+                             IN ('RETIRADO','RETIRADA','RETIRADOS')
+                           OR TRIM(UPPER(c.estado_del_plan)) IN ('RETIRO','RETIRADO','RETIRADA')
+                        THEN 1
+                      END
+                    ) AS clientes_retirados,
+
+                    COUNT(
+                      CASE
+                        WHEN TRIM(UPPER(COALESCE(NULLIF(c.estatus_cliente,''), NULLIF(c.estatus,''), NULLIF(c.estado,'')))) = 'CONGELADO'
+                           OR TRIM(UPPER(c.estado_del_plan)) = 'CONGELADO'
+                        THEN 1
+                      END
+                    ) AS clientes_congelados,
+
+                    COUNT(
+                      CASE
+                        WHEN TRIM(UPPER(COALESCE(NULLIF(c.estatus_cliente,''), NULLIF(c.estatus,''), NULLIF(c.estado,'')))) = 'RESERVA'
+                           OR TRIM(UPPER(c.estado_del_plan)) = 'RESERVA'
+                        THEN 1
+                      END
+                    ) AS clientes_reserva,
+
+                    COUNT(
+                      CASE WHEN TRIM(UPPER(c.estado_del_plan)) = 'ADJUDICADO' THEN 1 END
+                    ) AS clientes_adjudicados
+
                 FROM clientes c
                 {where_sql_c}
             """, where_params)
@@ -3075,13 +3118,14 @@ def reporte_metricas():
                 'values': [int(r['total'] if isinstance(r, dict) else r[1] or 0) for r in rows_cond]
             }
 
-            # --- Índice de morosidad ---
+            # --- Índice de morosidad (CORREGIDO WHERE base) ---
             total_filtrado = dashboard_metrics['total_clientes']
             if total_filtrado > 0:
                 cur.execute(f"""
-                    SELECT COUNT(*) FROM clientes c
-                    {where_sql_c}
-                    AND TRIM(UPPER(COALESCE(NULLIF(c.condicion_pago,''),'SIN CONDICION'))) = 'MORA'
+                    SELECT COUNT(*)
+                    FROM clientes c
+                    WHERE TRIM(UPPER(COALESCE(NULLIF(c.condicion_pago,''),'SIN CONDICION'))) = 'MORA'
+                    {and_sql_c}
                 """, where_params)
                 morosos = int(cur.fetchone()[0] or 0)
                 dashboard_metrics['indice_morosidad'] = round((morosos / total_filtrado) * 100.0, 2)
@@ -3112,7 +3156,7 @@ def reporte_metricas():
 
             dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
 
-            # Mes actual conciliado
+            # --- Mes actual conciliado ---
             cur.execute(f"""
                 SELECT COALESCE(SUM(p.monto), 0)
                 FROM pagos p
