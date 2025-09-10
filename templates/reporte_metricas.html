@@ -2,47 +2,45 @@
 {% block title %}Reporte de Métricas{% endblock %}
 
 {% block body %}
-<div class="px-4 md:px-6 lg:px-8 py-6 space-y-6">
+<div class="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto space-y-8">
 
-  <!-- Header -->
-  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Métricas</h1>
-      <p class="text-sm text-slate-500">Vista general {{ metrics.mes_actual if metrics is defined else '' }} {{ metrics.anio_actual if metrics is defined else '' }}</p>
+      <h1 class="text-3xl font-bold tracking-tight text-slate-900">Métricas</h1>
+      <p class="mt-1 text-base text-slate-600">Vista general {{ metrics.mes_actual if metrics is defined else '' }} {{ metrics.anio_actual if metrics is defined else '' }}</p>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-3 flex-shrink-0">
       <a href="{{ url_for('reporte_metricas') }}"
-         class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+         class="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-all">
+        <i class="bi bi-arrow-counterclockwise -ml-1 mr-2 h-5 w-5"></i>
         Limpiar filtros
       </a>
       <button form="filtrosForm"
-              class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:opacity-90">
+              class="inline-flex items-center justify-center rounded-md border border-transparent bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-700 focus:ring-offset-2 transition-all">
+        <i class="bi bi-funnel-fill -ml-1 mr-2 h-5 w-5"></i>
         Aplicar filtros
       </button>
     </div>
-  </div>
+  </header>
 
-  <!-- Filtros (Tailwind, simples) -->
   <form id="filtrosForm" method="get"
-        class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-    <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6">
+        class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+    <div class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-6">
 
-      <!-- Empresa -->
       <div class="flex flex-col">
-        <label class="mb-1 text-xs font-medium text-slate-600">Empresa</label>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Empresa</label>
         <input type="text" name="empresa" placeholder="Todas"
                value="{{ request.args.get('empresa','') }}"
-               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none">
+               class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
       </div>
 
-      <!-- Estado del plan -->
       <div class="flex flex-col">
         {% set estados_map = (metrics.estados_del_plan if metrics is defined and metrics.estados_del_plan is defined else {}) %}
         {% set estados_lista = estados_map.keys() if estados_map else [] %}
         {% set sel_estados = request.args.getlist('estado_plan[]') or request.args.getlist('estado_plan') %}
-        <label class="mb-1 text-xs font-medium text-slate-600">Estado del plan</label>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Estado del plan</label>
         <select name="estado_plan[]"
-                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none">
+                class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
           <option value="" {{ 'selected' if not sel_estados else '' }}>Todos</option>
           {% for est in estados_lista %}
             <option value="{{ est }}" {{ 'selected' if sel_estados and sel_estados[0]==est else '' }}>
@@ -52,13 +50,12 @@
         </select>
       </div>
 
-      <!-- Estatus cliente -->
       <div class="flex flex-col">
         {% set estatus_opts = ['ACTIVO','INACTIVO','RETIRADO','CONGELADO','RESERVA'] %}
         {% set sel_estatus = (request.args.get('estatus_cliente','') or '').upper() %}
-        <label class="mb-1 text-xs font-medium text-slate-600">Estatus cliente</label>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Estatus cliente</label>
         <select name="estatus_cliente"
-                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none">
+                class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
           <option value="" {{ 'selected' if not sel_estatus else '' }}>Todos</option>
           {% for opt in estatus_opts %}
             <option value="{{ opt }}" {{ 'selected' if sel_estatus==opt else '' }}>{{ opt|capitalize }}</option>
@@ -66,16 +63,15 @@
         </select>
       </div>
 
-      <!-- Condición de pago -->
       <div class="flex flex-col">
         {% set comp_cond = (metrics.composicion_condicion if metrics is defined and metrics.composicion_condicion is defined else {'labels': [], 'values': []}) %}
         {% set cond_labels = comp_cond['labels'] if comp_cond and comp_cond['labels'] is defined else [] %}
         {% set cond_fallback = ['Mora','Solvente','Pago impuntual','Pago parcial','Pago adelantado','Sin condicion'] %}
         {% set opciones_cond = cond_labels if cond_labels else cond_fallback %}
         {% set sel_cond = request.args.getlist('condicion[]') %}
-        <label class="mb-1 text-xs font-medium text-slate-600">Condición</label>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Condición</label>
         <select name="condicion[]"
-                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none">
+                class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
           <option value="" {{ 'selected' if not sel_cond else '' }}>Todas</option>
           {% for cond in opciones_cond %}
             <option value="{{ cond }}" {{ 'selected' if sel_cond and sel_cond[0]==cond else '' }}>{{ cond }}</option>
@@ -83,20 +79,20 @@
         </select>
       </div>
 
-      <!-- Avanzados (colapsable) -->
       <div class="lg:col-span-2">
         <details class="group rounded-xl border border-slate-200">
-          <summary class="flex cursor-pointer select-none items-center justify-between rounded-xl px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50">
+          <summary class="flex cursor-pointer select-none items-center justify-between rounded-xl bg-slate-50 px-4 py-2 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-100">
             Filtros avanzados
-            <span class="ml-3 inline-flex size-5 items-center justify-center rounded-full bg-slate-100 text-xs text-slate-700 group-open:rotate-180 transition-transform">⌄</span>
+            <span class="ml-3 inline-flex size-5 items-center justify-center text-slate-700 transition-transform group-open:rotate-180">
+                <i class="bi bi-chevron-down"></i>
+            </span>
           </summary>
-          <div class="grid grid-cols-1 gap-3 p-3 md:grid-cols-2">
-            <!-- Rango de cuotas -->
+          <div class="grid grid-cols-1 gap-4 p-4 md:grid-cols-2">
             <div class="flex flex-col">
               {% set bucket_sel = (request.args.getlist('cuota_bucket[]') or [''])[0] %}
-              <label class="mb-1 text-xs font-medium text-slate-600">Rango de cuotas</label>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Rango de cuotas</label>
               <select name="cuota_bucket[]"
-                      class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none">
+                      class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
                 <option value="" {{ 'selected' if not bucket_sel else '' }}>Todos</option>
                 <option value="1" {{ 'selected' if bucket_sel=='1' else '' }}>1–6</option>
                 <option value="2" {{ 'selected' if bucket_sel=='2' else '' }}>7–12</option>
@@ -104,14 +100,13 @@
                 <option value="4" {{ 'selected' if bucket_sel=='4' else '' }}>25–36</option>
               </select>
             </div>
-            <!-- Fechas -->
             <div class="flex flex-col">
-              <label class="mb-1 text-xs font-medium text-slate-600">Inscripción (desde / hasta)</label>
-              <div class="grid grid-cols-2 gap-2">
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Inscripción (desde / hasta)</label>
+              <div class="grid grid-cols-2 gap-3">
                 <input type="date" name="insc_desde" value="{{ request.args.get('insc_desde','') }}"
-                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none">
+                       class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
                 <input type="date" name="insc_hasta" value="{{ request.args.get('insc_hasta','') }}"
-                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none">
+                       class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
               </div>
             </div>
           </div>
@@ -121,69 +116,70 @@
     </div>
   </form>
 
-  <!-- Chips de filtros activos -->
   {% set filtros_activos = [] %}
-  {% set empresa_q = request.args.get('empresa') %}
-  {% if empresa_q %}{% set _ = filtros_activos.append('Empresa: ' ~ empresa_q) %}{% endif %}
+  {% set empresa_q = request.args.get('empresa') %}{% if empresa_q %}{% set _ = filtros_activos.append('Empresa: ' ~ empresa_q) %}{% endif %}
   {% for e in request.args.getlist('estado_plan[]') %}{% if e %}{% set _ = filtros_activos.append('Estado plan: ' ~ e|capitalize) %}{% endif %}{% endfor %}
-  {% set sel_estatus = (request.args.get('estatus_cliente','') or '').upper() %}
-  {% if sel_estatus %}{% set _ = filtros_activos.append('Estatus: ' ~ sel_estatus|capitalize) %}{% endif %}
+  {% set sel_estatus = (request.args.get('estatus_cliente','') or '').upper() %}{% if sel_estatus %}{% set _ = filtros_activos.append('Estatus: ' ~ sel_estatus|capitalize) %}{% endif %}
   {% for c in request.args.getlist('condicion[]') %}{% if c %}{% set _ = filtros_activos.append('Condición: ' ~ c) %}{% endif %}{% endfor %}
-  {% for b in request.args.getlist('cuota_bucket[]') %}{% if b %}
-    {% set _ = filtros_activos.append('Cuotas: ' ~ ('1–6' if b=='1' else '7–12' if b=='2' else '13–24' if b=='3' else '25–36')) %}
-  {% endif %}{% endfor %}
-  {% if request.args.get('insc_desde') or request.args.get('insc_hasta') %}
-    {% set _ = filtros_activos.append('Inscripción: ' ~ (request.args.get('insc_desde') or '…') ~ ' a ' ~ (request.args.get('insc_hasta') or '…')) %}
-  {% endif %}
+  {% for b in request.args.getlist('cuota_bucket[]') %}{% if b %}{% set _ = filtros_activos.append('Cuotas: ' ~ ('1–6' if b=='1' else '7–12' if b=='2' else '13–24' if b=='3' else '25–36')) %}{% endif %}{% endfor %}
+  {% if request.args.get('insc_desde') or request.args.get('insc_hasta') %}{% set _ = filtros_activos.append('Inscripción: ' ~ (request.args.get('insc_desde') or '…') ~ ' a ' ~ (request.args.get('insc_hasta') or '…')) %}{% endif %}
 
   {% if filtros_activos %}
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-sm font-medium text-slate-600">Filtros aplicados:</span>
       {% for chip in filtros_activos %}
-        <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700">
+        <span class="inline-flex items-center gap-x-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-800 ring-1 ring-inset ring-slate-200">
           {{ chip }}
         </span>
       {% endfor %}
     </div>
   {% endif %}
 
-  <!-- KPIs -->
-  <div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="text-xs text-slate-500">Total clientes</div>
-      <div class="mt-1 text-xl font-semibold text-slate-900">{{ metrics.total_clientes if metrics is defined else 0 }}</div>
+  <div class="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-6">
+    <div class="relative overflow-hidden rounded-xl bg-white p-5 shadow ring-1 ring-black ring-opacity-5">
+      <div class="absolute -top-2 -right-2 text-4xl text-slate-100"><i class="bi bi-people-fill"></i></div>
+      <div class="text-sm font-medium text-slate-500 truncate">Total clientes</div>
+      <div class="mt-1 text-3xl font-semibold tracking-tight text-slate-900">{{ metrics.total_clientes if metrics is defined else 0 }}</div>
     </div>
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="text-xs text-slate-500">Activos</div>
-      <div class="mt-1 text-xl font-semibold text-slate-900">{{ metrics.clientes_activos if metrics is defined else 0 }}</div>
+    <div class="relative overflow-hidden rounded-xl bg-white p-5 shadow ring-1 ring-black ring-opacity-5">
+      <div class="absolute -top-2 -right-2 text-4xl text-green-100"><i class="bi bi-person-check-fill"></i></div>
+      <div class="text-sm font-medium text-slate-500 truncate">Activos</div>
+      <div class="mt-1 text-3xl font-semibold tracking-tight text-green-600">{{ metrics.clientes_activos if metrics is defined else 0 }}</div>
     </div>
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="text-xs text-slate-500">Inactivos</div>
-      <div class="mt-1 text-xl font-semibold text-slate-900">{{ metrics.clientes_inactivos if metrics is defined else 0 }}</div>
+    <div class="relative overflow-hidden rounded-xl bg-white p-5 shadow ring-1 ring-black ring-opacity-5">
+      <div class="absolute -top-2 -right-2 text-4xl text-amber-100"><i class="bi bi-person-exclamation-fill"></i></div>
+      <div class="text-sm font-medium text-slate-500 truncate">Inactivos</div>
+      <div class="mt-1 text-3xl font-semibold tracking-tight text-amber-600">{{ metrics.clientes_inactivos if metrics is defined else 0 }}</div>
     </div>
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="text-xs text-slate-500">Retirados</div>
-      <div class="mt-1 text-xl font-semibold text-slate-900">{{ metrics.clientes_retirados if metrics is defined else 0 }}</div>
+    <div class="relative overflow-hidden rounded-xl bg-white p-5 shadow ring-1 ring-black ring-opacity-5">
+      <div class="absolute -top-2 -right-2 text-4xl text-red-100"><i class="bi bi-person-x-fill"></i></div>
+      <div class="text-sm font-medium text-slate-500 truncate">Retirados</div>
+      <div class="mt-1 text-3xl font-semibold tracking-tight text-red-600">{{ metrics.clientes_retirados if metrics is defined else 0 }}</div>
     </div>
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="text-xs text-slate-500">Adjudicados</div>
-      <div class="mt-1 text-xl font-semibold text-slate-900">{{ metrics.clientes_adjudicados if metrics is defined else 0 }}</div>
+    <div class="relative overflow-hidden rounded-xl bg-white p-5 shadow ring-1 ring-black ring-opacity-5">
+      <div class="absolute -top-2 -right-2 text-4xl text-blue-100"><i class="bi bi-award-fill"></i></div>
+      <div class="text-sm font-medium text-slate-500 truncate">Adjudicados</div>
+      <div class="mt-1 text-3xl font-semibold tracking-tight text-blue-600">{{ metrics.clientes_adjudicados if metrics is defined else 0 }}</div>
     </div>
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="text-xs text-slate-500">Índice de morosidad</div>
-      <div class="mt-1 text-xl font-semibold text-slate-900">{{ (metrics.indice_morosidad|string) ~ '%' if metrics is defined else '0%' }}</div>
+    <div class="relative overflow-hidden rounded-xl bg-white p-5 shadow ring-1 ring-black ring-opacity-5">
+      <div class="absolute -top-2 -right-2 text-4xl text-orange-100"><i class="bi bi-graph-down-arrow"></i></div>
+      <div class="text-sm font-medium text-slate-500 truncate">Índice de morosidad</div>
+      <div class="mt-1 text-3xl font-semibold tracking-tight text-orange-600">{{ (metrics.indice_morosidad|string) ~ '%' if metrics is defined else '0%' }}</div>
     </div>
   </div>
 
-  <!-- Gráficos -->
-  <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div class="mb-3 flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-slate-900">Composición por estado del plan</h3>
+  <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="mb-3 flex items-start justify-between">
+        <div>
+            <h3 class="text-base font-semibold text-slate-800">Composición por estado del plan</h3>
+            <p class="text-sm text-slate-500 mt-1">Distribución de clientes.</p>
+        </div>
       </div>
-      <div class="h-56"><canvas id="chartEstadoPlan"></canvas></div>
-      <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div class="h-64"><canvas id="chartEstadoPlan"></canvas></div>
+      <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {% for k, v in estados_map.items() %}
-          <div class="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
+          <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm ring-1 ring-slate-200">
             <span class="text-slate-700">{{ k|capitalize }}</span>
             <span class="font-semibold text-slate-900">{{ v }}</span>
           </div>
@@ -191,15 +187,18 @@
       </div>
     </div>
 
-    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div class="mb-3 flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-slate-900">Desglose por condición de pago</h3>
+    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="mb-3 flex items-start justify-between">
+        <div>
+            <h3 class="text-base font-semibold text-slate-800">Desglose por condición de pago</h3>
+            <p class="text-sm text-slate-500 mt-1">Situación de la cartera.</p>
+        </div>
       </div>
-      <div class="h-56"><canvas id="chartCondicion"></canvas></div>
+      <div class="h-64"><canvas id="chartCondicion"></canvas></div>
       {% set values_cond = comp_cond['values'] if comp_cond and comp_cond['values'] is defined else [] %}
-      <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {% for i in range(0, cond_labels|length) %}
-          <div class="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
+          <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm ring-1 ring-slate-200">
             <span class="text-slate-700">{{ cond_labels[i] }}</span>
             <span class="font-semibold text-slate-900">{{ values_cond[i] if values_cond|length>i else 0 }}</span>
           </div>
@@ -208,12 +207,20 @@
     </div>
   </div>
 
-  <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div class="mb-3 flex items-center justify-between">
-      <h3 class="text-lg font-semibold text-slate-900">Ingresos conciliados (últimos meses)</h3>
-      <span class="text-sm text-slate-600">Mes actual: <span class="font-medium text-slate-900">{{ metrics.ingresos_mes_conciliados if metrics is defined else 0 }}</span></span>
-    </div>
-    <div class="h-56"><canvas id="chartIngresos"></canvas></div>
+  <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div class="sm:flex sm:items-start sm:justify-between">
+        <div>
+          <h3 class="text-base font-semibold text-slate-800">Ingresos conciliados (últimos meses)</h3>
+          <p class="text-sm text-slate-500 mt-1">Evolución de ingresos confirmados.</p>
+        </div>
+        <div class="mt-3 sm:mt-0 sm:ml-4">
+            <div class="rounded-lg bg-green-50 p-3 text-center ring-1 ring-green-200">
+                <div class="text-sm text-green-700">Mes actual</div>
+                <div class="mt-1 text-lg font-bold text-green-800">{{ metrics.ingresos_mes_conciliados if metrics is defined else 0 }}</div>
+            </div>
+        </div>
+      </div>
+    <div class="mt-4 h-72"><canvas id="chartIngresos"></canvas></div>
   </div>
 
 </div>
