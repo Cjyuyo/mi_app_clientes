@@ -3738,13 +3738,14 @@ def _detect_column(conn, table: str, candidates: list[str]) -> str | None:
 
 
 # =========================
-# REPORTE: PROYECCIONES (modo clásico + por bloques)
+# REPORTE: PROYECCIONES (bloques + clásico)
 # =========================
 @app.route('/reportes/proyecciones', methods=['GET'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def reporte_proyecciones():
     import json
+
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", "danger")
@@ -3824,13 +3825,14 @@ def reporte_proyecciones():
     except psycopg2.Error:
         has_cuotas = False
 
-    # Detecta columna de fecha de inscripción en clientes
+    # Detecta columna de fecha de inscripción en clientes (usa el helper global)
     insc_col = _detect_column(conn, 'clientes', [
         'fecha_inscripcion','fecha_registro','fecha_origen','fecha_registro_cliente'
     ])
 
-            # ====== MODO BLOQUES ======
+    # ====== MODO BLOQUES ======
     if simulacion_por_bloques:
+        resultados_por_bloque = []
         try:
             try:
                 bloques = json.loads(bloques_raw) if bloques_raw else []
@@ -3840,7 +3842,6 @@ def reporte_proyecciones():
                 bloques = []
 
             clientes_union, vistos = [], set()
-            resumen_bloques = []
 
             with conn.cursor() as cur:
                 for idx, b in enumerate(bloques, start=1):
@@ -3883,7 +3884,7 @@ def reporte_proyecciones():
                         except ValueError:
                             pass
 
-                    # Campo de condición depende de si hay cuotas
+                    # Campo de condición: de cuotas si existe, si no de clientes
                     cond_field = "COALESCE(q.condicion, c.condicion)" if has_cuotas else "c.condicion"
                     condiciones = [x for x in (b.get('condiciones') or []) if x]
                     if condiciones:
@@ -3980,7 +3981,7 @@ def reporte_proyecciones():
                         clientes_del_bloque += 1
                         total_bloque += (monto or Decimal('0.0'))
 
-                    resumen_bloques.append({
+                    resultados_por_bloque.append({
                         'indice': idx,
                         'clientes': clientes_del_bloque,
                         'total_usd': total_bloque,
@@ -4010,10 +4011,10 @@ def reporte_proyecciones():
             proyecciones=proyecciones,
             simulacion_realizada=simulacion_realizada,
             bloques_iniciales=bloques_raw or "[]",
-            resultados_por_bloque=resumen_bloques
+            resultados_por_bloque=resultados_por_bloque
         )
 
-    # ====== MODO CLÁSICO (tu flujo anterior, intacto) ======
+    # ====== MODO CLÁSICO ======
     empresa = (request.args.get('empresa') or '').strip()
     estados_sel = [e for e in request.args.getlist('estado_plan') if e]
     estado_single = (request.args.get('estado_plan') or '').strip()
@@ -4045,7 +4046,8 @@ def reporte_proyecciones():
             elif b == '2': rangos.append("c.cuotas_pagadas_progresivas BETWEEN 7 AND 12")
             elif b == '3': rangos.append("c.cuotas_pagadas_progresivas BETWEEN 13 AND 24")
             elif b == '4': rangos.append("c.cuotas_pagadas_progresivas BETWEEN 25 AND 36")
-        if rangos: where.append("(" + " OR ".join(rangos) + ")")
+        if rangos:
+            where.append("(" + " OR ".join(rangos) + ")")
 
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
     if simulacion_realizada:
@@ -4077,12 +4079,16 @@ def reporte_proyecciones():
         except (psycopg2.Error, InvalidOperation, TypeError) as e:
             proyecciones['mensaje_error'] = f"Error al calcular la proyección: {e}"
 
-    return render_template('reporte_proyecciones.html',
-                           proyecciones=proyecciones,
-                           simulacion_realizada=simulacion_realizada,
-                           bloques_iniciales="[]")
-
-# ====== FIN ======
+    return render_template(
+        'reporte_proyecciones.html',
+        proyecciones=proyecciones,
+        simulacion_realizada=simulacion_realizada,
+        bloques_iniciales="[]",
+        resultados_por_bloque=[]
+    )
+# =========================
+# FIN REPORTE: PROYECCIONES
+# =========================
 
 # =========================
 # EXPORTAR PROYECCIONES (placeholder)
