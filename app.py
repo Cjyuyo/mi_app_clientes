@@ -2927,67 +2927,77 @@ def reporte_metricas():
     conn = get_db()
     today = get_venezuela_current_date()
 
-    # ---------------- Helpers ----------------
     def _rowdict(cur, row):
-        """Convierte fila -> dict aunque el cursor no sea RealDictCursor."""
-        if not row:
-            return {}
-        if isinstance(row, dict):
-            return row
+        if not row: return {}
+        if isinstance(row, dict): return row
         cols = [d[0] for d in cur.description]
         return dict(zip(cols, row))
 
-    def _detect_column(conn, table, candidates):
-        if not conn:
-            return None
+    def _col_exists(conn, table, col):
         with conn.cursor() as cur:
-            for c in candidates:
-                cur.execute("""
-                    SELECT 1
-                    FROM information_schema.columns
-                    WHERE table_name=%s AND column_name=%s
-                    LIMIT 1
-                """, [table, c])
-                if cur.fetchone():
-                    return c
+            cur.execute("""
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_name=%s AND column_name=%s
+                LIMIT 1
+            """, [table, col])
+            return cur.fetchone() is not None
+
+    def _detect_column(conn, table, candidates):
+        for c in candidates:
+            if _col_exists(conn, table, c):
+                return c
         return None
 
-    # ------------- Filtros (GET) -------------
-    empresa        = (request.args.get('empresa') or '').strip()
-    estado_plan    = (request.args.get('estado_plan') or '').strip()
-    estatus_cli    = (request.args.get('estatus_cliente') or '').strip()
-    condicion      = (request.args.get('condicion') or '').strip()
-    cuota_bucket   = (request.args.get('cuota_bucket') or '').strip()
-    insc_desde     = (request.args.get('insc_desde') or '').strip()
-    insc_hasta     = (request.args.get('insc_hasta') or '').strip()
+    # --------------------- Filtros GET ---------------------
+    empresa      = (request.args.get('empresa') or '').strip()
 
-    insc_col = _detect_column(conn, 'clientes', [
-        'fecha_inscripcion', 'fecha_registro', 'fecha_origen', 'fecha_registro_cliente'
-    ])
+    # Soporta 'estado_plan' (simple) y 'estado_plan[]' (multi)
+    estados_sel  = [e for e in request.args.getlist('estado_plan[]') if e]
+    if not estados_sel:
+        ep = (request.args.get('estado_plan') or '').strip()
+        if ep: estados_sel = [ep]
 
+    estatus_cli  = (request.args.get('estatus_cliente') or '').strip()
+    condicion    = (request.args.get('condicion') or '').strip()
+    cuota_bucket = (request.args.get('cuota_bucket') or '').strip()
+    insc_desde   = (request.args.get('insc_desde') or '').strip()
+    insc_hasta   = (request.args.get('insc_hasta') or '').strip()
+
+    # Fecha inscripción: autodetección
+    insc_col = _detect_column(conn, 'clientes',
+                 ['fecha_inscripcion','fecha_registro','fecha_origen','fecha_registro_cliente']) if conn else None
+
+    # --------- Construcción dinámica de ESTATUS (hotfix UndefinedColumn) ----------
+    # Tomamos SOLO las columnas que existen realmente en esta BD
+    estatus_cols = [c for c in ['estatus_cliente', 'estatus', 'estado'] if _col_exists(conn, 'clientes', c)]
+    if estatus_cols:
+        # COALESCE(NULLIF(c.col,''), ...) — evita vacíos
+        estatus_expr = "COALESCE(" + ", ".join([f"NULLIF(c.{c},'')" for c in estatus_cols]) + ")"
+    else:
+        estatus_expr = "NULL"  # si no hay ninguna, quedará vacío
+    # Normalizado final a MAYÚSCULAS y TRIM
+    estatus_sql = f"TRIM(UPPER(COALESCE({estatus_expr}, '')))"
+
+    # --------------------- WHERE dinámico base (alias c) ---------------------
     where_parts, where_params = [], []
     if empresa:
         where_parts.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(TRIM(%s), ' ', ''))")
         where_params.append(empresa)
-    if estado_plan:
-        where_parts.append("TRIM(UPPER(c.estado_del_plan)) = TRIM(UPPER(%s))")
-        where_params.append(estado_plan)
+    if estados_sel:
+        where_parts.append("(" + " OR ".join(["TRIM(UPPER(c.estado_del_plan)) = TRIM(UPPER(%s))"] * len(estados_sel)) + ")")
+        where_params.extend(estados_sel)
     if estatus_cli:
-        # estatus_cliente/estatus/estado (fallback)
-        where_parts.append("TRIM(UPPER(COALESCE(NULLIF(c.estatus_cliente,''), NULLIF(c.estatus,''), NULLIF(c.estado,'')))) = TRIM(UPPER(%s))")
+        where_parts.append(f"{estatus_sql} = TRIM(UPPER(%s))")
         where_params.append(estatus_cli)
     if condicion:
         where_parts.append("TRIM(UPPER(COALESCE(NULLIF(c.condicion_pago,''),'SIN CONDICION'))) = TRIM(UPPER(%s))")
         where_params.append(condicion)
     if cuota_bucket:
-        if cuota_bucket == '1':
-            where_parts.append("c.cuotas_pagadas_progresivas BETWEEN 1 AND 6")
-        elif cuota_bucket == '2':
-            where_parts.append("c.cuotas_pagadas_progresivas BETWEEN 7 AND 12")
-        elif cuota_bucket == '3':
-            where_parts.append("c.cuotas_pagadas_progresivas BETWEEN 13 AND 24")
-        elif cuota_bucket == '4':
-            where_parts.append("c.cuotas_pagadas_progresivas BETWEEN 25 AND 36")
+        if cuota_bucket == '1': where_parts.append("c.cuotas_pagadas_progresivas BETWEEN 1 AND 6")
+        elif cuota_bucket == '2': where_parts.append("c.cuotas_pagadas_progresivas BETWEEN 7 AND 12")
+        elif cuota_bucket == '3': where_parts.append("c.cuotas_pagadas_progresivas BETWEEN 13 AND 24")
+        elif cuota_bucket == '4': where_parts.append("c.cuotas_pagadas_progresivas BETWEEN 25 AND 36")
     if insc_col:
         if insc_desde:
             where_parts.append(f"DATE(c.{insc_col}) >= %s")
@@ -2999,8 +3009,8 @@ def reporte_metricas():
     where_sql_c = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
     and_sql_c   = (" AND " + " AND ".join(where_parts)) if where_parts else ""
 
-    # ------------- Estructura base ----------
-    dashboard_metrics = {
+    # --------------------- Métricas base ---------------------
+    metrics = {
         'ingresos_mes_conciliados': 0.0,
         'indice_morosidad': 0.0,
         'mes_actual': get_nombre_mes(today.month),
@@ -3016,17 +3026,15 @@ def reporte_metricas():
     empresas_opciones, estados_opciones = [], []
 
     if not conn:
-        return render_template(
-            'reporte_metricas.html',
-            anio_actual=today.year,
-            metrics=dashboard_metrics,
-            empresas_opciones=empresas_opciones,
-            estados_opciones=estados_opciones
-        )
+        return render_template('reporte_metricas.html',
+                               anio_actual=today.year,
+                               metrics=metrics,
+                               empresas_opciones=empresas_opciones,
+                               estados_opciones=estados_opciones)
 
     try:
         with conn.cursor() as cur:
-            # ---------- Selectores (sin filtros) ----------
+            # ---------- Selectores sin filtros ----------
             cur.execute("""
                 SELECT DISTINCT TRIM(c.empresa) AS empresa
                 FROM clientes c
@@ -3047,61 +3055,59 @@ def reporte_metricas():
                 _rowdict(cur, r).get('estado_del_plan') for r in (cur.fetchall() or []) if _rowdict(cur, r).get('estado_del_plan')
             ]
 
-            # ========== KPIs (HOTFIX: COUNT por KPI) ==========
-            estatus_expr = "COALESCE(NULLIF(c.estatus_cliente,''), NULLIF(c.estatus,''), NULLIF(c.estado,''))"
-
+            # ========== KPIs (COUNT por KPI) ==========
             # Total
             cur.execute(f"SELECT COUNT(*) FROM clientes c {where_sql_c}", where_params)
-            dashboard_metrics['total_clientes'] = int((cur.fetchone()[0] or 0))
+            metrics['total_clientes'] = int((cur.fetchone()[0] or 0))
 
             # Activos
             cur.execute(f"""
                 SELECT COUNT(*) FROM clientes c
                 {where_sql_c}{' AND ' if where_sql_c else 'WHERE '}
-                TRIM(UPPER({estatus_expr})) IN ('ACTIVO','ACTIVOS')
+                {estatus_sql} IN ('ACTIVO','ACTIVOS')
             """, where_params)
-            dashboard_metrics['clientes_activos'] = int((cur.fetchone()[0] or 0))
+            metrics['clientes_activos'] = int((cur.fetchone()[0] or 0))
 
             # Inactivos
             cur.execute(f"""
                 SELECT COUNT(*) FROM clientes c
                 {where_sql_c}{' AND ' if where_sql_c else 'WHERE '}
-                TRIM(UPPER({estatus_expr})) IN ('INACTIVO','INACTIVOS')
+                {estatus_sql} IN ('INACTIVO','INACTIVOS')
             """, where_params)
-            dashboard_metrics['clientes_inactivos'] = int((cur.fetchone()[0] or 0))
+            metrics['clientes_inactivos'] = int((cur.fetchone()[0] or 0))
 
-            # Retirados
+            # Retirados (estatus o estado_del_plan)
             cur.execute(f"""
                 SELECT COUNT(*) FROM clientes c
                 {where_sql_c}{' AND ' if where_sql_c else 'WHERE '}
                 (
-                    TRIM(UPPER({estatus_expr})) IN ('RETIRADO','RETIRADA','RETIRADOS')
-                    OR TRIM(UPPER(c.estado_del_plan)) IN ('RETIRO','RETIRADO','RETIRADA')
+                  {estatus_sql} IN ('RETIRADO','RETIRADA','RETIRADOS')
+                  OR TRIM(UPPER(c.estado_del_plan)) IN ('RETIRO','RETIRADO','RETIRADA')
                 )
             """, where_params)
-            dashboard_metrics['clientes_retirados'] = int((cur.fetchone()[0] or 0))
+            metrics['clientes_retirados'] = int((cur.fetchone()[0] or 0))
 
             # Congelados
             cur.execute(f"""
                 SELECT COUNT(*) FROM clientes c
                 {where_sql_c}{' AND ' if where_sql_c else 'WHERE '}
                 (
-                    TRIM(UPPER({estatus_expr})) = 'CONGELADO'
-                    OR TRIM(UPPER(c.estado_del_plan)) = 'CONGELADO'
+                  {estatus_sql} = 'CONGELADO'
+                  OR TRIM(UPPER(c.estado_del_plan)) = 'CONGELADO'
                 )
             """, where_params)
-            dashboard_metrics['clientes_congelados'] = int((cur.fetchone()[0] or 0))
+            metrics['clientes_congelados'] = int((cur.fetchone()[0] or 0))
 
             # Reserva
             cur.execute(f"""
                 SELECT COUNT(*) FROM clientes c
                 {where_sql_c}{' AND ' if where_sql_c else 'WHERE '}
                 (
-                    TRIM(UPPER({estatus_expr})) = 'RESERVA'
-                    OR TRIM(UPPER(c.estado_del_plan)) = 'RESERVA'
+                  {estatus_sql} = 'RESERVA'
+                  OR TRIM(UPPER(c.estado_del_plan)) = 'RESERVA'
                 )
             """, where_params)
-            dashboard_metrics['clientes_reserva'] = int((cur.fetchone()[0] or 0))
+            metrics['clientes_reserva'] = int((cur.fetchone()[0] or 0))
 
             # Adjudicados
             cur.execute(f"""
@@ -3109,7 +3115,7 @@ def reporte_metricas():
                 {where_sql_c}{' AND ' if where_sql_c else 'WHERE '}
                 TRIM(UPPER(c.estado_del_plan)) = 'ADJUDICADO'
             """, where_params)
-            dashboard_metrics['clientes_adjudicados'] = int((cur.fetchone()[0] or 0))
+            metrics['clientes_adjudicados'] = int((cur.fetchone()[0] or 0))
 
             # ---------- Estados del plan (conteo con filtros) ----------
             cur.execute(f"""
@@ -3120,7 +3126,7 @@ def reporte_metricas():
                 ORDER BY 1
             """, where_params)
             estados_plan = [_rowdict(cur, r) for r in (cur.fetchall() or [])]
-            dashboard_metrics['estados_del_plan'] = {
+            metrics['estados_del_plan'] = {
                 e.get('estado_del_plan') or 'SIN PROCESO': int(e.get('total', 0) or 0) for e in estados_plan
             }
 
@@ -3144,9 +3150,7 @@ def reporte_metricas():
                 income_values.insert(0, float((tot[0] if tot else 0) or 0))
                 current_date = month_start - timedelta(days=1)
 
-            dashboard_metrics['ingresos_ultimos_meses'] = {
-                'labels': income_labels, 'values': income_values
-            }
+            metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
 
             # ---------- Ingresos del mes actual ----------
             month_start = today.replace(day=1)
@@ -3159,14 +3163,14 @@ def reporte_metricas():
                   {and_sql_c}
             """, [month_start, *where_params])
             row_mes = cur.fetchone()
-            dashboard_metrics['ingresos_mes_conciliados'] = float((row_mes[0] if row_mes else 0) or 0)
+            metrics['ingresos_mes_conciliados'] = float((row_mes[0] if row_mes else 0) or 0)
 
-            # ---------- Morosidad (ahorradores activos dentro del universo filtrado) ----------
+            # ---------- Morosidad (ahorradores activos en universo filtrado) ----------
             cur.execute(f"""
                 SELECT COUNT(*)
                 FROM clientes c
                 WHERE TRIM(UPPER(c.estado_del_plan)) = 'AHORRADOR'
-                  AND TRIM(UPPER(COALESCE(NULLIF(c.estatus_cliente,''), NULLIF(c.estatus,''), NULLIF(c.estado,'')))) IN ('ACTIVO','ACTIVOS')
+                  AND {estatus_sql} IN ('ACTIVO','ACTIVOS')
                   {and_sql_c}
             """, where_params)
             total_ahorradores = int((cur.fetchone()[0] or 0))
@@ -3179,30 +3183,30 @@ def reporte_metricas():
                     WHERE p.tipo_pago = 'Cuota'
                       AND p.estado_pago = 'Conciliado'
                       AND TRIM(UPPER(c.estado_del_plan)) = 'AHORRADOR'
-                      AND TRIM(UPPER(COALESCE(NULLIF(c.estatus_cliente,''), NULLIF(c.estatus,''), NULLIF(c.estado,'')))) IN ('ACTIVO','ACTIVOS')
+                      AND {estatus_sql} IN ('ACTIVO','ACTIVOS')
                       AND p.fecha_pago >= %s
                       {and_sql_c}
                 """, [month_start, *where_params])
                 al_dia = int((cur.fetchone()[0] or 0))
                 clientes_en_mora = max(total_ahorradores - al_dia, 0)
-                dashboard_metrics['indice_morosidad'] = round((clientes_en_mora / total_ahorradores) * 100, 2)
+                metrics['indice_morosidad'] = round((clientes_en_mora / total_ahorradores) * 100, 2)
             else:
-                dashboard_metrics['indice_morosidad'] = 0.0
+                metrics['indice_morosidad'] = 0.0
 
             # ---------- Composición por estado_del_plan (activos) ----------
             cur.execute(f"""
                 SELECT COALESCE(TRIM(UPPER(c.estado_del_plan)), 'SIN PROCESO') AS proceso,
                        COUNT(*) AS count
                 FROM clientes c
-                WHERE TRIM(UPPER(COALESCE(NULLIF(c.estatus_cliente,''), NULLIF(c.estatus,''), NULLIF(c.estado,'')))) IN ('ACTIVO','ACTIVOS')
+                WHERE {estatus_sql} IN ('ACTIVO','ACTIVOS')
                 {and_sql_c}
                 GROUP BY 1
                 ORDER BY 1
             """, where_params)
             comp = [_rowdict(cur, r) for r in (cur.fetchall() or [])]
-            dashboard_metrics['composicion_clientes'] = {
-                'labels': [str(x.get('proceso', '')).capitalize() for x in comp],
-                'values': [int(x.get('count', 0) or 0) for x in comp]
+            metrics['composicion_clientes'] = {
+                'labels': [str(x.get('proceso','')).capitalize() for x in comp],
+                'values': [int(x.get('count',0) or 0) for x in comp]
             }
 
             # ---------- Composición por condición de pago ----------
@@ -3215,9 +3219,9 @@ def reporte_metricas():
                 ORDER BY 1
             """, where_params)
             rows_cond = [_rowdict(cur, r) for r in (cur.fetchall() or [])]
-            dashboard_metrics['composicion_condicion'] = {
-                'labels': [str(r.get('condicion', '')).capitalize() for r in rows_cond],
-                'values': [int(r.get('total', 0) or 0) for r in rows_cond]
+            metrics['composicion_condicion'] = {
+                'labels': [str(r.get('condicion','')).capitalize() for r in rows_cond],
+                'values': [int(r.get('total',0) or 0) for r in rows_cond]
             }
 
     except Exception:
@@ -3227,10 +3231,11 @@ def reporte_metricas():
     return render_template(
         'reporte_metricas.html',
         anio_actual=today.year,
-        metrics=dashboard_metrics,
+        metrics=metrics,
         empresas_opciones=empresas_opciones,
         estados_opciones=estados_opciones
     )
+
 # =========================
 # REPORTE: FLUJO DE CAJA
 # =========================
