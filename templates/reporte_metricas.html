@@ -1,4 +1,4 @@
-{# reporte_metricas.html #}
+{# templates/reporte_metricas.html #}
 {% extends "base_sidebar.html" %}
 
 {% block title %}Reporte de Métricas{% endblock %}
@@ -11,7 +11,6 @@
     --mp-naranja:#F99417;
   }
   .kpi{ box-shadow: 0 10px 25px -12px rgba(0,0,0,.15); }
-  .chip{ border:1px solid rgba(0,0,0,.08); }
 </style>
 {% endblock %}
 
@@ -21,7 +20,7 @@
   {# ---------------------------- PANEL DE FILTROS ---------------------------- #}
   <form id="filtrosForm"
         method="get"
-        action="{{ url_for('reporte_metricas') if 'reporte_metricas' in globals() else request.path }}"
+        action="{{ url_for('reporte_metricas') }}"
         class="bg-white border rounded-2xl p-5 md:p-6 space-y-5">
 
     <div class="flex items-center justify-between">
@@ -142,7 +141,7 @@
     </div>
 
     <!-- Asesor (opcional) -->
-    {% if asesores %}
+    {% if asesores is defined and asesores %}
     <div class="border rounded-xl p-4">
       <h3 class="font-semibold mb-3">Asesor responsable</h3>
       {% set sel_ases = request.args.getlist('asesor_id[]') %}
@@ -208,7 +207,7 @@
     <div class="flex flex-wrap items-center gap-3 pt-2">
       <button class="px-4 py-2.5 rounded-xl text-white" style="background:var(--mp-azul)">Aplicar filtros</button>
       <a class="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
-         href="{{ url_for('reporte_metricas') if 'reporte_metricas' in globals() else request.path }}">Limpiar</a>
+         href="{{ url_for('reporte_metricas') }}">Limpiar</a>
       <div class="ml-auto flex items-center gap-2">
         <select name="formato" class="border rounded-lg px-3 py-2 text-sm">
           <option value="">Exportar…</option>
@@ -221,9 +220,16 @@
   </form>
 
   {# ---------------------------- KPIs + DESGLOSE ----------------------------- #}
-  {% set lista = (metricas.clientes if metricas and attribute(metricas,'clientes') else (clientes if clients is not defined else clients)) %}
-  {% if not lista %}
-    {% set lista = resultados if resultados else [] %}
+  {# Asignación defensiva de lista #}
+  {% set lista = [] %}
+  {% if metricas is defined and metricas.clientes is defined %}
+    {% set lista = metricas.clientes %}
+  {% elif metrics is defined and metrics.clientes is defined %}
+    {% set lista = metrics.clientes %}
+  {% elif clientes is defined %}
+    {% set lista = clientes %}
+  {% elif resultados is defined %}
+    {% set lista = resultados %}
   {% endif %}
 
   <section class="space-y-4">
@@ -359,7 +365,7 @@
         {% if r.cliente_id %}
         <div class="pt-2">
           <a class="inline-flex items-center text-xs underline" style="color:var(--mp-azul)"
-             href="{{ url_for('ver_cliente', cliente_id=r.cliente_id) if 'ver_cliente' in globals() else 'javascript:void(0)' }}"
+             href="/admin/clientes/{{ r.cliente_id }}"
              target="_blank">Abrir ficha completa</a>
         </div>
         {% endif %}
