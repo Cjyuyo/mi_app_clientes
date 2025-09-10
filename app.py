@@ -2925,8 +2925,10 @@ def reporte_metricas():
 
     # ---------------- Helpers ----------------
     def _rowdict(cur, row):
-        if not row: return {}
-        if isinstance(row, dict): return row
+        if not row:
+            return {}
+        if isinstance(row, dict):
+            return row
         cols = [d[0] for d in cur.description]
         return dict(zip(cols, row))
 
@@ -2956,34 +2958,35 @@ def reporte_metricas():
     insc_hasta     = (request.args.get('insc_hasta') or '').strip()
 
     # Paginación / Orden
-    try: page = max(int(request.args.get('page', 1)), 1)
-    except Exception: page = 1
-    try: per_page = min(max(int(request.args.get('per_page', 25)), 1), 100)
-    except Exception: per_page = 25
+    try:
+        page = max(int(request.args.get('page', 1)), 1)
+    except Exception:
+        page = 1
+    try:
+        per_page = min(max(int(request.args.get('per_page', 25)), 1), 100)
+    except Exception:
+        per_page = 25
     offset = (page - 1) * per_page
 
     sort = (request.args.get('sort') or 'id').lower()
     direction = (request.args.get('dir') or 'asc').lower()
     dir_sql = 'DESC' if direction == 'desc' else 'ASC'
 
-    # Sin DB: render vacío pero sin romper la UI
+    # Si no hay DB, renderiza vacío sin romper UI
     if not conn:
         return render_template(
             'reporte_metricas.html',
-            # tabla / paginación
             rows=[], total_count=0, page=page, per_page=per_page,
             sort=sort, direction=direction,
-            # chips & filtros
             resumen={}, empresas_opciones=[], estados_opciones=[],
             condicion_opciones=['MORA','SOLVENTE','PAGO IMPUNTUAL','PAGO PARCIAL','PAGO ADELANTADO','SIN CONDICION'],
             show_nombre=False, show_condicion=False,
-            # charts
             chart_estados={'labels': [], 'values': []},
             chart_condicion={'labels': [], 'values': []}
         )
 
     # ---------------- Columnas dinámicas ----------------
-    # estatus puede estar en varias columnas según base
+    # Estatus: acepta distintas columnas
     estatus_cols = [c for c in ['estatus_cliente', 'estatus', 'estado'] if _col_exists(conn, 'clientes', c)]
     if estatus_cols:
         estatus_expr = "COALESCE(" + ", ".join([f"NULLIF(c.{c},'')" for c in estatus_cols]) + ")"
@@ -2991,11 +2994,21 @@ def reporte_metricas():
         estatus_expr = "NULL"
     estatus_sql = f"TRIM(UPPER(COALESCE({estatus_expr}, '')))"
 
-    # nombre / condición / cuotas / inscripción (flexible a tu esquema)
-    nombre_col   = _pick_first_col(conn, 'clientes', ['nombre_completo','nombres','nombre','titular','cliente','razon_social'])
-    condicion_col= _pick_first_col(conn, 'clientes', ['condicion_pago','condicion','condicion_de_pago'])
-    cuotas_col   = _pick_first_col(conn, 'clientes', ['cuotas_pagadas_progresivas','cuotas_pagadas'])
-    insc_col     = _pick_first_col(conn, 'clientes', ['fecha_inscripcion','fecha_registro','fecha_origen','fecha_registro_cliente'])
+    # Otros campos
+    nombre_col    = _pick_first_col(conn, 'clientes', ['nombre_completo','nombres','nombre','titular','cliente','razon_social'])
+    condicion_col = _pick_first_col(conn, 'clientes', ['condicion_pago','condicion','condicion_de_pago'])
+    cuotas_col    = _pick_first_col(conn, 'clientes', ['cuotas_pagadas_progresivas','cuotas_pagadas'])
+
+    # PRIORIDAD a fecha de INGRESO
+    insc_col = _pick_first_col(conn, 'clientes', [
+        'fecha_ingreso',
+        'fecha_de_ingreso',
+        'fecha_ingreso_cliente',
+        'fecha_inscripcion',
+        'fecha_registro',
+        'fecha_origen',
+        'fecha_registro_cliente'
+    ])
 
     # ---------------- WHERE combinado (básico + avanzado) ----------------
     where_parts, where_params = [], []
@@ -3008,17 +3021,18 @@ def reporte_metricas():
     if estatus_filt:
         where_parts.append(f"{estatus_sql} = TRIM(UPPER(%s))")
         where_params.append(estatus_filt)
-
     if condicion_col and condicion_filt:
         where_parts.append(f"TRIM(UPPER(COALESCE(NULLIF(c.{condicion_col},''),'SIN CONDICION'))) = TRIM(UPPER(%s))")
         where_params.append(condicion_filt)
-
     if cuotas_col and cuota_bucket:
-        if   cuota_bucket == '1': where_parts.append(f"c.{cuotas_col} BETWEEN 1 AND 6")
-        elif cuota_bucket == '2': where_parts.append(f"c.{cuotas_col} BETWEEN 7 AND 12")
-        elif cuota_bucket == '3': where_parts.append(f"c.{cuotas_col} BETWEEN 13 AND 24")
-        elif cuota_bucket == '4': where_parts.append(f"c.{cuotas_col} BETWEEN 25 AND 36")
-
+        if cuota_bucket == '1':
+            where_parts.append(f"c.{cuotas_col} BETWEEN 1 AND 6")
+        elif cuota_bucket == '2':
+            where_parts.append(f"c.{cuotas_col} BETWEEN 7 AND 12")
+        elif cuota_bucket == '3':
+            where_parts.append(f"c.{cuotas_col} BETWEEN 13 AND 24")
+        elif cuota_bucket == '4':
+            where_parts.append(f"c.{cuotas_col} BETWEEN 25 AND 36")
     if insc_col:
         if insc_desde:
             where_parts.append(f"DATE(c.{insc_col}) >= %s")
@@ -3035,7 +3049,7 @@ def reporte_metricas():
         'empresa': "TRIM(c.empresa)",
         'estado': "TRIM(UPPER(c.estado_del_plan))",
         'estatus': estatus_sql,
-        'nombre': 'nombre'  # alias en el SELECT
+        'nombre': 'nombre'  # alias del SELECT
     }
     sort_expr = sort_map.get(sort, 'c.id')
 
@@ -3048,7 +3062,11 @@ def reporte_metricas():
                 WHERE NULLIF(TRIM(c.empresa),'') IS NOT NULL
                 ORDER BY 1
             """)
-            empresas_opciones = [ _rowdict(cur,r).get('empresa') for r in (cur.fetchall() or []) if _rowdict(cur,r).get('empresa') ]
+            empresas_opciones = []
+            for r in (cur.fetchall() or []):
+                rd = _rowdict(cur, r)
+                if rd.get('empresa'):
+                    empresas_opciones.append(rd['empresa'])
 
             cur.execute("""
                 SELECT DISTINCT TRIM(UPPER(c.estado_del_plan)) AS estado
@@ -3056,9 +3074,12 @@ def reporte_metricas():
                 WHERE NULLIF(TRIM(c.estado_del_plan),'') IS NOT NULL
                 ORDER BY 1
             """)
-            estados_opciones = [ _rowdict(cur,r).get('estado') for r in (cur.fetchall() or []) if _rowdict(cur,r).get('estado') ]
+            estados_opciones = []
+            for r in (cur.fetchall() or []):
+                rd = _rowdict(cur, r)
+                if rd.get('estado'):
+                    estados_opciones.append(rd['estado'])
 
-            # Condición: detecta columna y trae opciones; si queda vacío, usa fallback
             condicion_opciones = []
             if condicion_col:
                 cur.execute(f"""
@@ -3066,7 +3087,10 @@ def reporte_metricas():
                     FROM clientes c
                     ORDER BY 1
                 """)
-                condicion_opciones = [ _rowdict(cur,r).get('condicion') for r in (cur.fetchall() or []) if _rowdict(cur,r).get('condicion') ]
+                for r in (cur.fetchall() or []):
+                    rd = _rowdict(cur, r)
+                    if rd.get('condicion'):
+                        condicion_opciones.append(rd['condicion'])
             if not condicion_opciones:
                 condicion_opciones = ['MORA','SOLVENTE','PAGO IMPUNTUAL','PAGO PARCIAL','PAGO ADELANTADO','SIN CONDICION']
 
@@ -3128,17 +3152,14 @@ def reporte_metricas():
 
         return render_template(
             'reporte_metricas.html',
-            # tabla/paginación
             rows=rows, total_count=total_count, page=page, per_page=per_page,
             sort=sort, direction=direction,
-            # filtros y chips
             resumen=resumen,
             empresas_opciones=empresas_opciones,
             estados_opciones=estados_opciones,
             condicion_opciones=condicion_opciones,
             show_nombre=bool(nombre_col),
             show_condicion=bool(condicion_col),
-            # charts
             chart_estados=chart_estados,
             chart_condicion=chart_condicion
         )
