@@ -2925,9 +2925,7 @@ def reporte_metricas():
     conn = get_db()
     today = get_venezuela_current_date()
 
-    # -------------------------
-    # Lectura de filtros (GET)
-    # -------------------------
+    # --- Filtros GET ---
     empresa         = (request.args.get('empresa') or '').strip()
     estados_sel     = [e for e in (request.args.getlist('estado_plan[]') or request.args.getlist('estado_plan')) if e]
     estatus_cli     = (request.args.get('estatus_cliente') or '').strip()
@@ -2936,36 +2934,25 @@ def reporte_metricas():
     insc_desde      = (request.args.get('insc_desde') or '').strip()
     insc_hasta      = (request.args.get('insc_hasta') or '').strip()
 
-    # Detecta columna de inscripción que exista en tu tabla clientes
     insc_col = _detect_column(conn, 'clientes', [
         'fecha_inscripcion','fecha_registro','fecha_origen','fecha_registro_cliente'
     ])
 
-    # ---------------------------------------
-    # Construcción segura de WHERE para c.*
-    # ---------------------------------------
     where_parts, where_params = [], []
-
     if empresa:
-        # normaliza espacios/case
         where_parts.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(TRIM(%s), ' ', ''))")
         where_params.append(empresa)
-
     if estados_sel:
         where_parts.append("(" + " OR ".join(["TRIM(UPPER(c.estado_del_plan)) = TRIM(UPPER(%s))"] * len(estados_sel)) + ")")
         where_params.extend(estados_sel)
-
     if estatus_cli:
         where_parts.append("TRIM(UPPER(c.estatus_cliente)) = TRIM(UPPER(%s))")
         where_params.append(estatus_cli)
-
     if condiciones_sel:
-        # trabaja sobre condicion_pago normalizada, permitiendo 'SIN CONDICION'
         where_parts.append("(" + " OR ".join([
             "TRIM(UPPER(COALESCE(NULLIF(c.condicion_pago,''), 'SIN CONDICION'))) = TRIM(UPPER(%s))"
         ] * len(condiciones_sel)) + ")")
         where_params.extend(condiciones_sel)
-
     if buckets_sel:
         rangos = []
         for b in buckets_sel:
@@ -2975,7 +2962,6 @@ def reporte_metricas():
             elif b == '4': rangos.append("c.cuotas_pagadas_progresivas BETWEEN 25 AND 36")
         if rangos:
             where_parts.append("(" + " OR ".join(rangos) + ")")
-
     if insc_col:
         if insc_desde:
             where_parts.append(f"DATE(c.{insc_col}) >= %s")
@@ -2987,9 +2973,6 @@ def reporte_metricas():
     where_sql_c = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
     and_sql_c   = (" AND " + " AND ".join(where_parts)) if where_parts else ""
 
-    # -------------------------
-    # Estructura de métricas
-    # -------------------------
     dashboard_metrics = {
         'ingresos_mes_conciliados': 0.0,
         'indice_morosidad': 0.0,
@@ -3003,18 +2986,29 @@ def reporte_metricas():
         'clientes_congelados': 0, 'clientes_reserva': 0,
         'estados_del_plan': {}
     }
+    empresas_opciones = []
 
     if not conn:
         return render_template('reporte_metricas.html',
                                anio_actual=today.year,
-                               metrics=dashboard_metrics)
+                               metrics=dashboard_metrics,
+                               empresas_opciones=empresas_opciones)
 
     try:
         with conn.cursor() as cur:
+            # --- Distinct empresas para el selector (no condicionado por filtros) ---
+            cur.execute("""
+                SELECT DISTINCT TRIM(c.empresa) AS empresa
+                FROM clientes c
+                WHERE NULLIF(TRIM(c.empresa), '') IS NOT NULL
+                ORDER BY 1
+            """)
+            rows_emp = cur.fetchall() or []
+            empresas_opciones = [
+                (r['empresa'] if isinstance(r, dict) else r[0]) for r in rows_emp if (r and (r['empresa'] if isinstance(r, dict) else r[0]))
+            ]
 
-            # ------------------------------------------------------
-            # 1) Totales (aplican todos los filtros actuales sobre c)
-            # ------------------------------------------------------
+            # --- Totales con filtros ---
             cur.execute(f"""
                 SELECT
                     COUNT(*) AS total_clientes,
@@ -3029,7 +3023,6 @@ def reporte_metricas():
             """, where_params)
             row = cur.fetchone() or {}
             getv = (row.get if isinstance(row, dict) else lambda k, d=None: d)
-
             dashboard_metrics['total_clientes']        = int(getv('total_clientes', 0) or 0)
             dashboard_metrics['clientes_activos']      = int(getv('clientes_activos', 0) or 0)
             dashboard_metrics['clientes_inactivos']    = int(getv('clientes_inactivos', 0) or 0)
@@ -3038,15 +3031,13 @@ def reporte_metricas():
             dashboard_metrics['clientes_reserva']      = int(getv('clientes_reserva', 0) or 0)
             dashboard_metrics['clientes_adjudicados']  = int(getv('clientes_adjudicados', 0) or 0)
 
-            # ------------------------------------------------------
-            # 2) Estados del plan (conteos) con filtros
-            # ------------------------------------------------------
+            # --- Estados del plan ---
             cur.execute(f"""
                 SELECT TRIM(UPPER(c.estado_del_plan)) AS estado_del_plan, COUNT(*) AS total
                 FROM clientes c
                 {where_sql_c}
-                GROUP BY TRIM(UPPER(c.estado_del_plan))
-                ORDER BY TRIM(UPPER(c.estado_del_plan))
+                GROUP BY 1
+                ORDER BY 1
             """, where_params)
             estados_plan = cur.fetchall() or []
             dashboard_metrics['estados_del_plan'] = {
@@ -3054,9 +3045,7 @@ def reporte_metricas():
                 for r in estados_plan
             }
 
-            # ------------------------------------------------------
-            # 3) Composición por estado_del_plan (para la dona)
-            # ------------------------------------------------------
+            # --- Composición por estado_del_plan ---
             cur.execute(f"""
                 SELECT COALESCE(TRIM(UPPER(c.estado_del_plan)), 'SIN PROCESO') AS proceso,
                        COUNT(*) AS count
@@ -3066,15 +3055,12 @@ def reporte_metricas():
                 ORDER BY 1
             """, where_params)
             comp = cur.fetchall() or []
-            comp_labels = [str(r['proceso'] if isinstance(r, dict) else r[0]).capitalize() for r in comp]
-            comp_values = [int(r['count'] if isinstance(r, dict) else r[1] or 0) for r in comp]
             dashboard_metrics['composicion_clientes'] = {
-                'labels': comp_labels, 'values': comp_values
+                'labels': [str(r['proceso'] if isinstance(r, dict) else r[0]).capitalize() for r in comp],
+                'values': [int(r['count'] if isinstance(r, dict) else r[1] or 0) for r in comp]
             }
 
-            # ------------------------------------------------------
-            # 4) Composición por CONDICIÓN DE PAGO (condicion_pago)
-            # ------------------------------------------------------
+            # --- Composición por condición_pago ---
             cur.execute(f"""
                 SELECT COALESCE(TRIM(UPPER(c.condicion_pago)), 'SIN CONDICION') AS condicion,
                        COUNT(*) AS total
@@ -3089,11 +3075,8 @@ def reporte_metricas():
                 'values': [int(r['total'] if isinstance(r, dict) else r[1] or 0) for r in rows_cond]
             }
 
-            # ------------------------------------------------------
-            # 5) Índice de morosidad simple (Mora / total filtrado)
-            # ------------------------------------------------------
+            # --- Índice de morosidad ---
             total_filtrado = dashboard_metrics['total_clientes']
-            morosos = 0
             if total_filtrado > 0:
                 cur.execute(f"""
                     SELECT COUNT(*) FROM clientes c
@@ -3102,22 +3085,17 @@ def reporte_metricas():
                 """, where_params)
                 morosos = int(cur.fetchone()[0] or 0)
                 dashboard_metrics['indice_morosidad'] = round((morosos / total_filtrado) * 100.0, 2)
+            else:
+                dashboard_metrics['indice_morosidad'] = 0.0
 
-            # ------------------------------------------------------
-            # 6) Ingresos de los últimos 6 meses (filtrados por c.*)
-            #     Usa pagos p LEFT JOIN clientes c para aplicar filtros del cliente
-            # ------------------------------------------------------
+            # --- Ingresos últimos 6 meses (filtrados por c.*) ---
             income_labels, income_values = [], []
-            # arranca desde primer día del mes actual
             current_month_first = date(today.year, today.month, 1)
             current = current_month_first
-
             for _ in range(6):
                 month_start = date(current.year, current.month, 1)
-                # truco para siguiente mes
                 next_month = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
                 month_end = next_month - timedelta(days=1)
-
                 cur.execute(f"""
                     SELECT COALESCE(SUM(p.monto), 0)
                     FROM pagos p
@@ -3128,19 +3106,13 @@ def reporte_metricas():
                 """, [month_start, month_end, *where_params])
                 row_sum = cur.fetchone()
                 total_mes = float((row_sum[0] if (row_sum and not isinstance(row_sum, dict)) else row_sum) or 0.0)
-
                 income_labels.insert(0, get_nombre_mes(month_start.month))
                 income_values.insert(0, total_mes)
-
-                # retrocede un mes
                 current = (month_start - timedelta(days=1)).replace(day=1)
 
-            dashboard_metrics['ingresos_ultimos_meses'] = {
-                'labels': income_labels,
-                'values': income_values
-            }
+            dashboard_metrics['ingresos_ultimos_meses'] = {'labels': income_labels, 'values': income_values}
 
-            # Ingreso conciliado del mes actual (comodín)
+            # Mes actual conciliado
             cur.execute(f"""
                 SELECT COALESCE(SUM(p.monto), 0)
                 FROM pagos p
@@ -3152,14 +3124,15 @@ def reporte_metricas():
             row_mes = cur.fetchone()
             dashboard_metrics['ingresos_mes_conciliados'] = float(row_mes[0] if row_mes else 0.0)
 
-    except psycopg2.Error:
+    except Exception:
         logging.error(f"Error en reporte_metricas:\n{traceback.format_exc()}")
         flash("No se pudieron cargar las métricas del dashboard.", "error")
 
     return render_template(
         'reporte_metricas.html',
         anio_actual=today.year,
-        metrics=dashboard_metrics
+        metrics=dashboard_metrics,
+        empresas_opciones=empresas_opciones
     )
 # =========================
 # REPORTE: FLUJO DE CAJA
