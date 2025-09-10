@@ -4,7 +4,7 @@
 {% block page_title %}Métricas · Vitrina de Clientes{% endblock %}
 
 {% block body %}
-{% set condicion_opciones = condicion_opciones|default([]) %}
+{% set condicion_opciones = condicion_opciones|default(['MORA','SOLVENTE','PAGO IMPUNTUAL','PAGO PARCIAL','PAGO ADELANTADO','SIN CONDICION']) %}
 <div class="min-h-screen bg-slate-100 font-sans">
   <header class="px-4 sm:px-6 lg:px-8 py-6">
     <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -260,7 +260,7 @@
         </table>
       </div>
 
-      <!-- Paginación (sin **kwargs) -->
+      <!-- Paginación -->
       <div class="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50 text-sm text-slate-600">
         {% set start = (page-1) * per_page + 1 if total_count > 0 else 0 %}
         {% set end = (page-1) * per_page + rows|length %}

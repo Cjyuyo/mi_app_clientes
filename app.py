@@ -2945,42 +2945,45 @@ def reporte_metricas():
         return None
 
     # ---------------- Filtros GET ----------------
-    empresa      = (request.args.get('empresa') or '').strip()
-    estado_plan  = (request.args.get('estado_plan') or '').strip()
-    estatus_filt = (request.args.get('estatus_cliente') or '').strip()
+    empresa        = (request.args.get('empresa') or '').strip()
+    estado_plan    = (request.args.get('estado_plan') or '').strip()
+    estatus_filt   = (request.args.get('estatus_cliente') or '').strip()
 
-    # Paginación y orden
-    try:
-        page = max(int(request.args.get('page', 1)), 1)
-    except Exception:
-        page = 1
-    try:
-        per_page = min(max(int(request.args.get('per_page', 25)), 1), 100)
-    except Exception:
-        per_page = 25
+    # Avanzados
+    condicion_filt = (request.args.get('condicion') or '').strip()
+    cuota_bucket   = (request.args.get('cuota_bucket') or '').strip()
+    insc_desde     = (request.args.get('insc_desde') or '').strip()
+    insc_hasta     = (request.args.get('insc_hasta') or '').strip()
+
+    # Paginación / Orden
+    try: page = max(int(request.args.get('page', 1)), 1)
+    except Exception: page = 1
+    try: per_page = min(max(int(request.args.get('per_page', 25)), 1), 100)
+    except Exception: per_page = 25
     offset = (page - 1) * per_page
 
     sort = (request.args.get('sort') or 'id').lower()
     direction = (request.args.get('dir') or 'asc').lower()
     dir_sql = 'DESC' if direction == 'desc' else 'ASC'
 
+    # Sin DB: render vacío pero sin romper la UI
     if not conn:
         return render_template(
             'reporte_metricas.html',
-            rows=[],
-            total_count=0,
-            page=page, per_page=per_page,
-            resumen={},
+            # tabla / paginación
+            rows=[], total_count=0, page=page, per_page=per_page,
+            sort=sort, direction=direction,
+            # chips & filtros
+            resumen={}, empresas_opciones=[], estados_opciones=[],
+            condicion_opciones=['MORA','SOLVENTE','PAGO IMPUNTUAL','PAGO PARCIAL','PAGO ADELANTADO','SIN CONDICION'],
+            show_nombre=False, show_condicion=False,
+            # charts
             chart_estados={'labels': [], 'values': []},
-            chart_condicion={'labels': [], 'values': []},
-            empresas_opciones=[],
-            estados_opciones=[],
-            show_nombre=False,
-            show_condicion=False,
-            sort=sort, direction=direction
+            chart_condicion={'labels': [], 'values': []}
         )
 
     # ---------------- Columnas dinámicas ----------------
+    # estatus puede estar en varias columnas según base
     estatus_cols = [c for c in ['estatus_cliente', 'estatus', 'estado'] if _col_exists(conn, 'clientes', c)]
     if estatus_cols:
         estatus_expr = "COALESCE(" + ", ".join([f"NULLIF(c.{c},'')" for c in estatus_cols]) + ")"
@@ -2988,11 +2991,13 @@ def reporte_metricas():
         estatus_expr = "NULL"
     estatus_sql = f"TRIM(UPPER(COALESCE({estatus_expr}, '')))"
 
-    nombre_col = _pick_first_col(conn, 'clientes',
-        ['nombre_completo','nombres','nombre','titular','cliente','razon_social'])
-    condicion_exists = _col_exists(conn, 'clientes', 'condicion_pago')
+    # nombre / condición / cuotas / inscripción (flexible a tu esquema)
+    nombre_col   = _pick_first_col(conn, 'clientes', ['nombre_completo','nombres','nombre','titular','cliente','razon_social'])
+    condicion_col= _pick_first_col(conn, 'clientes', ['condicion_pago','condicion','condicion_de_pago'])
+    cuotas_col   = _pick_first_col(conn, 'clientes', ['cuotas_pagadas_progresivas','cuotas_pagadas'])
+    insc_col     = _pick_first_col(conn, 'clientes', ['fecha_inscripcion','fecha_registro','fecha_origen','fecha_registro_cliente'])
 
-    # ---------------- WHERE dinámico ----------------
+    # ---------------- WHERE combinado (básico + avanzado) ----------------
     where_parts, where_params = [], []
     if empresa:
         where_parts.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(TRIM(%s), ' ', ''))")
@@ -3003,6 +3008,24 @@ def reporte_metricas():
     if estatus_filt:
         where_parts.append(f"{estatus_sql} = TRIM(UPPER(%s))")
         where_params.append(estatus_filt)
+
+    if condicion_col and condicion_filt:
+        where_parts.append(f"TRIM(UPPER(COALESCE(NULLIF(c.{condicion_col},''),'SIN CONDICION'))) = TRIM(UPPER(%s))")
+        where_params.append(condicion_filt)
+
+    if cuotas_col and cuota_bucket:
+        if   cuota_bucket == '1': where_parts.append(f"c.{cuotas_col} BETWEEN 1 AND 6")
+        elif cuota_bucket == '2': where_parts.append(f"c.{cuotas_col} BETWEEN 7 AND 12")
+        elif cuota_bucket == '3': where_parts.append(f"c.{cuotas_col} BETWEEN 13 AND 24")
+        elif cuota_bucket == '4': where_parts.append(f"c.{cuotas_col} BETWEEN 25 AND 36")
+
+    if insc_col:
+        if insc_desde:
+            where_parts.append(f"DATE(c.{insc_col}) >= %s")
+            where_params.append(insc_desde)
+        if insc_hasta:
+            where_parts.append(f"DATE(c.{insc_col}) <= %s")
+            where_params.append(insc_hasta)
 
     where_sql_c = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
 
@@ -3018,16 +3041,14 @@ def reporte_metricas():
 
     try:
         with conn.cursor() as cur:
-            # ----- Selectores SIN filtros -----
+            # ----- Opciones para selectores (SIEMPRE sin filtros) -----
             cur.execute("""
                 SELECT DISTINCT TRIM(c.empresa) AS empresa
                 FROM clientes c
                 WHERE NULLIF(TRIM(c.empresa),'') IS NOT NULL
                 ORDER BY 1
             """)
-            empresas_opciones = [
-                _rowdict(cur, r).get('empresa') for r in (cur.fetchall() or []) if _rowdict(cur, r).get('empresa')
-            ]
+            empresas_opciones = [ _rowdict(cur,r).get('empresa') for r in (cur.fetchall() or []) if _rowdict(cur,r).get('empresa') ]
 
             cur.execute("""
                 SELECT DISTINCT TRIM(UPPER(c.estado_del_plan)) AS estado
@@ -3035,11 +3056,21 @@ def reporte_metricas():
                 WHERE NULLIF(TRIM(c.estado_del_plan),'') IS NOT NULL
                 ORDER BY 1
             """)
-            estados_opciones = [
-                _rowdict(cur, r).get('estado') for r in (cur.fetchall() or []) if _rowdict(cur, r).get('estado')
-            ]
+            estados_opciones = [ _rowdict(cur,r).get('estado') for r in (cur.fetchall() or []) if _rowdict(cur,r).get('estado') ]
 
-            # ----- Conteo total (para paginar) con filtros -----
+            # Condición: detecta columna y trae opciones; si queda vacío, usa fallback
+            condicion_opciones = []
+            if condicion_col:
+                cur.execute(f"""
+                    SELECT DISTINCT COALESCE(TRIM(UPPER(c.{condicion_col})), 'SIN CONDICION') AS condicion
+                    FROM clientes c
+                    ORDER BY 1
+                """)
+                condicion_opciones = [ _rowdict(cur,r).get('condicion') for r in (cur.fetchall() or []) if _rowdict(cur,r).get('condicion') ]
+            if not condicion_opciones:
+                condicion_opciones = ['MORA','SOLVENTE','PAGO IMPUNTUAL','PAGO PARCIAL','PAGO ADELANTADO','SIN CONDICION']
+
+            # ----- Conteo total (para paginación) con filtros -----
             cur.execute(f"SELECT COUNT(*) FROM clientes c {where_sql_c}", where_params)
             total_count = int(cur.fetchone()[0] or 0)
 
@@ -3054,29 +3085,31 @@ def reporte_metricas():
             resumen_rows = [_rowdict(cur, r) for r in (cur.fetchall() or [])]
             resumen = { r['estado']: int(r['total'] or 0) for r in resumen_rows }
 
-            # ----- Chart barras: estados_del_plan -----
+            # ----- Chart: barras (estados) -----
             chart_estados = {
                 'labels': [r['estado'] for r in resumen_rows],
                 'values': [int(r['total'] or 0) for r in resumen_rows]
             }
 
-            # ----- Chart dona: condicion_pago (con filtros) -----
-            cur.execute(f"""
-                SELECT COALESCE(TRIM(UPPER(c.condicion_pago)), 'SIN CONDICION') AS condicion, COUNT(*) AS total
-                FROM clientes c
-                {where_sql_c}
-                GROUP BY 1
-                ORDER BY 1
-            """, where_params)
-            cond_rows = [_rowdict(cur, r) for r in (cur.fetchall() or [])]
-            chart_condicion = {
-                'labels': [r['condicion'] for r in cond_rows],
-                'values': [int(r['total'] or 0) for r in cond_rows]
-            }
+            # ----- Chart: dona (condición) con filtros -----
+            chart_condicion = {'labels': [], 'values': []}
+            if condicion_col:
+                cur.execute(f"""
+                    SELECT COALESCE(TRIM(UPPER(c.{condicion_col})), 'SIN CONDICION') AS condicion, COUNT(*) AS total
+                    FROM clientes c
+                    {where_sql_c}
+                    GROUP BY 1
+                    ORDER BY 1
+                """, where_params)
+                cond_rows = [_rowdict(cur, r) for r in (cur.fetchall() or [])]
+                chart_condicion = {
+                    'labels': [r['condicion'] for r in cond_rows],
+                    'values': [int(r['total'] or 0) for r in cond_rows]
+                }
 
-            # ----- Lista (con filtros + orden + paginación) -----
-            nombre_sql = f"c.{nombre_col}" if nombre_col else "NULL"
-            condicion_sql = "TRIM(UPPER(c.condicion_pago))" if condicion_exists else "NULL"
+            # ----- Tabla (con filtros + orden + paginado) -----
+            nombre_sql    = f"c.{nombre_col}" if nombre_col else "NULL"
+            condicion_sql = f"TRIM(UPPER(c.{condicion_col}))" if condicion_col else "NULL"
 
             cur.execute(f"""
                 SELECT
@@ -3098,12 +3131,13 @@ def reporte_metricas():
             # tabla/paginación
             rows=rows, total_count=total_count, page=page, per_page=per_page,
             sort=sort, direction=direction,
-            # chips & filtros
+            # filtros y chips
             resumen=resumen,
             empresas_opciones=empresas_opciones,
             estados_opciones=estados_opciones,
+            condicion_opciones=condicion_opciones,
             show_nombre=bool(nombre_col),
-            show_condicion=bool(condicion_exists),
+            show_condicion=bool(condicion_col),
             # charts
             chart_estados=chart_estados,
             chart_condicion=chart_condicion
@@ -3115,9 +3149,10 @@ def reporte_metricas():
         return render_template(
             'reporte_metricas.html',
             rows=[], total_count=0, page=page, per_page=per_page,
-            resumen={}, empresas_opciones=[], estados_opciones=[],
-            show_nombre=False, show_condicion=False,
             sort=sort, direction=direction,
+            resumen={}, empresas_opciones=[], estados_opciones=[],
+            condicion_opciones=['MORA','SOLVENTE','PAGO IMPUNTUAL','PAGO PARCIAL','PAGO ADELANTADO','SIN CONDICION'],
+            show_nombre=False, show_condicion=False,
             chart_estados={'labels': [], 'values': []},
             chart_condicion={'labels': [], 'values': []}
         )
