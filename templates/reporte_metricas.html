@@ -1,261 +1,216 @@
-{% extends "base_sidebar.html" %}
-{% block title %}Reporte de Métricas{% endblock %}
+{% extends 'base_sidebar.html' %}
+
+{% block title %}Dashboard de Rendimiento{% endblock %}
+{% block page_title %}Dashboard de Rendimiento{% endblock %}
 
 {% block body %}
-<div class="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto space-y-8">
+<div class="min-h-screen bg-slate-50 font-sans">
 
-  <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <div>
-      <h1 class="text-3xl font-bold tracking-tight text-slate-900">Métricas</h1>
-      <p class="mt-1 text-base text-slate-600">Vista general {{ metrics.mes_actual if metrics is defined else '' }} {{ metrics.anio_actual if metrics is defined else '' }}</p>
-    </div>
-    <div class="flex items-center gap-3 flex-shrink-0">
-      <a href="{{ url_for('reporte_metricas') }}"
-         class="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-all">
-        <i class="bi bi-arrow-counterclockwise -ml-1 mr-2 h-5 w-5"></i>
-        Limpiar filtros
-      </a>
-      <button form="filtrosForm"
-              class="inline-flex items-center justify-center rounded-md border border-transparent bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-700 focus:ring-offset-2 transition-all">
-        <i class="bi bi-funnel-fill -ml-1 mr-2 h-5 w-5"></i>
-        Aplicar filtros
-      </button>
+  <header class="px-4 sm:px-6 lg:px-8 py-8">
+    <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight text-slate-800">
+          Dashboard de Rendimiento
+        </h1>
+        <p class="text-slate-500 mt-1">
+          Indicadores clave de <strong>{{ metrics.mes_actual }} {{ metrics.anio_actual }}</strong>. Usa los filtros para explorar.
+        </p>
+      </div>
+      <div class="flex items-center gap-3 flex-shrink-0">
+        <a href="{{ url_for('reporte_metricas') }}" class="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+          <i class="bi bi-arrow-counterclockwise -ml-1 mr-2"></i> Limpiar
+        </a>
+        <button form="filtrosForm" class="inline-flex items-center justify-center rounded-md border border-transparent bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-900">
+          <i class="bi bi-funnel-fill -ml-1 mr-2"></i> Aplicar
+        </button>
+      </div>
     </div>
   </header>
 
-  <form id="filtrosForm" method="get"
-        class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-    <div class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-6">
+  <main class="px-4 sm:px-6 lg:px-8 pb-12 space-y-8">
 
-      <div class="flex flex-col">
-        <label class="block text-sm font-medium text-slate-700 mb-1.5">Empresa</label>
-        <input type="text" name="empresa" placeholder="Todas"
-               value="{{ request.args.get('empresa','') }}"
-               class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
-      </div>
-
-      <div class="flex flex-col">
-        {% set estados_map = (metrics.estados_del_plan if metrics is defined and metrics.estados_del_plan is defined else {}) %}
-        {% set estados_lista = estados_map.keys() if estados_map else [] %}
-        {% set sel_estados = request.args.getlist('estado_plan[]') or request.args.getlist('estado_plan') %}
-        <label class="block text-sm font-medium text-slate-700 mb-1.5">Estado del plan</label>
-        <select name="estado_plan[]"
-                class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
-          <option value="" {{ 'selected' if not sel_estados else '' }}>Todos</option>
-          {% for est in estados_lista %}
-            <option value="{{ est }}" {{ 'selected' if sel_estados and sel_estados[0]==est else '' }}>
-              {{ est|capitalize }}
-            </option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div class="flex flex-col">
-        {% set estatus_opts = ['ACTIVO','INACTIVO','RETIRADO','CONGELADO','RESERVA'] %}
-        {% set sel_estatus = (request.args.get('estatus_cliente','') or '').upper() %}
-        <label class="block text-sm font-medium text-slate-700 mb-1.5">Estatus cliente</label>
-        <select name="estatus_cliente"
-                class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
-          <option value="" {{ 'selected' if not sel_estatus else '' }}>Todos</option>
-          {% for opt in estatus_opts %}
-            <option value="{{ opt }}" {{ 'selected' if sel_estatus==opt else '' }}>{{ opt|capitalize }}</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div class="flex flex-col">
-        {% set comp_cond = (metrics.composicion_condicion if metrics is defined and metrics.composicion_condicion is defined else {'labels': [], 'values': []}) %}
-        {% set cond_labels = comp_cond['labels'] if comp_cond and comp_cond['labels'] is defined else [] %}
-        {% set cond_fallback = ['Mora','Solvente','Pago impuntual','Pago parcial','Pago adelantado','Sin condicion'] %}
-        {% set opciones_cond = cond_labels if cond_labels else cond_fallback %}
-        {% set sel_cond = request.args.getlist('condicion[]') %}
-        <label class="block text-sm font-medium text-slate-700 mb-1.5">Condición</label>
-        <select name="condicion[]"
-                class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
-          <option value="" {{ 'selected' if not sel_cond else '' }}>Todas</option>
-          {% for cond in opciones_cond %}
-            <option value="{{ cond }}" {{ 'selected' if sel_cond and sel_cond[0]==cond else '' }}>{{ cond }}</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div class="lg:col-span-2">
-        <details class="group rounded-xl border border-slate-200">
-          <summary class="flex cursor-pointer select-none items-center justify-between rounded-xl bg-slate-50 px-4 py-2 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-100">
-            Filtros avanzados
-            <span class="ml-3 inline-flex size-5 items-center justify-center text-slate-700 transition-transform group-open:rotate-180">
-                <i class="bi bi-chevron-down"></i>
-            </span>
-          </summary>
-          <div class="grid grid-cols-1 gap-4 p-4 md:grid-cols-2">
-            <div class="flex flex-col">
-              {% set bucket_sel = (request.args.getlist('cuota_bucket[]') or [''])[0] %}
-              <label class="block text-sm font-medium text-slate-700 mb-1.5">Rango de cuotas</label>
-              <select name="cuota_bucket[]"
-                      class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
-                <option value="" {{ 'selected' if not bucket_sel else '' }}>Todos</option>
-                <option value="1" {{ 'selected' if bucket_sel=='1' else '' }}>1–6</option>
-                <option value="2" {{ 'selected' if bucket_sel=='2' else '' }}>7–12</option>
-                <option value="3" {{ 'selected' if bucket_sel=='3' else '' }}>13–24</option>
-                <option value="4" {{ 'selected' if bucket_sel=='4' else '' }}>25–36</option>
+    <section>
+      <details class="group bg-white rounded-xl border border-slate-200 shadow-sm transition-all duration-300 ease-in-out open:shadow-lg">
+        <summary class="flex cursor-pointer select-none items-center justify-between p-4 text-base font-semibold text-slate-800">
+          Mostrar Filtros Avanzados
+          <span class="ml-3 text-slate-500 transition-transform group-open:rotate-180">
+            <i class="bi bi-chevron-down"></i>
+          </span>
+        </summary>
+        
+        <form id="filtrosForm" method="get" class="border-t border-slate-200 p-5">
+          <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <div>
+              <label for="empresa" class="block text-sm font-medium text-slate-700 mb-1.5">Empresa</label>
+              <input type="text" name="empresa" id="empresa" placeholder="Todas" value="{{ request.args.get('empresa','') }}" class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
+            </div>
+            <div>
+              {% set estados_map = (metrics.estados_del_plan if metrics is defined and metrics.estados_del_plan is defined else {}) %}
+              {% set estados_lista = estados_map.keys() if estados_map else [] %}
+              {% set sel_estados = request.args.getlist('estado_plan[]') or request.args.getlist('estado_plan') %}
+              <label for="estado_plan" class="block text-sm font-medium text-slate-700 mb-1.5">Estado del plan</label>
+              <select name="estado_plan[]" id="estado_plan" class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
+                <option value="" {{ 'selected' if not sel_estados else '' }}>Todos</option>
+                {% for est in estados_lista %}<option value="{{ est }}" {{ 'selected' if sel_estados and sel_estados[0]==est else '' }}>{{ est|capitalize }}</option>{% endfor %}
               </select>
             </div>
-            <div class="flex flex-col">
-              <label class="block text-sm font-medium text-slate-700 mb-1.5">Inscripción (desde / hasta)</label>
-              <div class="grid grid-cols-2 gap-3">
-                <input type="date" name="insc_desde" value="{{ request.args.get('insc_desde','') }}"
-                       class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
-                <input type="date" name="insc_hasta" value="{{ request.args.get('insc_hasta','') }}"
-                       class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
+            <div>
+              {% set estatus_opts = ['ACTIVO','INACTIVO','RETIRADO','CONGELADO','RESERVA'] %}
+              {% set sel_estatus = (request.args.get('estatus_cliente','') or '').upper() %}
+              <label for="estatus_cliente" class="block text-sm font-medium text-slate-700 mb-1.5">Estatus cliente</label>
+              <select name="estatus_cliente" id="estatus_cliente" class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
+                <option value="" {{ 'selected' if not sel_estatus else '' }}>Todos</option>
+                {% for opt in estatus_opts %}<option value="{{ opt }}" {{ 'selected' if sel_estatus==opt else '' }}>{{ opt|capitalize }}</option>{% endfor %}
+              </select>
+            </div>
+            <div>
+              {% set comp_cond = (metrics.composicion_condicion if metrics is defined and metrics.composicion_condicion is defined else {'labels': [], 'values': []}) %}
+              {% set cond_labels = comp_cond['labels'] if comp_cond and comp_cond['labels'] is defined else [] %}
+              {% set opciones_cond = cond_labels if cond_labels else ['Mora','Solvente','Pago impuntual','Pago parcial','Pago adelantado','Sin condicion'] %}
+              {% set sel_cond = request.args.getlist('condicion[]') %}
+              <label for="condicion" class="block text-sm font-medium text-slate-700 mb-1.5">Condición</label>
+              <select name="condicion[]" id="condicion" class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
+                <option value="" {{ 'selected' if not sel_cond else '' }}>Todas</option>
+                {% for cond in opciones_cond %}<option value="{{ cond }}" {{ 'selected' if sel_cond and sel_cond[0]==cond else '' }}>{{ cond }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="grid grid-cols-2 gap-3 sm:col-span-2 lg:col-span-1">
+              <div>
+                {% set bucket_sel = (request.args.getlist('cuota_bucket[]') or [''])[0] %}
+                <label for="cuota_bucket" class="block text-sm font-medium text-slate-700 mb-1.5">Cuotas</label>
+                <select name="cuota_bucket[]" id="cuota_bucket" class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
+                  <option value="" {{ 'selected' if not bucket_sel else '' }}>Todas</option>
+                  <option value="1" {{ 'selected' if bucket_sel=='1' else '' }}>1–6</option>
+                  <option value="2" {{ 'selected' if bucket_sel=='2' else '' }}>7–12</option>
+                  <option value="3" {{ 'selected' if bucket_sel=='3' else '' }}>13–24</option>
+                  <option value="4" {{ 'selected' if bucket_sel=='4' else '' }}>25–36</option>
+                </select>
+              </div>
+              <div>
+                <label for="insc_desde" class="block text-sm font-medium text-slate-700 mb-1.5">Inscripción</label>
+                <input type="date" name="insc_desde" value="{{ request.args.get('insc_desde','') }}" class="block w-full rounded-md border-slate-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm">
               </div>
             </div>
           </div>
-        </details>
-      </div>
+        </form>
+      </details>
+    </section>
 
-    </div>
-  </form>
-
-  {% set filtros_activos = [] %}
-  {% set empresa_q = request.args.get('empresa') %}{% if empresa_q %}{% set _ = filtros_activos.append('Empresa: ' ~ empresa_q) %}{% endif %}
-  {% for e in request.args.getlist('estado_plan[]') %}{% if e %}{% set _ = filtros_activos.append('Estado plan: ' ~ e|capitalize) %}{% endif %}{% endfor %}
-  {% set sel_estatus = (request.args.get('estatus_cliente','') or '').upper() %}{% if sel_estatus %}{% set _ = filtros_activos.append('Estatus: ' ~ sel_estatus|capitalize) %}{% endif %}
-  {% for c in request.args.getlist('condicion[]') %}{% if c %}{% set _ = filtros_activos.append('Condición: ' ~ c) %}{% endif %}{% endfor %}
-  {% for b in request.args.getlist('cuota_bucket[]') %}{% if b %}{% set _ = filtros_activos.append('Cuotas: ' ~ ('1–6' if b=='1' else '7–12' if b=='2' else '13–24' if b=='3' else '25–36')) %}{% endif %}{% endfor %}
-  {% if request.args.get('insc_desde') or request.args.get('insc_hasta') %}{% set _ = filtros_activos.append('Inscripción: ' ~ (request.args.get('insc_desde') or '…') ~ ' a ' ~ (request.args.get('insc_hasta') or '…')) %}{% endif %}
-
-  {% if filtros_activos %}
+    {% set filtros_activos = [] %}
+    {% if request.args.get('empresa') %}{% set _ = filtros_activos.append('Empresa: ' ~ request.args.get('empresa')) %}{% endif %}
+    {% if request.args.get('estado_plan[]') %}{% set _ = filtros_activos.append('Plan: ' ~ request.args.getlist('estado_plan[]')|join(', ')|capitalize) %}{% endif %}
+    {% if request.args.get('estatus_cliente') %}{% set _ = filtros_activos.append('Estatus: ' ~ request.args.get('estatus_cliente')|capitalize) %}{% endif %}
+    {% if request.args.get('condicion[]') %}{% set _ = filtros_activos.append('Condición: ' ~ request.args.getlist('condicion[]')|join(', ')) %}{% endif %}
+    {% if request.args.get('cuota_bucket[]') %}{% set b = request.args.get('cuota_bucket[]')[0] %}{% set _ = filtros_activos.append('Cuotas: ' ~ ('1–6' if b=='1' else '7–12' if b=='2' else '13–24' if b=='3' else '25–36')) %}{% endif %}
+    {% if request.args.get('insc_desde') %}{% set _ = filtros_activos.append('Insc. desde: ' ~ request.args.get('insc_desde')) %}{% endif %}
+    
+    {% if filtros_activos %}
     <div class="flex flex-wrap items-center gap-2">
-      <span class="text-sm font-medium text-slate-600">Filtros aplicados:</span>
-      {% for chip in filtros_activos %}
-        <span class="inline-flex items-center gap-x-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-800 ring-1 ring-inset ring-slate-200">
+        <span class="text-sm font-medium text-slate-600">Filtros aplicados:</span>
+        {% for chip in filtros_activos %}
+        <span class="inline-flex items-center gap-x-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-800 ring-1 ring-inset ring-slate-200">
           {{ chip }}
         </span>
-      {% endfor %}
-    </div>
-  {% endif %}
-
-  <div class="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-6">
-    <div class="relative overflow-hidden rounded-xl bg-white p-5 shadow ring-1 ring-black ring-opacity-5">
-      <div class="absolute -top-2 -right-2 text-4xl text-slate-100"><i class="bi bi-people-fill"></i></div>
-      <div class="text-sm font-medium text-slate-500 truncate">Total clientes</div>
-      <div class="mt-1 text-3xl font-semibold tracking-tight text-slate-900">{{ metrics.total_clientes if metrics is defined else 0 }}</div>
-    </div>
-    <div class="relative overflow-hidden rounded-xl bg-white p-5 shadow ring-1 ring-black ring-opacity-5">
-      <div class="absolute -top-2 -right-2 text-4xl text-green-100"><i class="bi bi-person-check-fill"></i></div>
-      <div class="text-sm font-medium text-slate-500 truncate">Activos</div>
-      <div class="mt-1 text-3xl font-semibold tracking-tight text-green-600">{{ metrics.clientes_activos if metrics is defined else 0 }}</div>
-    </div>
-    <div class="relative overflow-hidden rounded-xl bg-white p-5 shadow ring-1 ring-black ring-opacity-5">
-      <div class="absolute -top-2 -right-2 text-4xl text-amber-100"><i class="bi bi-person-exclamation-fill"></i></div>
-      <div class="text-sm font-medium text-slate-500 truncate">Inactivos</div>
-      <div class="mt-1 text-3xl font-semibold tracking-tight text-amber-600">{{ metrics.clientes_inactivos if metrics is defined else 0 }}</div>
-    </div>
-    <div class="relative overflow-hidden rounded-xl bg-white p-5 shadow ring-1 ring-black ring-opacity-5">
-      <div class="absolute -top-2 -right-2 text-4xl text-red-100"><i class="bi bi-person-x-fill"></i></div>
-      <div class="text-sm font-medium text-slate-500 truncate">Retirados</div>
-      <div class="mt-1 text-3xl font-semibold tracking-tight text-red-600">{{ metrics.clientes_retirados if metrics is defined else 0 }}</div>
-    </div>
-    <div class="relative overflow-hidden rounded-xl bg-white p-5 shadow ring-1 ring-black ring-opacity-5">
-      <div class="absolute -top-2 -right-2 text-4xl text-blue-100"><i class="bi bi-award-fill"></i></div>
-      <div class="text-sm font-medium text-slate-500 truncate">Adjudicados</div>
-      <div class="mt-1 text-3xl font-semibold tracking-tight text-blue-600">{{ metrics.clientes_adjudicados if metrics is defined else 0 }}</div>
-    </div>
-    <div class="relative overflow-hidden rounded-xl bg-white p-5 shadow ring-1 ring-black ring-opacity-5">
-      <div class="absolute -top-2 -right-2 text-4xl text-orange-100"><i class="bi bi-graph-down-arrow"></i></div>
-      <div class="text-sm font-medium text-slate-500 truncate">Índice de morosidad</div>
-      <div class="mt-1 text-3xl font-semibold tracking-tight text-orange-600">{{ (metrics.indice_morosidad|string) ~ '%' if metrics is defined else '0%' }}</div>
-    </div>
-  </div>
-
-  <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="mb-3 flex items-start justify-between">
-        <div>
-            <h3 class="text-base font-semibold text-slate-800">Composición por estado del plan</h3>
-            <p class="text-sm text-slate-500 mt-1">Distribución de clientes.</p>
-        </div>
-      </div>
-      <div class="h-64"><canvas id="chartEstadoPlan"></canvas></div>
-      <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {% for k, v in estados_map.items() %}
-          <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm ring-1 ring-slate-200">
-            <span class="text-slate-700">{{ k|capitalize }}</span>
-            <span class="font-semibold text-slate-900">{{ v }}</span>
-          </div>
         {% endfor %}
-      </div>
     </div>
+    {% endif %}
 
-    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="mb-3 flex items-start justify-between">
-        <div>
-            <h3 class="text-base font-semibold text-slate-800">Desglose por condición de pago</h3>
-            <p class="text-sm text-slate-500 mt-1">Situación de la cartera.</p>
-        </div>
+    <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div class="bg-white border border-slate-200/80 rounded-xl p-6 transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1">
+        <div class="flex items-center justify-between"><p class="text-base font-medium text-slate-500">Ingresos del Mes</p><span class="flex items-center justify-center w-12 h-12 rounded-full bg-emerald-100"><i class="bi bi-cash-stack text-emerald-600 text-2xl"></i></span></div>
+        <p class="mt-4 text-4xl font-extrabold tracking-tight text-slate-900">${{ "{:,.0f}".format(metrics.ingresos_mes_conciliados) }}</p>
+        <p class="mt-1 text-sm text-slate-400">Total conciliado en el periodo.</p>
       </div>
-      <div class="h-64"><canvas id="chartCondicion"></canvas></div>
-      {% set values_cond = comp_cond['values'] if comp_cond and comp_cond['values'] is defined else [] %}
-      <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {% for i in range(0, cond_labels|length) %}
-          <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm ring-1 ring-slate-200">
-            <span class="text-slate-700">{{ cond_labels[i] }}</span>
-            <span class="font-semibold text-slate-900">{{ values_cond[i] if values_cond|length>i else 0 }}</span>
-          </div>
-        {% endfor %}
+      <div class="bg-white border border-slate-200/80 rounded-xl p-6 transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1">
+        <div class="flex items-center justify-between"><p class="text-base font-medium text-slate-500">Índice de Morosidad</p><span class="flex items-center justify-center w-12 h-12 rounded-full bg-rose-100"><i class="bi bi-graph-down-arrow text-rose-600 text-2xl"></i></span></div>
+        <p class="mt-4 text-4xl font-extrabold tracking-tight text-rose-600">{{ metrics.indice_morosidad|round(1) }}%</p>
+        <p class="mt-1 text-sm text-slate-400">Clientes sin pago de cuota.</p>
       </div>
-    </div>
-  </div>
+      <a href="{{ url_for('consulta') }}?estatus=ACTIVO" class="block bg-white border border-slate-200/80 rounded-xl p-6 transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1">
+        <div class="flex items-center justify-between"><p class="text-base font-medium text-slate-500">Clientes Activos</p><span class="flex items-center justify-center w-12 h-12 rounded-full bg-sky-100"><i class="bi bi-person-check-fill text-sky-600 text-2xl"></i></span></div>
+        <p class="mt-4 text-4xl font-extrabold tracking-tight text-slate-900">{{ metrics.clientes_activos }}</p>
+        <p class="mt-1 text-sm text-slate-400">Clic para ver el detalle.</p>
+      </a>
+      <a href="{{ url_for('consulta') }}?estado=ADJUDICADO" class="block bg-white border border-slate-200/80 rounded-xl p-6 transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1">
+        <div class="flex items-center justify-between"><p class="text-base font-medium text-slate-500">Total Adjudicados</p><span class="flex items-center justify-center w-12 h-12 rounded-full bg-indigo-100"><i class="bi bi-award-fill text-indigo-600 text-2xl"></i></span></div>
+        <p class="mt-4 text-4xl font-extrabold tracking-tight text-slate-900">{{ metrics.clientes_adjudicados }}</p>
+        <p class="mt-1 text-sm text-slate-400">Clic para ver el detalle.</p>
+      </a>
+    </section>
 
-  <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-    <div class="sm:flex sm:items-start sm:justify-between">
-        <div>
-          <h3 class="text-base font-semibold text-slate-800">Ingresos conciliados (últimos meses)</h3>
-          <p class="text-sm text-slate-500 mt-1">Evolución de ingresos confirmados.</p>
-        </div>
-        <div class="mt-3 sm:mt-0 sm:ml-4">
-            <div class="rounded-lg bg-green-50 p-3 text-center ring-1 ring-green-200">
-                <div class="text-sm text-green-700">Mes actual</div>
-                <div class="mt-1 text-lg font-bold text-green-800">{{ metrics.ingresos_mes_conciliados if metrics is defined else 0 }}</div>
-            </div>
-        </div>
-      </div>
-    <div class="mt-4 h-72"><canvas id="chartIngresos"></canvas></div>
-  </div>
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div class="lg:col-span-7 bg-white border border-slate-200/80 rounded-xl p-6"><div class="flex items-center justify-between"><h3 class="text-lg font-semibold text-slate-800">Evolución de Ingresos</h3><span class="text-sm text-slate-400">Últimos 6 meses</span></div><div class="mt-4 h-80"><canvas id="ingresosChart"></canvas></div></div>
+      <div class="lg:col-span-5 bg-white border border-slate-200/80 rounded-xl p-6"><div class="flex items-center justify-between"><h3 class="text-lg font-semibold text-slate-800">Composición de Cartera</h3><span class="text-sm text-slate-400">Por estado del plan</span></div><div class="mt-4 h-80 flex items-center justify-center"><canvas id="composicionChart"></canvas></div></div>
+    </section>
 
+    <section class="bg-white border border-slate-200/80 rounded-xl p-6">
+      <div class="pb-4"><h3 class="text-lg font-semibold text-slate-800">Desglose por Estatus de Cliente</h3><p class="text-sm text-slate-500">Toca una tarjeta para filtrar y ver el detalle.</p></div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-5">
+        <a href="{{ url_for('consulta') }}?estatus=ACTIVO" class="group rounded-lg p-4 text-center bg-slate-50 border border-slate-200 transition-all duration-300 ease-in-out hover:border-emerald-500 hover:shadow-md hover:scale-105"><p class="text-xs text-slate-500 font-semibold group-hover:text-emerald-600">Activos</p><p class="mt-1 text-4xl font-black text-emerald-600">{{ metrics.clientes_activos }}</p></a>
+        <a href="{{ url_for('consulta') }}?estatus=INACTIVO" class="group rounded-lg p-4 text-center bg-slate-50 border border-slate-200 transition-all duration-300 ease-in-out hover:border-gray-500 hover:shadow-md hover:scale-105"><p class="text-xs text-slate-500 font-semibold group-hover:text-gray-600">Inactivos</p><p class="mt-1 text-4xl font-black text-slate-500 group-hover:text-gray-600">{{ metrics.clientes_inactivos }}</p></a>
+        {% for estado, total in metrics.estados_del_plan.items()|sort %}{% if estado not in ['adjudicado'] %}<a href="{{ url_for('consulta') }}?estado={{ estado|upper }}" class="group rounded-lg p-4 text-center bg-slate-50 border border-slate-200 transition-all duration-300 ease-in-out hover:border-slate-800 hover:shadow-md hover:scale-105"><p class="text-xs text-slate-500 font-semibold group-hover:text-slate-900">{{ estado|replace('_', ' ')|capitalize }}</p><p class="mt-1 text-4xl font-black text-slate-900">{{ total }}</p></a>{% endif %}{% endfor %}
+      </div>
+    </section>
+
+  </main>
 </div>
 {% endblock %}
 
+
 {% block scripts_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-/* Objetos seguros para Chart.js */
-const compPlan = {{ (metrics.composicion_clientes if metrics is defined and metrics.composicion_clientes is defined else {'labels': [], 'values': []}) | tojson | safe }};
-const compCond = {{ (metrics.composicion_condicion if metrics is defined and metrics.composicion_condicion is defined else {'labels': [], 'values': []}) | tojson | safe }};
-const ingresos  = {{ (metrics.ingresos_ultimos_meses if metrics is defined and metrics.ingresos_ultimos_meses is defined else {'labels': [], 'values': []}) | tojson | safe }};
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!window.Chart) return;
+    Chart.defaults.font.family = "'Inter', 'ui-sans-serif', 'system-ui', sans-serif";
+    Chart.defaults.color = '#64748b';
+    Chart.defaults.font.weight = '500';
 
-(function(){
-  if (!window.Chart) return;
+    const ingresosData = {{ metrics.ingresos_ultimos_meses|tojson|safe }};
+    const composicionData = {{ metrics.composicion_clientes|tojson|safe }};
 
-  const ctx1 = document.getElementById('chartEstadoPlan');
-  if (ctx1) new Chart(ctx1, {
-    type: 'doughnut',
-    data: { labels: Array.isArray(compPlan.labels)?compPlan.labels:[], datasets: [{ data: Array.isArray(compPlan.values)?compPlan.values:[] }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    // --- Ingresos (Bar) ---
+    const ingresosCtx = document.getElementById('ingresosChart');
+    if (ingresosCtx && ingresosData) {
+      new Chart(ingresosCtx, {
+        type: 'bar',
+        data: {
+          labels: ingresosData.labels,
+          datasets: [{ label: 'Ingresos ($)', data: ingresosData.values, backgroundColor: '#3b82f6', borderRadius: 8, barPercentage: 0.6 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, grid: { color: '#e2e8f0' } }, x: { grid: { display: false } } },
+          plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#f8fafc', padding: 12, cornerRadius: 8, displayColors: false,
+              callbacks: {
+                label: (ctx) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(ctx.parsed.y)
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // --- Composición (Doughnut) ---
+    const composicionCtx = document.getElementById('composicionChart');
+    if (composicionCtx && composicionData) {
+      new Chart(composicionCtx, {
+        type: 'doughnut',
+        data: {
+          labels: composicionData.labels,
+          datasets: [{ label: 'Clientes', data: composicionData.values, backgroundColor: ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#64748b'], borderColor: '#ffffff', borderWidth: 4, hoverOffset: 12 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: '70%',
+          plugins: {
+            legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 20 } },
+            tooltip: { backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#f8fafc', padding: 12, cornerRadius: 8, displayColors: true }
+          }
+        }
+      });
+    }
   });
-
-  const ctx2 = document.getElementById('chartCondicion');
-  if (ctx2) new Chart(ctx2, {
-    type: 'doughnut',
-    data: { labels: Array.isArray(compCond.labels)?compCond.labels:[], datasets: [{ data: Array.isArray(compCond.values)?compCond.values:[] }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-  });
-
-  const ctx3 = document.getElementById('chartIngresos');
-  if (ctx3) new Chart(ctx3, {
-    type: 'bar',
-    data: { labels: Array.isArray(ingresos.labels)?ingresos.labels:[], datasets: [{ label: 'Conciliado', data: Array.isArray(ingresos.values)?ingresos.values:[] }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-  });
-})();
 </script>
 {% endblock %}
