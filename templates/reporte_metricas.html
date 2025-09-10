@@ -1,4 +1,4 @@
-{# templates/reporte_metricas.html — MÉTRICAS PURAS con dona #}
+{# templates/reporte_metricas.html — MÉTRICAS PURAS, SIN groupby #}
 {% extends "base_sidebar.html" %}
 
 {% block title %}Reporte de Métricas{% endblock %}
@@ -15,14 +15,11 @@
 {% endblock %}
 
 {% block body %}
-<div x-data="{ vista: '{{ request.args.get('vista','nombres') or 'nombres' }}', show:false, row:null }" class="space-y-6">
+<div x-data="{ vista: '{{ request.args.get('vista','nombres') or 'nombres' }}' }" class="space-y-6">
 
-  {# ---------------------------- PANEL DE FILTROS (MÉTRICAS) ---------------------------- #}
-  <form id="filtrosForm"
-        method="get"
-        action="{{ url_for('reporte_metricas') }}"
+  <!-- PANEL DE FILTROS (MÉTRICAS) -->
+  <form id="filtrosForm" method="get" action="{{ url_for('reporte_metricas') }}"
         class="bg-white border rounded-2xl p-5 md:p-6 space-y-5">
-
     <div class="flex items-center justify-between">
       <h2 class="text-lg md:text-xl font-semibold">Filtros de Métricas</h2>
       <div class="flex items-center gap-2 text-xs text-slate-500">
@@ -31,7 +28,6 @@
       </div>
     </div>
 
-    <!-- Fechas (solo INSCRIPCIÓN) -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div class="border rounded-xl p-4">
         <h3 class="font-semibold mb-3">Inscripción</h3>
@@ -73,7 +69,6 @@
       </div>
     </div>
 
-    <!-- Estado del plan (multi) -->
     <div class="border rounded-xl p-4">
       <h3 class="font-semibold mb-3">Estado del plan</h3>
       {% set estados = ['Ahorrador','Adjudicado','Congelado','Retiro','Completado','Reserva','Cobranza Diferida','Diferido en Reserva','Inscrito'] %}
@@ -88,7 +83,6 @@
       </div>
     </div>
 
-    <!-- Condición (multi) -->
     <div class="border rounded-xl p-4">
       <h3 class="font-semibold mb-3">Condición</h3>
       {% set condiciones = ['Mora','Solvente','Pago impuntual','Pago parcial','Pago adelantado'] %}
@@ -103,7 +97,6 @@
       </div>
     </div>
 
-    <!-- Bloques de cuotas (6 en 6) -->
     <div class="border rounded-xl p-4">
       <h3 class="font-semibold mb-3">Bloques de cuotas (6 en 6)</h3>
       {% set buckets = ['1–6','7–12','13–18','19–24','25–30','31–36','37–42','43–48','49–54','55–60'] %}
@@ -118,7 +111,6 @@
       </div>
     </div>
 
-    <!-- Asesor (opcional) -->
     {% if asesores is defined and asesores %}
     <div class="border rounded-xl p-4">
       <h3 class="font-semibold mb-3">Asesor responsable</h3>
@@ -134,7 +126,6 @@
     </div>
     {% endif %}
 
-    <!-- Orden + Vista -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
       <label class="text-sm">
         <span class="block mb-1 text-slate-600">Ordenar por</span>
@@ -166,7 +157,6 @@
       </label>
     </div>
 
-    <!-- Acciones -->
     <div class="flex flex-wrap items-center gap-3 pt-2">
       <button class="px-4 py-2.5 rounded-xl text-white" style="background:var(--mp-azul)">Aplicar filtros</button>
       <a class="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -174,23 +164,7 @@
     </div>
   </form>
 
-  {# ---------------------------- ASIGNACIÓN DEFENSIVA DE LISTA ---------------------------- #}
-  {% set lista = [] %}
-  {% if metrics is defined %}
-    {% if metrics.clientes is defined %}
-      {% set lista = metrics.clientes %}
-    {% elif metrics is sequence %}
-      {% set lista = metrics %}
-    {% endif %}
-  {% elif metricas is defined and metricas.clientes is defined %}
-    {% set lista = metricas.clientes %}
-  {% elif clientes is defined %}
-    {% set lista = clientes %}
-  {% elif resultados is defined %}
-    {% set lista = resultados %}
-  {% endif %}
-
-  {# ---------------------------- DONA: COMPOSICIÓN POR ESTADO ---------------------------- #}
+  {# ====== DONA: COMPOSICIÓN POR ESTADO (usa metrics.composicion_clientes) ====== #}
   <section class="bg-white border border-slate-200/80 rounded-xl p-6">
     <div class="flex items-center justify-between">
       <h3 class="text-lg font-semibold text-slate-800">Composición de Cartera</h3>
@@ -201,31 +175,28 @@
     </div>
   </section>
 
-  {# ---------------------------- KPIs + DESGLOSES (SOLO CONTEOS) ---------------------------- #}
+  {# ====== KPIs + DESGLOSES (SOLO CONTEOS, derivados de metrics) ====== #}
   <section class="space-y-4">
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="bg-white border rounded-2xl p-4 kpi">
         <div class="text-xs uppercase tracking-wider text-slate-500">Clientes (total)</div>
-        <div class="text-2xl font-bold">{{ lista|length }}</div>
+        <div class="text-2xl font-bold">{{ metrics.total_clientes or 0 }}</div>
       </div>
-      {% set count_mora = (lista|selectattr('condicion','equalto','Mora')|list)|length %}
       <div class="bg-white border rounded-2xl p-4 kpi">
-        <div class="text-xs uppercase tracking-wider text-slate-500">En mora</div>
-        <div class="text-2xl font-bold">{{ count_mora }}</div>
+        <div class="text-xs uppercase tracking-wider text-slate-500">Activos</div>
+        <div class="text-2xl font-bold">{{ metrics.clientes_activos or 0 }}</div>
       </div>
-      {% set count_sol = (lista|selectattr('condicion','equalto','Solvente')|list)|length %}
       <div class="bg-white border rounded-2xl p-4 kpi">
-        <div class="text-xs uppercase tracking-wider text-slate-500">Solventes</div>
-        <div class="text-2xl font-bold">{{ count_sol }}</div>
+        <div class="text-xs uppercase tracking-wider text-slate-500">Inactivos</div>
+        <div class="text-2xl font-bold">{{ metrics.clientes_inactivos or 0 }}</div>
       </div>
-      {% set count_imp = (lista|selectattr('condicion','equalto','Pago impuntual')|list)|length %}
       <div class="bg-white border rounded-2xl p-4 kpi">
-        <div class="text-xs uppercase tracking-wider text-slate-500">Pago impuntual</div>
-        <div class="text-2xl font-bold">{{ count_imp }}</div>
+        <div class="text-xs uppercase tracking-wider text-slate-500">Adjudicados</div>
+        <div class="text-2xl font-bold">{{ metrics.clientes_adjudicados or 0 }}</div>
       </div>
     </div>
 
-    <!-- Desglose por Condición (click = agrega filtro) -->
+    <!-- Desglose por Condición (SIN groupby; usa metrics.composicion_condicion) -->
     <div class="bg-white border rounded-2xl p-5">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-lg font-semibold">Desglose por Condición</h3>
@@ -233,15 +204,13 @@
       </div>
 
       {% set condiciones = ['Mora','Solvente','Pago impuntual','Pago parcial','Pago adelantado'] %}
-      {% set grupos = lista|groupby('condicion') %}
+      {% set labels_cond = (metrics.composicion_condicion.labels if metrics is defined and metrics.composicion_condicion is defined and metrics.composicion_condicion.labels is defined else []) %}
+      {% set values_cond = (metrics.composicion_condicion.values if metrics is defined and metrics.composicion_condicion is defined and metrics.composicion_condicion.values is defined else []) %}
+
       <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {% for cond in condiciones %}
-          {% set items = [] %}
-          {% for g in grupos %}
-            {% if g.grouper == cond %}
-              {% set items = g.list %}
-            {% endif %}
-          {% endfor %}
+          {% set idx = (labels_cond.index(cond) if cond in labels_cond else -1) %}
+          {% set count = (values_cond[idx] if idx > -1 else 0) %}
           <button type="button"
                   class="text-left border rounded-xl p-4 hover:shadow transition"
                   onclick="(function(){
@@ -251,27 +220,22 @@
                     f.appendChild(i); f.submit();
                   })()">
             <div class="text-sm text-slate-500">{{ cond }}</div>
-            <div class="text-xl font-bold">{{ items|length }}</div>
+            <div class="text-xl font-bold">{{ count }}</div>
           </button>
         {% endfor %}
       </div>
     </div>
 
-    <!-- Desglose por Estado del Plan -->
+    <!-- Desglose por Estado del Plan (SIN groupby; usa metrics.estados_del_plan) -->
     <div class="bg-white border rounded-2xl p-5">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-lg font-semibold">Desglose por Estado del Plan</h3>
       </div>
 
-      {% set grupos_plan = lista|groupby('estado_plan') %}
+      {% set estados = ['Ahorrador','Adjudicado','Congelado','Retiro','Completado','Reserva','Cobranza Diferida','Diferido en Reserva','Inscrito'] %}
       <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {% for e in estados %}
-          {% set items = [] %}
-          {% for g in grupos_plan %}
-            {% if g.grouper == e %}
-              {% set items = g.list %}
-            {% endif %}
-          {% endfor %}
+          {% set count_e = (metrics.estados_del_plan[e] if metrics is defined and metrics.estados_del_plan is defined and e in metrics.estados_del_plan else 0) %}
           <button type="button"
                   class="text-left border rounded-xl p-4 hover:shadow transition"
                   onclick="(function(){
@@ -281,14 +245,16 @@
                     f.appendChild(i); f.submit();
                   })()">
             <div class="text-sm text-slate-500">{{ e }}</div>
-            <div class="text-xl font-bold">{{ items|length }}</div>
+            <div class="text-xl font-bold">{{ count_e }}</div>
           </button>
         {% endfor %}
       </div>
     </div>
   </section>
 
-  {# -------------------------------- RESULTADOS (SIN MONTOS) ------------------------------ #}
+  {# Resultados (opcionales). Si no envías una lista de clientes, se mostrará vacío sin romper. #}
+  {% set lista = clientes if clientes is defined else [] %}
+
   <section class="bg-white border rounded-2xl p-5">
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-lg font-semibold">Resultados</h3>
@@ -318,7 +284,6 @@
               <th class="px-3 py-2 text-left">Condición</th>
               <th class="px-3 py-2 text-left">N° cuota</th>
               <th class="px-3 py-2 text-left">Fecha inscripción</th>
-              <th class="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody class="divide-y">
@@ -327,16 +292,10 @@
               <td class="px-3 py-2">{{ r.cliente }}</td>
               <td class="px-3 py-2">{{ r.cedula }}</td>
               <td class="px-3 py-2">{{ r.empresa }}</td>
-              <td class="px-3 py-2">{{ r.estado_plan }}</td>
+              <td class="px-3 py-2">{{ r.estado_del_plan or r.estado_plan }}</td>
               <td class="px-3 py-2">{{ r.condicion }}</td>
               <td class="px-3 py-2">{{ r.numero_cuota }}</td>
-              <td class="px-3 py-2">
-                {{ r.fecha_inscripcion or r.fecha_registro or r.fecha_origen }}
-              </td>
-              <td class="px-3 py-2 text-right">
-                <button class="px-2 py-1 text-xs rounded text-white" style="background:var(--mp-naranja)"
-                        @click="show=true; row={{ r|tojson }};">Ver perfil</button>
-              </td>
+              <td class="px-3 py-2">{{ r.fecha_inscripcion or r.fecha_registro or r.fecha_origen }}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -351,60 +310,18 @@
     <div x-show="vista==='perfiles'" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {% for r in lista %}
       <div class="border rounded-xl p-4 space-y-2 hover:shadow transition">
-        <div class="flex items-center justify-between">
-          <div class="font-semibold">{{ r.cliente }}</div>
-          <button class="text-sm" style="color:var(--mp-azul)" @click="show=true; row={{ r|tojson }};">Ver perfil</button>
-        </div>
+        <div class="font-semibold">{{ r.cliente }}</div>
         <div class="text-xs text-slate-500">Cédula: <span class="text-slate-700">{{ r.cedula }}</span></div>
         <div class="text-xs text-slate-500">Empresa: <span class="text-slate-700">{{ r.empresa }}</span></div>
-        <div class="text-xs text-slate-500">Estado plan: <span class="text-slate-700">{{ r.estado_plan }}</span></div>
+        <div class="text-xs text-slate-500">Estado plan: <span class="text-slate-700">{{ r.estado_del_plan or r.estado_plan }}</span></div>
         <div class="text-xs text-slate-500">Condición: <span class="text-slate-700">{{ r.condicion }}</span></div>
         <div class="text-xs text-slate-500">N° cuota: <span class="text-slate-700">{{ r.numero_cuota }}</span></div>
         <div class="text-xs text-slate-500">Inscripción: <span class="text-slate-700">{{ r.fecha_inscripcion or r.fecha_registro or r.fecha_origen }}</span></div>
-
-        {% if r.cliente_id %}
-        <div class="pt-2">
-          <a class="inline-flex items-center text-xs underline" style="color:var(--mp-azul)"
-             href="/admin/clientes/{{ r.cliente_id }}"
-             target="_blank">Abrir ficha completa</a>
-        </div>
-        {% endif %}
       </div>
       {% else %}
         <div class="text-center py-10 text-slate-500 col-span-full">Sin resultados con los filtros actuales.</div>
       {% endfor %}
     </div>
-
-    <!-- Modal (perfil simple, sin montos) -->
-    <div x-show="show" x-transition
-         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-         @click.self="show=false">
-      <div class="bg-white w-full max-w-xl rounded-2xl shadow-lg p-5">
-        <div class="flex items-center justify-between mb-3">
-          <h4 class="text-lg font-semibold">Perfil de <span x-text="row?.cliente||''"></span></h4>
-          <button class="text-slate-500 hover:text-slate-700" @click="show=false" aria-label="Cerrar">×</button>
-        </div>
-        <div class="grid grid-cols-2 gap-3 text-sm">
-          <div><span class="text-slate-500">Cédula:</span> <span class="text-slate-800" x-text="row?.cedula"></span></div>
-          <div><span class="text-slate-500">Empresa:</span> <span class="text-slate-800" x-text="row?.empresa"></span></div>
-          <div><span class="text-slate-500">Estado plan:</span> <span class="text-slate-800" x-text="row?.estado_plan"></span></div>
-          <div><span class="text-slate-500">Condición:</span> <span class="text-slate-800" x-text="row?.condicion"></span></div>
-          <div><span class="text-slate-500">N° cuota:</span> <span class="text-slate-800" x-text="row?.numero_cuota"></span></div>
-          <div><span class="text-slate-500">Inscripción:</span> <span class="text-slate-800" x-text="row?.fecha_inscripcion || row?.fecha_registro || row?.fecha_origen"></span></div>
-        </div>
-        <div class="mt-4 flex items-center justify-end gap-2">
-          <a :href="'/admin/clientes/'+(row?.cliente_id||'')"
-             target="_blank"
-             class="px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-md text-slate-700"
-             :class="!row?.cliente_id ? 'pointer-events-none opacity-50' : ''">
-            Abrir en nueva pestaña
-          </a>
-          <button class="px-3 py-2 text-sm text-white rounded-md" style="background:var(--mp-azul)"
-                  @click="show=false">Cerrar</button>
-        </div>
-      </div>
-    </div>
-
   </section>
 </div>
 {% endblock %}
@@ -417,23 +334,13 @@ document.addEventListener('DOMContentLoaded', function () {
   Chart.defaults.color = '#64748b';
   Chart.defaults.font.weight = '500';
 
-  // ¿Viene la composición desde el backend?
-  const hasMetrics = {{ 'true' if (metrics is defined and metrics.composicion_clientes is defined and 'labels' in metrics.composicion_clientes and 'values' in metrics.composicion_clientes) else 'false' }};
+  const hasComp = {{ 'true' if (metrics is defined and metrics.composicion_clientes is defined and metrics.composicion_clientes.labels and metrics.composicion_clientes.values) else 'false' }};
+  const labels = hasComp ? {{ (metrics.composicion_clientes.labels if metrics is defined and metrics.composicion_clientes is defined else [])|tojson|safe }} : [];
+  const values = hasComp ? {{ (metrics.composicion_clientes.values if metrics is defined and metrics.composicion_clientes is defined else [])|tojson|safe }} : [];
 
-  // Fallback: agrupar lista por 'estado_plan'
-  {% set grupos_estado = lista|groupby('estado_plan') %}
-
-  const labels = hasMetrics
-    ? {{ (metrics.composicion_clientes['labels'] if (metrics is defined and metrics.composicion_clientes is defined) else [])|tojson|safe }}
-    : [ {% for g in grupos_estado %} {{ (g.grouper or 'Sin estado')|tojson }} {% if not loop.last %},{% endif %}{% endfor %} ];
-
-  const values = hasMetrics
-    ? {{ (metrics.composicion_clientes['values'] if (metrics is defined and metrics.composicion_clientes is defined) else [])|tojson|safe }}
-    : [ {% for g in grupos_estado %} {{ (g.list|length) }} {% if not loop.last %},{% endif %}{% endfor %} ];
-
-  const ctx = document.getElementById('composicionChart');
-  if (ctx) {
-    new Chart(ctx.getContext('2d'), {
+  const el = document.getElementById('composicionChart');
+  if (el) {
+    new Chart(el.getContext('2d'), {
       type: 'doughnut',
       data: {
         labels,
