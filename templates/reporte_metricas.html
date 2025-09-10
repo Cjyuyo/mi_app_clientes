@@ -1,281 +1,308 @@
-{% extends 'base_sidebar.html' %}
-{% block title %}Planificación Financiera{% endblock %}
+{# reporte_metricas.html #}
+{% extends "base_sidebar.html" %}
+
+{% block title %}Reporte de Métricas{% endblock %}
+{% block page_title %}Reporte de Métricas{% endblock %}
+
+{% block head_extra %}
+<style>
+  :root{
+    --mp-azul:#2B3A55;
+    --mp-naranja:#F99417;
+  }
+  .kpi{ box-shadow: 0 10px 25px -12px rgba(0,0,0,.15); }
+  .chip{ border:1px solid rgba(0,0,0,.08); }
+</style>
+{% endblock %}
 
 {% block body %}
-<script>window.BLOQUES_INICIALES = {{ (bloques_iniciales or "[]")|safe }};</script>
+<div x-data="{ vista: '{{ request.args.get('vista','nombres') or 'nombres' }}', show:false, row:null }" class="space-y-6">
 
-<div class="space-y-8" x-data="escenariosBuilder()" x-init="init()">
+  {# ---------------------------- PANEL DE FILTROS ---------------------------- #}
+  <form id="filtrosForm"
+        method="get"
+        action="{{ url_for('reporte_metricas') if 'reporte_metricas' in globals() else request.path }}"
+        class="bg-white border rounded-2xl p-5 md:p-6 space-y-5">
 
-  <!-- Encabezado -->
-  <header class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-    <div class="flex flex-col md:flex-row justify-between md:items-center">
-      <div class="flex items-center gap-4 mb-4 md:mb-0">
-        <div class="w-12 h-12 flex items-center justify-center rounded-full bg-sky-100 text-sky-600">
-          <i class="bi bi-sliders text-2xl"></i>
-        </div>
-        <div>
-          <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Planificación de Escenarios</h1>
-          <p class="text-slate-500 mt-1">Define y combina bloques de filtros para proyectar y gestionar la cobranza.</p>
-        </div>
-      </div>
-
-      <!-- Exportaciones -->
-      <div class="flex items-center gap-2">
-        <form method="GET" action="{{ url_for('exportar_proyecciones', formato='xlsx') }}">
-          <input type="hidden" name="bloques_json" :value="jsonBloquesMarcados()">
-          <button class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center">
-            <i class="bi bi-file-earmark-excel mr-2"></i> Excel
-          </button>
-        </form>
-        <form method="GET" action="{{ url_for('exportar_proyecciones', formato='pdf') }}">
-          <input type="hidden" name="bloques_json" :value="jsonBloquesMarcados()">
-          <button class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center">
-            <i class="bi bi-filetype-pdf mr-2"></i> PDF
-          </button>
-        </form>
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg md:text-xl font-semibold">Filtros de Métricas</h2>
+      <div class="flex items-center gap-2 text-xs text-slate-500">
+        <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:var(--mp-naranja)"></span>
+        Identidad Moto Plan
       </div>
     </div>
 
-    <!-- Alertas de error del backend -->
-    {% if proyecciones and proyecciones.mensaje_error %}
-      <div class="mt-4 rounded-md border border-rose-200 bg-rose-50 p-4 text-rose-700">
-        <div class="flex items-start gap-3">
-          <i class="bi bi-exclamation-triangle-fill mt-0.5"></i>
-          <div>
-            <p class="font-semibold">Error en la simulación</p>
-            <p class="text-sm mt-0.5">{{ proyecciones.mensaje_error }}</p>
-          </div>
+    <!-- Fechas -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="border rounded-xl p-4">
+        <h3 class="font-semibold mb-3">Inscripción</h3>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="text-sm">
+            <span class="block mb-1 text-slate-600">Desde</span>
+            <input type="date" name="insc_desde" value="{{ request.args.get('insc_desde','') }}" class="w-full border rounded-lg px-3 py-2">
+          </label>
+          <label class="text-sm">
+            <span class="block mb-1 text-slate-600">Hasta</span>
+            <input type="date" name="insc_hasta" value="{{ request.args.get('insc_hasta','') }}" class="w-full border rounded-lg px-3 py-2">
+          </label>
         </div>
       </div>
+
+      <div class="border rounded-xl p-4">
+        <h3 class="font-semibold mb-3">Cobranza (fecha de cuota)</h3>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="text-sm">
+            <span class="block mb-1 text-slate-600">Desde</span>
+            <input type="date" name="fecha_inicio" value="{{ request.args.get('fecha_inicio','') }}" class="w-full border rounded-lg px-3 py-2">
+          </label>
+          <label class="text-sm">
+            <span class="block mb-1 text-slate-600">Hasta</span>
+            <input type="date" name="fecha_fin" value="{{ request.args.get('fecha_fin','') }}" class="w-full border rounded-lg px-3 py-2">
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Segmentación -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <label class="text-sm">
+        <span class="block mb-1 text-slate-600">Empresa</span>
+        {% set emp = request.args.get('empresa','') %}
+        <select name="empresa" class="w-full border rounded-lg px-3 py-2">
+          <option value="" {{ 'selected' if emp=='' else '' }}>Todas</option>
+          <option value="Moto Plan" {{ 'selected' if emp=='Moto Plan' else '' }}>Moto Plan</option>
+          <option value="CYK" {{ 'selected' if emp=='CYK' else '' }}>CYK</option>
+        </select>
+      </label>
+
+      <label class="text-sm">
+        <span class="block mb-1 text-slate-600">Estatus de cliente</span>
+        {% set ec = request.args.get('estatus_cliente','') %}
+        <select name="estatus_cliente" class="w-full border rounded-lg px-3 py-2">
+          <option value="" {{ 'selected' if ec=='' else '' }}>Todos</option>
+          <option value="ACTIVO" {{ 'selected' if ec=='ACTIVO' else '' }}>ACTIVO</option>
+          <option value="INACTIVO" {{ 'selected' if ec=='INACTIVO' else '' }}>INACTIVO</option>
+        </select>
+      </label>
+
+      <label class="text-sm">
+        <span class="block mb-1 text-slate-600">Estatus de cuota</span>
+        {% set eq = request.args.get('estatus_cuota','') %}
+        <select name="estatus_cuota" class="w-full border rounded-lg px-3 py-2">
+          <option value="" {{ 'selected' if eq=='' else '' }}>Todos</option>
+          <option value="PAGADA" {{ 'selected' if eq=='PAGADA' else '' }}>Pagada</option>
+          <option value="PENDIENTE" {{ 'selected' if eq=='PENDIENTE' else '' }}>Pendiente</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- Estado del plan -->
+    <div class="border rounded-xl p-4">
+      <h3 class="font-semibold mb-3">Estado del plan</h3>
+      {% set estados = ['Ahorrador','Adjudicado','Congelado','Retiro','Completado','Reserva','Cobranza Diferida','Diferido en Reserva','Inscrito'] %}
+      {% set sel_estados = request.args.getlist('estado_plan[]') %}
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+        {% for e in estados %}
+        <label class="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" name="estado_plan[]" value="{{ e }}" {{ 'checked' if e in sel_estados else '' }} class="rounded border">
+          <span>{{ e }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Condición -->
+    <div class="border rounded-xl p-4">
+      <h3 class="font-semibold mb-3">Condición</h3>
+      {% set condiciones = ['Mora','Solvente','Pago impuntual','Pago parcial','Pago adelantado'] %}
+      {% set sel_cond = request.args.getlist('condicion[]') %}
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+        {% for c in condiciones %}
+        <label class="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" name="condicion[]" value="{{ c }}" {{ 'checked' if c in sel_cond else '' }} class="rounded border">
+          <span>{{ c }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Bloques de cuotas (6 en 6) -->
+    <div class="border rounded-xl p-4">
+      <h3 class="font-semibold mb-3">Bloques de cuotas (6 en 6)</h3>
+      {% set buckets = ['1–6','7–12','13–18','19–24','25–30','31–36','37–42','43–48','49–54','55–60'] %}
+      {% set sel_b = request.args.getlist('cuota_bucket[]') %}
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+        {% for b in buckets %}
+        <label class="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" name="cuota_bucket[]" value="{{ b }}" {{ 'checked' if b in sel_b else '' }} class="rounded border">
+          <span>{{ b }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Asesor (opcional) -->
+    {% if asesores %}
+    <div class="border rounded-xl p-4">
+      <h3 class="font-semibold mb-3">Asesor responsable</h3>
+      {% set sel_ases = request.args.getlist('asesor_id[]') %}
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+        {% for a in asesores %}
+        <label class="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" name="asesor_id[]" value="{{ a.id }}" {{ 'checked' if (a.id|string) in sel_ases else '' }} class="rounded border">
+          <span>{{ a.nombre }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
     {% endif %}
 
-    <!-- FILTROS DEL BLOQUE ACTUAL -->
-    <form @submit.prevent="agregarBloqueActual()" class="mt-6">
-      <!-- Primera fila: dos rangos de fechas, bien separados -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end bg-slate-50 p-4 rounded-lg border border-slate-200">
-        <!-- Rango COBRANZA (cuotas) -->
-        <div class="lg:col-span-6">
-          <div class="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wide">Cobranza (cuotas)</div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label class="text-[11px] text-slate-500 block">Fecha de inicio de cobranza</label>
-              <input type="date" x-model="form.fecha_inicio" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            </div>
-            <div>
-              <label class="text-[11px] text-slate-500 block">Fecha de finalización de la cobranza</label>
-              <input type="date" x-model="form.fecha_fin" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            </div>
-          </div>
-        </div>
-
-        <!-- Separador visual -->
-        <div class="hidden lg:block lg:col-span-0 border-l border-slate-200 h-full mx-1"></div>
-
-        <!-- Rango INSCRIPCIÓN (clientes) -->
-        <div class="lg:col-span-6">
-          <div class="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wide">Inscripción (clientes)</div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label class="text-[11px] text-slate-500 block">Inscripción desde</label>
-              <input type="date" x-model="form.insc_desde" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            </div>
-            <div>
-              <label class="text-[11px] text-slate-500 block">Inscripción hasta</label>
-              <input type="date" x-model="form.insc_hasta" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            </div>
-          </div>
-        </div>
-
-        <!-- Empresa -->
-        <div class="lg:col-span-3">
-          <label class="text-xs font-medium text-slate-600">Empresa</label>
-          <select x-model="form.empresa" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            <option value="">Todas</option>
-            <option value="Moto Plan">Moto Plan</option>
-            <option value="CYK">CYK</option>
-          </select>
-        </div>
-
-        <!-- Estatus cliente -->
-        <div class="lg:col-span-3">
-          <label class="text-xs font-medium text-slate-600">Estatus cliente</label>
-          <select x-model="form.estatus_cliente" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            <option value="">Todos</option>
-            <option value="ACTIVO">ACTIVO</option>
-            <option value="INACTIVO">INACTIVO</option>
-          </select>
-        </div>
-
-        <!-- Estatus de cuota -->
-        <div class="lg:col-span-3">
-          <label class="text-xs font-medium text-slate-600">Estatus de cuota</label>
-          <select x-model="form.estatus_cuota" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            <option value="">Todos</option>
-            <option value="PAGADA">Pagada</option>
-            <option value="PENDIENTE">Pendiente</option>
-          </select>
-        </div>
-
-        <!-- Excluir RC -->
-        <div class="lg:col-span-3 flex items-center gap-2 pt-6">
-          <input id="excluir_rc" type="checkbox" x-model="form.excluir_rc" class="rounded">
-          <label for="excluir_rc" class="text-xs font-medium text-slate-600">Excluir RETIRO y COMPLETADO</label>
-        </div>
-      </div>
-
-      <!-- Multiselección: Estado del plan y Condición -->
-      <div class="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <!-- Estado del plan -->
-        <div x-data="{open:false}" @keydown.escape.window="open=false" class="relative">
-          <label class="text-xs font-medium text-slate-600">Estado del plan</label>
-          <button type="button" @click="open=!open" class="mt-1 form-input w-full flex justify-between items-center rounded-md border border-slate-300 text-sm px-3 py-2">
-            <span class="truncate" x-text="resumenEstados()"></span>
-            <i class="bi bi-caret-down-fill text-slate-500 text-xs ml-2"></i>
-          </button>
-          <div x-show="open" @click.outside="open=false" x-transition
-               class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg p-3">
-            <div class="flex flex-col gap-2 max-h-56 overflow-auto">
-              <template x-for="e in estadosAll" :key="e">
-                <label class="inline-flex items-center gap-2 text-sm">
-                  <input type="checkbox" class="rounded" :value="e" @change="toggleEstado(e)" :checked="form.estados.includes(e)">
-                  <span x-text="e"></span>
-                </label>
-              </template>
-            </div>
-          </div>
-        </div>
-
-        <!-- Condición -->
-        <div x-data="{open:false}" @keydown.escape.window="open=false" class="relative">
-          <label class="text-xs font-medium text-slate-600">Condición</label>
-          <button type="button" @click="open=!open" class="mt-1 form-input w-full flex justify-between items-center rounded-md border border-slate-300 text-sm px-3 py-2">
-            <span class="truncate" x-text="resumenCondiciones()"></span>
-            <i class="bi bi-caret-down-fill text-slate-500 text-xs ml-2"></i>
-          </button>
-          <div x-show="open" @click.outside="open=false" x-transition
-               class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg p-3">
-            <div class="flex flex-col gap-2 max-h-56 overflow-auto">
-              <template x-for="c in condicionesAll" :key="c">
-                <label class="inline-flex items-center gap-2 text-sm">
-                  <input type="checkbox" class="rounded" :value="c" @change="toggleCondicion(c)" :checked="form.condiciones.includes(c)">
-                  <span x-text="c"></span>
-                </label>
-              </template>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Acciones de bloque -->
-      <div class="mt-4 flex flex-wrap items-center gap-3">
-        <button type="submit" class="py-2 px-4 rounded-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700">
-          Agregar bloque
-        </button>
-        <button type="button" @click="limpiarActual()" class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200">
-          Limpiar bloque
-        </button>
-      </div>
-    </form>
-  </header>
-
-  <!-- Bloques -->
-  <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-xl font-bold text-slate-800">Bloques de simulación</h3>
-      <div class="flex items-center gap-2">
-        <button class="py-2 px-4 rounded-md text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700"
-                @click="simularBloques()">
-          <i class="bi bi-calculator-fill mr-1"></i> Simular bloques
-        </button>
-      </div>
+    <!-- Toggles + Orden/Vista -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <label class="inline-flex items-center gap-2 text-sm">
+        <input type="checkbox" name="excluir_rc" value="1" {{ 'checked' if request.args.get('excluir_rc')=='1' else '' }} class="rounded border">
+        <span>Excluir RETIRO y COMPLETADO</span>
+      </label>
+      <label class="inline-flex items-center gap-2 text-sm">
+        <input type="checkbox" name="solo_con_cuotas" value="1" {{ 'checked' if request.args.get('solo_con_cuotas')=='1' else '' }} class="rounded border">
+        <span>Solo clientes con cuotas en rango</span>
+      </label>
+      <label class="inline-flex items-center gap-2 text-sm">
+        <input type="checkbox" name="incluir_sin_cuotas" value="1" {{ 'checked' if request.args.get('incluir_sin_cuotas')=='1' else '' }} class="rounded border">
+        <span>Incluir clientes sin cuotas</span>
+      </label>
     </div>
 
-    <template x-if="!bloques.length">
-      <p class="text-slate-500 text-sm">Aún no hay bloques. Agrega al menos uno desde el formulario de arriba.</p>
-    </template>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" x-show="bloques.length">
-      <template x-for="(b, idx) in bloques" :key="idx">
-        <div class="border rounded-lg p-4 space-y-2">
-          <div class="flex items-center justify-between">
-            <h4 class="font-semibold text-slate-800">Bloque <span x-text="idx+1"></span></h4>
-            <div class="flex items-center gap-2">
-              <label class="inline-flex items-center gap-2 text-sm">
-                <input type="checkbox" class="rounded" x-model="b.incluir">
-                <span>Incluir en global</span>
-              </label>
-              <button class="text-rose-600 hover:text-rose-700 text-sm" @click="eliminarBloque(idx)">
-                Eliminar
-              </button>
-            </div>
-          </div>
-          <p class="text-xs text-slate-500"><strong>Cobranza:</strong> <span x-text="b.fecha_inicio || '—'"></span> → <span x-text="b.fecha_fin || '—'"></span></p>
-          <p class="text-xs text-slate-500"><strong>Inscripción:</strong> <span x-text="b.insc_desde || '—'"></span> → <span x-text="b.insc_hasta || '—'"></span></p>
-          <p class="text-xs text-slate-500"><strong>Empresa:</strong> <span x-text="b.empresa || 'Todas'"></span></p>
-          <p class="text-xs text-slate-500"><strong>Estatus cliente:</strong> <span x-text="b.estatus_cliente || 'Todos'"></span></p>
-          <p class="text-xs text-slate-500"><strong>Estatus cuota:</strong> <span x-text="b.estatus_cuota || 'Todos'"></span></p>
-          <p class="text-xs text-slate-500"><strong>Estados plan:</strong> <span x-text="(b.estados && b.estados.length)? b.estados.join(', '): 'Todos'"></span></p>
-          <p class="text-xs text-slate-500"><strong>Condición:</strong> <span x-text="(b.condiciones && b.condiciones.length)? b.condiciones.join(', '): 'Todas'"></span></p>
-          <p class="text-xs text-slate-500"><strong>Excluir RC:</strong> <span x-text="b.excluir_rc ? 'Sí' : 'No'"></span></p>
-        </div>
-      </template>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <label class="text-sm">
+        <span class="block mb-1 text-slate-600">Ordenar por</span>
+        {% set ord = request.args.get('orden','') %}
+        <select name="orden" class="w-full border rounded-lg px-3 py-2">
+          <option value="">(por defecto)</option>
+          <option value="cliente" {{ 'selected' if ord=='cliente' else '' }}>Cliente</option>
+          <option value="estado_plan" {{ 'selected' if ord=='estado_plan' else '' }}>Estado plan</option>
+          <option value="condicion" {{ 'selected' if ord=='condicion' else '' }}>Condición</option>
+          <option value="numero_cuota" {{ 'selected' if ord=='numero_cuota' else '' }}>Número de cuota</option>
+          <option value="fecha_pago" {{ 'selected' if ord=='fecha_pago' else '' }}>Fecha de pago</option>
+          <option value="monto" {{ 'selected' if ord=='monto' else '' }}>Monto</option>
+        </select>
+      </label>
+      <label class="text-sm">
+        <span class="block mb-1 text-slate-600">Dirección</span>
+        {% set d = request.args.get('dir','asc') %}
+        <select name="dir" class="w-full border rounded-lg px-3 py-2">
+          <option value="asc" {{ 'selected' if d=='asc' else '' }}>Ascendente</option>
+          <option value="desc" {{ 'selected' if d=='desc' else '' }}>Descendente</option>
+        </select>
+      </label>
+      <label class="text-sm">
+        <span class="block mb-1 text-slate-600">Vista</span>
+        {% set v = request.args.get('vista','nombres') %}
+        <select name="vista" class="w-full border rounded-lg px-3 py-2" x-model="vista">
+          <option value="nombres">Lista (nombres)</option>
+          <option value="perfiles">Perfiles completos</option>
+        </select>
+      </label>
     </div>
 
-    <!-- Form GET oculto para simular -->
-    <form id="form-simular" method="GET" action="{{ url_for('reporte_proyecciones') }}">
-      <input type="hidden" name="bloques_json" :value="jsonBloquesMarcados()">
-    </form>
-  </section>
-
-  <!-- Resultados por bloque -->
-  {% set _rb = resultados_por_bloque|default([]) %}
-  {% if _rb %}
-  <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-    <h3 class="text-xl font-bold text-slate-800 mb-4">Resultados por bloque</h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {% for r in _rb %}
-        <div class="border rounded-lg p-4">
-          <div class="text-sm text-slate-500">Bloque {{ r.indice }}</div>
-          <div class="mt-2 text-slate-800">
-            <div class="text-sm"><span class="text-slate-500">Clientes:</span> <strong>{{ r.clientes }}</strong></div>
-            <div class="text-sm"><span class="text-slate-500">Total USD:</span> <strong>${{ "{:,.2f}".format(r.total_usd) }}</strong></div>
-          </div>
-          {% if r.detalle %}
-          <div class="mt-3 text-xs text-slate-500">
-            <div><strong>Rango cobranza:</strong> {{ r.detalle.fecha_inicio or '—' }} → {{ r.detalle.fecha_fin or '—' }}</div>
-            <div><strong>Rango inscripción:</strong> {{ r.detalle.insc_desde or '—' }} → {{ r.detalle.insc_hasta or '—' }}</div>
-          </div>
-          {% endif %}
-        </div>
-      {% endfor %}
+    <div class="flex flex-wrap items-center gap-3 pt-2">
+      <button class="px-4 py-2.5 rounded-xl text-white" style="background:var(--mp-azul)">Aplicar filtros</button>
+      <a class="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
+         href="{{ url_for('reporte_metricas') if 'reporte_metricas' in globals() else request.path }}">Limpiar</a>
+      <div class="ml-auto flex items-center gap-2">
+        <select name="formato" class="border rounded-lg px-3 py-2 text-sm">
+          <option value="">Exportar…</option>
+          <option value="xlsx">Excel</option>
+          <option value="pdf">PDF</option>
+        </select>
+        <button class="px-3 py-2 rounded-lg text-white" style="background:var(--mp-naranja)">Descargar</button>
+      </div>
     </div>
-  </section>
+  </form>
+
+  {# ---------------------------- KPIs + DESGLOSE ----------------------------- #}
+  {% set lista = (metricas.clientes if metricas and attribute(metricas,'clientes') else (clientes if clients is not defined else clients)) %}
+  {% if not lista %}
+    {% set lista = resultados if resultados else [] %}
   {% endif %}
 
-  <!-- KPIs + Tabla -->
-  {% if simulacion_realizada and proyecciones.simulacion_exitosa %}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <div class="bg-white p-5 rounded-xl shadow-sm border text-center">
-        <div class="text-sm text-slate-500">Ingresos Proyectados</div>
-        <div class="text-2xl font-bold text-slate-800 mt-1">${{ "{:,.2f}".format(proyecciones.resumen.ingresos_totales_proyectados) }}</div>
+  <section class="space-y-4">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="bg-white border rounded-2xl p-4 kpi">
+        <div class="text-xs uppercase tracking-wider text-slate-500">Registros</div>
+        <div class="text-2xl font-bold">{{ lista|length }}</div>
       </div>
-      <div class="bg-white p-5 rounded-xl shadow-sm border text-center">
-        <div class="text-sm text-slate-500">Gastos Proyectados</div>
-        <div class="text-2xl font-bold text-slate-800 mt-1">${{ "{:,.2f}".format(proyecciones.resumen.gastos_totales_proyectados) }}</div>
+      <div class="bg-white border rounded-2xl p-4 kpi">
+        <div class="text-xs uppercase tracking-wider text-slate-500">Total (USD)</div>
+        {% set total = lista|sum(attribute='monto_usd') if lista else 0 %}
+        <div class="text-2xl font-bold">${{ "{:,.2f}".format(total or 0) }}</div>
       </div>
-      <div class="bg-white p-5 rounded-xl shadow-sm border text-center">
-        <div class="text-sm text-slate-500">Balance Neto Proyectado</div>
-        <div class="text-2xl font-bold {{ 'text-green-600' if proyecciones.resumen.balance_neto_proyectado >= 0 else 'text-red-600' }} mt-1">
-          ${{ "{:,.2f}".format(proyecciones.resumen.balance_neto_proyectado) }}
-        </div>
+      {% set mora = lista|selectattr('condicion','equalto','Mora')|list %}
+      <div class="bg-white border rounded-2xl p-4 kpi">
+        <div class="text-xs uppercase tracking-wider text-slate-500">En mora</div>
+        <div class="text-2xl font-bold">{{ mora|length }}</div>
       </div>
-      <div class="bg-white p-5 rounded-xl shadow-sm border text-center">
-        <div class="text-sm text-slate-500">Clientes a Cobrar</div>
-        <div class="text-2xl font-bold text-slate-800 mt-1">{{ proyecciones.resumen.clientes_a_cobrar }}</div>
+      {% set solv = lista|selectattr('condicion','equalto','Solvente')|list %}
+      <div class="bg-white border rounded-2xl p-4 kpi">
+        <div class="text-xs uppercase tracking-wider text-slate-500">Solventes</div>
+        <div class="text-2xl font-bold">{{ solv|length }}</div>
       </div>
     </div>
 
-    <div class="bg-white p-6 rounded-xl shadow-sm border">
+    <!-- Tarjetas de Desglose por Condición -->
+    <div class="bg-white border rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-semibold">Desglose por Condición</h3>
+        <p class="text-sm text-slate-500">Clic en una tarjeta para filtrar.</p>
+      </div>
+
+      {% set condiciones = ['Mora','Solvente','Pago impuntual','Pago parcial','Pago adelantado'] %}
+      {% set grupos = lista|groupby('condicion') %}
+      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        {% for cond in condiciones %}
+          {% set items = [] %}
+          {% for g in grupos %}
+            {% if g.grouper == cond %}
+              {% set items = g.list %}
+            {% endif %}
+          {% endfor %}
+          {% set subtotal = items|sum(attribute='monto_usd') if items else 0 %}
+          <button type="button"
+                  class="text-left border rounded-xl p-4 hover:shadow transition"
+                  onclick="(function(){
+                    const f=document.getElementById('filtrosForm');
+                    const i=document.createElement('input');
+                    i.type='hidden'; i.name='condicion[]'; i.value='{{ cond }}';
+                    f.appendChild(i); f.submit();
+                  })()">
+            <div class="text-sm text-slate-500">{{ cond }}</div>
+            <div class="text-xl font-bold">{{ items|length }}</div>
+            <div class="text-xs text-slate-500 mt-1">Total: ${{ '{:,.2f}'.format(subtotal or 0) }}</div>
+          </button>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  {# -------------------------------- RESULTADOS ------------------------------ #}
+  <section class="bg-white border rounded-2xl p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold">Resultados</h3>
+      <div class="inline-flex rounded-xl overflow-hidden border">
+        <button type="button"
+                :class="vista==='nombres' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'"
+                class="px-3 py-1.5 text-sm"
+                @click="vista='nombres'">Lista (nombres)</button>
+        <button type="button"
+                :class="vista==='perfiles' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'"
+                class="px-3 py-1.5 text-sm border-l"
+                @click="vista='perfiles'">Perfiles</button>
+      </div>
+    </div>
+
+    <!-- Lista -->
+    <div x-show="vista==='nombres'">
+      {% if lista and lista|length %}
       <div class="overflow-x-auto">
         <table class="min-w-full text-sm">
           <thead class="bg-slate-100 text-slate-600">
@@ -283,106 +310,97 @@
               <th class="px-3 py-2 text-left">Cliente</th>
               <th class="px-3 py-2 text-left">Cédula</th>
               <th class="px-3 py-2 text-left">Estado plan</th>
-              <th class="px-3 py-2 text-right">Cuota</th>
               <th class="px-3 py-2 text-left">Condición</th>
               <th class="px-3 py-2 text-left">Estatus cuota</th>
               <th class="px-3 py-2 text-left">Fecha pago</th>
               <th class="px-3 py-2 text-right">Monto (USD)</th>
-              <th class="px-3 py-2 text-left">Método</th>
+              <th class="px-3 py-2"></th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-200">
-            {% for r in proyecciones.clientes_a_cobrar %}
-              <tr>
-                <td class="px-3 py-2">{{ r.cliente }}</td>
-                <td class="px-3 py-2">{{ r.cedula }}</td>
-                <td class="px-3 py-2">{{ r.estado_plan }}</td>
-                <td class="px-3 py-2 text-right">{{ r.numero_cuota }}</td>
-                <td class="px-3 py-2">{{ r.condicion }}</td>
-                <td class="px-3 py-2">{{ r.estatus_cuota }}</td>
-                <td class="px-3 py-2">{{ r.fecha_pago }}</td>
-                <td class="px-3 py-2 text-right">{{ "{:,.2f}".format(r.monto_usd) }}</td>
-                <td class="px-3 py-2">{{ r.metodo }}</td>
-              </tr>
+          <tbody class="divide-y">
+            {% for r in lista %}
+            <tr class="hover:bg-slate-50">
+              <td class="px-3 py-2">{{ r.cliente }}</td>
+              <td class="px-3 py-2">{{ r.cedula }}</td>
+              <td class="px-3 py-2">{{ r.estado_plan }}</td>
+              <td class="px-3 py-2">{{ r.condicion }}</td>
+              <td class="px-3 py-2">{{ r.estatus_cuota }}</td>
+              <td class="px-3 py-2">{{ r.fecha_pago }}</td>
+              <td class="px-3 py-2 text-right">${{ "{:,.2f}".format(r.monto_usd or 0) }}</td>
+              <td class="px-3 py-2 text-right">
+                <button class="px-2 py-1 text-xs rounded text-white" style="background:var(--mp-naranja)"
+                        @click="show=true; row={{ r|tojson }};">Ver perfil</button>
+              </td>
+            </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
+      {% else %}
+      <div class="text-center py-10 text-slate-500">Sin resultados con los filtros actuales.</div>
+      {% endif %}
     </div>
-  {% endif %}
+
+    <!-- Perfiles -->
+    <div x-show="vista==='perfiles'" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {% for r in lista %}
+      <div class="border rounded-xl p-4 space-y-2 hover:shadow transition">
+        <div class="flex items-center justify-between">
+          <div class="font-semibold">{{ r.cliente }}</div>
+          <button class="text-sm" style="color:var(--mp-azul)" @click="show=true; row={{ r|tojson }};">Ver perfil</button>
+        </div>
+        <div class="text-xs text-slate-500">Cédula: <span class="text-slate-700">{{ r.cedula }}</span></div>
+        <div class="text-xs text-slate-500">Estado plan: <span class="text-slate-700">{{ r.estado_plan }}</span></div>
+        <div class="text-xs text-slate-500">Condición: <span class="text-slate-700">{{ r.condicion }}</span></div>
+        <div class="text-xs text-slate-500">Estatus cuota: <span class="text-slate-700">{{ r.estatus_cuota }}</span></div>
+        <div class="text-xs text-slate-500">Fecha pago: <span class="text-slate-700">{{ r.fecha_pago }}</span></div>
+        <div class="text-xs text-slate-500">Monto: <span class="text-slate-700">${{ "{:,.2f}".format(r.monto_usd or 0) }}</span></div>
+
+        {% if r.cliente_id %}
+        <div class="pt-2">
+          <a class="inline-flex items-center text-xs underline" style="color:var(--mp-azul)"
+             href="{{ url_for('ver_cliente', cliente_id=r.cliente_id) if 'ver_cliente' in globals() else 'javascript:void(0)' }}"
+             target="_blank">Abrir ficha completa</a>
+        </div>
+        {% endif %}
+      </div>
+      {% else %}
+        <div class="text-center py-10 text-slate-500 col-span-full">Sin resultados con los filtros actuales.</div>
+      {% endfor %}
+    </div>
+
+    <!-- Modal -->
+    <div x-show="show" x-transition
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+         @click.self="show=false">
+      <div class="bg-white w-full max-w-xl rounded-2xl shadow-lg p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h4 class="text-lg font-semibold">Perfil de <span x-text="row?.cliente||''"></span></h4>
+          <button class="text-slate-500 hover:text-slate-700" @click="show=false" aria-label="Cerrar">×</button>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <div><span class="text-slate-500">Cédula:</span> <span class="text-slate-800" x-text="row?.cedula"></span></div>
+          <div><span class="text-slate-500">Estado plan:</span> <span class="text-slate-800" x-text="row?.estado_plan"></span></div>
+          <div><span class="text-slate-500">Condición:</span> <span class="text-slate-800" x-text="row?.condicion"></span></div>
+          <div><span class="text-slate-500">Estatus cuota:</span> <span class="text-slate-800" x-text="row?.estatus_cuota"></span></div>
+          <div><span class="text-slate-500">Fecha pago:</span> <span class="text-slate-800" x-text="row?.fecha_pago"></span></div>
+          <div><span class="text-slate-500">Monto (USD):</span> <span class="text-slate-800" x-text="Number(row?.monto_usd||0).toFixed(2)"></span></div>
+        </div>
+        <div class="mt-4 flex items-center justify-end gap-2">
+          <a :href="'/admin/clientes/'+(row?.cliente_id||'')"
+             target="_blank"
+             class="px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-md text-slate-700"
+             :class="!row?.cliente_id ? 'pointer-events-none opacity-50' : ''">
+            Abrir en nueva pestaña
+          </a>
+          <button class="px-3 py-2 text-sm text-white rounded-md" style="background:var(--mp-azul)"
+                  @click="show=false">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
+  </section>
 </div>
-
-<!-- Alpine: estado y helpers -->
-<script>
-function escenariosBuilder() {
-  return {
-    estadosAll: [
-      'Ahorrador','Adjudicado','Congelado','Retiro','Completado',
-      'Reserva','Cobranza Diferida','Diferido en Reserva','Inscrito'
-    ],
-    condicionesAll: ['Mora','Solvente','Pago impuntual','Pago parcial','Pago adelantado'],
-
-    form: {
-      fecha_inicio:'', fecha_fin:'', insc_desde:'', insc_hasta:'',
-      empresa:'', estatus_cliente:'', estatus_cuota:'',
-      excluir_rc:false, estados:[], condiciones:[]
-    },
-    bloques: [],
-
-    init(){
-      try {
-        const bi = window.BLOQUES_INICIALES;
-        this.bloques = Array.isArray(bi) ? bi : JSON.parse(bi || '[]');
-      } catch(e){ this.bloques = []; }
-    },
-
-    toggleEstado(e){
-      const i=this.form.estados.indexOf(e);
-      if(i>-1) this.form.estados.splice(i,1); else this.form.estados.push(e);
-    },
-    toggleCondicion(c){
-      const i=this.form.condiciones.indexOf(c);
-      if(i>-1) this.form.condiciones.splice(i,1); else this.form.condiciones.push(c);
-    },
-    resumenEstados(){
-      return this.form.estados.length
-        ? (this.form.estados.length<=2 ? this.form.estados.join(', ') : this.form.estados.length+' seleccionados')
-        : 'Todos';
-    },
-    resumenCondiciones(){
-      return this.form.condiciones.length
-        ? (this.form.condiciones.length<=2 ? this.form.condiciones.join(', ') : this.form.condiciones.length+' seleccionadas')
-        : 'Todas';
-    },
-
-    agregarBloqueActual(){
-      const b = JSON.parse(JSON.stringify(this.form));
-      b.incluir = true;
-      this.bloques.push(b);
-      this.form.estados=[]; this.form.condiciones=[];
-    },
-    eliminarBloque(idx){ this.bloques.splice(idx,1); },
-    limpiarActual(){
-      this.form = {
-        fecha_inicio:'', fecha_fin:'', insc_desde:'', insc_hasta:'',
-        empresa:'', estatus_cliente:'', estatus_cuota:'',
-        excluir_rc:false, estados:[], condiciones:[]
-      };
-    },
-    jsonBloques(){ return JSON.stringify(this.bloques || []); },
-    jsonBloquesMarcados(){ return JSON.stringify((this.bloques||[]).filter(b=>b.incluir)); },
-
-    simularBloques(){
-      const marcados = this.jsonBloquesMarcados();
-      if (!marcados || marcados === '[]') {
-        alert('Agrega al menos un bloque marcado para simular.');
-        return;
-      }
-      const form = document.getElementById('form-simular');
-      form.querySelector('input[name="bloques_json"]').value = marcados;
-      form.submit();
-    }
-  }
-}
-</script>
 {% endblock %}
+
+{% block scripts_extra %}{% endblock %}
