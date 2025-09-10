@@ -2917,6 +2917,11 @@ def mi_cartera():
 # =================================================================================
 # ===== INICIO: MÓDULO DE MÉTRICAS RECONSTRUIDO (V1) =====
 # ================================================================================
+# -*- coding: utf-8 -*-
+from flask import request, render_template, flash, redirect, url_for, current_app
+from datetime import datetime
+import traceback
+
 @app.route('/reportes/metricas', methods=['GET'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -2926,7 +2931,7 @@ def reporte_metricas():
         flash("Error de conexión a la base de datos.", "danger")
         return redirect(url_for('gestion_administrativa'))
 
-    # --------- Parámetros ----------
+    # -------- Parámetros --------
     q_empresa      = (request.args.get('empresa') or '').strip()
     q_estado_plan  = (request.args.get('estado_plan') or '').strip()
     q_estatus      = (request.args.get('estatus_cliente') or '').strip()
@@ -2957,6 +2962,15 @@ def reporte_metricas():
         data = _fetch_dicts(cur)
         return (list(data[0].values())[0] if data else default)
 
+    # Verificación real de columna (anti UndefinedColumn)
+    def _col_exists(cur, col):
+        try:
+            cur.execute(f"SELECT 1 FROM clientes c WHERE 1=0 AND c.{col} IS NULL")
+            _ = cur.fetchall()
+            return True
+        except Exception:
+            return False  # si truena por columna, devolvemos False
+
     rows=[]; total_count=0; page_count=1
     resumen={}; chart_estados={'labels':[],'values':[]}; chart_condicion={'labels':[],'values':[]}
     empresas_opciones=[]; estados_opciones=[]; condicion_opciones=[]; estatus_opciones=[]
@@ -2970,47 +2984,48 @@ def reporte_metricas():
             RealDictCursor = None
 
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            # ------- Detectar columnas reales de clientes -------
-            cur.execute("""
-                SELECT lower(column_name) AS c
-                FROM information_schema.columns
-                WHERE lower(table_name)='clientes' AND table_schema = ANY (current_schemas(true))
-            """)
-            cols = {r['c'] for r in _fetch_dicts(cur)}
-            def pick_first(cands):
-                for c in cands:
-                    if c in cols: return c
-                return None
+            # ---- Detección de columnas (basada en tu listado real) ----
+            nombre_col    = 'nombre' if _col_exists(cur, 'nombre') else None
+            # condicion: prioriza condicion_pago, luego condicion
+            if _col_exists(cur, 'condicion_pago'):
+                condicion_col = 'condicion_pago'
+            elif _col_exists(cur, 'condicion'):
+                condicion_col = 'condicion'
+            elif _col_exists(cur, 'condicion_de_pago'):
+                condicion_col = 'condicion_de_pago'
+            else:
+                condicion_col = None
 
-            nombre_col    = pick_first(['nombre','nombres','nombre_completo'])
-            condicion_col = pick_first(['condicion_pago','condicion','condicion_de_pago'])
-            cuotas_col    = pick_first(['cuotas_pagadas_progresivas','cuotas_pagadas'])
-            fecha_col     = pick_first(['fecha_ingreso','fecha_de_ingreso','fecha_registro','fecha_inscripcion'])
+            cuotas_col = 'cuotas_pagadas_progresivas' if _col_exists(cur, 'cuotas_pagadas_progresivas') \
+                         else ('cuotas_pagadas' if _col_exists(cur, 'cuotas_pagadas') else None)
+
+            # Prioridad absoluta a fecha_ingreso (existe en tu BD)
+            if   _col_exists(cur, 'fecha_ingreso'):     fecha_col='fecha_ingreso'
+            elif _col_exists(cur, 'fecha_de_ingreso'):  fecha_col='fecha_de_ingreso'
+            elif _col_exists(cur, 'fecha_registro'):    fecha_col='fecha_registro'
+            elif _col_exists(cur, 'fecha_inscripcion'): fecha_col='fecha_inscripcion'
+            else:                                       fecha_col=None
 
             show_nombre      = bool(nombre_col)
             show_condicion   = bool(condicion_col)
             fecha_col_usada  = fecha_col or '(no disponible)'
             cuotas_col_usada = cuotas_col or '(no disponible)'
 
-            # ------- EXPRESIONES (solo con columnas existentes) -------
-            empresa_expr = "REGEXP_REPLACE(UPPER(TRIM(c.empresa)), '\\s+', ' ', 'g')"
-            estado_expr  = "TRIM(UPPER(c.estado_del_plan))"
-
-            # estatus_expr dinámico:
-            estatus_candidates = ['estatus_cliente', 'estatus', 'estado']
-            estatus_terms = [f"NULLIF(c.{c},'')" for c in estatus_candidates if c in cols]
-            if not estatus_terms:
-                # no hay ninguna de las 3 columnas; devolvemos NULL
-                estatus_expr = "NULL"
+            # En tu BD solo existe estatus_cliente (no estatus ni estado)
+            estatus_candidates = [c for c in ['estatus_cliente'] if _col_exists(cur, c)]
+            if estatus_candidates:
+                estatus_terms = [f"NULLIF(c.{c},'')" for c in estatus_candidates]  # -> solo estatus_cliente
+                estatus_expr  = f"TRIM(UPPER(COALESCE({', '.join(estatus_terms)})))"
             else:
-                estatus_expr = f"TRIM(UPPER(COALESCE({', '.join(estatus_terms)})))"
+                estatus_expr  = "NULL::text"
 
-            # condicion / cuotas / fecha
+            empresa_expr   = "REGEXP_REPLACE(UPPER(TRIM(c.empresa)), '\\s+', ' ', 'g')"
+            estado_expr    = "TRIM(UPPER(c.estado_del_plan))"
             condicion_expr = (f"TRIM(UPPER(COALESCE(NULLIF(c.{condicion_col},''),'SIN CONDICION')))" if condicion_col else "'SIN CONDICION'")
             cuotas_expr    = (f"COALESCE(c.{cuotas_col},0)" if cuotas_col else "0")
             fecha_expr     = (f"DATE(c.{fecha_col})" if fecha_col else "NULL")
 
-            # ------- WHERE dinámico parametrizado -------
+            # ---- WHERE dinámico ----
             where=[]; params=[]
             if q_empresa:
                 where.append(f"{empresa_expr} = %s")
@@ -3018,7 +3033,7 @@ def reporte_metricas():
             if q_estado_plan:
                 where.append(f"{estado_expr} = %s")
                 params.append(q_estado_plan.upper())
-            if q_estatus and estatus_terms:
+            if q_estatus and estatus_candidates:
                 where.append(f"{estatus_expr} = %s")
                 params.append(q_estatus.upper())
             if q_condicion and condicion_col:
@@ -3038,7 +3053,7 @@ def reporte_metricas():
                 if d2: where.append(f"{fecha_expr} <= %s"); params.append(d2)
             where_sql = f"WHERE {' AND '.join(where)}" if where else ""
 
-            # ------- Opciones de selectores (sin filtros) -------
+            # ---- Opciones (sin filtros) ----
             cur.execute("""
                 SELECT DISTINCT empresa
                 FROM clientes
@@ -3053,23 +3068,21 @@ def reporte_metricas():
                 ORDER BY 1
             """); estados_opciones=[r['estado'] for r in _fetch_dicts(cur)]
 
-            # Estatus opciones: solo si hay alguna columna candidata
-            if estatus_terms:
+            if estatus_candidates:
                 cur.execute(f"""
                     SELECT DISTINCT {estatus_expr} AS estatus
                     FROM clientes c
                     WHERE {estatus_expr} IS NOT NULL AND {estatus_expr} <> ''
                     ORDER BY 1
                 """)
-                estatus_opciones = [r['estatus'] for r in _fetch_dicts(cur)]
+                estatus_opciones=[r['estatus'] for r in _fetch_dicts(cur)]
             else:
-                estatus_opciones = []
+                estatus_opciones=[]
 
-            # Condición opciones
             cur.execute(f"SELECT DISTINCT {condicion_expr} AS condicion FROM clientes c ORDER BY 1")
             condicion_opciones=[r['condicion'] for r in _fetch_dicts(cur)]
 
-            # ------- CTE BASE para consistencia -------
+            # ---- CTE base para consistencia ----
             base_cte = f"""
                 WITH base AS (
                     SELECT
@@ -3089,28 +3102,25 @@ def reporte_metricas():
                 )
             """
 
-            # Totales y páginas
+            # Totales / páginas
             cur.execute(base_cte + "SELECT COUNT(*) AS n FROM base", params)
             total_count = int(_fetch_one_value(cur, 0))
             page_count  = max(1, (total_count + per_page - 1) // per_page)
 
-            # Resumen/Gráficas
+            # Gráficas
             cur.execute(base_cte + "SELECT estado_norm AS estado, COUNT(*) AS n FROM base GROUP BY 1 ORDER BY 1", params)
-            resumen_rows=_fetch_dicts(cur)
-            resumen = {r['estado']: r['n'] for r in resumen_rows}
-            chart_estados={'labels':[r['estado'] for r in resumen_rows], 'values':[r['n'] for r in resumen_rows]}
+            r1=_fetch_dicts(cur); resumen={x['estado']:x['n'] for x in r1}
+            chart_estados={'labels':[x['estado'] for x in r1],'values':[x['n'] for x in r1]}
 
             cur.execute(base_cte + "SELECT condicion_norm AS condicion, COUNT(*) AS n FROM base GROUP BY 1 ORDER BY 1", params)
-            cond_rows=_fetch_dicts(cur)
-            chart_condicion={'labels':[r['condicion'] for r in cond_rows], 'values':[r['n'] for r in cond_rows]}
+            r2=_fetch_dicts(cur); chart_condicion={'labels':[x['condicion'] for x in r2],'values':[x['n'] for x in r2]}
 
-            # Orden seguro
+            # Orden/paginación
             sort_map={'id':'id','empresa':'empresa_norm','estado':'estado_norm','estatus':'estatus_norm'}
             if show_nombre: sort_map['nombre']='upper(nombre)'
-            sort_expr = sort_map.get(sort_param, 'id')
+            sort_expr = sort_map.get(sort_param,'id')
             dir_sql   = 'DESC' if dir_param=='desc' else 'ASC'
 
-            # Filas (paginado)
             select_cols=["id","empresa","estado_del_plan","estatus_norm AS estatus"]
             if show_nombre:   select_cols.append("nombre")
             if show_condicion:select_cols.append("condicion_raw AS condicion_pago")
@@ -3124,16 +3134,14 @@ def reporte_metricas():
             rows=_fetch_dicts(cur)
 
             if debug_sql and current_app:
-                current_app.logger.info("[/reportes/metricas] COLS={'fecha':%s,'cuotas':%s,'condicion':%s,'nombre':%s,'estatus_terms':%s}",
-                                        (fecha_col or '(n/a)'), (cuotas_col or '(n/a)'), (condicion_col or '(n/a)'),
-                                        (nombre_col or '(n/a)'), estatus_terms)
+                current_app.logger.info("[/reportes/metricas] COLS_USED={'estatus':%s,'condicion':%s,'cuotas':%s,'fecha':%s,'nombre':%s}",
+                                        estatus_candidates, (condicion_col or '(n/a)'), (cuotas_col or '(n/a)'), (fecha_col or '(n/a)'), (nombre_col or '(n/a)'))
                 current_app.logger.info("[/reportes/metricas] WHERE=%s | PARAMS=%s | SORT=%s %s | PER_PAGE=%s | PAGE=%s/%s",
                                         (where_sql or '(sin where)'), params, sort_expr, dir_sql, per_page, page, max(page_count,1))
     except Exception as e:
-        tb = traceback.format_exc()
         if current_app:
             current_app.logger.error("Fallo en /reportes/metricas: %s", str(e))
-            current_app.logger.error("Traceback:\n%s", tb)
+            current_app.logger.error("Traceback:\n%s", traceback.format_exc())
         flash("Ocurrió un error generando el reporte. Revisa el log de la aplicación.", "danger")
 
     return render_template('reporte_metricas.html',
