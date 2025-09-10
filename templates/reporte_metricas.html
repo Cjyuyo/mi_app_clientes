@@ -1,4 +1,4 @@
-{# templates/reporte_metricas.html #}
+{# templates/reporte_metricas.html — MÉTRICAS PURAS con dona #}
 {% extends "base_sidebar.html" %}
 
 {% block title %}Reporte de Métricas{% endblock %}
@@ -17,7 +17,7 @@
 {% block body %}
 <div x-data="{ vista: '{{ request.args.get('vista','nombres') or 'nombres' }}', show:false, row:null }" class="space-y-6">
 
-  {# ---------------------------- PANEL DE FILTROS ---------------------------- #}
+  {# ---------------------------- PANEL DE FILTROS (MÉTRICAS) ---------------------------- #}
   <form id="filtrosForm"
         method="get"
         action="{{ url_for('reporte_metricas') }}"
@@ -31,7 +31,7 @@
       </div>
     </div>
 
-    <!-- Fechas -->
+    <!-- Fechas (solo INSCRIPCIÓN) -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div class="border rounded-xl p-4">
         <h3 class="font-semibold mb-3">Inscripción</h3>
@@ -48,54 +48,32 @@
       </div>
 
       <div class="border rounded-xl p-4">
-        <h3 class="font-semibold mb-3">Cobranza (fecha de cuota)</h3>
-        <div class="grid grid-cols-2 gap-3">
+        <h3 class="font-semibold mb-3">Segmentación</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label class="text-sm">
-            <span class="block mb-1 text-slate-600">Desde</span>
-            <input type="date" name="fecha_inicio" value="{{ request.args.get('fecha_inicio','') }}" class="w-full border rounded-lg px-3 py-2">
+            <span class="block mb-1 text-slate-600">Empresa</span>
+            {% set emp = request.args.get('empresa','') %}
+            <select name="empresa" class="w-full border rounded-lg px-3 py-2">
+              <option value="" {{ 'selected' if emp=='' else '' }}>Todas</option>
+              <option value="Moto Plan" {{ 'selected' if emp=='Moto Plan' else '' }}>Moto Plan</option>
+              <option value="CYK" {{ 'selected' if emp=='CYK' else '' }}>CYK</option>
+            </select>
           </label>
+
           <label class="text-sm">
-            <span class="block mb-1 text-slate-600">Hasta</span>
-            <input type="date" name="fecha_fin" value="{{ request.args.get('fecha_fin','') }}" class="w-full border rounded-lg px-3 py-2">
+            <span class="block mb-1 text-slate-600">Estatus de cliente</span>
+            {% set ec = request.args.get('estatus_cliente','') %}
+            <select name="estatus_cliente" class="w-full border rounded-lg px-3 py-2">
+              <option value="" {{ 'selected' if ec=='' else '' }}>Todos</option>
+              <option value="ACTIVO" {{ 'selected' if ec=='ACTIVO' else '' }}>ACTIVO</option>
+              <option value="INACTIVO" {{ 'selected' if ec=='INACTIVO' else '' }}>INACTIVO</option>
+            </select>
           </label>
         </div>
       </div>
     </div>
 
-    <!-- Segmentación -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <label class="text-sm">
-        <span class="block mb-1 text-slate-600">Empresa</span>
-        {% set emp = request.args.get('empresa','') %}
-        <select name="empresa" class="w-full border rounded-lg px-3 py-2">
-          <option value="" {{ 'selected' if emp=='' else '' }}>Todas</option>
-          <option value="Moto Plan" {{ 'selected' if emp=='Moto Plan' else '' }}>Moto Plan</option>
-          <option value="CYK" {{ 'selected' if emp=='CYK' else '' }}>CYK</option>
-        </select>
-      </label>
-
-      <label class="text-sm">
-        <span class="block mb-1 text-slate-600">Estatus de cliente</span>
-        {% set ec = request.args.get('estatus_cliente','') %}
-        <select name="estatus_cliente" class="w-full border rounded-lg px-3 py-2">
-          <option value="" {{ 'selected' if ec=='' else '' }}>Todos</option>
-          <option value="ACTIVO" {{ 'selected' if ec=='ACTIVO' else '' }}>ACTIVO</option>
-          <option value="INACTIVO" {{ 'selected' if ec=='INACTIVO' else '' }}>INACTIVO</option>
-        </select>
-      </label>
-
-      <label class="text-sm">
-        <span class="block mb-1 text-slate-600">Estatus de cuota</span>
-        {% set eq = request.args.get('estatus_cuota','') %}
-        <select name="estatus_cuota" class="w-full border rounded-lg px-3 py-2">
-          <option value="" {{ 'selected' if eq=='' else '' }}>Todos</option>
-          <option value="PAGADA" {{ 'selected' if eq=='PAGADA' else '' }}>Pagada</option>
-          <option value="PENDIENTE" {{ 'selected' if eq=='PENDIENTE' else '' }}>Pendiente</option>
-        </select>
-      </label>
-    </div>
-
-    <!-- Estado del plan -->
+    <!-- Estado del plan (multi) -->
     <div class="border rounded-xl p-4">
       <h3 class="font-semibold mb-3">Estado del plan</h3>
       {% set estados = ['Ahorrador','Adjudicado','Congelado','Retiro','Completado','Reserva','Cobranza Diferida','Diferido en Reserva','Inscrito'] %}
@@ -110,7 +88,7 @@
       </div>
     </div>
 
-    <!-- Condición -->
+    <!-- Condición (multi) -->
     <div class="border rounded-xl p-4">
       <h3 class="font-semibold mb-3">Condición</h3>
       {% set condiciones = ['Mora','Solvente','Pago impuntual','Pago parcial','Pago adelantado'] %}
@@ -156,22 +134,7 @@
     </div>
     {% endif %}
 
-    <!-- Toggles + Orden/Vista -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-      <label class="inline-flex items-center gap-2 text-sm">
-        <input type="checkbox" name="excluir_rc" value="1" {{ 'checked' if request.args.get('excluir_rc')=='1' else '' }} class="rounded border">
-        <span>Excluir RETIRO y COMPLETADO</span>
-      </label>
-      <label class="inline-flex items-center gap-2 text-sm">
-        <input type="checkbox" name="solo_con_cuotas" value="1" {{ 'checked' if request.args.get('solo_con_cuotas')=='1' else '' }} class="rounded border">
-        <span>Solo clientes con cuotas en rango</span>
-      </label>
-      <label class="inline-flex items-center gap-2 text-sm">
-        <input type="checkbox" name="incluir_sin_cuotas" value="1" {{ 'checked' if request.args.get('incluir_sin_cuotas')=='1' else '' }} class="rounded border">
-        <span>Incluir clientes sin cuotas</span>
-      </label>
-    </div>
-
+    <!-- Orden + Vista -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
       <label class="text-sm">
         <span class="block mb-1 text-slate-600">Ordenar por</span>
@@ -182,8 +145,7 @@
           <option value="estado_plan" {{ 'selected' if ord=='estado_plan' else '' }}>Estado plan</option>
           <option value="condicion" {{ 'selected' if ord=='condicion' else '' }}>Condición</option>
           <option value="numero_cuota" {{ 'selected' if ord=='numero_cuota' else '' }}>Número de cuota</option>
-          <option value="fecha_pago" {{ 'selected' if ord=='fecha_pago' else '' }}>Fecha de pago</option>
-          <option value="monto" {{ 'selected' if ord=='monto' else '' }}>Monto</option>
+          <option value="fecha_inscripcion" {{ 'selected' if ord=='fecha_inscripcion' else '' }}>Fecha de inscripción</option>
         </select>
       </label>
       <label class="text-sm">
@@ -204,58 +166,66 @@
       </label>
     </div>
 
+    <!-- Acciones -->
     <div class="flex flex-wrap items-center gap-3 pt-2">
       <button class="px-4 py-2.5 rounded-xl text-white" style="background:var(--mp-azul)">Aplicar filtros</button>
       <a class="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
          href="{{ url_for('reporte_metricas') }}">Limpiar</a>
-      <div class="ml-auto flex items-center gap-2">
-        <select name="formato" class="border rounded-lg px-3 py-2 text-sm">
-          <option value="">Exportar…</option>
-          <option value="xlsx">Excel</option>
-          <option value="pdf">PDF</option>
-        </select>
-        <button class="px-3 py-2 rounded-lg text-white" style="background:var(--mp-naranja)">Descargar</button>
-      </div>
     </div>
   </form>
 
-  {# ---------------------------- KPIs + DESGLOSE ----------------------------- #}
-  {# Asignación defensiva de lista #}
+  {# ---------------------------- ASIGNACIÓN DEFENSIVA DE LISTA ---------------------------- #}
   {% set lista = [] %}
-  {% if metricas is defined and metricas.clientes is defined %}
+  {% if metrics is defined %}
+    {% if metrics.clientes is defined %}
+      {% set lista = metrics.clientes %}
+    {% elif metrics is sequence %}
+      {% set lista = metrics %}
+    {% endif %}
+  {% elif metricas is defined and metricas.clientes is defined %}
     {% set lista = metricas.clientes %}
-  {% elif metrics is defined and metrics.clientes is defined %}
-    {% set lista = metrics.clientes %}
   {% elif clientes is defined %}
     {% set lista = clientes %}
   {% elif resultados is defined %}
     {% set lista = resultados %}
   {% endif %}
 
+  {# ---------------------------- DONA: COMPOSICIÓN POR ESTADO ---------------------------- #}
+  <section class="bg-white border border-slate-200/80 rounded-xl p-6">
+    <div class="flex items-center justify-between">
+      <h3 class="text-lg font-semibold text-slate-800">Composición de Cartera</h3>
+      <span class="text-sm text-slate-400">Por estado del plan</span>
+    </div>
+    <div class="mt-4 h-80 flex items-center justify-center">
+      <canvas id="composicionChart"></canvas>
+    </div>
+  </section>
+
+  {# ---------------------------- KPIs + DESGLOSES (SOLO CONTEOS) ---------------------------- #}
   <section class="space-y-4">
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="bg-white border rounded-2xl p-4 kpi">
-        <div class="text-xs uppercase tracking-wider text-slate-500">Registros</div>
+        <div class="text-xs uppercase tracking-wider text-slate-500">Clientes (total)</div>
         <div class="text-2xl font-bold">{{ lista|length }}</div>
       </div>
-      <div class="bg-white border rounded-2xl p-4 kpi">
-        <div class="text-xs uppercase tracking-wider text-slate-500">Total (USD)</div>
-        {% set total = lista|sum(attribute='monto_usd') if lista else 0 %}
-        <div class="text-2xl font-bold">${{ "{:,.2f}".format(total or 0) }}</div>
-      </div>
-      {% set mora = lista|selectattr('condicion','equalto','Mora')|list %}
+      {% set count_mora = (lista|selectattr('condicion','equalto','Mora')|list)|length %}
       <div class="bg-white border rounded-2xl p-4 kpi">
         <div class="text-xs uppercase tracking-wider text-slate-500">En mora</div>
-        <div class="text-2xl font-bold">{{ mora|length }}</div>
+        <div class="text-2xl font-bold">{{ count_mora }}</div>
       </div>
-      {% set solv = lista|selectattr('condicion','equalto','Solvente')|list %}
+      {% set count_sol = (lista|selectattr('condicion','equalto','Solvente')|list)|length %}
       <div class="bg-white border rounded-2xl p-4 kpi">
         <div class="text-xs uppercase tracking-wider text-slate-500">Solventes</div>
-        <div class="text-2xl font-bold">{{ solv|length }}</div>
+        <div class="text-2xl font-bold">{{ count_sol }}</div>
+      </div>
+      {% set count_imp = (lista|selectattr('condicion','equalto','Pago impuntual')|list)|length %}
+      <div class="bg-white border rounded-2xl p-4 kpi">
+        <div class="text-xs uppercase tracking-wider text-slate-500">Pago impuntual</div>
+        <div class="text-2xl font-bold">{{ count_imp }}</div>
       </div>
     </div>
 
-    <!-- Tarjetas de Desglose por Condición -->
+    <!-- Desglose por Condición (click = agrega filtro) -->
     <div class="bg-white border rounded-2xl p-5">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-lg font-semibold">Desglose por Condición</h3>
@@ -272,7 +242,6 @@
               {% set items = g.list %}
             {% endif %}
           {% endfor %}
-          {% set subtotal = items|sum(attribute='monto_usd') if items else 0 %}
           <button type="button"
                   class="text-left border rounded-xl p-4 hover:shadow transition"
                   onclick="(function(){
@@ -283,14 +252,43 @@
                   })()">
             <div class="text-sm text-slate-500">{{ cond }}</div>
             <div class="text-xl font-bold">{{ items|length }}</div>
-            <div class="text-xs text-slate-500 mt-1">Total: ${{ '{:,.2f}'.format(subtotal or 0) }}</div>
+          </button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Desglose por Estado del Plan -->
+    <div class="bg-white border rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-semibold">Desglose por Estado del Plan</h3>
+      </div>
+
+      {% set grupos_plan = lista|groupby('estado_plan') %}
+      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        {% for e in estados %}
+          {% set items = [] %}
+          {% for g in grupos_plan %}
+            {% if g.grouper == e %}
+              {% set items = g.list %}
+            {% endif %}
+          {% endfor %}
+          <button type="button"
+                  class="text-left border rounded-xl p-4 hover:shadow transition"
+                  onclick="(function(){
+                    const f=document.getElementById('filtrosForm');
+                    const i=document.createElement('input');
+                    i.type='hidden'; i.name='estado_plan[]'; i.value='{{ e }}';
+                    f.appendChild(i); f.submit();
+                  })()">
+            <div class="text-sm text-slate-500">{{ e }}</div>
+            <div class="text-xl font-bold">{{ items|length }}</div>
           </button>
         {% endfor %}
       </div>
     </div>
   </section>
 
-  {# -------------------------------- RESULTADOS ------------------------------ #}
+  {# -------------------------------- RESULTADOS (SIN MONTOS) ------------------------------ #}
   <section class="bg-white border rounded-2xl p-5">
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-lg font-semibold">Resultados</h3>
@@ -315,11 +313,11 @@
             <tr>
               <th class="px-3 py-2 text-left">Cliente</th>
               <th class="px-3 py-2 text-left">Cédula</th>
+              <th class="px-3 py-2 text-left">Empresa</th>
               <th class="px-3 py-2 text-left">Estado plan</th>
               <th class="px-3 py-2 text-left">Condición</th>
-              <th class="px-3 py-2 text-left">Estatus cuota</th>
-              <th class="px-3 py-2 text-left">Fecha pago</th>
-              <th class="px-3 py-2 text-right">Monto (USD)</th>
+              <th class="px-3 py-2 text-left">N° cuota</th>
+              <th class="px-3 py-2 text-left">Fecha inscripción</th>
               <th class="px-3 py-2"></th>
             </tr>
           </thead>
@@ -328,11 +326,13 @@
             <tr class="hover:bg-slate-50">
               <td class="px-3 py-2">{{ r.cliente }}</td>
               <td class="px-3 py-2">{{ r.cedula }}</td>
+              <td class="px-3 py-2">{{ r.empresa }}</td>
               <td class="px-3 py-2">{{ r.estado_plan }}</td>
               <td class="px-3 py-2">{{ r.condicion }}</td>
-              <td class="px-3 py-2">{{ r.estatus_cuota }}</td>
-              <td class="px-3 py-2">{{ r.fecha_pago }}</td>
-              <td class="px-3 py-2 text-right">${{ "{:,.2f}".format(r.monto_usd or 0) }}</td>
+              <td class="px-3 py-2">{{ r.numero_cuota }}</td>
+              <td class="px-3 py-2">
+                {{ r.fecha_inscripcion or r.fecha_registro or r.fecha_origen }}
+              </td>
               <td class="px-3 py-2 text-right">
                 <button class="px-2 py-1 text-xs rounded text-white" style="background:var(--mp-naranja)"
                         @click="show=true; row={{ r|tojson }};">Ver perfil</button>
@@ -356,11 +356,11 @@
           <button class="text-sm" style="color:var(--mp-azul)" @click="show=true; row={{ r|tojson }};">Ver perfil</button>
         </div>
         <div class="text-xs text-slate-500">Cédula: <span class="text-slate-700">{{ r.cedula }}</span></div>
+        <div class="text-xs text-slate-500">Empresa: <span class="text-slate-700">{{ r.empresa }}</span></div>
         <div class="text-xs text-slate-500">Estado plan: <span class="text-slate-700">{{ r.estado_plan }}</span></div>
         <div class="text-xs text-slate-500">Condición: <span class="text-slate-700">{{ r.condicion }}</span></div>
-        <div class="text-xs text-slate-500">Estatus cuota: <span class="text-slate-700">{{ r.estatus_cuota }}</span></div>
-        <div class="text-xs text-slate-500">Fecha pago: <span class="text-slate-700">{{ r.fecha_pago }}</span></div>
-        <div class="text-xs text-slate-500">Monto: <span class="text-slate-700">${{ "{:,.2f}".format(r.monto_usd or 0) }}</span></div>
+        <div class="text-xs text-slate-500">N° cuota: <span class="text-slate-700">{{ r.numero_cuota }}</span></div>
+        <div class="text-xs text-slate-500">Inscripción: <span class="text-slate-700">{{ r.fecha_inscripcion or r.fecha_registro or r.fecha_origen }}</span></div>
 
         {% if r.cliente_id %}
         <div class="pt-2">
@@ -375,7 +375,7 @@
       {% endfor %}
     </div>
 
-    <!-- Modal -->
+    <!-- Modal (perfil simple, sin montos) -->
     <div x-show="show" x-transition
          class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
          @click.self="show=false">
@@ -386,11 +386,11 @@
         </div>
         <div class="grid grid-cols-2 gap-3 text-sm">
           <div><span class="text-slate-500">Cédula:</span> <span class="text-slate-800" x-text="row?.cedula"></span></div>
+          <div><span class="text-slate-500">Empresa:</span> <span class="text-slate-800" x-text="row?.empresa"></span></div>
           <div><span class="text-slate-500">Estado plan:</span> <span class="text-slate-800" x-text="row?.estado_plan"></span></div>
           <div><span class="text-slate-500">Condición:</span> <span class="text-slate-800" x-text="row?.condicion"></span></div>
-          <div><span class="text-slate-500">Estatus cuota:</span> <span class="text-slate-800" x-text="row?.estatus_cuota"></span></div>
-          <div><span class="text-slate-500">Fecha pago:</span> <span class="text-slate-800" x-text="row?.fecha_pago"></span></div>
-          <div><span class="text-slate-500">Monto (USD):</span> <span class="text-slate-800" x-text="Number(row?.monto_usd||0).toFixed(2)"></span></div>
+          <div><span class="text-slate-500">N° cuota:</span> <span class="text-slate-800" x-text="row?.numero_cuota"></span></div>
+          <div><span class="text-slate-500">Inscripción:</span> <span class="text-slate-800" x-text="row?.fecha_inscripcion || row?.fecha_registro || row?.fecha_origen"></span></div>
         </div>
         <div class="mt-4 flex items-center justify-end gap-2">
           <a :href="'/admin/clientes/'+(row?.cliente_id||'')"
@@ -409,4 +409,60 @@
 </div>
 {% endblock %}
 
-{% block scripts_extra %}{% endblock %}
+{% block scripts_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  Chart.defaults.font.family = "'Inter', 'ui-sans-serif', 'system-ui', sans-serif";
+  Chart.defaults.color = '#64748b';
+  Chart.defaults.font.weight = '500';
+
+  // ¿Viene la composición desde el backend?
+  const hasMetrics = {{ 'true' if (metrics is defined and metrics.composicion_clientes is defined and 'labels' in metrics.composicion_clientes and 'values' in metrics.composicion_clientes) else 'false' }};
+
+  // Fallback: agrupar lista por 'estado_plan'
+  {% set grupos_estado = lista|groupby('estado_plan') %}
+
+  const labels = hasMetrics
+    ? {{ (metrics.composicion_clientes['labels'] if (metrics is defined and metrics.composicion_clientes is defined) else [])|tojson|safe }}
+    : [ {% for g in grupos_estado %} {{ (g.grouper or 'Sin estado')|tojson }} {% if not loop.last %},{% endif %}{% endfor %} ];
+
+  const values = hasMetrics
+    ? {{ (metrics.composicion_clientes['values'] if (metrics is defined and metrics.composicion_clientes is defined) else [])|tojson|safe }}
+    : [ {% for g in grupos_estado %} {{ (g.list|length) }} {% if not loop.last %},{% endif %}{% endfor %} ];
+
+  const ctx = document.getElementById('composicionChart');
+  if (ctx) {
+    new Chart(ctx.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Clientes',
+          data: values,
+          backgroundColor: ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#64748b','#ec4899','#22c55e','#0ea5e9'],
+          borderColor: '#ffffff',
+          borderWidth: 4,
+          hoverOffset: 12
+        }]
+      },
+      options: {
+        responsive: true,
+        cutout: '62%',
+        plugins: {
+          legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } },
+          tooltip: {
+            backgroundColor: '#0f172a',
+            titleColor: '#f8fafc',
+            bodyColor: '#f8fafc',
+            padding: 12,
+            cornerRadius: 8,
+            callbacks: { label: (ctx) => `${ctx.label}: ${ctx.formattedValue} clientes` }
+          }
+        }
+      }
+    });
+  }
+});
+</script>
+{% endblock %}
