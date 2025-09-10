@@ -20,7 +20,7 @@
           <select name="empresa" class="rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
             <option value="">Todas las empresas</option>
             {% for emp in empresas_opciones %}
-              <option value="{{ emp }}" {{ 'selected' if request.args.get('empresa')==emp else '' }}>{{ emp }}</option>
+              <option value="{{ emp }}" {{ 'selected' if (request.args.get('empresa','')|upper)==(emp|upper) else '' }}>{{ emp }}</option>
             {% endfor %}
           </select>
           <select name="estado_plan" class="rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
@@ -31,7 +31,7 @@
               </option>
             {% endfor %}
           </select>
-          {% set estatus_opts = ['ACTIVO','INACTIVO','RETIRADO','CONGELADO','RESERVA'] %}
+          {% set estatus_opts = estatus_opciones|default(['ACTIVO','INACTIVO','RETIRADO','CONGELADO','RESERVA']) %}
           <select name="estatus_cliente" class="rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
             <option value="">Todos los estatus</option>
             {% for opt in estatus_opts %}
@@ -56,7 +56,7 @@
 
   <!-- Filtros avanzados -->
   <section class="px-4 sm:px-6 lg:px-8">
-    <details class="group bg-white rounded-xl border border-slate-200 shadow-sm">
+    <details class="group bg-white rounded-xl border border-slate-200 shadow-sm" {% if request.args.get('condicion') or request.args.get('cuota_bucket') or request.args.get('insc_desde') or request.args.get('insc_hasta') %} open {% endif %}>
       <summary class="flex cursor-pointer items-center justify-between p-4 text-sm font-semibold text-slate-800">
         Filtros avanzados
         <span class="ml-3 text-slate-500 transition-transform group-open:rotate-180">
