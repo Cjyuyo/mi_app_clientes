@@ -4,19 +4,40 @@
 {% block page_title %}Métricas · Vitrina de Clientes{% endblock %}
 
 {% block body %}
-{% set condicion_opciones = condicion_opciones|default(['MORA','SOLVENTE','PAGO IMPUNTUAL','PAGO PARCIAL','PAGO ADELANTADO','SIN CONDICION']) %}
 <div class="min-h-screen bg-slate-100 font-sans">
+  <!-- FLASH -->
+  <div class="px-4 sm:px-6 lg:px-8 pt-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="space-y-2">
+          {% for category, message in messages %}
+            <div class="rounded-lg border px-4 py-3 text-sm
+                        {% if category=='danger' %} bg-red-50 border-red-200 text-red-700
+                        {% elif category=='warning' %} bg-amber-50 border-amber-200 text-amber-700
+                        {% else %} bg-slate-50 border-slate-200 text-slate-700 {% endif %}">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+  </div>
+
   <header class="px-4 sm:px-6 lg:px-8 py-6">
     <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
       <div>
         <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-800">
           Vitrina de Clientes
         </h1>
-        <p class="text-slate-500 mt-1 text-sm">Estados del plan y estatus, con filtros y visualizaciones.</p>
+        <p class="text-slate-500 mt-1 text-sm">
+          Estados del plan y estatus, con filtros y visualizaciones.
+          <span class="ml-2 text-xs text-slate-400">Fecha base: <strong>{{ applied.fecha_col }}</strong></span>
+        </p>
       </div>
+
       <!-- Filtros básicos -->
       <form method="get" class="bg-white border border-slate-200 shadow-sm rounded-xl p-3">
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
           <select name="empresa" class="rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
             <option value="">Todas las empresas</option>
             {% for emp in empresas_opciones %}
@@ -35,12 +56,20 @@
           <select name="estatus_cliente" class="rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
             <option value="">Todos los estatus</option>
             {% for opt in estatus_opts %}
-              <option value="{{ opt }}" {{ 'selected' if (request.args.get('estatus_cliente','')|upper)==opt else '' }}>{{ opt|capitalize }}</option>
+              <option value="{{ opt }}" {{ 'selected' if (request.args.get('estatus_cliente','')|upper)==opt else '' }}>
+                {{ opt|capitalize }}
+              </option>
+            {% endfor %}
+          </select>
+          <select name="per_page" class="rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
+            {% set pp = (request.args.get('per_page') or per_page)|int %}
+            {% for n in [10,25,50,100] %}
+              <option value="{{ n }}" {{ 'selected' if pp==n else '' }}>{{ n }} por página</option>
             {% endfor %}
           </select>
         </div>
 
-        {# Preservar avanzados al aplicar básicos #}
+        <!-- Preservar avanzados -->
         <input type="hidden" name="condicion"    value="{{ request.args.get('condicion','') }}">
         <input type="hidden" name="cuota_bucket" value="{{ request.args.get('cuota_bucket','') }}">
         <input type="hidden" name="insc_desde"   value="{{ request.args.get('insc_desde','') }}">
@@ -63,11 +92,12 @@
           <i class="bi bi-chevron-down"></i>
         </span>
       </summary>
-      <form method="get" class="border-t border-slate-200 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- Preservar filtros básicos al aplicar avanzados -->
+      <form method="get" class="border-t border-slate-200 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <!-- Preservar básicos -->
         <input type="hidden" name="empresa" value="{{ request.args.get('empresa','') }}">
         <input type="hidden" name="estado_plan" value="{{ request.args.get('estado_plan','') }}">
         <input type="hidden" name="estatus_cliente" value="{{ request.args.get('estatus_cliente','') }}">
+        <input type="hidden" name="per_page" value="{{ request.args.get('per_page', per_page) }}">
 
         <div>
           <label class="block text-xs font-medium text-slate-600 mb-1">Condición</label>
@@ -105,16 +135,35 @@
                  class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
         </div>
 
-        <div class="sm:col-span-2 lg:col-span-4 flex justify-end gap-2">
-          <a href="{{ url_for('reporte_metricas') }}" class="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Limpiar</a>
-          <button class="inline-flex items-center rounded-md bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-900">Aplicar</button>
+        <div class="sm:col-span-2 lg:col-span-1 flex items-end justify-end">
+          <div class="flex gap-2 w-full justify-end">
+            <a href="{{ url_for('reporte_metricas') }}" class="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Limpiar</a>
+            <button class="inline-flex items-center rounded-md bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-900">Aplicar</button>
+          </div>
         </div>
       </form>
+
+      {% if request.args %}
+      <div class="border-t border-slate-200 p-4 text-xs text-slate-500">
+        <span class="mr-2">Filtros aplicados:</span>
+        {% if request.args.get('empresa') %}<span class="mr-2">Empresa=<b>{{ request.args.get('empresa') }}</b></span>{% endif %}
+        {% if request.args.get('estado_plan') %}<span class="mr-2">Estado=<b>{{ request.args.get('estado_plan') }}</b></span>{% endif %}
+        {% if request.args.get('estatus_cliente') %}<span class="mr-2">Estatus=<b>{{ request.args.get('estatus_cliente') }}</b></span>{% endif %}
+        {% if request.args.get('condicion') %}<span class="mr-2">Condición=<b>{{ request.args.get('condicion') }}</b></span>{% endif %}
+        {% if request.args.get('cuota_bucket') %}
+          {% set blabel = {'1':'1–6','2':'7–12','3':'13–24','4':'25–36'}[request.args.get('cuota_bucket')] %}
+          <span class="mr-2">Cuotas=<b>{{ blabel }}</b></span>
+        {% endif %}
+        {% if request.args.get('insc_desde') or request.args.get('insc_hasta') %}
+          <span class="mr-2">Ingreso=<b>{{ request.args.get('insc_desde') or '...' }} → {{ request.args.get('insc_hasta') or '...' }}</b></span>
+        {% endif %}
+      </div>
+      {% endif %}
     </details>
   </section>
 
+  <!-- Tarjetas de resumen -->
   <main class="px-4 sm:px-6 lg:px-8 space-y-6 pb-10 mt-6">
-    <!-- Resumen por estado -->
     {% if resumen %}
     <section class="bg-white border border-slate-200 rounded-xl p-4">
       <h3 class="text-sm font-semibold text-slate-700 mb-3">Resumen por Estado del Plan</h3>
@@ -153,7 +202,6 @@
     <section class="bg-white border border-slate-200 rounded-xl overflow-hidden">
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-slate-200">
-          {# ---- THEAD con orden corregido (sin **kwargs) ---- #}
           <thead class="bg-slate-50">
             {% set cur_dir  = request.args.get('dir') %}
             {% set cur_sort = request.args.get('sort') %}
@@ -172,7 +220,7 @@
                                     cuota_bucket=request.args.get('cuota_bucket',''),
                                     insc_desde=request.args.get('insc_desde',''),
                                     insc_hasta=request.args.get('insc_hasta',''),
-                                    per_page=request.args.get('per_page', 25),
+                                    per_page=request.args.get('per_page', per_page),
                                     page=1, sort='id', dir=dir_id) }}">ID</a>
               </th>
 
@@ -186,7 +234,7 @@
                                     cuota_bucket=request.args.get('cuota_bucket',''),
                                     insc_desde=request.args.get('insc_desde',''),
                                     insc_hasta=request.args.get('insc_hasta',''),
-                                    per_page=request.args.get('per_page', 25),
+                                    per_page=request.args.get('per_page', per_page),
                                     page=1, sort='nombre', dir=dir_nombre) }}">Nombre</a>
               </th>
               {% endif %}
@@ -200,7 +248,7 @@
                                     cuota_bucket=request.args.get('cuota_bucket',''),
                                     insc_desde=request.args.get('insc_desde',''),
                                     insc_hasta=request.args.get('insc_hasta',''),
-                                    per_page=request.args.get('per_page', 25),
+                                    per_page=request.args.get('per_page', per_page),
                                     page=1, sort='empresa', dir=dir_empresa) }}">Empresa</a>
               </th>
 
@@ -213,7 +261,7 @@
                                     cuota_bucket=request.args.get('cuota_bucket',''),
                                     insc_desde=request.args.get('insc_desde',''),
                                     insc_hasta=request.args.get('insc_hasta',''),
-                                    per_page=request.args.get('per_page', 25),
+                                    per_page=request.args.get('per_page', per_page),
                                     page=1, sort='estado', dir=dir_estado) }}">Estado del plan</a>
               </th>
 
@@ -226,7 +274,7 @@
                                     cuota_bucket=request.args.get('cuota_bucket',''),
                                     insc_desde=request.args.get('insc_desde',''),
                                     insc_hasta=request.args.get('insc_hasta',''),
-                                    per_page=request.args.get('per_page', 25),
+                                    per_page=request.args.get('per_page', per_page),
                                     page=1, sort='estatus', dir=dir_estatus) }}">Estatus</a>
               </th>
 
@@ -270,13 +318,26 @@
       </div>
 
       <!-- Paginación -->
-      <div class="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50 text-sm text-slate-600">
-        {% set start = (page-1) * per_page + 1 if total_count > 0 else 0 %}
-        {% set end = (page-1) * per_page + rows|length %}
-        <div>Mostrando <span class="font-semibold">{{ start }}</span>–<span class="font-semibold">{{ end }}</span> de <span class="font-semibold">{{ total_count }}</span></div>
-        <div class="space-x-2">
-          {% set prev_page = page-1 if page>1 else 1 %}
-          {% set next_page = page+1 if end < total_count else page %}
+      {% set start = (page-1) * per_page + (1 if total_count>0 else 0) %}
+      {% set end   = (page-1) * per_page + rows|length %}
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t border-slate-200 bg-slate-50 text-sm text-slate-600">
+        <div>Mostrando <span class="font-semibold">{{ start }}</span>–<span class="font-semibold">{{ end }}</span> de <span class="font-semibold">{{ total_count }}</span> ({{ page }} / {{ page_count }})</div>
+        <div class="flex items-center gap-2">
+          {% set prev = 1 if page<=1 else page-1 %}
+          {% set next = page if page>=page_count else page+1 %}
+          <a class="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-100 {{ 'opacity-50 pointer-events-none' if page<=1 }}"
+             href="{{ url_for('reporte_metricas',
+                               empresa=request.args.get('empresa',''),
+                               estado_plan=request.args.get('estado_plan',''),
+                               estatus_cliente=request.args.get('estatus_cliente',''),
+                               condicion=request.args.get('condicion',''),
+                               cuota_bucket=request.args.get('cuota_bucket',''),
+                               insc_desde=request.args.get('insc_desde',''),
+                               insc_hasta=request.args.get('insc_hasta',''),
+                               per_page=request.args.get('per_page', per_page),
+                               page=1,
+                               sort=request.args.get('sort','id'),
+                               dir=request.args.get('dir','asc')) }}">« Primera</a>
 
           <a class="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-100 {{ 'opacity-50 pointer-events-none' if page<=1 }}"
              href="{{ url_for('reporte_metricas',
@@ -287,12 +348,12 @@
                                cuota_bucket=request.args.get('cuota_bucket',''),
                                insc_desde=request.args.get('insc_desde',''),
                                insc_hasta=request.args.get('insc_hasta',''),
-                               per_page=request.args.get('per_page', 25),
-                               page=prev_page,
+                               per_page=request.args.get('per_page', per_page),
+                               page=prev,
                                sort=request.args.get('sort','id'),
                                dir=request.args.get('dir','asc')) }}">Anterior</a>
 
-          <a class="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-100 {{ 'opacity-50 pointer-events-none' if end >= total_count }}"
+          <a class="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-100 {{ 'opacity-50 pointer-events-none' if page>=page_count }}"
              href="{{ url_for('reporte_metricas',
                                empresa=request.args.get('empresa',''),
                                estado_plan=request.args.get('estado_plan',''),
@@ -301,10 +362,24 @@
                                cuota_bucket=request.args.get('cuota_bucket',''),
                                insc_desde=request.args.get('insc_desde',''),
                                insc_hasta=request.args.get('insc_hasta',''),
-                               per_page=request.args.get('per_page', 25),
-                               page=next_page,
+                               per_page=request.args.get('per_page', per_page),
+                               page=next,
                                sort=request.args.get('sort','id'),
                                dir=request.args.get('dir','asc')) }}">Siguiente</a>
+
+          <a class="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-100 {{ 'opacity-50 pointer-events-none' if page>=page_count }}"
+             href="{{ url_for('reporte_metricas',
+                               empresa=request.args.get('empresa',''),
+                               estado_plan=request.args.get('estado_plan',''),
+                               estatus_cliente=request.args.get('estatus_cliente',''),
+                               condicion=request.args.get('condicion',''),
+                               cuota_bucket=request.args.get('cuota_bucket',''),
+                               insc_desde=request.args.get('insc_desde',''),
+                               insc_hasta=request.args.get('insc_hasta',''),
+                               per_page=request.args.get('per_page', per_page),
+                               page=page_count,
+                               sort=request.args.get('sort','id'),
+                               dir=request.args.get('dir','asc')) }}">Última »</a>
         </div>
       </div>
     </section>
@@ -315,63 +390,38 @@
 {% block scripts_extra %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    if (!window.Chart) return;
-    Chart.defaults.font.family = "'Inter', 'ui-sans-serif', 'system-ui', sans-serif";
-    Chart.defaults.color = '#64748b';
-    Chart.defaults.font.weight = '500';
+document.addEventListener('DOMContentLoaded', function () {
+  if (!window.Chart) return;
+  Chart.defaults.font.family = "'Inter','ui-sans-serif','system-ui',sans-serif";
+  Chart.defaults.color = '#64748b';
+  Chart.defaults.font.weight = '500';
 
-    const estadosData   = {{ (chart_estados if chart_estados else {'labels':[], 'values':[]})|tojson|safe }};
-    const condicionData = {{ (chart_condicion if chart_condicion else {'labels':[], 'values':[]})|tojson|safe }};
+  const estadosData   = {{ (chart_estados  or {'labels':[], 'values':[]})|tojson|safe }};
+  const condicionData = {{ (chart_condicion or {'labels':[], 'values':[]})|tojson|safe }};
 
-    // Barras: Clientes por Estado
-    const barEl = document.getElementById('estadosBarChart');
-    if (barEl && estadosData && estadosData.labels && estadosData.labels.length) {
-      new Chart(barEl, {
-        type: 'bar',
-        data: {
-          labels: estadosData.labels.map(l => (l || '').replaceAll('_',' ').toLowerCase().replace(/(^|\s)\S/g, t => t.toUpperCase())),
-          datasets: [{
-            label: 'Clientes',
-            data: estadosData.values,
-            backgroundColor: '#3b82f6',
-            borderRadius: 8,
-            barPercentage: 0.7
-          }]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          scales: {
-            y: { beginAtZero: true, grid: { color: '#e2e8f0' } },
-            x: { grid: { display: false } }
-          },
-          plugins: { legend: { display: false } }
-        }
-      });
-    }
+  const barEl = document.getElementById('estadosBarChart');
+  if (barEl && estadosData.labels && estadosData.labels.length) {
+    new Chart(barEl, {
+      type: 'bar',
+      data: {
+        labels: estadosData.labels.map(l => (l||'').replaceAll('_',' ').toLowerCase().replace(/(^|\s)\S/g, t => t.toUpperCase())),
+        datasets: [{ label: 'Clientes', data: estadosData.values, backgroundColor: '#3b82f6', borderRadius: 8, barPercentage: 0.7 }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true } }, plugins:{ legend:{ display:false } } }
+    });
+  }
 
-    // Dona: Composición por Condición
-    const doughEl = document.getElementById('condicionDoughnutChart');
-    if (doughEl && condicionData && condicionData.labels && condicionData.labels.length) {
-      new Chart(doughEl, {
-        type: 'doughnut',
-        data: {
-          labels: condicionData.labels.map(l => (l || '').replaceAll('_',' ').toLowerCase().replace(/(^|\s)\S/g, t => t.toUpperCase())),
-          datasets: [{
-            label: 'Clientes',
-            data: condicionData.values,
-            backgroundColor: ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#64748b','#22c55e','#06b6d4'],
-            borderColor: '#ffffff',
-            borderWidth: 4,
-            hoverOffset: 12
-          }]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false, cutout: '70%',
-          plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 20 } } }
-        }
-      });
-    }
-  });
+  const doughEl = document.getElementById('condicionDoughnutChart');
+  if (doughEl && condicionData.labels && condicionData.labels.length) {
+    new Chart(doughEl, {
+      type: 'doughnut',
+      data: {
+        labels: condicionData.labels.map(l => (l||'').replaceAll('_',' ').toLowerCase().replace(/(^|\s)\S/g, t => t.toUpperCase())),
+        datasets: [{ label:'Clientes', data: condicionData.values, backgroundColor:['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#64748b','#22c55e','#06b6d4'], borderColor:'#fff', borderWidth:4, hoverOffset:12 }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, cutout:'70%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, boxWidth:8, padding:16 } } } }
+    });
+  }
+});
 </script>
 {% endblock %}
