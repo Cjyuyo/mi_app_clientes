@@ -1,361 +1,260 @@
-{# templates/reporte_metricas.html — MÉTRICAS PURAS, SIN groupby #}
 {% extends "base_sidebar.html" %}
 
 {% block title %}Reporte de Métricas{% endblock %}
-{% block page_title %}Reporte de Métricas{% endblock %}
-
-{% block head_extra %}
-<style>
-  :root{
-    --mp-azul:#2B3A55;
-    --mp-naranja:#F99417;
-  }
-  .kpi{ box-shadow: 0 10px 25px -12px rgba(0,0,0,.15); }
-</style>
-{% endblock %}
 
 {% block body %}
-<div x-data="{ vista: '{{ request.args.get('vista','nombres') or 'nombres' }}' }" class="space-y-6">
 
-  <!-- PANEL DE FILTROS (MÉTRICAS) -->
-  <form id="filtrosForm" method="get" action="{{ url_for('reporte_metricas') }}"
-        class="bg-white border rounded-2xl p-5 md:p-6 space-y-5">
-    <div class="flex items-center justify-between">
-      <h2 class="text-lg md:text-xl font-semibold">Filtros de Métricas</h2>
-      <div class="flex items-center gap-2 text-xs text-slate-500">
-        <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:var(--mp-naranja)"></span>
-        Identidad Moto Plan
-      </div>
+<div class="px-4 md:px-6 lg:px-8 py-6 space-y-6">
+
+  <!-- Encabezado -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Métricas</h1>
+      <p class="text-slate-500 text-sm">Vista general {{ metrics.mes_actual if metrics is defined else '' }} {{ metrics.anio_actual if metrics is defined else '' }}</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="{{ url_for('reporte_metricas') }}" class="border rounded-lg px-3 py-2 text-sm hover:bg-slate-50">
+        Limpiar filtros
+      </a>
+      <button form="filtrosForm" class="bg-slate-900 text-white rounded-lg px-3 py-2 text-sm hover:opacity-90">
+        Aplicar filtros
+      </button>
+    </div>
+  </div>
+
+  <!-- Filtros compactos -->
+  <form id="filtrosForm" method="get" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3 bg-white border rounded-2xl p-4">
+    <!-- Empresa (texto libre) -->
+    <div class="flex flex-col">
+      <label class="text-xs text-slate-500 mb-1">Empresa</label>
+      <input type="text" name="empresa" value="{{ request.args.get('empresa','') }}" placeholder="Todas"
+             class="border rounded-lg px-3 py-2 text-sm">
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="border rounded-xl p-4">
-        <h3 class="font-semibold mb-3">Inscripción</h3>
-        <div class="grid grid-cols-2 gap-3">
-          <label class="text-sm">
-            <span class="block mb-1 text-slate-600">Desde</span>
-            <input type="date" name="insc_desde" value="{{ request.args.get('insc_desde','') }}" class="w-full border rounded-lg px-3 py-2">
-          </label>
-          <label class="text-sm">
-            <span class="block mb-1 text-slate-600">Hasta</span>
-            <input type="date" name="insc_hasta" value="{{ request.args.get('insc_hasta','') }}" class="w-full border rounded-lg px-3 py-2">
-          </label>
-        </div>
-      </div>
-
-      <div class="border rounded-xl p-4">
-        <h3 class="font-semibold mb-3">Segmentación</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <label class="text-sm">
-            <span class="block mb-1 text-slate-600">Empresa</span>
-            {% set emp = request.args.get('empresa','') %}
-            <select name="empresa" class="w-full border rounded-lg px-3 py-2">
-              <option value="" {{ 'selected' if emp=='' else '' }}>Todas</option>
-              <option value="Moto Plan" {{ 'selected' if emp=='Moto Plan' else '' }}>Moto Plan</option>
-              <option value="CYK" {{ 'selected' if emp=='CYK' else '' }}>CYK</option>
-            </select>
-          </label>
-
-          <label class="text-sm">
-            <span class="block mb-1 text-slate-600">Estatus de cliente</span>
-            {% set ec = request.args.get('estatus_cliente','') %}
-            <select name="estatus_cliente" class="w-full border rounded-lg px-3 py-2">
-              <option value="" {{ 'selected' if ec=='' else '' }}>Todos</option>
-              <option value="ACTIVO" {{ 'selected' if ec=='ACTIVO' else '' }}>ACTIVO</option>
-              <option value="INACTIVO" {{ 'selected' if ec=='INACTIVO' else '' }}>INACTIVO</option>
-            </select>
-          </label>
-        </div>
-      </div>
-    </div>
-
-    <div class="border rounded-xl p-4">
-      <h3 class="font-semibold mb-3">Estado del plan</h3>
-      {% set estados = ['Ahorrador','Adjudicado','Congelado','Retiro','Completado','Reserva','Cobranza Diferida','Diferido en Reserva','Inscrito'] %}
-      {% set sel_estados = request.args.getlist('estado_plan[]') %}
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-        {% for e in estados %}
-        <label class="inline-flex items-center gap-2 text-sm">
-          <input type="checkbox" name="estado_plan[]" value="{{ e }}" {{ 'checked' if e in sel_estados else '' }} class="rounded border">
-          <span>{{ e }}</span>
-        </label>
+    <!-- Estado del plan (multi) - se arma desde las llaves de metrics.estados_del_plan -->
+    <div class="flex flex-col">
+      {% set estados_map = (metrics.estados_del_plan if metrics is defined and metrics.estados_del_plan is defined else {}) %}
+      {% set estados_lista = estados_map.keys() if estados_map else [] %}
+      <label class="text-xs text-slate-500 mb-1">Estado del plan</label>
+      <select name="estado_plan[]" multiple size="1" class="border rounded-lg px-3 py-2 text-sm">
+        {% for est in estados_lista %}
+          {% set selected = (est in request.args.getlist('estado_plan[]') or est in request.args.getlist('estado_plan')) %}
+          <option value="{{ est }}" {{ 'selected' if selected else '' }}>{{ est|capitalize }}</option>
         {% endfor %}
-      </div>
+      </select>
+      <small class="text-[11px] text-slate-400 mt-1">Ctrl/Cmd para multi-selección</small>
     </div>
 
-    <div class="border rounded-xl p-4">
-      <h3 class="font-semibold mb-3">Condición</h3>
-      {% set condiciones = ['Mora','Solvente','Pago impuntual','Pago parcial','Pago adelantado'] %}
-      {% set sel_cond = request.args.getlist('condicion[]') %}
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-        {% for c in condiciones %}
-        <label class="inline-flex items-center gap-2 text-sm">
-          <input type="checkbox" name="condicion[]" value="{{ c }}" {{ 'checked' if c in sel_cond else '' }} class="rounded border">
-          <span>{{ c }}</span>
-        </label>
+    <!-- Estatus del cliente (single) -->
+    <div class="flex flex-col">
+      {% set estatus_opts = ['ACTIVO','INACTIVO','RETIRADO','CONGELADO','RESERVA'] %}
+      {% set sel_estatus = (request.args.get('estatus_cliente','') or '').upper() %}
+      <label class="text-xs text-slate-500 mb-1">Estatus cliente</label>
+      <select name="estatus_cliente" class="border rounded-lg px-3 py-2 text-sm">
+        <option value="">Todos</option>
+        {% for opt in estatus_opts %}
+          <option value="{{ opt }}" {{ 'selected' if sel_estatus==opt else '' }}>{{ opt|capitalize }}</option>
         {% endfor %}
-      </div>
+      </select>
     </div>
 
-    <div class="border rounded-xl p-4">
-      <h3 class="font-semibold mb-3">Bloques de cuotas (6 en 6)</h3>
-      {% set buckets = ['1–6','7–12','13–18','19–24','25–30','31–36','37–42','43–48','49–54','55–60'] %}
-      {% set sel_b = request.args.getlist('cuota_bucket[]') %}
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-        {% for b in buckets %}
-        <label class="inline-flex items-center gap-2 text-sm">
-          <input type="checkbox" name="cuota_bucket[]" value="{{ b }}" {{ 'checked' if b in sel_b else '' }} class="rounded border">
-          <span>{{ b }}</span>
-        </label>
+    <!-- Condición de pago (multi) - desde métricas; fallback a lista común -->
+    <div class="flex flex-col">
+      {% set comp_cond = (metrics.composicion_condicion if metrics is defined and metrics.composicion_condicion is defined else {'labels': [], 'values': []}) %}
+      {% set cond_labels = comp_cond['labels'] if comp_cond and comp_cond['labels'] is defined else [] %}
+      {% set cond_fallback = ['Mora','Solvente','Pago impuntual','Pago parcial','Pago adelantado','Sin condicion'] %}
+      {% set opciones_cond = cond_labels if cond_labels else cond_fallback %}
+      <label class="text-xs text-slate-500 mb-1">Condición</label>
+      <select name="condicion[]" multiple size="1" class="border rounded-lg px-3 py-2 text-sm">
+        {% for cond in opciones_cond %}
+          {% set is_sel = cond in request.args.getlist('condicion[]') %}
+          <option value="{{ cond }}" {{ 'selected' if is_sel else '' }}>{{ cond }}</option>
         {% endfor %}
+      </select>
+      <small class="text-[11px] text-slate-400 mt-1">Ctrl/Cmd para multi-selección</small>
+    </div>
+
+    <!-- Buckets de cuota -->
+    <div class="flex flex-col">
+      {% set buckets_sel = request.args.getlist('cuota_bucket[]') %}
+      <label class="text-xs text-slate-500 mb-1">Rango de cuotas</label>
+      <select name="cuota_bucket[]" multiple size="1" class="border rounded-lg px-3 py-2 text-sm">
+        <option value="1" {{ 'selected' if '1' in buckets_sel else '' }}>1–6</option>
+        <option value="2" {{ 'selected' if '2' in buckets_sel else '' }}>7–12</option>
+        <option value="3" {{ 'selected' if '3' in buckets_sel else '' }}>13–24</option>
+        <option value="4" {{ 'selected' if '4' in buckets_sel else '' }}>25–36</option>
+      </select>
+      <small class="text-[11px] text-slate-400 mt-1">Ctrl/Cmd para multi-selección</small>
+    </div>
+
+    <!-- Rango de inscripción -->
+    <div class="flex flex-col">
+      <label class="text-xs text-slate-500 mb-1">Inscripción (desde / hasta)</label>
+      <div class="grid grid-cols-2 gap-2">
+        <input type="date" name="insc_desde" value="{{ request.args.get('insc_desde','') }}" class="border rounded-lg px-3 py-2 text-sm">
+        <input type="date" name="insc_hasta" value="{{ request.args.get('insc_hasta','') }}" class="border rounded-lg px-3 py-2 text-sm">
       </div>
-    </div>
-
-    {% if asesores is defined and asesores %}
-    <div class="border rounded-xl p-4">
-      <h3 class="font-semibold mb-3">Asesor responsable</h3>
-      {% set sel_ases = request.args.getlist('asesor_id[]') %}
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-        {% for a in asesores %}
-        <label class="inline-flex items-center gap-2 text-sm">
-          <input type="checkbox" name="asesor_id[]" value="{{ a.id }}" {{ 'checked' if (a.id|string) in sel_ases else '' }} class="rounded border">
-          <span>{{ a.nombre }}</span>
-        </label>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-      <label class="text-sm">
-        <span class="block mb-1 text-slate-600">Ordenar por</span>
-        {% set ord = request.args.get('orden','') %}
-        <select name="orden" class="w-full border rounded-lg px-3 py-2">
-          <option value="">(por defecto)</option>
-          <option value="cliente" {{ 'selected' if ord=='cliente' else '' }}>Cliente</option>
-          <option value="estado_plan" {{ 'selected' if ord=='estado_plan' else '' }}>Estado plan</option>
-          <option value="condicion" {{ 'selected' if ord=='condicion' else '' }}>Condición</option>
-          <option value="numero_cuota" {{ 'selected' if ord=='numero_cuota' else '' }}>Número de cuota</option>
-          <option value="fecha_inscripcion" {{ 'selected' if ord=='fecha_inscripcion' else '' }}>Fecha de inscripción</option>
-        </select>
-      </label>
-      <label class="text-sm">
-        <span class="block mb-1 text-slate-600">Dirección</span>
-        {% set d = request.args.get('dir','asc') %}
-        <select name="dir" class="w-full border rounded-lg px-3 py-2">
-          <option value="asc" {{ 'selected' if d=='asc' else '' }}>Ascendente</option>
-          <option value="desc" {{ 'selected' if d=='desc' else '' }}>Descendente</option>
-        </select>
-      </label>
-      <label class="text-sm">
-        <span class="block mb-1 text-slate-600">Vista</span>
-        {% set v = request.args.get('vista','nombres') %}
-        <select name="vista" class="w-full border rounded-lg px-3 py-2" x-model="vista">
-          <option value="nombres">Lista (nombres)</option>
-          <option value="perfiles">Perfiles completos</option>
-        </select>
-      </label>
-    </div>
-
-    <div class="flex flex-wrap items-center gap-3 pt-2">
-      <button class="px-4 py-2.5 rounded-xl text-white" style="background:var(--mp-azul)">Aplicar filtros</button>
-      <a class="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
-         href="{{ url_for('reporte_metricas') }}">Limpiar</a>
     </div>
   </form>
 
-  {# ====== DONA: COMPOSICIÓN POR ESTADO (usa metrics.composicion_clientes) ====== #}
-  <section class="bg-white border border-slate-200/80 rounded-xl p-6">
-    <div class="flex items-center justify-between">
-      <h3 class="text-lg font-semibold text-slate-800">Composición de Cartera</h3>
-      <span class="text-sm text-slate-400">Por estado del plan</span>
-    </div>
-    <div class="mt-4 h-80 flex items-center justify-center">
-      <canvas id="composicionChart"></canvas>
-    </div>
-  </section>
+  <!-- Chips de filtros activos (opcional) -->
+  {% set filtros_activos = [] %}
+  {% if request.args.get('empresa') %}{% set _ = filtros_activos.append('Empresa: ' ~ request.args.get('empresa')) %}{% endif %}
+  {% for e in request.args.getlist('estado_plan[]') %}{% set _ = filtros_activos.append('Estado plan: ' ~ e|capitalize) %}{% endfor %}
+  {% if request.args.get('estatus_cliente') %}{% set _ = filtros_activos.append('Estatus: ' ~ request.args.get('estatus_cliente')|capitalize) %}{% endif %}
+  {% for c in request.args.getlist('condicion[]') %}{% set _ = filtros_activos.append('Condición: ' ~ c) %}{% endfor %}
+  {% for b in request.args.getlist('cuota_bucket[]') %}{% set _ = filtros_activos.append('Cuotas: ' ~ ('1–6' if b=='1' else '7–12' if b=='2' else '13–24' if b=='3' else '25–36')) %}{% endfor %}
+  {% if request.args.get('insc_desde') or request.args.get('insc_hasta') %}
+    {% set _ = filtros_activos.append('Inscripción: ' ~ (request.args.get('insc_desde') or '…') ~ ' a ' ~ (request.args.get('insc_hasta') or '…')) %}
+  {% endif %}
 
-  {# ====== KPIs + DESGLOSES (SOLO CONTEOS, derivados de metrics) ====== #}
-  <section class="space-y-4">
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-      <div class="bg-white border rounded-2xl p-4 kpi">
-        <div class="text-xs uppercase tracking-wider text-slate-500">Clientes (total)</div>
-        <div class="text-2xl font-bold">{{ metrics.total_clientes or 0 }}</div>
-      </div>
-      <div class="bg-white border rounded-2xl p-4 kpi">
-        <div class="text-xs uppercase tracking-wider text-slate-500">Activos</div>
-        <div class="text-2xl font-bold">{{ metrics.clientes_activos or 0 }}</div>
-      </div>
-      <div class="bg-white border rounded-2xl p-4 kpi">
-        <div class="text-xs uppercase tracking-wider text-slate-500">Inactivos</div>
-        <div class="text-2xl font-bold">{{ metrics.clientes_inactivos or 0 }}</div>
-      </div>
-      <div class="bg-white border rounded-2xl p-4 kpi">
-        <div class="text-xs uppercase tracking-wider text-slate-500">Adjudicados</div>
-        <div class="text-2xl font-bold">{{ metrics.clientes_adjudicados or 0 }}</div>
-      </div>
-    </div>
-
-    <!-- Desglose por Condición (SIN groupby; usa metrics.composicion_condicion) -->
-    <div class="bg-white border rounded-2xl p-5">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-lg font-semibold">Desglose por Condición</h3>
-        <p class="text-sm text-slate-500">Clic en una tarjeta para filtrar.</p>
-      </div>
-
-      {% set condiciones = ['Mora','Solvente','Pago impuntual','Pago parcial','Pago adelantado'] %}
-      {% set labels_cond = (metrics.composicion_condicion.labels if metrics is defined and metrics.composicion_condicion is defined and metrics.composicion_condicion.labels is defined else []) %}
-      {% set values_cond = (metrics.composicion_condicion.values if metrics is defined and metrics.composicion_condicion is defined and metrics.composicion_condicion.values is defined else []) %}
-
-      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        {% for cond in condiciones %}
-          {% set idx = (labels_cond.index(cond) if cond in labels_cond else -1) %}
-          {% set count = (values_cond[idx] if idx > -1 else 0) %}
-          <button type="button"
-                  class="text-left border rounded-xl p-4 hover:shadow transition"
-                  onclick="(function(){
-                    const f=document.getElementById('filtrosForm');
-                    const i=document.createElement('input');
-                    i.type='hidden'; i.name='condicion[]'; i.value='{{ cond }}';
-                    f.appendChild(i); f.submit();
-                  })()">
-            <div class="text-sm text-slate-500">{{ cond }}</div>
-            <div class="text-xl font-bold">{{ count }}</div>
-          </button>
-        {% endfor %}
-      </div>
-    </div>
-
-    <!-- Desglose por Estado del Plan (SIN groupby; usa metrics.estados_del_plan) -->
-    <div class="bg-white border rounded-2xl p-5">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-lg font-semibold">Desglose por Estado del Plan</h3>
-      </div>
-
-      {% set estados = ['Ahorrador','Adjudicado','Congelado','Retiro','Completado','Reserva','Cobranza Diferida','Diferido en Reserva','Inscrito'] %}
-      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
-        {% for e in estados %}
-          {% set count_e = (metrics.estados_del_plan[e] if metrics is defined and metrics.estados_del_plan is defined and e in metrics.estados_del_plan else 0) %}
-          <button type="button"
-                  class="text-left border rounded-xl p-4 hover:shadow transition"
-                  onclick="(function(){
-                    const f=document.getElementById('filtrosForm');
-                    const i=document.createElement('input');
-                    i.type='hidden'; i.name='estado_plan[]'; i.value='{{ e }}';
-                    f.appendChild(i); f.submit();
-                  })()">
-            <div class="text-sm text-slate-500">{{ e }}</div>
-            <div class="text-xl font-bold">{{ count_e }}</div>
-          </button>
-        {% endfor %}
-      </div>
-    </div>
-  </section>
-
-  {# Resultados (opcionales). Si no envías una lista de clientes, se mostrará vacío sin romper. #}
-  {% set lista = clientes if clientes is defined else [] %}
-
-  <section class="bg-white border rounded-2xl p-5">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-lg font-semibold">Resultados</h3>
-      <div class="inline-flex rounded-xl overflow-hidden border">
-        <button type="button"
-                :class="vista==='nombres' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'"
-                class="px-3 py-1.5 text-sm"
-                @click="vista='nombres'">Lista (nombres)</button>
-        <button type="button"
-                :class="vista==='perfiles' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'"
-                class="px-3 py-1.5 text-sm border-l"
-                @click="vista='perfiles'">Perfiles</button>
-      </div>
-    </div>
-
-    <!-- Lista -->
-    <div x-show="vista==='nombres'">
-      {% if lista and lista|length %}
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-sm">
-          <thead class="bg-slate-100 text-slate-600">
-            <tr>
-              <th class="px-3 py-2 text-left">Cliente</th>
-              <th class="px-3 py-2 text-left">Cédula</th>
-              <th class="px-3 py-2 text-left">Empresa</th>
-              <th class="px-3 py-2 text-left">Estado plan</th>
-              <th class="px-3 py-2 text-left">Condición</th>
-              <th class="px-3 py-2 text-left">N° cuota</th>
-              <th class="px-3 py-2 text-left">Fecha inscripción</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y">
-            {% for r in lista %}
-            <tr class="hover:bg-slate-50">
-              <td class="px-3 py-2">{{ r.cliente }}</td>
-              <td class="px-3 py-2">{{ r.cedula }}</td>
-              <td class="px-3 py-2">{{ r.empresa }}</td>
-              <td class="px-3 py-2">{{ r.estado_del_plan or r.estado_plan }}</td>
-              <td class="px-3 py-2">{{ r.condicion }}</td>
-              <td class="px-3 py-2">{{ r.numero_cuota }}</td>
-              <td class="px-3 py-2">{{ r.fecha_inscripcion or r.fecha_registro or r.fecha_origen }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% else %}
-      <div class="text-center py-10 text-slate-500">Sin resultados con los filtros actuales.</div>
-      {% endif %}
-    </div>
-
-    <!-- Perfiles -->
-    <div x-show="vista==='perfiles'" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {% for r in lista %}
-      <div class="border rounded-xl p-4 space-y-2 hover:shadow transition">
-        <div class="font-semibold">{{ r.cliente }}</div>
-        <div class="text-xs text-slate-500">Cédula: <span class="text-slate-700">{{ r.cedula }}</span></div>
-        <div class="text-xs text-slate-500">Empresa: <span class="text-slate-700">{{ r.empresa }}</span></div>
-        <div class="text-xs text-slate-500">Estado plan: <span class="text-slate-700">{{ r.estado_del_plan or r.estado_plan }}</span></div>
-        <div class="text-xs text-slate-500">Condición: <span class="text-slate-700">{{ r.condicion }}</span></div>
-        <div class="text-xs text-slate-500">N° cuota: <span class="text-slate-700">{{ r.numero_cuota }}</span></div>
-        <div class="text-xs text-slate-500">Inscripción: <span class="text-slate-700">{{ r.fecha_inscripcion or r.fecha_registro or r.fecha_origen }}</span></div>
-      </div>
-      {% else %}
-        <div class="text-center py-10 text-slate-500 col-span-full">Sin resultados con los filtros actuales.</div>
+  {% if filtros_activos %}
+    <div class="flex flex-wrap gap-2">
+      {% for chip in filtros_activos %}
+        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-slate-100 border">{{ chip }}</span>
       {% endfor %}
     </div>
-  </section>
+  {% endif %}
+
+  <!-- KPI Cards -->
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+    <div class="border rounded-xl p-4">
+      <div class="text-xs text-slate-500">Total clientes</div>
+      <div class="text-xl font-semibold">{{ metrics.total_clientes if metrics is defined else 0 }}</div>
+    </div>
+    <div class="border rounded-xl p-4">
+      <div class="text-xs text-slate-500">Activos</div>
+      <div class="text-xl font-semibold">{{ metrics.clientes_activos if metrics is defined else 0 }}</div>
+    </div>
+    <div class="border rounded-xl p-4">
+      <div class="text-xs text-slate-500">Inactivos</div>
+      <div class="text-xl font-semibold">{{ metrics.clientes_inactivos if metrics is defined else 0 }}</div>
+    </div>
+    <div class="border rounded-xl p-4">
+      <div class="text-xs text-slate-500">Retirados</div>
+      <div class="text-xl font-semibold">{{ metrics.clientes_retirados if metrics is defined else 0 }}</div>
+    </div>
+    <div class="border rounded-xl p-4">
+      <div class="text-xs text-slate-500">Adjudicados</div>
+      <div class="text-xl font-semibold">{{ metrics.clientes_adjudicados if metrics is defined else 0 }}</div>
+    </div>
+    <div class="border rounded-xl p-4">
+      <div class="text-xs text-slate-500">Índice de morosidad</div>
+      <div class="text-xl font-semibold">{{ (metrics.indice_morosidad|string) ~ '%' if metrics is defined else '0%' }}</div>
+    </div>
+  </div>
+
+  <!-- Filas: Composición por Estado y Condición -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="bg-white border rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-semibold">Composición por estado del plan</h3>
+      </div>
+      <canvas id="chartEstadoPlan" height="220"></canvas>
+      <div class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {% for k, v in estados_map.items() %}
+          <div class="flex items-center justify-between border rounded-lg px-3 py-2 text-sm">
+            <span>{{ k|capitalize }}</span><span class="font-semibold">{{ v }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="bg-white border rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-semibold">Desglose por condición de pago</h3>
+      </div>
+      <canvas id="chartCondicion" height="220"></canvas>
+      {% set values_cond = comp_cond['values'] if comp_cond and comp_cond['values'] is defined else [] %}
+      <div class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {% for i in range(0, cond_labels|length) %}
+          <div class="flex items-center justify-between border rounded-lg px-3 py-2 text-sm">
+            <span>{{ cond_labels[i] }}</span>
+            <span class="font-semibold">{{ values_cond[i] if values_cond|length>i else 0 }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Ingresos últimos meses -->
+  <div class="bg-white border rounded-2xl p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="text-lg font-semibold">Ingresos conciliados (últimos meses)</h3>
+      <div class="text-sm text-slate-500">
+        Mes actual: <span class="font-medium">{{ metrics.ingresos_mes_conciliados if metrics is defined else 0 }}</span>
+      </div>
+    </div>
+    <canvas id="chartIngresos" height="220"></canvas>
+  </div>
+
 </div>
 {% endblock %}
 
 {% block scripts_extra %}
 <script>
-  // --- Composición por ESTADO DEL PLAN ---
-  const compPlan = {{ (
-    metrics.composicion_clientes
-      if metrics is defined and metrics.composicion_clientes is defined
-      else {'labels': [], 'values': []}
-  ) | tojson | safe }};
-  const compPlanLabels = Array.isArray(compPlan.labels) ? compPlan.labels : [];
-  const compPlanValues = Array.isArray(compPlan.values) ? compPlan.values : [];
+/* Serialización robusta (evita método dict.values()) */
+const compPlan = {{ (
+  metrics.composicion_clientes
+    if metrics is defined and metrics.composicion_clientes is defined
+    else {'labels': [], 'values': []}
+) | tojson | safe }};
+const compPlanLabels = Array.isArray(compPlan.labels) ? compPlan.labels : [];
+const compPlanValues = Array.isArray(compPlan.values) ? compPlan.values : [];
 
-  // --- Composición por CONDICIÓN DE PAGO ---
-  const compCond = {{ (
-    metrics.composicion_condicion
-      if metrics is defined and metrics.composicion_condicion is defined
-      else {'labels': [], 'values': []}
-  ) | tojson | safe }};
-  const compCondLabels = Array.isArray(compCond.labels) ? compCond.labels : [];
-  const compCondValues = Array.isArray(compCond.values) ? compCond.values : [];
+const compCond = {{ (
+  metrics.composicion_condicion
+    if metrics is defined and metrics.composicion_condicion is defined
+    else {'labels': [], 'values': []}
+) | tojson | safe }};
+const compCondLabels = Array.isArray(compCond.labels) ? compCond.labels : [];
+const compCondValues = Array.isArray(compCond.values) ? compCond.values : [];
 
-  // --- Ingresos últimos meses ---
-  const ingresos = {{ (
-    metrics.ingresos_ultimos_meses
-      if metrics is defined and metrics.ingresos_ultimos_meses is defined
-      else {'labels': [], 'values': []}
-  ) | tojson | safe }};
-  const ingresosLabels = Array.isArray(ingresos.labels) ? ingresos.labels : [];
-  const ingresosValues = Array.isArray(ingresos.values) ? ingresos.values : [];
+const ingresos = {{ (
+  metrics.ingresos_ultimos_meses
+    if metrics is defined and metrics.ingresos_ultimos_meses is defined
+    else {'labels': [], 'values': []}
+) | tojson | safe }};
+const ingresosLabels = Array.isArray(ingresos.labels) ? ingresos.labels : [];
+const ingresosValues = Array.isArray(ingresos.values) ? ingresos.values : [];
 
-  // Aquí inicializas tus gráficos (Chart.js u otro) usando:
-  // compPlanLabels/compPlanValues, compCondLabels/compCondValues, ingresosLabels/ingresosValues
+/* Si existe Chart.js en base_sidebar, pinta; si no, no rompe */
+(function(){
+  if (!window.Chart) return;
+
+  // Dona: Estado del plan
+  const ctx1 = document.getElementById('chartEstadoPlan');
+  if (ctx1) {
+    new Chart(ctx1, {
+      type: 'doughnut',
+      data: { labels: compPlanLabels, datasets: [{ data: compPlanValues }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+
+  // Dona: Condición de pago
+  const ctx2 = document.getElementById('chartCondicion');
+  if (ctx2) {
+    new Chart(ctx2, {
+      type: 'doughnut',
+      data: { labels: compCondLabels, datasets: [{ data: compCondValues }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+
+  // Línea/Barra: Ingresos
+  const ctx3 = document.getElementById('chartIngresos');
+  if (ctx3) {
+    new Chart(ctx3, {
+      type: 'bar',
+      data: { labels: ingresosLabels, datasets: [{ label: 'Conciliado', data: ingresosValues }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+  }
+})();
 </script>
 {% endblock %}
