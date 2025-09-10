@@ -2917,10 +2917,6 @@ def mi_cartera():
 # =================================================================================
 # ===== INICIO: MÓDULO DE MÉTRICAS RECONSTRUIDO (V1) =====
 # ================================================================================
-# -*- coding: utf-8 -*-
-from flask import request, render_template, flash, redirect, url_for, current_app
-from datetime import datetime
-import traceback
 
 @app.route('/reportes/metricas', methods=['GET'])
 @admin_required
@@ -2949,7 +2945,9 @@ def reporte_metricas():
     page   = max(1, page)
     offset = (page - 1) * per_page
 
-    debug_sql = (request.args.get('debug_sql') in ('1','true','TRUE')) or bool(getattr(current_app.config, 'DEBUG_SQL', False))
+    # NO usamos current_app: tomamos config/logger del objeto app directamente
+    debug_sql = (request.args.get('debug_sql') in ('1','true','TRUE')) or bool(getattr(app.config, 'DEBUG_SQL', False))
+    logger = getattr(app, 'logger', None)
 
     # Helpers cursor-agnósticos
     def _fetch_dicts(cur):
@@ -2969,7 +2967,7 @@ def reporte_metricas():
             _ = cur.fetchall()
             return True
         except Exception:
-            return False  # si truena por columna, devolvemos False
+            return False
 
     rows=[]; total_count=0; page_count=1
     resumen={}; chart_estados={'labels':[],'values':[]}; chart_condicion={'labels':[],'values':[]}
@@ -2984,9 +2982,9 @@ def reporte_metricas():
             RealDictCursor = None
 
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            # ---- Detección de columnas (basada en tu listado real) ----
+            # ---- Detección columnas (según tu esquema real) ----
             nombre_col    = 'nombre' if _col_exists(cur, 'nombre') else None
-            # condicion: prioriza condicion_pago, luego condicion
+
             if _col_exists(cur, 'condicion_pago'):
                 condicion_col = 'condicion_pago'
             elif _col_exists(cur, 'condicion'):
@@ -2999,7 +2997,6 @@ def reporte_metricas():
             cuotas_col = 'cuotas_pagadas_progresivas' if _col_exists(cur, 'cuotas_pagadas_progresivas') \
                          else ('cuotas_pagadas' if _col_exists(cur, 'cuotas_pagadas') else None)
 
-            # Prioridad absoluta a fecha_ingreso (existe en tu BD)
             if   _col_exists(cur, 'fecha_ingreso'):     fecha_col='fecha_ingreso'
             elif _col_exists(cur, 'fecha_de_ingreso'):  fecha_col='fecha_de_ingreso'
             elif _col_exists(cur, 'fecha_registro'):    fecha_col='fecha_registro'
@@ -3011,10 +3008,10 @@ def reporte_metricas():
             fecha_col_usada  = fecha_col or '(no disponible)'
             cuotas_col_usada = cuotas_col or '(no disponible)'
 
-            # En tu BD solo existe estatus_cliente (no estatus ni estado)
+            # En tu BD sólo existe estatus_cliente
             estatus_candidates = [c for c in ['estatus_cliente'] if _col_exists(cur, c)]
             if estatus_candidates:
-                estatus_terms = [f"NULLIF(c.{c},'')" for c in estatus_candidates]  # -> solo estatus_cliente
+                estatus_terms = [f"NULLIF(c.{c},'')" for c in estatus_candidates]
                 estatus_expr  = f"TRIM(UPPER(COALESCE({', '.join(estatus_terms)})))"
             else:
                 estatus_expr  = "NULL::text"
@@ -3053,7 +3050,7 @@ def reporte_metricas():
                 if d2: where.append(f"{fecha_expr} <= %s"); params.append(d2)
             where_sql = f"WHERE {' AND '.join(where)}" if where else ""
 
-            # ---- Opciones (sin filtros) ----
+            # ---- Selectores (sin filtros) ----
             cur.execute("""
                 SELECT DISTINCT empresa
                 FROM clientes
@@ -3082,7 +3079,7 @@ def reporte_metricas():
             cur.execute(f"SELECT DISTINCT {condicion_expr} AS condicion FROM clientes c ORDER BY 1")
             condicion_opciones=[r['condicion'] for r in _fetch_dicts(cur)]
 
-            # ---- CTE base para consistencia ----
+            # ---- CTE base ----
             base_cte = f"""
                 WITH base AS (
                     SELECT
@@ -3102,7 +3099,7 @@ def reporte_metricas():
                 )
             """
 
-            # Totales / páginas
+            # Totales/páginas
             cur.execute(base_cte + "SELECT COUNT(*) AS n FROM base", params)
             total_count = int(_fetch_one_value(cur, 0))
             page_count  = max(1, (total_count + per_page - 1) // per_page)
@@ -3133,15 +3130,16 @@ def reporte_metricas():
             """, params + [per_page, offset])
             rows=_fetch_dicts(cur)
 
-            if debug_sql and current_app:
-                current_app.logger.info("[/reportes/metricas] COLS_USED={'estatus':%s,'condicion':%s,'cuotas':%s,'fecha':%s,'nombre':%s}",
-                                        estatus_candidates, (condicion_col or '(n/a)'), (cuotas_col or '(n/a)'), (fecha_col or '(n/a)'), (nombre_col or '(n/a)'))
-                current_app.logger.info("[/reportes/metricas] WHERE=%s | PARAMS=%s | SORT=%s %s | PER_PAGE=%s | PAGE=%s/%s",
-                                        (where_sql or '(sin where)'), params, sort_expr, dir_sql, per_page, page, max(page_count,1))
+            if debug_sql and logger:
+                logger.info("[/reportes/metricas] COLS_USED={'estatus':%s,'condicion':%s,'cuotas':%s,'fecha':%s,'nombre':%s}",
+                            estatus_candidates, (condicion_col or '(n/a)'), (cuotas_col or '(n/a)'), (fecha_col or '(n/a)'), (nombre_col or '(n/a)'))
+                logger.info("[/reportes/metricas] WHERE=%s | PARAMS=%s | SORT=%s %s | PER_PAGE=%s | PAGE=%s/%s",
+                            (where_sql or '(sin where)'), params, sort_expr, dir_sql, per_page, page, page_count)
+
     except Exception as e:
-        if current_app:
-            current_app.logger.error("Fallo en /reportes/metricas: %s", str(e))
-            current_app.logger.error("Traceback:\n%s", traceback.format_exc())
+        if logger:
+            logger.error("Fallo en /reportes/metricas: %s", str(e))
+            logger.error("Traceback:\n%s", traceback.format_exc())
         flash("Ocurrió un error generando el reporte. Revisa el log de la aplicación.", "danger")
 
     return render_template('reporte_metricas.html',
