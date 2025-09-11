@@ -168,7 +168,6 @@
           {% endcall %}
         </div>
 
-        {# --- Botonera con Exportar CSV (preserva filtros) --- #}
         {% set export_qs = namespace(parts=[]) %}
         {% for k, v in request.args.items() %}
           {% if k not in ['page','per_page','export'] and v %}
