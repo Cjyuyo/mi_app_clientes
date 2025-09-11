@@ -1,66 +1,52 @@
--- === Base de egresos planificados (extensión mínima para semanal) ===
-CREATE TABLE IF NOT EXISTS egresos_planificados (
-  id SERIAL PRIMARY KEY,
-  tipo TEXT CHECK (tipo IN ('Fijo','Variable','Devolucion')) NOT NULL DEFAULT 'Fijo',
-  titulo TEXT NOT NULL,
-  descripcion TEXT,
-  monto_base_usd NUMERIC(12,2) NOT NULL,
-  metodo_referencia TEXT CHECK (metodo_referencia IN ('USD_EFECTIVO','VES_BCV','VES_EUR','VES_BINANCE','USDT')) NOT NULL DEFAULT 'USD_EFECTIVO',
-  frecuencia TEXT CHECK (frecuencia IN ('Semanal','Quincenal','Mensual','Anual','Unico')) NOT NULL DEFAULT 'Mensual',
-  -- Semanal:
-  intervalo_semana INT NOT NULL DEFAULT 1,           -- cada N semanas
-  byday TEXT,                                        -- 'MO,TU,WE,TH,FR,SA,SU'
-  -- Mensual/Quincenal (v1 simple):
-  dia_mes INT,                                       -- 1–31
-  dias_quincena TEXT,                                -- '1,16'
-  -- Rango:
-  fecha_inicio_recurrencia DATE NOT NULL DEFAULT CURRENT_DATE,
-  fecha_fin_recurrencia DATE,
-  estado TEXT CHECK (estado IN ('activo','pausado')) NOT NULL DEFAULT 'activo',
-  created_by INT,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  updated_by INT,
-  updated_at TIMESTAMP
-);
+-- migrations/20250911c_egresos_tipo_y_refs.sql
+BEGIN;
 
-CREATE INDEX IF NOT EXISTS idx_egp_estado ON egresos_planificados (estado);
-CREATE INDEX IF NOT EXISTS idx_egp_frecuencia ON egresos_planificados (frecuencia);
+-- Asegura columna 'tipo' en egresos_planificados (algunos entornos no la tenían)
+ALTER TABLE egresos_planificados
+  ADD COLUMN IF NOT EXISTS tipo VARCHAR(20);
+UPDATE egresos_planificados SET tipo = COALESCE(NULLIF(tipo,''), 'Fijo') WHERE tipo IS NULL;
 
--- === Ocurrencias por período (semanal / mensual) ===
+-- Crea tablas de ocurrencias/pagos si no existen (idempotente)
 CREATE TABLE IF NOT EXISTS egresos_ocurrencias (
   id SERIAL PRIMARY KEY,
   egreso_id INT NOT NULL REFERENCES egresos_planificados(id) ON DELETE CASCADE,
   fecha_programada DATE NOT NULL,
-  periodo_tipo TEXT CHECK (periodo_tipo IN ('mensual','semanal')) NOT NULL,
-  periodo_clave TEXT NOT NULL,                       -- 'YYYY-MM' o 'YYYY-Www'
-  monto_programado_usd NUMERIC(12,2) NOT NULL,
+  periodo_tipo TEXT CHECK (periodo_tipo IN ('mensual','semanal')) NOT NULL DEFAULT 'mensual',
+  periodo_clave TEXT NOT NULL,
+  monto_programado_usd NUMERIC(12,2) NOT NULL DEFAULT 0,
   monto_pagado_usd NUMERIC(12,2) NOT NULL DEFAULT 0,
   estado TEXT CHECK (estado IN ('pendiente','parcial','pagado')) NOT NULL DEFAULT 'pendiente',
   UNIQUE (egreso_id, periodo_tipo, periodo_clave, fecha_programada)
 );
-
 CREATE INDEX IF NOT EXISTS idx_eocc_periodo ON egresos_ocurrencias (periodo_tipo, periodo_clave);
-CREATE INDEX IF NOT EXISTS idx_eocc_estado ON egresos_ocurrencias (estado);
+CREATE INDEX IF NOT EXISTS idx_eocc_estado  ON egresos_ocurrencias (estado);
 
--- === Pagos aplicados a ocurrencias (conciliados con tesorería) ===
 CREATE TABLE IF NOT EXISTS egresos_pagos (
   id SERIAL PRIMARY KEY,
   egreso_ocurrencia_id INT NOT NULL REFERENCES egresos_ocurrencias(id) ON DELETE CASCADE,
-  movimiento_tesoreria_id INT,                       -- FK suave si tu tabla existe
+  movimiento_tesoreria_id INT,
   monto_original NUMERIC(14,2) NOT NULL,
-  moneda TEXT CHECK (moneda IN ('USD','VES','USDT')) NOT NULL,
+  moneda TEXT CHECK (moneda IN ('USD','VES','USDT')) NOT NULL DEFAULT 'USD',
   tasa_aplicada NUMERIC(14,6),
-  monto_equivalente_usd NUMERIC(14,2) NOT NULL,
+  monto_equivalente_usd NUMERIC(14,2) NOT NULL DEFAULT 0,
   fecha_pago TIMESTAMP NOT NULL DEFAULT NOW(),
   nota TEXT
 );
-
-CREATE INDEX IF NOT EXISTS idx_epagos_occ ON egresos_pagos (egreso_ocurrencia_id);
+CREATE INDEX IF NOT EXISTS idx_epagos_occ   ON egresos_pagos (egreso_ocurrencia_id);
 CREATE INDEX IF NOT EXISTS idx_epagos_fecha ON egresos_pagos (fecha_pago);
 
--- === Campos de referencia en movimientos de tesorería (si aplica) ===
-ALTER TABLE movimientos_tesoreria
-  ADD COLUMN IF NOT EXISTS referencia_tipo TEXT,     -- 'EGRESO'
-  ADD COLUMN IF NOT EXISTS referencia_id INT;        -- egreso_ocurrencia_id
+-- Añade referencias en operaciones_tesoreria (si existe)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = ANY (current_schemas(true)) AND table_name = 'operaciones_tesoreria'
+  ) THEN
+    ALTER TABLE operaciones_tesoreria
+      ADD COLUMN IF NOT EXISTS referencia_tipo TEXT,
+      ADD COLUMN IF NOT EXISTS referencia_id   INT;
+    CREATE INDEX IF NOT EXISTS idx_ot_ref ON operaciones_tesoreria (referencia_tipo, referencia_id);
+  END IF;
+END $$;
 
-CREATE INDEX IF NOT EXISTS idx_mt_ref ON movimientos_tesoreria (referencia_tipo, referencia_id);
+COMMIT;
