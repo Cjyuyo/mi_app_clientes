@@ -2973,6 +2973,7 @@ def reporte_metricas():
     q_cuota_bucket = (request.args.get('cuota_bucket') or '').strip()
     q_desde        = (request.args.get('insc_desde') or '').strip()
     q_hasta        = (request.args.get('insc_hasta') or '').strip()
+    q_export       = (request.args.get('export') or '').strip().lower()
     sort_param     = (request.args.get('sort') or 'id').strip().lower()
     dir_param      = (request.args.get('dir') or 'asc').strip().lower()
     try:    per_page = int(request.args.get('per_page') or 25)
@@ -3046,13 +3047,25 @@ def reporte_metricas():
             fecha_col_usada  = fecha_col or '(no disponible)'
             cuotas_col_usada = cuotas_col or '(no disponible)'
 
-            # En tu BD sólo existe estatus_cliente
-            estatus_candidates = [c for c in ['estatus_cliente'] if _col_exists(cur, c)]
-            if estatus_candidates:
-                estatus_terms = [f"NULLIF(c.{c},'')" for c in estatus_candidates]
-                estatus_expr  = f"TRIM(UPPER(COALESCE({', '.join(estatus_terms)})))"
+            # ---- ESTATUS normalizado en caliente (incluye sinónimos → PENDIENTE POR ENTREGA) ----
+            # Base cruda en mayúsculas
+            if _col_exists(cur, 'estatus_cliente'):
+                estatus_expr_base = "TRIM(UPPER(NULLIF(c.estatus_cliente,'')))"
             else:
-                estatus_expr  = "NULL::text"
+                estatus_expr_base = "NULL::text"
+
+            # Mapea sinónimos al valor oficial
+            # NOTA: usamos regexp_replace para colapsar espacios múltiples.
+            estatus_expr_norm = f"""
+            CASE
+              WHEN {estatus_expr_base} IS NULL OR {estatus_expr_base} = '' THEN NULL
+              WHEN regexp_replace({estatus_expr_base}, '\\s+', ' ', 'g') IN
+                   ('ENTREGA PENDIENTE','PENDIENTE DE ENTREGA','PENDIENTE ENTREGA','PENDIEN POR ENTREGA')
+                   OR ({estatus_expr_base} LIKE '%%PENDIENT%%' AND {estatus_expr_base} LIKE '%%ENTREG%%')
+                   THEN 'PENDIENTE POR ENTREGA'
+              ELSE regexp_replace({estatus_expr_base}, '\\s+', ' ', 'g')
+            END
+            """.strip()
 
             empresa_expr   = "REGEXP_REPLACE(UPPER(TRIM(c.empresa)), '\\s+', ' ', 'g')"
             estado_expr    = "TRIM(UPPER(c.estado_del_plan))"
@@ -3068,8 +3081,9 @@ def reporte_metricas():
             if q_estado_plan:
                 where.append(f"{estado_expr} = %s")
                 params.append(q_estado_plan.upper())
-            if q_estatus and estatus_candidates:
-                where.append(f"{estatus_expr} = %s")
+            if q_estatus:
+                # Compara contra el estatus normalizado (incluye PENDIENTE POR ENTREGA)
+                where.append(f"{estatus_expr_norm} = %s")
                 params.append(q_estatus.upper())
             if q_condicion and condicion_col:
                 where.append(f"{condicion_expr} = %s")
@@ -3103,23 +3117,18 @@ def reporte_metricas():
                 ORDER BY 1
             """); estados_opciones=[r['estado'] for r in _fetch_dicts(cur)]
 
-            # ===== CAMBIO: incluir siempre 'PENDIENTE POR ENTREGA' en el combo de estatus =====
-            if estatus_candidates:
-                cur.execute(f"""
-                    SELECT estatus FROM (
-                        SELECT DISTINCT {estatus_expr} AS estatus
-                        FROM clientes c
-                        WHERE {estatus_expr} IS NOT NULL AND {estatus_expr} <> ''
-                        UNION
-                        SELECT 'PENDIENTE POR ENTREGA'
-                    ) t
-                    ORDER BY 1
-                """)
-                estatus_opciones=[r['estatus'] for r in _fetch_dicts(cur)]
-            else:
-                # Si no hay columna de estatus, al menos mostramos la nueva opción
-                estatus_opciones=['PENDIENTE POR ENTREGA']
-            # ===== FIN CAMBIO =====
+            # Siempre incluye 'PENDIENTE POR ENTREGA' en opciones
+            cur.execute(f"""
+                SELECT estatus FROM (
+                    SELECT DISTINCT {estatus_expr_norm} AS estatus
+                    FROM clientes c
+                    WHERE {estatus_expr_norm} IS NOT NULL AND {estatus_expr_norm} <> ''
+                    UNION
+                    SELECT 'PENDIENTE POR ENTREGA'
+                ) t
+                ORDER BY 1
+            """)
+            estatus_opciones=[r['estatus'] for r in _fetch_dicts(cur)]
 
             cur.execute(f"SELECT DISTINCT {condicion_expr} AS condicion FROM clientes c ORDER BY 1")
             condicion_opciones=[r['condicion'] for r in _fetch_dicts(cur)]
@@ -3133,7 +3142,7 @@ def reporte_metricas():
                         c.estado_del_plan,
                         {empresa_expr}   AS empresa_norm,
                         {estado_expr}    AS estado_norm,
-                        {estatus_expr}   AS estatus_norm,
+                        {estatus_expr_norm}   AS estatus_norm,
                         {condicion_expr} AS condicion_norm,
                         {cuotas_expr}    AS cuotas_val,
                         {fecha_expr}     AS fecha_val
@@ -3143,6 +3152,49 @@ def reporte_metricas():
                     {where_sql}
                 )
             """
+
+            # ----- EXPORT CSV (sin paginación, conserva filtros/orden) -----
+            sort_map={'id':'id','empresa':'empresa_norm','estado':'estado_norm','estatus':'estatus_norm'}
+            if show_nombre: sort_map['nombre']='upper(nombre)'
+            sort_expr = sort_map.get(sort_param,'id')
+            dir_sql   = 'DESC' if dir_param=='desc' else 'ASC'
+
+            if q_export == 'csv':
+                select_cols=["id","empresa","estado_del_plan","estatus_norm AS estatus","fecha_val AS fecha_base","cuotas_val AS cuotas"]
+                if show_nombre:    select_cols.append("nombre")
+                if show_condicion: select_cols.append("condicion_raw AS condicion_pago")
+
+                cur.execute(base_cte + f"""
+                    SELECT {", ".join(select_cols)}
+                    FROM base
+                    ORDER BY {sort_expr} {dir_sql}
+                """, params)
+                data=_fetch_dicts(cur)
+
+                # Construir CSV
+                import io, csv
+                si = io.StringIO()
+                # Orden de columnas para CSV (human-friendly)
+                csv_cols = ["id","empresa"]
+                if show_nombre: csv_cols.append("nombre")
+                csv_cols += ["estado_del_plan","estatus"]
+                if show_condicion: csv_cols.append("condicion_pago")
+                csv_cols += ["fecha_base","cuotas"]
+
+                writer = csv.DictWriter(si, fieldnames=csv_cols, extrasaction='ignore')
+                writer.writeheader()
+                for r in data:
+                    writer.writerow(r)
+
+                filename = f"reporte_metricas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                if debug_sql and logger:
+                    logger.info("[/reportes/metricas][CSV] WHERE=%s | PARAMS=%s | SORT=%s %s | ROWS=%s",
+                                (where_sql or '(sin where)'), params, sort_expr, dir_sql, len(data))
+                return Response(
+                    si.getvalue().encode('utf-8-sig'),
+                    mimetype='text/csv; charset=utf-8',
+                    headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+                )
 
             # Totales/páginas
             cur.execute(base_cte + "SELECT COUNT(*) AS n FROM base", params)
@@ -3157,12 +3209,7 @@ def reporte_metricas():
             cur.execute(base_cte + "SELECT condicion_norm AS condicion, COUNT(*) AS n FROM base GROUP BY 1 ORDER BY 1", params)
             r2=_fetch_dicts(cur); chart_condicion={'labels':[x['condicion'] for x in r2],'values':[x['n'] for x in r2]}
 
-            # Orden/paginación
-            sort_map={'id':'id','empresa':'empresa_norm','estado':'estado_norm','estatus':'estatus_norm'}
-            if show_nombre: sort_map['nombre']='upper(nombre)'
-            sort_expr = sort_map.get(sort_param,'id')
-            dir_sql   = 'DESC' if dir_param=='desc' else 'ASC'
-
+            # Orden/paginación (ya definidas arriba)
             select_cols=["id","empresa","estado_del_plan","estatus_norm AS estatus"]
             if show_nombre:   select_cols.append("nombre")
             if show_condicion:select_cols.append("condicion_raw AS condicion_pago")
@@ -3176,8 +3223,9 @@ def reporte_metricas():
             rows=_fetch_dicts(cur)
 
             if debug_sql and logger:
-                logger.info("[/reportes/metricas] COLS_USED={'estatus':%s,'condicion':%s,'cuotas':%s,'fecha':%s,'nombre':%s}",
-                            estatus_candidates, (condicion_col or '(n/a)'), (cuotas_col or '(n/a)'), (fecha_col or '(n/a)'), (nombre_col or '(n/a)'))
+                logger.info("[/reportes/metricas] COLS_USED={'estatus':'%s','condicion':'%s','cuotas':'%s','fecha':'%s','nombre':'%s'}",
+                            'estatus_cliente' if _col_exists(cur,'estatus_cliente') else '(n/a)',
+                            (condicion_col or '(n/a)'), (cuotas_col or '(n/a)'), (fecha_col or '(n/a)'), (nombre_col or '(n/a)'))
                 logger.info("[/reportes/metricas] WHERE=%s | PARAMS=%s | SORT=%s %s | PER_PAGE=%s | PAGE=%s/%s",
                             (where_sql or '(sin where)'), params, sort_expr, dir_sql, per_page, page, page_count)
 
@@ -3185,6 +3233,7 @@ def reporte_metricas():
         if logger:
             logger.error("Fallo en /reportes/metricas: %s", str(e))
             logger.error("Traceback:\n%s", traceback.format_exc())
+            logger.error("WHERE construido: %s | Parámetros: %s", (where_sql if 'where_sql' in locals() else ''), (params if 'params' in locals() else []))
         flash("Ocurrió un error generando el reporte. Revisa el log de la aplicación.", "danger")
 
     return render_template('reporte_metricas.html',
