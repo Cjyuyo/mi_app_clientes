@@ -3750,137 +3750,52 @@ def admin_tasa_bcv():
     return render_template('admin_tasa_bcv.html', tasas_de_hoy=tasas_de_hoy, historial_tasas=historial_tasas, anio_actual=today_date.year)
 
 # ====== INICIO: REEMPLAZA TU FUNCIÓN DE GESTIÓN DE EGRESOS CON ESTA ======
-from decimal import Decimal, InvalidOperation
 
-@app.route('/gestion/egresos', methods=['POST'])
+@app.route('/gestion/egresos', methods=['GET'], endpoint='gestion_egresos')
 @admin_required
-def egresos_crear_actualizar():
-    """
-    Alta/Edición de egresos_planificados.
-    - Si viene 'id' -> UPDATE
-    - Si no viene 'id' -> INSERT
-    Captura frecuencia semanal: intervalo_semana, byday (checkboxes).
-    """
+def gestion_egresos():
     conn = get_db()
-    if not conn:
-        flash("Error de conexión a la base de datos.", "danger")
-        return redirect(url_for('gestion_egresos'))
+    hoy = get_venezuela_current_date()
 
-    form = request.form
-    egreso_id = form.get('id')  # oculto si edición
-    titulo = (form.get('titulo') or '').strip()
-    descripcion = (form.get('descripcion') or '').strip()
-    tipo = (form.get('tipo') or 'Fijo').strip()  # 'Fijo','Variable','Devolucion'
-    frecuencia = (form.get('frecuencia') or 'Mensual').strip()  # 'Semanal','Quincenal','Mensual','Anual','Unico'
-    metodo_referencia = (form.get('metodo_referencia') or 'USD_EFECTIVO').strip()  # 'USD_EFECTIVO','VES_BCV','VES_EUR','VES_BINANCE','USDT'
-    estado = (form.get('estado') or 'activo').strip()  # 'activo','pausado'
-
-    # Monto anclado a USD
-    from decimal import Decimal, InvalidOperation
-    monto_str = (form.get('monto_base_usd') or '0').replace(',', '.')
-    try:
-        monto_base_usd = Decimal(monto_str)
-        if monto_base_usd <= 0:
-            raise InvalidOperation()
-    except (InvalidOperation, ValueError):
-        flash("Monto base USD inválido.", "danger")
-        return redirect(url_for('gestion_egresos'))
-
-    # Rango de recurrencia
-    fecha_inicio_recurrencia = form.get('fecha_inicio_recurrencia') or None
-    fecha_fin_recurrencia = form.get('fecha_fin_recurrencia') or None
-
-    # Campos de frecuencia
-    intervalo_semana = 1
-    byday_csv = None
-    dia_mes = None
-    dias_quincena = None
-
-    if frecuencia == 'Semanal':
-        try:
-            intervalo_semana = int(form.get('intervalo_semana') or 1)
-            if intervalo_semana < 1:
-                intervalo_semana = 1
-        except ValueError:
-            intervalo_semana = 1
-
-        byday_list = [d.upper() for d in (form.getlist('byday') or [])]
-        valid = {'MO','TU','WE','TH','FR','SA','SU'}
-        byday_list = [d for d in byday_list if d in valid]
-        if not byday_list:
-            byday_list = ['MO']  # default
-        byday_csv = ','.join(sorted(set(byday_list)))
-
-    elif frecuencia == 'Mensual':
-        try:
-            dia_mes = int(form.get('dia_mes') or 1)
-            if dia_mes < 1: dia_mes = 1
-            if dia_mes > 31: dia_mes = 31
-        except ValueError:
-            dia_mes = 1
-
-    elif frecuencia == 'Quincenal':
-        raw = (form.get('dias_quincena') or '1,16')
-        tokens = []
-        for tok in raw.split(','):
-            tok = tok.strip()
-            if not tok: continue
-            try:
-                d = int(tok)
-                if 1 <= d <= 31:
-                    tokens.append(str(d))
-            except ValueError:
-                pass
-        dias_quincena = ','.join(sorted(set(tokens), key=lambda x: int(x))) or '1,16'
-
-    # Inserción/Actualización
-    try:
-        with conn.cursor() as cur:
-            if egreso_id:
-                cur.execute("""
-                    UPDATE egresos_planificados
-                    SET titulo=%s, descripcion=%s, tipo=%s, monto_base_usd=%s, metodo_referencia=%s,
-                        frecuencia=%s, intervalo_semana=%s, byday=%s, dia_mes=%s, dias_quincena=%s,
-                        fecha_inicio_recurrencia=%s, fecha_fin_recurrencia=%s,
-                        estado=%s, updated_by=%s, updated_at=NOW()
-                    WHERE id=%s
-                """, (
-                    titulo, descripcion, tipo, monto_base_usd, metodo_referencia,
-                    frecuencia, intervalo_semana, byday_csv, dia_mes, dias_quincena,
-                    fecha_inicio_recurrencia, fecha_fin_recurrencia,
-                    estado, g.admin['id'], int(egreso_id)
-                ))
-                flash("Egreso actualizado correctamente.", "success")
-            else:
-                cur.execute("""
-                    INSERT INTO egresos_planificados
-                        (titulo, descripcion, tipo, monto_base_usd, metodo_referencia,
-                         frecuencia, intervalo_semana, byday, dia_mes, dias_quincena,
-                         fecha_inicio_recurrencia, fecha_fin_recurrencia,
-                         estado, created_by, created_at)
-                    VALUES
-                        (%s,%s,%s,%s,%s,
-                         %s,%s,%s,%s,%s,
-                         %s,%s,
-                         %s,%s,NOW())
-                """, (
-                    titulo, descripcion, tipo, monto_base_usd, metodo_referencia,
-                    frecuencia, intervalo_semana, byday_csv, dia_mes, dias_quincena,
-                    fecha_inicio_recurrencia, fecha_fin_recurrencia,
-                    estado, g.admin['id']
-                ))
-                flash("Egreso creado correctamente.", "success")
-        conn.commit()
-    except psycopg2.Error as e:
-        conn.rollback()
-        flash(f"Error guardando el egreso: {e}", "danger")
-
-    # Mantén el período actual en la redirección si vino en query
-    periodo_tipo = request.args.get('periodo_tipo')
+    # Defaults de período
+    periodo_tipo = (request.args.get('periodo_tipo') or 'mensual').lower()
     periodo = request.args.get('periodo')
-    if periodo_tipo and periodo:
-        return redirect(url_for('gestion_egresos', periodo_tipo=periodo_tipo, periodo=periodo))
-    return redirect(url_for('gestion_egresos'))
+    if not periodo:
+        if periodo_tipo == 'mensual':
+            periodo = hoy.strftime('%Y-%m')
+        else:
+            y, wk, _ = hoy.isocalendar()
+            periodo = f"{y}-W{wk:02d}"
+
+    # Helpers (los que ya te pasé)
+    periodo_tipo, clave, start, end = _parse_periodo(periodo_tipo, periodo)
+    generar_ocurrencias_periodo(conn, periodo_tipo, clave, start, end)
+    resumen = resumen_egresos_periodo(conn, periodo_tipo, clave)
+
+    # Catálogo de egresos (para panel inferior)
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT id, titulo, tipo, frecuencia, intervalo_semana, byday, dia_mes, dias_quincena,
+                   monto_base_usd, metodo_referencia, estado, fecha_inicio_recurrencia, fecha_fin_recurrencia
+            FROM egresos_planificados
+            ORDER BY estado DESC, titulo
+        """)
+        rows = cur.fetchall()
+
+    def _f(kind):
+        return [r for r in rows if (r['tipo'] or '').lower() == kind]
+
+    egresos = {
+        'fijos': _f('fijo'),
+        'variables': _f('variable'),
+        'devoluciones': _f('devolucion')
+    }
+
+    return render_template(
+        'gestion_egresos.html',
+        periodo_tipo=periodo_tipo, periodo=clave, start=start, end=end,
+        resumen=resumen, egresos=egresos
+    )
 
 @app.route('/gestion/egresos/ocurrencias/<int:occ_id>/prefill-pago', methods=['POST'])
 @admin_required
