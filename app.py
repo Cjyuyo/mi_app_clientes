@@ -3042,7 +3042,7 @@ def reporte_metricas():
     # -------- Parámetros (normalizados) --------
     def _opt(v):
         v = (v or "").strip()
-        return "" if v.lower() in ("todos", "todas", "all", "-") else v
+        return "" if v.lower() in ("todos", "todas", "all", "-", "--", "seleccione", "seleccionar") else v
 
     q_empresa      = _opt(request.args.get('empresa'))
     q_estado_plan  = _opt(request.args.get('estado_plan'))
@@ -3052,6 +3052,8 @@ def reporte_metricas():
     q_export       = (request.args.get('export') or '').strip().lower()
     sort_param     = (request.args.get('sort') or 'id').strip().lower()
     dir_param      = (request.args.get('dir') or request.args.get('order') or 'asc').strip().lower()
+    if dir_param not in ('asc', 'desc'):
+        dir_param = 'asc'
 
     # Fechas (acepta YYYY-MM-DD, DD/MM/YY, DD/MM/YYYY, MM/DD/YY, MM/DD/YYYY)
     def _to_date_multi(s):
@@ -3113,11 +3115,12 @@ def reporte_metricas():
     try:
         # Usamos RealDictCursor si está disponible; si no, cursor normal
         try:
-            from psycopg2.extras import RealDictCursor
+            from psycopg2.extras import RealDictCursor as _RDC
         except Exception:
-            RealDictCursor = None
+            _RDC = None
+        cursor_factory = _RDC if _RDC else None
 
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        with conn.cursor(cursor_factory=cursor_factory) as cur:
             # ---- Descubrimiento de columnas ----
             nombre_col   = 'nombre'   if _col_exists(cur, 'nombre')   else None
             apellido_col = 'apellido' if _col_exists(cur, 'apellido') else None
@@ -3194,9 +3197,11 @@ def reporte_metricas():
 
             if fecha_col:
                 if q_desde:
-                    where.append(fecha_expr + " >= %s"); params.append(q_desde)
+                    where.append(fecha_expr + " >= %s")
+                    params.append(q_desde)
                 if q_hasta:
-                    where.append(fecha_expr + " <= %s"); params.append(q_hasta)
+                    where.append(fecha_expr + " <= %s")
+                    params.append(q_hasta)
 
             where_sql = "WHERE " + " AND ".join(where) if where else ""
 
@@ -3207,7 +3212,7 @@ def reporte_metricas():
                 WHERE empresa IS NOT NULL AND btrim(empresa) <> ''
                 ORDER BY 1
             """)
-            empresas_opciones=[r.get('empresa') if isinstance(r,dict) else r[0] for r in _fetch_dicts(cur)]
+            empresas_opciones = [r.get('empresa') for r in _fetch_dicts(cur)]
 
             cur.execute("""
                 SELECT DISTINCT UPPER(TRIM(estado_del_plan)) AS estado
@@ -3215,7 +3220,7 @@ def reporte_metricas():
                 WHERE estado_del_plan IS NOT NULL AND btrim(estado_del_plan) <> ''
                 ORDER BY 1
             """)
-            estados_opciones=[r.get('estado') for r in _fetch_dicts(cur)]
+            estados_opciones = [r.get('estado') for r in _fetch_dicts(cur)]
 
             cur.execute("""
                 SELECT estatus FROM (
@@ -3227,10 +3232,10 @@ def reporte_metricas():
                 ) x
                 ORDER BY 1
             """.format(e=estatus_expr_norm))
-            estatus_opciones=[r.get('estatus') for r in _fetch_dicts(cur)]
+            estatus_opciones = [r.get('estatus') for r in _fetch_dicts(cur)]
 
             cur.execute("SELECT DISTINCT {e} AS condicion FROM clientes c ORDER BY 1".format(e=condicion_expr))
-            condicion_opciones=[r.get('condicion') for r in _fetch_dicts(cur)]
+            condicion_opciones = [r.get('condicion') for r in _fetch_dicts(cur)]
 
             # ---- CTE base ----
             extra_cols=[]
@@ -3278,9 +3283,9 @@ def reporte_metricas():
                     "id","empresa","estado_del_plan","estatus_norm AS estatus",
                     "fecha_val AS fecha_base","cuotas_val AS cuotas"
                 ]
-                if show_nombre:   select_cols.insert(3, "nombre")
-                if show_apellido: select_cols.insert(4, "apellido")
-                if show_telefono: select_cols.insert(5, "telefono")
+                if show_nombre:    select_cols.insert(3, "nombre")
+                if show_apellido:  select_cols.insert(4, "apellido")
+                if show_telefono:  select_cols.insert(5, "telefono")
                 if show_condicion: select_cols.append("condicion_raw AS condicion_pago")
 
                 cur.execute(
@@ -3289,7 +3294,7 @@ def reporte_metricas():
                     ),
                     params
                 )
-                data=_fetch_dicts(cur)
+                data = _fetch_dicts(cur)
 
                 if q_export == 'csv':
                     import io, csv
@@ -3305,6 +3310,8 @@ def reporte_metricas():
                         mimetype='text/csv; charset=utf-8',
                         headers={'Content-Disposition': 'attachment; filename="{0}"'.format(filename)}
                     )
+
+                    # nosec - returning early
 
                 if q_export == 'xlsx':
                     import pandas as pd
@@ -3335,10 +3342,10 @@ def reporte_metricas():
                     pdf.ln(8)
                     for r in data[:1000]:
                         row=[
-                          r.get('id',''), r.get('empresa',''), r.get('estado_del_plan',''),
-                          r.get('estatus',''), r.get('nombre',''), r.get('apellido',''),
-                          r.get('telefono',''), r.get('condicion_pago',''),
-                          str(r.get('fecha_base') or ''), r.get('cuotas','')
+                            r.get('id',''), r.get('empresa',''), r.get('estado_del_plan',''),
+                            r.get('estatus',''), r.get('nombre',''), r.get('apellido',''),
+                            r.get('telefono',''), r.get('condicion_pago',''),
+                            str(r.get('fecha_base') or ''), r.get('cuotas','')
                         ]
                         for val,w in zip(row,widths):
                             pdf.cell(w,6,str(val)[:40],1,0,'L')
@@ -3355,16 +3362,16 @@ def reporte_metricas():
 
             # ---- Gráficas
             cur.execute(base_cte + " SELECT estado_norm AS estado, COUNT(*) AS n FROM base GROUP BY 1 ORDER BY 1", params)
-            r1=_fetch_dicts(cur)
-            resumen={x['estado']:x['n'] for x in r1} if r1 else {}
-            chart_estados={'labels':[x['estado'] for x in r1], 'data':[x['n'] for x in r1]}
+            r1 = _fetch_dicts(cur)
+            resumen = {x['estado']: x['n'] for x in r1} if r1 else {}
+            chart_estados = {'labels': [x['estado'] for x in r1], 'data': [x['n'] for x in r1]}
 
             cur.execute(base_cte + " SELECT condicion_norm AS condicion, COUNT(*) AS n FROM base GROUP BY 1 ORDER BY 1", params)
-            r2=_fetch_dicts(cur)
-            chart_condicion={'labels':[x['condicion'] for x in r2], 'data':[x['n'] for x in r2]}
+            r2 = _fetch_dicts(cur)
+            chart_condicion = {'labels': [x['condicion'] for x in r2], 'data': [x['n'] for x in r2]}
 
             # ---- Datos tabla
-            select_cols=["id","empresa","estado_del_plan","estatus_norm AS estatus"]
+            select_cols = ["id","empresa","estado_del_plan","estatus_norm AS estatus"]
             if show_nombre:    select_cols.append("nombre")
             if show_apellido:  select_cols.append("apellido")
             if show_telefono:  select_cols.append("telefono")
@@ -3376,12 +3383,12 @@ def reporte_metricas():
                 ),
                 params + [per_page, offset]
             )
-            rows=_fetch_dicts(cur)
+            rows = _fetch_dicts(cur)
 
             if not rows and not (q_empresa or q_estado_plan or q_estatus or q_condicion or q_cuota_bucket or q_desde or q_hasta):
                 # Salvaguarda sin normalizadores
                 cur.execute("SELECT id, empresa, estado_del_plan FROM clientes ORDER BY id ASC LIMIT %s OFFSET %s", (per_page, offset))
-                rows=_fetch_dicts(cur)
+                rows = _fetch_dicts(cur)
                 cur.execute("SELECT COUNT(*) AS n FROM clientes")
                 total_count = int(_fetch_val(cur, 0))
                 page_count  = max(1, (total_count + per_page - 1) // per_page)
