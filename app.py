@@ -8,6 +8,7 @@ import base64
 import logging
 import random
 import re
+import unicodedata
 import traceback
 from calendar import monthrange
 from collections import defaultdict
@@ -36,6 +37,43 @@ from flask import (
 
 # Si realmente lo usas; si no, coméntalo
 from flask_login import current_user
+
+def _normalize_estatus_scalar(x):
+    if x is None or (pd is not None and pd.isna(x)):
+        return ''
+    s = str(x).strip()
+    s = unicodedata.normalize('NFKD', s)
+    s = ''.join(ch for ch in s if not unicodedata.combining(ch))
+    s = re.sub(r'\s+', ' ', s).upper()
+
+    aliases = {
+        'ENTREGA PENDIENTE': 'PENDIENTE POR ENTREGA',
+        'PENDIENTE DE ENTREGA': 'PENDIENTE POR ENTREGA',
+        'PENDIENTE ENTREGA': 'PENDIENTE POR ENTREGA',
+        'PENDIEN POR ENTREGA': 'PENDIENTE POR ENTREGA',  # abreviación
+    }
+    if s in aliases:
+        return aliases[s]
+    if ('PENDIENT' in s) and ('ENTREG' in s):
+        return 'PENDIENTE POR ENTREGA'
+    return s
+
+def normalize_estatus_cliente(val):
+    # Acepta escalar o pandas Series (evita 'Series' object has no attribute 'upper')
+    if isinstance(val, pd.Series):
+        return val.astype(object).map(_normalize_estatus_scalar)
+    return _normalize_estatus_scalar(val)
+
+def normalize_estatus_in_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Normaliza la columna de estatus en un DataFrame si existe."""
+    for col in ('estatus_cliente', 'estatus'):
+        if col in df.columns:
+            df[col] = normalize_estatus_cliente(df[col])
+            # si la columna era 'estatus', renómbrala al nombre oficial
+            if col == 'estatus' and 'estatus_cliente' not in df.columns:
+                df.rename(columns={'estatus': 'estatus_cliente'}, inplace=True)
+            break
+    return df
 
 # =================================================================================
 # ===== CONFIGURACIÓN INICIAL Y DE ENTORNO =====
@@ -3065,16 +3103,23 @@ def reporte_metricas():
                 ORDER BY 1
             """); estados_opciones=[r['estado'] for r in _fetch_dicts(cur)]
 
+            # ===== CAMBIO: incluir siempre 'PENDIENTE POR ENTREGA' en el combo de estatus =====
             if estatus_candidates:
                 cur.execute(f"""
-                    SELECT DISTINCT {estatus_expr} AS estatus
-                    FROM clientes c
-                    WHERE {estatus_expr} IS NOT NULL AND {estatus_expr} <> ''
+                    SELECT estatus FROM (
+                        SELECT DISTINCT {estatus_expr} AS estatus
+                        FROM clientes c
+                        WHERE {estatus_expr} IS NOT NULL AND {estatus_expr} <> ''
+                        UNION
+                        SELECT 'PENDIENTE POR ENTREGA'
+                    ) t
                     ORDER BY 1
                 """)
                 estatus_opciones=[r['estatus'] for r in _fetch_dicts(cur)]
             else:
-                estatus_opciones=[]
+                # Si no hay columna de estatus, al menos mostramos la nueva opción
+                estatus_opciones=['PENDIENTE POR ENTREGA']
+            # ===== FIN CAMBIO =====
 
             cur.execute(f"SELECT DISTINCT {condicion_expr} AS condicion FROM clientes c ORDER BY 1")
             condicion_opciones=[r['condicion'] for r in _fetch_dicts(cur)]
