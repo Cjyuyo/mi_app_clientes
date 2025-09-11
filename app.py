@@ -3857,6 +3857,283 @@ def admin_tasa_bcv():
     return render_template('admin_tasa_bcv.html', tasas_de_hoy=tasas_de_hoy, historial_tasas=historial_tasas, anio_actual=today_date.year)
 
 # ====== INICIO: REEMPLAZA TU FUNCIÓN DE GESTIÓN DE EGRESOS CON ESTA ======
+# ================== Helpers Gestión de Egresos ==================
+# Requiere: from types import SimpleNamespace; from datetime import date, datetime, timedelta
+#           import re; import psycopg2
+
+WEEKDAY_TO_BYDAY = {0:'MO', 1:'TU', 2:'WE', 3:'TH', 4:'FR', 5:'SA', 6:'SU'}
+BYDAY_TO_WEEKDAY = {v:k for k,v in WEEKDAY_TO_BYDAY.items()}
+
+def _weekday_code(d: date) -> str:
+    return WEEKDAY_TO_BYDAY[d.weekday()]
+
+def _str_to_byday_set(byday_csv: str):
+    if not byday_csv:
+        return {'MO'}
+    parts = [p.strip().upper() for p in byday_csv.split(',') if p.strip()]
+    valid = {'MO','TU','WE','TH','FR','SA','SU'}
+    s = set(p for p in parts if p in valid)
+    return s or {'MO'}
+
+def _iso_week_key(d: date) -> str:
+    y, w, _ = d.isocalendar()
+    return f"{y}-W{w:02d}"
+
+def _week_bounds(iso_week_key: str):
+    # iso_week_key = 'YYYY-Www'
+    y_s, w_s = iso_week_key.split('-W')
+    y = int(y_s); w = int(w_s)
+    # Lunes de esa semana ISO
+    start = date.fromisocalendar(y, w, 1)
+    end = start + timedelta(days=6)
+    return start, end
+
+def _month_bounds(yyyy_mm: str):
+    y_s, m_s = yyyy_mm.split('-')
+    y = int(y_s); m = int(m_s)
+    from calendar import monthrange
+    start = date(y, m, 1)
+    end = date(y, m, monthrange(y, m)[1])
+    return start, end
+
+def _parse_periodo(periodo_tipo: str, periodo: str):
+    """Normaliza el periodo de la vista (mensual/semanal) y devuelve:
+       (tipo_normalizado, clave, start_date, end_date)"""
+    pt = (periodo_tipo or 'mensual').lower()
+    hoy = get_venezuela_current_date()
+    base = hoy.date() if hasattr(hoy, 'date') else hoy
+
+    if pt == 'semanal':
+        if not periodo or not re.match(r'^\d{4}-W\d{2}$', periodo):
+            clave = _iso_week_key(base)
+        else:
+            clave = periodo
+        start, end = _week_bounds(clave)
+        return 'semanal', clave, start, end
+    else:
+        pt = 'mensual'
+        if not periodo or not re.match(r'^\d{4}-\d{2}$', periodo):
+            clave = base.strftime('%Y-%m')
+        else:
+            clave = periodo
+        start, end = _month_bounds(clave)
+        return pt, clave, start, end
+
+# ---------------- Generación de ocurrencias ----------------
+
+def _dates_in_range(start: date, end: date):
+    d = start
+    while d <= end:
+        yield d
+        d += timedelta(days=1)
+
+def _intersects(a_start: date, a_end: date, b_start: date, b_end: date):
+    return not (a_end < b_start or b_end < a_start)
+
+def _should_emit_weekly(d: date, inicio: date, intervalo: int, byday_set: set) -> bool:
+    if d < inicio:
+        return False
+    if WEEKDAY_TO_BYDAY[d.weekday()] not in byday_set:
+        return False
+    # Semana 0 anclada al lunes de la semana de 'inicio'
+    inicio_week_monday = inicio - timedelta(days=inicio.weekday())
+    weeks = (d - inicio_week_monday).days // 7
+    return weeks % max(1, intervalo) == 0
+
+def generar_ocurrencias_periodo(conn, periodo_tipo: str, clave: str, start: date, end: date):
+    """Asegura que existan egresos_ocurrencias dentro del rango [start,end]."""
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            # Traemos egresos activos cuya ventana intersecte el período
+            cur.execute("""
+                SELECT id, titulo, tipo, frecuencia, intervalo_semana, byday, dia_mes, dias_quincena,
+                       monto_base_usd, metodo_referencia,
+                       COALESCE(fecha_inicio_recurrencia::date, CURRENT_DATE) AS fecha_inicio_recurrencia,
+                       fecha_fin_recurrencia::date AS fecha_fin_recurrencia,
+                       COALESCE(estado,'activo') AS estado
+                FROM egresos_planificados
+                WHERE COALESCE(estado,'activo') IN ('activo')  -- solo activos
+            """)
+            egresos = cur.fetchall()
+
+            for e in egresos:
+                finicio = e['fecha_inicio_recurrencia']
+                ffin    = e['fecha_fin_recurrencia'] or date.max
+                if not _intersects(finicio, ffin, start, end):
+                    continue
+
+                freq = (e['frecuencia'] or 'Unico').capitalize()
+                monto = e['monto_base_usd'] or Decimal('0.00')
+
+                fechas_a_crear = []
+
+                if freq == 'Semanal':
+                    intervalo = int(e.get('intervalo_semana') or 1)
+                    byday_set = _str_to_byday_set(e.get('byday'))
+                    # iteramos los días del período y filtramos
+                    for d in _dates_in_range(max(start, finicio), min(end, ffin)):
+                        if _should_emit_weekly(d, finicio, intervalo, byday_set):
+                            fechas_a_crear.append(d)
+
+                elif freq == 'Mensual':
+                    try:
+                        dia = int(e.get('dia_mes') or 1)
+                        dia = max(1, min(31, dia))
+                    except Exception:
+                        dia = 1
+                    # Solo los días que caen dentro del rango
+                    mstart = date(start.year, start.month, 1)
+                    mend   = date(end.year, end.month, 1)
+                    curm = mstart
+                    while curm <= mend:
+                        from calendar import monthrange
+                        last_day = monthrange(curm.year, curm.month)[1]
+                        d = date(curm.year, curm.month, min(dia, last_day))
+                        if d >= max(start, finicio) and d <= min(end, ffin):
+                            fechas_a_crear.append(d)
+                        # next month
+                        if curm.month == 12:
+                            curm = date(curm.year+1, 1, 1)
+                        else:
+                            curm = date(curm.year, curm.month+1, 1)
+
+                elif freq == 'Quincenal':
+                    tokens = []
+                    raw = (e.get('dias_quincena') or '1,16')
+                    for tok in raw.split(','):
+                        tok = tok.strip()
+                        if tok.isdigit():
+                            d = max(1, min(31, int(tok)))
+                            if d not in tokens:
+                                tokens.append(d)
+                    # meses cubiertos por el rango
+                    mstart = date(start.year, start.month, 1)
+                    mend   = date(end.year, end.month, 1)
+                    curm = mstart
+                    while curm <= mend:
+                        from calendar import monthrange
+                        last_day = monthrange(curm.year, curm.month)[1]
+                        for dnum in tokens:
+                            d = date(curm.year, curm.month, min(dnum, last_day))
+                            if d >= max(start, finicio) and d <= min(end, ffin):
+                                fechas_a_crear.append(d)
+                        # next month
+                        if curm.month == 12:
+                            curm = date(curm.year+1, 1, 1)
+                        else:
+                            curm = date(curm.year, curm.month+1, 1)
+
+                elif freq == 'Anual':
+                    # mismo día/mes del inicio, si cae en el rango
+                    base_d = finicio
+                    for d in _dates_in_range(max(start, finicio), min(end, ffin)):
+                        if d.month == base_d.month and d.day == base_d.day:
+                            fechas_a_crear.append(d)
+
+                else:  # 'Unico' o variables
+                    d = finicio
+                    if d >= start and d <= end:
+                        fechas_a_crear.append(d)
+
+                # Insertar ocurrencias si no existen
+                for d in fechas_a_crear:
+                    cur.execute("""
+                        SELECT id FROM egresos_ocurrencias
+                        WHERE egreso_id=%s AND fecha_programada=%s
+                        LIMIT 1
+                    """, (e['id'], d))
+                    row = cur.fetchone()
+                    if not row:
+                        cur.execute("""
+                            INSERT INTO egresos_ocurrencias
+                                (egreso_id, fecha_programada, monto_programado_usd, monto_pagado_usd, estado, created_at)
+                            VALUES (%s, %s, %s, %s, %s, NOW())
+                        """, (e['id'], d, monto, Decimal('0.00'), 'Pendiente'))
+        conn.commit()
+    except psycopg2.Error:
+        conn.rollback()
+        logging.exception("Error generando ocurrencias del período")
+
+# ---------------- Resumen para la plantilla ----------------
+
+def resumen_egresos_periodo(conn, periodo_tipo: str, clave: str):
+    """Devuelve un objeto con 'totales' (programado/pagado/pendiente)
+       y 'items' (por egreso, con lista de ocurrencias)."""
+    if periodo_tipo == 'semanal':
+        start, end = _week_bounds(clave)
+    else:
+        start, end = _month_bounds(clave)
+
+    tot_programado = Decimal('0.00')
+    tot_pagado     = Decimal('0.00')
+
+    items = []
+
+    with conn.cursor() as cur:
+        # Trae egresos y sus agregados del período
+        cur.execute("""
+            SELECT ep.id, ep.titulo, ep.frecuencia,
+                   COALESCE(SUM(eo.monto_programado_usd),0) AS programado,
+                   COALESCE(SUM(eo.monto_pagado_usd),0)     AS pagado
+            FROM egresos_planificados ep
+            LEFT JOIN egresos_ocurrencias eo
+                   ON eo.egreso_id = ep.id
+                  AND eo.fecha_programada BETWEEN %s AND %s
+            WHERE COALESCE(ep.estado,'activo') IN ('activo')
+            GROUP BY ep.id
+            ORDER BY ep.titulo
+        """, (start, end))
+        eg_rows = cur.fetchall()
+
+        for r in eg_rows:
+            programado = Decimal(r['programado'] or 0)
+            pagado     = Decimal(r['pagado'] or 0)
+            pendiente  = max(Decimal('0.00'), programado - pagado)
+
+            # Ocurrencias detalle
+            cur.execute("""
+                SELECT id AS ocurrencia_id,
+                       fecha_programada,
+                       COALESCE(monto_programado_usd,0) AS programado,
+                       COALESCE(monto_pagado_usd,0)     AS pagado
+                FROM egresos_ocurrencias
+                WHERE egreso_id=%s
+                  AND fecha_programada BETWEEN %s AND %s
+                ORDER BY fecha_programada
+            """, (r['id'], start, end))
+            occs = cur.fetchall()
+            occ_list = []
+            for o in occs:
+                occ_list.append(SimpleNamespace(
+                    ocurrencia_id=o['ocurrencia_id'],
+                    fecha_programada=o['fecha_programada'],
+                    programado=Decimal(o['programado'] or 0),
+                    pagado=Decimal(o['pagado'] or 0),
+                    pendiente=max(Decimal('0.00'), Decimal(o['programado'] or 0) - Decimal(o['pagado'] or 0))
+                ))
+
+            items.append(SimpleNamespace(
+                egreso_id=r['id'],
+                titulo=r['titulo'],
+                frecuencia=r['frecuencia'],
+                programado=float(programado),
+                pagado=float(pagado),
+                pendiente=float(pendiente),
+                ocurrencias=occ_list
+            ))
+
+            tot_programado += programado
+            tot_pagado     += pagado
+
+    totales = SimpleNamespace(
+        programado=float(tot_programado),
+        pagado=float(tot_pagado),
+        pendiente=float(max(Decimal('0.00'), tot_programado - tot_pagado))
+    )
+    return SimpleNamespace(totales=totales, items=items)
+# ================== /Helpers Gestión de Egresos ==================
 
 @app.route('/gestion/egresos', methods=['GET'], endpoint='gestion_egresos')
 @admin_required
