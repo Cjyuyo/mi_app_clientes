@@ -2137,23 +2137,30 @@ def tesoreria_rebalanceo():
     if request.method == 'POST':
         try:
             form = request.form
-            tipo_operacion, nota, caja_origen = form.get('tipo_operacion'), form.get('nota'), form.get('caja_origen')
-            monto_origen_str, moneda_origen = form.get('monto_origen', '0').replace(',', '.'), form.get('moneda_origen')
+            tipo_operacion = form.get('tipo_operacion')
+            nota = form.get('nota')
+            caja_origen = form.get('caja_origen')
+            monto_origen_str = form.get('monto_origen', '0').replace(',', '.')
+            moneda_origen = form.get('moneda_origen')
             monto_origen = Decimal(monto_origen_str)
+
             if not all([tipo_operacion, nota, caja_origen, monto_origen > 0]):
                 flash("Error: Tipo, Nota, Caja Origen y Monto son obligatorios.", 'danger')
                 return redirect(url_for('tesoreria_rebalanceo'))
+
             if balances_actuales.get(caja_origen, Decimal('0.0')) < monto_origen:
                 flash(f"Error: Fondos insuficientes en '{caja_origen}'.", 'danger')
                 return redirect(url_for('tesoreria_rebalanceo'))
             
-            tasa_aplicada_str = form.get('tasa_aplicada', '0').replace(',', '.'),
-            tasa_aplicada = Decimal(tasa_aplicada_str[0]) if isinstance(tasa_aplicada_str, tuple) and tasa_aplicada_str[0] and tasa_aplicada_str[0] != '0' else None
+            # Parse limpio de tasa_aplicada (sin coma al final)
+            tasa_aplicada_str = form.get('tasa_aplicada', '0').replace(',', '.')
+            tasa_aplicada = Decimal(tasa_aplicada_str) if tasa_aplicada_str and tasa_aplicada_str != '0' else None
+
             perdida_cambiaria = Decimal('0.0')
 
             if tipo_operacion in ['PAGO_GASTO', 'PAGO_NOMINA']:
                 caja_destino, monto_destino, moneda_destino = 'GASTO_OPERATIVO', monto_origen, moneda_origen
-                if tipo_operacion == 'PAGO_NOMINA' and moneda_origen == 'BS' and 'USD' in caja_origen:
+                if tipo_operacion == 'PAGO_NOMINA' and (moneda_origen == 'BS' or moneda_origen == 'VES') and 'USD' in (caja_origen or ''):
                     tasa_bcv = tasas_del_dia.get('usd')
                     if not tasa_bcv or tasa_bcv <= 0:
                         flash("Error: No se encontró una tasa BCV válida para hoy. No se puede procesar el pago de nómina en Bs.", "danger")
@@ -2161,34 +2168,100 @@ def tesoreria_rebalanceo():
                     
                     monto_egreso_en_usd = monto_origen / tasa_bcv
                     if tasa_aplicada and tasa_aplicada > 0:
-                         perdida_cambiaria = (monto_origen / tasa_bcv) - (monto_origen / tasa_aplicada)
+                        perdida_cambiaria = (monto_origen / tasa_bcv) - (monto_origen / tasa_aplicada)
                     
                     monto_origen, moneda_origen = monto_egreso_en_usd, 'USD'
                     monto_destino, moneda_destino = monto_egreso_en_usd, 'USD'
                     nota += f" (Pago original: {monto_origen_str} Bs @ Tasa {tasa_bcv})"
-            else: 
-                caja_destino, monto_destino_str = form.get('caja_destino'), form.get('monto_destino', '0').replace(',', '.'), form.get('moneda_destino')
+            else:
+                # Fix: asignaciones correctas
+                caja_destino = form.get('caja_destino')
+                monto_destino_str = form.get('monto_destino', '0').replace(',', '.')
+                moneda_destino = form.get('moneda_destino')
                 monto_destino = Decimal(monto_destino_str) if monto_destino_str and monto_destino_str != '0' else None
+
                 if not all([caja_destino, monto_destino, moneda_destino]):
                     flash("Error: Para transferencias, el destino es obligatorio.", 'danger')
                     return redirect(url_for('tesoreria_rebalanceo'))
                 
-                if tipo_operacion == 'COMPRA_DIVISAS' and moneda_origen == 'BS' and 'USD' in moneda_destino:
+                if tipo_operacion == 'COMPRA_DIVISAS' and (moneda_origen == 'BS' or moneda_origen == 'VES') and 'USD' in (moneda_destino or ''):
                     tasa_bcv = tasas_del_dia.get('usd')
                     if tasa_bcv and tasa_bcv > 0:
                         valor_real_en_usd_bcv = monto_origen / tasa_bcv
                         valor_obtenido_en_usd = monto_destino
                         perdida_cambiaria = valor_real_en_usd_bcv - valor_obtenido_en_usd
             
+            # === INSERT con RETURNING para obtener operacion_id ===
             with conn.cursor() as cur:
                 cur.execute("""
                     INSERT INTO operaciones_tesoreria 
-                    (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, tasa_aplicada, nota, realizada_por, fecha_operacion, perdida_cambiaria)
+                        (tipo_operacion, caja_origen, moneda_origen, monto_origen, 
+                         caja_destino, moneda_destino, monto_destino, tasa_aplicada, 
+                         nota, realizada_por, fecha_operacion, perdida_cambiaria)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s)
-                """, (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, tasa_aplicada, nota, g.admin['id'], perdida_cambiaria))
-            
+                    RETURNING id
+                """, (tipo_operacion, caja_origen, moneda_origen, monto_origen, 
+                      caja_destino, moneda_destino, monto_destino, tasa_aplicada, 
+                      nota, g.admin['id'], perdida_cambiaria))
+                operacion_id = cur.fetchone()['id']
+
+            # === APLICAR A EGRESO (si viene de prefill) ===
+            egreso_ocurrencia_id = form.get('egreso_ocurrencia_id') or request.args.get('egreso_ocurrencia_id')
+            if egreso_ocurrencia_id:
+                egreso_ocurrencia_id = int(egreso_ocurrencia_id)
+
+                # Equivalente en USD para registrar el pago del egreso
+                moneda_upper = (moneda_origen or '').upper()
+                if moneda_upper in ('USD', 'USDT'):
+                    equivalente_usd = float(monto_origen)
+                elif moneda_upper in ('BS', 'VES'):
+                    # Usa tasa_aplicada si viene, si no, tasa del día
+                    tasa = float(tasa_aplicada) if (tasa_aplicada and tasa_aplicada > 0) else float(tasas_del_dia.get('usd') or 0) or 0.0
+                    equivalente_usd = float(monto_origen) / (tasa if tasa > 0 else 1.0)
+                else:
+                    # Monedas no mapeadas: asume 1:1
+                    equivalente_usd = float(monto_origen)
+
+                with conn.cursor() as cur:
+                    # 1) Registrar pago del egreso
+                    cur.execute("""
+                        INSERT INTO egresos_pagos (egreso_ocurrencia_id, movimiento_tesoreria_id,
+                                                   monto_original, moneda, tasa_aplicada, monto_equivalente_usd, nota)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                    """, (
+                        egreso_ocurrencia_id,
+                        operacion_id,
+                        float(monto_origen),               # guardamos el valor tal como se operó en tesorería
+                        moneda_upper,
+                        (float(tasa_aplicada) if tasa_aplicada else None),
+                        equivalente_usd,
+                        nota
+                    ))
+                    _pago_id = cur.fetchone()['id']
+
+                    # 2) Actualizar acumulado/estado de la ocurrencia
+                    cur.execute("""
+                        UPDATE egresos_ocurrencias
+                        SET monto_pagado_usd = COALESCE(monto_pagado_usd,0) + %s
+                        WHERE id=%s
+                        RETURNING monto_programado_usd, monto_pagado_usd
+                    """, (equivalente_usd, egreso_ocurrencia_id))
+                    occ = cur.fetchone()
+                    pendiente = float(occ['monto_programado_usd'] or 0) - float(occ['monto_pagado_usd'] or 0)
+                    nuevo_estado = 'pagado' if pendiente <= 0.00001 else ('parcial' if (occ['monto_pagado_usd'] or 0) > 0 else 'pendiente')
+                    cur.execute("UPDATE egresos_ocurrencias SET estado=%s WHERE id=%s", (nuevo_estado, egreso_ocurrencia_id))
+
+                    # 3) Enlazar operación ↔ ocurrencia en la tabla correcta
+                    cur.execute("""
+                        UPDATE operaciones_tesoreria
+                        SET referencia_tipo='EGRESO', referencia_id=%s
+                        WHERE id=%s
+                    """, (egreso_ocurrencia_id, operacion_id))
+
             descripcion = f"Tesoreria: {tipo_operacion} de {monto_origen:,.2f} {moneda_origen} desde {caja_origen}."
             registrar_accion_auditoria('MOVIMIENTO_TESORERIA', descripcion)
+
             conn.commit()
             flash('Movimiento de tesorería registrado exitosamente.', 'success')
         except (InvalidOperation, ValueError):

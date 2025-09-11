@@ -117,7 +117,7 @@
     </header>
 
     <!-- Barra de Filtros (Sticky) -->
-    <div id="filtersBar" class="no-print sticky top-20 z-20 transition-shadow duration-300">
+    <div id="filtersBar" class="no-print sticky top-0 z-20 transition-shadow duration-300">
         <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
             <form method="GET" action="{{ url_for('reporte_metricas') }}">
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
@@ -324,13 +324,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateStickyOffset() {
         if (filtersBar) {
             const filtersBarHeight = filtersBar.offsetHeight;
-            // 80px es la altura del header principal (h-20 en base_sidebar.html)
-            const totalOffset = filtersBarHeight + 80 + 16; // header + filtro + un poco de espacio
+            // El thead debe pegarse justo debajo de la barra de filtros.
+            const totalOffset = filtersBarHeight;
             root.style.setProperty('--sticky-offset', `${totalOffset}px`);
         }
     }
 
-    // Actualizar al cargar, al cambiar tamaño de ventana y al hacer scroll (por si acaso)
+    // Actualizar al cargar y al cambiar tamaño de ventana.
     updateStickyOffset();
     window.addEventListener('resize', updateStickyOffset);
     
