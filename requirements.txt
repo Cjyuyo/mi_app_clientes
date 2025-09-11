@@ -9,3 +9,4 @@ XlsxWriter
 boto3
 openpyxl
 Flask-Login==0.6.3
+pytz
