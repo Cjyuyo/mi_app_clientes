@@ -5084,6 +5084,63 @@ def _pagos_aplicados_por_cedula(conn, cedulas):
     return res
 
 # --- REEMPLAZA TU FUNCIÓN ACTUAL CON ESTA VERSIÓN CORREGIDA ---
+def _pagos_aplicados_por_cedula(conn, cedulas):
+    """
+    Devuelve dict {cedula: total_aplicado} detectando columnas reales en pagos:
+    - estado de pago: estado_pago | estado | estatus_pago | estatus
+    - monto: monto | valor | importe
+    - fk cliente: cliente_id | clienteid
+    Filtra por estado='aplicado' si existe la columna de estado; si no existe, suma todos.
+    """
+    if not cedulas:
+        return {}
+
+    try:
+        from psycopg2.extras import RealDictCursor
+    except Exception:
+        RealDictCursor = None
+
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        # Detectar columnas disponibles en 'pagos'
+        cur.execute("""
+            SELECT LOWER(column_name) AS col
+            FROM information_schema.columns
+            WHERE table_schema = ANY (current_schemas(true))
+              AND LOWER(table_name) = 'pagos'
+        """)
+        cols = { (r['col'] if isinstance(r, dict) else r[0]) for r in cur.fetchall() }
+
+        status_col = next((c for c in ['estado_pago','estado','estatus_pago','estatus'] if c in cols), None)
+        amount_col = next((c for c in ['monto','valor','importe'] if c in cols), 'monto')
+        fk_col     = next((c for c in ['cliente_id','clienteid'] if c in cols), 'cliente_id')
+
+        # Armar SQL dinámico seguro
+        where_extra = ""
+        params = [cedulas]
+        if status_col:
+            where_extra = f" AND TRIM(LOWER(p.{status_col})) = %s"
+            params.append('aplicado')
+
+        sql = f"""
+            SELECT c.cedula, COALESCE(SUM(p.{amount_col}), 0) AS total
+            FROM pagos p
+            JOIN clientes c ON c.id = p.{fk_col}
+            WHERE c.cedula = ANY(%s)
+            {where_extra}
+            GROUP BY c.cedula
+        """
+
+        cur.execute(sql, params)
+        rows = cur.fetchall() or []
+
+    # Construir diccionario resultado
+    out = {}
+    for r in rows:
+        if isinstance(r, dict):
+            out[str(r['cedula'])] = r['total']
+        else:
+            out[str(r[0])] = r[1]
+    return out
 
 @app.route('/upload_clientes', methods=['GET', 'POST'])
 @admin_required
