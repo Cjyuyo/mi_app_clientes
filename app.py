@@ -4151,23 +4151,24 @@ def gestion_egresos():
             y, wk, _ = hoy.isocalendar()
             periodo = f"{y}-W{wk:02d}"
 
-    # Helpers (los que ya te pasé)
+    # Helpers
     periodo_tipo, clave, start, end = _parse_periodo(periodo_tipo, periodo)
     generar_ocurrencias_periodo(conn, periodo_tipo, clave, start, end)
     resumen = resumen_egresos_periodo(conn, periodo_tipo, clave)
 
-    # Catálogo de egresos (para panel inferior)
-    with conn.cursor() as cur:
+    # Catálogo de egresos (panel inferior) — Activo primero
+    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute("""
             SELECT id, titulo, tipo, frecuencia, intervalo_semana, byday, dia_mes, dias_quincena,
                    monto_base_usd, metodo_referencia, estado, fecha_inicio_recurrencia, fecha_fin_recurrencia
             FROM egresos_planificados
-            ORDER BY estado DESC, titulo
+            ORDER BY (LOWER(COALESCE(estado,'inactivo'))='activo') DESC, titulo
         """)
-        rows = cur.fetchall()
+        rows = cur.fetchall() or []
 
     def _f(kind):
-        return [r for r in rows if (r['tipo'] or '').lower() == kind]
+        k = (kind or '').lower()
+        return [r for r in rows if ((r.get('tipo') or '').lower() == k)]
 
     egresos = {
         'fijos': _f('fijo'),
