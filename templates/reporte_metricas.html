@@ -126,44 +126,46 @@
                         <label for="empresa" class="text-xs font-medium text-slate-600 dark:text-slate-400">Empresa</label>
                         <select id="empresa" name="empresa" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
                             <option value="">Todas</option>
-                            <option value="MOTOPLAN MOTORS, C.A." {% if request.args.get('empresa') == 'MOTOPLAN MOTORS, C.A.' %}selected{% endif %}>Motoplan Motors</option>
-                            <option value="INVERSIONES SOBRE RUEDAS, C.A." {% if request.args.get('empresa') == 'INVERSIONES SOBRE RUEDAS, C.A.' %}selected{% endif %}>Inversiones Sobre Ruedas</option>
+                            {% for emp in empresas_opciones %}
+                                <option value="{{ emp }}" {% if request.args.get('empresa') == emp %}selected{% endif %}>{{ emp }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div class="xl:col-span-1">
                         <label for="estado_plan" class="text-xs font-medium text-slate-600 dark:text-slate-400">Estado Plan</label>
                         <select id="estado_plan" name="estado_plan" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
                             <option value="">Todos</option>
-                            <option value="EN PROCESO" {% if request.args.get('estado_plan') == 'EN PROCESO' %}selected{% endif %}>En Proceso</option>
-                            <option value="FINALIZADO" {% if request.args.get('estado_plan') == 'FINALIZADO' %}selected{% endif %}>Finalizado</option>
+                            {% for est in estados_opciones %}
+                                <option value="{{ est }}" {% if request.args.get('estado_plan')|upper == est|upper %}selected{% endif %}>{{ est|replace('_',' ')|capitalize }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div class="xl:col-span-1">
                         <label for="estatus_cliente" class="text-xs font-medium text-slate-600 dark:text-slate-400">Estatus Cliente</label>
                         <select id="estatus_cliente" name="estatus_cliente" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
                             <option value="">Todos</option>
-                            <option value="ACTIVO" {% if request.args.get('estatus_cliente') == 'ACTIVO' %}selected{% endif %}>Activo</option>
-                            <option value="PENDIENTE POR ENTREGA" {% if request.args.get('estatus_cliente') == 'PENDIENTE POR ENTREGA' %}selected{% endif %}>Pendiente por Entrega</option>
-                            <option value="MOROSO" {% if request.args.get('estatus_cliente') == 'MOROSO' %}selected{% endif %}>Moroso</option>
-                            <option value="COMPLETADO" {% if request.args.get('estatus_cliente') == 'COMPLETADO' %}selected{% endif %}>Completado</option>
-                            <option value="INACTIVO" {% if request.args.get('estatus_cliente') == 'INACTIVO' %}selected{% endif %}>Inactivo</option>
+                            {% for est in estatus_opciones %}
+                                <option value="{{ est }}" {% if request.args.get('estatus_cliente')|upper == est|upper %}selected{% endif %}>{{ est|replace('_',' ')|capitalize }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                      <div class="xl:col-span-1">
                         <label for="condicion" class="text-xs font-medium text-slate-600 dark:text-slate-400">Condición</label>
                         <select id="condicion" name="condicion" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
-                            <option value="">Ambas</option>
-                            <option value="AL DIA" {% if request.args.get('condicion') == 'AL DIA' %}selected{% endif %}>Al Día</option>
-                            <option value="EN MORA" {% if request.args.get('condicion') == 'EN MORA' %}selected{% endif %}>En Mora</option>
+                            <option value="">Todas</option>
+                             {% for cond in condicion_opciones %}
+                                <option value="{{ cond }}" {% if request.args.get('condicion')|upper == cond|upper %}selected{% endif %}>{{ cond|replace('_',' ')|capitalize }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div class="xl:col-span-1">
                         <label for="cuota_bucket" class="text-xs font-medium text-slate-600 dark:text-slate-400">Rango de Cuotas</label>
                         <select id="cuota_bucket" name="cuota_bucket" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
                             <option value="">Todos</option>
-                            <option value="0-5" {% if request.args.get('cuota_bucket') == '0-5' %}selected{% endif %}>0-5 Cuotas</option>
-                            <option value="6-11" {% if request.args.get('cuota_bucket') == '6-11' %}selected{% endif %}>6-11 Cuotas</option>
-                            <option value="12+" {% if request.args.get('cuota_bucket') == '12+' %}selected{% endif %}>12+ Cuotas</option>
+                            <option value="1" {% if request.args.get('cuota_bucket') == '1' %}selected{% endif %}>1-6</option>
+                            <option value="2" {% if request.args.get('cuota_bucket') == '2' %}selected{% endif %}>7-12</option>
+                            <option value="3" {% if request.args.get('cuota_bucket') == '3' %}selected{% endif %}>13-24</option>
+                            <option value="4" {% if request.args.get('cuota_bucket') == '4' %}selected{% endif %}>25-36</option>
                         </select>
                     </div>
                     <!-- Fechas -->
@@ -233,19 +235,19 @@
             <table class="min-w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
                 <thead class="bg-slate-50 dark:bg-slate-700/50 thead-sticky">
                     <tr>
-                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300">{{ sort_link('id', 'ID') }}</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('id', 'ID') }}</th>
                         {% if show_nombre %}
-                            <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300">{{ sort_link('nombre', 'Nombre') }}</th>
-                            <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300">Apellido</th>
+                            <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('nombre', 'Nombre') }}</th>
+                            <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Apellido</th>
                         {% endif %}
-                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300">{{ sort_link('empresa', 'Empresa') }}</th>
-                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300">Estado del Plan</th>
-                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300">Estatus</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('empresa', 'Empresa') }}</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Estado del Plan</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Estatus</th>
                         {% if show_condicion %}
-                            <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300">Condición</th>
+                            <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Condición</th>
                         {% endif %}
-                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300">Teléfono</th>
-                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 printable-area">Observaciones/Seguimiento</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Teléfono</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 printable-area whitespace-nowrap">Observaciones/Seguimiento</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
