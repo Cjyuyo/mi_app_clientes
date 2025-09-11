@@ -5196,14 +5196,43 @@ def upload_clientes():
                 sn_up = (sheet_name or '').strip().upper()
                 empresa_label = 'CYK' if sn_up == 'CYK' else 'MOTO PLAN'
 
-                # Normaliza strings
-                df['cedula'] = df['cedula'].astype(str).str.strip()
-                df['nombre'] = df['nombre'].astype(str).str.strip()
-                df['apellido'] = df['apellido'].astype(str).str.strip()
-                df['numero_contrato'] = df['numero_contrato'].astype(str).str.strip()
-                df['estado_del_plan'] = df['estado_del_plan'].astype(str).str.strip().upper()
-                df['estatus_cliente'] = df['estatus_cliente'].astype(str).str.strip().upper()
-                df['condicion_pago']  = df['condicion_pago'].astype(str).str.strip().upper()
+                # ===== Normaliza strings con .str.*, evita AttributeError en Series =====
+                df['cedula'] = (
+                    df['cedula']
+                    .astype('string').str.strip()
+                )
+                df['nombre'] = (
+                    df['nombre']
+                    .astype('string').str.strip()
+                )
+                df['apellido'] = (
+                    df['apellido']
+                    .astype('string').str.strip()
+                )
+                df['numero_contrato'] = (
+                    df['numero_contrato']
+                    .astype('string').str.strip()
+                )
+                df['estado_del_plan'] = (
+                    df['estado_del_plan']
+                    .astype('string').str.strip()
+                    .str.replace(r'\s+', ' ', regex=True)
+                    .str.upper()
+                )
+                df['estatus_cliente'] = (
+                    df['estatus_cliente']
+                    .astype('string').str.strip()
+                    .str.replace(r'\s+', ' ', regex=True)
+                    .str.upper()
+                )
+                df['condicion_pago'] = (
+                    df['condicion_pago']
+                    .astype('string').str.strip()
+                    .str.replace(r'\s+', ' ', regex=True)
+                    .str.upper()
+                )
+                # ===== Normaliza estatus a valor canónico (incluye "pendien por entrega") =====
+                df = normalize_estatus_in_df(df)
 
                 # Filtra sin cédula
                 df = df[df['cedula'] != '']
@@ -5214,7 +5243,7 @@ def upload_clientes():
                         r['nombre'],
                         r['apellido'],
                         r['estado_del_plan'],   # upper original (para normalizar más adelante)
-                        r['estatus_cliente'],   # upper
+                        r['estatus_cliente'],   # YA normalizado a 'PENDIENTE POR ENTREGA' si aplica
                         r['numero_contrato'],
                         r['condicion_pago'],    # upper
                         empresa_label
@@ -5319,6 +5348,7 @@ def upload_clientes():
 
     # GET
     return render_template('upload_clientes.html')
+
 # ====== FIN BLOQUE ======
 
 @app.route('/registrar_pago/<int:client_id>', methods=['GET', 'POST'])
