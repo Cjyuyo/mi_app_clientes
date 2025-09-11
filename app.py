@@ -3029,6 +3029,7 @@ def mi_cartera():
 # ===== INICIO: MÓDULO DE MÉTRICAS RECONSTRUIDO (V1) =====
 # ================================================================================
 
+# ===================== RUTA MÉTRICAS (FIX) =====================
 @app.route('/reportes/metricas', methods=['GET'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -3048,7 +3049,8 @@ def reporte_metricas():
     q_hasta        = (request.args.get('insc_hasta') or '').strip()
     q_export       = (request.args.get('export') or '').strip().lower()
     sort_param     = (request.args.get('sort') or 'id').strip().lower()
-    dir_param      = (request.args.get('order') or request.args.get('dir') or 'asc').strip().lower()
+    dir_param      = (request.args.get('dir') or request.args.get('order') or 'asc').strip().lower()
+
     try:    per_page = int(request.args.get('per_page') or 25)
     except: per_page = 25
     per_page = max(1, min(100, per_page))
@@ -3057,89 +3059,66 @@ def reporte_metricas():
     page   = max(1, page)
     offset = (page - 1) * per_page
 
-    debug_sql = (request.args.get('debug_sql') in ('1','true','TRUE')) or bool(getattr(app.config, 'DEBUG_SQL', False))
-    logger = getattr(app, 'logger', None)
-
-    # ---------- Helpers ----------
     def _fetch_dicts(cur):
         rows = cur.fetchall()
         if not rows: return []
+        # RealDictCursor -> dict directo; cursor normal -> tuplas
         if isinstance(rows[0], dict): return rows
         cols = [d.name for d in cur.description] if cur.description else []
         return [dict(zip(cols, r)) for r in rows]
 
-    def _fetch_one_value(cur, default=None):
-        data = _fetch_dicts(cur)
-        return (list(data[0].values())[0] if data else default)
+    def _fetch_val(cur, default=None):
+        r = _fetch_dicts(cur)
+        return list(r[0].values())[0] if r else default
 
-    def _table_exists(cur, tname):
-        cur.execute("""
-            SELECT EXISTS (
-              SELECT 1 FROM information_schema.tables
+    def _col_exists(cur, col):
+        try:
+            cur.execute("""
+              SELECT 1
+              FROM information_schema.columns
               WHERE table_schema = ANY (current_schemas(true))
-                AND table_name = %s
-            )
-        """, (tname,))
-        return bool(cur.fetchone()[0])
-
-    def _col_exists(cur, tname, col):
-        cur.execute("""
-            SELECT EXISTS (
-              SELECT 1 FROM information_schema.columns
-              WHERE table_schema = ANY (current_schemas(true))
-                AND table_name = %s AND column_name = %s
-            )
-        """, (tname, col))
-        return bool(cur.fetchone()[0])
-
-    def _first_col(cur, tname, options):
-        for c in options:
-            if _col_exists(cur, tname, c):
-                return c
-        return None
+                AND table_name='clientes' AND column_name=%s
+            """, (col,))
+            return bool(cur.fetchone())
+        except Exception:
+            return False
 
     rows=[]; total_count=0; page_count=1
     resumen={}; chart_estados={'labels':[],'data':[]}; chart_condicion={'labels':[],'data':[]}
     empresas_opciones=[]; estados_opciones=[]; condicion_opciones=[]; estatus_opciones=[]
-    show_nombre=False; show_condicion=False; show_apellido=False; show_telefono=False
+    show_nombre=False; show_apellido=False; show_telefono=False; show_condicion=False
     fecha_col_usada=None; cuotas_col_usada=None
 
     try:
         try:
             from psycopg2.extras import RealDictCursor
+            cursor_ctx = conn.cursor(cursor_factory=RealDictCursor)
         except Exception:
-            RealDictCursor = None
+            cursor_ctx = conn.cursor()
 
-        cursor_kwargs = {'cursor_factory': RealDictCursor} if RealDictCursor else {}
-        with conn.cursor(**cursor_kwargs) as cur:
+        with cursor_ctx as cur:
+            # ---- Detección de columnas opcionales ----
+            nombre_col   = 'nombre'   if _col_exists(cur, 'nombre')   else None
+            apellido_col = 'apellido' if _col_exists(cur, 'apellido') else None
 
-            # ---- Origen de datos (tabla/vista) ----
-            candidates = ['vista_vitrina_clientes', 'v_vitrina_clientes', 'vitrina_clientes', 'clientes']
-            src = None
-            for cand in candidates:
-                if _table_exists(cur, cand):
-                    src = cand
-                    break
-            if not src:
-                flash("No se encontró una tabla o vista de clientes para el reporte.", "danger")
-                return render_template('reporte_metricas.html', rows=[], total_count=0, page=1, per_page=per_page,
-                                       page_count=1, resumen={}, chart_estados={'labels':[],'data':[]},
-                                       chart_condicion={'labels':[],'data':[]},
-                                       empresas_opciones=[], estados_opciones=[], condicion_opciones=[], estatus_opciones=[],
-                                       show_nombre=False, show_condicion=False,
-                                       applied={'fecha_col':'(n/a)','cuotas_col':'(n/a)','sort':sort_param,'dir':dir_param})
+            telefono_col = None
+            for cand in ('numero_telefono','telefono','telefono1','celular','numero_contacto'):
+                if _col_exists(cur, cand):
+                    telefono_col = cand; break
 
-            # ---- Detección de columnas en el origen ----
-            id_col        = _first_col(cur, src, ['id', 'cliente_id'])
-            empresa_col   = _first_col(cur, src, ['empresa','empresa_nombre'])
-            estado_col    = _first_col(cur, src, ['estado_del_plan','estado_plan'])
-            estatus_col   = _first_col(cur, src, ['estatus_cliente','estatus'])
-            condicion_col = _first_col(cur, src, ['condicion_pago','condicion','condicion_de_pago'])
-            cuotas_col    = _first_col(cur, src, ['cuotas_pagadas_progresivas','cuotas_pagadas'])
-            fecha_col     = _first_col(cur, src, ['fecha_ingreso','fecha_de_ingreso','fecha_registro','fecha_inscripcion'])
-            nombre_col    = _first_col(cur, src, ['nombre'])
-            apellido_col  = _first_col(cur, src, ['apellido'])
-            telefono_col  = _first_col(cur, src, ['numero_telefono','telefono','telefono1','celular','numero_contacto'])
+            if   _col_exists(cur, 'condicion_pago'):     condicion_col = 'condicion_pago'
+            elif _col_exists(cur, 'condicion'):          condicion_col = 'condicion'
+            elif _col_exists(cur, 'condicion_de_pago'):  condicion_col = 'condicion_de_pago'
+            else:                                        condicion_col = None
+
+            cuotas_col = 'cuotas_pagadas_progresivas' if _col_exists(cur,'cuotas_pagadas_progresivas') \
+                         else ('cuotas_pagadas' if _col_exists(cur,'cuotas_pagadas') else None)
+
+            if   _col_exists(cur,'fecha_ingreso'):     fecha_col='fecha_ingreso'
+            elif _col_exists(cur,'fecha_de_ingreso'):  fecha_col='fecha_de_ingreso'
+            elif _col_exists(cur,'fecha_registro'):    fecha_col='fecha_registro'
+            elif _col_exists(cur,'fecha_inscripcion'): fecha_col='fecha_inscripcion'
+            else:                                      fecha_col=None
 
             show_nombre    = bool(nombre_col)
             show_apellido  = bool(apellido_col)
@@ -3148,39 +3127,35 @@ def reporte_metricas():
             fecha_col_usada  = fecha_col or '(no disponible)'
             cuotas_col_usada = cuotas_col or '(no disponible)'
 
-            # ---- Normalizaciones seguras ----
-            # (usa COALESCE para evitar errores si algún col es NULL)
-            empresa_expr = f"REGEXP_REPLACE(UPPER(TRIM(COALESCE(c.{empresa_col},''))), '\\\\s+', ' ', 'g')" if empresa_col else "'(sin empresa)'"
-            estado_expr  = f"TRIM(UPPER(COALESCE(c.{estado_col},'')))" if estado_col else "NULL"
-            # estatus normalizado (incluye variantes de 'Pendiente por entrega')
-            if estatus_col:
-                estatus_expr_base = f"TRIM(UPPER(NULLIF(c.{estatus_col},'')))"
-                estatus_expr_norm = f"""
-                CASE
-                  WHEN {estatus_expr_base} IS NULL OR {estatus_expr_base} = '' THEN NULL
-                  WHEN regexp_replace({estatus_expr_base}, '\\\\s+', ' ', 'g') IN
-                       ('ENTREGA PENDIENTE','PENDIENTE DE ENTREGA','PENDIENTE ENTREGA','PENDIEN POR ENTREGA')
-                       OR ({estatus_expr_base} LIKE '%%PENDIENT%%' AND {estatus_expr_base} LIKE '%%ENTREG%%')
-                       THEN 'PENDIENTE POR ENTREGA'
-                  ELSE regexp_replace({estatus_expr_base}, '\\\\s+', ' ', 'g')
-                END
-                """.strip()
-            else:
-                estatus_expr_norm = "NULL::text"
-
-            condicion_expr = (f"TRIM(UPPER(COALESCE(NULLIF(c.{condicion_col},''),'SIN CONDICION')))" if condicion_col else "'SIN CONDICION'")
+            # ---- Normalizadores (no filtran) ----
+            empresa_expr   = "REGEXP_REPLACE(UPPER(TRIM(c.empresa)), '\\s+', ' ', 'g')"
+            estado_expr    = "UPPER(TRIM(c.estado_del_plan))"
+            estatus_expr_base = ("TRIM(UPPER(NULLIF(c.estatus_cliente,'')))" if _col_exists(cur,'estatus_cliente')
+                                 else "NULL::text")
+            estatus_expr_norm = f"""
+              CASE
+                WHEN {estatus_expr_base} IS NULL OR {estatus_expr_base}='' THEN NULL
+                WHEN regexp_replace({estatus_expr_base}, '\\s+', ' ', 'g') IN
+                     ('ENTREGA PENDIENTE','PENDIENTE DE ENTREGA','PENDIENTE ENTREGA','PENDIEN POR ENTREGA')
+                     OR ({estatus_expr_base} LIKE '%%PENDIENT%%' AND {estatus_expr_base} LIKE '%%ENTREG%%')
+                  THEN 'PENDIENTE POR ENTREGA'
+                ELSE regexp_replace({estatus_expr_base}, '\\s+', ' ', 'g')
+              END
+            """.strip()
+            condicion_expr = (f"UPPER(TRIM(COALESCE(NULLIF(c.{condicion_col},''),'SIN CONDICION'))) "
+                              if condicion_col else "'SIN CONDICION'")
             cuotas_expr    = (f"COALESCE(c.{cuotas_col},0)" if cuotas_col else "0")
-            fecha_expr     = (f"DATE(c.{fecha_col})" if fecha_col else "NULL")
+            fecha_expr     = (f"DATE(c.{fecha_col})" if fecha_col else "NULL::date")
 
-            # ---- WHERE dinámico tolerante ----
+            # ---- WHERE dinámico ----
             where=[]; params=[]
-            if q_empresa and empresa_col:
+            if q_empresa:
                 where.append(f"{empresa_expr} = %s")
                 params.append(' '.join(q_empresa.split()).upper())
-            if q_estado_plan and estado_col:
+            if q_estado_plan:
                 where.append(f"{estado_expr} = %s")
                 params.append(q_estado_plan.upper())
-            if q_estatus and estatus_col:
+            if q_estatus:
                 where.append(f"{estatus_expr_norm} = %s")
                 params.append(q_estatus.upper())
             if q_condicion and condicion_col:
@@ -3195,223 +3170,180 @@ def reporte_metricas():
             def _to_date(s):
                 try: return datetime.strptime(s, "%Y-%m-%d").date()
                 except: return None
-
             if fecha_col:
                 d1=_to_date(q_desde); d2=_to_date(q_hasta)
                 if d1: where.append(f"{fecha_expr} >= %s"); params.append(d1)
                 if d2: where.append(f"{fecha_expr} <= %s"); params.append(d2)
 
-            where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+            where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
-            # ---- Selectores (sin filtros aplicados) ----
-            if empresa_col:
-                cur.execute(f"""
-                    SELECT DISTINCT {empresa_col} AS empresa
-                    FROM {src}
-                    WHERE {empresa_col} IS NOT NULL AND btrim({empresa_col}) <> ''
-                    ORDER BY 1
-                """); empresas_opciones=[r['empresa'] for r in _fetch_dicts(cur)]
-            if estado_col:
-                cur.execute(f"""
-                    SELECT DISTINCT TRIM(UPPER({estado_col})) AS estado
-                    FROM {src}
-                    WHERE {estado_col} IS NOT NULL AND btrim({estado_col}) <> ''
-                    ORDER BY 1
-                """); estados_opciones=[r['estado'] for r in _fetch_dicts(cur)]
-            if estatus_col:
-                cur.execute(f"""
-                    SELECT estatus FROM (
-                        SELECT DISTINCT {estatus_expr_norm} AS estatus
-                        FROM {src} c
-                        WHERE {estatus_expr_norm} IS NOT NULL AND {estatus_expr_norm} <> ''
-                        UNION SELECT 'PENDIENTE POR ENTREGA'
-                    ) t
-                    ORDER BY 1
-                """); estatus_opciones=[r['estatus'] for r in _fetch_dicts(cur)]
-            if condicion_col:
-                cur.execute(f"SELECT DISTINCT TRIM(UPPER(COALESCE(NULLIF({condicion_col},''),'SIN CONDICION'))) AS condicion FROM {src} ORDER BY 1")
-                condicion_opciones=[r['condicion'] for r in _fetch_dicts(cur)]
+            # ---- Selectores (siempre sin filtros) ----
+            cur.execute("""SELECT DISTINCT empresa
+                           FROM clientes
+                           WHERE empresa IS NOT NULL AND btrim(empresa) <> '' ORDER BY 1""")
+            empresas_opciones=[r.get('empresa') if isinstance(r,dict) else r[0] for r in _fetch_dicts(cur)]
 
-            # ---- CTE base ----
-            # Campos mínimos siempre presentes: id, empresa, estado, estatus_norm, condicion_norm, fecha_val, cuotas_val
-            base_cols = []
-            base_cols.append(f"{id_col} AS id" if id_col else "ROW_NUMBER() OVER() AS id")
-            base_cols.append(f"{empresa_col} AS empresa" if empresa_col else "NULL AS empresa")
-            base_cols.append(f"{estado_col} AS estado_del_plan" if estado_col else "NULL AS estado_del_plan")
-            base_cols.append(f"{estatus_expr_norm} AS estatus")
-            base_cols.append(f"{condicion_col} AS condicion_raw" if condicion_col else "NULL AS condicion_raw")
-            base_cols.append(f"{cuotas_expr} AS cuotas_val")
-            base_cols.append(f"{fecha_expr} AS fecha_val")
-            if nombre_col:   base_cols.append(f"{nombre_col} AS nombre")
-            if apellido_col: base_cols.append(f"{apellido_col} AS apellido")
-            if telefono_col: base_cols.append(f"{telefono_col} AS telefono")
+            cur.execute("""SELECT DISTINCT UPPER(TRIM(estado_del_plan)) AS estado
+                           FROM clientes
+                           WHERE estado_del_plan IS NOT NULL AND btrim(estado_del_plan) <> '' ORDER BY 1""")
+            estados_opciones=[r.get('estado') for r in _fetch_dicts(cur)]
 
+            cur.execute(f"""
+                SELECT estatus FROM (
+                  SELECT DISTINCT {estatus_expr_norm} AS estatus
+                  FROM clientes c
+                  WHERE {estatus_expr_norm} IS NOT NULL AND {estatus_expr_norm} <> ''
+                  UNION SELECT 'PENDIENTE POR ENTREGA'
+                ) x ORDER BY 1
+            """)
+            estatus_opciones=[r.get('estatus') for r in _fetch_dicts(cur)]
+
+            cur.execute(f"SELECT DISTINCT {condicion_expr} AS condicion FROM clientes c ORDER BY 1")
+            condicion_opciones=[r.get('condicion') for r in _fetch_dicts(cur)]
+
+            # ---- CTE base (no debe filtrar por estos exprs) ----
             base_cte = f"""
-                WITH base AS (
-                    SELECT {", ".join(base_cols)}
-                    FROM {src} c
-                    {where_sql}
-                )
+              WITH base AS (
+                SELECT
+                  c.id,
+                  c.empresa,
+                  c.estado_del_plan,
+                  {empresa_expr}     AS empresa_norm,
+                  {estado_expr}      AS estado_norm,
+                  {estatus_expr_norm} AS estatus_norm,
+                  {condicion_expr}   AS condicion_norm,
+                  {cuotas_expr}      AS cuotas_val,
+                  {fecha_expr}       AS fecha_val
+                  {"," if show_nombre else ""}{f"c.{nombre_col} AS nombre" if show_nombre else ""}
+                  {"," if show_apellido else ""}{f"c.{apellido_col} AS apellido" if show_apellido else ""}
+                  {"," if show_telefono else ""}{f"c.{telefono_col} AS telefono" if show_telefono else ""}
+                  {"," if show_condicion else ""}{f"c.{condicion_col} AS condicion_raw" if show_condicion else ""}
+                FROM clientes c
+                {where_sql}
+              )
             """
 
-            # Orden/paginación (map dinámico)
-            sort_map={'id':'id','empresa':'upper(empresa)','estado_del_plan':'upper(estado_del_plan)','estatus':'upper(estatus)'}
-            if nombre_col:   sort_map['nombre']='upper(nombre)'
-            if apellido_col: sort_map['apellido']='upper(apellido)'
-            if telefono_col: sort_map['telefono']='telefono'
-            if condicion_col:sort_map['condicion']='upper(condicion_raw)'
+            # ---- Orden y dirección
+            sort_map = {
+                'id': 'id',
+                'empresa': 'empresa_norm',
+                'estado': 'estado_norm',
+                'estado_del_plan': 'estado_norm',   # <- clave para el template
+                'estatus': 'estatus_norm',
+                'nombre': 'upper(nombre)' if show_nombre else 'id',
+                'apellido': 'upper(apellido)' if show_apellido else 'id',
+                'telefono': 'telefono' if show_telefono else 'id'
+            }
+            sort_expr = sort_map.get(sort_param, 'id')
+            dir_sql   = 'DESC' if dir_param == 'desc' else 'ASC'
 
-            sort_expr = sort_map.get(sort_param,'id')
-            dir_sql   = 'DESC' if dir_param=='desc' else 'ASC'
+            # ====== EXPORTS ======
+            if q_export in ('csv','xlsx','pdf'):
+                select_cols=["id","empresa","estado_del_plan","estatus_norm AS estatus"]
+                if show_nombre:   select_cols.append("nombre")
+                if show_apellido: select_cols.append("apellido")
+                if show_telefono: select_cols.append("telefono")
+                if show_condicion: select_cols.append("condicion_raw AS condicion_pago")
+                select_cols += ["fecha_val AS fecha_base", "cuotas_val AS cuotas"]
 
-            # ========== EXPORTS ==========
-            def _select_for_export():
-                cols=["id","empresa","estado_del_plan","estatus","fecha_val AS fecha_base","cuotas_val AS cuotas"]
-                if nombre_col:   cols.insert(1,"nombre")
-                if apellido_col: cols.insert(2,"apellido")
-                if telefono_col: cols.append("telefono")
-                if condicion_col: cols.append("condicion_raw AS condicion_pago")
-                return cols
-
-            # CSV
-            if q_export == 'csv':
                 cur.execute(base_cte + f"""
-                    SELECT {", ".join(_select_for_export())}
+                    SELECT {", ".join(select_cols)}
                     FROM base
                     ORDER BY {sort_expr} {dir_sql}
                 """, params)
                 data=_fetch_dicts(cur)
 
-                si = io.StringIO()
-                csv_cols = ["id","empresa"]
-                if nombre_col: csv_cols.append("nombre")
-                if apellido_col: csv_cols.append("apellido")
-                if telefono_col: csv_cols.append("telefono")
-                csv_cols += ["estado_del_plan","estatus"]
-                if condicion_col: csv_cols.append("condicion_pago")
-                csv_cols += ["fecha_base","cuotas","seguimiento_observaciones"]
+                # CSV
+                if q_export == 'csv':
+                    import io, csv
+                    si = io.StringIO()
+                    csv_cols = [c.split(" AS ")[-1] for c in select_cols]  # alias limpios
+                    writer = csv.DictWriter(si, fieldnames=csv_cols, extrasaction='ignore')
+                    writer.writeheader()
+                    for r in data:
+                        writer.writerow({k: r.get(k, "") for k in csv_cols})
+                    filename = f"reporte_metricas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                    return Response(
+                        si.getvalue().encode('utf-8-sig'),
+                        mimetype='text/csv; charset=utf-8',
+                        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+                    )
 
-                writer = csv.DictWriter(si, fieldnames=csv_cols, extrasaction='ignore')
-                writer.writeheader()
-                for r in data:
-                    r.setdefault("apellido","")
-                    r.setdefault("telefono","")
-                    r["seguimiento_observaciones"] = ""
-                    writer.writerow(r)
+                # XLSX
+                if q_export == 'xlsx':
+                    import pandas as pd
+                    df = pd.DataFrame(data)
+                    from io import BytesIO
+                    bio = BytesIO()
+                    with pd.ExcelWriter(bio, engine='openpyxl') as writer:
+                        df.to_excel(writer, index=False, sheet_name='Métricas')
+                    bio.seek(0)
+                    filename = f"reporte_metricas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                    return send_file(bio, as_attachment=True,
+                                     download_name=filename,
+                                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
-                filename = f"reporte_metricas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-                return Response(
-                    si.getvalue().encode('utf-8-sig'),
-                    mimetype='text/csv; charset=utf-8',
-                    headers={'Content-Disposition': f'attachment; filename=\"{filename}\"'}
-                )
+                # PDF (tabla simple)
+                if q_export == 'pdf':
+                    from fpdf import FPDF
+                    pdf = FPDF(orientation='L', unit='mm', format='A4')
+                    pdf.add_page()
+                    pdf.set_font("Arial","B",14)
+                    pdf.cell(0,10,"Reporte de Métricas", ln=1)
+                    pdf.set_font("Arial","",9)
+                    headers = ["ID","Empresa","Estado Plan","Estatus","Nombre","Apellido","Telefono","Condicion","Fecha Base","Cuotas"]
+                    widths  = [15,50,35,35,35,35,30,35,30,20]
+                    # encabezados
+                    for h,w in zip(headers,widths):
+                        pdf.cell(w,8,h,1,0,'C')
+                    pdf.ln(8)
+                    # filas
+                    for r in data[:1000]:  # límite razonable
+                        row=[
+                          r.get('id',''), r.get('empresa',''), r.get('estado_del_plan',''),
+                          r.get('estatus',''), r.get('nombre',''), r.get('apellido',''),
+                          r.get('telefono',''), r.get('condicion_pago',''),
+                          (r.get('fecha_base') or '') and str(r.get('fecha_base') or ''),
+                          r.get('cuotas','')
+                        ]
+                        for val,w in zip(row,widths):
+                            s = str(val)[:40]
+                            pdf.cell(w,6,s,1,0,'L')
+                        pdf.ln(6)
+                    out = BytesIO(pdf.output(dest='S').encode('latin-1'))
+                    out.seek(0)
+                    filename = f"reporte_metricas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                    return send_file(out, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
-            # XLSX
-            if q_export == 'xlsx':
-                cur.execute(base_cte + f"""
-                    SELECT {", ".join(_select_for_export())}
-                    FROM base
-                    ORDER BY {sort_expr} {dir_sql}
-                """, params)
-                data=_fetch_dicts(cur)
-                for r in data:
-                    r.setdefault("apellido","")
-                    r.setdefault("telefono","")
-                df = pd.DataFrame(data)
-                order = ["id","empresa"]
-                if nombre_col: order.append("nombre")
-                if "apellido" in df.columns: order.append("apellido")
-                if "telefono" in df.columns: order.append("telefono")
-                order += ["estado_del_plan","estatus"]
-                if "condicion_pago" in df.columns: order.append("condicion_pago")
-                order += ["fecha_base","cuotas"]
-                order = [c for c in order if c in df.columns]
-                df = df.reindex(columns=order)
-
-                bio = io.BytesIO()
-                try:
-                    with pd.ExcelWriter(bio, engine="openpyxl") as writer:
-                        df.to_excel(writer, sheet_name="Métricas", index=False)
-                except Exception:
-                    with pd.ExcelWriter(bio, engine="xlsxwriter") as writer:
-                        df.to_excel(writer, sheet_name="Métricas", index=False)
-                bio.seek(0)
-
-                filename = f"reporte_metricas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-                return Response(
-                    bio.getvalue(),
-                    mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    headers={'Content-Disposition': f'attachment; filename=\"{filename}\"'}
-                )
-
-            # PDF
-            if q_export == 'pdf':
-                cur.execute(base_cte + f"""
-                    SELECT {", ".join(_select_for_export())}
-                    FROM base
-                    ORDER BY {sort_expr} {dir_sql}
-                """, params)
-                data=_fetch_dicts(cur)
-
-                def t(x):
-                    s = "" if x is None else str(x)
-                    return s.encode('latin-1','replace').decode('latin-1')
-
-                cols = [("ID","id"),("Empresa","empresa")]
-                if nombre_col:   cols.append(("Nombre","nombre"))
-                if apellido_col: cols.append(("Apellido","apellido"))
-                if telefono_col: cols.append(("Teléfono","telefono"))
-                cols += [("Estado Plan","estado_del_plan"),("Estatus","estatus")]
-                if condicion_col: cols.append(("Condición Pago","condicion_pago"))
-                cols += [("Fecha Base","fecha_base"),("Cuotas","cuotas")]
-
-                pdf = FPDF(orientation='L', unit='mm', format='A4')
-                pdf.add_page()
-                pdf.set_font('Arial', 'B', 12)
-                pdf.cell(0, 8, t("Reporte de Métricas - Vitrina de Clientes"), 0, 1, 'L')
-                pdf.set_font('Arial', '', 9)
-
-                total_w = 287
-                base_w = {"id":14,"empresa":36,"nombre":28,"apellido":28,"telefono":28,
-                          "estado_del_plan":32,"estatus":32,"condicion_pago":32,"fecha_base":24,"cuotas":18}
-                used = sum(base_w.get(k,24) for _,k in cols)
-                scale = min(1.0, total_w/used) if used else 1.0
-
-                pdf.set_fill_color(240,240,240)
-                for title, key in cols:
-                    pdf.cell(base_w.get(key,24)*scale, 8, t(title), 1, 0, 'C', True)
-                pdf.ln(8)
-
-                pdf.set_font('Arial','',8)
-                for r in data:
-                    for title, key in cols:
-                        txt = t(r.get(key,""))
-                        if len(txt) > 38: txt = txt[:35] + "..."
-                        pdf.cell(base_w.get(key,24)*scale, 6, txt, 1, 0, 'L', False)
-                    pdf.ln(6)
-
-                out = pdf.output(dest='S').encode('latin-1', 'replace')
-                filename = f"reporte_metricas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-                return Response(out, mimetype="application/pdf",
-                                headers={'Content-Disposition': f'attachment; filename=\"{filename}\"'})
-
-            # ===== Paginado normal (HTML) =====
+            # ---- Totales / páginas
             cur.execute(base_cte + "SELECT COUNT(*) AS n FROM base", params)
-            total_count = int(_fetch_one_value(cur, 0))
+            total_count = int(_fetch_val(cur, 0))
             page_count  = max(1, (total_count + per_page - 1) // per_page)
 
-            cur.execute(base_cte + "SELECT upper(coalesce(estado_del_plan,'(Sin estado)')) AS estado, COUNT(*) AS n FROM base GROUP BY 1 ORDER BY 1", params)
-            r1=_fetch_dicts(cur); resumen={x['estado']:x['n'] for x in r1}
-            chart_estados={'labels':[x['estado'] for x in r1],'data':[x['n'] for x in r1]}
+            # ---- Gráficas (usar 'data' para el template)
+            cur.execute(base_cte + """
+                SELECT estado_norm AS estado, COUNT(*) AS n
+                FROM base GROUP BY 1 ORDER BY 1
+            """, params)
+            r1=_fetch_dicts(cur)
+            resumen={x['estado']:x['n'] for x in r1} if r1 else {}
+            chart_estados={'labels':[x['estado'] for x in r1],
+                           'data':[x['n'] for x in r1]}
 
-            cur.execute(base_cte + "SELECT upper(coalesce(condicion_raw,'SIN CONDICION')) AS condicion, COUNT(*) AS n FROM base GROUP BY 1 ORDER BY 1", params)
-            r2=_fetch_dicts(cur); chart_condicion={'labels':[x['condicion'] for x in r2],'data':[x['n'] for x in r2]}
+            cur.execute(base_cte + """
+                SELECT condicion_norm AS condicion, COUNT(*) AS n
+                FROM base GROUP BY 1 ORDER BY 1
+            """, params)
+            r2=_fetch_dicts(cur)
+            chart_condicion={'labels':[x['condicion'] for x in r2],
+                             'data':[x['n'] for x in r2]}
 
-            select_cols=["id","empresa","estado_del_plan","estatus"]
-            if nombre_col:     select_cols.append("nombre")
-            if apellido_col:   select_cols.append("apellido")
-            if telefono_col:   select_cols.append("telefono")
-            if condicion_col:  select_cols.append("condicion_raw AS condicion_pago")
+            # ---- Datos tabla paginada
+            select_cols=["id","empresa","estado_del_plan","estatus_norm AS estatus"]
+            if show_nombre:    select_cols.append("nombre")
+            if show_apellido:  select_cols.append("apellido")
+            if show_telefono:  select_cols.append("telefono")
+            if show_condicion: select_cols.append("condicion_raw AS condicion")
 
             cur.execute(base_cte + f"""
                 SELECT {", ".join(select_cols)}
@@ -3421,24 +3353,25 @@ def reporte_metricas():
             """, params + [per_page, offset])
             rows=_fetch_dicts(cur)
 
-            if debug_sql and logger:
-                logger.info("[/reportes/metricas] SRC=%s | WHERE=%s | PARAMS=%s | SORT=%s %s | ROWS=%s",
-                            src, (where_sql or '(sin where)'), params, sort_param, dir_sql, len(rows))
+            # Salvaguarda: si no hay filtros y aún da 0, intenta sin normalizadores por si acaso
+            if not rows and not where:
+                cur.execute("""
+                    SELECT id, empresa, estado_del_plan
+                    FROM clientes
+                    ORDER BY id ASC
+                    LIMIT %s OFFSET %s
+                """, (per_page, offset))
+                rows=_fetch_dicts(cur)
+                cur.execute("SELECT COUNT(*) AS n FROM clientes")
+                total_count = int(_fetch_val(cur, 0))
+                page_count  = max(1, (total_count + per_page - 1) // per_page)
 
-    except Exception as e:
-        if logger:
-            logger.error("Fallo en /reportes/metricas: %s", str(e))
-            logger.error("Traceback:\n%s", traceback.format_exc())
+    except Exception:
+        app.logger.error("Fallo en /reportes/metricas\n%s", traceback.format_exc())
         flash("Ocurrió un error generando el reporte. Revisa el log de la aplicación.", "danger")
 
     return render_template('reporte_metricas.html',
-        rows=rows, total_count=total_count, page=page, per_page=per_page, page_count=page_count,
-        resumen=resumen, chart_estados=chart_estados, chart_condicion=chart_condicion,
-        empresas_opciones=empresas_opciones, estados_opciones=estados_opciones,
-        condicion_opciones=condicion_opciones, estatus_opciones=estatus_opciones,
-        show_nombre=show_nombre, show_condicion=show_condicion,
-        applied={'fecha_col':fecha_col_usada,'cuotas_col':cuotas_col_usada,'sort':sort_param,'dir':dir_param}
-    )
+        ro
 
 # =========================
 # REPORTE: FLUJO DE CAJA
