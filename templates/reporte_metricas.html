@@ -11,6 +11,9 @@
     document.head.appendChild(s);
   }
 </script>
+<style>
+  :root { --sticky-offset: 72px; }
+</style>
 {% endblock %}
 
 {% block body %}
@@ -92,7 +95,8 @@
         </button>
       </div>
 
-      <form method="get" class="mt-6 sticky top-2 z-10 backdrop-blur bg-white/85 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-700 shadow-sm rounded-2xl p-4 md:p-5 transition">
+      <!-- z-20 e id para controlar sticky y evitar superposición -->
+      <form id="filtersBar" method="get" class="mt-6 sticky top-2 z-20 backdrop-blur bg-white/85 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-700 shadow-sm rounded-2xl p-4 md:p-5 transition">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
           {% macro form_select(name, label, options, default_val) %}
           <div>
@@ -259,7 +263,7 @@
       <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden shadow-sm">
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-            <thead class="bg-gray-100 dark:bg-gray-800 sticky top-[88px] z-10">
+            <thead class="bg-gray-100 dark:bg-gray-800 sticky [top:var(--sticky-offset,72px)] z-10">
               <tr>
                 {% macro th_sortable(sort_key, label) %}
                   {% set cur_sort = request.args.get('sort') %}
@@ -386,21 +390,23 @@
   } catch (e) {}
 })();
 document.addEventListener('DOMContentLoaded', function () {
-  const t = document.getElementById('themeToggle');
-  if (t) t.addEventListener('click', () => {
-    const el = document.documentElement;
-    const isDark = el.classList.toggle('dark');
-    try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch(e){}
-  });
+  const bar = document.getElementById('filtersBar');
 
-  const bar = document.querySelector('form[method="get"]');
+  // Offset dinámico para el thead sticky (evita superposición; soporta cambios de altura)
+  function setStickyOffset(){
+    const offset = (bar ? bar.offsetHeight : 0) + 16; // altura barra + margen + buffer
+    document.documentElement.style.setProperty('--sticky-offset', offset + 'px');
+  }
+  setStickyOffset();
+  window.addEventListener('resize', setStickyOffset);
+
+  // Sombra en la barra al hacer scroll
   const shadowCls = 'shadow-lg ring-1 ring-black/5';
   const onScroll = () => {
     const top = window.scrollY || document.documentElement.scrollTop;
-    if (bar) {
-      if (top > 10) bar.classList.add(...shadowCls.split(' '));
-      else bar.classList.remove(...shadowCls.split(' '));
-    }
+    if (!bar) return;
+    if (top > 10) bar.classList.add(...shadowCls.split(' '));
+    else bar.classList.remove(...shadowCls.split(' '));
   };
   onScroll();
   window.addEventListener('scroll', onScroll, { passive: true });
