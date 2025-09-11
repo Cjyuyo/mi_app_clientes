@@ -31,49 +31,105 @@
         </h1>
         <p class="text-slate-500 mt-1 text-sm">
           Estados del plan y estatus, con filtros y visualizaciones.
-          <span class="ml-2 text-xs text-slate-400">Fecha base: <strong>{{ applied.fecha_col }}</strong></span>
+          {% if applied and applied.fecha_col %}
+            <span class="ml-2 text-xs text-slate-400">Fecha base: <strong>{{ applied.fecha_col }}</strong></span>
+          {% endif %}
         </p>
       </div>
 
-      <!-- Filtros básicos -->
-      <form method="get" class="bg-white border border-slate-200 shadow-sm rounded-xl p-3">
-        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
-          <select name="empresa" class="rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
-            <option value="">Todas las empresas</option>
-            {% for emp in empresas_opciones %}
-              <option value="{{ emp }}" {{ 'selected' if (request.args.get('empresa','')|upper)==(emp|upper) else '' }}>{{ emp }}</option>
-            {% endfor %}
-          </select>
-          <select name="estado_plan" class="rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
-            <option value="">Todos los estados</option>
-            {% for est in estados_opciones %}
-              <option value="{{ est }}" {{ 'selected' if (request.args.get('estado_plan','')|upper)==est else '' }}>
-                {{ est|replace('_',' ')|capitalize }}
-              </option>
-            {% endfor %}
-          </select>
-          {% set estatus_opts = estatus_opciones|default(['ACTIVO','INACTIVO','RETIRADO','CONGELADO','RESERVA']) %}
-          <select name="estatus_cliente" class="rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
-            <option value="">Todos los estatus</option>
-            {% for opt in estatus_opts %}
-              <option value="{{ opt }}" {{ 'selected' if (request.args.get('estatus_cliente','')|upper)==opt else '' }}>
-                {{ opt|capitalize }}
-              </option>
-            {% endfor %}
-          </select>
-          <select name="per_page" class="rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
-            {% set pp = (request.args.get('per_page') or per_page)|int %}
-            {% for n in [10,25,50,100] %}
-              <option value="{{ n }}" {{ 'selected' if pp==n else '' }}>{{ n }} por página</option>
-            {% endfor %}
-          </select>
-        </div>
+      <!-- Filtro avanzado (único formulario) -->
+      <form method="get" class="bg-white border border-slate-200 shadow-sm rounded-xl p-3 w-full md:w-auto">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          <!-- Empresa -->
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Empresa</label>
+            <select name="empresa" class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
+              <option value="">Todas</option>
+              {% for emp in empresas_opciones %}
+                <option value="{{ emp }}" {{ 'selected' if (request.args.get('empresa','')|upper)==(emp|upper) else '' }}>{{ emp }}</option>
+              {% endfor %}
+            </select>
+          </div>
 
-        <!-- Preservar avanzados -->
-        <input type="hidden" name="condicion"    value="{{ request.args.get('condicion','') }}">
-        <input type="hidden" name="cuota_bucket" value="{{ request.args.get('cuota_bucket','') }}">
-        <input type="hidden" name="insc_desde"   value="{{ request.args.get('insc_desde','') }}">
-        <input type="hidden" name="insc_hasta"   value="{{ request.args.get('insc_hasta','') }}">
+          <!-- Estado del plan -->
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Estado del plan</label>
+            <select name="estado_plan" class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
+              <option value="">Todos</option>
+              {% for est in estados_opciones %}
+                <option value="{{ est }}" {{ 'selected' if (request.args.get('estado_plan','')|upper)==est else '' }}>
+                  {{ est|replace('_',' ')|capitalize }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Estatus cliente -->
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Estatus</label>
+            {% set estatus_opts = (estatus_opciones if estatus_opciones else ['ACTIVO','INACTIVO','RETIRADO','CONGELADO','RESERVA']) %}
+            <select name="estatus_cliente" class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
+              <option value="">Todos</option>
+              {% for opt in estatus_opts %}
+                <option value="{{ opt }}" {{ 'selected' if (request.args.get('estatus_cliente','')|upper)==opt else '' }}>
+                  {{ opt|capitalize }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Condición -->
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Condición</label>
+            {% set cond_opts = condicion_opciones if condicion_opciones else ['SIN CONDICION'] %}
+            <select name="condicion" class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
+              <option value="">Todas</option>
+              {% for cond in cond_opts %}
+                <option value="{{ cond }}" {{ 'selected' if (request.args.get('condicion','')|upper)==cond else '' }}>
+                  {{ cond|replace('_',' ')|capitalize }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Cuotas bucket -->
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Cuotas (bucket)</label>
+            {% set cb = request.args.get('cuota_bucket','') %}
+            <select name="cuota_bucket" class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
+              <option value=""  {{ 'selected' if not cb else '' }}>Todas</option>
+              <option value="1" {{ 'selected' if cb=='1' else '' }}>1–6</option>
+              <option value="2" {{ 'selected' if cb=='2' else '' }}>7–12</option>
+              <option value="3" {{ 'selected' if cb=='3' else '' }}>13–24</option>
+              <option value="4" {{ 'selected' if cb=='4' else '' }}>25–36</option>
+            </select>
+          </div>
+
+          <!-- Fecha ingreso desde -->
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Ingreso desde</label>
+            <input type="date" name="insc_desde" value="{{ request.args.get('insc_desde','') }}"
+                   class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
+          </div>
+
+          <!-- Fecha ingreso hasta -->
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Ingreso hasta</label>
+            <input type="date" name="insc_hasta" value="{{ request.args.get('insc_hasta','') }}"
+                   class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
+          </div>
+
+          <!-- Per page -->
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Resultados por página</label>
+            {% set pp = (request.args.get('per_page') or per_page)|int %}
+            <select name="per_page" class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
+              {% for n in [10,25,50,100] %}
+                <option value="{{ n }}" {{ 'selected' if pp==n else '' }}>{{ n }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
 
         <div class="mt-3 flex justify-end gap-2">
           <a href="{{ url_for('reporte_metricas') }}" class="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Limpiar</a>
@@ -83,84 +139,24 @@
     </div>
   </header>
 
-  <!-- Filtros avanzados -->
-  <section class="px-4 sm:px-6 lg:px-8">
-    <details class="group bg-white rounded-xl border border-slate-200 shadow-sm" {% if request.args.get('condicion') or request.args.get('cuota_bucket') or request.args.get('insc_desde') or request.args.get('insc_hasta') %} open {% endif %}>
-      <summary class="flex cursor-pointer items-center justify-between p-4 text-sm font-semibold text-slate-800">
-        Filtros avanzados
-        <span class="ml-3 text-slate-500 transition-transform group-open:rotate-180">
-          <i class="bi bi-chevron-down"></i>
-        </span>
-      </summary>
-      <form method="get" class="border-t border-slate-200 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <!-- Preservar básicos -->
-        <input type="hidden" name="empresa" value="{{ request.args.get('empresa','') }}">
-        <input type="hidden" name="estado_plan" value="{{ request.args.get('estado_plan','') }}">
-        <input type="hidden" name="estatus_cliente" value="{{ request.args.get('estatus_cliente','') }}">
-        <input type="hidden" name="per_page" value="{{ request.args.get('per_page', per_page) }}">
-
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Condición</label>
-          <select name="condicion" class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
-            <option value="">Todas</option>
-            {% for cond in condicion_opciones %}
-              <option value="{{ cond }}" {{ 'selected' if (request.args.get('condicion','')|upper)==cond else '' }}>
-                {{ cond|replace('_',' ')|capitalize }}
-              </option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div>
-          {% set cb = request.args.get('cuota_bucket','') %}
-          <label class="block text-xs font-medium text-slate-600 mb-1">Cuotas (bucket)</label>
-          <select name="cuota_bucket" class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
-            <option value=""  {{ 'selected' if not cb else '' }}>Todas</option>
-            <option value="1" {{ 'selected' if cb=='1' else '' }}>1–6</option>
-            <option value="2" {{ 'selected' if cb=='2' else '' }}>7–12</option>
-            <option value="3" {{ 'selected' if cb=='3' else '' }}>13–24</option>
-            <option value="4" {{ 'selected' if cb=='4' else '' }}>25–36</option>
-          </select>
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Ingreso desde</label>
-          <input type="date" name="insc_desde" value="{{ request.args.get('insc_desde','') }}"
-                 class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Ingreso hasta</label>
-          <input type="date" name="insc_hasta" value="{{ request.args.get('insc_hasta','') }}"
-                 class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
-        </div>
-
-        <div class="sm:col-span-2 lg:col-span-1 flex items-end justify-end">
-          <div class="flex gap-2 w-full justify-end">
-            <a href="{{ url_for('reporte_metricas') }}" class="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Limpiar</a>
-            <button class="inline-flex items-center rounded-md bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-900">Aplicar</button>
-          </div>
-        </div>
-      </form>
-
-      {% if request.args %}
-      <div class="border-t border-slate-200 p-4 text-xs text-slate-500">
-        <span class="mr-2">Filtros aplicados:</span>
-        {% if request.args.get('empresa') %}<span class="mr-2">Empresa=<b>{{ request.args.get('empresa') }}</b></span>{% endif %}
-        {% if request.args.get('estado_plan') %}<span class="mr-2">Estado=<b>{{ request.args.get('estado_plan') }}</b></span>{% endif %}
-        {% if request.args.get('estatus_cliente') %}<span class="mr-2">Estatus=<b>{{ request.args.get('estatus_cliente') }}</b></span>{% endif %}
-        {% if request.args.get('condicion') %}<span class="mr-2">Condición=<b>{{ request.args.get('condicion') }}</b></span>{% endif %}
-        {% if request.args.get('cuota_bucket') %}
-          {% set blabel = {'1':'1–6','2':'7–12','3':'13–24','4':'25–36'}[request.args.get('cuota_bucket')] %}
-          <span class="mr-2">Cuotas=<b>{{ blabel }}</b></span>
-        {% endif %}
-        {% if request.args.get('insc_desde') or request.args.get('insc_hasta') %}
-          <span class="mr-2">Ingreso=<b>{{ request.args.get('insc_desde') or '...' }} → {{ request.args.get('insc_hasta') or '...' }}</b></span>
-        {% endif %}
-      </div>
+  <!-- Chips de filtros aplicados (opcional) -->
+  {% if request.args %}
+  <div class="px-4 sm:px-6 lg:px-8">
+    <div class="bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-600 flex flex-wrap gap-2">
+      {% if request.args.get('empresa') %}<span class="px-2 py-1 bg-slate-50 rounded border border-slate-200">Empresa: <b>{{ request.args.get('empresa') }}</b></span>{% endif %}
+      {% if request.args.get('estado_plan') %}<span class="px-2 py-1 bg-slate-50 rounded border border-slate-200">Estado: <b>{{ request.args.get('estado_plan') }}</b></span>{% endif %}
+      {% if request.args.get('estatus_cliente') %}<span class="px-2 py-1 bg-slate-50 rounded border border-slate-200">Estatus: <b>{{ request.args.get('estatus_cliente') }}</b></span>{% endif %}
+      {% if request.args.get('condicion') %}<span class="px-2 py-1 bg-slate-50 rounded border border-slate-200">Condición: <b>{{ request.args.get('condicion') }}</b></span>{% endif %}
+      {% if request.args.get('cuota_bucket') %}
+        {% set blabel = {'1':'1–6','2':'7–12','3':'13–24','4':'25–36'}[request.args.get('cuota_bucket')] %}
+        <span class="px-2 py-1 bg-slate-50 rounded border border-slate-200">Cuotas: <b>{{ blabel }}</b></span>
       {% endif %}
-    </details>
-  </section>
+      {% if request.args.get('insc_desde') or request.args.get('insc_hasta') %}
+        <span class="px-2 py-1 bg-slate-50 rounded border border-slate-200">Ingreso: <b>{{ request.args.get('insc_desde') or '...' }} → {{ request.args.get('insc_hasta') or '...' }}</b></span>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 
   <!-- Tarjetas de resumen -->
   <main class="px-4 sm:px-6 lg:px-8 space-y-6 pb-10 mt-6">
@@ -320,11 +316,11 @@
       <!-- Paginación -->
       {% set start = (page-1) * per_page + (1 if total_count>0 else 0) %}
       {% set end   = (page-1) * per_page + rows|length %}
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t border-slate-200 bg-slate-50 text-sm text-slate-600">
-        <div>Mostrando <span class="font-semibold">{{ start }}</span>–<span class="font-semibold">{{ end }}</span> de <span class="font-semibold">{{ total_count }}</span> ({{ page }} / {{ page_count }})</div>
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-top border-slate-200 bg-slate-50 text-sm text-slate-600">
+        <div>Mostrando <span class="font-semibold">{{ start }}</span>–<span class="font-semibold">{{ end }}</span> de <span class="font-semibold">{{ total_count }}</span></div>
         <div class="flex items-center gap-2">
           {% set prev = 1 if page<=1 else page-1 %}
-          {% set next = page if page>=page_count else page+1 %}
+          {% set next = page if end>=total_count else page+1 %}
           <a class="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-100 {{ 'opacity-50 pointer-events-none' if page<=1 }}"
              href="{{ url_for('reporte_metricas',
                                empresa=request.args.get('empresa',''),
@@ -353,7 +349,7 @@
                                sort=request.args.get('sort','id'),
                                dir=request.args.get('dir','asc')) }}">Anterior</a>
 
-          <a class="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-100 {{ 'opacity-50 pointer-events-none' if page>=page_count }}"
+          <a class="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-100 {{ 'opacity-50 pointer-events-none' if end>=total_count }}"
              href="{{ url_for('reporte_metricas',
                                empresa=request.args.get('empresa',''),
                                estado_plan=request.args.get('estado_plan',''),
@@ -366,20 +362,6 @@
                                page=next,
                                sort=request.args.get('sort','id'),
                                dir=request.args.get('dir','asc')) }}">Siguiente</a>
-
-          <a class="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-100 {{ 'opacity-50 pointer-events-none' if page>=page_count }}"
-             href="{{ url_for('reporte_metricas',
-                               empresa=request.args.get('empresa',''),
-                               estado_plan=request.args.get('estado_plan',''),
-                               estatus_cliente=request.args.get('estatus_cliente',''),
-                               condicion=request.args.get('condicion',''),
-                               cuota_bucket=request.args.get('cuota_bucket',''),
-                               insc_desde=request.args.get('insc_desde',''),
-                               insc_hasta=request.args.get('insc_hasta',''),
-                               per_page=request.args.get('per_page', per_page),
-                               page=page_count,
-                               sort=request.args.get('sort','id'),
-                               dir=request.args.get('dir','asc')) }}">Última »</a>
         </div>
       </div>
     </section>
