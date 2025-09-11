@@ -4,18 +4,21 @@
 {% block page_title %}Métricas · Vitrina de Clientes{% endblock %}
 
 {% block body %}
-<div class="min-h-screen bg-slate-100 font-sans">
-  <!-- FLASH -->
-  <div class="px-4 sm:px-6 lg:px-8 pt-4">
+<div class="min-h-screen bg-gray-50 font-sans">
+  <div class="px-4 sm:px-6 lg:px-8 pt-6">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        <div class="space-y-2">
+        <div class="space-y-3">
           {% for category, message in messages %}
-            <div class="rounded-lg border px-4 py-3 text-sm
-                        {% if category=='danger' %} bg-red-50 border-red-200 text-red-700
-                        {% elif category=='warning' %} bg-amber-50 border-amber-200 text-amber-700
-                        {% else %} bg-slate-50 border-slate-200 text-slate-700 {% endif %}">
-              {{ message }}
+            <div class="rounded-xl border px-5 py-4 text-sm font-medium flex items-center gap-4
+                        {% if category=='danger' %} bg-red-50 border-red-200 text-red-800
+                        {% elif category=='warning' %} bg-yellow-50 border-yellow-200 text-yellow-800
+                        {% else %} bg-sky-50 border-sky-200 text-sky-800 {% endif %}">
+              <i class="bi 
+                {% if category=='danger' %} bi-exclamation-triangle-fill text-red-500
+                {% elif category=='warning' %} bi-exclamation-circle-fill text-yellow-500
+                {% else %} bi-info-circle-fill text-sky-500 {% endif %} text-xl"></i>
+              <span>{{ message }}</span>
             </div>
           {% endfor %}
         </div>
@@ -23,289 +26,227 @@
     {% endwith %}
   </div>
 
-  <header class="px-4 sm:px-6 lg:px-8 py-6">
-    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+  <header class="px-4 sm:px-6 lg:px-8 py-8">
+    <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
       <div>
-        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-800">
+        <h1 class="text-3xl font-bold tracking-tight text-gray-900">
           Vitrina de Clientes
         </h1>
-        <p class="text-slate-500 mt-1 text-sm">
-          Estados del plan y estatus, con filtros y visualizaciones.
+        <p class="text-gray-500 mt-2 text-base">
+          Análisis interactivo de clientes con filtros y visualizaciones.
           {% if applied and applied.fecha_col %}
-            <span class="ml-2 text-xs text-slate-400">Fecha base: <strong>{{ applied.fecha_col }}</strong></span>
+            <span class="ml-2 text-xs text-gray-400">Fecha base: <strong>{{ applied.fecha_col }}</strong></span>
           {% endif %}
         </p>
       </div>
 
-      <!-- Filtro avanzado (único formulario) -->
-      <form method="get" class="bg-white border border-slate-200 shadow-sm rounded-xl p-3 w-full md:w-auto">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-          <!-- Empresa -->
+      <form method="get" class="bg-white/80 backdrop-blur-sm border border-gray-200 shadow-sm rounded-2xl p-4 w-full md:max-w-4xl transition-all hover:shadow-md">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {% macro form_select(name, label, options, default_val) %}
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Empresa</label>
-            <select name="empresa" class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
-              <option value="">Todas</option>
-              {% for emp in empresas_opciones %}
-                <option value="{{ emp }}" {{ 'selected' if (request.args.get('empresa','')|upper)==(emp|upper) else '' }}>{{ emp }}</option>
-              {% endfor %}
+            <label class="block text-xs font-semibold text-gray-600 mb-1.5">{{ label }}</label>
+            <select name="{{ name }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm transition-all duration-150">
+              <option value="">{{ default_val }}</option>
+              {{ caller() }}
             </select>
           </div>
+          {% endmacro %}
 
-          <!-- Estado del plan -->
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Estado del plan</label>
-            <select name="estado_plan" class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
-              <option value="">Todos</option>
-              {% for est in estados_opciones %}
-                <option value="{{ est }}" {{ 'selected' if (request.args.get('estado_plan','')|upper)==est else '' }}>
-                  {{ est|replace('_',' ')|capitalize }}
-                </option>
-              {% endfor %}
-            </select>
-          </div>
+          {% call form_select('empresa', 'Empresa', empresas_opciones, 'Todas') %}
+            {% for emp in empresas_opciones %}
+              <option value="{{ emp }}" {{ 'selected' if (request.args.get('empresa','')|upper)==(emp|upper) else '' }}>{{ emp }}</option>
+            {% endfor %}
+          {% endcall %}
 
-          <!-- Estatus cliente -->
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Estatus</label>
-            {% set estatus_opts = (estatus_opciones if estatus_opciones else ['ACTIVO','INACTIVO','RETIRADO','CONGELADO','RESERVA']) %}
-            <select name="estatus_cliente" class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
-              <option value="">Todos</option>
-              {% for opt in estatus_opts %}
-                <option value="{{ opt }}" {{ 'selected' if (request.args.get('estatus_cliente','')|upper)==opt else '' }}>
-                  {{ opt|capitalize }}
-                </option>
-              {% endfor %}
-            </select>
-          </div>
+          {% call form_select('estado_plan', 'Estado del plan', estados_opciones, 'Todos') %}
+            {% for est in estados_opciones %}
+              <option value="{{ est }}" {{ 'selected' if (request.args.get('estado_plan','')|upper)==est else '' }}>
+                {{ est|replace('_',' ')|capitalize }}
+              </option>
+            {% endfor %}
+          {% endcall %}
 
-          <!-- Condición -->
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Condición</label>
+          {% call form_select('estatus_cliente', 'Estatus', estatus_opciones, 'Todos') %}
+            {% set estatus_opts = (estatus_opciones if estatus_opciones else ['ACTIVO','INACTIVO','RETIRADO','CONGELADO','RESERVA','PENDIENTE POR ENTREGA']) %}
+            {% for opt in estatus_opts %}
+              <option value="{{ opt }}" {{ 'selected' if (request.args.get('estatus_cliente','')|upper)==opt else '' }}>
+                {{ opt|capitalize }}
+              </option>
+            {% endfor %}
+          {% endcall %}
+          
+          {% call form_select('condicion', 'Condición', condicion_opciones, 'Todas') %}
             {% set cond_opts = condicion_opciones if condicion_opciones else ['SIN CONDICION'] %}
-            <select name="condicion" class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
-              <option value="">Todas</option>
-              {% for cond in cond_opts %}
-                <option value="{{ cond }}" {{ 'selected' if (request.args.get('condicion','')|upper)==cond else '' }}>
-                  {{ cond|replace('_',' ')|capitalize }}
-                </option>
-              {% endfor %}
-            </select>
-          </div>
+            {% for cond in cond_opts %}
+              <option value="{{ cond }}" {{ 'selected' if (request.args.get('condicion','')|upper)==cond else '' }}>
+                {{ cond|replace('_',' ')|capitalize }}
+              </option>
+            {% endfor %}
+          {% endcall %}
 
-          <!-- Cuotas bucket -->
+          {% set cb = request.args.get('cuota_bucket','') %}
+          {% call form_select('cuota_bucket', 'Cuotas (bucket)', [], 'Todas') %}
+            <option value="1" {{ 'selected' if cb=='1' else '' }}>1–6</option>
+            <option value="2" {{ 'selected' if cb=='2' else '' }}>7–12</option>
+            <option value="3" {{ 'selected' if cb=='3' else '' }}>13–24</option>
+            <option value="4" {{ 'selected' if cb=='4' else '' }}>25–36</option>
+          {% endcall %}
+          
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Cuotas (bucket)</label>
-            {% set cb = request.args.get('cuota_bucket','') %}
-            <select name="cuota_bucket" class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
-              <option value=""  {{ 'selected' if not cb else '' }}>Todas</option>
-              <option value="1" {{ 'selected' if cb=='1' else '' }}>1–6</option>
-              <option value="2" {{ 'selected' if cb=='2' else '' }}>7–12</option>
-              <option value="3" {{ 'selected' if cb=='3' else '' }}>13–24</option>
-              <option value="4" {{ 'selected' if cb=='4' else '' }}>25–36</option>
-            </select>
-          </div>
-
-          <!-- Fecha ingreso desde -->
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Ingreso desde</label>
+            <label class="block text-xs font-semibold text-gray-600 mb-1.5">Ingreso desde</label>
             <input type="date" name="insc_desde" value="{{ request.args.get('insc_desde','') }}"
-                   class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
+                   class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm transition-all duration-150">
           </div>
 
-          <!-- Fecha ingreso hasta -->
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Ingreso hasta</label>
+            <label class="block text-xs font-semibold text-gray-600 mb-1.5">Ingreso hasta</label>
             <input type="date" name="insc_hasta" value="{{ request.args.get('insc_hasta','') }}"
-                   class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
+                   class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm transition-all duration-150">
           </div>
 
-          <!-- Per page -->
-          <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Resultados por página</label>
-            {% set pp = (request.args.get('per_page') or per_page)|int %}
-            <select name="per_page" class="w-full rounded-md border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm">
-              {% for n in [10,25,50,100] %}
-                <option value="{{ n }}" {{ 'selected' if pp==n else '' }}>{{ n }}</option>
-              {% endfor %}
-            </select>
-          </div>
+          {% set pp = (request.args.get('per_page') or per_page)|int %}
+          {% call form_select('per_page', 'Resultados / pág.', [], '') %}
+            {% for n in [10,25,50,100] %}
+              <option value="{{ n }}" {{ 'selected' if pp==n else '' }}>{{ n }}</option>
+            {% endfor %}
+          {% endcall %}
         </div>
 
-        <div class="mt-3 flex justify-end gap-2">
-          <a href="{{ url_for('reporte_metricas') }}" class="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Limpiar</a>
-          <button class="inline-flex items-center rounded-md bg-slate-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-900">Aplicar</button>
+        <div class="mt-4 flex justify-end gap-3 border-t border-gray-200 pt-3">
+          <a href="{{ url_for('reporte_metricas') }}" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-all duration-150 transform hover:scale-105">
+            <i class="bi bi-arrow-counterclockwise"></i> Limpiar
+          </a>
+          <button class="inline-flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 transition-all duration-150 transform hover:scale-105 shadow-sm hover:shadow-md">
+            <i class="bi bi-funnel-fill"></i> Aplicar Filtros
+          </button>
         </div>
       </form>
     </div>
   </header>
 
-  <!-- Chips de filtros aplicados (opcional) -->
-  {% if request.args %}
-  <div class="px-4 sm:px-6 lg:px-8">
-    <div class="bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-600 flex flex-wrap gap-2">
-      {% if request.args.get('empresa') %}<span class="px-2 py-1 bg-slate-50 rounded border border-slate-200">Empresa: <b>{{ request.args.get('empresa') }}</b></span>{% endif %}
-      {% if request.args.get('estado_plan') %}<span class="px-2 py-1 bg-slate-50 rounded border border-slate-200">Estado: <b>{{ request.args.get('estado_plan') }}</b></span>{% endif %}
-      {% if request.args.get('estatus_cliente') %}<span class="px-2 py-1 bg-slate-50 rounded border border-slate-200">Estatus: <b>{{ request.args.get('estatus_cliente') }}</b></span>{% endif %}
-      {% if request.args.get('condicion') %}<span class="px-2 py-1 bg-slate-50 rounded border border-slate-200">Condición: <b>{{ request.args.get('condicion') }}</b></span>{% endif %}
-      {% if request.args.get('cuota_bucket') %}
-        {% set blabel = {'1':'1–6','2':'7–12','3':'13–24','4':'25–36'}[request.args.get('cuota_bucket')] %}
-        <span class="px-2 py-1 bg-slate-50 rounded border border-slate-200">Cuotas: <b>{{ blabel }}</b></span>
-      {% endif %}
-      {% if request.args.get('insc_desde') or request.args.get('insc_hasta') %}
-        <span class="px-2 py-1 bg-slate-50 rounded border border-slate-200">Ingreso: <b>{{ request.args.get('insc_desde') or '...' }} → {{ request.args.get('insc_hasta') or '...' }}</b></span>
-      {% endif %}
-    </div>
-  </div>
-  {% endif %}
+  <main class="px-4 sm:px-6 lg:px-8 space-y-8 pb-12">
+    {% if request.args %}
+    <section>
+      <div class="bg-white border border-gray-200 rounded-xl p-3 text-xs text-gray-700 flex flex-wrap items-center gap-2">
+        <span class="font-semibold text-sm mr-2 text-gray-500">Filtros Activos:</span>
+        {% macro filter_chip(label, value) %}
+        <span class="flex items-center px-3 py-1.5 bg-sky-100 text-sky-800 rounded-full font-medium">
+          {{ label }}: <b class="ml-1.5">{{ value }}</b>
+        </span>
+        {% endmacro %}
 
-  <!-- Tarjetas de resumen -->
-  <main class="px-4 sm:px-6 lg:px-8 space-y-6 pb-10 mt-6">
+        {% if request.args.get('empresa') %}{{ filter_chip('Empresa', request.args.get('empresa')) }}{% endif %}
+        {% if request.args.get('estado_plan') %}{{ filter_chip('Estado', request.args.get('estado_plan')) }}{% endif %}
+        {% if request.args.get('estatus_cliente') %}{{ filter_chip('Estatus', request.args.get('estatus_cliente')) }}{% endif %}
+        {% if request.args.get('condicion') %}{{ filter_chip('Condición', request.args.get('condicion')) }}{% endif %}
+        {% if request.args.get('cuota_bucket') %}
+          {% set blabel = {'1':'1–6','2':'7–12','3':'13–24','4':'25–36'}[request.args.get('cuota_bucket')] %}
+          {{ filter_chip('Cuotas', blabel) }}
+        {% endif %}
+        {% if request.args.get('insc_desde') or request.args.get('insc_hasta') %}
+          {{ filter_chip('Ingreso', (request.args.get('insc_desde') or '...') + ' → ' + (request.args.get('insc_hasta') or '...')) }}
+        {% endif %}
+      </div>
+    </section>
+    {% endif %}
+
     {% if resumen %}
-    <section class="bg-white border border-slate-200 rounded-xl p-4">
-      <h3 class="text-sm font-semibold text-slate-700 mb-3">Resumen por Estado del Plan</h3>
-      <div class="flex flex-wrap gap-2">
+    <section>
+      <h3 class="text-lg font-bold text-gray-800 mb-4">Resumen General</h3>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {% for estado, total in resumen.items()|sort %}
-          <span class="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-800 ring-1 ring-inset ring-slate-200">
-            {{ estado|replace('_',' ')|capitalize }}
-            <span class="ml-1 inline-flex items-center justify-center rounded-full bg-slate-800 text-white w-6 h-6 text-[11px]">{{ total }}</span>
-          </span>
+          <div class="bg-white border border-gray-200 rounded-xl p-5 text-center transition-all duration-200 hover:shadow-lg hover:-translate-y-1">
+            <p class="text-sm font-medium text-gray-500">{{ estado|replace('_',' ')|capitalize }}</p>
+            <p class="text-4xl font-bold text-gray-900 mt-2">{{ total }}</p>
+          </div>
         {% endfor %}
       </div>
     </section>
     {% endif %}
 
-    <!-- Gráficas -->
     <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <div class="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-6">
+      <div class="lg:col-span-7 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm transition-shadow duration-300 hover:shadow-xl">
         <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-slate-800">Clientes por Estado del Plan</h3>
-          <span class="text-sm text-slate-400">Barras</span>
+          <h3 class="text-xl font-bold text-gray-800 flex items-center gap-3"><i class="bi bi-bar-chart-line-fill text-orange-500"></i>Clientes por Estado</h3>
+          <span class="text-sm font-medium text-gray-400 bg-gray-100 px-3 py-1 rounded-full">Barras</span>
         </div>
-        <div class="mt-4 h-80"><canvas id="estadosBarChart"></canvas></div>
+        <div class="mt-6 h-80"><canvas id="estadosBarChart"></canvas></div>
       </div>
-      <div class="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-6">
+      <div class="lg:col-span-5 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm transition-shadow duration-300 hover:shadow-xl">
         <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-slate-800">Composición por Condición</h3>
-          <span class="text-sm text-slate-400">Dona</span>
+          <h3 class="text-xl font-bold text-gray-800 flex items-center gap-3"><i class="bi bi-pie-chart-fill text-orange-500"></i>Composición por Condición</h3>
+          <span class="text-sm font-medium text-gray-400 bg-gray-100 px-3 py-1 rounded-full">Dona</span>
         </div>
-        <div class="mt-4 h-80 flex items-center justify-center">
-          <canvas id="condicionDoughnutChart"></canvas>
-        </div>
+        <div class="mt-6 h-80 flex items-center justify-center"><canvas id="condicionDoughnutChart"></canvas></div>
       </div>
     </section>
 
-    <!-- Tabla -->
-    <section class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+    <section class="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200">
-          <thead class="bg-slate-50">
-            {% set cur_dir  = request.args.get('dir') %}
-            {% set cur_sort = request.args.get('sort') %}
-            {% set dir_id      = 'desc' if cur_dir=='asc' and cur_sort=='id' else 'asc' %}
-            {% set dir_nombre  = 'desc' if cur_dir=='asc' and cur_sort=='nombre' else 'asc' %}
-            {% set dir_empresa = 'desc' if cur_dir=='asc' and cur_sort=='empresa' else 'asc' %}
-            {% set dir_estado  = 'desc' if cur_dir=='asc' and cur_sort=='estado' else 'asc' %}
-            {% set dir_estatus = 'desc' if cur_dir=='asc' and cur_sort=='estatus' else 'asc' %}
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-100">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                <a href="{{ url_for('reporte_metricas',
-                                    empresa=request.args.get('empresa',''),
-                                    estado_plan=request.args.get('estado_plan',''),
-                                    estatus_cliente=request.args.get('estatus_cliente',''),
-                                    condicion=request.args.get('condicion',''),
-                                    cuota_bucket=request.args.get('cuota_bucket',''),
-                                    insc_desde=request.args.get('insc_desde',''),
-                                    insc_hasta=request.args.get('insc_hasta',''),
-                                    per_page=request.args.get('per_page', per_page),
-                                    page=1, sort='id', dir=dir_id) }}">ID</a>
-              </th>
+              {# ---- th_sortable SIN **request.args ---- #}
+              {% macro th_sortable(sort_key, label) %}
+                {% set cur_sort = request.args.get('sort') %}
+                {% set cur_dir = request.args.get('dir', 'asc') %}
+                {% set new_dir = 'desc' if cur_dir == 'asc' and cur_sort == sort_key else 'asc' %}
 
-              {% if show_nombre %}
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                <a href="{{ url_for('reporte_metricas',
-                                    empresa=request.args.get('empresa',''),
-                                    estado_plan=request.args.get('estado_plan',''),
-                                    estatus_cliente=request.args.get('estatus_cliente',''),
-                                    condicion=request.args.get('condicion',''),
-                                    cuota_bucket=request.args.get('cuota_bucket',''),
-                                    insc_desde=request.args.get('insc_desde',''),
-                                    insc_hasta=request.args.get('insc_hasta',''),
-                                    per_page=request.args.get('per_page', per_page),
-                                    page=1, sort='nombre', dir=dir_nombre) }}">Nombre</a>
-              </th>
-              {% endif %}
+                {% set qs = namespace(parts=[]) %}
+                {% for k, v in request.args.items() %}
+                  {% if k not in ['sort','dir','page'] and v %}
+                    {% set _ = qs.parts.append(k ~ '=' ~ (v|urlencode)) %}
+                  {% endif %}
+                {% endfor %}
+                {% set _ = qs.parts.append('sort=' ~ sort_key) %}
+                {% set _ = qs.parts.append('dir=' ~ new_dir) %}
+                {% set _ = qs.parts.append('page=1') %}
 
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                <a href="{{ url_for('reporte_metricas',
-                                    empresa=request.args.get('empresa',''),
-                                    estado_plan=request.args.get('estado_plan',''),
-                                    estatus_cliente=request.args.get('estatus_cliente',''),
-                                    condicion=request.args.get('condicion',''),
-                                    cuota_bucket=request.args.get('cuota_bucket',''),
-                                    insc_desde=request.args.get('insc_desde',''),
-                                    insc_hasta=request.args.get('insc_hasta',''),
-                                    per_page=request.args.get('per_page', per_page),
-                                    page=1, sort='empresa', dir=dir_empresa) }}">Empresa</a>
-              </th>
+                <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                  <a href="{{ url_for('reporte_metricas') }}?{{ qs.parts|join('&') }}" class="flex items-center gap-2 group">
+                    {{ label }}
+                    <span class="opacity-0 group-hover:opacity-100 transition-opacity">
+                      {% if cur_sort == sort_key %}
+                        <i class="bi {{ 'bi-sort-up' if cur_dir == 'asc' else 'bi-sort-down' }}"></i>
+                      {% else %}
+                        <i class="bi bi-arrow-down-up text-gray-400"></i>
+                      {% endif %}
+                    </span>
+                  </a>
+                </th>
+              {% endmacro %}
 
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                <a href="{{ url_for('reporte_metricas',
-                                    empresa=request.args.get('empresa',''),
-                                    estado_plan=request.args.get('estado_plan',''),
-                                    estatus_cliente=request.args.get('estatus_cliente',''),
-                                    condicion=request.args.get('condicion',''),
-                                    cuota_bucket=request.args.get('cuota_bucket',''),
-                                    insc_desde=request.args.get('insc_desde',''),
-                                    insc_hasta=request.args.get('insc_hasta',''),
-                                    per_page=request.args.get('per_page', per_page),
-                                    page=1, sort='estado', dir=dir_estado) }}">Estado del plan</a>
-              </th>
-
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                <a href="{{ url_for('reporte_metricas',
-                                    empresa=request.args.get('empresa',''),
-                                    estado_plan=request.args.get('estado_plan',''),
-                                    estatus_cliente=request.args.get('estatus_cliente',''),
-                                    condicion=request.args.get('condicion',''),
-                                    cuota_bucket=request.args.get('cuota_bucket',''),
-                                    insc_desde=request.args.get('insc_desde',''),
-                                    insc_hasta=request.args.get('insc_hasta',''),
-                                    per_page=request.args.get('per_page', per_page),
-                                    page=1, sort='estatus', dir=dir_estatus) }}">Estatus</a>
-              </th>
-
-              {% if show_condicion %}
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Condición</th>
-              {% endif %}
+              {{ th_sortable('id', 'ID') }}
+              {% if show_nombre %}{{ th_sortable('nombre', 'Nombre') }}{% endif %}
+              {{ th_sortable('empresa', 'Empresa') }}
+              {{ th_sortable('estado', 'Estado del plan') }}
+              {{ th_sortable('estatus', 'Estatus') }}
+              {% if show_condicion %}<th class="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Condición</th>{% endif %}
             </tr>
           </thead>
-
-          <tbody class="divide-y divide-slate-100 bg-white">
+          <tbody class="divide-y divide-gray-100 bg-white">
             {% for r in rows %}
-            <tr class="hover:bg-slate-50">
-              <td class="px-4 py-3 text-sm text-slate-800">{{ r.id }}</td>
-              {% if show_nombre %}
-              <td class="px-4 py-3 text-sm text-slate-700">{{ r.nombre or '—' }}</td>
-              {% endif %}
-              <td class="px-4 py-3 text-sm text-slate-700">{{ r.empresa or '—' }}</td>
-              <td class="px-4 py-3 text-sm">
-                <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-800 ring-1 ring-slate-200">
+            <tr class="[&>td]:px-6 [&>td]:py-4 transition-colors duration-150 hover:bg-orange-50/50">
+              <td class="text-sm font-medium text-gray-800">{{ r.id }}</td>
+              {% if show_nombre %}<td class="text-sm text-gray-600">{{ r.nombre or '—' }}</td>{% endif %}
+              <td class="text-sm text-gray-600">{{ r.empresa or '—' }}</td>
+              <td>
+                <span class="inline-flex rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">
                   {{ r.estado_del_plan or '—' }}
                 </span>
               </td>
-              <td class="px-4 py-3 text-sm">
-                <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-800 ring-1 ring-slate-200">
+              <td>
+                <span class="inline-flex rounded-full bg-teal-100 px-3 py-1 text-xs font-semibold text-teal-800">
                   {{ r.estatus or '—' }}
                 </span>
               </td>
-              {% if show_condicion %}
-              <td class="px-4 py-3 text-sm text-slate-700">{{ r.condicion_pago or '—' }}</td>
-              {% endif %}
+              {% if show_condicion %}<td class="text-sm text-gray-600">{{ r.condicion_pago or '—' }}</td>{% endif %}
             </tr>
             {% else %}
             <tr>
-              <td colspan="{{ 5 + (1 if show_nombre else 0) + (1 if show_condicion else 0) }}" class="px-4 py-6 text-center text-sm text-slate-500">
-                No hay clientes para mostrar.
+              <td colspan="{{ 5 + (1 if show_nombre else 0) + (1 if show_condicion else 0) }}" class="px-6 py-10 text-center text-sm text-gray-500">
+                <i class="bi bi-table text-4xl text-gray-300"></i>
+                <p class="mt-2">No se encontraron clientes con los filtros actuales.</p>
               </td>
             </tr>
             {% endfor %}
@@ -313,57 +254,38 @@
         </table>
       </div>
 
-      <!-- Paginación -->
-      {% set start = (page-1) * per_page + (1 if total_count>0 else 0) %}
-      {% set end   = (page-1) * per_page + rows|length %}
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-top border-slate-200 bg-slate-50 text-sm text-slate-600">
-        <div>Mostrando <span class="font-semibold">{{ start }}</span>–<span class="font-semibold">{{ end }}</span> de <span class="font-semibold">{{ total_count }}</span></div>
+      {% if total_count > 0 %}
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 py-4 border-t border-gray-200 bg-gray-50 text-sm text-gray-700">
+        <div>Mostrando <span class="font-bold">{{ (page-1) * per_page + 1 }}</span>–<span class="font-bold">{{ (page-1) * per_page + rows|length }}</span> de <span class="font-bold">{{ total_count }}</span> resultados</div>
+        
         <div class="flex items-center gap-2">
-          {% set prev = 1 if page<=1 else page-1 %}
-          {% set next = page if end>=total_count else page+1 %}
-          <a class="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-100 {{ 'opacity-50 pointer-events-none' if page<=1 }}"
-             href="{{ url_for('reporte_metricas',
-                               empresa=request.args.get('empresa',''),
-                               estado_plan=request.args.get('estado_plan',''),
-                               estatus_cliente=request.args.get('estatus_cliente',''),
-                               condicion=request.args.get('condicion',''),
-                               cuota_bucket=request.args.get('cuota_bucket',''),
-                               insc_desde=request.args.get('insc_desde',''),
-                               insc_hasta=request.args.get('insc_hasta',''),
-                               per_page=request.args.get('per_page', per_page),
-                               page=1,
-                               sort=request.args.get('sort','id'),
-                               dir=request.args.get('dir','asc')) }}">« Primera</a>
+          {# ---- pagination_link SIN **request.args ---- #}
+          {% macro pagination_link(icon_class, target_page, is_disabled=False, is_icon=False) %}
+            {% set qs = namespace(parts=[]) %}
+            {% for k, v in request.args.items() %}
+              {% if k != 'page' and v %}
+                {% set _ = qs.parts.append(k ~ '=' ~ (v|urlencode)) %}
+              {% endif %}
+            {% endfor %}
+            {% set _ = qs.parts.append('page=' ~ target_page) %}
 
-          <a class="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-100 {{ 'opacity-50 pointer-events-none' if page<=1 }}"
-             href="{{ url_for('reporte_metricas',
-                               empresa=request.args.get('empresa',''),
-                               estado_plan=request.args.get('estado_plan',''),
-                               estatus_cliente=request.args.get('estatus_cliente',''),
-                               condicion=request.args.get('condicion',''),
-                               cuota_bucket=request.args.get('cuota_bucket',''),
-                               insc_desde=request.args.get('insc_desde',''),
-                               insc_hasta=request.args.get('insc_hasta',''),
-                               per_page=request.args.get('per_page', per_page),
-                               page=prev,
-                               sort=request.args.get('sort','id'),
-                               dir=request.args.get('dir','asc')) }}">Anterior</a>
+            <a href="{{ url_for('reporte_metricas') }}?{{ qs.parts|join('&') }}"
+               class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white font-semibold text-gray-700 transition-all hover:bg-gray-100
+                      {{ 'h-9 w-9' if is_icon else 'px-4 h-9' }}
+                      {{ 'opacity-50 pointer-events-none' if is_disabled }}">
+              <i class="bi {{ icon_class }}"></i>
+            </a>
+          {% endmacro %}
 
-          <a class="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-100 {{ 'opacity-50 pointer-events-none' if end>=total_count }}"
-             href="{{ url_for('reporte_metricas',
-                               empresa=request.args.get('empresa',''),
-                               estado_plan=request.args.get('estado_plan',''),
-                               estatus_cliente=request.args.get('estatus_cliente',''),
-                               condicion=request.args.get('condicion',''),
-                               cuota_bucket=request.args.get('cuota_bucket',''),
-                               insc_desde=request.args.get('insc_desde',''),
-                               insc_hasta=request.args.get('insc_hasta',''),
-                               per_page=request.args.get('per_page', per_page),
-                               page=next,
-                               sort=request.args.get('sort','id'),
-                               dir=request.args.get('dir','asc')) }}">Siguiente</a>
+          {% set prev_page = 1 if page <= 1 else page - 1 %}
+          {% set next_page = page if (page * per_page) >= total_count else page + 1 %}
+          {{ pagination_link('bi-chevron-double-left', 1, page <= 1, True) }}
+          {{ pagination_link('bi-chevron-left', prev_page, page <= 1, True) }}
+          <span class="px-4 h-9 flex items-center border border-gray-200 bg-gray-100 rounded-lg">Página {{ page }}</span>
+          {{ pagination_link('bi-chevron-right', next_page, (page * per_page) >= total_count, True) }}
         </div>
       </div>
+      {% endif %}
     </section>
   </main>
 </div>
@@ -375,8 +297,8 @@
 document.addEventListener('DOMContentLoaded', function () {
   if (!window.Chart) return;
   Chart.defaults.font.family = "'Inter','ui-sans-serif','system-ui',sans-serif";
-  Chart.defaults.color = '#64748b';
-  Chart.defaults.font.weight = '500';
+  Chart.defaults.color = '#6b7280';
+  Chart.defaults.font.weight = '600';
 
   const estadosData   = {{ (chart_estados  or {'labels':[], 'values':[]})|tojson|safe }};
   const condicionData = {{ (chart_condicion or {'labels':[], 'values':[]})|tojson|safe }};
@@ -387,9 +309,25 @@ document.addEventListener('DOMContentLoaded', function () {
       type: 'bar',
       data: {
         labels: estadosData.labels.map(l => (l||'').replaceAll('_',' ').toLowerCase().replace(/(^|\s)\S/g, t => t.toUpperCase())),
-        datasets: [{ label: 'Clientes', data: estadosData.values, backgroundColor: '#3b82f6', borderRadius: 8, barPercentage: 0.7 }]
+        datasets: [{ 
+          label: 'Clientes', 
+          data: estadosData.values, 
+          backgroundColor: 'rgba(249, 148, 23, 0.8)',
+          borderColor: 'rgb(249, 148, 23)',
+          borderWidth: 2,
+          borderRadius: 8, 
+          barPercentage: 0.7 
+        }]
       },
-      options: { responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true } }, plugins:{ legend:{ display:false } } }
+      options: { 
+        responsive: true, 
+        maintainAspectRatio: false, 
+        scales: { 
+          y: { beginAtZero: true, grid: { color: '#e5e7eb' } },
+          x: { grid: { display: false } }
+        }, 
+        plugins: { legend: { display: false } } 
+      }
     });
   }
 
@@ -399,9 +337,26 @@ document.addEventListener('DOMContentLoaded', function () {
       type: 'doughnut',
       data: {
         labels: condicionData.labels.map(l => (l||'').replaceAll('_',' ').toLowerCase().replace(/(^|\s)\S/g, t => t.toUpperCase())),
-        datasets: [{ label:'Clientes', data: condicionData.values, backgroundColor:['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#64748b','#22c55e','#06b6d4'], borderColor:'#fff', borderWidth:4, hoverOffset:12 }]
+        datasets: [{ 
+          label: 'Clientes', 
+          data: condicionData.values, 
+          backgroundColor: ['#f99417', '#2b3a55', '#34d399', '#8b5cf6', '#ef4444', '#64748b', '#22c55e', '#06b6d4'],
+          borderColor: '#fff', 
+          borderWidth: 4, 
+          hoverOffset: 16 
+        }]
       },
-      options: { responsive:true, maintainAspectRatio:false, cutout:'70%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, boxWidth:8, padding:16 } } } }
+      options: { 
+        responsive: true, 
+        maintainAspectRatio: false, 
+        cutout: '75%', 
+        plugins: { 
+          legend: { 
+            position: 'bottom', 
+            labels: { usePointStyle: true, boxWidth: 8, padding: 20, font: { size: 12 } } 
+          } 
+        } 
+      }
     });
   }
 });
