@@ -1,217 +1,425 @@
 {% extends "base_sidebar.html" %}
 
-{% block title %}Panel de Control{% endblock %}
+{#
+    MACROS AUXILIARES PARA NO REPETIR CÓDIGO
+    - pill_status: Genera un badge de color según el estatus del cliente.
+    - pill_condicion: Genera un badge de color según la condición.
+    - sort_link: Crea un enlace de cabecera de tabla para ordenar.
+#}
+{% macro pill_status(estatus) %}
+    {% set colors = {
+        'ACTIVO': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+        'PENDIENTE POR ENTREGA': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
+        'COMPLETADO': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+        'MOROSO': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+        'INACTIVO': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
+    } %}
+    <span class="px-2.5 py-0.5 text-xs font-medium rounded-full {{ colors.get(estatus, 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300') }}">
+        {{ estatus | replace('_', ' ') | title }}
+    </span>
+{% endmacro %}
 
-{% block page_title %}Hub Principal{% endblock %}
+{% macro pill_condicion(condicion) %}
+    {% set colors = {
+        'AL DIA': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300',
+        'EN MORA': 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300'
+    } %}
+    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full {{ colors.get(condicion, 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300') }}">
+        {% if condicion == 'AL DIA' %}<span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+        {% elif condicion == 'EN MORA' %}<span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+        {% endif %}
+        {{ condicion | title }}
+    </span>
+{% endmacro %}
+
+{% macro sort_link(field, title) %}
+    {% set sort_order = 'asc' if request.args.get('sort') == field and request.args.get('order') == 'asc' else 'desc' %}
+    {% set new_order = 'asc' if sort_order == 'desc' else 'desc' %}
+    <a href="{{ url_for('reporte_metricas', sort=field, order=new_order, **request.args.to_dict(flat=False)) }}" class="group inline-flex items-center gap-2">
+        {{ title }}
+        <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200
+            {% if request.args.get('sort') == field %} opacity-100 {% endif %}">
+            {% if request.args.get('order') == 'desc' %}
+                <i class="bi bi-sort-down"></i>
+            {% else %}
+                <i class="bi bi-sort-up"></i>
+            {% endif %}
+        </span>
+    </a>
+{% endmacro %}
+
+
+{% block title %}Métricas de Clientes{% endblock %}
+
+{% block page_title %}Métricas · Vitrina de Clientes{% endblock %}
+
+{% block head_extra %}
+<style>
+    /* Asegura que el thead sticky se posicione correctamente debajo de la barra de filtros */
+    :root {
+        --sticky-offset: 6rem; /* Valor inicial, se ajustará con JS */
+    }
+    .thead-sticky {
+        position: sticky;
+        top: var(--sticky-offset, 6rem);
+        z-index: 10;
+    }
+    
+    /* Estilos solo para impresión */
+    @media print {
+        body {
+            background-color: white !important;
+        }
+        .no-print {
+            display: none !important;
+        }
+        .printable-area {
+            display: table-cell !important;
+            border-bottom: 1px dotted #9ca3af !important;
+            min-height: 4rem !important; /* Espacio para escribir */
+            height: 4rem !important;
+            padding: 0.75rem !important;
+            vertical-align: top;
+        }
+        table, thead, tbody, tr, td {
+            color: black !important;
+            border-color: #d1d5db !important;
+        }
+        .shadow-none-print {
+            box-shadow: none !important;
+        }
+    }
+</style>
+{% endblock %}
+
 
 {% block body %}
-<div class="space-y-6 lg:space-y-8">
+<div class="space-y-6 dark:text-slate-200">
 
-    <div class="bg-slate-800 text-white p-5 rounded-xl shadow-lg relative overflow-hidden">
-        <div class="flex items-center gap-4">
-            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-slate-700">
-                <i class="bi bi-rocket-takeoff-fill text-2xl text-orange-400"></i>
-            </div>
+    <!-- Encabezado y contadores -->
+    <header class="no-print">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-                <h2 class="text-xl font-bold">¡Bienvenido de nuevo, {{ g.admin.usuario }}!</h2>
-                <p class="text-sm text-slate-300">Aquí tienes un resumen de la actividad reciente.</p>
+                <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Vitrina de Clientes</h1>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Filtra, analiza y exporta los datos de tu cartera.</p>
             </div>
+            <div class="flex items-center gap-3">
+                <span class="inline-flex items-center gap-2 text-sm font-medium px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-full">
+                    <i class="bi bi-people-fill text-blue-500"></i>
+                    {{ pagination.total }} Registros
+                </span>
+                <span class="inline-flex items-center gap-2 text-sm font-medium px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-full">
+                    <i class="bi bi-file-earmark-text-fill text-orange-500"></i>
+                    Página {{ pagination.page }} de {{ pagination.pages }}
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Barra de Filtros (Sticky) -->
+    <div id="filtersBar" class="no-print sticky top-20 z-20 transition-shadow duration-300">
+        <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
+            <form method="GET" action="{{ url_for('reporte_metricas') }}">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                    <!-- Campos de filtro -->
+                    <div class="xl:col-span-1">
+                        <label for="empresa" class="text-xs font-medium text-slate-600 dark:text-slate-400">Empresa</label>
+                        <select id="empresa" name="empresa" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
+                            <option value="">Todas</option>
+                            <option value="MOTOPLAN MOTORS, C.A." {% if request.args.get('empresa') == 'MOTOPLAN MOTORS, C.A.' %}selected{% endif %}>Motoplan Motors</option>
+                            <option value="INVERSIONES SOBRE RUEDAS, C.A." {% if request.args.get('empresa') == 'INVERSIONES SOBRE RUEDAS, C.A.' %}selected{% endif %}>Inversiones Sobre Ruedas</option>
+                        </select>
+                    </div>
+                    <div class="xl:col-span-1">
+                        <label for="estado_plan" class="text-xs font-medium text-slate-600 dark:text-slate-400">Estado Plan</label>
+                        <select id="estado_plan" name="estado_plan" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
+                            <option value="">Todos</option>
+                            <option value="EN PROCESO" {% if request.args.get('estado_plan') == 'EN PROCESO' %}selected{% endif %}>En Proceso</option>
+                            <option value="FINALIZADO" {% if request.args.get('estado_plan') == 'FINALIZADO' %}selected{% endif %}>Finalizado</option>
+                        </select>
+                    </div>
+                    <div class="xl:col-span-1">
+                        <label for="estatus_cliente" class="text-xs font-medium text-slate-600 dark:text-slate-400">Estatus Cliente</label>
+                        <select id="estatus_cliente" name="estatus_cliente" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
+                            <option value="">Todos</option>
+                            <option value="ACTIVO" {% if request.args.get('estatus_cliente') == 'ACTIVO' %}selected{% endif %}>Activo</option>
+                            <option value="PENDIENTE POR ENTREGA" {% if request.args.get('estatus_cliente') == 'PENDIENTE POR ENTREGA' %}selected{% endif %}>Pendiente por Entrega</option>
+                            <option value="MOROSO" {% if request.args.get('estatus_cliente') == 'MOROSO' %}selected{% endif %}>Moroso</option>
+                            <option value="COMPLETADO" {% if request.args.get('estatus_cliente') == 'COMPLETADO' %}selected{% endif %}>Completado</option>
+                            <option value="INACTIVO" {% if request.args.get('estatus_cliente') == 'INACTIVO' %}selected{% endif %}>Inactivo</option>
+                        </select>
+                    </div>
+                     <div class="xl:col-span-1">
+                        <label for="condicion" class="text-xs font-medium text-slate-600 dark:text-slate-400">Condición</label>
+                        <select id="condicion" name="condicion" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
+                            <option value="">Ambas</option>
+                            <option value="AL DIA" {% if request.args.get('condicion') == 'AL DIA' %}selected{% endif %}>Al Día</option>
+                            <option value="EN MORA" {% if request.args.get('condicion') == 'EN MORA' %}selected{% endif %}>En Mora</option>
+                        </select>
+                    </div>
+                    <div class="xl:col-span-1">
+                        <label for="cuota_bucket" class="text-xs font-medium text-slate-600 dark:text-slate-400">Rango de Cuotas</label>
+                        <select id="cuota_bucket" name="cuota_bucket" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
+                            <option value="">Todos</option>
+                            <option value="0-5" {% if request.args.get('cuota_bucket') == '0-5' %}selected{% endif %}>0-5 Cuotas</option>
+                            <option value="6-11" {% if request.args.get('cuota_bucket') == '6-11' %}selected{% endif %}>6-11 Cuotas</option>
+                            <option value="12+" {% if request.args.get('cuota_bucket') == '12+' %}selected{% endif %}>12+ Cuotas</option>
+                        </select>
+                    </div>
+                    <!-- Fechas -->
+                    <div class="xl:col-span-1 grid grid-cols-2 gap-2">
+                        <div>
+                           <label for="insc_desde" class="text-xs font-medium text-slate-600 dark:text-slate-400">Insc. Desde</label>
+                           <input type="date" id="insc_desde" name="insc_desde" value="{{ request.args.get('insc_desde', '') }}" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
+                        </div>
+                        <div>
+                           <label for="insc_hasta" class="text-xs font-medium text-slate-600 dark:text-slate-400">Insc. Hasta</label>
+                           <input type="date" id="insc_hasta" name="insc_hasta" value="{{ request.args.get('insc_hasta', '') }}" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botones de acción -->
+                <div class="flex flex-wrap items-center justify-end gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                    <a href="{{ url_for('reporte_metricas') }}" class="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg transition-colors">Limpiar</a>
+                    <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500">Aplicar Filtros</button>
+                    <a href="{{ url_for('reporte_metricas', export='csv', **request.args.to_dict()) }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500" title="Exportar la vista actual a formato CSV">
+                        <i class="bi bi-file-earmark-excel-fill"></i> Exportar CSV
+                    </a>
+                </div>
+            </form>
         </div>
     </div>
-
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <div class="bg-white p-4 md:p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-            <div class="flex justify-between items-center">
-                <div class="space-y-1">
-                    <p class="text-sm font-semibold text-slate-500">Clientes en Cartera</p>
-                    <p class="text-2xl lg:text-3xl font-bold text-slate-800">{{ stats.clientes_cartera | default('0') }}</p>
-                </div>
-                <div class="w-12 h-12 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                    <i class="bi bi-people-fill text-2xl"></i>
-                </div>
+    
+    <!-- Resumen y Gráficas -->
+    <div class="space-y-6">
+        <!-- Tarjetas de Resumen -->
+        {% if resumen %}
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
+            {% for key, value in resumen.items() %}
+            <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <p class="text-sm font-medium text-slate-500 dark:text-slate-400">{{ key | replace('_', ' ') | title }}</p>
+                <p class="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-1 font-mono tabular-nums">{{ value }}</p>
             </div>
-        </div>
-        
-        {% if g.admin.rol in ['superadmin', 'gerente'] %}
-        <div class="bg-white p-4 md:p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-            <div class="flex justify-between items-center">
-                <div class="space-y-1">
-                    <p class="text-sm font-semibold text-slate-500">Recaudado Mes</p>
-                    <p class="text-2xl lg:text-3xl font-bold text-slate-800">${{ "%.2f"|format(stats.recaudado_mes) if stats.recaudado_mes is not none else '0.00' }}</p>
-                </div>
-                <div class="w-12 h-12 flex items-center justify-center rounded-full bg-green-100 text-green-600">
-                    <i class="bi bi-cash-stack text-2xl"></i>
-                </div>
-            </div>
+            {% endfor %}
         </div>
         {% endif %}
 
-        <div class="bg-white p-4 md:p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-            <div class="flex justify-between items-center">
-                <div class="space-y-1">
-                    <p class="text-sm font-semibold text-slate-500">Solicitudes</p>
-                    <p class="text-2xl lg:text-3xl font-bold text-slate-800">{{ stats.solicitudes_pendientes | default('0') }}</p>
-                </div>
-                <div class="w-12 h-12 flex items-center justify-center rounded-full bg-orange-100 text-orange-600">
-                    <i class="bi bi-clipboard2-check-fill text-2xl"></i>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white p-4 md:p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-            <div class="flex justify-between items-center">
-                <div class="space-y-1">
-                    <p class="text-sm font-semibold text-slate-500">Tasa BCV</p>
-                    <p class="text-2xl lg:text-3xl font-bold text-slate-800 whitespace-nowrap">{{ stats.tasa_bcv | default('N/A') }}</p>
-                </div>
-                <div class="w-12 h-12 flex items-center justify-center rounded-full bg-purple-100 text-purple-600">
-                    <i class="bi bi-graph-up-arrow text-2xl"></i>
+        <!-- Gráficas -->
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 no-print">
+            {% if chart_estados %}
+            <div class="lg:col-span-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
+                <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-4">Distribución por Estatus de Cliente</h3>
+                <div class="h-80">
+                    <canvas id="estadosBarChart"></canvas>
                 </div>
             </div>
+            {% endif %}
+            {% if chart_condicion %}
+            <div class="lg:col-span-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
+                <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-4">Condición de la Cartera</h3>
+                <div class="h-80">
+                     <canvas id="condicionDoughnutChart"></canvas>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-2 bg-white p-5 rounded-xl shadow-md border border-slate-200/80">
-            <h2 class="text-lg font-bold text-slate-800 mb-4">Centro de Operaciones</h2>
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <a href="{{ url_for('reportes_por_revisar') }}" class="relative group bg-slate-50 p-4 rounded-lg hover:bg-red-50 hover:border-red-200 border border-transparent transition-all text-center">
-                    {% if stats.reportes_pendientes > 0 %}<span class="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white shadow">{{ stats.reportes_pendientes }}</span>{% endif %}
-                    <i class="bi bi-journal-check text-3xl text-red-500 mb-2"></i>
-                    <span class="text-sm font-semibold text-slate-700 block">Revisar Reportes</span>
-                </a>
-                <a href="{{ url_for('pagos_por_conciliar') }}" class="relative group bg-slate-50 p-4 rounded-lg hover:bg-green-50 hover:border-green-200 border border-transparent transition-all text-center">
-                    {% if stats.pagos_por_conciliar > 0 %}<span class="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-yellow-400 text-xs font-bold text-yellow-900 shadow">{{ stats.pagos_por_conciliar }}</span>{% endif %}
-                    <i class="bi bi-patch-check-fill text-3xl text-green-500 mb-2"></i>
-                    <span class="text-sm font-semibold text-slate-700 block">Conciliar Pagos</span>
-                </a>
-                <a href="{{ url_for('solicitudes_hub') }}" class="relative group bg-slate-50 p-4 rounded-lg hover:bg-purple-50 hover:border-purple-200 border border-transparent transition-all text-center">
-                    {% if stats.solicitudes_pendientes > 0 %}<span class="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-purple-500 text-xs font-bold text-white shadow">{{ stats.solicitudes_pendientes }}</span>{% endif %}
-                    <i class="bi bi-inbox-fill text-3xl text-purple-500 mb-2"></i>
-                    <span class="text-sm font-semibold text-slate-700 block">Gestionar Solicitudes</span>
-                </a>
-                <a href="{{ url_for('registrar') }}" class="group bg-slate-50 p-4 rounded-lg hover:bg-blue-50 hover:border-blue-200 border border-transparent transition-all text-center">
-                    <i class="bi bi-person-plus-fill text-3xl text-blue-500 mb-2"></i>
-                    <span class="text-sm font-semibold text-slate-700 block">Registrar Cliente</span>
-                </a>
-                <a href="{{ url_for('admin_tasa_bcv') }}" class="group bg-slate-50 p-4 rounded-lg hover:bg-cyan-50 hover:border-cyan-200 border border-transparent transition-all text-center">
-                    <i class="bi bi-coin text-3xl text-cyan-500 mb-2"></i>
-                    <span class="text-sm font-semibold text-slate-700 block">Gestionar Tasa</span>
-                </a>
-                <a href="{{ url_for('reporte_morosidad') }}" class="group bg-slate-50 p-4 rounded-lg hover:bg-teal-50 hover:border-teal-200 border border-transparent transition-all text-center">
-                    <i class="bi bi-file-earmark-excel-fill text-3xl text-teal-500 mb-2"></i>
-                    <span class="text-sm font-semibold text-slate-700 block">Ver Morosidad</span>
-                </a>
-            </div>
-        </div>
 
-        <div class="lg:col-span-1 bg-white p-5 rounded-xl shadow-md border border-slate-200/80" x-data="teamWidget()">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-bold text-slate-800">Equipo en Tiempo Real</h2>
-                <div class="relative">
-                    <select @change="updateStatus($event.target.value)" class="text-xs font-semibold pl-3 pr-8 py-1.5 rounded-full bg-slate-100 text-slate-600 border-transparent focus:ring-2 focus:ring-orange-500 focus:outline-none appearance-none">
-                        <option value="Disponible">🟢 Disponible</option>
-                        <option value="Reunion">🔵 Reunión</option>
-                        <option value="Descanso">🟡 Descanso</option>
-                        <option value="Ocupado">🔴 Ocupado</option>
-                    </select>
-                    <i class="bi bi-chevron-down absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs pointer-events-none"></i>
-                </div>
-            </div>
-            
-            <div id="active-sessions-list" class="space-y-3">
-                {% for i in range(1, 4) %}
-                <div class="flex items-center justify-between p-2 animate-pulse">
-                    <div class="flex items-center gap-3">
-                        <div class="w-3 h-3 bg-slate-200 rounded-full"></div>
-                        <div><div class="h-4 w-24 bg-slate-200 rounded"></div></div>
-                    </div>
-                    <div class="h-3 w-16 bg-slate-200 rounded"></div>
-                </div>
-                {% endfor %}
-            </div>
+    <!-- Tabla de Datos -->
+    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden shadow-none-print">
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
+                <thead class="bg-slate-50 dark:bg-slate-700/50 thead-sticky">
+                    <tr>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300">{{ sort_link('id', 'ID') }}</th>
+                        {% if show_nombre %}
+                            <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300">{{ sort_link('nombre', 'Nombre') }}</th>
+                            <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300">Apellido</th>
+                        {% endif %}
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300">{{ sort_link('empresa', 'Empresa') }}</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300">Estado del Plan</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300">Estatus</th>
+                        {% if show_condicion %}
+                            <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300">Condición</th>
+                        {% endif %}
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300">Teléfono</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 printable-area">Observaciones/Seguimiento</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                    {% if rows %}
+                        {% for row in rows %}
+                        <tr class="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-800 dark:even:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200">
+                            <td class="px-4 py-3 font-medium text-slate-900 dark:text-slate-200">{{ row.id or '—' }}</td>
+                            {% if show_nombre %}
+                                <td class="px-4 py-3 text-slate-700 dark:text-slate-300">{{ row.nombre or '—' }}</td>
+                                <td class="px-4 py-3 text-slate-700 dark:text-slate-300">{{ row.get('apellido', '—') or '—' }}</td>
+                            {% endif %}
+                            <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ row.empresa or '—' }}</td>
+                            <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ row.estado_del_plan or '—' }}</td>
+                            <td class="px-4 py-3">{{ pill_status(row.estatus) }}</td>
+                            {% if show_condicion %}
+                                <td class="px-4 py-3">{{ pill_condicion(row.condicion) }}</td>
+                            {% endif %}
+                            <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ row.telefono or '—' }}</td>
+                            <td class="px-4 py-3 printable-area"></td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="100%" class="text-center py-16 px-4">
+                                <i class="bi bi-search text-4xl text-slate-400 dark:text-slate-500"></i>
+                                <h3 class="mt-2 text-lg font-semibold text-slate-800 dark:text-slate-200">No se encontraron resultados</h3>
+                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Prueba a cambiar o eliminar algunos filtros para ver más datos.</p>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
         </div>
     </div>
+
+    <!-- Paginación -->
+    {% if pagination.pages > 1 %}
+    <nav class="no-print flex items-center justify-between pt-4" aria-label="Pagination">
+        <div class="hidden sm:block">
+            <p class="text-sm text-slate-700 dark:text-slate-300">
+                Mostrando <span class="font-medium">{{ (pagination.page - 1) * pagination.per_page + 1 }}</span>
+                a <span class="font-medium">{{ [pagination.page * pagination.per_page, pagination.total] | min }}</span>
+                de <span class="font-medium">{{ pagination.total }}</span> resultados
+            </p>
+        </div>
+        <div class="flex-1 flex justify-between sm:justify-end">
+             {% set base_args = request.args.to_dict() %}
+            <a href="{{ url_for('reporte_metricas', page=pagination.prev_num, **base_args) if pagination.has_prev else '#' }}"
+               class="relative inline-flex items-center px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700 {{ 'pointer-events-none opacity-50' if not pagination.has_prev }}">
+                Anterior
+            </a>
+            <a href="{{ url_for('reporte_metricas', page=pagination.next_num, **base_args) if pagination.has_next else '#' }}"
+               class="ml-3 relative inline-flex items-center px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700 {{ 'pointer-events-none opacity-50' if not pagination.has_next }}">
+                Siguiente
+            </a>
+        </div>
+    </nav>
+    {% endif %}
+
 </div>
 {% endblock %}
 
 {% block scripts_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    function teamWidget() {
-        return {
-            sessionsList: document.getElementById('active-sessions-list'),
-            getStatusInfo(status, isOnline) {
-                if (!isOnline) {
-                    return { icon: '<span class="w-3 h-3 bg-slate-400 rounded-full" title="Desconectado"></span>', text: 'Desconectado', textColor: 'text-slate-500' };
-                }
-                const statuses = {
-                    'Disponible': { icon: '<span class="w-3 h-3 bg-green-500 rounded-full" title="Disponible"></span>', text: 'Disponible', textColor: 'text-green-600' },
-                    'Ocupado': { icon: '<span class="w-3 h-3 bg-red-500 rounded-full" title="Ocupado"></span>', text: 'Ocupado', textColor: 'text-red-600' },
-                    'Reunion': { icon: '<span class="w-3 h-3 bg-blue-500 rounded-full" title="Reunión"></span>', text: 'Reunión', textColor: 'text-blue-600' },
-                    'Descanso': { icon: '<span class="w-3 h-3 bg-yellow-400 rounded-full" title="Descanso"></span>', text: 'Descanso', textColor: 'text-yellow-600' },
-                    'default': { icon: '<span class="w-3 h-3 bg-slate-400 rounded-full" title="Desconectado"></span>', text: 'Desconectado', textColor: 'text-slate-500' }
-                };
-                return statuses[status] || statuses['default'];
-            },
-            async fetchActiveSessions() {
-                try {
-                    const response = await fetch("{{ url_for('get_active_sessions') }}");
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    const users = await response.json();
-                    
-                    if (!users || users.length === 0) {
-                        this.sessionsList.innerHTML = '<div class="text-center text-slate-500 py-4 text-sm">No hay usuarios para mostrar.</div>';
-                        return;
-                    }
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // Lógica para ajustar el offset del thead sticky basado en la altura de la barra de filtros
+    const filtersBar = document.getElementById('filtersBar');
+    const root = document.documentElement;
 
-                    const newContent = users.map(user => {
-                        const FIVE_MINUTES_IN_SECONDS = 300;
-                        const isEffectivelyOnline = user.inactivity_seconds < FIVE_MINUTES_IN_SECONDS;
-                        const { icon, text, textColor } = this.getStatusInfo(user.current_status, isEffectivelyOnline);
-                        const lastSeenText = isEffectivelyOnline ? text : user.last_seen;
-                        
-                        return `
-                            <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 transition-colors">
-                                <div class="flex items-center gap-3">
-                                    ${icon}
-                                    <div>
-                                        <span class="font-semibold text-sm text-slate-700">${user.username}</span>
-                                        </div>
-                                </div>
-                                <small class="text-xs font-medium ${textColor}">${lastSeenText}</small>
-                            </div>
-                        `;
-                    }).join('');
-
-                    if (this.sessionsList.innerHTML !== newContent) {
-                        this.sessionsList.innerHTML = newContent;
-                    }
-
-                } catch (error) {
-                    console.error('Error fetching active sessions:', error);
-                    this.sessionsList.innerHTML = '<div class="text-center text-red-500 py-4 text-sm">Error al cargar sesiones.</div>';
-                }
-            },
-            async updateStatus(newStatus) {
-                try {
-                    const response = await fetch("{{ url_for('update_status') }}", {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status: newStatus })
-                    });
-                    if (!response.ok) throw new Error('Failed to update status');
-                    this.fetchActiveSessions(); 
-                } catch (error) {
-                    console.error('Error updating status:', error);
-                }
-            },
-            init() {
-                this.fetchActiveSessions();
-                setInterval(() => this.fetchActiveSessions(), 5000);
-            }
+    function updateStickyOffset() {
+        if (filtersBar) {
+            const filtersBarHeight = filtersBar.offsetHeight;
+            // 80px es la altura del header principal (h-20 en base_sidebar.html)
+            const totalOffset = filtersBarHeight + 80 + 16; // header + filtro + un poco de espacio
+            root.style.setProperty('--sticky-offset', `${totalOffset}px`);
         }
     }
-    document.addEventListener('alpine:init', () => {
-        Alpine.data('teamWidget', teamWidget);
-    });
+
+    // Actualizar al cargar, al cambiar tamaño de ventana y al hacer scroll (por si acaso)
+    updateStickyOffset();
+    window.addEventListener('resize', updateStickyOffset);
+    
+    // Para el efecto de sombra en el scroll
+    const observer = new IntersectionObserver(
+        ([e]) => {
+            if (filtersBar) {
+                filtersBar.classList.toggle('shadow-lg', e.intersectionRatio < 1);
+            }
+        },
+        { threshold: [1] }
+    );
+    if(filtersBar) observer.observe(filtersBar);
+
+
+    // --- Inicialización de Gráficas (sin cambios en la lógica de datos) ---
+
+    // Gráfica de Barras: Estatus de Clientes
+    {% if chart_estados and chart_estados.labels and chart_estados.data %}
+    const estadosCtx = document.getElementById('estadosBarChart');
+    if (estadosCtx) {
+        new Chart(estadosCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ chart_estados.labels | tojson }},
+                datasets: [{
+                    label: 'Cantidad de Clientes',
+                    data: {{ chart_estados.data | tojson }},
+                    backgroundColor: [
+                        'rgba(59, 130, 246, 0.7)',
+                        'rgba(249, 115, 22, 0.7)',
+                        'rgba(239, 68, 68, 0.7)',
+                        'rgba(22, 163, 74, 0.7)',
+                        'rgba(107, 114, 128, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(59, 130, 246, 1)',
+                        'rgba(249, 115, 22, 1)',
+                        'rgba(239, 68, 68, 1)',
+                        'rgba(22, 163, 74, 1)',
+                        'rgba(107, 114, 128, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    // Gráfica de Dona: Condición de la Cartera
+    {% if chart_condicion and chart_condicion.labels and chart_condicion.data %}
+    const condicionCtx = document.getElementById('condicionDoughnutChart');
+    if (condicionCtx) {
+        new Chart(condicionCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ chart_condicion.labels | tojson }},
+                datasets: [{
+                    label: 'Condición',
+                    data: {{ chart_condicion.data | tojson }},
+                    backgroundColor: [
+                        'rgba(16, 185, 129, 0.8)', // Emerald
+                        'rgba(225, 29, 72, 0.8)'   // Rose
+                    ],
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            boxWidth: 12
+                        }
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+});
 </script>
-{% endblock %}
+{% endblock 
