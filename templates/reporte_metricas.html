@@ -238,15 +238,15 @@
                         <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('id', 'ID') }}</th>
                         {% if show_nombre %}
                             <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('nombre', 'Nombre') }}</th>
-                            <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Apellido</th>
+                            <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('apellido', 'Apellido') }}</th>
                         {% endif %}
                         <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('empresa', 'Empresa') }}</th>
-                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Estado del Plan</th>
-                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Estatus</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('estado_del_plan', 'Estado del Plan') }}</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('estatus', 'Estatus') }}</th>
                         {% if show_condicion %}
-                            <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Condición</th>
+                            <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('condicion', 'Condición') }}</th>
                         {% endif %}
-                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Teléfono</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('telefono', 'Teléfono') }}</th>
                         <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 printable-area whitespace-nowrap">Observaciones/Seguimiento</th>
                     </tr>
                 </thead>
