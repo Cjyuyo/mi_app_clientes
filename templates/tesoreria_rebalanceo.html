@@ -80,37 +80,97 @@
             <div class="bg-white rounded-xl shadow-sm">
                 <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Registrar Nuevo Movimiento</h2></div>
                 <div class="p-5">
-                    <form action="{{ url_for('tesoreria_rebalanceo') }}" method="POST" id="rebalanceo-form" class="space-y-4" x-data="{ tipoOperacion: '', monedaOrigen: '', monedaDestino: '' }">
+                    {# ====== PREFILL (nuevo) ====== #}
+                    {% set prefill_tipo_operacion = request.args.get('tipo_operacion') %}
+                    {% set prefill_nota = request.args.get('nota') %}
+                    {% set prefill_monto = request.args.get('monto_origen') %}
+                    {% set prefill_occ = request.args.get('egreso_ocurrencia_id') %}
+                    {# ====== FIN PREFILL ====== #}
+
+                    <form action="{{ url_for('tesoreria_rebalanceo') }}" method="POST" id="rebalanceo-form"
+                          class="space-y-4"
+                          x-data="{ tipoOperacion: '{{ prefill_tipo_operacion or '' }}', monedaOrigen: '', monedaDestino: '' }">
+                        <input type="hidden" name="egreso_ocurrencia_id" value="{{ prefill_occ or '' }}">
+
                         <div>
                             <label for="tipo_operacion" class="block text-sm font-medium text-slate-700">1. Tipo de Operación</label>
-                            <select id="tipo_operacion" name="tipo_operacion" x-model="tipoOperacion" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
-                                <option value="" selected disabled>-- Seleccione --</option>
-                                <option value="TRANSFERENCIA_INTERNA">Transferencia Interna</option>
-                                <option value="COMPRA_DIVISAS">Compra/Venta de Divisas</option>
-                                <option value="PAGO_GASTO">Pago de Gasto / Egreso</option>
-                                <option value="PAGO_NOMINA">Pago de Nómina</option>
+                            <select id="tipo_operacion" name="tipo_operacion"
+                                    x-model="tipoOperacion"
+                                    class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    {% if prefill_tipo_operacion %}disabled{% endif %} required>
+                                <option value="" {% if not prefill_tipo_operacion %}selected{% endif %} disabled>-- Seleccione --</option>
+                                <option value="TRANSFERENCIA_INTERNA" {% if prefill_tipo_operacion=='TRANSFERENCIA_INTERNA' %}selected{% endif %}>Transferencia Interna</option>
+                                <option value="COMPRA_DIVISAS" {% if prefill_tipo_operacion=='COMPRA_DIVISAS' %}selected{% endif %}>Compra/Venta de Divisas</option>
+                                <option value="PAGO_GASTO" {% if prefill_tipo_operacion=='PAGO_GASTO' %}selected{% endif %}>Pago de Gasto / Egreso</option>
+                                <option value="PAGO_NOMINA" {% if prefill_tipo_operacion=='PAGO_NOMINA' %}selected{% endif %}>Pago de Nómina</option>
                             </select>
+                            {% if prefill_tipo_operacion %}
+                              <input type="hidden" name="tipo_operacion" value="{{ prefill_tipo_operacion }}">
+                            {% endif %}
                         </div>
+
                         <div>
                             <label for="nota" class="block text-sm font-medium text-slate-700">2. Nota / Descripción</label>
-                            <input type="text" id="nota" name="nota" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required placeholder="Ej: Pago de servicios, Compra de USD...">
+                            <input type="text" id="nota" name="nota"
+                                   value="{{ prefill_nota or '' }}"
+                                   class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                   required placeholder="Ej: Pago de servicios, Compra de USD...">
                         </div>
                         
                         <hr class="pt-2">
                         <h3 class="text-md font-bold text-slate-800">3. Origen de los Fondos</h3>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div class="sm:col-span-2"><label for="caja_origen" class="block text-sm font-medium text-slate-700">Desde (Caja Origen)</label><select id="caja_origen" name="caja_origen" @change="monedaOrigen = $event.target.options[$event.target.selectedIndex].dataset.moneda" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required><option value="" data-moneda="">-- Seleccione --</option><option value="EFECTIVO_USD" data-moneda="USD">Efectivo USD</option><option value="BINANCE_USDT" data-moneda="USDT">Binance USDT</option><option value="CAJA_BS_USD" data-moneda="BS">Caja Bs (USD Ref)</option><option value="CAJA_BS_EUR" data-moneda="BS">Caja Bs (EUR Ref)</option></select></div>
-                            <div><label for="monto_origen" class="block text-sm font-medium text-slate-700">Monto que Sale</label><input type="text" inputmode="decimal" id="monto_origen" name="monto_origen" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></div>
-                            <div><label for="moneda_origen" class="block text-sm font-medium text-slate-700">Moneda</label><input type="text" id="moneda_origen" name="moneda_origen" x-model="monedaOrigen" class="mt-1 block w-full rounded-md border-slate-200 bg-slate-100" readonly></div>
+                            <div class="sm:col-span-2">
+                                <label for="caja_origen" class="block text-sm font-medium text-slate-700">Desde (Caja Origen)</label>
+                                <select id="caja_origen" name="caja_origen"
+                                        @change="monedaOrigen = $event.target.options[$event.target.selectedIndex].dataset.moneda"
+                                        class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                                    <option value="" data-moneda="">-- Seleccione --</option>
+                                    <option value="EFECTIVO_USD" data-moneda="USD">Efectivo USD</option>
+                                    <option value="BINANCE_USDT" data-moneda="USDT">Binance USDT</option>
+                                    <option value="CAJA_BS_USD" data-moneda="BS">Caja Bs (USD Ref)</option>
+                                    <option value="CAJA_BS_EUR" data-moneda="BS">Caja Bs (EUR Ref)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="monto_origen" class="block text-sm font-medium text-slate-700">Monto que Sale</label>
+                                <input type="text" inputmode="decimal" id="monto_origen" name="monto_origen"
+                                       value="{{ prefill_monto or '' }}"
+                                       class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
+                            </div>
+                            <div>
+                                <label for="moneda_origen" class="block text-sm font-medium text-slate-700">Moneda</label>
+                                <input type="text" id="moneda_origen" name="moneda_origen" x-model="monedaOrigen" class="mt-1 block w-full rounded-md border-slate-200 bg-slate-100" readonly>
+                            </div>
                         </div>
 
                         <div x-show="tipoOperacion === 'TRANSFERENCIA_INTERNA' || tipoOperacion === 'COMPRA_DIVISAS'" x-transition class="space-y-4 pt-2">
                             <hr>
                             <h3 class="text-md font-bold text-slate-800">4. Destino de los Fondos</h3>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="sm:col-span-2"><label for="caja_destino" class="block text-sm font-medium text-slate-700">Hacia (Caja Destino)</label><select id="caja_destino" name="caja_destino" @change="monedaDestino = $event.target.options[$event.target.selectedIndex].dataset.moneda" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" :required="tipoOperacion === 'TRANSFERENCIA_INTERNA' || tipoOperacion === 'COMPRA_DIVISAS'"><option value="" data-moneda="">-- Seleccione --</option><option value="EFECTIVO_USD" data-moneda="USD">Efectivo USD</option><option value="BINANCE_USDT" data-moneda="USDT">Binance USDT</option><option value="CAJA_BS_USD" data-moneda="BS">Caja Bs (USD Ref)</option><option value="CAJA_BS_EUR" data-moneda="BS">Caja Bs (EUR Ref)</option></select></div>
-                                <div><label for="monto_destino" class="block text-sm font-medium text-slate-700">Monto que Llega</label><input type="text" inputmode="decimal" id="monto_destino" name="monto_destino" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" :required="tipoOperacion === 'TRANSFERENCIA_INTERNA' || tipoOperacion === 'COMPRA_DIVISAS'"></div>
-                                <div><label for="moneda_destino" class="block text-sm font-medium text-slate-700">Moneda</label><input type="text" id="moneda_destino" name="moneda_destino" x-model="monedaDestino" class="mt-1 block w-full rounded-md border-slate-200 bg-slate-100" readonly></div>
+                                <div class="sm:col-span-2">
+                                    <label for="caja_destino" class="block text-sm font-medium text-slate-700">Hacia (Caja Destino)</label>
+                                    <select id="caja_destino" name="caja_destino"
+                                            @change="monedaDestino = $event.target.options[$event.target.selectedIndex].dataset.moneda"
+                                            class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            :required="tipoOperacion === 'TRANSFERENCIA_INTERNA' || tipoOperacion === 'COMPRA_DIVISAS'">
+                                        <option value="" data-moneda="">-- Seleccione --</option>
+                                        <option value="EFECTIVO_USD" data-moneda="USD">Efectivo USD</option>
+                                        <option value="BINANCE_USDT" data-moneda="USDT">Binance USDT</option>
+                                        <option value="CAJA_BS_USD" data-moneda="BS">Caja Bs (USD Ref)</option>
+                                        <option value="CAJA_BS_EUR" data-moneda="BS">Caja Bs (EUR Ref)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="monto_destino" class="block text-sm font-medium text-slate-700">Monto que Llega</label>
+                                    <input type="text" inputmode="decimal" id="monto_destino" name="monto_destino"
+                                           class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                           :required="tipoOperacion === 'TRANSFERENCIA_INTERNA' || tipoOperacion === 'COMPRA_DIVISAS'">
+                                </div>
+                                <div>
+                                    <label for="moneda_destino" class="block text-sm font-medium text-slate-700">Moneda</label>
+                                    <input type="text" id="moneda_destino" name="moneda_destino" x-model="monedaDestino" class="mt-1 block w-full rounded-md border-slate-200 bg-slate-100" readonly>
+                                </div>
                             </div>
                         </div>
                         

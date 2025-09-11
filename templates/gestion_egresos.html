@@ -18,6 +18,28 @@
         </div>
     </header>
 
+    <!-- Selector de período: Semanal / Mensual -->
+    <form method="get" class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-end gap-3">
+        <div>
+            <label class="block text-sm font-medium mb-1">Vista</label>
+            <select name="periodo_tipo" class="border rounded px-2 py-1">
+                <option value="mensual" {{ 'selected' if periodo_tipo=='mensual' else '' }}>Mensual</option>
+                <option value="semanal" {{ 'selected' if periodo_tipo=='semanal' else '' }}>Semanal</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">
+                {{ 'Mes (YYYY-MM)' if periodo_tipo=='mensual' else 'Semana ISO (YYYY-Www)' }}
+            </label>
+            <input name="periodo" type="text" value="{{ periodo }}" class="border rounded px-2 py-1" placeholder="{{ '2025-09' if periodo_tipo=='mensual' else '2025-W37' }}">
+        </div>
+        <button class="bg-blue-600 text-white px-3 py-1.5 rounded">Aplicar</button>
+        <div class="ml-auto text-sm text-gray-600">
+            <span class="font-medium">Rango:</span>
+            {{ start.strftime('%Y-%m-%d') }} → {{ end.strftime('%Y-%m-%d') }}
+        </div>
+    </form>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Columna izquierda: formularios -->
         <div class="lg:col-span-1">
@@ -33,64 +55,119 @@
                     </nav>
                 </div>
 
-                <!-- Form: Gastos -->
+                <!-- Form: Gastos (Fijo / Variable) -->
                 <div x-show="activeTab === 'gastos'" class="p-6">
-                    <form action="{{ url_for('gestion_egresos') }}" method="POST" class="space-y-4" x-data="{ tipoEgresoGasto: '' }">
-                        <input type="hidden" name="tipo_egreso" x-model="tipoEgresoGasto">
+                    <form action="{{ url_for('gestion_egresos') }}" method="POST" class="space-y-4" x-data="{
+                        tipoEgresoGasto: '',
+                        frecuencia: 'Mensual'
+                    }">
+                        <input type="hidden" name="tipo" x-model="tipoEgresoGasto">
                         <h2 class="text-lg font-bold text-slate-800">Agregar Gasto</h2>
+
                         <div>
                             <label class="block text-sm font-medium text-slate-700">Tipo*</label>
-                            <select x-model="tipoEgresoGasto" required class="mt-1 block w-full rounded-md border-slate-300">
+                            <select x-model="tipoEgresoGasto" name="tipo" required class="mt-1 block w-full rounded-md border-slate-300">
                                 <option value="" disabled selected>-- Seleccionar --</option>
                                 <option value="Fijo">Fijo (Recurrente)</option>
                                 <option value="Variable">Variable (Pago Único)</option>
                             </select>
                         </div>
+
                         <div>
                             <label class="block text-sm font-medium text-slate-700">Título*</label>
                             <input type="text" name="titulo" required class="mt-1 block w-full rounded-md border-slate-300">
                         </div>
+
                         <div>
-                            <label class="block text-sm font-medium text-slate-700">Monto Base (siempre en USD)*</label>
-                            <input type="text" inputmode="decimal" name="monto" required class="mt-1 block w-full rounded-md border-slate-300" placeholder="Ej: 1200.00">
+                            <label class="block text-sm font-medium text-slate-700">Monto Base (USD)*</label>
+                            <input type="text" inputmode="decimal" name="monto_base_usd" required class="mt-1 block w-full rounded-md border-slate-300" placeholder="Ej: 1200.00">
                         </div>
+
                         <div>
-                            <label class="block text-sm font-medium text-slate-700">Método de Pago / Tasa de Referencia*</label>
-                            <select name="metodo_pago_referencia" required class="mt-1 block w-full rounded-md border-slate-300">
+                            <label class="block text-sm font-medium text-slate-700">Método / Tasa de Referencia*</label>
+                            <select name="metodo_referencia" required class="mt-1 block w-full rounded-md border-slate-300">
                                 <option value="USD_EFECTIVO">USD en Efectivo</option>
                                 <option value="VES_BCV">Bolívares (Tasa BCV)</option>
                                 <option value="VES_EUR">Bolívares (Tasa Euro)</option>
                                 <option value="VES_BINANCE">Bolívares (Tasa Binance)</option>
+                                <option value="USDT">USDT (Cripto)</option>
                             </select>
                         </div>
+
+                        <!-- Bloque de FRECUENCIA para Fijo -->
                         <div x-show="tipoEgresoGasto === 'Fijo'" x-transition class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-slate-700">Frecuencia*</label>
-                                <select name="frecuencia" :required="tipoEgresoGasto === 'Fijo'" class="mt-1 block w-full rounded-md border-slate-300">
+                                <select name="frecuencia" x-model="frecuencia" :required="tipoEgresoGasto === 'Fijo'" class="mt-1 block w-full rounded-md border-slate-300">
                                     <option value="Mensual">Mensual</option>
                                     <option value="Quincenal">Quincenal</option>
+                                    <option value="Semanal">Semanal</option>
                                     <option value="Anual">Anual</option>
                                 </select>
                             </div>
+
+                            <!-- Semanal -->
+                            <div x-show="frecuencia === 'Semanal'" class="space-y-3 border rounded-lg p-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700">Cada N semanas</label>
+                                    <input name="intervalo_semana" type="number" min="1" value="1" class="mt-1 block w-24 rounded-md border-slate-300">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-1">Días (BYDAY)</label>
+                                    <div class="flex flex-wrap gap-2">
+                                        {% set labels = {'MO':'Lun','TU':'Mar','WE':'Mié','TH':'Jue','FR':'Vie','SA':'Sáb','SU':'Dom'} %}
+                                        {% for d in ['MO','TU','WE','TH','FR','SA','SU'] %}
+                                        <label class="inline-flex items-center gap-1 border rounded px-2 py-1">
+                                            <input type="checkbox" name="byday" value="{{ d }}">
+                                            {{ labels[d] }}
+                                        </label>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Mensual -->
+                            <div x-show="frecuencia === 'Mensual'" class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700">Día del mes</label>
+                                    <input type="number" name="dia_mes" min="1" max="31" value="1" class="mt-1 block w-24 rounded-md border-slate-300">
+                                </div>
+                            </div>
+
+                            <!-- Quincenal -->
+                            <div x-show="frecuencia === 'Quincenal'" class="grid grid-cols-2 gap-4">
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-medium text-slate-700">Días del mes (coma-separado)</label>
+                                    <input type="text" name="dias_quincena" value="1,16" class="mt-1 block w-full rounded-md border-slate-300" placeholder="Ej: 1,16">
+                                </div>
+                            </div>
+
+                            <!-- Rango -->
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-slate-700">Inicio*</label>
                                     <input type="date" name="fecha_inicio_recurrencia" :required="tipoEgresoGasto === 'Fijo'" class="mt-1 block w-full rounded-md border-slate-300">
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-slate-700">Fin*</label>
-                                    <input type="date" name="fecha_fin_recurrencia" :required="tipoEgresoGasto === 'Fijo'" class="mt-1 block w-full rounded-md border-slate-300">
+                                    <label class="block text-sm font-medium text-slate-700">Fin</label>
+                                    <input type="date" name="fecha_fin_recurrencia" class="mt-1 block w-full rounded-md border-slate-300">
                                 </div>
                             </div>
                         </div>
-                        <div x-show="tipoEgresoGasto === 'Variable'" x-transition>
+
+                        <!-- Variable (Pago único) -->
+                        <div x-show="tipoEgresoGasto === 'Variable'" x-transition class="space-y-3">
+                            <input type="hidden" name="frecuencia" value="Unico">
                             <label class="block text-sm font-medium text-slate-700">Fecha de Pago*</label>
-                            <input type="date" name="fecha_pago_programada" :required="tipoEgresoGasto === 'Variable'" class="mt-1 block w-full rounded-md border-slate-300">
+                            <input type="date" name="fecha_inicio_recurrencia" :required="tipoEgresoGasto === 'Variable'" class="mt-1 block w-full rounded-md border-slate-300">
+                            <input type="hidden" name="fecha_fin_recurrencia" value="">
                         </div>
+
                         <div>
                             <label class="block text-sm font-medium text-slate-700">Descripción</label>
                             <textarea name="descripcion" rows="2" class="mt-1 block w-full rounded-md border-slate-300"></textarea>
                         </div>
+
                         <div class="pt-2">
                             <button type="submit" class="w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
                                 Agregar Gasto
@@ -102,8 +179,10 @@
                 <!-- Form: Devoluciones -->
                 <div x-show="activeTab === 'devoluciones'" class="p-6">
                     <form action="{{ url_for('gestion_egresos') }}" method="POST" class="space-y-4">
-                        <input type="hidden" name="tipo_egreso" value="Devolución">
+                        <input type="hidden" name="tipo" value="Devolucion">
+                        <input type="hidden" name="frecuencia" value="Unico">
                         <h2 class="text-lg font-bold text-slate-800">Registrar Plan de Devolución</h2>
+
                         <div>
                             <label class="block text-sm font-medium text-slate-700">Cliente (solo con estatus "Retiro")*</label>
                             <select name="cliente_asociado_id" required class="mt-1 block w-full rounded-md border-slate-300">
@@ -113,17 +192,20 @@
                                 {% endfor %}
                             </select>
                         </div>
+
                         <div>
                             <label class="block text-sm font-medium text-slate-700">Monto Total a Devolver (USD)*</label>
-                            <input type="text" inputmode="decimal" name="monto_total_devolucion" required class="mt-1 block w-full rounded-md border-slate-300">
+                            <input type="text" inputmode="decimal" name="monto_base_usd" required class="mt-1 block w-full rounded-md border-slate-300">
                         </div>
+
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-slate-700">Método de Pago*</label>
-                                <select name="metodo_pago_devolucion" required class="mt-1 block w-full rounded-md border-slate-300">
+                                <select name="metodo_referencia" required class="mt-1 block w-full rounded-md border-slate-300">
                                     <option value="USD_EFECTIVO">USD Efectivo</option>
                                     <option value="VES_BCV">Bs (Tasa Dólar BCV)</option>
                                     <option value="VES_EUR">Bs (Tasa Euro BCV)</option>
+                                    <option value="VES_BINANCE">Bs (Tasa Binance)</option>
                                 </select>
                             </div>
                             <div>
@@ -131,14 +213,17 @@
                                 <input type="number" name="numero_de_cuotas" value="1" min="1" required class="mt-1 block w-full rounded-md border-slate-300">
                             </div>
                         </div>
+
                         <div>
                             <label class="block text-sm font-medium text-slate-700">Fecha del Primer Pago*</label>
-                            <input type="date" name="fecha_primer_pago" required class="mt-1 block w-full rounded-md border-slate-300">
+                            <input type="date" name="fecha_inicio_recurrencia" required class="mt-1 block w-full rounded-md border-slate-300">
                         </div>
+
                         <div>
                             <label class="block text-sm font-medium text-slate-700">Descripción / Motivo</label>
-                            <textarea name="descripcion_devolucion" rows="2" class="mt-1 block w-full rounded-md border-slate-300"></textarea>
+                            <textarea name="descripcion" rows="2" class="mt-1 block w-full rounded-md border-slate-300"></textarea>
                         </div>
+
                         <div class="pt-2">
                             <button type="submit" class="w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
                                 Crear Plan de Devolución
@@ -149,10 +234,87 @@
             </div>
         </div>
 
-        <!-- Columna derecha: listas -->
+        <!-- Columna derecha -->
         <div class="lg:col-span-2 space-y-6">
 
-            <!-- Lista: Gastos Fijos / Variables -->
+            <!-- Estado del Período: Hay / Pagado / Pendiente -->
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200">
+                <div class="p-6 border-b border-slate-200 flex items-center justify-between">
+                    <h3 class="text-xl font-semibold text-slate-800">Estado del Período</h3>
+                    <span class="text-sm text-slate-500">
+                        {{ 'Mensual' if periodo_tipo=='mensual' else 'Semanal' }} · {{ periodo }}
+                    </span>
+                </div>
+
+                <div class="p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                        <div class="p-3 rounded border bg-white">
+                            <div class="text-xs text-gray-500">Programado (Hay)</div>
+                            <div class="text-2xl font-semibold">${{ '%.2f'|format(resumen.totales.programado) }}</div>
+                        </div>
+                        <div class="p-3 rounded border bg-white">
+                            <div class="text-xs text-gray-500">Pagado</div>
+                            <div class="text-2xl font-semibold">${{ '%.2f'|format(resumen.totales.pagado) }}</div>
+                        </div>
+                        <div class="p-3 rounded border bg-white">
+                            <div class="text-xs text-gray-500">Pendiente</div>
+                            <div class="text-2xl font-semibold">${{ '%.2f'|format(resumen.totales.pendiente) }}</div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto border rounded bg-white">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-2 text-left">Egreso</th>
+                                    <th class="px-3 py-2">Frecuencia</th>
+                                    <th class="px-3 py-2 text-right">Hay</th>
+                                    <th class="px-3 py-2 text-right">Pagado</th>
+                                    <th class="px-3 py-2 text-right">Pendiente</th>
+                                    <th class="px-3 py-2">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in resumen.items %}
+                                <tr class="border-t">
+                                    <td class="px-3 py-2">{{ item.titulo }}</td>
+                                    <td class="px-3 py-2 text-center">{{ item.frecuencia }}</td>
+                                    <td class="px-3 py-2 text-right">${{ '%.2f'|format(item.programado) }}</td>
+                                    <td class="px-3 py-2 text-right">${{ '%.2f'|format(item.pagado) }}</td>
+                                    <td class="px-3 py-2 text-right font-medium {{ 'text-green-600' if item.pendiente<=0.0001 else 'text-red-600' }}">
+                                        ${{ '%.2f'|format(item.pendiente) }}
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <details>
+                                            <summary class="cursor-pointer text-blue-600">Ver ocurrencias</summary>
+                                            <div class="mt-2 space-y-2">
+                                                {% for o in item.ocurrencias %}
+                                                <form method="post" action="{{ url_for('egreso_prefill_pago', occ_id=o.ocurrencia_id) }}" class="flex items-center gap-2">
+                                                    <span class="text-xs text-gray-600 w-36">{{ o.fecha_programada.strftime('%Y-%m-%d') }}</span>
+                                                    <span class="text-xs w-28">Prog: ${{ '%.2f'|format(o.programado) }}</span>
+                                                    <span class="text-xs w-28">Pag: ${{ '%.2f'|format(o.pagado) }}</span>
+                                                    <span class="text-xs w-32">Pend: ${{ '%.2f'|format(o.pendiente) }}</span>
+                                                    {% if o.pendiente > 0.0001 %}
+                                                      <button class="bg-emerald-600 text-white text-xs px-2 py-1 rounded">Pagar</button>
+                                                    {% else %}
+                                                      <span class="text-emerald-700 text-xs">Pagado</span>
+                                                    {% endif %}
+                                                </form>
+                                                {% endfor %}
+                                            </div>
+                                        </details>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr><td class="px-3 py-6 text-center text-gray-500" colspan="6">Sin ocurrencias en este período.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Lista: Gastos Fijos / Variables (catálogo) -->
             <section class="bg-white rounded-xl shadow-sm border border-slate-200">
                 <div class="p-6 border-b border-slate-200 flex items-center justify-between">
                     <h3 class="text-xl font-semibold text-slate-800">Gastos planificados</h3>
@@ -181,12 +343,12 @@
                                     <p class="text-xs text-slate-500">
                                         Frecuencia: {{ g.frecuencia or '—' }} ·
                                         {{ g.fecha_inicio_recurrencia or '¿inicio?' }} → {{ g.fecha_fin_recurrencia or '¿fin?' }}
-                                        · Método: {{ g.metodo_pago_referencia or '—' }}
+                                        · Método: {{ g.metodo_referencia or '—' }}
                                     </p>
                                 </div>
                                 <div class="text-right">
                                     <div class="text-lg font-semibold text-slate-800">
-                                        {{ "%.2f"|format(g.monto or 0) }} USD
+                                        {{ "%.2f"|format(g.monto_base_usd or 0) }} USD
                                     </div>
                                 </div>
                             </li>
@@ -201,13 +363,13 @@
                                     </div>
                                     <p class="text-sm text-slate-500">{{ g.descripcion or '—' }}</p>
                                     <p class="text-xs text-slate-500">
-                                        Pago programado: {{ g.fecha_pago_programada or '—' }} ·
-                                        Método: {{ g.metodo_pago_referencia or '—' }}
+                                        Pago programado: {{ g.fecha_inicio_recurrencia or '—' }} ·
+                                        Método: {{ g.metodo_referencia or '—' }}
                                     </p>
                                 </div>
                                 <div class="text-right">
                                     <div class="text-lg font-semibold text-slate-800">
-                                        {{ "%.2f"|format(g.monto or 0) }} USD
+                                        {{ "%.2f"|format(g.monto_base_usd or 0) }} USD
                                     </div>
                                 </div>
                             </li>
@@ -244,15 +406,15 @@
                                 <div>
                                     <p class="text-sm text-slate-500">Condiciones</p>
                                     <p class="font-medium text-slate-800">
-                                        {{ "%.2f"|format(d.monto or 0) }} USD
+                                        {{ "%.2f"|format(d.monto_base_usd or 0) }} USD
                                     </p>
                                     <p class="text-xs text-slate-500">
-                                        Método: {{ d.metodo_pago_referencia or '—' }}
+                                        Método: {{ d.metodo_referencia or '—' }}
                                     </p>
                                 </div>
                                 <div class="text-left md:text-right">
                                     <p class="text-sm text-slate-500">Fecha programada</p>
-                                    <p class="font-medium text-slate-800">{{ d.fecha_pago_programada or '—' }}</p>
+                                    <p class="font-medium text-slate-800">{{ d.fecha_inicio_recurrencia or '—' }}</p>
                                 </div>
                             </li>
                         {% endfor %}
