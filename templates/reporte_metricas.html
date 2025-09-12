@@ -46,7 +46,7 @@
         position: sticky;
         top: var(--sticky-offset); /* Se pega justo debajo de la barra de filtros */
         z-index: 5; /* MENOR que el z-20 de la barra de filtros para que quede por debajo */
-        background: inherit; /* Hereda el fondo del thead para consistencia visual */
+        background: inherit; /* Hereda el fondo del thead (ahora sólido) */
     }
 
     /* ---------- ESTILOS DE IMPRESIÓN MEJORADOS ---------- */
@@ -89,7 +89,7 @@
             <form method="GET" action="{{ url_for('reporte_metricas') }}">
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
 
-                    <div x-data="{ open: true }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                    <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                         <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
                             <span>Empresa</span>
                             <i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
@@ -107,7 +107,7 @@
                         </div>
                     </div>
 
-                    <div x-data="{ open: true }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                    <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                         <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
                             <span>Estado Plan</span>
                             <i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
@@ -125,7 +125,7 @@
                         </div>
                     </div>
 
-                    <div x-data="{ open: true }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                    <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                         <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
                             <span>Estatus Cliente</span>
                             <i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
@@ -143,7 +143,7 @@
                         </div>
                     </div>
 
-                    <div x-data="{ open: true }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                    <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                         <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
                             <span>Condición</span>
                             <i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
@@ -161,7 +161,7 @@
                         </div>
                     </div>
 
-                    <div x-data="{ open: true }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                    <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                         <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
                             <span>Rango de Cuotas</span>
                             <i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
@@ -227,7 +227,7 @@
     <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm shadow-none-print">
         <div class="overflow-x-auto">
             <table class="table-sticky min-w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
-                <thead class="bg-slate-50 dark:bg-slate-700/50 thead-sticky">
+                <thead class="bg-slate-50 dark:bg-slate-700 thead-sticky">
                     <tr>
                         <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('id', 'ID') }}</th>
                         {% if show_nombre %}
