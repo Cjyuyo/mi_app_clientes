@@ -3461,10 +3461,18 @@ def reporte_flujo_caja():
 
     # Tasas al día (o última previa)
     tasas_del_dia = _fetch_tasas_bcv_al_dia(conn, fecha_reporte)
+    if not tasas_del_dia or not hasattr(tasas_del_dia, 'usd'):
+        # Fallback defensivo si el helper devuelve None u otro tipo
+        tasas_del_dia = SimpleNamespace(usd=0.0, eur=0.0)
 
     # ===== Proyecciones con filtros desde el querystring =====
     # ?estado_plan=AHORRADOR&estatus=ACTIVO&empresa=CYK&cuota_bucket=2 ...
-    where_sql, where_params = _build_clientes_filters(request.args)  # <- tu helper existente
+    # Fallback si _build_clientes_filters no existe: no aplicar filtros
+    _build_clientes_filters_fn = globals().get('_build_clientes_filters')
+    if not callable(_build_clientes_filters_fn):
+        def _build_clientes_filters_fn(_args):
+            return "", []
+    where_sql, where_params = _build_clientes_filters_fn(request.args)
 
     # Proyectado del mes (completo) por empresa, aplicando filtros
     datos_empresas, resumen_mes = _proyeccion_por_empresa(
