@@ -1,55 +1,24 @@
 {% extends "base_sidebar.html" %}
 
 {#
-    MACROS AUXILIARES PARA NO REPETIR CÓDIGO
-    - pill_status: Genera un badge de color según el estatus del cliente.
-    - pill_condicion: Genera un badge de color según la condición.
-    - sort_link: Crea un enlace de cabecera de tabla para ordenar.
+    MACROS AUXILIARES PARA ORDENAR COLUMNAS
+    sort_link(campo, etiqueta)
 #}
-{% macro pill_status(estatus) %}
-    {% set colors = {
-        'ACTIVO': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-        'PENDIENTE POR ENTREGA': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
-        'COMPLETADO': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-        'MOROSO': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-        'INACTIVO': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
-    } %}
-    <span class="px-2.5 py-0.5 text-xs font-medium rounded-full {{ colors.get(estatus, 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300') }}">
-        {{ estatus | replace('_', ' ') | title }}
-    </span>
-{% endmacro %}
-
-{% macro pill_condicion(condicion) %}
-    {% set colors = {
-        'AL DIA': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300',
-        'EN MORA': 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300'
-    } %}
-    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full {{ colors.get(condicion, 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300') }}">
-        {% if condicion == 'AL DIA' %}<span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-        {% elif condicion == 'EN MORA' %}<span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
-        {% endif %}
-        {{ condicion | title }}
-    </span>
-{% endmacro %}
-
-{% macro sort_link(field, title) %}
-    {% set sort_order = 'asc' if request.args.get('sort') == field and request.args.get('order') == 'asc' else 'desc' %}
-    {% set new_order = 'asc' if sort_order == 'desc' else 'desc' %}
-    <a href="{{ url_for('reporte_metricas', sort=field, order=new_order, **request.args.to_dict(flat=False)) }}" class="group inline-flex items-center gap-2">
-        {{ title }}
-        <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200
-            {% if request.args.get('sort') == field %} opacity-100 {% endif %}">
-            {% if request.args.get('order') == 'desc' %}
-                <i class="bi bi-sort-down"></i>
-            {% else %}
-                <i class="bi bi-sort-up"></i>
-            {% endif %}
-        </span>
+{% macro sort_link(field, label) -%}
+    {%- set is_current = (sort_field == field) -%}
+    {%- set next_dir = 'desc' if (is_current and sort_dir == 'asc') else 'asc' -%}
+    <a href="{{ url_for('reporte_metricas', **request.args.to_dict(), sort=field, dir=next_dir) }}"
+       class="inline-flex items-center gap-1 hover:underline">
+        <span>{{ label }}</span>
+        {%- if is_current -%}
+            <i class="bi {{ 'bi-caret-up-fill' if sort_dir == 'asc' else 'bi-caret-down-fill' }} text-orange-500"></i>
+        {%- else -%}
+            <i class="bi bi-arrow-down-up text-slate-400"></i>
+        {%- endif -%}
     </a>
-{% endmacro %}
+{%- endmacro %}
 
-
-{% block title %}Métricas de Clientes{% endblock %}
+{% block title %}Métricas · Vitrina de Clientes{% endblock %}
 
 {% block page_title %}Métricas · Vitrina de Clientes{% endblock %}
 
@@ -59,11 +28,14 @@
     :root {
         --sticky-offset: 6rem; /* Valor inicial, se ajustará con JS */
     }
-    .thead-sticky {
-        position: sticky;
-        top: var(--sticky-offset, 6rem);
-        z-index: 10;
-    }
+    #filtersBar { position: sticky; top: 0; z-index: 40; }
+    .thead-sticky { position: relative; z-index: 30; }
+.thead-sticky th {
+  position: sticky;
+  top: var(--sticky-offset, 6rem);
+  z-index: 30;
+  background: inherit;
+}
     
     /* Estilos solo para impresión */
     @media print {
@@ -92,23 +64,49 @@
 </style>
 {% endblock %}
 
-
 {% block body %}
-<div class="space-y-6 dark:text-slate-200">
+<div class="min-h-screen relative text-gray-900 dark:text-gray-100">
 
-    <!-- Encabezado y contadores -->
-    <header class="no-print">
+    <!-- Fondo decorativo -->
+    <div class="absolute inset-0 -z-10">
+        <div class="h-[44rem] bg-gradient-to-br from-orange-100 via-white to-sky-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-800"></div>
+        <div class="absolute inset-x-0 top-0 h-[44rem] pointer-events-none"
+             style="background: radial-gradient(1200px 300px at 40% 0%, rgba(255,148,72,0.25), transparent),
+                              radial-gradient(1200px 300px at 65% 0%, rgba(2,132,199,0.25), transparent);"></div>
+    </div>
+
+    <!-- Encabezado -->
+    <header class="mb-4">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-                <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Vitrina de Clientes</h1>
-                <p class="text-sm text-slate-500 dark:text-slate-400">Filtra, analiza y exporta los datos de tu cartera.</p>
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight">Métricas · Vitrina de Clientes</h1>
+                <p class="text-slate-600 dark:text-slate-400">Explora, filtra y exporta la vitrina de clientes.</p>
             </div>
             <div class="flex items-center gap-3">
-                <span class="inline-flex items-center gap-2 text-sm font-medium px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-full">
+                <div class="inline-flex items-center gap-2">
+                    <label for="orden_por" class="text-sm text-slate-700 dark:text-slate-300">Ordenar</label>
+                    <select id="orden_por" name="orden_por" class="border-slate-300 dark:border-slate-700 rounded-md text-sm">
+                        <option {{ 'selected' if orden_por=='cedula' else '' }}>Por Cédula</option>
+                        <option {{ 'selected' if orden_por=='nombre' else '' }}>Por Nombre</option>
+                    </select>
+                </div>
+                <div class="relative">
+                    <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="search" name="q" placeholder="Introduce la Cédula (solo números)"
+                           class="pl-9 pr-3 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70" />
+                </div>
+                <button class="btn btn-primary bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md">Buscar</button>
+            </div>
+        </div>
+
+        <!-- Chips de contexto -->
+        <div class="mt-2">
+            <div class="flex flex-wrap gap-2 text-xs">
+                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                     <i class="bi bi-people-fill text-blue-500"></i>
                     {{ total_count }} Registros
                 </span>
-                <span class="inline-flex items-center gap-2 text-sm font-medium px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-full">
+                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                     <i class="bi bi-file-earmark-text-fill text-orange-500"></i>
                     Página {{ page }} de {{ page_count }}
                 </span>
@@ -124,7 +122,7 @@
                     <!-- Campos de filtro -->
                     <div class="xl:col-span-1">
                         <label for="empresa" class="text-xs font-medium text-slate-600 dark:text-slate-400">Empresa</label>
-                        <select id="empresa" name="empresa" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
+                        <select id="empresa" name="empresa" class="w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
                             <option value="">Todas</option>
                             {% for emp in empresas_opciones %}
                                 <option value="{{ emp }}" {% if request.args.get('empresa') == emp %}selected{% endif %}>{{ emp }}</option>
@@ -133,136 +131,70 @@
                     </div>
                     <div class="xl:col-span-1">
                         <label for="estado_plan" class="text-xs font-medium text-slate-600 dark:text-slate-400">Estado Plan</label>
-                        <select id="estado_plan" name="estado_plan" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
+                        <select id="estado_plan" name="estado_plan" class="w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
                             <option value="">Todos</option>
                             {% for est in estados_opciones %}
-                                <option value="{{ est }}" {% if request.args.get('estado_plan')|upper == est|upper %}selected{% endif %}>{{ est|replace('_',' ')|capitalize }}</option>
+                                <option value="{{ est }}" {% if request.args.get('estado_plan') == est %}selected{% endif %}>{{ est|replace('_',' ')|capitalize }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="xl:col-span-1">
                         <label for="estatus_cliente" class="text-xs font-medium text-slate-600 dark:text-slate-400">Estatus Cliente</label>
-                        <select id="estatus_cliente" name="estatus_cliente" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
+                        <select id="estatus_cliente" name="estatus_cliente" class="w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
                             <option value="">Todos</option>
                             {% for est in estatus_opciones %}
-                                <option value="{{ est }}" {% if request.args.get('estatus_cliente')|upper == est|upper %}selected{% endif %}>{{ est|replace('_',' ')|capitalize }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                     <div class="xl:col-span-1">
-                        <label for="condicion" class="text-xs font-medium text-slate-600 dark:text-slate-400">Condición</label>
-                        <select id="condicion" name="condicion" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
-                            <option value="">Todas</option>
-                             {% for cond in condicion_opciones %}
-                                <option value="{{ cond }}" {% if request.args.get('condicion')|upper == cond|upper %}selected{% endif %}>{{ cond|replace('_',' ')|capitalize }}</option>
+                                <option value="{{ est }}" {% if request.args.get('estatus_cliente') == est %}selected{% endif %}>{{ est|replace('_',' ')|capitalize }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="xl:col-span-1">
-                        <label for="cuota_bucket" class="text-xs font-medium text-slate-600 dark:text-slate-400">Rango de Cuotas</label>
-                        <select id="cuota_bucket" name="cuota_bucket" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
-                            <option value="">Todos</option>
-                            <option value="1" {% if request.args.get('cuota_bucket') == '1' %}selected{% endif %}>1-6</option>
-                            <option value="2" {% if request.args.get('cuota_bucket') == '2' %}selected{% endif %}>7-12</option>
-                            <option value="3" {% if request.args.get('cuota_bucket') == '3' %}selected{% endif %}>13-24</option>
-                            <option value="4" {% if request.args.get('cuota_bucket') == '4' %}selected{% endif %}>25-36</option>
+                        <label for="condicion" class="text-xs font-medium text-slate-600 dark:text-slate-400">Condición</label>
+                        <select id="condicion" name="condicion" class="w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
+                            <option value="">Todas</option>
+                            {% for cond in condicion_opciones %}
+                                <option value="{{ cond }}" {% if request.args.get('condicion') == cond %}selected{% endif %}>{{ cond|replace('_',' ')|capitalize }}</option>
+                            {% endfor %}
                         </select>
                     </div>
-                    <!-- Fechas -->
-                    <div class="xl:col-span-1 grid grid-cols-2 gap-2">
-                        <div>
-                           <label for="insc_desde" class="text-xs font-medium text-slate-600 dark:text-slate-400">Insc. Desde</label>
-                           <input type="date" id="insc_desde" name="insc_desde" value="{{ request.args.get('insc_desde', '') }}" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
-                        </div>
-                        <div>
-                           <label for="insc_hasta" class="text-xs font-medium text-slate-600 dark:text-slate-400">Insc. Hasta</label>
-                           <input type="date" id="insc_hasta" name="insc_hasta" value="{{ request.args.get('insc_hasta', '') }}" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
+                    <div class="xl:col-span-1">
+                        <label for="rango_cuotas" class="text-xs font-medium text-slate-600 dark:text-slate-400">Rango de Cuotas</label>
+                        <select id="rango_cuotas" name="rango_cuotas" class="w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-opacity-50 text-sm">
+                            <option value="">Todos</option>
+                            {% for r in rango_cuotas_opciones %}
+                                <option value="{{ r }}" {% if request.args.get('rango_cuotas') == r %}selected{% endif %}>{{ r }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="xl:col-span-1">
+                        <label class="text-xs font-medium text-slate-600 dark:text-slate-400">Inscripción</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="date" id="insc_desde" name="insc_desde" value="{{ request.args.get('insc_desde','') }}" class="w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm" />
+                            <input type="date" id="insc_hasta" name="insc_hasta" value="{{ request.args.get('insc_hasta','') }}" class="w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm" />
                         </div>
                     </div>
                 </div>
 
-                <!-- Botones de acción -->
-                <div class="flex flex-wrap items-center justify-end gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-                    <a href="{{ url_for('reporte_metricas') }}" class="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg transition-colors">Limpiar</a>
-                    <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500">Aplicar Filtros</button>
-                    
-                    <!-- Menú Desplegable de Exportación -->
-                    <div x-data="{ open: false }" class="relative">
-                        <button @click="open = !open" type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500" id="menu-button" aria-expanded="true" aria-haspopup="true">
-                            <i class="bi bi-download"></i>
-                            Exportar
-                            <i class="bi bi-chevron-down -mr-1 h-5 w-5"></i>
-                        </button>
+                <div class="mt-4 flex items-center gap-2">
+                    <button type="button" onclick="location.href='{{ url_for('reporte_metricas') }}'" class="px-3 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200">Limpiar</button>
+                    <button type="submit" class="px-4 py-2 rounded-md bg-orange-500 hover:bg-orange-600 text-white">Aplicar Filtros</button>
 
-                        <div x-show="open"
-                             @click.away="open = false"
-                             x-transition:enter="transition ease-out duration-100"
-                             x-transition:enter-start="transform opacity-0 scale-95"
-                             x-transition:enter-end="transform opacity-100 scale-100"
-                             x-transition:leave="transition ease-in duration-75"
-                             x-transition:leave-start="transform opacity-100 scale-100"
-                             x-transition:leave-end="transform opacity-0 scale-95"
-                             class="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-slate-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
-                             role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1" style="display: none;">
-                            <div class="py-1" role="none">
-                                <a href="{{ url_for('reporte_metricas', export='csv', **request.args.to_dict()) }}" class="text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 group flex items-center gap-3 px-4 py-2 text-sm" role="menuitem" tabindex="-1">
-                                    <i class="bi bi-filetype-csv text-lg text-slate-500"></i>
-                                    <span>Exportar como CSV</span>
-                                </a>
-                                <a href="{{ url_for('reporte_metricas', export='xlsx', **request.args.to_dict()) }}" class="text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 group flex items-center gap-3 px-4 py-2 text-sm" role="menuitem" tabindex="-1">
-                                    <i class="bi bi-file-earmark-excel-fill text-lg text-green-500"></i>
-                                    <span>Exportar como XLSX</span>
-                                </a>
-                                <a href="{{ url_for('reporte_metricas', export='pdf', **request.args.to_dict()) }}" class="text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 group flex items-center gap-3 px-4 py-2 text-sm" role="menuitem" tabindex="-1">
-                                    <i class="bi bi-filetype-pdf text-lg text-red-500"></i>
-                                    <span>Exportar como PDF</span>
-                                </a>
-                            </div>
+                    <!-- Exportar -->
+                    <div class="ml-auto">
+                        <div class="relative inline-block text-left">
+                            <button type="button" class="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-emerald-500 text-emerald-600 hover:bg-emerald-50">
+                                <i class="bi bi-download"></i>
+                                Exportar
+                            </button>
                         </div>
                     </div>
                 </div>
             </form>
         </div>
     </div>
-    
-    <!-- Resumen y Gráficas -->
-    <div class="space-y-6">
-        <!-- Tarjetas de Resumen -->
-        {% if resumen %}
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
-            {% for key, value in resumen.items() %}
-            <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
-                <p class="text-sm font-medium text-slate-500 dark:text-slate-400">{{ key | replace('_', ' ') | title }}</p>
-                <p class="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-1 font-mono tabular-nums">{{ value }}</p>
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
 
-        <!-- Gráficas -->
-        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 no-print">
-            {% if chart_estados %}
-            <div class="lg:col-span-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
-                <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-4">Distribución por Estatus de Cliente</h3>
-                <div class="h-80">
-                    <canvas id="estadosBarChart"></canvas>
-                </div>
-            </div>
-            {% endif %}
-            {% if chart_condicion %}
-            <div class="lg:col-span-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
-                <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-4">Condición de la Cartera</h3>
-                <div class="h-80">
-                     <canvas id="condicionDoughnutChart"></canvas>
-                </div>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-
-
-    <!-- Tabla de Datos -->
-    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm shadow-none-print">
+    <!-- Tabla -->
+    <section class="mt-4">
+        <div class="bg-white dark:bg-slate-900 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm shadow-none-print">
         <div class="overflow-x-auto">
             <table class="min-w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
                 <thead class="bg-slate-50 dark:bg-slate-700/50 thead-sticky">
@@ -272,71 +204,56 @@
                             <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('nombre', 'Nombre') }}</th>
                             <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('apellido', 'Apellido') }}</th>
                         {% endif %}
-                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('empresa', 'Empresa') }}</th>
-                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('estado_del_plan', 'Estado del Plan') }}</th>
-                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('estatus', 'Estatus') }}</th>
-                        {% if show_condicion %}
-                            <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('condicion', 'Condición') }}</th>
-                        {% endif %}
-                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('telefono', 'Teléfono') }}</th>
-                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 printable-area whitespace-nowrap">Observaciones/Seguimiento</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Empresa</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Estado del Plan</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Estatus</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Condición</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Teléfono</th>
+                        <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Observaciones</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-                    {% if rows %}
-                        {% for row in rows %}
-                        <tr class="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-800 dark:even:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200">
-                            <td class="px-4 py-3 font-medium text-slate-900 dark:text-slate-200">{{ row.id or '—' }}</td>
-                            {% if show_nombre %}
-                                <td class="px-4 py-3 text-slate-700 dark:text-slate-300">{{ row.nombre or '—' }}</td>
-                                <td class="px-4 py-3 text-slate-700 dark:text-slate-300">{{ row.get('apellido', '—') or '—' }}</td>
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+                    {% for c in clientes %}
+                    <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
+                        <td class="py-3.5 px-4 whitespace-nowrap">{{ c.id }}</td>
+                        {% if show_nombre %}
+                            <td class="py-3.5 px-4 whitespace-nowrap">{{ c.nombre }}</td>
+                            <td class="py-3.5 px-4 whitespace-nowrap">{{ c.apellido }}</td>
+                        {% endif %}
+                        <td class="py-3.5 px-4 whitespace-nowrap">{{ c.empresa }}</td>
+                        <td class="py-3.5 px-4 whitespace-nowrap">
+                            <span class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">{{ c.estado_plan }}</span>
+                        </td>
+                        <td class="py-3.5 px-4 whitespace-nowrap">
+                            {% if c.estatus=='Activo' %}
+                                <span class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-green-100 text-green-700">Activo</span>
+                            {% else %}
+                                <span class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">Inactivo</span>
                             {% endif %}
-                            <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ row.empresa or '—' }}</td>
-                            <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ row.estado_del_plan or '—' }}</td>
-                            <td class="px-4 py-3">{{ pill_status(row.estatus) }}</td>
-                            {% if show_condicion %}
-                                <td class="px-4 py-3">{{ pill_condicion(row.condicion) }}</td>
-                            {% endif %}
-                            <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ row.telefono or '—' }}</td>
-                            <td class="px-4 py-3 printable-area"></td>
-                        </tr>
-                        {% endfor %}
-                    {% else %}
-                        <tr>
-                            <td colspan="100%" class="text-center py-16 px-4">
-                                <i class="bi bi-search text-4xl text-slate-400 dark:text-slate-500"></i>
-                                <h3 class="mt-2 text-lg font-semibold text-slate-800 dark:text-slate-200">No se encontraron resultados</h3>
-                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Prueba a cambiar o eliminar algunos filtros para ver más datos.</p>
-                            </td>
-                        </tr>
-                    {% endif %}
+                        </td>
+                        <td class="py-3.5 px-4 whitespace-nowrap">{{ c.condicion }}</td>
+                        <td class="py-3.5 px-4 whitespace-nowrap">{{ c.telefono }}</td>
+                        <td class="py-3.5 px-4">{{ c.observaciones or '' }}</td>
+                    </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
-    </div>
+        </div>
+    </section>
 
     <!-- Paginación -->
     {% if page_count > 1 %}
-    <nav class="no-print flex items-center justify-between pt-4" aria-label="Pagination">
-        <div class="hidden sm:block">
-            <p class="text-sm text-slate-700 dark:text-slate-300">
-                Mostrando <span class="font-medium">{{ (page - 1) * per_page + 1 }}</span>
-                a <span class="font-medium">{{ (page - 1) * per_page + (rows|length) }}</span>
-                de <span class="font-medium">{{ total_count }}</span> resultados
-            </p>
+    <nav class="mt-4 flex items-center justify-between">
+        <div>
+            <span class="text-sm text-slate-600 dark:text-slate-400">Mostrando {{ page_size }} por página</span>
         </div>
-        <div class="flex-1 flex justify-between sm:justify-end">
-            {% set base_args = request.args.to_dict() %}
-            {% set has_prev = page > 1 %}
-            {% set has_next = page < page_count %}
-            <a href="{{ url_for('reporte_metricas', page=page - 1, **base_args) if has_prev else '#' }}"
-               class="relative inline-flex items-center px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700 {{ 'pointer-events-none opacity-50' if not has_prev }}">
-                Anterior
-            </a>
-            <a href="{{ url_for('reporte_metricas', page=page + 1, **base_args) if has_next else '#' }}"
-               class="ml-3 relative inline-flex items-center px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700 {{ 'pointer-events-none opacity-50' if not has_next }}">
-                Siguiente
-            </a>
+        <div class="flex items-center gap-2">
+            <a href="{{ url_for('reporte_metricas', **request.args.to_dict(), page=1) }}" class="px-3 py-1 rounded-md border border-slate-300 dark:border-slate-700">Primera</a>
+            <a href="{{ url_for('reporte_metricas', **request.args.to_dict(), page=(page-1 if page>1 else 1)) }}" class="px-3 py-1 rounded-md border border-slate-300 dark:border-slate-700">Anterior</a>
+            <span class="px-3 py-1">{{ page }} / {{ page_count }}</span>
+            <a href="{{ url_for('reporte_metricas', **request.args.to_dict(), page=(page+1 if page<page_count else page_count)) }}" class="px-3 py-1 rounded-md border border-slate-300 dark:border-slate-700">Siguiente</a>
+            <a href="{{ url_for('reporte_metricas', **request.args.to_dict(), page=page_count) }}" class="px-3 py-1 rounded-md border border-slate-300 dark:border-slate-700">Última</a>
         </div>
     </nav>
     {% endif %}
@@ -355,7 +272,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateStickyOffset() {
         if (filtersBar) {
-            const filtersBarHeight = filtersBar.offsetHeight;
+            const filtersBarHeight = filtersBar.getBoundingClientRect().height;
             // El thead debe pegarse justo debajo de la barra de filtros.
             const totalOffset = filtersBarHeight;
             root.style.setProperty('--sticky-offset', `${totalOffset}px`);
@@ -365,6 +282,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Actualizar al cargar y al cambiar tamaño de ventana.
     updateStickyOffset();
     window.addEventListener('resize', updateStickyOffset);
+    if (window.ResizeObserver && filtersBar) { const ro = new ResizeObserver(updateStickyOffset); ro.observe(filtersBar); }
     
     // Para el efecto de sombra en el scroll
     const observer = new IntersectionObserver(
@@ -384,29 +302,12 @@ document.addEventListener('DOMContentLoaded', function() {
     {% if chart_estados and chart_estados.labels and chart_estados.data %}
     const estadosCtx = document.getElementById('estadosBarChart');
     if (estadosCtx) {
-        new Chart(estadosCtx, {
+        new Chart(estadosCtx,
+        {
             type: 'bar',
             data: {
-                labels: {{ chart_estados.labels | tojson }},
-                datasets: [{
-                    label: 'Cantidad de Clientes',
-                    data: {{ chart_estados.data | tojson }},
-                    backgroundColor: [
-                        'rgba(59, 130, 246, 0.7)',
-                        'rgba(249, 115, 22, 0.7)',
-                        'rgba(239, 68, 68, 0.7)',
-                        'rgba(22, 163, 74, 0.7)',
-                        'rgba(107, 114, 128, 0.7)'
-                    ],
-                    borderColor: [
-                        'rgba(59, 130, 246, 1)',
-                        'rgba(249, 115, 22, 1)',
-                        'rgba(239, 68, 68, 1)',
-                        'rgba(22, 163, 74, 1)',
-                        'rgba(107, 114, 128, 1)'
-                    ],
-                    borderWidth: 1
-                }]
+                labels: {{ chart_estados.labels|tojson }},
+                datasets: [{ data: {{ chart_estados.data|tojson }} }]
             },
             options: {
                 responsive: true,
@@ -424,33 +325,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Gráfica de Dona: Condición de la Cartera
     {% if chart_condicion and chart_condicion.labels and chart_condicion.data %}
-    const condicionCtx = document.getElementById('condicionDoughnutChart');
+    const condicionCtx = document.getElementById('condicionPieChart');
     if (condicionCtx) {
-        new Chart(condicionCtx, {
-            type: 'doughnut',
+        new Chart(condicionCtx,
+        {
+            type: 'pie',
             data: {
-                labels: {{ chart_condicion.labels | tojson }},
-                datasets: [{
-                    label: 'Condición',
-                    data: {{ chart_condicion.data | tojson }},
-                    backgroundColor: [
-                        'rgba(16, 185, 129, 0.8)', // Emerald
-                        'rgba(225, 29, 72, 0.8)'   // Rose
-                    ],
-                    hoverOffset: 4
-                }]
+                labels: {{ chart_condicion.labels|tojson }},
+                datasets: [{ data: {{ chart_condicion.data|tojson }} }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            padding: 20,
-                            boxWidth: 12
-                        }
-                    }
+                    legend: { position: 'bottom' }
                 }
             }
         });
