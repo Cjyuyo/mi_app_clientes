@@ -23,11 +23,11 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div class="bg-white p-4 rounded-xl shadow-sm text-center">
             <div class="text-sm text-slate-500">Tasa Dólar (BCV) al {{ fecha_reporte | format_date }}</div>
-            <div class="text-xl font-bold text-green-600 mt-1">Bs. {{ "{:,.2f}".format(tasas_del_dia.usd) }}</div>
+            <div class="text-xl font-bold text-green-600 mt-1">Bs. {{ "{:,.2f}".format((tasas_del_dia.usd | default(0.0, true))) }}</div>
         </div>
         <div class="bg-white p-4 rounded-xl shadow-sm text-center">
             <div class="text-sm text-slate-500">Tasa Euro (BCV) al {{ fecha_reporte | format_date }}</div>
-            <div class="text-xl font-bold text-blue-600 mt-1">Bs. {{ "{:,.2f}".format(tasas_del_dia.eur) }}</div>
+            <div class="text-xl font-bold text-blue-600 mt-1">Bs. {{ "{:,.2f}".format((tasas_del_dia.eur | default(0.0, true))) }}</div>
         </div>
     </div>
 
@@ -37,43 +37,44 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-center">
             <div>
                 <p class="text-sm font-medium text-indigo-700">Ingreso Proyectado (Mes)</p>
-                <p class="text-2xl font-bold text-slate-800 mt-1">${{ "{:,.2f}".format(comparativa_proyeccion.ingreso_proyectado_mes) }}</p>
+                <p class="text-2xl font-bold text-slate-800 mt-1">${{ "{:,.2f}".format((comparativa_proyeccion.proyectado_mes | default(0.0, true))) }}</p>
             </div>
             <div>
                 <p class="text-sm font-medium text-indigo-700">Ingreso Real Conciliado</p>
-                <p class="text-2xl font-bold text-green-600 mt-1">${{ "{:,.2f}".format(comparativa_proyeccion.ingreso_real_a_fecha) }}</p>
+                <p class="text-2xl font-bold text-green-600 mt-1">${{ "{:,.2f}".format((comparativa_proyeccion.real_a_fecha | default(0.0, true))) }}</p>
             </div>
             <div>
                 <p class="text-sm font-medium text-indigo-700">Pérdida Devaluación Proyectada</p>
-                <p class="text-2xl font-bold text-slate-800 mt-1">(${{ "{:,.2f}".format(comparativa_proyeccion.devaluacion_proyectada_mes) }})</p>
+                <p class="text-2xl font-bold text-slate-800 mt-1">(${{ "{:,.2f}".format((comparativa_proyeccion.devaluacion_proyectada_mes | default(0.0, true))) }})</p>
             </div>
             <div>
                 <p class="text-sm font-medium text-indigo-700">Pérdida Devaluación Real</p>
-                <p class="text-2xl font-bold text-red-600 mt-1">(${{ "{:,.2f}".format(comparativa_proyeccion.devaluacion_real_a_fecha) }})</p>
+                <p class="text-2xl font-bold text-red-600 mt-1">(${{ "{:,.2f}".format((comparativa_proyeccion.devaluacion_real_a_fecha | default(0.0, true))) }})</p>
             </div>
         </div>
     </div>
     {% endif %}
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-1 space-y-6">
             <div class="bg-white p-6 rounded-xl shadow-sm text-center">
                 <div class="text-sm font-medium text-slate-500">Balance General Consolidado</div>
-                <div class="text-3xl font-bold text-blue-700 mt-2">${{ "{:,.2f}".format(resumen.balance_general_consolidado_usd) }}</div>
+                <div class="text-3xl font-bold text-blue-700 mt-2">${{ "{:,.2f}".format((resumen.balance_general_consolidado_usd | default(0.0, true))) }}</div>
             </div>
             <div class="grid grid-cols-2 gap-4">
-                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-slate-500">Efectivo USD</div><div class="font-bold text-slate-800">${{ "{:,.2f}".format(resumen.EFECTIVO_USD) }}</div></div>
-                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-slate-500">Binance USDT</div><div class="font-bold text-slate-800">${{ "{:,.2f}".format(resumen.BINANCE_USDT) }}</div></div>
-                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-slate-500">Caja Bs (USD Ref)</div><div class="font-bold text-slate-800">Bs. {{ "{:,.2f}".format(resumen.CAJA_BS_USD) }}</div></div>
-                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-slate-500">Caja Bs (EUR Ref)</div><div class="font-bold text-slate-800">Bs. {{ "{:,.2f}".format(resumen.CAJA_BS_EUR) }}</div></div>
+                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-slate-500">Efectivo USD</div><div class="font-bold text-slate-800">${{ "{:,.2f}".format((resumen.EFECTIVO_USD | default(0.0, true))) }}</div></div>
+                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-slate-500">Binance USDT</div><div class="font-bold text-slate-800">${{ "{:,.2f}".format((resumen.BINANCE_USDT | default(0.0, true))) }}</div></div>
+                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-slate-500">Caja Bs (USD Ref)</div><div class="font-bold text-slate-800">Bs. {{ "{:,.2f}".format((resumen.CAJA_BS_USD | default(0.0, true))) }}</div></div>
+                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-slate-500">Caja Bs (EUR Ref)</div><div class="font-bold text-slate-800">Bs. {{ "{:,.2f}".format((resumen.CAJA_BS_EUR | default(0.0, true))) }}</div></div>
             </div>
-             <div class="bg-white p-4 rounded-xl shadow-sm text-center">
+            <div class="bg-white p-4 rounded-xl shadow-sm text-center">
                 <div class="text-sm font-medium text-slate-500">Consolidado Bolívares (BS)</div>
-                <div class="text-xl font-bold text-slate-800 mt-1">Bs. {{ "{:,.2f}".format(resumen.balance_bs_consolidado_bs) }}</div>
-                <div class="text-xs text-slate-500">Equivale a: ${{ "{:,.2f}".format(resumen.balance_bs_consolidado_usd) }}</div>
+                <div class="text-xl font-bold text-slate-800 mt-1">Bs. {{ "{:,.2f}".format((resumen.balance_bs_consolidado_bs | default(0.0, true))) }}</div>
+                <div class="text-xs text-slate-500">Equivale a: ${{ "{:,.2f}".format((resumen.balance_bs_consolidado_usd | default(0.0, true))) }}</div>
             </div>
             <div class="grid grid-cols-2 gap-4">
-                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-red-500">Pérdida Devaluación</div><div class="font-bold text-red-600">(${{ "{:,.2f}".format(resumen.acumulado_perdida_devaluacion) }})</div></div>
-                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-red-500">Pérdida Conversión</div><div class="font-bold text-red-600">(${{ "{:,.2f}".format(resumen.acumulado_perdida_conversion) }})</div></div>
+                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-red-500">Pérdida Devaluación</div><div class="font-bold text-red-600">(${{ "{:,.2f}".format((resumen.acumulado_perdida_devaluacion | default(0.0, true))) }})</div></div>
+                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-red-500">Pérdida Conversión</div><div class="font-bold text-red-600">(${{ "{:,.2f}".format((resumen.acumulado_perdida_conversion | default(0.0, true))) }})</div></div>
             </div>
         </div>
 
@@ -95,7 +96,7 @@
                     <tbody>
                         {% for mov in historial %}
                         <tr class="bg-white border-b hover:bg-slate-50">
-                            <td class="px-6 py-4">{{ mov.timestamp.strftime('%I:%M %p') }}</td>
+                            <td class="px-6 py-4">{{ mov.timestamp.strftime('%I:%M %p') if mov.timestamp else '' }}</td>
                             <td class="px-6 py-4"><span class="py-1 px-2.5 bg-slate-100 text-slate-800 text-xs font-medium rounded-md">{{ (mov.tipo_operacion or '').replace('_', ' ')|title }}</span></td>
                             <td class="px-6 py-4">{{ mov.detalle }}</td>
                             <td class="px-6 py-4 text-right font-semibold">

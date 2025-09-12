@@ -3030,10 +3030,89 @@ def mi_cartera():
 # ================================================================================
 
 # ===================== RUTA MÉTRICAS (SINTAX-FIX + EXPORTS) =====================
+# --- Helper de filtros para clientes (usar en reporte_metricas / reporte_flujo_caja) ---
+from datetime import datetime
+
+def _parse_date_any(s):
+    s = (s or "").strip()
+    if not s:
+        return None
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d/%m/%y", "%m/%d/%Y", "%m/%d/%y"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except Exception:
+            continue
+    return None
+
+def _build_clientes_filters(args, alias='c',
+                            fecha_col_name='fecha_inscripcion',
+                            condicion_col_name='condicion',
+                            cuotas_col_name='cuotas_pagadas'):
+    """
+    Devuelve (where_sql, params) para filtrar 'clientes'.
+    Parámetros:
+      - alias: alias SQL de la tabla clientes (por defecto 'c')
+      - fecha_col_name: nombre de la columna de fecha (None para omitir filtro por fecha)
+      - condicion_col_name: columna de condición (e.g. 'condicion' o 'condicion_pago')
+      - cuotas_col_name: columna de cuotas (e.g. 'cuotas_pagadas' o 'cuotas_pagadas_progresivas')
+    """
+    p = f"{alias}." if alias else ""
+    where, params = [], []
+
+    # Multi
+    empresas = [e.strip().upper() for e in args.getlist('empresa') if e and e.strip()]
+    if empresas:
+        where.append(f"UPPER(TRIM({p}empresa)) IN (" + ", ".join(["%s"]*len(empresas)) + ")")
+        params += empresas
+
+    estados = [e.strip().upper() for e in args.getlist('estado_plan') if e and e.strip()]
+    if estados:
+        where.append(f"UPPER(TRIM({p}estado_del_plan)) IN (" + ", ".join(["%s"]*len(estados)) + ")")
+        params += estados
+
+    estatus = [e.strip().upper() for e in args.getlist('estatus_cliente') if e and e.strip()]
+    if estatus:
+        where.append(f"UPPER(TRIM({p}estatus_cliente)) IN (" + ", ".join(["%s"]*len(estatus)) + ")")
+        params += estatus
+
+    conds = [e.strip().upper() for e in args.getlist('condicion') if e and e.strip()]
+    if conds and condicion_col_name:
+        where.append(f"UPPER(TRIM({p}{condicion_col_name})) IN (" + ", ".join(["%s"]*len(conds)) + ")")
+        params += conds
+
+    # Buckets (OR de rangos)
+    buckets = [b.strip() for b in args.getlist('cuota_bucket') if b and b.strip()]
+    if buckets and cuotas_col_name:
+        mapa = {'1': (1, 6), '2': (7, 12), '3': (13, 24), '4': (25, 36)}
+        rangos = [mapa[b] for b in buckets if b in mapa]
+        if rangos:
+            where.append("(" + " OR ".join([f"COALESCE({p}{cuotas_col_name},0) BETWEEN %s AND %s" for _ in rangos]) + ")")
+            for a, b in rangos:
+                params += [a, b]
+
+    # Fechas inscripción (opcional)
+    insc_desde = _parse_date_any(args.get('insc_desde'))
+    insc_hasta = _parse_date_any(args.get('insc_hasta'))
+    if fecha_col_name:
+        col = f"DATE({p}{fecha_col_name})"
+        if insc_desde:
+            where.append(f"{col} >= %s")
+            params.append(insc_desde)
+        if insc_hasta:
+            where.append(f"{col} <= %s")
+            params.append(insc_hasta)
+
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+    return where_sql, params
+
 @app.route('/reportes/metricas', methods=['GET'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def reporte_metricas():
+    from datetime import datetime
+    from flask import Response, send_file
+    import traceback
+
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", "danger")
@@ -3044,14 +3123,24 @@ def reporte_metricas():
         v = (v or "").strip()
         return "" if v.lower() in ("todos", "todas", "all", "-", "--", "seleccione", "seleccionar") else v
 
-    q_empresa      = _opt(request.args.get('empresa'))
-    q_estado_plan  = _opt(request.args.get('estado_plan'))
-    q_estatus      = _opt(request.args.get('estatus_cliente'))
-    q_condicion    = _opt(request.args.get('condicion'))
-    q_cuota_bucket = _opt(request.args.get('cuota_bucket'))
-    q_export       = (request.args.get('export') or '').strip().lower()
-    sort_param     = (request.args.get('sort') or 'id').strip().lower()
-    dir_param      = (request.args.get('dir') or request.args.get('order') or 'asc').strip().lower()
+    # Soporte multi (checkboxes)
+    def _norm_list(key):
+        vals = request.args.getlist(key)
+        out = []
+        for v in vals:
+            vv = _opt(v)
+            if vv:
+                out.append(vv)
+        return out
+
+    q_empresas       = _norm_list('empresa')
+    q_estados_plan   = _norm_list('estado_plan')
+    q_estatuses      = _norm_list('estatus_cliente')
+    q_condiciones    = _norm_list('condicion')
+    q_cuota_buckets  = _norm_list('cuota_bucket')
+    q_export         = (request.args.get('export') or '').strip().lower()
+    sort_param       = (request.args.get('sort') or 'id').strip().lower()
+    dir_param        = (request.args.get('dir') or request.args.get('order') or 'asc').strip().lower()
     if dir_param not in ('asc', 'desc'):
         dir_param = 'asc'
 
@@ -3175,25 +3264,32 @@ def reporte_metricas():
             cuotas_expr    = "COALESCE(c.{col},0)".format(col=cuotas_col) if cuotas_col else "0"
             fecha_expr     = "DATE(c.{col})".format(col=fecha_col) if fecha_col else "NULL::date"
 
-            # ---- WHERE dinámico ----
+            # ---- WHERE dinámico (multi) ----
             where=[]; params=[]
-            if q_empresa:
-                where.append(empresa_expr + " = %s")
-                params.append(' '.join(q_empresa.split()).upper())
-            if q_estado_plan:
-                where.append(estado_expr + " = %s")
-                params.append(q_estado_plan.upper())
-            if q_estatus:
-                where.append(estatus_expr_norm + " = %s")
-                params.append(q_estatus.upper())
-            if q_condicion and condicion_col:
-                where.append(condicion_expr + " = %s")
-                params.append(q_condicion.upper())
-            if q_cuota_bucket and cuotas_col:
-                buckets={'1':(1,6),'2':(7,12),'3':(13,24),'4':(25,36)}
-                if q_cuota_bucket in buckets:
-                    where.append(cuotas_expr + " BETWEEN %s AND %s")
-                    params.extend(buckets[q_cuota_bucket])
+
+            if q_empresas:
+                where.append(empresa_expr + " IN (" + ", ".join(["%s"]*len(q_empresas)) + ")")
+                params += [' '.join(e.split()).upper() for e in q_empresas]
+
+            if q_estados_plan:
+                where.append(estado_expr + " IN (" + ", ".join(["%s"]*len(q_estados_plan)) + ")")
+                params += [e.upper() for e in q_estados_plan]
+
+            if q_estatuses:
+                where.append(estatus_expr_norm + " IN (" + ", ".join(["%s"]*len(q_estatuses)) + ")")
+                params += [e.upper() for e in q_estatuses]
+
+            if q_condiciones and condicion_col:
+                where.append(condicion_expr + " IN (" + ", ".join(["%s"]*len(q_condiciones)) + ")")
+                params += [c.upper() for c in q_condiciones]
+
+            if q_cuota_buckets and cuotas_col:
+                buckets_map = {'1':(1,6),'2':(7,12),'3':(13,24),'4':(25,36)}
+                ranges = [buckets_map[b] for b in q_cuota_buckets if b in buckets_map]
+                if ranges:
+                    where.append("(" + " OR ".join([f"{cuotas_expr} BETWEEN %s AND %s" for _ in ranges]) + ")")
+                    for a,b in ranges:
+                        params += [a,b]
 
             if fecha_col:
                 if q_desde:
@@ -3311,8 +3407,6 @@ def reporte_metricas():
                         headers={'Content-Disposition': 'attachment; filename="{0}"'.format(filename)}
                     )
 
-                    # nosec - returning early
-
                 if q_export == 'xlsx':
                     import pandas as pd
                     from io import BytesIO
@@ -3330,27 +3424,70 @@ def reporte_metricas():
                 if q_export == 'pdf':
                     from fpdf import FPDF
                     from io import BytesIO
+
+                    def _latin1(x):
+                        s = "" if x is None else str(x)
+                        try:
+                            s.encode("latin-1")
+                            return s
+                        except UnicodeEncodeError:
+                            return s.encode("latin-1", "replace").decode("latin-1")
+
                     pdf = FPDF(orientation='L', unit='mm', format='A4')
+                    pdf.set_auto_page_break(auto=True, margin=10)
                     pdf.add_page()
-                    pdf.set_font("Arial","B",14)
-                    pdf.cell(0,10,"Reporte de Métricas", ln=1)
-                    pdf.set_font("Arial","",9)
-                    headers = ["ID","Empresa","Estado Plan","Estatus","Nombre","Apellido","Telefono","Condicion","Fecha Base","Cuotas"]
-                    widths  = [15,50,35,35,35,35,30,35,30,20]
-                    for h,w in zip(headers,widths):
-                        pdf.cell(w,8,h,1,0,'C')
+
+                    pdf.set_font("Helvetica", "B", 14)
+                    pdf.cell(0, 10, _latin1("Reporte de Métricas"), ln=1)
+
+                    pdf.set_font("Helvetica", "", 9)
+
+                    headers = ["ID", "Empresa", "Estado Plan", "Estatus"]
+                    widths  = [15, 50, 35, 35]
+                    if show_nombre:
+                        headers.append("Nombre");   widths.append(35)
+                    if show_apellido:
+                        headers.append("Apellido"); widths.append(35)
+                    if show_telefono:
+                        headers.append("Telefono"); widths.append(30)
+                    if show_condicion:
+                        headers.append("Condicion"); widths.append(35)
+                    headers += ["Fecha Base", "Cuotas"]
+                    widths  += [30, 20]
+
+                    for h, w in zip(headers, widths):
+                        pdf.cell(w, 8, _latin1(h), border=1, align='C')
                     pdf.ln(8)
+
                     for r in data[:1000]:
-                        row=[
-                            r.get('id',''), r.get('empresa',''), r.get('estado_del_plan',''),
-                            r.get('estatus',''), r.get('nombre',''), r.get('apellido',''),
-                            r.get('telefono',''), r.get('condicion_pago',''),
-                            str(r.get('fecha_base') or ''), r.get('cuotas','')
+                        row = [
+                            r.get('id', ''),
+                            r.get('empresa', ''),
+                            r.get('estado_del_plan', ''),
+                            r.get('estatus', '')
                         ]
-                        for val,w in zip(row,widths):
-                            pdf.cell(w,6,str(val)[:40],1,0,'L')
+                        if show_nombre:
+                            row.append(r.get('nombre', ''))
+                        if show_apellido:
+                            row.append(r.get('apellido', ''))
+                        if show_telefono:
+                            row.append(r.get('telefono', ''))
+                        if show_condicion:
+                            row.append(r.get('condicion_pago', r.get('condicion', '')))
+                        row += [
+                            str(r.get('fecha_base') or ''),
+                            r.get('cuotas', '')
+                        ]
+
+                        for val, w in zip(row, widths):
+                            pdf.cell(w, 6, _latin1(str(val))[:40], border=1, align='L')
                         pdf.ln(6)
-                    out = BytesIO(pdf.output(dest='S').encode('latin-1'))
+
+                    out_data = pdf.output(dest='S')
+                    if isinstance(out_data, str):
+                        out_data = out_data.encode('latin-1')
+
+                    out = BytesIO(out_data)
                     out.seek(0)
                     filename = "reporte_metricas_{0}.pdf".format(datetime.now().strftime('%Y%m%d_%H%M%S'))
                     return send_file(out, as_attachment=True, download_name=filename, mimetype='application/pdf')
@@ -3385,7 +3522,7 @@ def reporte_metricas():
             )
             rows = _fetch_dicts(cur)
 
-            if not rows and not (q_empresa or q_estado_plan or q_estatus or q_condicion or q_cuota_bucket or q_desde or q_hasta):
+            if not rows and not (q_empresas or q_estados_plan or q_estatuses or q_condiciones or q_cuota_buckets or q_desde or q_hasta):
                 # Salvaguarda sin normalizadores
                 cur.execute("SELECT id, empresa, estado_del_plan FROM clientes ORDER BY id ASC LIMIT %s OFFSET %s", (per_page, offset))
                 rows = _fetch_dicts(cur)
@@ -3430,6 +3567,10 @@ def reporte_metricas():
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def reporte_flujo_caja():
+    from types import SimpleNamespace
+    from calendar import monthrange
+    from datetime import datetime
+
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", "error")
@@ -3471,11 +3612,20 @@ def reporte_flujo_caja():
         tasas_del_dia = SimpleNamespace(usd=0.0, eur=0.0)
 
     # ===== Proyecciones con filtros desde el querystring =====
-    _build_clientes_filters_fn = globals().get('_build_clientes_filters')
-    if not callable(_build_clientes_filters_fn):
-        def _build_clientes_filters_fn(_args):
-            return "", []
-    where_sql, where_params = _build_clientes_filters_fn(request.args)
+    where_sql, where_params = "", []
+    _bf = globals().get('_build_clientes_filters')
+    if callable(_bf):
+        # Intento con firma configurable; si tu helper es el simple (1 arg), cae al except
+        try:
+            where_sql, where_params = _bf(
+                request.args,
+                alias='c',
+                fecha_col_name='fecha_inscripcion',
+                condicion_col_name='condicion',
+                cuotas_col_name='cuotas_pagadas'
+            )
+        except TypeError:
+            where_sql, where_params = _bf(request.args)
 
     # Reset por si quedó abortada antes del cálculo de proyección
     try:
@@ -3520,16 +3670,18 @@ def reporte_flujo_caja():
 
     ingreso_proyectado_mes = float(resumen_mes.get('proyectado_mes', 0.0))
 
-    # Modelo simple de devaluación (placeholder)
+    # Modelo simple de devaluación (placeholder seguro)
     caja_bs_total = 0.0
-    RIESGO_MENSUAL = 0.02
+    RIESGO_MENSUAL = 0.02  # Ajustable
     devaluacion_proyectada_mes = (caja_bs_total / (tasas_del_dia.usd or 1)) * RIESGO_MENSUAL
 
+    # Devaluación real proporcional al avance del mes
     dias_del_mes = monthrange(fecha_reporte.year, fecha_reporte.month)[1]
     dias_transcurridos = fecha_reporte.day
     factor = dias_transcurridos / dias_del_mes
     devaluacion_real_a_fecha = devaluacion_proyectada_mes * factor
 
+    # Comparativa proyectado vs. real
     proyeccion_restante = max(ingreso_proyectado_mes - real_a_fecha, 0.0)
     comparativa_proyeccion = SimpleNamespace(
         proyectado_mes=ingreso_proyectado_mes,
@@ -3539,16 +3691,8 @@ def reporte_flujo_caja():
         devaluacion_real_a_fecha=devaluacion_real_a_fecha
     )
 
-    avance_pct = (real_a_fecha / ingreso_proyectado_mes * 100.0) if ingreso_proyectado_mes > 0 else 0.0
-    restante_pct = (proyeccion_restante / ingreso_proyectado_mes * 100.0) if ingreso_proyectado_mes > 0 else 0.0
-    resumen = SimpleNamespace(
-        proyectado_mes=ingreso_proyectado_mes,
-        real_a_fecha=real_a_fecha,
-        avance_pct=avance_pct,
-        restante_pct=restante_pct,
-        tasa_usd=tasas_del_dia.usd,
-        tasa_eur=tasas_del_dia.eur
-    )
+    # Resumen para tarjetas (mantenemos identidad: si no tienes datos, usa el vacío)
+    resumen = _resumen_vacio()
 
     # Historial del día desde operaciones_tesoreria (defensivo)
     historial = []
@@ -3591,25 +3735,6 @@ def reporte_flujo_caja():
         resumen=resumen,
         historial=historial
     )
-
-def _resumen_vacio():
-    return {
-        'balance_general_consolidado_usd': 0.0,
-        'EFECTIVO_USD': 0.0,
-        'BINANCE_USDT': 0.0,
-        'CAJA_BS_USD': 0.0,
-        'CAJA_BS_EUR': 0.0,
-        'balance_bs_consolidado_bs': 0.0,
-        'balance_bs_consolidado_usd': 0.0,
-        'acumulado_perdida_devaluacion': 0.0,
-        'acumulado_perdida_conversion': 0.0
-    }
-
-@app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
-@admin_required
-@rol_requerido('superadmin', 'gerente')
-def reporte_flujo_caja_alias():
-    return reporte_flujo_caja()
 
 # =================================================================================
 # ===== FIN: MÓDULO DE MÉTRICAS RECONSTRUIDO (V1) =====
