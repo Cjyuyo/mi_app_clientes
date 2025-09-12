@@ -5,13 +5,26 @@
     sort_link(campo, etiqueta)
 #}
 {% macro sort_link(field, label) -%}
-    {%- set is_current = (sort_field == field) -%}
-    {%- set next_dir = 'desc' if (is_current and sort_dir == 'asc') else 'asc' -%}
-    <a href="{{ url_for('reporte_metricas', **request.args.to_dict(), sort=field, dir=next_dir) }}"
+    {# Deriva next_dir a partir de los query params actuales y construye la URL sin usar **kwargs (no soportado por Jinja) #}
+    {%- set current_sort = request.args.get('sort') -%}
+    {%- set current_dir  = request.args.get('dir', 'asc') -%}
+    {%- set is_current   = (current_sort == field) -%}
+    {%- set next_dir     = 'desc' if (is_current and current_dir == 'asc') else 'asc' -%}
+    {%- set base = url_for('reporte_metricas') -%}
+
+    {# Construimos el querystring preservando todos los params excepto sort/dir #}
+    {%- set qs = [] -%}
+    {%- for k, v in request.args.items() if k not in ['sort','dir'] and v -%}
+        {%- set _ = qs.append(k ~ '=' ~ (v|string)|urlencode) -%}
+    {%- endfor -%}
+    {%- set _ = qs.append('sort=' ~ field) -%}
+    {%- set _ = qs.append('dir=' ~ next_dir) -%}
+
+    <a href="{{ base }}?{{ '&'.join(qs) }}"
        class="inline-flex items-center gap-1 hover:underline">
         <span>{{ label }}</span>
         {%- if is_current -%}
-            <i class="bi {{ 'bi-caret-up-fill' if sort_dir == 'asc' else 'bi-caret-down-fill' }} text-orange-500"></i>
+            <i class="bi {{ 'bi-caret-up-fill' if current_dir == 'asc' else 'bi-caret-down-fill' }} text-orange-500"></i>
         {%- else -%}
             <i class="bi bi-arrow-down-up text-slate-400"></i>
         {%- endif -%}
