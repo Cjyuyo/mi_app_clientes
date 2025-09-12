@@ -1,24 +1,46 @@
 {% extends "base_sidebar.html" %}
 
-{% macro pill_status(estatus) %}{# ...sin cambios... #}{# endmacro %}
-{% macro pill_condicion(condicion) %}{# ...sin cambios... #}{% endmacro %}
+{# === Macros UI (solo presentación; no cambian rutas ni lógica) === #}
+{% macro pill_status(estatus) -%}
+    {% set e = (estatus or '')|upper %}
+    {% set cls = {
+        'ACTIVO': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+        'PENDIENTE POR ENTREGA': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
+        'COMPLETADO': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+        'MOROSO': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+        'INACTIVO': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
+    } %}
+    <span class="px-2.5 py-0.5 text-xs font-medium rounded-full {{ cls.get(e, 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300') }}">
+        {{ (estatus or '—')|replace('_',' ')|title }}
+    </span>
+{%- endmacro %}
 
-{# Enlaces de orden sin **kwargs. Ahora preserva arrays con items(multi=True) #}
+{% macro pill_condicion(condicion) -%}
+    {% set c = (condicion or '')|upper %}
+    {% set is_al_dia = (c == 'AL DIA') %}
+    {% set cls = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300' if is_al_dia else 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300' %}
+    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full {{ cls }}">
+        <span class="h-1.5 w-1.5 rounded-full {{ 'bg-emerald-500' if is_al_dia else 'bg-rose-500' }}"></span>
+        {{ (condicion or '—')|title }}
+    </span>
+{%- endmacro %}
+
+{# Enlace de orden con preservación de querystring (soporta multi) #}
 {% macro sort_link(field, title) -%}
-    {% set is_current = (request.args.get('sort') == field) %}
-    {% set current_order = request.args.get('order', 'asc') %}
-    {% set next_order = 'desc' if is_current and current_order == 'asc' else 'asc' %}
+    {% set is_current    = (request.args.get('sort') == field) %}
+    {% set current_order = request.args.get('order', request.args.get('dir','asc')) %}
+    {% set next_order    = 'desc' if is_current and current_order == 'asc' else 'asc' %}
     {% set qs = [] %}
-    {# preservar TODOS los valores de filtros, incluso repetidos (multi) #}
-    {% for k, v in request.args.items(multi=True) if k not in ['sort','order'] and v %}
+    {# preserva TODOS los filtros, incluyendo repetidos #}
+    {% for k, v in request.args.items(multi=True) if k not in ['sort','order','dir'] and v %}
         {% set _ = qs.append(k ~ '=' ~ (v|string)|urlencode) %}
     {% endfor %}
     {% set _ = qs.append('sort=' ~ field) %}
     {% set _ = qs.append('order=' ~ next_order) %}
     <a href="{{ url_for('reporte_metricas') }}?{{ qs|join('&') }}" class="group inline-flex items-center gap-2">
         {{ title }}
-        <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 {% if is_current %} opacity-100 {% endif %}">
-            {% if current_order == 'desc' and is_current %}
+        <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 {% if is_current %}opacity-100{% endif %}">
+            {% if is_current and current_order == 'desc' %}
                 <i class="bi bi-sort-down"></i>
             {% else %}
                 <i class="bi bi-sort-up"></i>
@@ -27,52 +49,50 @@
     </a>
 {%- endmacro %}
 
+{% from _self import pill_status, pill_condicion, sort_link %}
+
 {% block title %}Métricas de Clientes{% endblock %}
 {% block page_title %}Métricas · Vitrina de Clientes{% endblock %}
 
 {% block head_extra %}
 <style>
-    /* El offset se calcula con JS y se inyecta aquí. Se usa como fallback. */
+    /* Offset (se calcula con JS y sirve este fallback) */
     :root { --sticky-offset: 6rem; }
 
-    /* Estilo para x-cloak: oculta elementos hasta que Alpine.js esté listo */
+    /* Alpine cloak */
     [x-cloak] { display: none !important; }
 
-    /* Contenedor de la tabla necesita ser relativo para el clon del thead */
-    .table-container {
-        position: relative;
-    }
+    /* Contexto para el clon del thead */
+    .table-container { position: relative; }
 
-    /* Estilos para el clon del thead que se mostrará al hacer scroll */
+    /* Clon del thead (queda por ENCIMA de las filas y por DEBAJO de la barra de filtros) */
     .thead-clone {
         position: fixed;
         top: var(--sticky-offset);
-        z-index: 5;
+        z-index: 15;              /* filtros usan z-20; filas < 10 */
         opacity: 0;
         pointer-events: none;
         transform: translateY(-100%);
-        transition: opacity 0.2s, transform 0.2s;
+        transition: opacity .2s, transform .2s;
         border-bottom: 1px solid #e2e8f0; /* slate-200 */
+        box-shadow: 0 1px 0 rgba(0,0,0,0.03);
     }
-    .dark .thead-clone {
-        border-bottom-color: #334155; /* slate-700 */
-    }
+    .dark .thead-clone { border-bottom-color: #334155; /* slate-700 */ }
 
-    /* Cuando el scroll activa el header, se hace visible */
     .table-header-is-sticky .thead-clone {
         opacity: 1;
         pointer-events: auto;
         transform: translateY(0);
     }
 
-    /* ---------- ESTILOS DE IMPRESIÓN MEJORADOS ---------- */
+    /* ---------- IMPRESIÓN: ajusta para caber en una hoja ---------- */
     @media print {
         @page { size: A4 landscape; margin: 10mm; }
         body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .no-print { display: none !important; }
         .print-wrap, tr { break-inside: avoid; page-break-inside: avoid; }
         .shadow-none-print, .shadow-sm, .shadow-md, .shadow-lg { box-shadow: none !important; }
-        table { width: 100% !important; font-size: 10px !important; }
+        table { width: 100% !important; font-size: 10px !important; table-layout: fixed; }
         th, td { padding: 5px 7px !important; }
         thead { display: table-header-group !important; }
         .p-4, .p-5, .p-6 { padding: 8px !important; }
@@ -83,75 +103,105 @@
 {% block body %}
 <div class="space-y-6 dark:text-slate-200 print-wrap">
 
+    <!-- Barra de filtros (sticky superior) -->
     <div id="filtersBar" class="no-print sticky top-0 z-20 transition-shadow duration-300">
         <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
             <form method="GET" action="{{ url_for('reporte_metricas') }}">
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
+                    <!-- Empresa (multi) -->
                     <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                         <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                            <span>Empresa</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
+                            <span>Empresa</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': open }"></i>
                         </button>
                         <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
-                            {% set emp_sel = request.args.getlist('empresa') %}<div class="grid grid-cols-2 gap-x-4 gap-y-2">
-                                {% for emp in empresas_opciones %}<label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
+                            {% set emp_sel = request.args.getlist('empresa') %}
+                            <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+                                {% for emp in empresas_opciones %}
+                                <label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
                                     <input type="checkbox" name="empresa" value="{{ emp }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if emp in emp_sel %}checked{% endif %}>
                                     <span>{{ emp }}</span>
-                                </label>{% endfor %}
+                                </label>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
+
+                    <!-- Estado Plan (multi) -->
                     <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                         <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                            <span>Estado Plan</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
+                            <span>Estado Plan</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': open }"></i>
                         </button>
                         <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
-                            {% set estado_sel = request.args.getlist('estado_plan') %}<div class="grid grid-cols-1 gap-x-4 gap-y-2">
-                                {% for est in estados_opciones %}<label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
-                                    <input type="checkbox" name="estado_plan" value="{{ est }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if est|upper in estado_sel|map('upper')|list %}checked{% endif %}>
+                            {% set estado_sel = request.args.getlist('estado_plan') %}
+                            {% set estado_sel_up = estado_sel|map('upper')|list %}
+                            <div class="grid grid-cols-1 gap-x-4 gap-y-2">
+                                {% for est in estados_opciones %}
+                                <label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
+                                    <input type="checkbox" name="estado_plan" value="{{ est }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if est|upper in estado_sel_up %}checked{% endif %}>
                                     <span>{{ est|replace('_',' ')|capitalize }}</span>
-                                </label>{% endfor %}
+                                </label>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
+
+                    <!-- Estatus Cliente (multi) -->
                     <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                         <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                            <span>Estatus Cliente</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
+                            <span>Estatus Cliente</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': open }"></i>
                         </button>
                         <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
-                            {% set estatus_sel = request.args.getlist('estatus_cliente') %}<div class="grid grid-cols-1 gap-x-4 gap-y-2">
-                                {% for est in estatus_opciones %}<label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
-                                    <input type="checkbox" name="estatus_cliente" value="{{ est }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if est|upper in estatus_sel|map('upper')|list %}checked{% endif %}>
+                            {% set estatus_sel = request.args.getlist('estatus_cliente') %}
+                            {% set estatus_sel_up = estatus_sel|map('upper')|list %}
+                            <div class="grid grid-cols-1 gap-x-4 gap-y-2">
+                                {% for est in estatus_opciones %}
+                                <label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
+                                    <input type="checkbox" name="estatus_cliente" value="{{ est }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if est|upper in estatus_sel_up %}checked{% endif %}>
                                     <span>{{ est|replace('_',' ')|capitalize }}</span>
-                                </label>{% endfor %}
+                                </label>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
+
+                    <!-- Condición (multi) -->
                     <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                         <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                            <span>Condición</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
+                            <span>Condición</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': open }"></i>
                         </button>
                         <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
-                            {% set cond_sel = request.args.getlist('condicion') %}<div class="grid grid-cols-1 gap-x-4 gap-y-2">
-                                {% for cond in condicion_opciones %}<label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
-                                    <input type="checkbox" name="condicion" value="{{ cond }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if cond|upper in cond_sel|map('upper')|list %}checked{% endif %}>
+                            {% set cond_sel = request.args.getlist('condicion') %}
+                            {% set cond_sel_up = cond_sel|map('upper')|list %}
+                            <div class="grid grid-cols-1 gap-x-4 gap-y-2">
+                                {% for cond in condicion_opciones %}
+                                <label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
+                                    <input type="checkbox" name="condicion" value="{{ cond }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if cond|upper in cond_sel_up %}checked{% endif %}>
                                     <span>{{ cond|replace('_',' ')|capitalize }}</span>
-                                </label>{% endfor %}
+                                </label>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
+
+                    <!-- Rango de cuotas (multi) -->
                     <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                         <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                            <span>Rango de Cuotas</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
+                            <span>Rango de Cuotas</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': open }"></i>
                         </button>
                         <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
-                            {% set cuotas_sel = request.args.getlist('cuota_bucket') %}<div class="grid grid-cols-2 gap-x-4 gap-y-2">
-                                {% for val, label in [('1','1-6'),('2','7-12'),('3','13-24'),('4','25-36')] %}<label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
+                            {% set cuotas_sel = request.args.getlist('cuota_bucket') %}
+                            <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+                                {% for val, label in [('1','1-6'),('2','7-12'),('3','13-24'),('4','25-36')] %}
+                                <label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
                                     <input type="checkbox" name="cuota_bucket" value="{{ val }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if val in cuotas_sel %}checked{% endif %}>
                                     <span>{{ label }}</span>
-                                </label>{% endfor %}
+                                </label>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
+
+                    <!-- Fechas -->
                     <div class="lg:col-span-2 xl:col-span-1 space-y-2">
                         <div class="flex-1">
                            <label for="insc_desde" class="text-xs font-medium text-slate-600 dark:text-slate-400">Insc. Desde</label>
@@ -163,14 +213,21 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Acciones -->
                 <div class="flex flex-wrap items-center justify-end gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                     <a href="{{ url_for('reporte_metricas') }}" class="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg transition-colors">Limpiar</a>
                     <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors">Aplicar Filtros</button>
+
+                    <!-- Exportar -->
                     <div x-data="{ open: false }" class="relative">
                         <button @click="open = !open" type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg">
                             <i class="bi bi-download"></i> Exportar <i class="bi bi-chevron-down -mr-1 h-5 w-5"></i>
                         </button>
-                        {% set qs_export = [] %}{% for k, v in request.args.items(multi=True) if v %}{% set _ = qs_export.append(k ~ '=' ~ (v|string)|urlencode) %}{% endfor %}
+                        {% set qs_export = [] %}
+                        {% for k, v in request.args.items(multi=True) if v %}
+                            {% set _ = qs_export.append(k ~ '=' ~ (v|string)|urlencode) %}
+                        {% endfor %}
                         <div x-show="open" @click.away="open = false" class="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-slate-800 shadow-lg ring-1 ring-black ring-opacity-5" style="display:none;">
                             <div class="py-1">
                                 <a href="{{ url_for('reporte_metricas') }}?{{ (qs_export + ['export=csv'])|join('&') }}" class="group flex items-center gap-3 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"><i class="bi bi-filetype-csv text-lg text-slate-500"></i><span>Exportar como CSV</span></a>
@@ -183,8 +240,7 @@
         </div>
     </div>
 
-    {# Resumen / Gráficas (igual) #}
-
+    {# Tabla de datos #}
     <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm shadow-none-print table-container" id="table-container">
         <div class="overflow-x-auto" id="table-scroll-wrapper">
             <table class="min-w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
@@ -238,6 +294,7 @@
         </div>
     </div>
 
+    <!-- Paginación -->
     {% if page_count > 1 %}
     <nav class="no-print flex items-center justify-between pt-4" aria-label="Pagination">
         <div class="hidden sm:block">
@@ -273,43 +330,52 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // --- Lógica para el encabezado sticky manual ---
+  // --- Sticky thead mediante clon (no altera HTML original) ---
   const tableContainer = document.getElementById('table-container');
   const originalThead = document.getElementById('original-thead');
   const scrollWrapper = document.getElementById('table-scroll-wrapper');
+  const filtersBar = document.getElementById('filtersBar');
+  const root = document.documentElement;
 
   if (!tableContainer || !originalThead || !scrollWrapper) return;
 
-  // 1. Clonar el thead para usarlo como encabezado fijo
+  // Clonar el thead
   const clonedThead = originalThead.cloneNode(true);
-  clonedThead.id = ''; // El ID debe ser único
+  clonedThead.id = ''; // evitar duplicar ID
   clonedThead.classList.add('thead-clone');
+  // Copiar color de fondo del original (clon está fuera de la tabla)
+  try {
+    const bg = getComputedStyle(originalThead).backgroundColor;
+    clonedThead.style.backgroundColor = bg || '';
+  } catch (e) {}
   tableContainer.appendChild(clonedThead);
 
-  // 2. Sincronizar anchos de columnas
+  // Sincronizar anchos de columnas
   const syncWidths = () => {
     const originalThs = originalThead.querySelectorAll('th');
     const clonedThs = clonedThead.querySelectorAll('th');
-    originalThs.forEach((th, index) => {
-      const width = th.getBoundingClientRect().width;
-      if (clonedThs[index]) {
-        clonedThs[index].style.minWidth = `${width}px`;
-        clonedThs[index].style.width = `${width}px`;
+    originalThs.forEach((th, i) => {
+      const w = th.getBoundingClientRect().width;
+      if (clonedThs[i]) {
+        clonedThs[i].style.minWidth = w + 'px';
+        clonedThs[i].style.width = w + 'px';
       }
     });
-    clonedThead.style.width = `${originalThead.getBoundingClientRect().width}px`;
+    clonedThead.style.width = originalThead.getBoundingClientRect().width + 'px';
   };
-  
-  // 3. Monitorear scroll vertical de la página
-  const onWindowScroll = () => {
-    const filtersBarHeight = document.getElementById('filtersBar').getBoundingClientRect().height;
-    const scrollY = window.scrollY;
-    // La posición donde el thead original debería empezar a ocultarse
-    const triggerPoint = tableContainer.offsetTop - filtersBarHeight;
 
-    if (scrollY >= triggerPoint) {
+  // Calcular offset real de la barra de filtros
+  function updateStickyOffset() {
+    const h = filtersBar ? filtersBar.getBoundingClientRect().height : 0;
+    root.style.setProperty('--sticky-offset', h + 'px');
+  }
+
+  // Activar/desactivar sticky según scroll
+  const onWindowScroll = () => {
+    const filtersBarHeight = filtersBar ? filtersBar.getBoundingClientRect().height : 0;
+    const triggerPoint = tableContainer.offsetTop - filtersBarHeight;
+    if (window.scrollY >= triggerPoint) {
       tableContainer.classList.add('table-header-is-sticky');
-      // Dejar un espacio para el thead original para que el tbody no salte
       originalThead.style.visibility = 'hidden';
     } else {
       tableContainer.classList.remove('table-header-is-sticky');
@@ -317,27 +383,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   };
 
-  // 4. Sincronizar scroll horizontal
+  // Sincronizar desplazamiento horizontal
   scrollWrapper.addEventListener('scroll', () => {
-    clonedThead.style.transform = `translateX(-${scrollWrapper.scrollLeft}px)`;
+    clonedThead.style.transform = `translateY(0) translateX(-${scrollWrapper.scrollLeft}px)`;
   });
 
-  // 5. Añadir listeners y ejecutar una vez al inicio
+  // Listeners
+  window.addEventListener('resize', () => { syncWidths(); updateStickyOffset(); onWindowScroll(); });
   window.addEventListener('scroll', onWindowScroll);
-  window.addEventListener('resize', syncWidths);
-  
-  // Ejecución inicial para el estado de la página al cargar
+
+  // Inicial
+  updateStickyOffset();
   syncWidths();
   onWindowScroll();
-
-  // --- Lógica para el offset del filtro (sin cambios) ---
-  const filtersBar = document.getElementById('filtersBar');
-  const root = document.documentElement;
-  function updateStickyOffset(){
-    if (filtersBar){ root.style.setProperty('--sticky-offset', `${filtersBar.getBoundingClientRect().height}px`); }
-  }
-  updateStickyOffset();
-  window.addEventListener('resize', updateStickyOffset);
 });
 </script>
 {% endblock %}
