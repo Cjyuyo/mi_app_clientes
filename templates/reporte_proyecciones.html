@@ -1,119 +1,123 @@
 {% extends "base_sidebar.html" %}
 
-{# Macros de UI (no alteran rutas/lógica) #}
-{% macro pill_status(estatus) -%}
-  {% set e = (estatus or '')|upper %}
-  {% set cls = {
-      'ACTIVO': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-      'PENDIENTE POR ENTREGA': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
-      'COMPLETADO': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-      'MOROSO': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-      'INACTIVO': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
+{% macro pill(text, tone='slate') -%}
+  {% set tones = {
+    'slate': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200',
+    'green': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300',
+    'amber': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
+    'red':   'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300',
+    'blue':  'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
   } %}
-  <span class="px-2.5 py-0.5 text-xs font-medium rounded-full {{ cls.get(e, 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300') }}">
-    {{ (estatus or '—')|replace('_',' ')|title }}
-  </span>
+  <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full {{ tones.get(tone, tones['slate']) }}">{{ text }}</span>
 {%- endmacro %}
 
-{% macro pill_condicion(condicion) -%}
-  {% set c = (condicion or '')|upper %}
-  {% set ok = (c == 'AL DIA') %}
-  {% set cls = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300' if ok else 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300' %}
-  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full {{ cls }}">
-      <span class="h-1.5 w-1.5 rounded-full {{ 'bg-emerald-500' if ok else 'bg-rose-500' }}"></span>
-      {{ (condicion or '—')|title }}
-  </span>
-{%- endmacro %}
-
-{% macro sort_link(field, title) -%}
-  {% set is_current    = (request.args.get('sort') == field) %}
-  {% set current_order = request.args.get('order', request.args.get('dir','asc')) %}
-  {% set next_order    = 'desc' if is_current and current_order == 'asc' else 'asc' %}
-  {% set qs = [] %}
-  {% for k, v in request.args.items(multi=True) if k not in ['sort','order','dir'] and v %}
-    {% set _ = qs.append(k ~ '=' ~ (v|string)|urlencode) %}
-  {% endfor %}
-  {% set _ = qs.append('sort=' ~ field) %}
-  {% set _ = qs.append('order=' ~ next_order) %}
-  <a href="{{ url_for('reporte_proyecciones') }}?{{ qs|join('&') }}" class="group inline-flex items-center gap-2">
-    {{ title }}
-    <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 {% if is_current %}opacity-100{% endif %}">
-      {% if is_current and current_order == 'desc' %}
-        <i class="bi bi-sort-down"></i>
-      {% else %}
-        <i class="bi bi-sort-up"></i>
-      {% endif %}
-    </span>
-  </a>
+{% macro kpi_card(label, value, hint=None, tone='slate') -%}
+  <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+    <div class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ label }}</div>
+    <div class="mt-1 text-2xl font-bold {% if tone=='green' %}text-emerald-600{% elif tone=='red' %}text-rose-600{% elif tone=='blue' %}text-blue-600{% else %}text-slate-800 dark:text-slate-100{% endif %}">
+      {{ value }}
+    </div>
+    {% if hint %}<div class="text-xs text-slate-500 mt-1">{{ hint }}</div>{% endif %}
+  </div>
 {%- endmacro %}
 
 {% block title %}Proyecciones y Cobranza{% endblock %}
-{% block page_title %}Proyecciones · Gestión de Cobranza{% endblock %}
+{% block page_title %}Proyecciones · Panel de Cobranza{% endblock %}
 
 {% block head_extra %}
 <style>
-  :root { --sticky-offset: 6rem; }
-  [x-cloak] { display: none !important; }
-  .table-container { position: relative; }
-  .thead-clone {
-    position: fixed; top: var(--sticky-offset); z-index: 15;
-    opacity: 0; pointer-events: none; transform: translateY(-100%);
-    transition: opacity .2s, transform .2s;
-    border-bottom: 1px solid #e2e8f0;
-    box-shadow: 0 1px 0 rgba(0,0,0,0.03);
-  }
-  .table-header-is-sticky .thead-clone { opacity: 1; pointer-events: auto; transform: translateY(0); }
-  @media print {
-    @page { size: A4 landscape; margin: 10mm; }
-    body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .no-print { display: none !important; }
-    table { width: 100% !important; font-size: 10px !important; table-layout: fixed; }
-    th, td { padding: 5px 7px !important; }
-    thead { display: table-header-group !important; }
-  }
+  :root{ --filter-body-max: 14rem; }
+  @media (min-height:900px){ :root{ --filter-body-max: 18rem; } }
+  [x-cloak]{ display:none !important; }
+  .proy-page.compact th, .proy-page.compact td{ padding-top:.35rem!important; padding-bottom:.35rem!important; }
+  .chip{ display:inline-flex; align-items:center; gap:.5rem; padding:.25rem .625rem; border-radius:9999px; font-size:.75rem; background:#f1f5f9; color:#334155; }
+  .dark .chip{ background:#334155; color:#e2e8f0; }
+  .section{ background:#fff; border:1px solid #e2e8f0; border-radius:.75rem; }
+  .dark .section{ background:#0f172a; border-color:#334155; }
+  .section-hd{ padding:.6rem .75rem; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; }
+  .dark .section-hd{ border-bottom-color:#334155; }
+  .section-bd{ padding:.75rem; }
+  .coll{ border:1px solid #e2e8f0; border-radius:.75rem; background:rgba(248,250,252,.6); }
+  .dark .coll{ background:rgba(15,23,42,.5); border-color:#334155; }
+  .coll-hd{ padding:.6rem .75rem; font-weight:600; display:flex; align-items:center; justify-content:space-between; }
+  .coll-bd{ padding:.5rem .75rem .75rem; border-top:1px solid #e2e8f0; }
+  .dark .coll-bd{ border-top-color:#334155; }
+  .coll-body{ max-height:var(--filter-body-max); overflow:auto; }
+  @media print{ .no-print{ display:none!important; } thead{ display:table-header-group!important; } }
 </style>
 {% endblock %}
 
 {% block body %}
-<div class="space-y-6 dark:text-slate-200 print-wrap">
+<div class="proy-page space-y-6">
 
-  <!-- Barra de filtros y parámetros financieros -->
-  <div id="filtersBar" class="no-print sticky top-0 z-20 transition-shadow duration-300">
-    <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
-      <form method="GET" action="{{ url_for('reporte_proyecciones') }}">
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+  <!-- KPIs -->
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+    {{ kpi_card("Ingreso proyectado", "$" ~ "{:,.2f}".format((proyecciones.resumen.ingresos_totales_proyectados | default(0, true)))) }}
+    {{ kpi_card("Clientes a cobrar", proyecciones.resumen.clientes_a_cobrar | default(0, true)) }}
+    {{ kpi_card("Colchón por devaluación", "($ " ~ "{:,.2f}".format((proyecciones.kpis.perdida_devaluacion_usd | default(0, true))) ~ ")", "Ponderado USD/EUR/USDT", "red") }}
+    {{ kpi_card("Balance neto proyectado", "$" ~ "{:,.2f}".format((proyecciones.resumen.balance_neto_proyectado | default(0, true)))) }}
+  </div>
+
+  <!-- Acciones rápidas -->
+  <div class="no-print flex items-center gap-2">
+    <button id="toggleDensityProy" class="px-3 py-2 text-sm rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
+      Alternar densidad
+    </button>
+    {% set chips = [] %}
+    {% for v in request.args.getlist('empresa') if v %}{% set _ = chips.append('Empresa: ' ~ v) %}{% endfor %}
+    {% for v in request.args.getlist('estado_plan') if v %}{% set _ = chips.append('Estado: ' ~ v) %}{% endfor %}
+    {% for v in request.args.getlist('estatus_cliente') if v %}{% set _ = chips.append('Estatus: ' ~ v) %}{% endfor %}
+    {% for v in request.args.getlist('condicion') if v %}{% set _ = chips.append('Condición: ' ~ v) %}{% endfor %}
+    {% for v in request.args.getlist('cuota_bucket') if v %}
+      {% set _ = chips.append('Cuotas: ' ~ ({'1':'1-6','2':'7-12','3':'13-24','4':'25-36'}[v] if v in ['1','2','3','4'] else v)) %}
+    {% endfor %}
+    {% if request.args.get('insc_desde') %}{% set _ = chips.append('Insc. desde: ' ~ request.args.get('insc_desde')) %}{% endif %}
+    {% if request.args.get('insc_hasta') %}{% set _ = chips.append('Insc. hasta: ' ~ request.args.get('insc_hasta')) %}{% endif %}
+    <div class="flex gap-2 flex-wrap">{% for c in chips %}<span class="chip">{{ c }}</span>{% endfor %}</div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="section">
+    <div class="section-hd">
+      <h2 class="font-semibold">Filtros de clientes</h2>
+      <div class="text-xs text-slate-500">Afectan listado y totales.</div>
+    </div>
+    <div class="section-bd">
+      <form method="GET" action="{{ url_for('reporte_proyecciones') }}" x-data="{ adv:false }">
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
 
           <!-- Empresa -->
-          <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-            <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-              <span>Empresa</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': open }"></i>
+          <div x-data="{open:false}" class="coll">
+            <button type="button" class="coll-hd" @click="open=!open">
+              <span>Empresa</span><i class="bi" :class="open?'bi-chevron-up':'bi-chevron-down'"></i>
             </button>
-            <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+            <div class="coll-bd" x-show="open" x-cloak>
               {% set emp_sel = request.args.getlist('empresa') %}
-              <div class="grid grid-cols-2 gap-x-4 gap-y-2">
-                {% for emp in empresas_opciones %}
-                <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                  <input type="checkbox" name="empresa" value="{{ emp }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if emp in emp_sel %}checked{% endif %}>
-                  <span>{{ emp }}</span>
+              <div class="coll-body grid grid-cols-2 gap-2">
+                {% for emp in (empresas_opciones or []) %}
+                <label class="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="empresa" value="{{ emp }}" {% if emp in emp_sel %}checked{% endif %} class="rounded border-slate-300 dark:border-slate-600 text-orange-600">
+                  <span class="truncate" title="{{ emp }}">{{ emp }}</span>
                 </label>
                 {% endfor %}
               </div>
             </div>
           </div>
 
-          <!-- Estado Plan -->
-          <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-            <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-              <span>Estado Plan</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': open }"></i>
+          <!-- Estado plan -->
+          <div x-data="{open:false}" class="coll">
+            <button type="button" class="coll-hd" @click="open=!open">
+              <span>Estado del plan</span><i class="bi" :class="open?'bi-chevron-up':'bi-chevron-down'"></i>
             </button>
-            <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+            <div class="coll-bd" x-show="open" x-cloak>
               {% set estado_sel = request.args.getlist('estado_plan') %}
               {% set estado_sel_up = estado_sel|map('upper')|list %}
-              <div class="grid grid-cols-1 gap-x-4 gap-y-2">
-                {% for est in estados_opciones %}
-                <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                  <input type="checkbox" name="estado_plan" value="{{ est }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if est|upper in estado_sel_up %}checked{% endif %}>
-                  <span>{{ est|replace('_',' ')|capitalize }}</span>
+              <div class="coll-body grid grid-cols-1 gap-2">
+                {% for est in (estados_opciones or []) %}
+                <label class="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="estado_plan" value="{{ est }}" {% if est|upper in estado_sel_up %}checked{% endif %} class="rounded border-slate-300 dark:border-slate-600 text-orange-600">
+                  <span class="truncate" title="{{ est }}">{{ est|replace('_',' ')|capitalize }}</span>
                 </label>
                 {% endfor %}
               </div>
@@ -121,18 +125,18 @@
           </div>
 
           <!-- Estatus Cliente -->
-          <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-            <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-              <span>Estatus Cliente</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': open }"></i>
+          <div x-data="{open:false}" class="coll">
+            <button type="button" class="coll-hd" @click="open=!open">
+              <span>Estatus cliente</span><i class="bi" :class="open?'bi-chevron-up':'bi-chevron-down'"></i>
             </button>
-            <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
-              {% set estatus_sel = request.args.getlist('estatus_cliente') %}
-              {% set estatus_sel_up = estatus_sel|map('upper')|list %}
-              <div class="grid grid-cols-1 gap-x-4 gap-y-2">
-                {% for est in estatus_opciones %}
-                <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                  <input type="checkbox" name="estatus_cliente" value="{{ est }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if est|upper in estatus_sel_up %}checked{% endif %}>
-                  <span>{{ est|replace('_',' ')|capitalize }}</span>
+            <div class="coll-bd" x-show="open" x-cloak>
+              {% set est_sel = request.args.getlist('estatus_cliente') %}
+              {% set est_sel_up = est_sel|map('upper')|list %}
+              <div class="coll-body grid grid-cols-1 gap-2">
+                {% for est in (estatus_opciones or []) %}
+                <label class="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="estatus_cliente" value="{{ est }}" {% if est|upper in est_sel_up %}checked{% endif %} class="rounded border-slate-300 dark:border-slate-600 text-orange-600">
+                  <span class="truncate" title="{{ est }}">{{ est|replace('_',' ')|capitalize }}</span>
                 </label>
                 {% endfor %}
               </div>
@@ -140,35 +144,35 @@
           </div>
 
           <!-- Condición -->
-          <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-            <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-              <span>Condición</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': open }"></i>
+          <div x-data="{open:false}" class="coll">
+            <button type="button" class="coll-hd" @click="open=!open">
+              <span>Condición</span><i class="bi" :class="open?'bi-chevron-up':'bi-chevron-down'"></i>
             </button>
-            <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+            <div class="coll-bd" x-show="open" x-cloak>
               {% set cond_sel = request.args.getlist('condicion') %}
               {% set cond_sel_up = cond_sel|map('upper')|list %}
-              <div class="grid grid-cols-1 gap-x-4 gap-y-2">
-                {% for cond in condicion_opciones %}
-                <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                  <input type="checkbox" name="condicion" value="{{ cond }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if cond|upper in cond_sel_up %}checked{% endif %}>
-                  <span>{{ cond|replace('_',' ')|capitalize }}</span>
+              <div class="coll-body grid grid-cols-1 gap-2">
+                {% for cond in (condicion_opciones or []) %}
+                <label class="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="condicion" value="{{ cond }}" {% if cond|upper in cond_sel_up %}checked{% endif %} class="rounded border-slate-300 dark:border-slate-600 text-orange-600">
+                  <span class="truncate" title="{{ cond }}">{{ cond|replace('_',' ')|capitalize }}</span>
                 </label>
                 {% endfor %}
               </div>
             </div>
           </div>
 
-          <!-- Rango de Cuotas -->
-          <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 md:col-span-2 xl:col-span-1">
-            <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-              <span>Rango de Cuotas</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': open }"></i>
+          <!-- Rango de cuotas -->
+          <div x-data="{open:false}" class="coll">
+            <button type="button" class="coll-hd" @click="open=!open">
+              <span>Rango de Cuotas</span><i class="bi" :class="open?'bi-chevron-up':'bi-chevron-down'"></i>
             </button>
-            <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+            <div class="coll-bd" x-show="open" x-cloak>
               {% set cuotas_sel = request.args.getlist('cuota_bucket') %}
-              <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+              <div class="coll-body grid grid-cols-2 gap-2">
                 {% for val, label in [('1','1-6'),('2','7-12'),('3','13-24'),('4','25-36')] %}
-                <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                  <input type="checkbox" name="cuota_bucket" value="{{ val }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if val in cuotas_sel %}checked{% endif %}>
+                <label class="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="cuota_bucket" value="{{ val }}" {% if val in cuotas_sel %}checked{% endif %} class="rounded border-slate-300 dark:border-slate-600 text-orange-600">
                   <span>{{ label }}</span>
                 </label>
                 {% endfor %}
@@ -176,260 +180,167 @@
             </div>
           </div>
 
-          <!-- Parámetros financieros -->
-          <div class="grid grid-cols-2 gap-3 md:col-span-2 xl:col-span-3">
-            <div>
-              <label class="text-xs font-medium text-slate-600 dark:text-slate-400">Tasa BCV USD</label>
-              <input type="number" step="0.0001" name="tasa_bcv_dolar_inicio" value="{{ proyecciones.parametros.tasa_bcv_dolar_inicio }}" class="mt-1 w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 text-sm">
-            </div>
-            <div>
-              <label class="text-xs font-medium text-slate-600 dark:text-slate-400">Tasa BCV EUR</label>
-              <input type="number" step="0.0001" name="tasa_bcv_euro_inicio" value="{{ proyecciones.parametros.tasa_bcv_euro_inicio }}" class="mt-1 w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 text-sm">
-            </div>
-            <div>
-              <label class="text-xs font-medium text-slate-600 dark:text-slate-400">% Devaluación USD</label>
-              <input type="number" step="0.01" name="deval_usd_pct" value="{{ proyecciones.parametros.deval_usd_pct }}" class="mt-1 w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 text-sm">
-            </div>
-            <div>
-              <label class="text-xs font-medium text-slate-600 dark:text-slate-400">% Devaluación EUR</label>
-              <input type="number" step="0.01" name="deval_eur_pct" value="{{ proyecciones.parametros.deval_eur_pct }}" class="mt-1 w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 text-sm">
-            </div>
-            <div>
-              <label class="text-xs font-medium text-slate-600 dark:text-slate-400">% Devaluación USDT</label>
-              <input type="number" step="0.01" name="deval_usdt_pct" value="{{ proyecciones.parametros.deval_usdt_pct }}" class="mt-1 w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 text-sm">
-            </div>
-            <div>
-              <label class="text-xs font-medium text-slate-600 dark:text-slate-400">% Tolerancia</label>
-              <input type="number" step="0.01" name="margen_tolerancia_pct" value="{{ proyecciones.parametros.margen_tolerancia_pct }}" class="mt-1 w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 text-sm">
-            </div>
-            <div>
-              <label class="text-xs font-medium text-slate-600 dark:text-slate-400">% Margen Binance</label>
-              <input type="number" step="0.01" name="margen_binance_pct" value="{{ proyecciones.parametros.margen_binance_pct }}" class="mt-1 w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 text-sm">
-            </div>
-            <div class="col-span-2 grid grid-cols-3 gap-3">
-              <div>
-                <label class="text-xs font-medium text-slate-600 dark:text-slate-400">Bs ref. USD</label>
-                <input type="number" step="0.01" name="bs_ref_usd" value="{{ proyecciones.parametros.bs_ref_usd }}" class="mt-1 w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 text-sm">
-              </div>
-              <div>
-                <label class="text-xs font-medium text-slate-600 dark:text-slate-400">Bs ref. EUR</label>
-                <input type="number" step="0.01" name="bs_ref_eur" value="{{ proyecciones.parametros.bs_ref_eur }}" class="mt-1 w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 text-sm">
-              </div>
-              <div>
-                <label class="text-xs font-medium text-slate-600 dark:text-slate-400">Bs ref. USDT</label>
-                <input type="number" step="0.01" name="bs_ref_usdt" value="{{ proyecciones.parametros.bs_ref_usdt }}" class="mt-1 w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 text-sm">
-              </div>
-            </div>
-          </div>
-
-          <!-- Acciones -->
-          <div class="flex items-end justify-end gap-3 md:col-span-2 xl:col-span-1">
-            <a href="{{ url_for('reporte_proyecciones') }}" class="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg">Limpiar</a>
-            <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-lg">Aplicar</button>
-
-            <div x-data="{ open: false }" class="relative">
-              {% set qs_export = [] %}
-              {% for k, v in request.args.items(multi=True) if v %}
-                {% set _ = qs_export.append(k ~ '=' ~ (v|string)|urlencode) %}
-              {% endfor %}
-              <button @click="open = !open" type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg">
-                <i class="bi bi-download"></i> Exportar <i class="bi bi-chevron-down -mr-1 h-5 w-5"></i>
-              </button>
-              <div x-show="open" @click.away="open = false" class="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-slate-800 shadow-lg ring-1 ring-black ring-opacity-5" style="display:none;">
-                <div class="py-1">
-                  <a href="{{ url_for('reporte_proyecciones') }}?{{ (qs_export + ['export=csv'])|join('&') }}" class="group flex items-center gap-3 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"><i class="bi bi-filetype-csv text-lg text-slate-500"></i><span>Exportar CSV (listado)</span></a>
-                  <a href="{{ url_for('reporte_proyecciones') }}?{{ (qs_export + ['export=pdf'])|join('&') }}" class="group flex items-center gap-3 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"><i class="bi bi-filetype-pdf text-lg text-red-500"></i><span>Exportar PDF (listado)</span></a>
+          <!-- Fechas -->
+          <div class="coll">
+            <div class="coll-hd">Inscripción</div>
+            <div class="coll-bd">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="text-xs text-slate-500">Desde</label>
+                  <input type="date" name="insc_desde" value="{{ request.args.get('insc_desde','') }}" class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
+                </div>
+                <div>
+                  <label class="text-xs text-slate-500">Hasta</label>
+                  <input type="date" name="insc_hasta" value="{{ request.args.get('insc_hasta','') }}" class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
                 </div>
               </div>
             </div>
           </div>
 
         </div>
+
+        <!-- Parámetros financieros -->
+        <div class="section mt-4">
+          <div class="section-hd">
+            <h3 class="font-semibold">Parámetros financieros</h3>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-slate-500">Modo avanzado</span>
+              <input type="checkbox" class="rounded" x-model="adv">
+            </div>
+          </div>
+          <div class="section-bd space-y-3">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label class="text-xs text-slate-500">Tasa BCV (USD) al inicio</label>
+                <input type="number" step="0.0001" name="tasa_bcv_dolar_inicio" value="{{ proyecciones.parametros.tasa_bcv_dolar_inicio | default('', true) }}" placeholder="Ej: 40.1234"
+                  class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
+              </div>
+              <div>
+                <label class="text-xs text-slate-500">Tasa BCV (EUR) al inicio</label>
+                <input type="number" step="0.0001" name="tasa_bcv_euro_inicio" value="{{ proyecciones.parametros.tasa_bcv_euro_inicio | default('', true) }}" placeholder="Ej: 44.5678"
+                  class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
+              </div>
+              <div class="text-xs text-slate-500 flex items-end">Si lo dejas vacío, se usa la última tasa guardada.</div>
+            </div>
+
+            <template x-if="adv">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="border rounded-lg p-3">
+                  <div class="text-sm font-semibold mb-1">USD (BCV)</div>
+                  <label class="text-xs text-slate-500">Devaluación proyectada (%)</label>
+                  <input type="number" step="0.01" name="deval_usd_pct" value="{{ request.args.get('deval_usd_pct','') }}" placeholder="Ej: 2.5"
+                         class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
+                  <label class="text-xs text-slate-500 mt-2">Colchón / margen (%)</label>
+                  <input type="number" step="0.01" name="margen_dolar_pct" value="{{ proyecciones.parametros.margen_dolar_pct | default('15.0', true) }}"
+                         class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
+                </div>
+                <div class="border rounded-lg p-3">
+                  <div class="text-sm font-semibold mb-1">EUR (BCV)</div>
+                  <label class="text-xs text-slate-500">Devaluación proyectada (%)</label>
+                  <input type="number" step="0.01" name="deval_eur_pct" value="{{ request.args.get('deval_eur_pct','') }}" placeholder="Ej: 2.0"
+                         class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
+                  <label class="text-xs text-slate-500 mt-2">Colchón / margen (%)</label>
+                  <input type="number" step="0.01" name="margen_euro_pct" value="{{ proyecciones.parametros.margen_euro_pct | default('15.0', true) }}"
+                         class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
+                </div>
+                <div class="border rounded-lg p-3">
+                  <div class="text-sm font-semibold mb-1">USDT (Binance)</div>
+                  <label class="text-xs text-slate-500">Devaluación proyectada (%)</label>
+                  <input type="number" step="0.01" name="deval_usdt_pct" value="{{ request.args.get('deval_usdt_pct','') }}" placeholder="Ej: 0.8"
+                         class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
+                  <label class="text-xs text-slate-500 mt-2">Colchón / margen (%)</label>
+                  <input type="number" step="0.01" name="margen_binance_pct" value="{{ proyecciones.parametros.margen_binance_pct | default('65.0', true) }}"
+                         class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Acciones -->
+        <div class="flex flex-wrap items-center justify-end gap-2 mt-4">
+          <a href="{{ url_for('reporte_proyecciones') }}" class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">Limpiar</a>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-700">Calcular</button>
+
+          {% set qs_export = [] %}
+          {% for k, v in request.args.items(multi=True) if v %}{% set _ = qs_export.append(k ~ '=' ~ (v|string)|urlencode) %}{% endfor %}
+          <details class="relative">
+            <summary class="list-none cursor-pointer px-4 py-2 rounded-lg bg-emerald-600 text-white inline-flex items-center gap-2">
+              <i class="bi bi-download"></i> Exportar
+            </summary>
+            <div class="absolute mt-2 right-0 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow p-1">
+              <a class="block px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 rounded"
+                 href="{{ url_for('reporte_proyecciones') }}?{{ (qs_export + ['export=csv'])|join('&') }}">CSV</a>
+              <a class="block px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 rounded"
+                 href="{{ url_for('reporte_proyecciones') }}?{{ (qs_export + ['export=pdf'])|join('&') }}">PDF</a>
+            </div>
+          </details>
+        </div>
+
       </form>
     </div>
   </div>
 
-  <!-- KPIs -->
-  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
-      <div class="text-xs text-slate-500">Tasas (BCV / Estimada)</div>
-      <div class="mt-2 space-y-1 text-sm">
-        <div>USD: <span class="font-semibold">Bs. {{ "{:,.4f}".format(proyecciones.tasas.tasa_usd) }}</span></div>
-        <div>EUR: <span class="font-semibold">Bs. {{ "{:,.4f}".format(proyecciones.tasas.tasa_eur) }}</span></div>
-        <div>USDT~: <span class="font-semibold">Bs. {{ "{:,.4f}".format(proyecciones.tasas.tasa_usdt_aprox) }}</span></div>
-      </div>
-      <p class="mt-2 text-xs text-slate-500">Nota: Equivalente USD = Bs / Tasa USD (también para EUR/USDT para comparar todo en USD).</p>
+  <!-- Listado de cobranza -->
+  <div class="section">
+    <div class="section-hd">
+      <h3 class="font-semibold">Listado de cobranza</h3>
+      <div class="text-xs text-slate-500">Con los filtros actuales.</div>
     </div>
-
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
-      <div class="text-xs text-slate-500">Equivalentes USD por referencia</div>
-      <div class="mt-2 space-y-1 text-sm">
-        <div>USD: <span class="font-semibold">${{ "{:,.2f}".format(proyecciones.equivalentes.usd_equiv_usd) }}</span></div>
-        <div>EUR: <span class="font-semibold">${{ "{:,.2f}".format(proyecciones.equivalentes.usd_equiv_eur) }}</span></div>
-        <div>USDT: <span class="font-semibold">${{ "{:,.2f}".format(proyecciones.equivalentes.usd_equiv_usdt) }}</span></div>
-      </div>
-      <div class="mt-2 text-sm">Total: <span class="font-bold">${{ "{:,.2f}".format(proyecciones.equivalentes.usd_equiv_total) }}</span></div>
-    </div>
-
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
-      <div class="text-xs text-slate-500">Colchón por devaluación (USD)</div>
-      <div class="mt-2 space-y-1 text-sm">
-        <div>USD: <span class="font-semibold">(${{ "{:,.2f}".format(proyecciones.colchones.colchon_usd_usd) }})</span></div>
-        <div>EUR: <span class="font-semibold">(${{ "{:,.2f}".format(proyecciones.colchones.colchon_usd_eur) }})</span></div>
-        <div>USDT: <span class="font-semibold">(${{ "{:,.2f}".format(proyecciones.colchones.colchon_usd_usdt) }})</span></div>
-      </div>
-      <div class="mt-2 text-sm">Total: <span class="font-bold">(${{ "{:,.2f}".format(proyecciones.colchones.colchon_total_usd) }})</span></div>
-    </div>
-
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
-      <div class="text-xs text-slate-500">Devaluación ponderada del mix</div>
-      <div class="mt-1 flex items-center gap-2">
-        <div class="h-3 w-3 rounded-full {{ proyecciones.colchones.margen_color }}"></div>
-        <div class="text-2xl font-bold">{{ "{:,.2f}".format(proyecciones.colchones.deval_ponderado_pct) }}%</div>
-      </div>
-      <div class="text-xs text-slate-500 mt-1">Umbral: {{ request.args.get('margen_tolerancia_pct', '15') }}%</div>
-    </div>
-  </div>
-
-  <!-- Listado de cobranza (clientes filtrados) -->
-  <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm table-container" id="table-container">
-    <div class="overflow-x-auto" id="table-scroll-wrapper">
-      <table class="min-w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
-        <thead class="bg-slate-50 dark:bg-slate-700" id="original-thead">
+    <div class="section-bd overflow-x-auto">
+      {% if proyecciones.clientes_a_cobrar and proyecciones.clientes_a_cobrar|length > 0 %}
+      <table class="min-w-full text-[13px] leading-tight divide-y divide-slate-200 dark:divide-slate-700">
+        <thead class="bg-slate-50 dark:bg-slate-700">
           <tr>
-            <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('id', 'ID') }}</th>
-            {% if show_nombre %}
-              <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('nombre', 'Nombre') }}</th>
-              <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('apellido', 'Apellido') }}</th>
-            {% endif %}
-            <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('empresa', 'Empresa') }}</th>
-            <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('estado_del_plan', 'Estado del Plan') }}</th>
-            <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('estatus', 'Estatus') }}</th>
-            {% if show_condicion %}
-              <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('condicion', 'Condición') }}</th>
-            {% endif %}
-            <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('telefono', 'Teléfono') }}</th>
-            <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Observaciones/Seguimiento</th>
+            <th class="py-3 px-3 text-left">Cliente</th>
+            <th class="py-3 px-3 text-left">Cédula</th>
+            <th class="py-3 px-3 text-left">Estado plan</th>
+            <th class="py-3 px-3 text-left">Condición</th>
+            <th class="py-3 px-3 text-left"># Cuota</th>
+            <th class="py-3 px-3 text-left">Fecha pago</th>
+            <th class="py-3 px-3 text-right">Monto (USD)</th>
+            <th class="py-3 px-3 text-left">Método</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-          {% if rows %}
-            {% for row in rows %}
-            <tr class="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-800 dark:even:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200">
-              <td class="px-4 py-3 font-medium text-slate-900 dark:text-slate-200">{{ row.id or '—' }}</td>
-              {% if show_nombre %}
-                <td class="px-4 py-3 text-slate-700 dark:text-slate-300">{{ row.nombre or '—' }}</td>
-                <td class="px-4 py-3 text-slate-700 dark:text-slate-300">{{ row.apellido or '—' }}</td>
-              {% endif %}
-              <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ row.empresa or '—' }}</td>
-              <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ row.estado_del_plan or '—' }}</td>
-              <td class="px-4 py-3">{{ pill_status(row.estatus) }}</td>
-              {% if show_condicion %}
-                <td class="px-4 py-3">{{ pill_condicion(row.condicion) }}</td>
-              {% endif %}
-              <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ row.telefono or '—' }}</td>
-              <td class="px-4 py-3"></td>
-            </tr>
-            {% endfor %}
-          {% else %}
-            <tr>
-              <td colspan="100%" class="text-center py-16 px-4">
-                <i class="bi bi-search text-4xl text-slate-400 dark:text-slate-500"></i>
-                <h3 class="mt-2 text-lg font-semibold text-slate-800 dark:text-slate-200">No se encontraron resultados</h3>
-                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Ajusta los filtros para ver más datos.</p>
-              </td>
-            </tr>
-          {% endif %}
+          {% for r in proyecciones.clientes_a_cobrar %}
+          <tr class="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-800 dark:even:bg-slate-800/50">
+            <td class="px-3 py-2">{{ r.cliente or '—' }}</td>
+            <td class="px-3 py-2">{{ r.cedula or '—' }}</td>
+            <td class="px-3 py-2">{{ r.estado_plan or '—' }}</td>
+            <td class="px-3 py-2">
+              {% if r.condicion %}
+                {% if r.condicion|upper == 'AL DIA' %}{{ pill('Al día','green') }}{% else %}{{ pill(r.condicion|title,'amber') }}{% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td class="px-3 py-2">{{ r.numero_cuota if r.numero_cuota is not none else '—' }}</td>
+            <td class="px-3 py-2">{{ r.fecha_pago if r.fecha_pago else '—' }}</td>
+            <td class="px-3 py-2 text-right">{{ "{:,.2f}".format((r.monto_usd or 0)) }}</td>
+            <td class="px-3 py-2">{{ r.metodo or '—' }}</td>
+          </tr>
+          {% endfor %}
         </tbody>
       </table>
+      {% else %}
+        <div class="text-slate-500 text-sm">No hay datos. Aplica filtros y presiona <b>Calcular</b>.</div>
+      {% endif %}
     </div>
   </div>
-
-  {% if page_count > 1 %}
-  <nav class="no-print flex items-center justify-between pt-4" aria-label="Pagination">
-    <div class="hidden sm:block">
-      <p class="text-sm text-slate-700 dark:text-slate-300">
-        Mostrando <span class="font-medium">{{ (page - 1) * per_page + 1 }}</span>
-        a <span class="font-medium">{{ (page - 1) * per_page + (rows|length) }}</span>
-        de <span class="font-medium">{{ total_count }}</span> resultados
-      </p>
-    </div>
-    <div class="flex-1 flex justify-between sm:justify-end">
-      {% set has_prev = page > 1 %}
-      {% set has_next = page < page_count %}
-      {% set qs_page = [] %}
-      {% for k, v in request.args.items(multi=True) if k != 'page' and v %}
-        {% set _ = qs_page.append(k ~ '=' ~ (v|string)|urlencode) %}
-      {% endfor %}
-      <a href="{{ url_for('reporte_proyecciones') }}?{{ (qs_page + ['page=' ~ (page - 1)])|join('&') if has_prev else '#' }}"
-         class="relative inline-flex items-center px-4 py-2 text-sm font-medium bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700 {{ 'pointer-events-none opacity-50' if not has_prev }}">
-        Anterior
-      </a>
-      <a href="{{ url_for('reporte_proyecciones') }}?{{ (qs_page + ['page=' ~ (page + 1)])|join('&') if has_next else '#' }}"
-         class="ml-3 relative inline-flex items-center px-4 py-2 text-sm font-medium bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700 {{ 'pointer-events-none opacity-50' if not has_next }}">
-        Siguiente
-      </a>
-    </div>
-  </nav>
-  {% endif %}
 
 </div>
 {% endblock %}
 
 {% block scripts_extra %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const tableContainer = document.getElementById('table-container');
-  const originalThead = document.getElementById('original-thead');
-  const scrollWrapper = document.getElementById('table-scroll-wrapper');
-  const filtersBar = document.getElementById('filtersBar');
-  const root = document.documentElement;
-  if (!tableContainer || !originalThead || !scrollWrapper) return;
-
-  const clonedThead = originalThead.cloneNode(true);
-  clonedThead.id = '';
-  clonedThead.classList.add('thead-clone');
-  try { clonedThead.style.backgroundColor = getComputedStyle(originalThead).backgroundColor; } catch(e) {}
-  tableContainer.appendChild(clonedThead);
-
-  const syncWidths = () => {
-    const os = originalThead.querySelectorAll('th');
-    const cs = clonedThead.querySelectorAll('th');
-    os.forEach((th, i) => {
-      const w = th.getBoundingClientRect().width;
-      if (cs[i]) { cs[i].style.minWidth = w+'px'; cs[i].style.width = w+'px'; }
-    });
-    clonedThead.style.width = originalThead.getBoundingClientRect().width+'px';
-  };
-
-  function updateStickyOffset() {
-    const h = filtersBar ? filtersBar.getBoundingClientRect().height : 0;
-    root.style.setProperty('--sticky-offset', h + 'px');
-  }
-
-  const onWindowScroll = () => {
-    const h = filtersBar ? filtersBar.getBoundingClientRect().height : 0;
-    const trigger = tableContainer.offsetTop - h;
-    if (window.scrollY >= trigger) {
-      tableContainer.classList.add('table-header-is-sticky');
-      originalThead.style.visibility = 'hidden';
-    } else {
-      tableContainer.classList.remove('table-header-is-sticky');
-      originalThead.style.visibility = 'visible';
-    }
-  };
-
-  scrollWrapper.addEventListener('scroll', () => {
-    clonedThead.style.transform = `translateY(0) translateX(-${scrollWrapper.scrollLeft}px)`;
-  });
-
-  window.addEventListener('resize', () => { syncWidths(); updateStickyOffset(); onWindowScroll(); });
-  window.addEventListener('scroll', onWindowScroll);
-
-  updateStickyOffset();
-  syncWidths();
-  onWindowScroll();
-});
+  // Densidad persistente
+  (function(){
+    const root = document.querySelector('.proy-page');
+    const KEY = 'proy_dense';
+    function apply(v){ root.classList.toggle('compact', v==='1'); }
+    apply(localStorage.getItem(KEY) || '0');
+    const btn = document.getElementById('toggleDensityProy');
+    if(btn){ btn.addEventListener('click', ()=>{ const v = root.classList.contains('compact')?'0':'1'; localStorage.setItem(KEY, v); apply(v); }); }
+  })();
 </script>
 {% endblock %}
 
