@@ -1,6 +1,6 @@
 {% extends "base_sidebar.html" %}
 
-{% macro pill_status(estatus) %}{# ...sin cambios... #}{% endmacro %}
+{% macro pill_status(estatus) %}{# ...sin cambios... #}{# endmacro %}
 {% macro pill_condicion(condicion) %}{# ...sin cambios... #}{% endmacro %}
 
 {# Enlaces de orden sin **kwargs. Ahora preserva arrays con items(multi=True) #}
@@ -38,47 +38,43 @@
     /* Estilo para x-cloak: oculta elementos hasta que Alpine.js esté listo */
     [x-cloak] { display: none !important; }
 
-    /* Estilos para que el sticky header funcione correctamente con bordes */
-    .table-sticky {
-        border-collapse: separate;
-        border-spacing: 0;
+    /* Contenedor de la tabla necesita ser relativo para el clon del thead */
+    .table-container {
+        position: relative;
     }
 
-    /* NUEVO ENFOQUE: Hacer el THead completo pegajoso, no cada celda */
-    .thead-sticky {
-        position: -webkit-sticky; /* Prefijo para compatibilidad con Safari */
-        position: sticky;
+    /* Estilos para el clon del thead que se mostrará al hacer scroll */
+    .thead-clone {
+        position: fixed;
         top: var(--sticky-offset);
         z-index: 5;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-100%);
+        transition: opacity 0.2s, transform 0.2s;
+        border-bottom: 1px solid #e2e8f0; /* slate-200 */
+    }
+    .dark .thead-clone {
+        border-bottom-color: #334155; /* slate-700 */
+    }
+
+    /* Cuando el scroll activa el header, se hace visible */
+    .table-header-is-sticky .thead-clone {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
     }
 
     /* ---------- ESTILOS DE IMPRESIÓN MEJORADOS ---------- */
     @media print {
-        @page {
-            size: A4 landscape;
-            margin: 10mm;
-        }
-
-        body {
-            background: #fff !important;
-            -webkit-print-color-adjust: exact; /* Fuerza colores y fondos en Chrome/Safari */
-            print-color-adjust: exact;
-        }
-
-        /* Ocultar elementos no necesarios para la impresión */
+        @page { size: A4 landscape; margin: 10mm; }
+        body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .no-print { display: none !important; }
-        /* Evitar cortes de página inoportunos en el contenedor principal */
-        .print-wrap { break-inside: avoid; page-break-inside: avoid; }
-        /* Eliminar sombras para una impresión más limpia */
+        .print-wrap, tr { break-inside: avoid; page-break-inside: avoid; }
         .shadow-none-print, .shadow-sm, .shadow-md, .shadow-lg { box-shadow: none !important; }
-        /* Ajustar tabla para que quepa en el ancho de la página */
-        table { width: 100% !important; font-size: 10px !important; /* Tamaño de fuente reducido para compactar */ }
-        th, td { padding: 5px 7px !important; /* Padding reducido */ }
-        /* Repetir el encabezado de la tabla en cada página impresa */
+        table { width: 100% !important; font-size: 10px !important; }
+        th, td { padding: 5px 7px !important; }
         thead { display: table-header-group !important; }
-        /* Evitar que las filas individuales se partan entre dos páginas */
-        tr { page-break-inside: avoid !important; }
-        /* Mantener padding general consistente si se usa en otros elementos */
         .p-4, .p-5, .p-6 { padding: 8px !important; }
     }
 </style>
@@ -91,97 +87,71 @@
         <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
             <form method="GET" action="{{ url_for('reporte_metricas') }}">
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
-
                     <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                         <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                            <span>Empresa</span>
-                            <i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
+                            <span>Empresa</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
                         </button>
                         <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
-                            {% set emp_sel = request.args.getlist('empresa') %}
-                            <div class="grid grid-cols-2 gap-x-4 gap-y-2">
-                                {% for emp in empresas_opciones %}
-                                <label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
+                            {% set emp_sel = request.args.getlist('empresa') %}<div class="grid grid-cols-2 gap-x-4 gap-y-2">
+                                {% for emp in empresas_opciones %}<label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
                                     <input type="checkbox" name="empresa" value="{{ emp }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if emp in emp_sel %}checked{% endif %}>
                                     <span>{{ emp }}</span>
-                                </label>
-                                {% endfor %}
+                                </label>{% endfor %}
                             </div>
                         </div>
                     </div>
-
                     <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                         <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                            <span>Estado Plan</span>
-                            <i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
+                            <span>Estado Plan</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
                         </button>
                         <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
-                            {% set estado_sel = request.args.getlist('estado_plan') %}
-                            <div class="grid grid-cols-1 gap-x-4 gap-y-2">
-                                {% for est in estados_opciones %}
-                                <label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
+                            {% set estado_sel = request.args.getlist('estado_plan') %}<div class="grid grid-cols-1 gap-x-4 gap-y-2">
+                                {% for est in estados_opciones %}<label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
                                     <input type="checkbox" name="estado_plan" value="{{ est }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if est|upper in estado_sel|map('upper')|list %}checked{% endif %}>
                                     <span>{{ est|replace('_',' ')|capitalize }}</span>
-                                </label>
-                                {% endfor %}
+                                </label>{% endfor %}
                             </div>
                         </div>
                     </div>
-
                     <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                         <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                            <span>Estatus Cliente</span>
-                            <i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
+                            <span>Estatus Cliente</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
                         </button>
                         <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
-                            {% set estatus_sel = request.args.getlist('estatus_cliente') %}
-                            <div class="grid grid-cols-1 gap-x-4 gap-y-2">
-                                {% for est in estatus_opciones %}
-                                <label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
+                            {% set estatus_sel = request.args.getlist('estatus_cliente') %}<div class="grid grid-cols-1 gap-x-4 gap-y-2">
+                                {% for est in estatus_opciones %}<label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
                                     <input type="checkbox" name="estatus_cliente" value="{{ est }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if est|upper in estatus_sel|map('upper')|list %}checked{% endif %}>
                                     <span>{{ est|replace('_',' ')|capitalize }}</span>
-                                </label>
-                                {% endfor %}
+                                </label>{% endfor %}
                             </div>
                         </div>
                     </div>
-
                     <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                         <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                            <span>Condición</span>
-                            <i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
+                            <span>Condición</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
                         </button>
                         <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
-                            {% set cond_sel = request.args.getlist('condicion') %}
-                            <div class="grid grid-cols-1 gap-x-4 gap-y-2">
-                                {% for cond in condicion_opciones %}
-                                <label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
+                            {% set cond_sel = request.args.getlist('condicion') %}<div class="grid grid-cols-1 gap-x-4 gap-y-2">
+                                {% for cond in condicion_opciones %}<label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
                                     <input type="checkbox" name="condicion" value="{{ cond }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if cond|upper in cond_sel|map('upper')|list %}checked{% endif %}>
                                     <span>{{ cond|replace('_',' ')|capitalize }}</span>
-                                </label>
-                                {% endfor %}
+                                </label>{% endfor %}
                             </div>
                         </div>
                     </div>
-
                     <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                         <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                            <span>Rango de Cuotas</span>
-                            <i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
+                            <span>Rango de Cuotas</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': !open }"></i>
                         </button>
                         <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
-                            {% set cuotas_sel = request.args.getlist('cuota_bucket') %}
-                            <div class="grid grid-cols-2 gap-x-4 gap-y-2">
-                                {% for val, label in [('1','1-6'),('2','7-12'),('3','13-24'),('4','25-36')] %}
-                                <label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
+                            {% set cuotas_sel = request.args.getlist('cuota_bucket') %}<div class="grid grid-cols-2 gap-x-4 gap-y-2">
+                                {% for val, label in [('1','1-6'),('2','7-12'),('3','13-24'),('4','25-36')] %}<label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
                                     <input type="checkbox" name="cuota_bucket" value="{{ val }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if val in cuotas_sel %}checked{% endif %}>
                                     <span>{{ label }}</span>
-                                </label>
-                                {% endfor %}
+                                </label>{% endfor %}
                             </div>
                         </div>
                     </div>
-
                     <div class="lg:col-span-2 xl:col-span-1 space-y-2">
                         <div class="flex-1">
                            <label for="insc_desde" class="text-xs font-medium text-slate-600 dark:text-slate-400">Insc. Desde</label>
@@ -193,30 +163,18 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="flex flex-wrap items-center justify-end gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                     <a href="{{ url_for('reporte_metricas') }}" class="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg transition-colors">Limpiar</a>
                     <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors">Aplicar Filtros</button>
-
                     <div x-data="{ open: false }" class="relative">
                         <button @click="open = !open" type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg">
                             <i class="bi bi-download"></i> Exportar <i class="bi bi-chevron-down -mr-1 h-5 w-5"></i>
                         </button>
-
-                        {# Construir QS preservando TODOS los valores multi #}
-                        {% set qs_export = [] %}
-                        {% for k, v in request.args.items(multi=True) if v %}
-                            {% set _ = qs_export.append(k ~ '=' ~ (v|string)|urlencode) %}
-                        {% endfor %}
-
+                        {% set qs_export = [] %}{% for k, v in request.args.items(multi=True) if v %}{% set _ = qs_export.append(k ~ '=' ~ (v|string)|urlencode) %}{% endfor %}
                         <div x-show="open" @click.away="open = false" class="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-slate-800 shadow-lg ring-1 ring-black ring-opacity-5" style="display:none;">
                             <div class="py-1">
-                                <a href="{{ url_for('reporte_metricas') }}?{{ (qs_export + ['export=csv'])|join('&') }}" class="group flex items-center gap-3 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700">
-                                    <i class="bi bi-filetype-csv text-lg text-slate-500"></i><span>Exportar como CSV</span>
-                                </a>
-                                <a href="{{ url_for('reporte_metricas') }}?{{ (qs_export + ['export=pdf'])|join('&') }}" class="group flex items-center gap-3 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700">
-                                    <i class="bi bi-filetype-pdf text-lg text-red-500"></i><span>Exportar como PDF</span>
-                                </a>
+                                <a href="{{ url_for('reporte_metricas') }}?{{ (qs_export + ['export=csv'])|join('&') }}" class="group flex items-center gap-3 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"><i class="bi bi-filetype-csv text-lg text-slate-500"></i><span>Exportar como CSV</span></a>
+                                <a href="{{ url_for('reporte_metricas') }}?{{ (qs_export + ['export=pdf'])|join('&') }}" class="group flex items-center gap-3 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"><i class="bi bi-filetype-pdf text-lg text-red-500"></i><span>Exportar como PDF</span></a>
                             </div>
                         </div>
                     </div>
@@ -227,10 +185,10 @@
 
     {# Resumen / Gráficas (igual) #}
 
-    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm shadow-none-print">
-        <div class="overflow-x-auto">
-            <table class="table-sticky min-w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
-                <thead class="bg-slate-50 dark:bg-slate-700 thead-sticky">
+    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm shadow-none-print table-container" id="table-container">
+        <div class="overflow-x-auto" id="table-scroll-wrapper">
+            <table class="min-w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
+                <thead class="bg-slate-50 dark:bg-slate-700" id="original-thead">
                     <tr>
                         <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('id', 'ID') }}</th>
                         {% if show_nombre %}
@@ -315,6 +273,64 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // --- Lógica para el encabezado sticky manual ---
+  const tableContainer = document.getElementById('table-container');
+  const originalThead = document.getElementById('original-thead');
+  const scrollWrapper = document.getElementById('table-scroll-wrapper');
+
+  if (!tableContainer || !originalThead || !scrollWrapper) return;
+
+  // 1. Clonar el thead para usarlo como encabezado fijo
+  const clonedThead = originalThead.cloneNode(true);
+  clonedThead.id = ''; // El ID debe ser único
+  clonedThead.classList.add('thead-clone');
+  tableContainer.appendChild(clonedThead);
+
+  // 2. Sincronizar anchos de columnas
+  const syncWidths = () => {
+    const originalThs = originalThead.querySelectorAll('th');
+    const clonedThs = clonedThead.querySelectorAll('th');
+    originalThs.forEach((th, index) => {
+      const width = th.getBoundingClientRect().width;
+      if (clonedThs[index]) {
+        clonedThs[index].style.minWidth = `${width}px`;
+        clonedThs[index].style.width = `${width}px`;
+      }
+    });
+    clonedThead.style.width = `${originalThead.getBoundingClientRect().width}px`;
+  };
+  
+  // 3. Monitorear scroll vertical de la página
+  const onWindowScroll = () => {
+    const filtersBarHeight = document.getElementById('filtersBar').getBoundingClientRect().height;
+    const scrollY = window.scrollY;
+    // La posición donde el thead original debería empezar a ocultarse
+    const triggerPoint = tableContainer.offsetTop - filtersBarHeight;
+
+    if (scrollY >= triggerPoint) {
+      tableContainer.classList.add('table-header-is-sticky');
+      // Dejar un espacio para el thead original para que el tbody no salte
+      originalThead.style.visibility = 'hidden';
+    } else {
+      tableContainer.classList.remove('table-header-is-sticky');
+      originalThead.style.visibility = 'visible';
+    }
+  };
+
+  // 4. Sincronizar scroll horizontal
+  scrollWrapper.addEventListener('scroll', () => {
+    clonedThead.style.transform = `translateX(-${scrollWrapper.scrollLeft}px)`;
+  });
+
+  // 5. Añadir listeners y ejecutar una vez al inicio
+  window.addEventListener('scroll', onWindowScroll);
+  window.addEventListener('resize', syncWidths);
+  
+  // Ejecución inicial para el estado de la página al cargar
+  syncWidths();
+  onWindowScroll();
+
+  // --- Lógica para el offset del filtro (sin cambios) ---
   const filtersBar = document.getElementById('filtersBar');
   const root = document.documentElement;
   function updateStickyOffset(){
