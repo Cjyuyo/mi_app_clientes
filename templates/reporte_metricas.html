@@ -32,29 +32,50 @@
 
 {% block head_extra %}
 <style>
+    /* El offset se calcula con JS y se inyecta aquí. Se usa como fallback. */
     :root { --sticky-offset: 6rem; }
 
-    .table-sticky { border-collapse: separate; border-spacing: 0; }
-    .thead-sticky { position: relative; z-index: 30; }
-    .thead-sticky th {
-        position: sticky;
-        top: var(--sticky-offset, 6rem);
-        z-index: 40;
-        background: inherit;
+    /* Estilos para que el sticky header funcione correctamente con bordes */
+    .table-sticky {
+        border-collapse: separate;
+        border-spacing: 0;
     }
 
-    /* ---------- PRINT ---------- */
+    /* El z-index se aplica a los 'th' directamente, no al contenedor 'thead' */
+    .thead-sticky th {
+        position: sticky;
+        top: var(--sticky-offset); /* Se pega justo debajo de la barra de filtros */
+        z-index: 5; /* MENOR que el z-20 de la barra de filtros para que quede por debajo */
+        background: inherit; /* Hereda el fondo del thead para consistencia visual */
+    }
+
+    /* ---------- ESTILOS DE IMPRESIÓN MEJORADOS ---------- */
     @media print {
         @page {
-            size: A4 landscape;      /* o Letter landscape si prefieres */
+            size: A4 landscape;
             margin: 10mm;
         }
-        body { background: #fff !important; }
+
+        body {
+            background: #fff !important;
+            -webkit-print-color-adjust: exact; /* Fuerza colores y fondos en Chrome/Safari */
+            print-color-adjust: exact;
+        }
+
+        /* Ocultar elementos no necesarios para la impresión */
         .no-print { display: none !important; }
+        /* Evitar cortes de página inoportunos en el contenedor principal */
         .print-wrap { break-inside: avoid; page-break-inside: avoid; }
-        .shadow-none-print, .shadow-sm, .shadow-md { box-shadow: none !important; }
-        table { width: 100% !important; font-size: 11px !important; }
-        th, td { padding: 6px 8px !important; }
+        /* Eliminar sombras para una impresión más limpia */
+        .shadow-none-print, .shadow-sm, .shadow-md, .shadow-lg { box-shadow: none !important; }
+        /* Ajustar tabla para que quepa en el ancho de la página */
+        table { width: 100% !important; font-size: 10px !important; /* Tamaño de fuente reducido para compactar */ }
+        th, td { padding: 5px 7px !important; /* Padding reducido */ }
+        /* Repetir el encabezado de la tabla en cada página impresa */
+        thead { display: table-header-group !important; }
+        /* Evitar que las filas individuales se partan entre dos páginas */
+        tr { page-break-inside: avoid !important; }
+        /* Mantener padding general consistente si se usa en otros elementos */
         .p-4, .p-5, .p-6 { padding: 8px !important; }
     }
 </style>
@@ -63,9 +84,6 @@
 {% block body %}
 <div class="space-y-6 dark:text-slate-200 print-wrap">
 
-    <!-- Encabezado / chips contadores ... (igual) -->
-
-    <!-- Barra de Filtros (Sticky) -->
     <div id="filtersBar" class="no-print sticky top-0 z-20 transition-shadow duration-300">
         <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
             <form method="GET" action="{{ url_for('reporte_metricas') }}">
@@ -159,12 +177,10 @@
                     </div>
                 </div>
 
-                <!-- Botones -->
                 <div class="flex flex-wrap items-center justify-end gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                     <a href="{{ url_for('reporte_metricas') }}" class="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg transition-colors">Limpiar</a>
                     <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors">Aplicar Filtros</button>
 
-                    <!-- Export -->
                     <div x-data="{ open: false }" class="relative">
                         <button @click="open = !open" type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg">
                             <i class="bi bi-download"></i> Exportar <i class="bi bi-chevron-down -mr-1 h-5 w-5"></i>
@@ -194,7 +210,6 @@
 
     {# Resumen / Gráficas (igual) #}
 
-    <!-- Tabla -->
     <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm shadow-none-print">
         <div class="overflow-x-auto">
             <table class="table-sticky min-w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
