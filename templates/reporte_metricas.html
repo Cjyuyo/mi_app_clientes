@@ -44,12 +44,12 @@
         border-spacing: 0;
     }
 
-    /* El z-index se aplica a los 'th' directamente, no al contenedor 'thead' */
-    .thead-sticky th {
+    /* NUEVO ENFOQUE: Hacer el THead completo pegajoso, no cada celda */
+    .thead-sticky {
+        position: -webkit-sticky; /* Prefijo para compatibilidad con Safari */
         position: sticky;
-        top: var(--sticky-offset); /* Se pega justo debajo de la barra de filtros */
-        z-index: 5; /* MENOR que el z-20 de la barra de filtros para que quede por debajo */
-        background: inherit; /* Hereda el fondo del thead (ahora sólido) */
+        top: var(--sticky-offset);
+        z-index: 5;
     }
 
     /* ---------- ESTILOS DE IMPRESIÓN MEJORADOS ---------- */
@@ -228,7 +228,7 @@
     {# Resumen / Gráficas (igual) #}
 
     <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm shadow-none-print">
-        <div class="overflow-x-auto relative">
+        <div class="overflow-x-auto">
             <table class="table-sticky min-w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
                 <thead class="bg-slate-50 dark:bg-slate-700 thead-sticky">
                     <tr>
