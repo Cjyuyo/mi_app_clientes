@@ -49,43 +49,34 @@
     </a>
 {%- endmacro %}
 
-{% from _self import pill_status, pill_condicion, sort_link %}
-
 {% block title %}Métricas de Clientes{% endblock %}
 {% block page_title %}Métricas · Vitrina de Clientes{% endblock %}
 
 {% block head_extra %}
 <style>
-    /* Offset (se calcula con JS y sirve este fallback) */
     :root { --sticky-offset: 6rem; }
-
-    /* Alpine cloak */
     [x-cloak] { display: none !important; }
 
-    /* Contexto para el clon del thead */
     .table-container { position: relative; }
-
-    /* Clon del thead (queda por ENCIMA de las filas y por DEBAJO de la barra de filtros) */
     .thead-clone {
         position: fixed;
         top: var(--sticky-offset);
-        z-index: 15;              /* filtros usan z-20; filas < 10 */
+        z-index: 15;
         opacity: 0;
         pointer-events: none;
         transform: translateY(-100%);
         transition: opacity .2s, transform .2s;
-        border-bottom: 1px solid #e2e8f0; /* slate-200 */
+        border-bottom: 1px solid #e2e8f0;
         box-shadow: 0 1px 0 rgba(0,0,0,0.03);
     }
-    .dark .thead-clone { border-bottom-color: #334155; /* slate-700 */ }
-
+    .dark .thead-clone { border-bottom-color: #334155; }
     .table-header-is-sticky .thead-clone {
         opacity: 1;
         pointer-events: auto;
         transform: translateY(0);
     }
 
-    /* ---------- IMPRESIÓN: ajusta para caber en una hoja ---------- */
+    /* IMPRESIÓN: ajusta para caber en 1 hoja cuando exportas a PDF desde el navegador */
     @media print {
         @page { size: A4 landscape; margin: 10mm; }
         body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -330,50 +321,41 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // --- Sticky thead mediante clon (no altera HTML original) ---
   const tableContainer = document.getElementById('table-container');
-  const originalThead = document.getElementById('original-thead');
-  const scrollWrapper = document.getElementById('table-scroll-wrapper');
-  const filtersBar = document.getElementById('filtersBar');
-  const root = document.documentElement;
+  const originalThead  = document.getElementById('original-thead');
+  const scrollWrapper  = document.getElementById('table-scroll-wrapper');
+  const filtersBar     = document.getElementById('filtersBar');
+  const root           = document.documentElement;
 
   if (!tableContainer || !originalThead || !scrollWrapper) return;
 
-  // Clonar el thead
   const clonedThead = originalThead.cloneNode(true);
-  clonedThead.id = ''; // evitar duplicar ID
+  clonedThead.id = '';
   clonedThead.classList.add('thead-clone');
-  // Copiar color de fondo del original (clon está fuera de la tabla)
-  try {
-    const bg = getComputedStyle(originalThead).backgroundColor;
-    clonedThead.style.backgroundColor = bg || '';
-  } catch (e) {}
+  try { clonedThead.style.backgroundColor = getComputedStyle(originalThead).backgroundColor || ''; } catch(e) {}
   tableContainer.appendChild(clonedThead);
 
-  // Sincronizar anchos de columnas
   const syncWidths = () => {
     const originalThs = originalThead.querySelectorAll('th');
-    const clonedThs = clonedThead.querySelectorAll('th');
+    const clonedThs   = clonedThead.querySelectorAll('th');
     originalThs.forEach((th, i) => {
       const w = th.getBoundingClientRect().width;
       if (clonedThs[i]) {
         clonedThs[i].style.minWidth = w + 'px';
-        clonedThs[i].style.width = w + 'px';
+        clonedThs[i].style.width    = w + 'px';
       }
     });
     clonedThead.style.width = originalThead.getBoundingClientRect().width + 'px';
   };
 
-  // Calcular offset real de la barra de filtros
   function updateStickyOffset() {
     const h = filtersBar ? filtersBar.getBoundingClientRect().height : 0;
     root.style.setProperty('--sticky-offset', h + 'px');
   }
 
-  // Activar/desactivar sticky según scroll
   const onWindowScroll = () => {
     const filtersBarHeight = filtersBar ? filtersBar.getBoundingClientRect().height : 0;
-    const triggerPoint = tableContainer.offsetTop - filtersBarHeight;
+    const triggerPoint     = tableContainer.offsetTop - filtersBarHeight;
     if (window.scrollY >= triggerPoint) {
       tableContainer.classList.add('table-header-is-sticky');
       originalThead.style.visibility = 'hidden';
@@ -383,16 +365,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   };
 
-  // Sincronizar desplazamiento horizontal
   scrollWrapper.addEventListener('scroll', () => {
     clonedThead.style.transform = `translateY(0) translateX(-${scrollWrapper.scrollLeft}px)`;
   });
 
-  // Listeners
   window.addEventListener('resize', () => { syncWidths(); updateStickyOffset(); onWindowScroll(); });
   window.addEventListener('scroll', onWindowScroll);
 
-  // Inicial
   updateStickyOffset();
   syncWidths();
   onWindowScroll();
