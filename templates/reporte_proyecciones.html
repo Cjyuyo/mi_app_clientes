@@ -1,363 +1,408 @@
-{% extends 'base_sidebar.html' %}
-{% block title %}Planificación Financiera{% endblock %}
+{% extends "base_sidebar.html" %}
+
+{# =========================
+   Macros UI (solo presentación)
+   ========================= #}
+{% macro pill_condicion(condicion) -%}
+    {% set c = (condicion or '')|upper %}
+    {% set ok = (c == 'AL DIA') %}
+    {% set cls = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300' if ok else 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300' %}
+    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full {{ cls }}">
+        <span class="h-1.5 w-1.5 rounded-full {{ 'bg-emerald-500' if ok else 'bg-rose-500' }}"></span>
+        {{ (condicion or '—')|title }}
+    </span>
+{%- endmacro %}
+
+{% macro pill_cuota_status(s) -%}
+    {% set e = (s or '')|upper %}
+    {% set cls = {
+        'PENDIENTE': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
+        'VENCIDA':   'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+        'PAGADA':    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+    }.get(e, 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300') %}
+    <span class="px-2 py-0.5 text-xs font-semibold rounded-full {{ cls }}">{{ (s or '—')|title }}</span>
+{%- endmacro %}
+
+{# Enlaces de orden conservando filtros (multi) #}
+{% macro sort_link(field, title) -%}
+    {% set is_current    = (request.args.get('sort') == field) %}
+    {% set current_order = request.args.get('order', request.args.get('dir','asc')) %}
+    {% set next_order    = 'desc' if is_current and current_order == 'asc' else 'asc' %}
+    {% set qs = [] %}
+    {% for k, v in request.args.items(multi=True) if k not in ['sort','order','dir'] and v %}
+        {% set _ = qs.append(k ~ '=' ~ (v|string)|urlencode) %}
+    {% endfor %}
+    {% set _ = qs.append('sort=' ~ field) %}
+    {% set _ = qs.append('order=' ~ next_order) %}
+    <a href="{{ url_for('reporte_proyecciones') }}?{{ qs|join('&') }}" class="group inline-flex items-center gap-2">
+        {{ title }}
+        <span class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 {% if is_current %}opacity-100{% endif %}">
+            {% if is_current and current_order == 'desc' %}
+                <i class="bi bi-sort-down"></i>
+            {% else %}
+                <i class="bi bi-sort-up"></i>
+            {% endif %}
+        </span>
+    </a>
+{%- endmacro %}
+
+{% block title %}Proyecciones & Cobranza{% endblock %}
+{% block page_title %}Proyecciones · Lista de Cobranza{% endblock %}
+
+{% block head_extra %}
+<style>
+    :root { --sticky-offset: 6rem; }
+    [x-cloak] { display: none !important; }
+    .table-container { position: relative; }
+    .thead-clone {
+        position: fixed; top: var(--sticky-offset); z-index: 15;
+        opacity: 0; pointer-events: none; transform: translateY(-100%);
+        transition: opacity .2s, transform .2s; border-bottom: 1px solid #e2e8f0;
+        box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+    }
+    .dark .thead-clone { border-bottom-color: #334155; }
+    .table-header-is-sticky .thead-clone { opacity: 1; pointer-events: auto; transform: translateY(0); }
+
+    @media print {
+        @page { size: A4 landscape; margin: 10mm; }
+        body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .no-print { display: none !important; }
+        .print-wrap, tr { break-inside: avoid; page-break-inside: avoid; }
+        .shadow-none-print, .shadow-sm, .shadow-md, .shadow-lg { box-shadow: none !important; }
+        table { width: 100% !important; font-size: 10px !important; table-layout: fixed; }
+        th, td { padding: 5px 7px !important; }
+        thead { display: table-header-group !important; }
+        .p-4, .p-5, .p-6 { padding: 8px !important; }
+    }
+</style>
+{% endblock %}
 
 {% block body %}
-<script>window.BLOQUES_INICIALES = {{ (bloques_iniciales or "[]")|safe }};</script>
+<div class="space-y-6 dark:text-slate-200 print-wrap">
 
-<div class="space-y-8" x-data="escenariosBuilder()" x-init="init()">
-
-  <header class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-    <div class="flex flex-col md:flex-row justify-between md:items-center">
-      <div class="flex items-center gap-4 mb-4 md:mb-0">
-        <div class="w-12 h-12 flex items-center justify-center rounded-full bg-sky-100 text-sky-600">
-          <i class="bi bi-sliders text-2xl"></i>
-        </div>
-        <div>
-          <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Planificación de Escenarios</h1>
-          <p class="text-slate-500 mt-1">Define y combina bloques de filtros para proyectar y gestionar la cobranza.</p>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-2">
-        <a href="{{ url_for('proyecciones_guardadas') }}" class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 flex items-center">
-          <i class="bi bi-clock-history mr-2"></i> Ver Proyecciones Guardadas
-        </a>
-        <form method="GET" action="{{ url_for('exportar_proyecciones', formato='xlsx') }}">
-          <input type="hidden" name="bloques_json" :value="jsonBloquesMarcados()">
-          <button class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center">
-            <i class="bi bi-file-earmark-excel mr-2"></i> Excel
-          </button>
-        </form>
-        <form method="GET" action="{{ url_for('exportar_proyecciones', formato='pdf') }}">
-          <input type="hidden" name="bloques_json" :value="jsonBloquesMarcados()">
-          <button class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center">
-            <i class="bi bi-filetype-pdf mr-2"></i> PDF
-          </button>
-        </form>
-      </div>
-    </div>
-
-    {# ======= ALERTA DE ERRORES (NUEVO) ======= #}
-    {% if proyecciones.mensaje_error %}
-    <div class="mt-4 bg-rose-50 border border-rose-200 text-rose-700 px-3 py-2 rounded-md text-sm">
-      <i class="bi bi-exclamation-triangle-fill mr-2"></i>
-      {{ proyecciones.mensaje_error }}
-    </div>
-    {% endif %}
-    {# ====== FIN ALERTA ====== #}
-
-    <!-- FILTROS DEL BLOQUE ACTUAL -->
-    <form @submit.prevent="agregarBloqueActual()" class="mt-6">
-      <!-- Primera fila: dos rangos de fechas, bien separados -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end bg-slate-50 p-4 rounded-lg border border-slate-200">
-        <!-- Rango COBRANZA (cuotas) -->
-        <div class="lg:col-span-6">
-          <div class="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wide">Cobranza (cuotas)</div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label class="text-[11px] text-slate-500 block">Fecha de inicio de cobranza</label>
-              <input type="date" x-model="form.fecha_inicio"
-                     class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            </div>
-            <div>
-              <label class="text-[11px] text-slate-500 block">Fecha de finalización de la cobranza</label>
-              <input type="date" x-model="form.fecha_fin"
-                     class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            </div>
-          </div>
-        </div>
-
-        <!-- Separador visual -->
-        <div class="hidden lg:block lg:col-span-0 border-l border-slate-200 h-full mx-1"></div>
-
-        <!-- Rango INSCRIPCIÓN (clientes) -->
-        <div class="lg:col-span-6">
-          <div class="text-[11px] text-slate-500 font-medium mb-1 uppercase tracking-wide">Inscripción (clientes)</div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label class="text-[11px] text-slate-500 block">Inscripción desde</label>
-              <input type="date" x-model="form.insc_desde"
-                     class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            </div>
-            <div>
-              <label class="text-[11px] text-slate-500 block">Inscripción hasta</label>
-              <input type="date" x-model="form.insc_hasta"
-                     class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            </div>
-          </div>
-        </div>
-
-        <!-- Empresa -->
-        <div class="lg:col-span-3">
-          <label class="text-xs font-medium text-slate-600">Empresa</label>
-          <select x-model="form.empresa" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            <option value="">Todas</option>
-            <option value="Moto Plan">Moto Plan</option>
-            <option value="CYK">CYK</option>
-          </select>
-        </div>
-
-        <!-- Estatus cliente -->
-        <div class="lg:col-span-3">
-          <label class="text-xs font-medium text-slate-600">Estatus cliente</label>
-          <select x-model="form.estatus_cliente" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            <option value="">Todos</option>
-            <option value="ACTIVO">ACTIVO</option>
-            <option value="INACTIVO">INACTIVO</option>
-          </select>
-        </div>
-
-        <!-- Estatus de cuota -->
-        <div class="lg:col-span-3">
-          <label class="text-xs font-medium text-slate-600">Estatus de cuota</label>
-          <select x-model="form.estatus_cuota" class="mt-1 form-input w-full rounded-md border-slate-300 text-sm">
-            <option value="">Todos</option>
-            <option value="PAGADA">Pagada</option>
-            <option value="PENDIENTE">Pendiente</option>
-          </select>
-        </div>
-
-        <!-- Excluir RC -->
-        <div class="lg:col-span-3 flex items-center gap-2 pt-6">
-          <input id="excluir_rc" type="checkbox" x-model="form.excluir_rc" class="rounded">
-          <label for="excluir_rc" class="text-xs font-medium text-slate-600">Excluir RETIRO y COMPLETADO</label>
-        </div>
-      </div>
-
-      <!-- Multiselección: Estado del plan y Condición -->
-      <div class="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <!-- Estado del plan -->
-        <div x-data="{open:false}" @keydown.escape.window="open=false" class="relative">
-          <label class="text-xs font-medium text-slate-600">Estado del plan</label>
-          <button type="button" @click="open=!open" class="mt-1 form-input w-full flex justify-between items-center rounded-md border border-slate-300 text-sm px-3 py-2">
-            <span class="truncate" x-text="resumenEstados()"></span>
-            <i class="bi bi-caret-down-fill text-slate-500 text-xs ml-2"></i>
-          </button>
-          <div x-show="open" @click.outside="open=false" x-transition
-               class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg p-3">
-            <div class="flex flex-col gap-2 max-h-56 overflow-auto">
-              <template x-for="e in estadosAll" :key="e">
-                <label class="inline-flex items-center gap-2 text-sm">
-                  <input type="checkbox" class="rounded" :value="e" @change="toggleEstado(e)" :checked="form.estados.includes(e)">
-                  <span x-text="e"></span>
-                </label>
-              </template>
-            </div>
-          </div>
-        </div>
-
-        <!-- Condición -->
-        <div x-data="{open:false}" @keydown.escape.window="open=false" class="relative">
-          <label class="text-xs font-medium text-slate-600">Condición</label>
-          <button type="button" @click="open=!open" class="mt-1 form-input w-full flex justify-between items-center rounded-md border border-slate-300 text-sm px-3 py-2">
-            <span class="truncate" x-text="resumenCondiciones()"></span>
-            <i class="bi bi-caret-down-fill text-slate-500 text-xs ml-2"></i>
-          </button>
-          <div x-show="open" @click.outside="open=false" x-transition
-               class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg p-3">
-            <div class="flex flex-col gap-2 max-h-56 overflow-auto">
-              <template x-for="c in condicionesAll" :key="c">
-                <label class="inline-flex items-center gap-2 text-sm">
-                  <input type="checkbox" class="rounded" :value="c" @change="toggleCondicion(c)" :checked="form.condiciones.includes(c)">
-                  <span x-text="c"></span>
-                </label>
-              </template>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Acciones de bloque -->
-      <div class="mt-4 flex flex-wrap items-center gap-3">
-        <button type="submit" class="py-2 px-4 rounded-md text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700">
-          Agregar bloque
-        </button>
-        <button type="button" @click="limpiarActual()" class="py-2 px-4 rounded-md text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200">
-          Limpiar bloque
-        </button>
-      </div>
-    </form>
-
-  </header>
-
-  <!-- Bloques -->
-  <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-xl font-bold text-slate-800">Bloques de simulación</h3>
-      <div class="flex items-center gap-2">
-        <button class="py-2 px-4 rounded-md text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700"
-                @click="simularBloques()">
-          <i class="bi bi-calculator-fill mr-1"></i> Simular bloques
-        </button>
-        <form method="POST" action="{{ url_for('activar_proyeccion') }}">
-          <input type="hidden" name="bloques_json" :value="jsonBloquesMarcados()">
-          <button type="submit" class="py-2 px-4 rounded-md text-sm font-semibold text-white bg-green-600 hover:bg-green-700">
-            Activar Proyección Global
-          </button>
-        </form>
-      </div>
-    </div>
-
-    <template x-if="!bloques.length">
-      <p class="text-slate-500 text-sm">Aún no hay bloques. Agrega al menos uno desde el formulario de arriba.</p>
-    </template>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" x-show="bloques.length">
-      <template x-for="(b, idx) in bloques" :key="idx">
-        <div class="border rounded-lg p-4 space-y-2">
-          <div class="flex items-center justify-between">
-            <h4 class="font-semibold text-slate-800">Bloque <span x-text="idx+1"></span></h4>
-            <div class="flex items-center gap-2">
-              <label class="inline-flex items-center gap-2 text-sm">
-                <input type="checkbox" class="rounded" x-model="b.incluir">
-                <span>Incluir en global</span>
-              </label>
-              <button class="text-rose-600 hover:text-rose-700 text-sm" @click="eliminarBloque(idx)">
-                Eliminar
-              </button>
-            </div>
-          </div>
-          <p class="text-xs text-slate-500"><strong>Cobranza:</strong> <span x-text="b.fecha_inicio || '—'"></span> → <span x-text="b.fecha_fin || '—'"></span></p>
-          <p class="text-xs text-slate-500"><strong>Inscripción:</strong> <span x-text="b.insc_desde || '—'"></span> → <span x-text="b.insc_hasta || '—'"></span></p>
-          <p class="text-xs text-slate-500"><strong>Empresa:</strong> <span x-text="b.empresa || 'Todas'"></span></p>
-          <p class="text-xs text-slate-500"><strong>Estatus cliente:</strong> <span x-text="b.estatus_cliente || 'Todos'"></span></p>
-          <p class="text-xs text-slate-500"><strong>Estatus cuota:</strong> <span x-text="b.estatus_cuota || 'Todos'"></span></p>
-          <p class="text-xs text-slate-500"><strong>Estados plan:</strong> <span x-text="(b.estados && b.estados.length)? b.estados.join(', '): 'Todos'"></span></p>
-          <p class="text-xs text-slate-500"><strong>Condición:</strong> <span x-text="(b.condiciones && b.condiciones.length)? b.condiciones.join(', '): 'Todas'"></span></p>
-          <p class="text-xs text-slate-500"><strong>Excluir RC:</strong> <span x-text="b.excluir_rc ? 'Sí' : 'No'"></span></p>
-        </div>
-      </template>
-    </div>
-  </section>
-
-  <!-- Resultados por bloque (si el backend los envía) -->
-  {% set _rb = resultados_por_bloque|default([]) %}
-  {% if _rb %}
-  <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-    <h3 class="text-xl font-bold text-slate-800 mb-4">Resultados por bloque</h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {% for r in _rb %}
-        <div class="border rounded-lg p-4">
-          <div class="text-sm text-slate-500">Bloque {{ r.indice }}</div>
-          <div class="mt-2 text-slate-800">
-            <div class="text-sm"><span class="text-slate-500">Clientes:</span> <strong>{{ r.clientes }}</strong></div>
-            <div class="text-sm"><span class="text-slate-500">Total USD:</span> <strong>${{ "{:,.2f}".format(r.total_usd) }}</strong></div>
-          </div>
-          {% if r.detalle %}
-          <div class="mt-3 text-xs text-slate-500">
-            <div><strong>Rango cobranza:</strong> {{ r.detalle.fecha_inicio or '—' }} → {{ r.detalle.fecha_fin or '—' }}</div>
-            <div><strong>Rango inscripción:</strong> {{ r.detalle.insc_desde or '—' }} → {{ r.detalle.insc_hasta or '—' }}</div>
-          </div>
-          {% endif %}
-        </div>
-      {% endfor %}
-    </div>
-  </section>
-  {% endif %}
-
-  {% if simulacion_realizada and proyecciones.simulacion_exitosa %}
     <!-- KPIs -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <div class="bg-white p-5 rounded-xl shadow-sm border text-center">
-        <div class="text-sm text-slate-500">Ingresos Proyectados</div>
-        <div class="text-2xl font-bold text-slate-800 mt-1">${{ "{:,.2f}".format(proyecciones.resumen.ingresos_totales_proyectados) }}</div>
-      </div>
-      <div class="bg-white p-5 rounded-xl shadow-sm border text-center">
-        <div class="text-sm text-slate-500">Gastos Proyectados</div>
-        <div class="text-2xl font-bold text-slate-800 mt-1">${{ "{:,.2f}".format(proyecciones.resumen.gastos_totales_proyectados) }}</div>
-      </div>
-      <div class="bg-white p-5 rounded-xl shadow-sm border text-center">
-        <div class="text-sm text-slate-500">Balance Neto Proyectado</div>
-        <div class="text-2xl font-bold {{ 'text-green-600' if proyecciones.resumen.balance_neto_proyectado >= 0 else 'text-red-600' }} mt-1">
-          ${{ "{:,.2f}".format(proyecciones.resumen.balance_neto_proyectado) }}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+            <p class="text-xs text-slate-500">Clientes a cobrar</p>
+            <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">
+                {{ proyecciones.resumen.clientes_a_cobrar|default(0, true) }}
+            </p>
         </div>
-      </div>
-      <div class="bg-white p-5 rounded-xl shadow-sm border text-center">
-        <div class="text-sm text-slate-500">Clientes a Cobrar</div>
-        <div class="text-2xl font-bold text-slate-800 mt-1">{{ proyecciones.resumen.clientes_a_cobrar }}</div>
-      </div>
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+            <p class="text-xs text-slate-500">Ingresos proyectados</p>
+            <p class="text-2xl font-bold text-emerald-600">
+                ${{ "{:,.2f}".format((proyecciones.resumen.ingresos_totales_proyectados or 0) if proyecciones else 0) }}
+            </p>
+        </div>
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+            <p class="text-xs text-slate-500">Gastos proyectados</p>
+            <p class="text-2xl font-bold text-red-600">
+                ${{ "{:,.2f}".format((proyecciones.resumen.gastos_totales_proyectados or 0) if proyecciones else 0) }}
+            </p>
+        </div>
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+            <p class="text-xs text-slate-500">Balance neto</p>
+            <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">
+                ${{ "{:,.2f}".format((proyecciones.resumen.balance_neto_proyectado or 0) if proyecciones else 0) }}
+            </p>
+        </div>
     </div>
 
-    <!-- Lista de clientes a cobrar -->
-    <div class="bg-white p-6 rounded-xl shadow-sm border">
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-sm">
-          <thead class="bg-slate-100 text-slate-600">
-            <tr>
-              <th class="px-3 py-2 text-left">Cliente</th>
-              <th class="px-3 py-2 text-left">Cédula</th>
-              <th class="px-3 py-2 text-left">Estado plan</th>
-              <th class="px-3 py-2 text-right">Cuota</th>
-              <th class="px-3 py-2 text-left">Condición</th>
-              <th class="px-3 py-2 text-left">Estatus cuota</th>
-              <th class="px-3 py-2 text-left">Fecha pago</th>
-              <th class="px-3 py-2 text-right">Monto (USD)</th>
-              <th class="px-3 py-2 text-left">Método</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-200">
-            {% for r in proyecciones.clientes_a_cobrar %}
-              <tr>
-                <td class="px-3 py-2">{{ r.cliente }}</td>
-                <td class="px-3 py-2">{{ r.cedula }}</td>
-                <td class="px-3 py-2">{{ r.estado_plan }}</td>
-                <td class="px-3 py-2 text-right">{{ r.numero_cuota }}</td>
-                <td class="px-3 py-2">{{ r.condicion }}</td>
-                <td class="px-3 py-2">{{ r.estatus_cuota }}</td>
-                <td class="px-3 py-2">{{ r.fecha_pago }}</td>
-                <td class="px-3 py-2 text-right">{{ "{:,.2f}".format(r.monto_usd) }}</td>
-                <td class="px-3 py-2">{{ r.metodo }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+    <!-- Barra de filtros (igual estilo que Métricas) -->
+    <div id="filtersBar" class="no-print sticky top-0 z-20 transition-shadow duration-300">
+        <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
+            <form method="GET" action="{{ url_for('reporte_proyecciones') }}">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
+                    <!-- Empresa -->
+                    <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                        <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                            <span>Empresa</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': open }"></i>
+                        </button>
+                        <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+                            {% set emp_sel = request.args.getlist('empresa') %}
+                            <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+                                {% for emp in (empresas_opciones|default([], true)) %}
+                                <label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
+                                    <input type="checkbox" name="empresa" value="{{ emp }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if emp in emp_sel %}checked{% endif %}>
+                                    <span>{{ emp }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Estado Plan -->
+                    <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                        <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                            <span>Estado Plan</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': open }"></i>
+                        </button>
+                        <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+                            {% set estado_sel = request.args.getlist('estado_plan') %}
+                            {% set estado_sel_up = estado_sel|map('upper')|list %}
+                            <div class="grid grid-cols-1 gap-x-4 gap-y-2">
+                                {% for est in (estados_opciones|default([], true)) %}
+                                <label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
+                                    <input type="checkbox" name="estado_plan" value="{{ est }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if est|upper in estado_sel_up %}checked{% endif %}>
+                                    <span>{{ est|replace('_',' ')|capitalize }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Estatus Cliente -->
+                    <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                        <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                            <span>Estatus Cliente</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': open }"></i>
+                        </button>
+                        <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+                            {% set estatus_sel = request.args.getlist('estatus_cliente') or request.args.getlist('estatus') %}
+                            {% set estatus_sel_up = estatus_sel|map('upper')|list %}
+                            <div class="grid grid-cols-1 gap-x-4 gap-y-2">
+                                {% for est in (estatus_opciones|default([], true)) %}
+                                <label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
+                                    <input type="checkbox" name="estatus_cliente" value="{{ est }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if est|upper in estatus_sel_up %}checked{% endif %}>
+                                    <span>{{ est|replace('_',' ')|capitalize }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Condición -->
+                    <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                        <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                            <span>Condición</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': open }"></i>
+                        </button>
+                        <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+                            {% set cond_sel = request.args.getlist('condicion') %}
+                            {% set cond_sel_up = cond_sel|map('upper')|list %}
+                            <div class="grid grid-cols-1 gap-x-4 gap-y-2">
+                                {% for cond in (condicion_opciones|default([], true)) %}
+                                <label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
+                                    <input type="checkbox" name="condicion" value="{{ cond }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if cond|upper in cond_sel_up %}checked{% endif %}>
+                                    <span>{{ cond|replace('_',' ')|capitalize }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Buckets cuotas pagadas -->
+                    <div x-data="{ open: false }" class="relative rounded-lg bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                        <button @click="open = !open" type="button" class="flex w-full items-center justify-between p-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                            <span>Rango de Cuotas</span><i class="bi bi-chevron-down transition-transform duration-200" :class="{ '-rotate-180': open }"></i>
+                        </button>
+                        <div x-show="open" x-cloak class="px-3 pb-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+                            {% set cuotas_sel = request.args.getlist('cuota_bucket') %}
+                            <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+                                {% for val, label in [('1','1-6'),('2','7-12'),('3','13-24'),('4','25-36')] %}
+                                <label class="inline-flex items-center gap-2 text-sm font-normal text-slate-600 dark:text-slate-400">
+                                    <input type="checkbox" name="cuota_bucket" value="{{ val }}" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if val in cuotas_sel %}checked{% endif %}>
+                                    <span>{{ label }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fechas Inscripción -->
+                    <div class="lg:col-span-2 xl:col-span-1 space-y-2">
+                        <div>
+                           <label for="insc_desde" class="text-xs font-medium text-slate-600 dark:text-slate-400">Insc. Desde</label>
+                           <input type="date" id="insc_desde" name="insc_desde" value="{{ request.args.get('insc_desde', '') }}" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 text-sm">
+                        </div>
+                        <div>
+                           <label for="insc_hasta" class="text-xs font-medium text-slate-600 dark:text-slate-400">Insc. Hasta</label>
+                           <input type="date" id="insc_hasta" name="insc_hasta" value="{{ request.args.get('insc_hasta', '') }}" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 text-sm">
+                        </div>
+                    </div>
+
+                    <!-- Fechas de Cobranza -->
+                    <div class="lg:col-span-2 xl:col-span-1 space-y-2">
+                        <div>
+                           <label for="fecha_inicio" class="text-xs font-medium text-slate-600 dark:text-slate-400">Cobranza desde</label>
+                           <input type="date" id="fecha_inicio" name="fecha_inicio" value="{{ request.args.get('fecha_inicio', '') }}" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 text-sm">
+                        </div>
+                        <div>
+                           <label for="fecha_fin" class="text-xs font-medium text-slate-600 dark:text-slate-400">Cobranza hasta</label>
+                           <input type="date" id="fecha_fin" name="fecha_fin" value="{{ request.args.get('fecha_fin', '') }}" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 text-sm">
+                        </div>
+                    </div>
+
+                    <!-- Estatus de cuota -->
+                    <div class="space-y-2">
+                        <label for="estatus_cuota" class="text-xs font-medium text-slate-600 dark:text-slate-400">Estatus de cuota</label>
+                        {% set ec_val = request.args.get('estatus_cuota','') %}
+                        <select id="estatus_cuota" name="estatus_cuota" class="mt-1 block w-full rounded-xl border-slate-300 dark:border-slate-600 dark:bg-slate-800 shadow-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500 text-sm">
+                            <option value="" {% if not ec_val %}selected{% endif %}>— Cualquiera —</option>
+                            {% for opt in ['PENDIENTE','VENCIDA','PAGADA'] %}
+                                <option value="{{ opt }}" {% if ec_val and ec_val|upper==opt %}selected{% endif %}>{{ opt|title }}</option>
+                            {% endfor %}
+                            {% if ec_val and ec_val|upper not in ['PENDIENTE','VENCIDA','PAGADA'] %}
+                                <option value="{{ ec_val }}" selected>{{ ec_val|title }}</option>
+                            {% endif %}
+                        </select>
+                    </div>
+
+                    <!-- Excluir Retiro/Completado -->
+                    <div class="space-y-2">
+                        {% set exrc = (request.args.get('excluir_rc') == '1') %}
+                        <label class="text-xs font-medium text-slate-600 dark:text-slate-400">Excluir Retiro/Completado</label>
+                        <label class="inline-flex items-center gap-2 mt-1 text-sm">
+                            <input type="checkbox" name="excluir_rc" value="1" class="rounded border-slate-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500" {% if exrc %}checked{% endif %}>
+                            <span class="text-slate-700 dark:text-slate-300">Aplicar</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Acciones -->
+                <div class="flex flex-wrap items-center justify-end gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                    <a href="{{ url_for('reporte_proyecciones') }}" class="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg transition-colors">Limpiar</a>
+                    <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors">Aplicar Filtros</button>
+
+                    <!-- Exportar -->
+                    <div x-data="{ open: false }" class="relative">
+                        <button @click="open = !open" type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg">
+                            <i class="bi bi-download"></i> Exportar <i class="bi bi-chevron-down -mr-1 h-5 w-5"></i>
+                        </button>
+                        {% set qs_export = [] %}
+                        {% for k, v in request.args.items(multi=True) if v %}
+                            {% set _ = qs_export.append(k ~ '=' ~ (v|string)|urlencode) %}
+                        {% endfor %}
+                        <div x-show="open" @click.away="open = false" class="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-slate-800 shadow-lg ring-1 ring-black ring-opacity-5" style="display:none;">
+                            <div class="py-1">
+                                <a href="{{ url_for('exportar_proyecciones', formato='csv') }}?{{ qs_export|join('&') }}" class="group flex items-center gap-3 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"><i class="bi bi-filetype-csv text-lg text-slate-500"></i><span>CSV</span></a>
+                                <a href="{{ url_for('exportar_proyecciones', formato='xlsx') }}?{{ qs_export|join('&') }}" class="group flex items-center gap-3 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"><i class="bi bi-file-earmark-excel text-lg text-emerald-600"></i><span>Excel (.xlsx)</span></a>
+                                <a href="{{ url_for('exportar_proyecciones', formato='pdf') }}?{{ qs_export|join('&') }}" class="group flex items-center gap-3 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"><i class="bi bi-filetype-pdf text-lg text-red-500"></i><span>PDF</span></a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            {% if proyecciones.mensaje_error %}
+            <div class="mt-3 text-sm text-red-600">{{ proyecciones.mensaje_error }}</div>
+            {% endif %}
+        </div>
     </div>
-  {% endif %}
+
+    <!-- Tabla -->
+    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm shadow-none-print table-container" id="table-container">
+        <div class="overflow-x-auto" id="table-scroll-wrapper">
+            <table class="min-w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
+                <thead class="bg-slate-50 dark:bg-slate-700" id="original-thead">
+                    <tr>
+                        <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('cliente', 'Cliente') }}</th>
+                        <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('cedula', 'Cédula') }}</th>
+                        <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('estado_plan', 'Estado Plan') }}</th>
+                        <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('condicion', 'Condición') }}</th>
+                        <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('estatus_cuota', 'Estatus Cuota') }}</th>
+                        <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('numero_cuota', 'N° Cuota') }}</th>
+                        <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('fecha_pago', 'Fecha Pago') }}</th>
+                        <th class="py-3.5 px-4 text-right font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('monto_usd', 'Monto (USD)') }}</th>
+                        <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{{ sort_link('metodo', 'Método') }}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                    {% set rows = proyecciones.clientes_a_cobrar|default([], true) %}
+                    {% if rows and rows|length > 0 %}
+                        {% for row in rows %}
+                        <tr class="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-800 dark:even:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200">
+                            <td class="px-4 py-3 font-medium text-slate-900 dark:text-slate-200">{{ row.cliente or '—' }}</td>
+                            <td class="px-4 py-3 text-slate-700 dark:text-slate-300">{{ row.cedula or '—' }}</td>
+                            <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ row.estado_plan or '—' }}</td>
+                            <td class="px-4 py-3">{{ pill_condicion(row.condicion) }}</td>
+                            <td class="px-4 py-3">{{ pill_cuota_status(row.estatus_cuota) }}</td>
+                            <td class="px-4 py-3 text-slate-700 dark:text-slate-300">{{ row.numero_cuota if row.numero_cuota is not none else '—' }}</td>
+                            <td class="px-4 py-3 text-slate-700 dark:text-slate-300">
+                                {% if row.fecha_pago %}{{ row.fecha_pago }}{% else %}—{% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-right font-semibold">
+                                ${{ "{:,.2f}".format((row.monto_usd or 0) if row.monto_usd is not none else 0) }}
+                            </td>
+                            <td class="px-4 py-3 text-slate-700 dark:text-slate-300">{{ row.metodo or '—' }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="100%" class="text-center py-16 px-4">
+                                <i class="bi bi-search text-4xl text-slate-400 dark:text-slate-500"></i>
+                                <h3 class="mt-2 text-lg font-semibold text-slate-800 dark:text-slate-200">No se encontraron resultados</h3>
+                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Ajusta filtros o rango de fechas para ver más datos.</p>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {# Paginación opcional: si tu backend añade page/page_count/per_page, puedes reutilizar el bloque de Métricas aquí #}
 
 </div>
+{% endblock %}
 
+{% block scripts_extra %}
 <script>
-function escenariosBuilder() {
-  return {
-    estadosAll: [
-      'Ahorrador','Adjudicado','Congelado','Retiro','Completado',
-      'Reserva','Cobranza Diferida','Diferido en Reserva','Inscrito'
-    ],
-    condicionesAll: ['Mora','Solvente','Pago impuntual','Pago parcial','Pago adelantado'],
+document.addEventListener('DOMContentLoaded', function() {
+  const tableContainer = document.getElementById('table-container');
+  const originalThead = document.getElementById('original-thead');
+  const scrollWrapper = document.getElementById('table-scroll-wrapper');
+  const filtersBar = document.getElementById('filtersBar');
+  const root = document.documentElement;
 
-    form: { fecha_inicio:'', fecha_fin:'', insc_desde:'', insc_hasta:'', empresa:'', estatus_cliente:'', estatus_cuota:'', excluir_rc:false, estados:[], condiciones:[] },
-    bloques: [],
+  if (!tableContainer || !originalThead || !scrollWrapper) return;
 
-    init(){
-      try { const bi = window.BLOQUES_INICIALES; this.bloques = Array.isArray(bi)? bi : JSON.parse(bi || '[]'); }
-      catch(e){ this.bloques = []; }
-    },
+  const clonedThead = originalThead.cloneNode(true);
+  clonedThead.id = '';
+  clonedThead.classList.add('thead-clone');
+  try {
+    const bg = getComputedStyle(originalThead).backgroundColor;
+    clonedThead.style.backgroundColor = bg || '';
+  } catch (e) {}
+  tableContainer.appendChild(clonedThead);
 
-    toggleEstado(e){ const i=this.form.estados.indexOf(e); if(i>-1) this.form.estados.splice(i,1); else this.form.estados.push(e); },
-    toggleCondicion(c){ const i=this.form.condiciones.indexOf(c); if(i>-1) this.form.condiciones.splice(i,1); else this.form.condiciones.push(c); },
-    resumenEstados(){ return this.form.estados.length? (this.form.estados.length<=2? this.form.estados.join(', '): this.form.estados.length+' seleccionados') : 'Todos'; },
-    resumenCondiciones(){ return this.form.condiciones.length? (this.form.condiciones.length<=2? this.form.condiciones.join(', '): this.form.condiciones.length+' seleccionadas') : 'Todas'; },
+  const syncWidths = () => {
+    const originalThs = originalThead.querySelectorAll('th');
+    const clonedThs = clonedThead.querySelectorAll('th');
+    originalThs.forEach((th, i) => {
+      const w = th.getBoundingClientRect().width;
+      if (clonedThs[i]) {
+        clonedThs[i].style.minWidth = w + 'px';
+        clonedThs[i].style.width = w + 'px';
+      }
+    });
+    clonedThead.style.width = originalThead.getBoundingClientRect().width + 'px';
+  };
 
-    agregarBloqueActual(){
-      const b = JSON.parse(JSON.stringify(this.form));
-      b.incluir = true;
-      this.bloques.push(b);
-      this.form.estados=[]; this.form.condiciones=[];
-    },
-    eliminarBloque(idx){ this.bloques.splice(idx,1); },
-    limpiarActual(){ this.form={ fecha_inicio:'', fecha_fin:'', insc_desde:'', insc_hasta:'', empresa:'', estatus_cliente:'', estatus_cuota:'', excluir_rc:false, estados:[], condiciones:[] }; },
-    jsonBloques(){ return JSON.stringify(this.bloques || []); },
-    jsonBloquesMarcados(){ return JSON.stringify((this.bloques||[]).filter(b=>b.incluir)); },
-
-    simularBloques(){
-      const marcados = this.jsonBloquesMarcados();
-      if (!marcados || marcados === '[]') { alert('Agrega al menos un bloque marcado para simular.'); return; }
-      const url = new URL("{{ url_for('reporte_proyecciones') }}", window.location.origin);
-      url.searchParams.set('bloques_json', marcados);
-      window.location.assign(url.toString());
-    }
+  function updateStickyOffset() {
+    const h = filtersBar ? filtersBar.getBoundingClientRect().height : 0;
+    root.style.setProperty('--sticky-offset', h + 'px');
   }
-}
+
+  const onWindowScroll = () => {
+    const filtersBarHeight = filtersBar ? filtersBar.getBoundingClientRect().height : 0;
+    const triggerPoint = tableContainer.offsetTop - filtersBarHeight;
+    if (window.scrollY >= triggerPoint) {
+      tableContainer.classList.add('table-header-is-sticky');
+      originalThead.style.visibility = 'hidden';
+    } else {
+      tableContainer.classList.remove('table-header-is-sticky');
+      originalThead.style.visibility = 'visible';
+    }
+  };
+
+  scrollWrapper.addEventListener('scroll', () => {
+    clonedThead.style.transform = `translateY(0) translateX(-${scrollWrapper.scrollLeft}px)`;
+  });
+
+  window.addEventListener('resize', () => { syncWidths(); updateStickyOffset(); onWindowScroll(); });
+  window.addEventListener('scroll', onWindowScroll);
+
+  updateStickyOffset();
+  syncWidths();
+  onWindowScroll();
+});
 </script>
 {% endblock %}
