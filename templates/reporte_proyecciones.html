@@ -1,329 +1,163 @@
 {% extends "base_sidebar.html" %}
 
-{% macro pill(text, tone='slate') -%}
-  {% set tones = {
-    'slate': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200',
-    'green': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300',
-    'amber': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
-    'red':   'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300',
-    'blue':  'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  } %}
-  <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full {{ tones.get(tone, tones['slate']) }}">{{ text }}</span>
+{% macro pill_status(estatus) -%}
+    {% set e = (estatus or '')|upper %}
+    {% set cls = {
+        'PENDIENTE': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
+        'PAGADA': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+        'VENCIDA': 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300'
+    } %}
+    <span class="px-2.5 py-0.5 text-xs font-medium rounded-full {{ cls.get(e, 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300') }}">
+        {{ (estatus or '—')|replace('_',' ')|title }}
+    </span>
 {%- endmacro %}
 
-{% macro kpi_card(label, value, hint=None, tone='slate') -%}
-  <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
-    <div class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ label }}</div>
-    <div class="mt-1 text-2xl font-bold {% if tone=='green' %}text-emerald-600{% elif tone=='red' %}text-rose-600{% elif tone=='blue' %}text-blue-600{% else %}text-slate-800 dark:text-slate-100{% endif %}">
-      {{ value }}
-    </div>
-    {% if hint %}<div class="text-xs text-slate-500 mt-1">{{ hint }}</div>{% endif %}
-  </div>
-{%- endmacro %}
-
-{% block title %}Proyecciones y Cobranza{% endblock %}
-{% block page_title %}Proyecciones · Panel de Cobranza{% endblock %}
+{% block title %}Proyecciones{% endblock %}
+{% block page_title %}Proyecciones de Cobranza{% endblock %}
 
 {% block head_extra %}
 <style>
-  :root{ --filter-body-max: 14rem; }
-  @media (min-height:900px){ :root{ --filter-body-max: 18rem; } }
-  [x-cloak]{ display:none !important; }
-  .proy-page.compact th, .proy-page.compact td{ padding-top:.35rem!important; padding-bottom:.35rem!important; }
-  .chip{ display:inline-flex; align-items:center; gap:.5rem; padding:.25rem .625rem; border-radius:9999px; font-size:.75rem; background:#f1f5f9; color:#334155; }
-  .dark .chip{ background:#334155; color:#e2e8f0; }
-  .section{ background:#fff; border:1px solid #e2e8f0; border-radius:.75rem; }
-  .dark .section{ background:#0f172a; border-color:#334155; }
-  .section-hd{ padding:.6rem .75rem; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; }
-  .dark .section-hd{ border-bottom-color:#334155; }
-  .section-bd{ padding:.75rem; }
-  .coll{ border:1px solid #e2e8f0; border-radius:.75rem; background:rgba(248,250,252,.6); }
-  .dark .coll{ background:rgba(15,23,42,.5); border-color:#334155; }
-  .coll-hd{ padding:.6rem .75rem; font-weight:600; display:flex; align-items:center; justify-content:space-between; }
-  .coll-bd{ padding:.5rem .75rem .75rem; border-top:1px solid #e2e8f0; }
-  .dark .coll-bd{ border-top-color:#334155; }
-  .coll-body{ max-height:var(--filter-body-max); overflow:auto; }
-  @media print{ .no-print{ display:none!important; } thead{ display:table-header-group!important; } }
+  :root { --sticky-offset: 6rem; }
+  .table-container { position: relative; }
+  .thead-clone{
+      position: fixed; top: var(--sticky-offset); z-index:15;
+      opacity:0; pointer-events:none; transform:translateY(-100%);
+      transition: opacity .2s, transform .2s;
+      border-bottom:1px solid #e2e8f0; box-shadow:0 1px 0 rgba(0,0,0,.03);
+  }
+  .dark .thead-clone{ border-bottom-color:#334155; }
+  .table-header-is-sticky .thead-clone{ opacity:1; pointer-events:auto; transform:translateY(0); }
+
+  /* Densidad compacta (mismo patrón que métricas) */
+  #table-container.density-compact table th,
+  #table-container.density-compact table td{ padding:.375rem .5rem !important; }
+  #table-container.density-compact table{ font-size:.875rem; }
+
+  @media print{
+      @page{ size:A4 landscape; margin:10mm; }
+      .no-print{ display:none !important; }
+      table{ width:100% !important; font-size:10px !important; table-layout:fixed; }
+      th,td{ padding:5px 7px !important; }
+      thead{ display:table-header-group !important; }
+  }
 </style>
 {% endblock %}
 
 {% block body %}
-<div class="proy-page space-y-6">
+<div class="space-y-6 dark:text-slate-200 print-wrap">
+
+  <!-- Encabezado y parámetros -->
+  <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h2 class="text-xl font-semibold text-slate-800 dark:text-slate-100">Resumen de Proyección</h2>
+        {% if hint %}<div class="text-xs text-slate-500 mt-1">{{ hint }}</div>{% endif %}
+      </div>
+      <div class="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <div class="text-slate-500">Fecha inicio</div>
+          <div class="font-semibold">{{ proyecciones.parametros.fecha_inicio if proyecciones and proyecciones.parametros else '' }}</div>
+        </div>
+        <div>
+          <div class="text-slate-500">Tasa BCV USD</div>
+          <div class="font-semibold">{{ proyecciones.parametros.tasa_bcv_dolar_inicio if proyecciones and proyecciones.parametros else '' }}</div>
+        </div>
+        <div>
+          <div class="text-slate-500">Tasa BCV EUR</div>
+          <div class="font-semibold">{{ proyecciones.parametros.tasa_bcv_euro_inicio if proyecciones and proyecciones.parametros else '' }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- KPIs -->
-  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-    {{ kpi_card("Ingreso proyectado", "$" ~ "{:,.2f}".format((proyecciones.resumen.ingresos_totales_proyectados | default(0, true)))) }}
-    {{ kpi_card("Clientes a cobrar", proyecciones.resumen.clientes_a_cobrar | default(0, true)) }}
-    {{ kpi_card("Colchón por devaluación", "($ " ~ "{:,.2f}".format((proyecciones.kpis.perdida_devaluacion_usd | default(0, true))) ~ ")", "Ponderado USD/EUR/USDT", "red") }}
-    {{ kpi_card("Balance neto proyectado", "$" ~ "{:,.2f}".format((proyecciones.resumen.balance_neto_proyectado | default(0, true)))) }}
-  </div>
-
-  <!-- Acciones rápidas -->
-  <div class="no-print flex items-center gap-2">
-    <button id="toggleDensityProy" class="px-3 py-2 text-sm rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
-      Alternar densidad
-    </button>
-    {% set chips = [] %}
-    {% for v in request.args.getlist('empresa') if v %}{% set _ = chips.append('Empresa: ' ~ v) %}{% endfor %}
-    {% for v in request.args.getlist('estado_plan') if v %}{% set _ = chips.append('Estado: ' ~ v) %}{% endfor %}
-    {% for v in request.args.getlist('estatus_cliente') if v %}{% set _ = chips.append('Estatus: ' ~ v) %}{% endfor %}
-    {% for v in request.args.getlist('condicion') if v %}{% set _ = chips.append('Condición: ' ~ v) %}{% endfor %}
-    {% for v in request.args.getlist('cuota_bucket') if v %}
-      {% set _ = chips.append('Cuotas: ' ~ ({'1':'1-6','2':'7-12','3':'13-24','4':'25-36'}[v] if v in ['1','2','3','4'] else v)) %}
-    {% endfor %}
-    {% if request.args.get('insc_desde') %}{% set _ = chips.append('Insc. desde: ' ~ request.args.get('insc_desde')) %}{% endif %}
-    {% if request.args.get('insc_hasta') %}{% set _ = chips.append('Insc. hasta: ' ~ request.args.get('insc_hasta')) %}{% endif %}
-    <div class="flex gap-2 flex-wrap">{% for c in chips %}<span class="chip">{{ c }}</span>{% endfor %}</div>
-  </div>
-
-  <!-- Filtros -->
-  <div class="section">
-    <div class="section-hd">
-      <h2 class="font-semibold">Filtros de clientes</h2>
-      <div class="text-xs text-slate-500">Afectan listado y totales.</div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
+      <div class="text-sm text-slate-500">Ingreso proyectado</div>
+      <div class="text-2xl font-bold text-slate-800 dark:text-slate-100">
+        ${{ "{:,.2f}".format(((proyecciones.resumen.ingresos_totales_proyectados if proyecciones and proyecciones.resumen else 0) | default(0, true))) }}
+      </div>
     </div>
-    <div class="section-bd">
-      <form method="GET" action="{{ url_for('reporte_proyecciones') }}" x-data="{ adv:false }">
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-
-          <!-- Empresa -->
-          <div x-data="{open:false}" class="coll">
-            <button type="button" class="coll-hd" @click="open=!open">
-              <span>Empresa</span><i class="bi" :class="open?'bi-chevron-up':'bi-chevron-down'"></i>
-            </button>
-            <div class="coll-bd" x-show="open" x-cloak>
-              {% set emp_sel = request.args.getlist('empresa') %}
-              <div class="coll-body grid grid-cols-2 gap-2">
-                {% for emp in (empresas_opciones or []) %}
-                <label class="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="empresa" value="{{ emp }}" {% if emp in emp_sel %}checked{% endif %} class="rounded border-slate-300 dark:border-slate-600 text-orange-600">
-                  <span class="truncate" title="{{ emp }}">{{ emp }}</span>
-                </label>
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-
-          <!-- Estado plan -->
-          <div x-data="{open:false}" class="coll">
-            <button type="button" class="coll-hd" @click="open=!open">
-              <span>Estado del plan</span><i class="bi" :class="open?'bi-chevron-up':'bi-chevron-down'"></i>
-            </button>
-            <div class="coll-bd" x-show="open" x-cloak>
-              {% set estado_sel = request.args.getlist('estado_plan') %}
-              {% set estado_sel_up = estado_sel|map('upper')|list %}
-              <div class="coll-body grid grid-cols-1 gap-2">
-                {% for est in (estados_opciones or []) %}
-                <label class="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="estado_plan" value="{{ est }}" {% if est|upper in estado_sel_up %}checked{% endif %} class="rounded border-slate-300 dark:border-slate-600 text-orange-600">
-                  <span class="truncate" title="{{ est }}">{{ est|replace('_',' ')|capitalize }}</span>
-                </label>
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-
-          <!-- Estatus Cliente -->
-          <div x-data="{open:false}" class="coll">
-            <button type="button" class="coll-hd" @click="open=!open">
-              <span>Estatus cliente</span><i class="bi" :class="open?'bi-chevron-up':'bi-chevron-down'"></i>
-            </button>
-            <div class="coll-bd" x-show="open" x-cloak>
-              {% set est_sel = request.args.getlist('estatus_cliente') %}
-              {% set est_sel_up = est_sel|map('upper')|list %}
-              <div class="coll-body grid grid-cols-1 gap-2">
-                {% for est in (estatus_opciones or []) %}
-                <label class="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="estatus_cliente" value="{{ est }}" {% if est|upper in est_sel_up %}checked{% endif %} class="rounded border-slate-300 dark:border-slate-600 text-orange-600">
-                  <span class="truncate" title="{{ est }}">{{ est|replace('_',' ')|capitalize }}</span>
-                </label>
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-
-          <!-- Condición -->
-          <div x-data="{open:false}" class="coll">
-            <button type="button" class="coll-hd" @click="open=!open">
-              <span>Condición</span><i class="bi" :class="open?'bi-chevron-up':'bi-chevron-down'"></i>
-            </button>
-            <div class="coll-bd" x-show="open" x-cloak>
-              {% set cond_sel = request.args.getlist('condicion') %}
-              {% set cond_sel_up = cond_sel|map('upper')|list %}
-              <div class="coll-body grid grid-cols-1 gap-2">
-                {% for cond in (condicion_opciones or []) %}
-                <label class="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="condicion" value="{{ cond }}" {% if cond|upper in cond_sel_up %}checked{% endif %} class="rounded border-slate-300 dark:border-slate-600 text-orange-600">
-                  <span class="truncate" title="{{ cond }}">{{ cond|replace('_',' ')|capitalize }}</span>
-                </label>
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-
-          <!-- Rango de cuotas -->
-          <div x-data="{open:false}" class="coll">
-            <button type="button" class="coll-hd" @click="open=!open">
-              <span>Rango de Cuotas</span><i class="bi" :class="open?'bi-chevron-up':'bi-chevron-down'"></i>
-            </button>
-            <div class="coll-bd" x-show="open" x-cloak>
-              {% set cuotas_sel = request.args.getlist('cuota_bucket') %}
-              <div class="coll-body grid grid-cols-2 gap-2">
-                {% for val, label in [('1','1-6'),('2','7-12'),('3','13-24'),('4','25-36')] %}
-                <label class="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="cuota_bucket" value="{{ val }}" {% if val in cuotas_sel %}checked{% endif %} class="rounded border-slate-300 dark:border-slate-600 text-orange-600">
-                  <span>{{ label }}</span>
-                </label>
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-
-          <!-- Fechas -->
-          <div class="coll">
-            <div class="coll-hd">Inscripción</div>
-            <div class="coll-bd">
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="text-xs text-slate-500">Desde</label>
-                  <input type="date" name="insc_desde" value="{{ request.args.get('insc_desde','') }}" class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
-                </div>
-                <div>
-                  <label class="text-xs text-slate-500">Hasta</label>
-                  <input type="date" name="insc_hasta" value="{{ request.args.get('insc_hasta','') }}" class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Parámetros financieros -->
-        <div class="section mt-4">
-          <div class="section-hd">
-            <h3 class="font-semibold">Parámetros financieros</h3>
-            <div class="flex items-center gap-3">
-              <span class="text-xs text-slate-500">Modo avanzado</span>
-              <input type="checkbox" class="rounded" x-model="adv">
-            </div>
-          </div>
-          <div class="section-bd space-y-3">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <label class="text-xs text-slate-500">Tasa BCV (USD) al inicio</label>
-                <input type="number" step="0.0001" name="tasa_bcv_dolar_inicio" value="{{ proyecciones.parametros.tasa_bcv_dolar_inicio | default('', true) }}" placeholder="Ej: 40.1234"
-                  class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
-              </div>
-              <div>
-                <label class="text-xs text-slate-500">Tasa BCV (EUR) al inicio</label>
-                <input type="number" step="0.0001" name="tasa_bcv_euro_inicio" value="{{ proyecciones.parametros.tasa_bcv_euro_inicio | default('', true) }}" placeholder="Ej: 44.5678"
-                  class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
-              </div>
-              <div class="text-xs text-slate-500 flex items-end">Si lo dejas vacío, se usa la última tasa guardada.</div>
-            </div>
-
-            <template x-if="adv">
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div class="border rounded-lg p-3">
-                  <div class="text-sm font-semibold mb-1">USD (BCV)</div>
-                  <label class="text-xs text-slate-500">Devaluación proyectada (%)</label>
-                  <input type="number" step="0.01" name="deval_usd_pct" value="{{ request.args.get('deval_usd_pct','') }}" placeholder="Ej: 2.5"
-                         class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
-                  <label class="text-xs text-slate-500 mt-2">Colchón / margen (%)</label>
-                  <input type="number" step="0.01" name="margen_dolar_pct" value="{{ proyecciones.parametros.margen_dolar_pct | default('15.0', true) }}"
-                         class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
-                </div>
-                <div class="border rounded-lg p-3">
-                  <div class="text-sm font-semibold mb-1">EUR (BCV)</div>
-                  <label class="text-xs text-slate-500">Devaluación proyectada (%)</label>
-                  <input type="number" step="0.01" name="deval_eur_pct" value="{{ request.args.get('deval_eur_pct','') }}" placeholder="Ej: 2.0"
-                         class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
-                  <label class="text-xs text-slate-500 mt-2">Colchón / margen (%)</label>
-                  <input type="number" step="0.01" name="margen_euro_pct" value="{{ proyecciones.parametros.margen_euro_pct | default('15.0', true) }}"
-                         class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
-                </div>
-                <div class="border rounded-lg p-3">
-                  <div class="text-sm font-semibold mb-1">USDT (Binance)</div>
-                  <label class="text-xs text-slate-500">Devaluación proyectada (%)</label>
-                  <input type="number" step="0.01" name="deval_usdt_pct" value="{{ request.args.get('deval_usdt_pct','') }}" placeholder="Ej: 0.8"
-                         class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
-                  <label class="text-xs text-slate-500 mt-2">Colchón / margen (%)</label>
-                  <input type="number" step="0.01" name="margen_binance_pct" value="{{ proyecciones.parametros.margen_binance_pct | default('65.0', true) }}"
-                         class="mt-1 w-full rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-800">
-                </div>
-              </div>
-            </template>
-          </div>
-        </div>
-
-        <!-- Acciones -->
-        <div class="flex flex-wrap items-center justify-end gap-2 mt-4">
-          <a href="{{ url_for('reporte_proyecciones') }}" class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">Limpiar</a>
-          <button type="submit" class="px-4 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-700">Calcular</button>
-
-          {% set qs_export = [] %}
-          {% for k, v in request.args.items(multi=True) if v %}{% set _ = qs_export.append(k ~ '=' ~ (v|string)|urlencode) %}{% endfor %}
-          <details class="relative">
-            <summary class="list-none cursor-pointer px-4 py-2 rounded-lg bg-emerald-600 text-white inline-flex items-center gap-2">
-              <i class="bi bi-download"></i> Exportar
-            </summary>
-            <div class="absolute mt-2 right-0 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow p-1">
-              <a class="block px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 rounded"
-                 href="{{ url_for('reporte_proyecciones') }}?{{ (qs_export + ['export=csv'])|join('&') }}">CSV</a>
-              <a class="block px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 rounded"
-                 href="{{ url_for('reporte_proyecciones') }}?{{ (qs_export + ['export=pdf'])|join('&') }}">PDF</a>
-            </div>
-          </details>
-        </div>
-
-      </form>
+    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
+      <div class="text-sm text-slate-500">Clientes a cobrar</div>
+      <div class="text-2xl font-bold text-slate-800 dark:text-slate-100">
+        {{ (proyecciones.resumen.clientes_a_cobrar if proyecciones and proyecciones.resumen else 0) | default(0,true) }}
+      </div>
+    </div>
+    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
+      <div class="text-sm text-slate-500">Gastos proyectados</div>
+      <div class="text-2xl font-bold text-slate-800 dark:text-slate-100">
+        ${{ "{:,.2f}".format(((proyecciones.resumen.gastos_totales_proyectados if proyecciones and proyecciones.resumen else 0) | default(0, true))) }}
+      </div>
+    </div>
+    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
+      <div class="text-sm text-slate-500">Balance neto</div>
+      <div class="text-2xl font-bold text-slate-800 dark:text-slate-100">
+        ${{ "{:,.2f}".format(((proyecciones.resumen.balance_neto_proyectado if proyecciones and proyecciones.resumen else 0) | default(0, true))) }}
+      </div>
     </div>
   </div>
 
-  <!-- Listado de cobranza -->
-  <div class="section">
-    <div class="section-hd">
-      <h3 class="font-semibold">Listado de cobranza</h3>
-      <div class="text-xs text-slate-500">Con los filtros actuales.</div>
+  <!-- Toolbar (Alternar densidad aquí) -->
+  <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm mb-3">
+    <div class="px-4 py-2.5 flex items-center justify-between">
+      <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">Clientes / Cuotas proyectadas</div>
+      <div class="flex items-center gap-2">
+        <button id="densityToggle" type="button"
+                class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg transition-colors"
+                aria-pressed="false" title="Alternar densidad de filas">
+          <i class="bi bi-arrows-collapse"></i>
+          <span class="hidden sm:inline">Compactar filas</span>
+        </button>
+      </div>
     </div>
-    <div class="section-bd overflow-x-auto">
-      {% if proyecciones.clientes_a_cobrar and proyecciones.clientes_a_cobrar|length > 0 %}
-      <table class="min-w-full text-[13px] leading-tight divide-y divide-slate-200 dark:divide-slate-700">
-        <thead class="bg-slate-50 dark:bg-slate-700">
+  </div>
+
+  <!-- Tabla de clientes a cobrar -->
+  <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm table-container" id="table-container">
+    <div class="overflow-x-auto" id="table-scroll-wrapper">
+      <table class="min-w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
+        <thead class="bg-slate-50 dark:bg-slate-700" id="original-thead">
           <tr>
-            <th class="py-3 px-3 text-left">Cliente</th>
-            <th class="py-3 px-3 text-left">Cédula</th>
-            <th class="py-3 px-3 text-left">Estado plan</th>
-            <th class="py-3 px-3 text-left">Condición</th>
-            <th class="py-3 px-3 text-left"># Cuota</th>
-            <th class="py-3 px-3 text-left">Fecha pago</th>
-            <th class="py-3 px-3 text-right">Monto (USD)</th>
-            <th class="py-3 px-3 text-left">Método</th>
+            <th class="py-3.5 px-4 text-left font-semibold">Cliente</th>
+            <th class="py-3.5 px-4 text-left font-semibold">Cédula</th>
+            <th class="py-3.5 px-4 text-left font-semibold">Estado del Plan</th>
+            <th class="py-3.5 px-4 text-left font-semibold">Condición</th>
+            <th class="py-3.5 px-4 text-left font-semibold"># Cuota</th>
+            <th class="py-3.5 px-4 text-left font-semibold">Fecha Pago</th>
+            <th class="py-3.5 px-4 text-right font-semibold">Monto USD</th>
+            <th class="py-3.5 px-4 text-left font-semibold">Método</th>
+            <th class="py-3.5 px-4 text-left font-semibold">Estatus Cuota</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-          {% for r in proyecciones.clientes_a_cobrar %}
-          <tr class="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-800 dark:even:bg-slate-800/50">
-            <td class="px-3 py-2">{{ r.cliente or '—' }}</td>
-            <td class="px-3 py-2">{{ r.cedula or '—' }}</td>
-            <td class="px-3 py-2">{{ r.estado_plan or '—' }}</td>
-            <td class="px-3 py-2">
-              {% if r.condicion %}
-                {% if r.condicion|upper == 'AL DIA' %}{{ pill('Al día','green') }}{% else %}{{ pill(r.condicion|title,'amber') }}{% endif %}
-              {% else %}—{% endif %}
-            </td>
-            <td class="px-3 py-2">{{ r.numero_cuota if r.numero_cuota is not none else '—' }}</td>
-            <td class="px-3 py-2">{{ r.fecha_pago if r.fecha_pago else '—' }}</td>
-            <td class="px-3 py-2 text-right">{{ "{:,.2f}".format((r.monto_usd or 0)) }}</td>
-            <td class="px-3 py-2">{{ r.metodo or '—' }}</td>
-          </tr>
-          {% endfor %}
+          {% set lista = proyecciones.clientes_a_cobrar if proyecciones else [] %}
+          {% if lista and lista|length > 0 %}
+            {% for r in lista %}
+            <tr class="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-800 dark:even:bg-slate-800/50">
+              <td class="px-4 py-3">{{ r.cliente or '—' }}</td>
+              <td class="px-4 py-3">{{ r.cedula or '—' }}</td>
+              <td class="px-4 py-3">{{ r.estado_plan or '—' }}</td>
+              <td class="px-4 py-3">
+                {% set cond = r.condicion %}
+                {% if cond %}
+                <span class="px-2.5 py-0.5 text-xs font-medium rounded-full {{ 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300' if (cond|upper)=='AL DIA' else 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300' }}">{{ cond|title }}</span>
+                {% else %}—{% endif %}
+              </td>
+              <td class="px-4 py-3">{{ r.numero_cuota if r.numero_cuota is not none else '—' }}</td>
+              <td class="px-4 py-3">{{ r.fecha_pago if r.fecha_pago else '—' }}</td>
+              <td class="px-4 py-3 text-right">${{ "{:,.2f}".format((r.monto_usd or 0)) }}</td>
+              <td class="px-4 py-3">{{ r.metodo or '—' }}</td>
+              <td class="px-4 py-3">{{ pill_status(r.estatus_cuota) }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="9" class="text-center py-12 text-slate-500">Sin datos para mostrar.</td>
+            </tr>
+          {% endif %}
         </tbody>
       </table>
-      {% else %}
-        <div class="text-slate-500 text-sm">No hay datos. Aplica filtros y presiona <b>Calcular</b>.</div>
-      {% endif %}
     </div>
   </div>
 
@@ -332,15 +166,67 @@
 
 {% block scripts_extra %}
 <script>
-  // Densidad persistente
-  (function(){
-    const root = document.querySelector('.proy-page');
-    const KEY = 'proy_dense';
-    function apply(v){ root.classList.toggle('compact', v==='1'); }
-    apply(localStorage.getItem(KEY) || '0');
-    const btn = document.getElementById('toggleDensityProy');
-    if(btn){ btn.addEventListener('click', ()=>{ const v = root.classList.contains('compact')?'0':'1'; localStorage.setItem(KEY, v); apply(v); }); }
-  })();
+document.addEventListener('DOMContentLoaded', function () {
+  // Sticky thead (clon) igual que en métricas
+  const container  = document.getElementById('table-container');
+  const theadOrig  = document.getElementById('original-thead');
+  const scroller   = document.getElementById('table-scroll-wrapper');
+  const filtersBar = document.getElementById('filtersBar'); // puede no existir aquí
+  const root       = document.documentElement;
+
+  if (container && theadOrig && scroller){
+    const clone = theadOrig.cloneNode(true);
+    clone.id = '';
+    clone.classList.add('thead-clone');
+    try { clone.style.backgroundColor = getComputedStyle(theadOrig).backgroundColor || ''; } catch(e){}
+    container.appendChild(clone);
+
+    const sync = () => {
+      const a = theadOrig.querySelectorAll('th');
+      const b = clone.querySelectorAll('th');
+      a.forEach((th,i)=>{ const w = th.getBoundingClientRect().width; if(b[i]){ b[i].style.minWidth=w+'px'; b[i].style.width=w+'px'; } });
+      clone.style.width = theadOrig.getBoundingClientRect().width+'px';
+    };
+
+    function updOffset(){
+      const h = filtersBar ? filtersBar.getBoundingClientRect().height : 0;
+      root.style.setProperty('--sticky-offset', h+'px');
+    }
+
+    const onScroll = () => {
+      const h = filtersBar ? filtersBar.getBoundingClientRect().height : 0;
+      const trigger = container.offsetTop - h;
+      if (window.scrollY >= trigger){ container.classList.add('table-header-is-sticky'); theadOrig.style.visibility='hidden'; }
+      else { container.classList.remove('table-header-is-sticky'); theadOrig.style.visibility='visible'; }
+    };
+
+    scroller.addEventListener('scroll', ()=>{ clone.style.transform = `translateY(0) translateX(-${scroller.scrollLeft}px)`; });
+    window.addEventListener('resize', ()=>{ sync(); updOffset(); onScroll(); });
+    window.addEventListener('scroll', onScroll);
+
+    updOffset(); sync(); onScroll();
+  }
+
+  // Alternar densidad persistente (clave separada para proyecciones si prefieres; aquí reutilizamos)
+  const key = 'proyecciones-density';
+  const btn = document.getElementById('densityToggle');
+  if (btn && container){
+    let mode = localStorage.getItem(key) || 'comfortable';
+    apply(mode);
+    btn.addEventListener('click', ()=>{
+      mode = (mode === 'compact' ? 'comfortable' : 'compact');
+      localStorage.setItem(key, mode);
+      apply(mode);
+    });
+    function apply(m){
+      const c = (m === 'compact');
+      container.classList.toggle('density-compact', c);
+      btn.setAttribute('aria-pressed', String(c));
+      btn.innerHTML = c
+        ? '<i class="bi bi-arrows-expand"></i><span class="hidden sm:inline">Filas cómodas</span>'
+        : '<i class="bi bi-arrows-collapse"></i><span class="hidden sm:inline">Compactar filas</span>';
+    }
+  }
+});
 </script>
 {% endblock %}
-
