@@ -3563,14 +3563,31 @@ def reporte_metricas():
 # =========================
 # REPORTE: FLUJO DE CAJA
 # =========================
+# --- Helper: resumen vacío (debe estar definido ANTES de usarlo) ---
+from types import SimpleNamespace
+from calendar import monthrange
+import traceback
+
+def _resumen_vacio():
+    return {
+        'balance_general_consolidado_usd': 0.0,
+        'EFECTIVO_USD': 0.0,
+        'BINANCE_USDT': 0.0,
+        'CAJA_BS_USD': 0.0,
+        'CAJA_BS_EUR': 0.0,
+        'balance_bs_consolidado_bs': 0.0,
+        'balance_bs_consolidado_usd': 0.0,
+        'acumulado_perdida_devaluacion': 0.0,
+        'acumulado_perdida_conversion': 0.0
+    }
+
+# =========================
+# REPORTE: FLUJO DE CAJA
+# =========================
 @app.route('/reporte_flujo_caja', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def reporte_flujo_caja():
-    from types import SimpleNamespace
-    from calendar import monthrange
-    from datetime import datetime
-
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", "error")
@@ -3612,20 +3629,11 @@ def reporte_flujo_caja():
         tasas_del_dia = SimpleNamespace(usd=0.0, eur=0.0)
 
     # ===== Proyecciones con filtros desde el querystring =====
-    where_sql, where_params = "", []
-    _bf = globals().get('_build_clientes_filters')
-    if callable(_bf):
-        # Intento con firma configurable; si tu helper es el simple (1 arg), cae al except
-        try:
-            where_sql, where_params = _bf(
-                request.args,
-                alias='c',
-                fecha_col_name='fecha_inscripcion',
-                condicion_col_name='condicion',
-                cuotas_col_name='cuotas_pagadas'
-            )
-        except TypeError:
-            where_sql, where_params = _bf(request.args)
+    _build_clientes_filters_fn = globals().get('_build_clientes_filters')
+    if not callable(_build_clientes_filters_fn):
+        def _build_clientes_filters_fn(_args):
+            return "", []
+    where_sql, where_params = _build_clientes_filters_fn(request.args)
 
     # Reset por si quedó abortada antes del cálculo de proyección
     try:
@@ -3670,18 +3678,16 @@ def reporte_flujo_caja():
 
     ingreso_proyectado_mes = float(resumen_mes.get('proyectado_mes', 0.0))
 
-    # Modelo simple de devaluación (placeholder seguro)
+    # Modelo simple de devaluación (placeholder)
     caja_bs_total = 0.0
-    RIESGO_MENSUAL = 0.02  # Ajustable
+    RIESGO_MENSUAL = 0.02
     devaluacion_proyectada_mes = (caja_bs_total / (tasas_del_dia.usd or 1)) * RIESGO_MENSUAL
 
-    # Devaluación real proporcional al avance del mes
     dias_del_mes = monthrange(fecha_reporte.year, fecha_reporte.month)[1]
     dias_transcurridos = fecha_reporte.day
     factor = dias_transcurridos / dias_del_mes
     devaluacion_real_a_fecha = devaluacion_proyectada_mes * factor
 
-    # Comparativa proyectado vs. real
     proyeccion_restante = max(ingreso_proyectado_mes - real_a_fecha, 0.0)
     comparativa_proyeccion = SimpleNamespace(
         proyectado_mes=ingreso_proyectado_mes,
@@ -3691,8 +3697,16 @@ def reporte_flujo_caja():
         devaluacion_real_a_fecha=devaluacion_real_a_fecha
     )
 
-    # Resumen para tarjetas (mantenemos identidad: si no tienes datos, usa el vacío)
-    resumen = _resumen_vacio()
+    avance_pct = (real_a_fecha / ingreso_proyectado_mes * 100.0) if ingreso_proyectado_mes > 0 else 0.0
+    restante_pct = (proyeccion_restante / ingreso_proyectado_mes * 100.0) if ingreso_proyectado_mes > 0 else 0.0
+    resumen = SimpleNamespace(
+        proyectado_mes=ingreso_proyectado_mes,
+        real_a_fecha=real_a_fecha,
+        avance_pct=avance_pct,
+        restante_pct=restante_pct,
+        tasa_usd=tasas_del_dia.usd,
+        tasa_eur=tasas_del_dia.eur
+    )
 
     # Historial del día desde operaciones_tesoreria (defensivo)
     historial = []
@@ -3735,6 +3749,12 @@ def reporte_flujo_caja():
         resumen=resumen,
         historial=historial
     )
+
+@app.route('/reportes/flujo_caja', methods=['GET', 'POST'])
+@admin_required
+@rol_requerido('superadmin', 'gerente')
+def reporte_flujo_caja_alias():
+    return reporte_flujo_caja()
 
 # =================================================================================
 # ===== FIN: MÓDULO DE MÉTRICAS RECONSTRUIDO (V1) =====
