@@ -4487,122 +4487,71 @@ def _detect_column(conn, table: str, candidates: list[str]) -> str | None:
 # =========================
 # REPORTE: PROYECCIONES
 # =========================
+# =========================
+# REPORTE: PROYECCIONES
+# =========================
 @app.route('/reportes/proyecciones', methods=['GET'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def reporte_proyecciones():
-    import io, csv
+    import json, logging, traceback
+    from decimal import Decimal, InvalidOperation
     from types import SimpleNamespace
+    from datetime import datetime
 
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", "danger")
         return redirect(url_for('gestion_administrativa'))
 
-    # -------- Tasas recientes (último BCV) --------
-    tasa_dolar_db, tasa_euro_db = None, None
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT tasa, tasa_euro
-                FROM historial_tasas_bcv
-                ORDER BY fecha DESC
-                LIMIT 1
-            """)
-            r = cur.fetchone()
-            if r:
-                if isinstance(r, dict):
-                    tasa_dolar_db = r.get('tasa')
-                    tasa_euro_db  = r.get('tasa_euro')
-                else:
-                    tasa_dolar_db, tasa_euro_db = r[0], r[1]
-    except Exception:
-        tasa_dolar_db, tasa_euro_db = None, None
-
-    # -------- Parámetros de usuario --------
-    def _d(val, default='0'):
-        try:
-            return Decimal(str(val if val is not None else default) or default)
-        except InvalidOperation:
-            return Decimal(str(default))
-
-    tasa_bcv_dolar_inicio = request.args.get('tasa_bcv_dolar_inicio') or (f"{tasa_dolar_db:.4f}" if tasa_dolar_db else "")
-    tasa_bcv_euro_inicio  = request.args.get('tasa_bcv_euro_inicio')  or (f"{tasa_euro_db:.4f}"  if tasa_euro_db  else "")
-
-    deval_usd_pct   = _d(request.args.get('deval_usd_pct'),   '0')
-    deval_eur_pct   = _d(request.args.get('deval_eur_pct'),   '0')
-    deval_usdt_pct  = _d(request.args.get('deval_usdt_pct'),  '0')
-    margen_tol_pct  = _d(request.args.get('margen_tolerancia_pct'), '15')
-
-    margen_binance_pct = _d(request.args.get('margen_binance_pct'), '65')
-
-    bs_ref_usd   = _d(request.args.get('bs_ref_usd'),   '0')
-    bs_ref_eur   = _d(request.args.get('bs_ref_eur'),   '0')
-    bs_ref_usdt  = _d(request.args.get('bs_ref_usdt'),  '0')
-
-    # Tasa USD para equivalencias; si falta, intenta DB; si no, 0 (evita división por cero)
-    try:
-        tasa_usd = _d(tasa_bcv_dolar_inicio, str(tasa_dolar_db or '0'))
-    except Exception:
-        tasa_usd = Decimal('0')
-
-    # Tasa EUR mostrada (no se usa en la equivalencia a USD, ver nota en plantilla)
-    try:
-        tasa_eur = _d(tasa_bcv_euro_inicio, str(tasa_euro_db or '0'))
-    except Exception:
-        tasa_eur = Decimal('0')
-
-    # Tasa USDT aproximada desde USD + margen de Binance
-    tasa_usdt_aprox = (tasa_usd * (Decimal('1') + margen_binance_pct/Decimal('100'))) if tasa_usd > 0 else Decimal('0')
-
-    # -------- Cálculos de equivalentes y colchones --------
-    def _usd_equiv(bs):
-        return (bs / tasa_usd) if tasa_usd > 0 else Decimal('0')
-
-    usd_equiv_usd  = _usd_equiv(bs_ref_usd)
-    usd_equiv_eur  = _usd_equiv(bs_ref_eur)   # Ver nota: bs/tasa_usd equivale a convertir a USD
-    usd_equiv_usdt = _usd_equiv(bs_ref_usdt)
-
-    colchon_usd_usd  = (usd_equiv_usd  * (deval_usd_pct  / Decimal('100'))).quantize(Decimal('0.01'))
-    colchon_usd_eur  = (usd_equiv_eur  * (deval_eur_pct  / Decimal('100'))).quantize(Decimal('0.01'))
-    colchon_usd_usdt = (usd_equiv_usdt * (deval_usdt_pct / Decimal('100'))).quantize(Decimal('0.01'))
-
-    usd_equiv_total   = (usd_equiv_usd + usd_equiv_eur + usd_equiv_usdt)
-    colchon_total_usd = (colchon_usd_usd + colchon_usd_eur + colchon_usd_usdt)
-
-    deval_ponderado_pct = ( (colchon_total_usd / usd_equiv_total) * Decimal('100') ).quantize(Decimal('0.01')) if usd_equiv_total > 0 else Decimal('0')
-    margen_color = ('bg-red-600' if deval_ponderado_pct > margen_tol_pct
-                    else ('bg-amber-500' if deval_ponderado_pct == margen_tol_pct
-                          else 'bg-green-600'))
-
-    # -------- Filtros de clientes (reuso del helper de Métricas) --------
-    _build_clientes_filters_fn = globals().get('_build_clientes_filters')
-    if not callable(_build_clientes_filters_fn):
-        def _build_clientes_filters_fn(_args):
-            return "", []
-    where_sql, where_params = _build_clientes_filters_fn(request.args)
-
-    # -------- Parámetros de paginado/orden --------
-    sort_param = (request.args.get('sort') or 'id').strip().lower()
-    dir_param  = (request.args.get('order') or request.args.get('dir') or 'asc').strip().lower()
-    if dir_param not in ('asc', 'desc'):
-        dir_param = 'asc'
-    try:
-        per_page = max(1, min(100, int(request.args.get('per_page') or 25)))
-    except Exception:
-        per_page = 25
-    try:
-        page = max(1, int(request.args.get('page') or 1))
-    except Exception:
-        page = 1
-    offset = (page - 1) * per_page
-
-    # -------- Helpers de cursor --------
-    try:
-        from psycopg2.extras import RealDictCursor as _RDC
-    except Exception:
-        _RDC = None
-    cursor_factory = _RDC if _RDC else None
+    # --- Helpers locales ---
+    def _proy_skeleton(fecha_ref: datetime):
+        """Estructura segura para el template (evita UndefinedError)."""
+        fstr = (fecha_ref.date() if hasattr(fecha_ref, "date") else fecha_ref).strftime("%Y-%m-%d")
+        return {
+            'parametros': {
+                'fecha_inicio': fstr,
+                'tasa_bcv_dolar_inicio': "",
+                'tasa_bcv_euro_inicio': "",
+                'margen_dolar_pct':   Decimal('15.0'),
+                'margen_euro_pct':    Decimal('15.0'),
+                'margen_binance_pct': Decimal('65.0'),
+                'devaluacion_ponderada_bcv': None,
+                'devaluacion_ponderada_total': None
+            },
+            'simulacion_exitosa': False,
+            'mensaje_error': None,
+            'ingresos': {
+                'clientes_activos': 0,
+                'base_mensual': Decimal('0.0'),
+                'tasa_pago_historica_pct': Decimal('100.0'),
+                'ingreso_mensual_proyectado': Decimal('0.0')
+            },
+            'egresos': {
+                'promedio_gastos_fijos': Decimal('0.0'),
+                'gasto_proyectado_primer_mes': Decimal('0.0')
+            },
+            'resumen': {
+                'ingresos_totales_proyectados': Decimal('0.0'),
+                'ingreso_real_acumulado': Decimal('0.0'),
+                'gastos_totales_proyectados': Decimal('0.0'),
+                'balance_neto_proyectado': Decimal('0.0'),
+                'clientes_a_cobrar': 0
+            },
+            'kpis': {
+                'margen_maniobra_pct': Decimal('0.0'),
+                'perdida_devaluacion_usd': Decimal('0.0'),
+                'margen_color': 'bg-gray-500',
+                'progreso_ingreso_pct': 0.0
+            },
+            'gestion_cobranza': {
+                'USD':     {'clientes': 0, 'monto': Decimal('0.0')},
+                'BsBCV':   {'clientes': 0, 'monto': Decimal('0.0')},
+                'EuroBCV': {'clientes': 0, 'monto': Decimal('0.0')},
+                'USDT':    {'clientes': 0, 'monto': Decimal('0.0')}
+            },
+            'clientes_a_cobrar': []
+        }
 
     def _fetch_dicts(cur):
         rows = cur.fetchall() or []
@@ -4610,10 +4559,6 @@ def reporte_proyecciones():
             return rows
         cols = [d.name for d in cur.description] if cur.description else []
         return [dict(zip(cols, r)) for r in rows]
-
-    def _fetch_val(cur, default=None):
-        data = _fetch_dicts(cur)
-        return (list(data[0].values())[0] if data else default)
 
     def _col_exists(cur, col):
         cur.execute("""
@@ -4624,13 +4569,39 @@ def reporte_proyecciones():
         """, (col,))
         return bool(cur.fetchone())
 
-    rows=[]; total_count=0; page_count=1
-    empresas_opciones=[]; estados_opciones=[]; condicion_opciones=[]; estatus_opciones=[]
-    show_nombre=False; show_apellido=False; show_telefono=False; show_condicion=False
+    # Cursor dict si está disponible
+    try:
+        from psycopg2.extras import RealDictCursor as _RDC
+    except Exception:
+        _RDC = None
+    cursor_factory = _RDC if _RDC else None
+
+    # Fecha base
+    hoy = get_venezuela_current_date()
+
+    # Esqueleto seguro
+    proyecciones = _proy_skeleton(hoy)
+    simulacion_realizada = False
+    resultados_por_bloque = []
+    hint = ""
+
+    # ===== Opciones para filtros (alineadas a Métricas) =====
+    empresas_opciones = []
+    estados_opciones = []
+    estatus_opciones = []
+    condicion_opciones = []
+    show_nombre = False
+    show_condicion = False
 
     try:
         with conn.cursor(cursor_factory=cursor_factory) as cur:
-            # Selectores
+            # Detección de columnas visibles
+            show_nombre = _col_exists(cur, 'nombre')
+            condicion_col = 'condicion_pago' if _col_exists(cur, 'condicion_pago') \
+                            else ('condicion' if _col_exists(cur, 'condicion') else None)
+            show_condicion = bool(condicion_col)
+
+            # Opciones
             cur.execute("""
                 SELECT DISTINCT empresa
                 FROM clientes
@@ -4647,12 +4618,21 @@ def reporte_proyecciones():
             """)
             estados_opciones = [r.get('estado') for r in _fetch_dicts(cur)]
 
-            # Estatus normalizado como en Métricas (simplificado)
-            cur.execute("""
+            # Normalización básica del estatus (igual que en métricas)
+            estatus_expr = (
+                "CASE "
+                "WHEN c.estatus_cliente IS NULL OR c.estatus_cliente='' THEN NULL "
+                "WHEN regexp_replace(UPPER(TRIM(c.estatus_cliente)),'\\s+',' ','g') IN "
+                "('ENTREGA PENDIENTE','PENDIENTE DE ENTREGA','PENDIENTE ENTREGA','PENDIEN POR ENTREGA') "
+                "OR (UPPER(c.estatus_cliente) LIKE '%PENDIENT%' AND UPPER(c.estatus_cliente) LIKE '%ENTREG%') "
+                "THEN 'PENDIENTE POR ENTREGA' "
+                "ELSE regexp_replace(UPPER(TRIM(c.estatus_cliente)),'\\s+',' ','g') END"
+            )
+            cur.execute(f"""
                 SELECT estatus FROM (
-                  SELECT DISTINCT TRIM(UPPER(NULLIF(estatus_cliente,''))) AS estatus
-                  FROM clientes
-                  WHERE estatus_cliente IS NOT NULL AND btrim(estatus_cliente) <> ''
+                  SELECT DISTINCT {estatus_expr} AS estatus
+                  FROM clientes c
+                  WHERE {estatus_expr} IS NOT NULL AND {estatus_expr} <> ''
                   UNION
                   SELECT 'PENDIENTE POR ENTREGA'
                 ) x
@@ -4660,237 +4640,336 @@ def reporte_proyecciones():
             """)
             estatus_opciones = [r.get('estatus') for r in _fetch_dicts(cur)]
 
-            # Condición (si la columna existe; si no, deriva 'SIN CONDICION')
-            cur.execute("""
-                SELECT 1
-                FROM information_schema.columns
-                WHERE table_name='clientes' AND column_name IN ('condicion_pago','condicion','condicion_de_pago')
-                LIMIT 1
-            """)
-            has_cond = bool(cur.fetchone())
-            if has_cond:
-                cur.execute("""
-                    SELECT DISTINCT UPPER(TRIM(COALESCE(NULLIF(c.condicion_pago,''), NULLIF(c.condicion,''), NULLIF(c.condicion_de_pago,'')))) AS condicion
-                    FROM clientes c
-                    ORDER BY 1
-                """)
+            if condicion_col:
+                cur.execute(f"SELECT DISTINCT UPPER(TRIM({condicion_col})) AS condicion FROM clientes WHERE {condicion_col} IS NOT NULL AND btrim({condicion_col})<>'' ORDER BY 1")
                 condicion_opciones = [r.get('condicion') for r in _fetch_dicts(cur)]
             else:
-                condicion_opciones = ['SIN CONDICION']
-
-            # Descubrimiento de columnas
-            nombre_col   = 'nombre'   if _col_exists(cur, 'nombre')   else None
-            apellido_col = 'apellido' if _col_exists(cur, 'apellido') else None
-            telefono_col = None
-            for cand in ('numero_telefono','telefono','telefono1','celular','numero_contacto'):
-                if _col_exists(cur, cand):
-                    telefono_col = cand
-                    break
-            condicion_col = None
-            for cand in ('condicion_pago','condicion','condicion_de_pago'):
-                if _col_exists(cur, cand):
-                    condicion_col = cand
-                    break
-
-            show_nombre    = bool(nombre_col)
-            show_apellido  = bool(apellido_col)
-            show_telefono  = bool(telefono_col)
-            show_condicion = bool(condicion_col)
-
-            # Expresiones normalizadas
-            empresa_expr   = "REGEXP_REPLACE(UPPER(TRIM(c.empresa)), '\\\\s+', ' ', 'g')"
-            estado_expr    = "UPPER(TRIM(c.estado_del_plan))"
-            estatus_expr   = ("TRIM(UPPER(NULLIF(c.estatus_cliente,'')))")
-            condicion_expr = ("UPPER(TRIM(COALESCE(NULLIF(c.{col},''),'SIN CONDICION')))"
-                              .format(col=condicion_col)) if condicion_col else "'SIN CONDICION'"
-
-            # WHERE dinámico (ya viene en where_sql/from helper)
-            # CTE base
-            extra_cols=[]
-            if show_nombre:    extra_cols.append(f"c.{nombre_col} AS nombre")
-            if show_apellido:  extra_cols.append(f"c.{apellido_col} AS apellido")
-            if show_telefono:  extra_cols.append(f"c.{telefono_col} AS telefono")
-            if show_condicion: extra_cols.append(f"c.{condicion_col} AS condicion_raw")
-            extra_sql = (", " + ", ".join(extra_cols)) if extra_cols else ""
-
-            base_cte = (
-                "WITH base AS ("
-                " SELECT c.id, c.empresa, c.estado_del_plan,"
-                f" {empresa_expr} AS empresa_norm,"
-                f" {estado_expr}  AS estado_norm,"
-                f" {estatus_expr} AS estatus_norm,"
-                f" {condicion_expr} AS condicion_norm"
-                f"{extra_sql}"
-                f" FROM clientes c {' ' + where_sql if where_sql else ''}"
-                ")"
-            )
-
-            # Orden
-            sort_map = {
-                'id':'id',
-                'empresa':'empresa_norm',
-                'estado':'estado_norm',
-                'estado_del_plan':'estado_norm',
-                'estatus':'estatus_norm',
-                'nombre': ('upper(nombre)' if show_nombre else 'id'),
-                'apellido': ('upper(apellido)' if show_apellido else 'id'),
-                'telefono': ('telefono' if show_telefono else 'id'),
-                'condicion': 'condicion_norm'
-            }
-            sort_expr = sort_map.get(sort_param, 'id')
-            dir_sql   = 'DESC' if dir_param == 'desc' else 'ASC'
-
-            # Exportación: CSV / PDF
-            export_fmt = (request.args.get('export') or '').strip().lower()
-            if export_fmt in ('csv','pdf'):
-                select_cols=[
-                    "id","empresa","estado_del_plan","estatus_norm AS estatus"
-                ]
-                if show_nombre:    select_cols.insert(1, "nombre")
-                if show_apellido:  select_cols.insert(2, "apellido")
-                if show_telefono:  select_cols.append("telefono")
-                if show_condicion: select_cols.append("condicion_raw AS condicion")
-
-                cur.execute(
-                    base_cte + " SELECT {cols} FROM base ORDER BY {s} {d}".format(
-                        cols=", ".join(select_cols), s=sort_expr, d=dir_sql
-                    ),
-                    where_params
-                )
-                data = _fetch_dicts(cur)
-
-                # Adjuntar columnas de contexto financiero al CSV/PDF? (opcional)
-                # En esta versión exportamos el listado de cobranza (clientes filtrados)
-                if export_fmt == 'csv':
-                    si = io.StringIO()
-                    csv_cols = [c.split(" AS ")[-1] for c in select_cols]
-                    writer = csv.DictWriter(si, fieldnames=csv_cols, extrasaction='ignore')
-                    writer.writeheader()
-                    for r in data:
-                        writer.writerow({k: r.get(k, "") for k in csv_cols})
-                    filename = "reporte_proyecciones_listado_{0}.csv".format(datetime.now().strftime('%Y%m%d_%H%M%S'))
-                    return Response(
-                        si.getvalue().encode('utf-8-sig'),
-                        mimetype='text/csv; charset=utf-8',
-                        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-                    )
-
-                if export_fmt == 'pdf':
-                    try:
-                        from fpdf import FPDF
-                    except Exception:
-                        flash("No se pudo generar PDF (fpdf no disponible).", "warning")
-                        return redirect(url_for('reporte_proyecciones', **request.args))
-
-                    from io import BytesIO
-                    pdf = FPDF(orientation='L', unit='mm', format='A4')
-                    pdf.add_page()
-                    pdf.set_font("Arial","B",14)
-                    pdf.cell(0,10,"Listado de Cobranza (Proyecciones)", ln=1)
-                    pdf.set_font("Arial","",9)
-                    headers = []
-                    if show_nombre: headers += ["Nombre","Apellido"]
-                    headers += ["ID","Empresa","Estado Plan","Estatus"]
-                    if show_telefono:  headers.append("Telefono")
-                    if show_condicion: headers.append("Condicion")
-
-                    # Anchos aproximados
-                    widths = []
-                    for h in headers:
-                        if h in ("ID","Telefono"): widths.append(20)
-                        elif h in ("Empresa","Estado Plan","Condicion"): widths.append(45)
-                        elif h in ("Estatus","Apellido","Nombre"): widths.append(35)
-                        else: widths.append(35)
-                    for h,w in zip(headers,widths):
-                        pdf.cell(w,8,h,1,0,'C')
-                    pdf.ln(8)
-                    for r in data[:1000]:
-                        row=[]
-                        if show_nombre: row.append(r.get('nombre',''))
-                        if show_apellido: row.append(r.get('apellido',''))
-                        row += [r.get('id',''), r.get('empresa',''), r.get('estado_del_plan',''), r.get('estatus','')]
-                        if show_telefono:  row.append(r.get('telefono',''))
-                        if show_condicion: row.append(r.get('condicion',''))
-                        for val,w in zip(row,widths):
-                            pdf.cell(w,6,str(val)[:40],1,0,'L')
-                        pdf.ln(6)
-                    out = BytesIO(pdf.output(dest='S').encode('latin-1'))
-                    out.seek(0)
-                    filename = "reporte_proyecciones_listado_{0}.pdf".format(datetime.now().strftime('%Y%m%d_%H%M%S'))
-                    return send_file(out, as_attachment=True, download_name=filename, mimetype='application/pdf')
-
-            # Totales/paginación
-            cur.execute(base_cte + " SELECT COUNT(*) AS n FROM base", where_params)
-            total_count = int(_fetch_val(cur, 0))
-            page_count  = max(1, (total_count + per_page - 1) // per_page)
-
-            select_cols = ["id","empresa","estado_del_plan","estatus_norm AS estatus"]
-            if show_nombre:    select_cols.insert(0, "nombre")
-            if show_apellido:  select_cols.insert(1, "apellido")
-            if show_telefono:  select_cols.append("telefono")
-            if show_condicion: select_cols.append("condicion_raw AS condicion")
-
-            cur.execute(
-                base_cte + " SELECT {cols} FROM base ORDER BY {s} {d} LIMIT %s OFFSET %s".format(
-                    cols=", ".join(select_cols), s=sort_expr, d=dir_sql
-                ),
-                where_params + [per_page, offset]
-            )
-            rows = _fetch_dicts(cur)
-
+                condicion_opciones = []
     except Exception:
-        app.logger.error("Fallo en /reportes/proyecciones\n%s", traceback.format_exc())
-        flash("Ocurrió un error generando el reporte de proyecciones. Revisa el log.", "danger")
+        # Opciones vacías si algo falla (no bloquear la página)
+        empresas_opciones, estados_opciones, estatus_opciones, condicion_opciones = [], [], [], []
 
-    # -------- Objeto de salida para la plantilla --------
-    proyecciones = {
-        'parametros': {
-            'tasa_bcv_dolar_inicio': str(tasa_usd or ''),
-            'tasa_bcv_euro_inicio':  str(tasa_eur or ''),
-            'margen_binance_pct':    str(margen_binance_pct),
-            'deval_usd_pct':  str(deval_usd_pct),
-            'deval_eur_pct':  str(deval_eur_pct),
-            'deval_usdt_pct': str(deval_usdt_pct),
-            'margen_tolerancia_pct': str(margen_tol_pct),
-            'bs_ref_usd':  str(bs_ref_usd),
-            'bs_ref_eur':  str(bs_ref_eur),
-            'bs_ref_usdt': str(bs_ref_usdt),
-        },
-        'equivalentes': {
-            'usd_equiv_usd':  float(usd_equiv_usd),
-            'usd_equiv_eur':  float(usd_equiv_eur),
-            'usd_equiv_usdt': float(usd_equiv_usdt),
-            'usd_equiv_total': float(usd_equiv_total),
-        },
-        'colchones': {
-            'colchon_usd_usd':  float(colchon_usd_usd),
-            'colchon_usd_eur':  float(colchon_usd_eur),
-            'colchon_usd_usdt': float(colchon_usd_usdt),
-            'colchon_total_usd': float(colchon_total_usd),
-            'deval_ponderado_pct': float(deval_ponderado_pct),
-            'margen_color': margen_color
-        },
-        'tasas': {
-            'tasa_usd': float(tasa_usd or 0),
-            'tasa_eur': float(tasa_eur or 0),
-            'tasa_usdt_aprox': float(tasa_usdt_aprox or 0),
-        }
-    }
+    # ===== Tasas recientes (para pintar inputs por defecto) =====
+    tasa_dolar_db, tasa_euro_db = None, None
+    try:
+        with conn.cursor(cursor_factory=cursor_factory) as cur:
+            cur.execute("""
+                SELECT tasa, tasa_euro
+                FROM historial_tasas_bcv
+                ORDER BY fecha DESC
+                LIMIT 1
+            """)
+            r = cur.fetchone()
+            if r:
+                if isinstance(r, dict):
+                    tasa_dolar_db, tasa_euro_db = r.get('tasa'), r.get('tasa_euro')
+                else:
+                    tasa_dolar_db, tasa_euro_db = r[0], r[1]
+    except Exception:
+        pass
+
+    # ===== Lectura de querystring base =====
+    bloques_raw = (request.args.get('bloques_json') or '').strip()
+    simulacion_por_bloques = bool(bloques_raw)
+    simulacion_realizada = simulacion_por_bloques or ('fecha_inicio' in request.args)
+
+    # Fechas y tasas por defecto (parametría)
+    try:
+        fecha_inicio_str = request.args.get('fecha_inicio', hoy.strftime('%Y-%m-%d'))
+        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+    except Exception:
+        fecha_inicio = hoy.date() if hasattr(hoy, "date") else hoy
+
+    proyecciones['parametros']['fecha_inicio'] = fecha_inicio.strftime('%Y-%m-%d')
+    proyecciones['parametros']['tasa_bcv_dolar_inicio'] = (f"{tasa_dolar_db:.4f}" if tasa_dolar_db else "")
+    proyecciones['parametros']['tasa_bcv_euro_inicio']  = (f"{tasa_euro_db:.4f}"  if tasa_euro_db  else "")
+
+    # ===== Detecciones auxiliares =====
+    def _detect_column(conn, table, candidates):
+        try:
+            with conn.cursor(cursor_factory=cursor_factory) as cur:
+                for c in candidates:
+                    cur.execute("""
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_schema = ANY (current_schemas(true))
+                          AND table_name=%s AND column_name=%s
+                    """, (table, c))
+                    if cur.fetchone():
+                        return c
+        except Exception:
+            pass
+        return None
+
+    has_cuotas = False
+    try:
+        with conn.cursor(cursor_factory=cursor_factory) as cur:
+            cur.execute("""
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema='public' AND table_name='cuotas'
+            """)
+            has_cuotas = bool(cur.fetchone())
+    except Exception:
+        has_cuotas = False
+
+    insc_col = _detect_column(conn, 'clientes', [
+        'fecha_inscripcion','fecha_registro','fecha_origen','fecha_registro_cliente'
+    ])
+
+    # ====== MODO BLOQUES ======
+    if simulacion_por_bloques:
+        try:
+            try:
+                bloques = json.loads(bloques_raw) if bloques_raw else []
+                if not isinstance(bloques, list):
+                    bloques = []
+            except Exception:
+                bloques = []
+
+            clientes_union, vistos = [], set()
+
+            with conn.cursor(cursor_factory=cursor_factory) as cur:
+                for idx, b in enumerate(bloques, start=1):
+                    if not isinstance(b, dict) or b.get('incluir') is False:
+                        continue
+
+                    where, params = [], []
+
+                    # Empresa
+                    emp = (b.get('empresa') or '').strip()
+                    if emp:
+                        where.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(TRIM(%s), ' ', ''))")
+                        params.append(emp)
+
+                    # Estados del plan
+                    estados = [e for e in (b.get('estados') or []) if e]
+                    if estados:
+                        where.append("(" + " OR ".join(["TRIM(UPPER(c.estado_del_plan)) = TRIM(UPPER(%s))"] * len(estados)) + ")")
+                        params.extend(estados)
+
+                    # Estatus cliente
+                    estatus_cli = (b.get('estatus_cliente') or '').strip()
+                    if estatus_cli:
+                        where.append("TRIM(UPPER(c.estatus_cliente)) = TRIM(UPPER(%s))")
+                        params.append(estatus_cli)
+
+                    # Excluir Retiro/Completado
+                    if b.get('excluir_rc'):
+                        where.append("(TRIM(UPPER(c.estado_del_plan)) NOT IN ('RETIRO','COMPLETADO'))")
+
+                    # Rango de inscripción (en clientes)
+                    insd = (b.get('insc_desde') or '').strip()
+                    insh = (b.get('insc_hasta') or '').strip()
+                    if insc_col and insd and insh:
+                        try:
+                            d1 = datetime.strptime(insd, '%Y-%m-%d').date()
+                            d2 = datetime.strptime(insh, '%Y-%m-%d').date()
+                            where.append(f"DATE(c.{insc_col}) BETWEEN %s AND %s")
+                            params.extend([d1, d2])
+                        except ValueError:
+                            pass
+
+                    # Campo de condición
+                    cond_field = "COALESCE(q.condicion, c.condicion)" if has_cuotas else "c.condicion"
+                    condiciones = [x for x in (b.get('condiciones') or []) if x]
+                    if condiciones:
+                        where.append(f"UPPER({cond_field}) = ANY(%s)")
+                        params.append([x.strip().upper() for x in condiciones])
+
+                    # FROM/JOINS y filtros de COBRANZA
+                    if has_cuotas:
+                        sql = """
+                            SELECT
+                              c.id AS cliente_id,
+                              CONCAT_WS(' ', COALESCE(c.nombre,''), COALESCE(c.apellido,'')) AS cliente,
+                              c.cedula,
+                              c.estado_del_plan,
+                              COALESCE(q.condicion, c.condicion) AS condicion,
+                              q.numero_cuota,
+                              q.fecha_pago,
+                              COALESCE(q.monto_usd, 0) AS monto_usd,
+                              q.estatus_cuota,
+                              q.metodo_pago
+                            FROM clientes c
+                            JOIN cuotas q ON q.cliente_id = c.id
+                        """
+                        # Rango de fechas de cobranza
+                        fi = (b.get('fecha_inicio') or '').strip()
+                        ff = (b.get('fecha_fin') or '').strip()
+                        if fi and ff:
+                            try:
+                                fi_d = datetime.strptime(fi, '%Y-%m-%d').date()
+                                ff_d = datetime.strptime(ff, '%Y-%m-%d').date()
+                                where.append("q.fecha_pago BETWEEN %s AND %s")
+                                params.extend([fi_d, ff_d])
+                            except ValueError:
+                                pass
+                        # Estatus de cuota
+                        est_cuota = (b.get('estatus_cuota') or '').strip()
+                        if est_cuota:
+                            where.append("UPPER(q.estatus_cuota) = UPPER(%s)")
+                            params.append(est_cuota)
+                    else:
+                        # Fallback sin cuotas: 1 fila por cliente
+                        sql = """
+                            SELECT
+                              c.id AS cliente_id,
+                              CONCAT_WS(' ', COALESCE(c.nombre,''), COALESCE(c.apellido,'')) AS cliente,
+                              c.cedula,
+                              c.estado_del_plan,
+                              c.condicion,
+                              NULL::INT    AS numero_cuota,
+                              NULL::DATE   AS fecha_pago,
+                              COALESCE(c.valor_cuota, 0) AS monto_usd,
+                              NULL::TEXT   AS estatus_cuota,
+                              c.moneda_pago AS metodo_pago
+                            FROM clientes c
+                        """
+
+                    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+                    order_sql = " ORDER BY cliente ASC"
+                    cur.execute(sql + " " + where_sql + order_sql, params)
+
+                    # Acumulados
+                    clientes_del_bloque, total_bloque = 0, Decimal('0.0')
+                    rows = _fetch_dicts(cur)
+                    for r in rows:
+                        cliente_id   = r.get('cliente_id')
+                        key          = (cliente_id, r.get('numero_cuota'), r.get('fecha_pago')) if has_cuotas else (cliente_id, None, None)
+                        monto        = r.get('monto_usd') or Decimal('0.0')
+
+                        # Global único
+                        if key not in vistos:
+                            vistos.add(key)
+                            clientes_union.append({
+                                'cliente': r.get('cliente'),
+                                'cedula': r.get('cedula'),
+                                'estado_plan': r.get('estado_del_plan'),
+                                'numero_cuota': r.get('numero_cuota'),
+                                'condicion': r.get('condicion'),
+                                'estatus_cuota': r.get('estatus_cuota'),
+                                'fecha_pago': r.get('fecha_pago'),
+                                'monto_usd': monto,
+                                'metodo': r.get('metodo_pago')
+                            })
+
+                        # Resumen del bloque
+                        clientes_del_bloque += 1
+                        total_bloque += (monto or Decimal('0.0'))
+
+                    resultados_por_bloque.append({
+                        'indice': idx,
+                        'clientes': clientes_del_bloque,
+                        'total_usd': total_bloque,
+                        'detalle': {
+                            'fecha_inicio': (b.get('fecha_inicio') or '').strip() or None,
+                            'fecha_fin':    (b.get('fecha_fin') or '').strip() or None,
+                            'insc_desde':   (b.get('insc_desde') or '').strip() or None,
+                            'insc_hasta':   (b.get('insc_hasta') or '').strip() or None,
+                        }
+                    })
+
+            total_usd = sum([r['monto_usd'] or Decimal('0.0') for r in clientes_union]) if clientes_union else Decimal('0.0')
+            proyecciones['clientes_a_cobrar'] = clientes_union
+            proyecciones['resumen']['clientes_a_cobrar'] = len(clientes_union)
+            proyecciones['resumen']['ingresos_totales_proyectados'] = total_usd
+            proyecciones['resumen']['gastos_totales_proyectados'] = proyecciones['egresos']['promedio_gastos_fijos']
+            proyecciones['resumen']['balance_neto_proyectado'] = total_usd - proyecciones['resumen']['gastos_totales_proyectados']
+            proyecciones['kpis']['margen_color'] = 'bg-green-500' if total_usd > 0 else 'bg-gray-500'
+            proyecciones['simulacion_exitosa'] = True
+
+        except (Exception, InvalidOperation) as e:
+            proyecciones['mensaje_error'] = f"Error al calcular la proyección por bloques: {e}"
+            logging.error(f"Error en reporte_proyecciones (bloques): {traceback.format_exc()}")
+
+        return render_template(
+            'reporte_proyecciones.html',
+            proyecciones=proyecciones,
+            simulacion_realizada=simulacion_realizada,
+            bloques_iniciales=bloques_raw or "[]",
+            resultados_por_bloque=resultados_por_bloque,
+            empresas_opciones=empresas_opciones,
+            estados_opciones=estados_opciones,
+            estatus_opciones=estatus_opciones,
+            condicion_opciones=condicion_opciones,
+            show_nombre=show_nombre,
+            show_condicion=show_condicion,
+            hint=hint
+        )
+
+    # ====== MODO CLÁSICO ======
+    # Reusar helper de filtros de clientes (mismos filtros que Métricas)
+    _build_clientes_filters_fn = globals().get('_build_clientes_filters')
+    if not callable(_build_clientes_filters_fn):
+        def _build_clientes_filters_fn(_args):
+            return "", []
+
+    where_sql, where_params = _build_clientes_filters_fn(request.args)
+
+    try:
+        with conn.cursor(cursor_factory=cursor_factory) as cur:
+            # Base mensual y conteo (aplica filtros)
+            cur.execute(f"""
+                SELECT COUNT(*) AS clientes_activos,
+                       COALESCE(SUM(c.valor_cuota), 0) AS base_mensual
+                FROM clientes c
+                {where_sql}
+            """, where_params)
+            row = cur.fetchone() or {}
+            if not isinstance(row, dict):
+                row = {'clientes_activos': row[0], 'base_mensual': row[1]}
+
+            proyecciones['ingresos']['clientes_activos'] = int(row.get('clientes_activos') or 0)
+            proyecciones['ingresos']['base_mensual'] = Decimal(str(row.get('base_mensual') or 0))
+            proyecciones['ingresos']['ingreso_mensual_proyectado'] = proyecciones['ingresos']['base_mensual']
+
+            proyecciones['resumen']['ingresos_totales_proyectados'] = proyecciones['ingresos']['ingreso_mensual_proyectado']
+            proyecciones['resumen']['gastos_totales_proyectados'] = Decimal('0.0')
+            proyecciones['resumen']['balance_neto_proyectado'] = proyecciones['resumen']['ingresos_totales_proyectados']
+            proyecciones['kpis']['margen_maniobra_pct'] = Decimal('100.0') if proyecciones['resumen']['ingresos_totales_proyectados'] > 0 else Decimal('0.0')
+            proyecciones['kpis']['margen_color'] = 'bg-green-500' if proyecciones['kpis']['margen_maniobra_pct'] > 0 else 'bg-gray-500'
+            proyecciones['simulacion_exitosa'] = True
+
+            # (Opcional) listado rápido de “cobranza” según filtros si existe cuotas
+            has_cuotas_local = has_cuotas
+            if has_cuotas_local:
+                cur.execute(f"""
+                    SELECT
+                        c.id AS cliente_id,
+                        CONCAT_WS(' ', COALESCE(c.nombre,''), COALESCE(c.apellido,'')) AS cliente,
+                        c.cedula,
+                        c.estado_del_plan,
+                        COALESCE(q.condicion, c.condicion) AS condicion,
+                        q.numero_cuota,
+                        q.fecha_pago,
+                        COALESCE(q.monto_usd, 0) AS monto_usd,
+                        q.estatus_cuota,
+                        q.metodo_pago
+                    FROM clientes c
+                    JOIN cuotas q ON q.cliente_id = c.id
+                    {where_sql}
+                    ORDER BY q.fecha_pago NULLS LAST, cliente ASC
+                """, where_params)
+                proyecciones['clientes_a_cobrar'] = _fetch_dicts(cur)
+                proyecciones['resumen']['clientes_a_cobrar'] = len(proyecciones['clientes_a_cobrar'])
+
+    except Exception as e:
+        proyecciones['mensaje_error'] = f"Error al calcular la proyección: {e}"
+        logging.error("Error en reporte_proyecciones (clásico)\n%s", traceback.format_exc())
 
     return render_template(
         'reporte_proyecciones.html',
         proyecciones=proyecciones,
-        rows=rows,
-        total_count=total_count,
-        page=page,
-        per_page=per_page,
-        page_count=page_count,
+        simulacion_realizada=simulacion_realizada,
+        bloques_iniciales="[]",
+        resultados_por_bloque=[],
         empresas_opciones=empresas_opciones,
         estados_opciones=estados_opciones,
-        condicion_opciones=condicion_opciones,
         estatus_opciones=estatus_opciones,
+        condicion_opciones=condicion_opciones,
         show_nombre=show_nombre,
-        show_condicion=show_condicion
+        show_condicion=show_condicion,
+        hint=hint
     )
 # =========================
 # FIN REPORTE: PROYECCIONES
