@@ -257,16 +257,22 @@
 
     <!-- Paginación -->
     {% if page_count > 1 %}
+    {# Construir QS base preservando filtros (sin 'page') #}
+    {% set qs_base = [] %}
+    {% for k, v in request.args.items() if k != 'page' and v %}
+        {% set _ = qs_base.append(k ~ '=' ~ (v|string)|urlencode) %}
+    {% endfor %}
+
     <nav class="mt-4 flex items-center justify-between">
         <div>
             <span class="text-sm text-slate-600 dark:text-slate-400">Mostrando {{ page_size }} por página</span>
         </div>
         <div class="flex items-center gap-2">
-            <a href="{{ url_for('reporte_metricas', **request.args.to_dict(), page=1) }}" class="px-3 py-1 rounded-md border border-slate-300 dark:border-slate-700">Primera</a>
-            <a href="{{ url_for('reporte_metricas', **request.args.to_dict(), page=(page-1 if page>1 else 1)) }}" class="px-3 py-1 rounded-md border border-slate-300 dark:border-slate-700">Anterior</a>
+            <a href="{{ url_for('reporte_metricas') }}?{{ (qs_base + ['page=1'])|join('&') }}" class="px-3 py-1 rounded-md border border-slate-300 dark:border-slate-700">Primera</a>
+            <a href="{{ url_for('reporte_metricas') }}?{{ (qs_base + ['page=' ~ (page-1 if page>1 else 1)])|join('&') }}" class="px-3 py-1 rounded-md border border-slate-300 dark:border-slate-700">Anterior</a>
             <span class="px-3 py-1">{{ page }} / {{ page_count }}</span>
-            <a href="{{ url_for('reporte_metricas', **request.args.to_dict(), page=(page+1 if page<page_count else page_count)) }}" class="px-3 py-1 rounded-md border border-slate-300 dark:border-slate-700">Siguiente</a>
-            <a href="{{ url_for('reporte_metricas', **request.args.to_dict(), page=page_count) }}" class="px-3 py-1 rounded-md border border-slate-300 dark:border-slate-700">Última</a>
+            <a href="{{ url_for('reporte_metricas') }}?{{ (qs_base + ['page=' ~ (page+1 if page<page_count else page_count)])|join('&') }}" class="px-3 py-1 rounded-md border border-slate-300 dark:border-slate-700">Siguiente</a>
+            <a href="{{ url_for('reporte_metricas') }}?{{ (qs_base + ['page=' ~ page_count])|join('&') }}" class="px-3 py-1 rounded-md border border-slate-300 dark:border-slate-700">Última</a>
         </div>
     </nav>
     {% endif %}

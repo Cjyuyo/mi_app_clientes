@@ -3443,6 +3443,12 @@ def reporte_flujo_caja():
             historial=[]
         )
 
+    # Asegurar que no hay transacción abortada previa
+    try:
+        conn.rollback()
+    except Exception:
+        pass
+
     # Fecha seleccionada o hoy
     hoy_dt = get_venezuela_current_date()
     hoy_date = hoy_dt.date() if isinstance(hoy_dt, datetime) else hoy_dt
@@ -3462,28 +3468,47 @@ def reporte_flujo_caja():
     # Tasas al día (o última previa)
     tasas_del_dia = _fetch_tasas_bcv_al_dia(conn, fecha_reporte)
     if not tasas_del_dia or not hasattr(tasas_del_dia, 'usd'):
-        # Fallback defensivo si el helper devuelve None u otro tipo
         tasas_del_dia = SimpleNamespace(usd=0.0, eur=0.0)
 
     # ===== Proyecciones con filtros desde el querystring =====
-    # ?estado_plan=AHORRADOR&estatus=ACTIVO&empresa=CYK&cuota_bucket=2 ...
-    # Fallback si _build_clientes_filters no existe: no aplicar filtros
     _build_clientes_filters_fn = globals().get('_build_clientes_filters')
     if not callable(_build_clientes_filters_fn):
         def _build_clientes_filters_fn(_args):
             return "", []
     where_sql, where_params = _build_clientes_filters_fn(request.args)
 
-    # Proyectado del mes (completo) por empresa, aplicando filtros
-    datos_empresas, resumen_mes = _proyeccion_por_empresa(
-        conn,
-        primer_dia,
-        ultimo_dia,
-        where_sql_extra=where_sql,
-        where_params_extra=where_params
-    )
+    # Reset por si quedó abortada antes del cálculo de proyección
+    try:
+        conn.rollback()
+    except Exception:
+        pass
+
+    # Proyectado del mes (completo) por empresa, aplicando filtros (con reintento 1 vez)
+    try:
+        datos_empresas, resumen_mes = _proyeccion_por_empresa(
+            conn, primer_dia, ultimo_dia,
+            where_sql_extra=where_sql,
+            where_params_extra=where_params
+        )
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        try:
+            datos_empresas, resumen_mes = _proyeccion_por_empresa(
+                conn, primer_dia, ultimo_dia,
+                where_sql_extra=where_sql,
+                where_params_extra=where_params
+            )
+        except Exception:
+            datos_empresas, resumen_mes = [], {'proyectado_mes': 0.0}
 
     # Real a la fecha (desde el 1 del mes hasta fecha_reporte)
+    try:
+        conn.rollback()
+    except Exception:
+        pass
     with conn.cursor() as cur:
         cur.execute("""
             SELECT COALESCE(SUM(p.monto), 0) AS real_a_fecha
@@ -3493,20 +3518,18 @@ def reporte_flujo_caja():
         """, (primer_dia, fecha_reporte))
         real_a_fecha = float((cur.fetchone() or [0])[0] or 0.0)
 
-    ingreso_proyectado_mes = float(resumen_mes['proyectado_mes'])
+    ingreso_proyectado_mes = float(resumen_mes.get('proyectado_mes', 0.0))
 
-    # Modelo simple de devaluación (placeholder seguro)
+    # Modelo simple de devaluación (placeholder)
     caja_bs_total = 0.0
-    RIESGO_MENSUAL = 0.02  # Ajustable
+    RIESGO_MENSUAL = 0.02
     devaluacion_proyectada_mes = (caja_bs_total / (tasas_del_dia.usd or 1)) * RIESGO_MENSUAL
 
-    # Devaluación real proporcional al avance del mes
     dias_del_mes = monthrange(fecha_reporte.year, fecha_reporte.month)[1]
     dias_transcurridos = fecha_reporte.day
     factor = dias_transcurridos / dias_del_mes
     devaluacion_real_a_fecha = devaluacion_proyectada_mes * factor
 
-    # Comparativa proyectado vs. real
     proyeccion_restante = max(ingreso_proyectado_mes - real_a_fecha, 0.0)
     comparativa_proyeccion = SimpleNamespace(
         proyectado_mes=ingreso_proyectado_mes,
@@ -3516,7 +3539,6 @@ def reporte_flujo_caja():
         devaluacion_real_a_fecha=devaluacion_real_a_fecha
     )
 
-    # Resumen para la vista
     avance_pct = (real_a_fecha / ingreso_proyectado_mes * 100.0) if ingreso_proyectado_mes > 0 else 0.0
     restante_pct = (proyeccion_restante / ingreso_proyectado_mes * 100.0) if ingreso_proyectado_mes > 0 else 0.0
     resumen = SimpleNamespace(
@@ -3575,8 +3597,8 @@ def _resumen_vacio():
         'balance_general_consolidado_usd': 0.0,
         'EFECTIVO_USD': 0.0,
         'BINANCE_USDT': 0.0,
-        'CAJA_BS_USD': 0.0,     # mostrado en la card "Caja Bs (USD Ref)"
-        'CAJA_BS_EUR': 0.0,     # mostrado en la card "Caja Bs (EUR Ref)"
+        'CAJA_BS_USD': 0.0,
+        'CAJA_BS_EUR': 0.0,
         'balance_bs_consolidado_bs': 0.0,
         'balance_bs_consolidado_usd': 0.0,
         'acumulado_perdida_devaluacion': 0.0,
