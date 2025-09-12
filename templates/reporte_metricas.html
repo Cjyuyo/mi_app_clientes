@@ -1,7 +1,50 @@
 {% extends "base_sidebar.html" %}
 
-{% macro pill_status(estatus) %}{# ...sin cambios... #}{% endmacro %}
-{% macro pill_condicion(condicion) %}{# ...sin cambios... #}{% endmacro %}
+{% macro pill_status(estatus) %}
+    {# Normaliza el estatus para buscarlo en el diccionario de colores #}
+    {% set estatus_norm = estatus|lower|trim if estatus else '' %}
+    {# Mapeo de estatus a clases de color de Tailwind #}
+    {% set colors = {
+        'activo': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300',
+        'inactivo': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
+        'retirado': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
+        'pendiente': 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300',
+        'pendiente por entrega': 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300'
+    } %}
+    {# Color por defecto si el estatus no se encuentra #}
+    {% set color_class = colors.get(estatus_norm, 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300') %}
+
+    {% if estatus %}
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ color_class }}">
+            {{ estatus|replace('_',' ')|capitalize }}
+        </span>
+    {% else %}
+        <span class="text-slate-400">—</span>
+    {% endif %}
+{% endmacro %}
+
+{% macro pill_condicion(condicion) %}
+    {# Normaliza la condición para buscarla en el diccionario de colores #}
+    {% set cond_norm = condicion|lower|trim if condicion else '' %}
+    {# Mapeo de condición a clases de color de Tailwind #}
+    {% set colors = {
+        'solvente': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300',
+        'pago adelantado': 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300',
+        'mora': 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300',
+        'pago impuntual': 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300',
+        'sin condicion': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
+    } %}
+    {# Color por defecto si la condición no se encuentra #}
+    {% set color_class = colors.get(cond_norm, 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300') %}
+
+    {% if condicion %}
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ color_class }}">
+            {{ condicion|replace('_',' ')|capitalize }}
+        </span>
+    {% else %}
+        <span class="text-slate-400">—</span>
+    {% endif %}
+{% endmacro %}
 
 {# Enlaces de orden sin **kwargs. Ahora preserva arrays con items(multi=True) #}
 {% macro sort_link(field, title) -%}
@@ -186,7 +229,25 @@
         </div>
     </div>
 
-    {# Resumen / Gráficas (igual) #}
+    <div class="no-print grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {% if chart_data_estado and chart_data_estado.labels %}
+        <div class="lg:col-span-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4 sm:p-6">
+            <h2 class="text-base font-semibold text-slate-800 dark:text-slate-200">Clientes por Estado del Plan</h2>
+            <div class="mt-4">
+                <canvas id="chartEstadoPlan" style="min-height: 250px;"></canvas>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if chart_data_estatus and chart_data_estatus.labels %}
+        <div class="lg:col-span-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4 sm:p-6">
+            <h2 class="text-base font-semibold text-slate-800 dark:text-slate-200">Clientes por Estatus</h2>
+            <div class="mt-4">
+                <canvas id="chartEstatus" style="min-height: 250px;"></canvas>
+            </div>
+        </div>
+        {% endif %}
+    </div>
 
     <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm shadow-none-print table-container" id="table-container">
         <div class="overflow-x-auto" id="table-scroll-wrapper">
@@ -276,6 +337,103 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  
+  // --- Lógica para Gráficas ---
+  const darkMode = document.documentElement.classList.contains('dark');
+  const fontFamily = "'Inter', sans-serif";
+  const textColor = darkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)';
+  const gridColor = darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+
+  Chart.defaults.font.family = fontFamily;
+  Chart.defaults.color = textColor;
+
+  // Gráfica 1: Estado del Plan (Barras Horizontales)
+  const chartDataEstado = {{ chart_data_estado|tojson|safe if chart_data_estado else '{}' }};
+  const ctxEstado = document.getElementById('chartEstadoPlan');
+  if (ctxEstado && chartDataEstado.labels && chartDataEstado.labels.length > 0) {
+      new Chart(ctxEstado, {
+          type: 'bar',
+          data: {
+              labels: chartDataEstado.labels,
+              datasets: [{
+                  label: 'Nº Clientes',
+                  data: chartDataEstado.data,
+                  backgroundColor: 'rgba(249, 115, 22, 0.7)', // orange-500
+                  borderColor: 'rgba(249, 115, 22, 1)',
+                  borderWidth: 1
+              }]
+          },
+          options: {
+              indexAxis: 'y',
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                      backgroundColor: darkMode ? '#1e293b' : '#ffffff', // slate-800 or white
+                      titleColor: darkMode ? '#f1f5f9' : '#1e293b', // slate-100 or slate-800
+                      bodyColor: darkMode ? '#f1f5f9' : '#1e293b',
+                      borderColor: gridColor,
+                      borderWidth: 1
+                  }
+              },
+              scales: {
+                  x: {
+                      grid: { color: gridColor },
+                      ticks: { color: textColor }
+                  },
+                  y: {
+                      grid: { display: false },
+                      ticks: { color: textColor }
+                  }
+              }
+          }
+      });
+  }
+
+  // Gráfica 2: Estatus (Dona)
+  const chartDataEstatus = {{ chart_data_estatus|tojson|safe if chart_data_estatus else '{}' }};
+  const ctxEstatus = document.getElementById('chartEstatus');
+  if (ctxEstatus && chartDataEstatus.labels && chartDataEstatus.labels.length > 0) {
+      new Chart(ctxEstatus, {
+          type: 'doughnut',
+          data: {
+              labels: chartDataEstatus.labels,
+              datasets: [{
+                  label: 'Nº Clientes',
+                  data: chartDataEstatus.data,
+                  backgroundColor: [
+                      'rgba(16, 185, 129, 0.7)',  // emerald-500
+                      'rgba(239, 68, 68, 0.7)',   // red-500
+                      'rgba(245, 158, 11, 0.7)',  // amber-500
+                      'rgba(59, 130, 246, 0.7)',  // blue-500
+                      'rgba(139, 92, 246, 0.7)',  // violet-500
+                  ],
+                  borderColor: darkMode ? '#1e293b' : '#ffffff', // slate-800 or white
+                  borderWidth: 2
+              }]
+          },
+          options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                  legend: {
+                      position: 'bottom',
+                      labels: { color: textColor }
+                  },
+                  tooltip: {
+                      backgroundColor: darkMode ? '#1e293b' : '#ffffff',
+                      titleColor: darkMode ? '#f1f5f9' : '#1e293b',
+                      bodyColor: darkMode ? '#f1f5f9' : '#1e293b',
+                      borderColor: gridColor,
+                      borderWidth: 1
+                  }
+              }
+          }
+      });
+  }
+
+
   // --- Lógica para el encabezado sticky manual ---
   const tableContainer = document.getElementById('table-container');
   const originalThead = document.getElementById('original-thead');
