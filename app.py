@@ -4908,6 +4908,26 @@ def reporte_proyecciones():
         flash("Error de conexión a la base de datos.", "danger")
         return redirect(url_for('gestion_administrativa'))
 
+    # --- Fallback local para verificar columnas (evita NameError de _has_column) ---
+    def __hascol(table: str, col: str, schema: str = 'public') -> bool:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT EXISTS(
+                      SELECT 1
+                      FROM information_schema.columns
+                      WHERE table_schema=%s AND table_name=%s AND column_name=%s
+                    ) AS ok
+                """, (schema, table, col))
+                row = cur.fetchone()
+                if not row:
+                    return False
+                return bool(row[0] if not isinstance(row, dict) else (row.get('ok') or row.get('exists')))
+        except Exception:
+            try: conn.rollback()
+            except Exception: pass
+            return False
+
     hoy = get_venezuela_current_date()
 
     # ---- Parámetros / Querystring ----
@@ -4951,9 +4971,9 @@ def reporte_proyecciones():
             rows = cur.fetchall() or []
             empresas_opciones = [_val(r, 'empresa') if isinstance(r, dict) else _val(r, 0) for r in rows]
 
-            # Estado del plan: detectar columnas disponibles y normalizar UPPER/TRIM
-            has_estado_del_plan = _has_column(conn, 'clientes', 'estado_del_plan')
-            has_estado_plan     = _has_column(conn, 'clientes', 'estado_plan')
+            # Estado del plan (detecta columnas y normaliza UPPER/TRIM)
+            has_estado_del_plan = __hascol('clientes', 'estado_del_plan')
+            has_estado_plan     = __hascol('clientes', 'estado_plan')
             estados_opciones = []
             if has_estado_del_plan or has_estado_plan:
                 if has_estado_del_plan and has_estado_plan:
@@ -4971,9 +4991,9 @@ def reporte_proyecciones():
                 rows = cur.fetchall() or []
                 estados_opciones = [_val(r, 'estado') if isinstance(r, dict) else _val(r, 0) for r in rows]
 
-            # Estatus: preferir estatus_cliente; si no existe, estatus; normalizar y forzar 'PENDIENTE POR ENTREGA'
-            has_estatus_cliente = _has_column(conn, 'clientes', 'estatus_cliente')
-            has_estatus         = _has_column(conn, 'clientes', 'estatus')
+            # Estatus (preferir estatus_cliente; si no existe, estatus; normaliza y fuerza 'PENDIENTE POR ENTREGA')
+            has_estatus_cliente = __hascol('clientes', 'estatus_cliente')
+            has_estatus         = __hascol('clientes', 'estatus')
             estatus_opciones = []
             if has_estatus_cliente or has_estatus:
                 base = "TRIM(UPPER(NULLIF(c.estatus_cliente,'')))" if has_estatus_cliente else "TRIM(UPPER(NULLIF(c.estatus,'')))"
@@ -5001,9 +5021,9 @@ def reporte_proyecciones():
             else:
                 estatus_opciones = ['PENDIENTE POR ENTREGA']
 
-            # Condición: preferir condicion_pago; si no existe, condicion; si ninguna, 'SIN CONDICION'
-            has_condicion_pago = _has_column(conn, 'clientes', 'condicion_pago')
-            has_condicion      = _has_column(conn, 'clientes', 'condicion')
+            # Condición (preferir condicion_pago; si no existe, condicion; si ninguna, 'SIN CONDICION')
+            has_condicion_pago = __hascol('clientes', 'condicion_pago')
+            has_condicion      = __hascol('clientes', 'condicion')
             if has_condicion_pago or has_condicion:
                 col = 'condicion_pago' if has_condicion_pago else 'condicion'
                 cur.execute(f"""
@@ -5021,10 +5041,8 @@ def reporte_proyecciones():
             len(empresas_opciones), len(estados_opciones), len(condicion_opciones), len(estatus_opciones)
         )
     except Exception as e:
-        try:
-            conn.rollback()
-        except Exception:
-            pass
+        try: conn.rollback()
+        except Exception: pass
         app.logger.exception("proyecciones/selectores error: %s", e)
         empresas_opciones, estados_opciones, condicion_opciones, estatus_opciones = [], [], [], []
 
@@ -5042,10 +5060,8 @@ def reporte_proyecciones():
                 if isinstance(g, dict):
                     gastos = g
             except Exception as e:
-                try:
-                    conn.rollback()
-                except Exception:
-                    pass
+                try: conn.rollback()
+                except Exception: pass
                 app.logger.exception("proyecciones/egresos error: %s", e)
 
             balance = ingresos_totales - float(((gastos or {}).get('totales') or {}).get('programado') or 0)
@@ -5060,10 +5076,8 @@ def reporte_proyecciones():
                 'clientes_a_cobrar': clientes_a_cobrar,
             }
         except Exception as e:
-            try:
-                conn.rollback()
-            except Exception:
-                pass
+            try: conn.rollback()
+            except Exception: pass
             app.logger.exception("proyecciones/procesamiento error: %s", e)
             proyecciones = {
                 'resumen': {
@@ -5076,6 +5090,7 @@ def reporte_proyecciones():
             }
 
     # ---- Empaquetado seguro para Jinja (atributo-style) ----
+    from types import SimpleNamespace
     def _ns(obj):
         if isinstance(obj, dict):
             return SimpleNamespace(**{k: _ns(v) for k, v in obj.items()})
@@ -5083,11 +5098,7 @@ def reporte_proyecciones():
             return [ _ns(v) for v in obj ]
         return obj
 
-    tasas = _ns({
-        'bcv_anchor': tasas_anchor,
-        'bcv_now': tasas_now,
-    })
-
+    tasas = _ns({'bcv_anchor': tasas_anchor, 'bcv_now': tasas_now})
     proyecciones_ns = _ns(proyecciones) if proyecciones else None
     gastos_ns = _ns(gastos)
 
@@ -5102,19 +5113,13 @@ def reporte_proyecciones():
 
     return render_template(
         'reporte_proyecciones.html',
-
-        # --- Datos principales ---
         proyecciones=proyecciones_ns,
         gastos=gastos_ns,
         tasas=tasas,
-
-        # --- Opciones para los selectores ---
         empresas_opciones=empresas_opciones,
         estados_opciones=estados_opciones,
         condicion_opciones=condicion_opciones,
         estatus_opciones=estatus_opciones,
-
-        # --- Variables de control/UI ---
         simulacion_realizada=simulacion_realizada,
         parametros=parametros,
         bloques_iniciales=bloques_iniciales
