@@ -4486,490 +4486,512 @@ def _detect_column(conn, table: str, candidates: list[str]) -> str | None:
 
 # =========================
 # REPORTE: PROYECCIONES
-# =========================
-# =========================
-# REPORTE: PROYECCIONES
-# =========================
+# =====================================================================
+# PROYECCIONES (todo en app.py): utils, selects, pipeline, ruta
+# =====================================================================
+
+# -- Imports locales (seguros si ya existen arriba) --------------------
+from datetime import date, datetime
+from types import SimpleNamespace
+import json, time
+from flask import render_template, request, redirect, url_for, flash
+
+# ---------------------------------------------------------------------
+# 1) Utils (período, columnas, tasas)
+# ---------------------------------------------------------------------
+
+# NOTA: Se asume que ya tienes _month_add(d: date, months: int) y _has_column(conn, table, column, schema='public')
+
+def _compute_period(hoy: date, mode: str, start_s: str, end_s: str) -> tuple[date, date]:
+    """
+    Auto: ventana 13→12 como en Métricas.
+    Manual: parsea fechas (YYYY-MM-DD); si vienen invertidas, swapea.
+    """
+    if (mode or '').lower() != 'manual':
+        # 13 -> 12
+        if hoy.day >= 13:
+            start = hoy.replace(day=13)
+            # fin = 12 del mes siguiente
+            next_m = _month_add(hoy.replace(day=1), 1)
+            # día 12 del mes siguiente
+            end = next_m.replace(day=12)
+        else:
+            # inicio: 13 del mes anterior
+            prev_m = _month_add(hoy.replace(day=1), -1)
+            start = prev_m.replace(day=13)
+            end = hoy.replace(day=12)
+        return (start, end)
+
+    # Manual
+    def _parse(s):
+        try:
+            return datetime.strptime(s, "%Y-%m-%d").date()
+        except Exception:
+            return None
+
+    start = _parse(start_s)
+    end   = _parse(end_s)
+    if not start or not end:
+        # Fallback a auto si algo vino mal
+        return _compute_period(hoy, 'auto', '', '')
+    if start > end:
+        start, end = end, start
+    return (start, end)
+
+
+def _collect_union(conn, specs: list[tuple[str, str]], schema: str = 'public') -> list[str]:
+    """
+    Construye un UNION SELECT DISTINCT TRIM(col) sobre columnas candidatas,
+    ignorando columnas/tablas que no existan y valores vacíos.
+    specs: [(table, column), ...]
+    """
+    parts = []
+    for table, column in specs:
+        if _has_column(conn, table, column, schema=schema):
+            parts.append(f"SELECT DISTINCT TRIM({column}) AS v FROM {schema}.{table} WHERE {column} IS NOT NULL AND TRIM({column}) <> ''")
+
+    if not parts:
+        return []
+
+    sql = " UNION ".join(parts) + " ORDER BY v"
+    out = []
+    with conn.cursor() as cur:
+        cur.execute(sql)
+        rows = cur.fetchall()
+        for r in rows:
+            # r puede ser tupla o dict
+            if isinstance(r, dict):
+                out.append(r.get('v'))
+            else:
+                out.append(r[0])
+    return out
+
+
+def _fetch_bcv_anchor(conn, anchor_date: date) -> dict:
+    """
+    Obtiene la fila de tasas con fecha <= anchor_date (más reciente).
+    Tolera columna opcional tasa_binance y hace rollback seguro en error.
+    Retorna: {'usd': float|None, 'eur': float|None, 'binance': float|None}
+    """
+    try:
+        with conn.cursor() as cur:
+            # Preferimos la fila más cercana hacia atrás
+            cur.execute("""
+                SELECT tasa, tasa_euro, 
+                       CASE WHEN EXISTS (
+                         SELECT 1 FROM information_schema.columns
+                         WHERE table_schema='public' AND table_name='historial_tasas_bcv' AND column_name='tasa_binance'
+                       )
+                       THEN tasa_binance ELSE NULL END AS tasa_binance
+                FROM public.historial_tasas_bcv
+                WHERE fecha <= %s
+                ORDER BY fecha DESC
+                LIMIT 1
+            """, (anchor_date,))
+            row = cur.fetchone()
+        if not row:
+            return {'usd': None, 'eur': None, 'binance': None}
+        if isinstance(row, dict):
+            return {'usd': row.get('tasa'), 'eur': row.get('tasa_euro'), 'binance': row.get('tasa_binance')}
+        return {'usd': row[0], 'eur': row[1], 'binance': row[2]}
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return {'usd': None, 'eur': None, 'binance': None}
+
+
+def _fetch_tasas_now(conn) -> dict:
+    """
+    Última fila de historial_tasas_bcv. Tolerante a tasa_binance. Rollback seguro.
+    """
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT tasa, tasa_euro,
+                       CASE WHEN EXISTS (
+                         SELECT 1 FROM information_schema.columns
+                         WHERE table_schema='public' AND table_name='historial_tasas_bcv' AND column_name='tasa_binance'
+                       )
+                       THEN tasa_binance ELSE NULL END AS tasa_binance
+                FROM public.historial_tasas_bcv
+                ORDER BY fecha DESC
+                LIMIT 1
+            """)
+            row = cur.fetchone()
+        if not row:
+            return {'usd': None, 'eur': None, 'binance': None}
+        if isinstance(row, dict):
+            return {'usd': row.get('tasa'), 'eur': row.get('tasa_euro'), 'binance': row.get('tasa_binance')}
+        return {'usd': row[0], 'eur': row[1], 'binance': row[2]}
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return {'usd': None, 'eur': None, 'binance': None}
+
+
+# ---------------------------------------------------------------------
+# 2) Selectores (mismo comportamiento que Métricas)
+# ---------------------------------------------------------------------
+
+def _selector_opciones(conn) -> tuple[list[str], list[str], list[str], list[str]]:
+    """
+    Devuelve (empresas, estados, condicion, estatus)
+    - Empresa: clientes.empresa
+    - Estado del Plan: clientes.estado_del_plan UNION clientes.estado_plan
+    - Condición: UNION de clientes.condicion_pago (alias de condicion) + clientes.condicion + cuotas.condicion + planes.condicion
+    - Estatus: clientes.estatus_cliente UNION clientes.estatus
+    """
+    empresas = _collect_union(conn, [('clientes', 'empresa')])
+
+    estados = _collect_union(conn, [
+        ('clientes', 'estado_del_plan'),
+        ('clientes', 'estado_plan'),  # alternativo
+    ])
+
+    condicion = _collect_union(conn, [
+        ('clientes', 'condicion_pago'),  # alias preferente
+        ('clientes', 'condicion'),
+        ('cuotas',   'condicion'),
+        ('planes',   'condicion'),
+    ])
+
+    estatus = _collect_union(conn, [
+        ('clientes', 'estatus_cliente'),
+        ('clientes', 'estatus'),  # alternativo
+    ])
+
+    app.logger.info(
+        "proyecciones/selects -> empresas:%d estados:%d condicion:%d estatus:%d",
+        len(empresas), len(estados), len(condicion), len(estatus)
+    )
+    return empresas, estados, condicion, estatus
+
+
+# ---------------------------------------------------------------------
+# 3) Pipeline de bloques (consulta + agregación)
+# ---------------------------------------------------------------------
+
+def _parse_bloques(args) -> list[dict]:
+    """
+    Lee bloques_json (JSON) desde querystring.
+    Devuelve lista de bloques [{...}] o [] si vacío/malformado.
+    """
+    raw = (args.get('bloques_json') or '').strip()
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+        if isinstance(data, list):
+            # sanea cada bloque para evitar claves inesperadas
+            out = []
+            for b in data:
+                if not isinstance(b, dict):
+                    continue
+                out.append({
+                    'empresa': b.get('empresa') or '',
+                    'estado_plan': b.get('estado_plan') or [],
+                    'condicion': b.get('condicion') or [],
+                    'estatus_cliente': b.get('estatus_cliente') or [],
+                    'fecha_inicio': b.get('fecha_inicio') or None,
+                    'fecha_fin': b.get('fecha_fin') or None,
+                    'excluir_rc': bool(b.get('excluir_rc')),
+                })
+            return out
+    except Exception:
+        pass
+    return []
+
+
+def _build_block_where(bloque: dict) -> tuple[str, list]:
+    """
+    Traduce un bloque en WHERE + params.
+    - Rango fechas: c.fecha_pago BETWEEN %s AND %s (si vienen ambas)
+    - empresa: cl.empresa = %s
+    - estatus_cliente (lista): = ANY(%s)
+    - estados (lista): cl.estado_del_plan = ANY(%s)
+    - condicion (lista): COALESCE(cl.condicion_pago, cl.condicion) = ANY(%s)
+    - excluir_rc: cl.estado_del_plan NOT IN ('retirado','completado')
+    """
+    where = []
+    params = []
+
+    fi = bloque.get('fecha_inicio')
+    ff = bloque.get('fecha_fin')
+    if fi and ff:
+        where.append("c.fecha_pago BETWEEN %s AND %s")
+        params.extend([fi, ff])
+
+    empresa = (bloque.get('empresa') or '').strip()
+    if empresa:
+        where.append("cl.empresa = %s")
+        params.append(empresa)
+
+    estados = bloque.get('estado_plan') or []
+    if estados:
+        where.append("cl.estado_del_plan = ANY(%s)")
+        params.append(estados)
+
+    condiciones = bloque.get('condicion') or []
+    if condiciones:
+        where.append("COALESCE(cl.condicion_pago, cl.condicion) = ANY(%s)")
+        params.append(condiciones)
+
+    estatus = bloque.get('estatus_cliente') or []
+    if estatus:
+        where.append("COALESCE(cl.estatus_cliente, cl.estatus) = ANY(%s)")
+        params.append(estatus)
+
+    if bloque.get('excluir_rc'):
+        where.append("COALESCE(cl.estado_del_plan, cl.estado_plan) NOT IN ('retirado','completado')")
+
+    if not where:
+        return "TRUE", []
+    return " AND ".join(where), params
+
+
+def _run_block(conn, bloque: dict, idx: int) -> tuple[float, list]:
+    """
+    Ejecuta el query del bloque y devuelve (ingresos_usd_sum, rows)
+    rows listo para la plantilla: nombre, apellido, cedula, estado_del_plan, condicion, numero_cuota, fecha_pago, monto_usd
+    """
+    where_sql, params = _build_block_where(bloque)
+    sql = f"""
+        SELECT 
+            COALESCE(cl.nombre, split_part(COALESCE(cl.nombre_completo,''),' ',1)) AS nombre,
+            COALESCE(cl.apellido, NULLIF(SPLIT_PART(COALESCE(cl.nombre_completo,''),' ',2),'')) AS apellido,
+            cl.cedula,
+            COALESCE(cl.estado_del_plan, cl.estado_plan) AS estado_del_plan,
+            COALESCE(cl.condicion_pago, cl.condicion) AS condicion,
+            c.numero_cuota,
+            c.fecha_pago,
+            c.monto_usd
+        FROM public.cuotas c
+        JOIN public.clientes cl ON c.cliente_id = cl.id
+        WHERE {where_sql}
+        ORDER BY c.fecha_pago
+        LIMIT 200
+    """
+    t0 = time.perf_counter()
+    ingresos = 0.0
+    rows_out = []
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            rows = cur.fetchall() or []
+            desc = [d[0] for d in (cur.description or [])]
+
+        # Mapeo robusto por nombre de columna
+        def col(row, key):
+            if isinstance(row, dict):
+                return row.get(key)
+            # tupla -> usa índice por nombre
+            try:
+                i = desc.index(key)
+                return row[i]
+            except Exception:
+                return None
+
+        for r in rows:
+            monto = float(col(r, 'monto_usd') or 0)
+            ingresos += monto
+            rows_out.append({
+                'nombre': col(r, 'nombre') or '',
+                'apellido': col(r, 'apellido') or '',
+                'cedula': col(r, 'cedula') or '',
+                'estado_del_plan': col(r, 'estado_del_plan') or '',
+                'condicion': col(r, 'condicion') or '',
+                'numero_cuota': col(r, 'numero_cuota'),
+                'fecha_pago': col(r, 'fecha_pago'),
+                'monto_usd': monto,
+                'bloque_index': idx,
+            })
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        app.logger.exception("proyecciones/_run_block error en bloque %s: %s", idx, e)
+
+    dt = (time.perf_counter() - t0) * 1000.0
+    app.logger.info("proyecciones/bloque %d -> filas:%d tiempo:%.1f ms", idx, len(rows_out), dt)
+    return ingresos, rows_out
+
+
+def _procesar_bloques(conn, bloques: list[dict], start: date, end: date) -> tuple[float, list, list]:
+    """
+    Procesa todos los bloques:
+    retorna (ingresos_totales, resultados_por_bloque, clientes_a_cobrar)
+    """
+    ingresos_totales = 0.0
+    resultados = []
+    clientes = []
+    t0 = time.perf_counter()
+
+    for i, b in enumerate(bloques):
+        inc, rows = _run_block(conn, b, i)
+        ingresos_totales += inc
+        resultados.append({'bloque_index': i, 'ingresos_bloque': inc, 'n': len(rows)})
+        clientes.extend(rows)
+
+    dt = (time.perf_counter() - t0) * 1000.0
+    app.logger.info("proyecciones/total -> bloques:%d filas:%d tiempo:%.1f ms",
+                    len(bloques), len(clientes), dt)
+    return ingresos_totales, resultados, clientes
+
+
+# ---------------------------------------------------------------------
+# 4) Conexiones con el ecosistema (egresos, etc.)
+#     - _get_egresos_totales_periodo(conn, start, end): se deja tal cual (cascada de firmas).
+# ---------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------
+# 5) Bandera de simulación (política recomendada en la ruta)
+# ---------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------
+# 6) Ruta /reportes/proyecciones (contrato estable)
+# ---------------------------------------------------------------------
+
 @app.route('/reportes/proyecciones', methods=['GET'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def reporte_proyecciones():
-    import json, logging, traceback
-    from decimal import Decimal, InvalidOperation
-    from types import SimpleNamespace
-    from datetime import datetime
-
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", "danger")
         return redirect(url_for('gestion_administrativa'))
 
-    # --- Helpers locales ---
-    def _proy_skeleton(fecha_ref: datetime):
-        """Estructura segura para el template (evita UndefinedError)."""
-        fstr = (fecha_ref.date() if hasattr(fecha_ref, "date") else fecha_ref).strftime("%Y-%m-%d")
-        return {
-            'parametros': {
-                'fecha_inicio': fstr,
-                'tasa_bcv_dolar_inicio': "",
-                'tasa_bcv_euro_inicio': "",
-                'margen_dolar_pct':   Decimal('15.0'),
-                'margen_euro_pct':    Decimal('15.0'),
-                'margen_binance_pct': Decimal('65.0'),
-                'devaluacion_ponderada_bcv': None,
-                'devaluacion_ponderada_total': None
-            },
-            'simulacion_exitosa': False,
-            'mensaje_error': None,
-            'ingresos': {
-                'clientes_activos': 0,
-                'base_mensual': Decimal('0.0'),
-                'tasa_pago_historica_pct': Decimal('100.0'),
-                'ingreso_mensual_proyectado': Decimal('0.0')
-            },
-            'egresos': {
-                'promedio_gastos_fijos': Decimal('0.0'),
-                'gasto_proyectado_primer_mes': Decimal('0.0')
-            },
-            'resumen': {
-                'ingresos_totales_proyectados': Decimal('0.0'),
-                'ingreso_real_acumulado': Decimal('0.0'),
-                'gastos_totales_proyectados': Decimal('0.0'),
-                'balance_neto_proyectado': Decimal('0.0'),
-                'clientes_a_cobrar': 0
-            },
-            'kpis': {
-                'margen_maniobra_pct': Decimal('0.0'),
-                'perdida_devaluacion_usd': Decimal('0.0'),
-                'margen_color': 'bg-gray-500',
-                'progreso_ingreso_pct': 0.0
-            },
-            'gestion_cobranza': {
-                'USD':     {'clientes': 0, 'monto': Decimal('0.0')},
-                'BsBCV':   {'clientes': 0, 'monto': Decimal('0.0')},
-                'EuroBCV': {'clientes': 0, 'monto': Decimal('0.0')},
-                'USDT':    {'clientes': 0, 'monto': Decimal('0.0')}
-            },
-            'clientes_a_cobrar': []
-        }
-
-    def _fetch_dicts(cur):
-        rows = cur.fetchall() or []
-        if rows and isinstance(rows[0], dict):
-            return rows
-        cols = [d.name for d in cur.description] if cur.description else []
-        return [dict(zip(cols, r)) for r in rows]
-
-    def _col_exists(cur, col):
-        cur.execute("""
-            SELECT 1
-            FROM information_schema.columns
-            WHERE table_schema = ANY (current_schemas(true))
-              AND table_name='clientes' AND column_name=%s
-        """, (col,))
-        return bool(cur.fetchone())
-
-    # Cursor dict si está disponible
-    try:
-        from psycopg2.extras import RealDictCursor as _RDC
-    except Exception:
-        _RDC = None
-    cursor_factory = _RDC if _RDC else None
-
-    # Fecha base
     hoy = get_venezuela_current_date()
 
-    # Esqueleto seguro
-    proyecciones = _proy_skeleton(hoy)
-    simulacion_realizada = False
-    resultados_por_bloque = []
-    hint = ""
+    # ---- Parámetros / Querystring ----
+    period_mode = (request.args.get('period_mode') or 'auto').lower()
+    start_s = (request.args.get('start_date') or '').strip()
+    end_s   = (request.args.get('end_date') or '').strip()
 
-    # ===== Opciones para filtros (alineadas a Métricas) =====
-    empresas_opciones = []
-    estados_opciones = []
-    estatus_opciones = []
-    condicion_opciones = []
-    show_nombre = False
-    show_condicion = False
+    # otros potenciales (guardamos por si UI los usa luego)
+    dev_target_pct = request.args.get('dev_target_pct')  # opcional
+    fijada         = request.args.get('fijada')          # opcional
 
+    # Bloques (constructor dinámico desde la UI)
+    bloques_iniciales = _parse_bloques(request.args)
+
+    # Política de simulación: firme y simple
+    simulacion_realizada = bool(bloques_iniciales)
+
+    # ---- Período ----
+    start_date, end_date = _compute_period(hoy, period_mode, start_s, end_s)
+    period_key = f"{start_date.isoformat()}_{end_date.isoformat()}"
+
+    # ---- Tasas ----
+    tasas_anchor = _fetch_bcv_anchor(conn, start_date)
+    tasas_now    = _fetch_tasas_now(conn)
+
+    # ---- Selectores ----
     try:
-        with conn.cursor(cursor_factory=cursor_factory) as cur:
-            # Detección de columnas visibles
-            show_nombre = _col_exists(cur, 'nombre')
-            condicion_col = 'condicion_pago' if _col_exists(cur, 'condicion_pago') \
-                            else ('condicion' if _col_exists(cur, 'condicion') else None)
-            show_condicion = bool(condicion_col)
-
-            # Opciones
-            cur.execute("""
-                SELECT DISTINCT empresa
-                FROM clientes
-                WHERE empresa IS NOT NULL AND btrim(empresa) <> ''
-                ORDER BY 1
-            """)
-            empresas_opciones = [r.get('empresa') for r in _fetch_dicts(cur)]
-
-            cur.execute("""
-                SELECT DISTINCT UPPER(TRIM(estado_del_plan)) AS estado
-                FROM clientes
-                WHERE estado_del_plan IS NOT NULL AND btrim(estado_del_plan) <> ''
-                ORDER BY 1
-            """)
-            estados_opciones = [r.get('estado') for r in _fetch_dicts(cur)]
-
-            # Normalización básica del estatus (igual que en métricas)
-            estatus_expr = (
-                "CASE "
-                "WHEN c.estatus_cliente IS NULL OR c.estatus_cliente='' THEN NULL "
-                "WHEN regexp_replace(UPPER(TRIM(c.estatus_cliente)),'\\s+',' ','g') IN "
-                "('ENTREGA PENDIENTE','PENDIENTE DE ENTREGA','PENDIENTE ENTREGA','PENDIEN POR ENTREGA') "
-                "OR (UPPER(c.estatus_cliente) LIKE '%PENDIENT%' AND UPPER(c.estatus_cliente) LIKE '%ENTREG%') "
-                "THEN 'PENDIENTE POR ENTREGA' "
-                "ELSE regexp_replace(UPPER(TRIM(c.estatus_cliente)),'\\s+',' ','g') END"
-            )
-            cur.execute(f"""
-                SELECT estatus FROM (
-                  SELECT DISTINCT {estatus_expr} AS estatus
-                  FROM clientes c
-                  WHERE {estatus_expr} IS NOT NULL AND {estatus_expr} <> ''
-                  UNION
-                  SELECT 'PENDIENTE POR ENTREGA'
-                ) x
-                ORDER BY 1
-            """)
-            estatus_opciones = [r.get('estatus') for r in _fetch_dicts(cur)]
-
-            if condicion_col:
-                cur.execute(f"SELECT DISTINCT UPPER(TRIM({condicion_col})) AS condicion FROM clientes WHERE {condicion_col} IS NOT NULL AND btrim({condicion_col})<>'' ORDER BY 1")
-                condicion_opciones = [r.get('condicion') for r in _fetch_dicts(cur)]
-            else:
-                condicion_opciones = []
-    except Exception:
-        # Opciones vacías si algo falla (no bloquear la página)
-        empresas_opciones, estados_opciones, estatus_opciones, condicion_opciones = [], [], [], []
-
-    # ===== Tasas recientes (para pintar inputs por defecto) =====
-    tasa_dolar_db, tasa_euro_db = None, None
-    try:
-        with conn.cursor(cursor_factory=cursor_factory) as cur:
-            cur.execute("""
-                SELECT tasa, tasa_euro
-                FROM historial_tasas_bcv
-                ORDER BY fecha DESC
-                LIMIT 1
-            """)
-            r = cur.fetchone()
-            if r:
-                if isinstance(r, dict):
-                    tasa_dolar_db, tasa_euro_db = r.get('tasa'), r.get('tasa_euro')
-                else:
-                    tasa_dolar_db, tasa_euro_db = r[0], r[1]
-    except Exception:
-        pass
-
-    # ===== Lectura de querystring base =====
-    bloques_raw = (request.args.get('bloques_json') or '').strip()
-    simulacion_por_bloques = bool(bloques_raw)
-    simulacion_realizada = simulacion_por_bloques or ('fecha_inicio' in request.args)
-
-    # Fechas y tasas por defecto (parametría)
-    try:
-        fecha_inicio_str = request.args.get('fecha_inicio', hoy.strftime('%Y-%m-%d'))
-        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
-    except Exception:
-        fecha_inicio = hoy.date() if hasattr(hoy, "date") else hoy
-
-    proyecciones['parametros']['fecha_inicio'] = fecha_inicio.strftime('%Y-%m-%d')
-    proyecciones['parametros']['tasa_bcv_dolar_inicio'] = (f"{tasa_dolar_db:.4f}" if tasa_dolar_db else "")
-    proyecciones['parametros']['tasa_bcv_euro_inicio']  = (f"{tasa_euro_db:.4f}"  if tasa_euro_db  else "")
-
-    # ===== Detecciones auxiliares =====
-    def _detect_column(conn, table, candidates):
+        empresas_opciones, estados_opciones, condicion_opciones, estatus_opciones = _selector_opciones(conn)
+    except Exception as e:
         try:
-            with conn.cursor(cursor_factory=cursor_factory) as cur:
-                for c in candidates:
-                    cur.execute("""
-                        SELECT 1
-                        FROM information_schema.columns
-                        WHERE table_schema = ANY (current_schemas(true))
-                          AND table_name=%s AND column_name=%s
-                    """, (table, c))
-                    if cur.fetchone():
-                        return c
+            conn.rollback()
         except Exception:
             pass
-        return None
+        app.logger.exception("proyecciones/selectores error: %s", e)
+        empresas_opciones, estados_opciones, condicion_opciones, estatus_opciones = [], [], [], []
 
-    has_cuotas = False
-    try:
-        with conn.cursor(cursor_factory=cursor_factory) as cur:
-            cur.execute("""
-                SELECT 1 FROM information_schema.tables
-                WHERE table_schema='public' AND table_name='cuotas'
-            """)
-            has_cuotas = bool(cur.fetchone())
-    except Exception:
-        has_cuotas = False
+    # ---- Proyecciones / Gastos ----
+    proyecciones = {}
+    gastos = {'totales': {'programado': 0.0}}  # placeholder robusto
 
-    insc_col = _detect_column(conn, 'clientes', [
-        'fecha_inscripcion','fecha_registro','fecha_origen','fecha_registro_cliente'
-    ])
-
-    # ====== MODO BLOQUES ======
-    if simulacion_por_bloques:
+    if simulacion_realizada:
         try:
+            ingresos_totales, resultados_por_bloque, clientes_a_cobrar = _procesar_bloques(conn, bloques_iniciales, start_date, end_date)
+
+            # Gastos programados del período (cascada de firmas existente)
             try:
-                bloques = json.loads(bloques_raw) if bloques_raw else []
-                if not isinstance(bloques, list):
-                    bloques = []
+                g = _get_egresos_totales_periodo(conn, start_date, end_date)
+                # Esperamos como mínimo g['totales']['programado']; si no, se conserva 0
+                if isinstance(g, dict):
+                    gastos = g
+            except Exception as e:
+                try: conn.rollback()
+                except Exception: pass
+                app.logger.exception("proyecciones/egresos error: %s", e)
+
+            balance = ingresos_totales - float(((gastos or {}).get('totales') or {}).get('programado') or 0)
+
+            proyecciones = {
+                'resumen': {
+                    'ingresos_totales_proyectados': ingresos_totales,
+                    'balance_neto_proyectado': balance,
+                    'period_key': period_key,
+                },
+                'resultados_por_bloque': resultados_por_bloque,
+                'clientes_a_cobrar': clientes_a_cobrar,
+            }
+        except Exception as e:
+            try:
+                conn.rollback()
             except Exception:
-                bloques = []
+                pass
+            app.logger.exception("proyecciones/procesamiento error: %s", e)
+            proyecciones = {
+                'resumen': {
+                    'ingresos_totales_proyectados': 0.0,
+                    'balance_neto_proyectado': 0.0,
+                    'period_key': period_key,
+                },
+                'resultados_por_bloque': [],
+                'clientes_a_cobrar': [],
+            }
 
-            clientes_union, vistos = [], set()
+    # ---- Empaquetado seguro para Jinja (atributo-style) ----
+    def _ns(obj):
+        if isinstance(obj, dict):
+            return SimpleNamespace(**{k: _ns(v) for k, v in obj.items()})
+        if isinstance(obj, list):
+            return [ _ns(v) for v in obj ]
+        return obj
 
-            with conn.cursor(cursor_factory=cursor_factory) as cur:
-                for idx, b in enumerate(bloques, start=1):
-                    if not isinstance(b, dict) or b.get('incluir') is False:
-                        continue
+    tasas = _ns({
+        'bcv_anchor': tasas_anchor,
+        'bcv_now': tasas_now,
+    })
 
-                    where, params = [], []
+    proyecciones_ns = _ns(proyecciones) if proyecciones else None
+    gastos_ns = _ns(gastos)
 
-                    # Empresa
-                    emp = (b.get('empresa') or '').strip()
-                    if emp:
-                        where.append("LOWER(REPLACE(TRIM(c.empresa), ' ', '')) = LOWER(REPLACE(TRIM(%s), ' ', ''))")
-                        params.append(emp)
-
-                    # Estados del plan
-                    estados = [e for e in (b.get('estados') or []) if e]
-                    if estados:
-                        where.append("(" + " OR ".join(["TRIM(UPPER(c.estado_del_plan)) = TRIM(UPPER(%s))"] * len(estados)) + ")")
-                        params.extend(estados)
-
-                    # Estatus cliente
-                    estatus_cli = (b.get('estatus_cliente') or '').strip()
-                    if estatus_cli:
-                        where.append("TRIM(UPPER(c.estatus_cliente)) = TRIM(UPPER(%s))")
-                        params.append(estatus_cli)
-
-                    # Excluir Retiro/Completado
-                    if b.get('excluir_rc'):
-                        where.append("(TRIM(UPPER(c.estado_del_plan)) NOT IN ('RETIRO','COMPLETADO'))")
-
-                    # Rango de inscripción (en clientes)
-                    insd = (b.get('insc_desde') or '').strip()
-                    insh = (b.get('insc_hasta') or '').strip()
-                    if insc_col and insd and insh:
-                        try:
-                            d1 = datetime.strptime(insd, '%Y-%m-%d').date()
-                            d2 = datetime.strptime(insh, '%Y-%m-%d').date()
-                            where.append(f"DATE(c.{insc_col}) BETWEEN %s AND %s")
-                            params.extend([d1, d2])
-                        except ValueError:
-                            pass
-
-                    # Campo de condición
-                    cond_field = "COALESCE(q.condicion, c.condicion)" if has_cuotas else "c.condicion"
-                    condiciones = [x for x in (b.get('condiciones') or []) if x]
-                    if condiciones:
-                        where.append(f"UPPER({cond_field}) = ANY(%s)")
-                        params.append([x.strip().upper() for x in condiciones])
-
-                    # FROM/JOINS y filtros de COBRANZA
-                    if has_cuotas:
-                        sql = """
-                            SELECT
-                              c.id AS cliente_id,
-                              CONCAT_WS(' ', COALESCE(c.nombre,''), COALESCE(c.apellido,'')) AS cliente,
-                              c.cedula,
-                              c.estado_del_plan,
-                              COALESCE(q.condicion, c.condicion) AS condicion,
-                              q.numero_cuota,
-                              q.fecha_pago,
-                              COALESCE(q.monto_usd, 0) AS monto_usd,
-                              q.estatus_cuota,
-                              q.metodo_pago
-                            FROM clientes c
-                            JOIN cuotas q ON q.cliente_id = c.id
-                        """
-                        # Rango de fechas de cobranza
-                        fi = (b.get('fecha_inicio') or '').strip()
-                        ff = (b.get('fecha_fin') or '').strip()
-                        if fi and ff:
-                            try:
-                                fi_d = datetime.strptime(fi, '%Y-%m-%d').date()
-                                ff_d = datetime.strptime(ff, '%Y-%m-%d').date()
-                                where.append("q.fecha_pago BETWEEN %s AND %s")
-                                params.extend([fi_d, ff_d])
-                            except ValueError:
-                                pass
-                        # Estatus de cuota
-                        est_cuota = (b.get('estatus_cuota') or '').strip()
-                        if est_cuota:
-                            where.append("UPPER(q.estatus_cuota) = UPPER(%s)")
-                            params.append(est_cuota)
-                    else:
-                        # Fallback sin cuotas: 1 fila por cliente
-                        sql = """
-                            SELECT
-                              c.id AS cliente_id,
-                              CONCAT_WS(' ', COALESCE(c.nombre,''), COALESCE(c.apellido,'')) AS cliente,
-                              c.cedula,
-                              c.estado_del_plan,
-                              c.condicion,
-                              NULL::INT    AS numero_cuota,
-                              NULL::DATE   AS fecha_pago,
-                              COALESCE(c.valor_cuota, 0) AS monto_usd,
-                              NULL::TEXT   AS estatus_cuota,
-                              c.moneda_pago AS metodo_pago
-                            FROM clientes c
-                        """
-
-                    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
-                    order_sql = " ORDER BY cliente ASC"
-                    cur.execute(sql + " " + where_sql + order_sql, params)
-
-                    # Acumulados
-                    clientes_del_bloque, total_bloque = 0, Decimal('0.0')
-                    rows = _fetch_dicts(cur)
-                    for r in rows:
-                        cliente_id   = r.get('cliente_id')
-                        key          = (cliente_id, r.get('numero_cuota'), r.get('fecha_pago')) if has_cuotas else (cliente_id, None, None)
-                        monto        = r.get('monto_usd') or Decimal('0.0')
-
-                        # Global único
-                        if key not in vistos:
-                            vistos.add(key)
-                            clientes_union.append({
-                                'cliente': r.get('cliente'),
-                                'cedula': r.get('cedula'),
-                                'estado_plan': r.get('estado_del_plan'),
-                                'numero_cuota': r.get('numero_cuota'),
-                                'condicion': r.get('condicion'),
-                                'estatus_cuota': r.get('estatus_cuota'),
-                                'fecha_pago': r.get('fecha_pago'),
-                                'monto_usd': monto,
-                                'metodo': r.get('metodo_pago')
-                            })
-
-                        # Resumen del bloque
-                        clientes_del_bloque += 1
-                        total_bloque += (monto or Decimal('0.0'))
-
-                    resultados_por_bloque.append({
-                        'indice': idx,
-                        'clientes': clientes_del_bloque,
-                        'total_usd': total_bloque,
-                        'detalle': {
-                            'fecha_inicio': (b.get('fecha_inicio') or '').strip() or None,
-                            'fecha_fin':    (b.get('fecha_fin') or '').strip() or None,
-                            'insc_desde':   (b.get('insc_desde') or '').strip() or None,
-                            'insc_hasta':   (b.get('insc_hasta') or '').strip() or None,
-                        }
-                    })
-
-            total_usd = sum([r['monto_usd'] or Decimal('0.0') for r in clientes_union]) if clientes_union else Decimal('0.0')
-            proyecciones['clientes_a_cobrar'] = clientes_union
-            proyecciones['resumen']['clientes_a_cobrar'] = len(clientes_union)
-            proyecciones['resumen']['ingresos_totales_proyectados'] = total_usd
-            proyecciones['resumen']['gastos_totales_proyectados'] = proyecciones['egresos']['promedio_gastos_fijos']
-            proyecciones['resumen']['balance_neto_proyectado'] = total_usd - proyecciones['resumen']['gastos_totales_proyectados']
-            proyecciones['kpis']['margen_color'] = 'bg-green-500' if total_usd > 0 else 'bg-gray-500'
-            proyecciones['simulacion_exitosa'] = True
-
-        except (Exception, InvalidOperation) as e:
-            proyecciones['mensaje_error'] = f"Error al calcular la proyección por bloques: {e}"
-            logging.error(f"Error en reporte_proyecciones (bloques): {traceback.format_exc()}")
-
-        return render_template(
-            'reporte_proyecciones.html',
-            proyecciones=proyecciones,
-            simulacion_realizada=simulacion_realizada,
-            bloques_iniciales=bloques_raw or "[]",
-            resultados_por_bloque=resultados_por_bloque,
-            empresas_opciones=empresas_opciones,
-            estados_opciones=estados_opciones,
-            estatus_opciones=estatus_opciones,
-            condicion_opciones=condicion_opciones,
-            show_nombre=show_nombre,
-            show_condicion=show_condicion,
-            hint=hint
-        )
-
-    # ====== MODO CLÁSICO ======
-    # Reusar helper de filtros de clientes (mismos filtros que Métricas)
-    _build_clientes_filters_fn = globals().get('_build_clientes_filters')
-    if not callable(_build_clientes_filters_fn):
-        def _build_clientes_filters_fn(_args):
-            return "", []
-
-    where_sql, where_params = _build_clientes_filters_fn(request.args)
-
-    try:
-        with conn.cursor(cursor_factory=cursor_factory) as cur:
-            # Base mensual y conteo (aplica filtros)
-            cur.execute(f"""
-                SELECT COUNT(*) AS clientes_activos,
-                       COALESCE(SUM(c.valor_cuota), 0) AS base_mensual
-                FROM clientes c
-                {where_sql}
-            """, where_params)
-            row = cur.fetchone() or {}
-            if not isinstance(row, dict):
-                row = {'clientes_activos': row[0], 'base_mensual': row[1]}
-
-            proyecciones['ingresos']['clientes_activos'] = int(row.get('clientes_activos') or 0)
-            proyecciones['ingresos']['base_mensual'] = Decimal(str(row.get('base_mensual') or 0))
-            proyecciones['ingresos']['ingreso_mensual_proyectado'] = proyecciones['ingresos']['base_mensual']
-
-            proyecciones['resumen']['ingresos_totales_proyectados'] = proyecciones['ingresos']['ingreso_mensual_proyectado']
-            proyecciones['resumen']['gastos_totales_proyectados'] = Decimal('0.0')
-            proyecciones['resumen']['balance_neto_proyectado'] = proyecciones['resumen']['ingresos_totales_proyectados']
-            proyecciones['kpis']['margen_maniobra_pct'] = Decimal('100.0') if proyecciones['resumen']['ingresos_totales_proyectados'] > 0 else Decimal('0.0')
-            proyecciones['kpis']['margen_color'] = 'bg-green-500' if proyecciones['kpis']['margen_maniobra_pct'] > 0 else 'bg-gray-500'
-            proyecciones['simulacion_exitosa'] = True
-
-            # (Opcional) listado rápido de “cobranza” según filtros si existe cuotas
-            has_cuotas_local = has_cuotas
-            if has_cuotas_local:
-                cur.execute(f"""
-                    SELECT
-                        c.id AS cliente_id,
-                        CONCAT_WS(' ', COALESCE(c.nombre,''), COALESCE(c.apellido,'')) AS cliente,
-                        c.cedula,
-                        c.estado_del_plan,
-                        COALESCE(q.condicion, c.condicion) AS condicion,
-                        q.numero_cuota,
-                        q.fecha_pago,
-                        COALESCE(q.monto_usd, 0) AS monto_usd,
-                        q.estatus_cuota,
-                        q.metodo_pago
-                    FROM clientes c
-                    JOIN cuotas q ON q.cliente_id = c.id
-                    {where_sql}
-                    ORDER BY q.fecha_pago NULLS LAST, cliente ASC
-                """, where_params)
-                proyecciones['clientes_a_cobrar'] = _fetch_dicts(cur)
-                proyecciones['resumen']['clientes_a_cobrar'] = len(proyecciones['clientes_a_cobrar'])
-
-    except Exception as e:
-        proyecciones['mensaje_error'] = f"Error al calcular la proyección: {e}"
-        logging.error("Error en reporte_proyecciones (clásico)\n%s", traceback.format_exc())
+    parametros = {
+        'period_mode': period_mode,
+        'start_date': start_date.isoformat(),
+        'end_date': end_date.isoformat(),
+        'dev_target_pct': dev_target_pct,
+        'fijada': fijada,
+        'period_key': period_key,
+    }
 
     return render_template(
         'reporte_proyecciones.html',
-        proyecciones=proyecciones,
-        simulacion_realizada=simulacion_realizada,
-        bloques_iniciales="[]",
-        resultados_por_bloque=[],
+
+        # --- Datos principales ---
+        proyecciones=proyecciones_ns,
+        gastos=gastos_ns,
+        tasas=tasas,
+
+        # --- Opciones para los selectores ---
         empresas_opciones=empresas_opciones,
         estados_opciones=estados_opciones,
-        estatus_opciones=estatus_opciones,
         condicion_opciones=condicion_opciones,
-        show_nombre=show_nombre,
-        show_condicion=show_condicion,
-        hint=hint
+        estatus_opciones=estatus_opciones,
+
+        # --- Variables de control/UI ---
+        simulacion_realizada=simulacion_realizada,
+        parametros=parametros,
+        bloques_iniciales=bloques_iniciales
     )
 # =========================
 # FIN REPORTE: PROYECCIONES
