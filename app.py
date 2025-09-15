@@ -4486,9 +4486,9 @@ def _detect_column(conn, table: str, candidates: list[str]) -> str | None:
 
 # =========================
 # REPORTE: PROYECCIONES
-# ===================================================================
+# ==================================================================
 # PROYECCIONES (todo en app.py): utils, selects, pipeline, ruta
-# ===================================================================
+# ==================================================================
 
 def _compute_period(hoy: date, mode: str, start_s: str, end_s: str) -> tuple[date, date]:
     """
