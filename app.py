@@ -4632,37 +4632,85 @@ def _fetch_tasas_now(conn) -> dict:
 
 def _selector_opciones(conn) -> tuple[list[str], list[str], list[str], list[str]]:
     """
-    Devuelve (empresas, estados, condicion, estatus)
+    Devuelve (empresas, estados, condicion, estatus) con lógica robusta:
     - Empresa: clientes.empresa
-    - Estado del Plan: clientes.estado_del_plan UNION clientes.estado_plan
-    - Condición: UNION de clientes.condicion_pago (alias de condicion) + clientes.condicion + cuotas.condicion + planes.condicion
-    - Estatus: clientes.estatus_cliente UNION clientes.estatus
+    - Estado del Plan: clientes.estado_del_plan UNION clientes.estado_plan (UPPER/TRIM)
+    - Condición: clientes.condicion_pago UNION clientes.condicion UNION cuotas.condicion UNION planes.condicion
+      (UPPER/TRIM; si queda vacío, ['SIN CONDICION'])
+    - Estatus: clientes.estatus_cliente UNION clientes.estatus (normaliza variantes de 'PENDIENTE POR ENTREGA'
+      y garantiza incluir 'PENDIENTE POR ENTREGA')
     """
-    empresas = _collect_union(conn, [('clientes', 'empresa')])
+    def _run_list(sql, params=None):
+        out = []
+        with conn.cursor() as cur:
+            cur.execute(sql, params or [])
+            rows = cur.fetchall() or []
+            for r in rows:
+                out.append(r[0] if not isinstance(r, dict) else list(r.values())[0])
+        return [x for x in out if x is not None and str(x).strip() != ""]
 
-    estados = _collect_union(conn, [
-        ('clientes', 'estado_del_plan'),
-        ('clientes', 'estado_plan'),  # alternativo
-    ])
+    # Empresa
+    empresas = _run_list("""
+        SELECT DISTINCT TRIM(empresa) AS v
+        FROM public.clientes
+        WHERE empresa IS NOT NULL AND TRIM(empresa) <> ''
+        ORDER BY 1
+    """)
 
-    condicion = _collect_union(conn, [
-        ('clientes', 'condicion_pago'),  # alias preferente
-        ('clientes', 'condicion'),
-        ('cuotas',   'condicion'),
-        ('planes',   'condicion'),
-    ])
+    # Estado del plan (UPPER/TRIM + UNION)
+    estados = _run_list("""
+        SELECT DISTINCT UPPER(TRIM(estado)) FROM (
+            SELECT estado_del_plan AS estado FROM public.clientes WHERE estado_del_plan IS NOT NULL AND TRIM(estado_del_plan) <> ''
+            UNION
+            SELECT estado_plan     AS estado FROM public.clientes WHERE estado_plan     IS NOT NULL AND TRIM(estado_plan)     <> ''
+        ) x
+        ORDER BY 1
+    """)
 
-    estatus = _collect_union(conn, [
-        ('clientes', 'estatus_cliente'),
-        ('clientes', 'estatus'),  # alternativo
-    ])
+    # Condición (preferir condicion_pago pero unimos todas las fuentes)
+    condicion = _run_list("""
+        SELECT DISTINCT UPPER(TRIM(v)) FROM (
+            SELECT condicion_pago AS v FROM public.clientes WHERE condicion_pago IS NOT NULL AND TRIM(condicion_pago) <> ''
+            UNION SELECT condicion AS v FROM public.clientes WHERE condicion IS NOT NULL AND TRIM(condicion) <> ''
+            UNION SELECT condicion AS v FROM public.cuotas    WHERE condicion IS NOT NULL AND TRIM(condicion) <> ''
+            UNION SELECT condicion AS v FROM public.planes    WHERE condicion IS NOT NULL AND TRIM(condicion) <> ''
+        ) t
+        ORDER BY 1
+    """)
+    if not condicion:
+        condicion = ['SIN CONDICION']
+
+    # Estatus (normaliza todas las variantes a 'PENDIENTE POR ENTREGA' y lo garantiza)
+    estatus = _run_list("""
+        SELECT estatus FROM (
+          SELECT DISTINCT
+            CASE
+              WHEN e IS NULL OR e = '' THEN NULL
+              WHEN regexp_replace(e,'\\s+',' ','g') IN
+                   ('ENTREGA PENDIENTE','PENDIENTE DE ENTREGA','PENDIENTE ENTREGA','PENDIEN POR ENTREGA')
+                   OR (e LIKE '%PENDIENT%' AND e LIKE '%ENTREG%')
+                THEN 'PENDIENTE POR ENTREGA'
+              ELSE regexp_replace(e,'\\s+',' ','g')
+            END AS estatus
+          FROM (
+            SELECT UPPER(TRIM(estatus_cliente)) AS e FROM public.clientes
+            UNION
+            SELECT UPPER(TRIM(estatus))         AS e FROM public.clientes
+          ) z
+          WHERE e IS NOT NULL AND e <> ''
+          UNION
+          SELECT 'PENDIENTE POR ENTREGA'
+        ) x
+        ORDER BY 1
+    """)
+    # dedup/limpieza final
+    estatus = sorted(list(dict.fromkeys([s for s in estatus if s])))
 
     app.logger.info(
         "proyecciones/selects -> empresas:%d estados:%d condicion:%d estatus:%d",
         len(empresas), len(estados), len(condicion), len(estatus)
     )
     return empresas, estados, condicion, estatus
-
 
 # ---------------------------------------------------------------------
 # 3) Pipeline de bloques (consulta + agregación)
