@@ -4885,9 +4885,93 @@ def reporte_proyecciones():
     tasas_anchor = _fetch_bcv_anchor(conn, start_date)
     tasas_now    = _fetch_tasas_now(conn)
 
-    # ---- Selectores ----
+    # ---- Selectores (alineados a MÉTRICAS) ----
+    def _val(row, key_or_idx=0):
+        if isinstance(row, dict):
+            return row.get(key_or_idx)
+        return row[key_or_idx]
+
     try:
-        empresas_opciones, estados_opciones, condicion_opciones, estatus_opciones = _selector_opciones(conn)
+        with conn.cursor() as cur:
+            # Empresa
+            cur.execute("""
+                SELECT DISTINCT TRIM(empresa) AS empresa
+                FROM public.clientes
+                WHERE empresa IS NOT NULL AND TRIM(empresa) <> ''
+                ORDER BY 1
+            """)
+            rows = cur.fetchall() or []
+            empresas_opciones = [_val(r, 'empresa') if isinstance(r, dict) else _val(r, 0) for r in rows]
+
+            # Estado del plan: detectar columnas disponibles y normalizar UPPER/TRIM
+            has_estado_del_plan = _has_column(conn, 'clientes', 'estado_del_plan')
+            has_estado_plan     = _has_column(conn, 'clientes', 'estado_plan')
+            estados_opciones = []
+            if has_estado_del_plan or has_estado_plan:
+                if has_estado_del_plan and has_estado_plan:
+                    estado_expr = "UPPER(TRIM(COALESCE(c.estado_del_plan, c.estado_plan)))"
+                elif has_estado_del_plan:
+                    estado_expr = "UPPER(TRIM(c.estado_del_plan))"
+                else:
+                    estado_expr = "UPPER(TRIM(c.estado_plan))"
+                cur.execute(f"""
+                    SELECT DISTINCT {estado_expr} AS estado
+                    FROM public.clientes c
+                    WHERE {estado_expr} IS NOT NULL AND {estado_expr} <> ''
+                    ORDER BY 1
+                """)
+                rows = cur.fetchall() or []
+                estados_opciones = [_val(r, 'estado') if isinstance(r, dict) else _val(r, 0) for r in rows]
+
+            # Estatus: preferir estatus_cliente; si no existe, estatus; normalizar y forzar 'PENDIENTE POR ENTREGA'
+            has_estatus_cliente = _has_column(conn, 'clientes', 'estatus_cliente')
+            has_estatus         = _has_column(conn, 'clientes', 'estatus')
+            estatus_opciones = []
+            if has_estatus_cliente or has_estatus:
+                base = "TRIM(UPPER(NULLIF(c.estatus_cliente,'')))" if has_estatus_cliente else "TRIM(UPPER(NULLIF(c.estatus,'')))"
+                estatus_norm = (
+                    "CASE "
+                    f"WHEN {base} IS NULL OR {base}='' THEN NULL "
+                    f"WHEN regexp_replace({base}, '\\s+', ' ', 'g') IN "
+                    "('ENTREGA PENDIENTE','PENDIENTE DE ENTREGA','PENDIENTE ENTREGA','PENDIEN POR ENTREGA') "
+                    f"OR ({base} LIKE '%PENDIENT%' AND {base} LIKE '%ENTREG%') "
+                    "THEN 'PENDIENTE POR ENTREGA' "
+                    f"ELSE regexp_replace({base}, '\\s+', ' ', 'g') END"
+                )
+                cur.execute(f"""
+                    SELECT estatus FROM (
+                        SELECT DISTINCT {estatus_norm} AS estatus
+                        FROM public.clientes c
+                        WHERE {estatus_norm} IS NOT NULL AND {estatus_norm} <> ''
+                        UNION
+                        SELECT 'PENDIENTE POR ENTREGA'
+                    ) x
+                    ORDER BY 1
+                """)
+                rows = cur.fetchall() or []
+                estatus_opciones = [_val(r, 'estatus') if isinstance(r, dict) else _val(r, 0) for r in rows]
+            else:
+                estatus_opciones = ['PENDIENTE POR ENTREGA']
+
+            # Condición: preferir condicion_pago; si no existe, condicion; si ninguna, 'SIN CONDICION'
+            has_condicion_pago = _has_column(conn, 'clientes', 'condicion_pago')
+            has_condicion      = _has_column(conn, 'clientes', 'condicion')
+            if has_condicion_pago or has_condicion:
+                col = 'condicion_pago' if has_condicion_pago else 'condicion'
+                cur.execute(f"""
+                    SELECT DISTINCT UPPER(TRIM(COALESCE(NULLIF(c.{col},''),'SIN CONDICION'))) AS condicion
+                    FROM public.clientes c
+                    ORDER BY 1
+                """)
+                rows = cur.fetchall() or []
+                condicion_opciones = [_val(r, 'condicion') if isinstance(r, dict) else _val(r, 0) for r in rows]
+            else:
+                condicion_opciones = ['SIN CONDICION']
+
+        app.logger.info(
+            "proyecciones/selects -> empresas:%d estados:%d condicion:%d estatus:%d",
+            len(empresas_opciones), len(estados_opciones), len(condicion_opciones), len(estatus_opciones)
+        )
     except Exception as e:
         try:
             conn.rollback()
@@ -4907,12 +4991,13 @@ def reporte_proyecciones():
             # Gastos programados del período (cascada de firmas existente)
             try:
                 g = _get_egresos_totales_periodo(conn, start_date, end_date)
-                # Esperamos como mínimo g['totales']['programado']; si no, se conserva 0
                 if isinstance(g, dict):
                     gastos = g
             except Exception as e:
-                try: conn.rollback()
-                except Exception: pass
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
                 app.logger.exception("proyecciones/egresos error: %s", e)
 
             balance = ingresos_totales - float(((gastos or {}).get('totales') or {}).get('programado') or 0)
@@ -4986,6 +5071,7 @@ def reporte_proyecciones():
         parametros=parametros,
         bloques_iniciales=bloques_iniciales
     )
+
 # =========================
 # FIN REPORTE: PROYECCIONES
 # =========================
