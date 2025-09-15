@@ -4488,7 +4488,7 @@ def _detect_column(conn, table: str, candidates: list[str]) -> str | None:
 # REPORTE: PROYECCIONES
 # =====================================================================
 # PROYECCIONES (todo en app.py): utils, selects, pipeline, ruta
-# =====================================================================
+# ====================================================================
 
 # -- Imports locales (seguros si ya existen arriba) --------------------
 from datetime import date, datetime
