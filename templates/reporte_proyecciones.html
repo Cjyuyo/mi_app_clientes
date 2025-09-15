@@ -39,60 +39,64 @@
 <div class="space-y-8">
 
   <form id="simulation-form" method="GET" action="{{ url_for('reporte_proyecciones') }}" 
-        class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-6 space-y-6"
         x-data="simulationController()">
     <input type="hidden" name="bloques_json" id="bloques_json" />
 
-    <div class="flex items-center justify-between">
-      <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3">
-        <i class="bi bi-sliders text-sky-500"></i>
-        <span>Panel de Simulación</span>
-      </h2>
-      <div class="flex items-center gap-2">
-        <span class="text-sm font-semibold text-slate-500 dark:text-slate-400">BCV Actual:</span>
-        <span class="text-sm font-bold px-3 py-1 bg-sky-100 text-sky-800 rounded-full dark:bg-sky-900 dark:text-sky-200">
-          ${{ "{:,.2f}".format((tasas.bcv_now.usd or 0) | float) }}
-        </span>
+    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-6">
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3">
+          <i class="bi bi-sliders text-sky-500"></i>
+          <span>Parámetros Principales</span>
+        </h2>
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-semibold text-slate-500 dark:text-slate-400">BCV Actual:</span>
+          <span class="text-sm font-bold px-3 py-1 bg-sky-100 text-sky-800 rounded-full dark:bg-sky-900 dark:text-sky-200">
+            ${{ "{:,.2f}".format((tasas.bcv_now.usd or 0) | float) }}
+          </span>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Periodo de Proyección</label>
+          <div class="flex gap-2">
+            <label class="flex-1 text-center px-4 py-2 text-sm font-semibold rounded-lg cursor-pointer transition-colors" 
+                   :class="{ 'bg-sky-500 text-white shadow': period_mode === 'auto', 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600': period_mode !== 'auto' }">
+              <input type="radio" name="period_mode" value="auto" class="sr-only" x-model="period_mode"> Auto (13 al 12)
+            </label>
+            <label class="flex-1 text-center px-4 py-2 text-sm font-semibold rounded-lg cursor-pointer transition-colors" 
+                   :class="{ 'bg-sky-500 text-white shadow': period_mode === 'manual', 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600': period_mode !== 'manual' }">
+              <input type="radio" name="period_mode" value="manual" class="sr-only" x-model="period_mode"> Manual
+            </label>
+          </div>
+        </div>
+        <div x-show="period_mode === 'manual'" x-transition class="md:col-span-2 grid grid-cols-2 gap-4">
+          <div>
+            <label for="start_date" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Desde</label>
+            <input type="date" name="start_date" id="start_date" value="{{ parametros.start_date or '' }}" class="form-input">
+          </div>
+          <div>
+            <label for="end_date" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Hasta</label>
+            <input type="date" name="end_date" id="end_date" value="{{ parametros.end_date or '' }}" class="form-input">
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-slate-200 dark:border-slate-700">
-      <div>
-        <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Periodo</label>
-        <div class="flex gap-2">
-          <label class="flex-1 text-center px-4 py-2 text-sm font-semibold rounded-lg cursor-pointer transition-colors" 
-                 :class="{ 'bg-sky-500 text-white shadow': period_mode === 'auto', 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600': period_mode !== 'auto' }">
-            <input type="radio" name="period_mode" value="auto" class="sr-only" x-model="period_mode"> Auto (13 al 12)
-          </label>
-          <label class="flex-1 text-center px-4 py-2 text-sm font-semibold rounded-lg cursor-pointer transition-colors" 
-                 :class="{ 'bg-sky-500 text-white shadow': period_mode === 'manual', 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600': period_mode !== 'manual' }">
-            <input type="radio" name="period_mode" value="manual" class="sr-only" x-model="period_mode"> Manual
-          </label>
-        </div>
-      </div>
-      <div x-show="period_mode === 'manual'" x-transition class="md:col-span-2 grid grid-cols-2 gap-4">
-        <div>
-          <label for="start_date" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Desde</label>
-          <input type="date" name="start_date" id="start_date" value="{{ parametros.start_date or '' }}" class="form-input">
-        </div>
-        <div>
-          <label for="end_date" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Hasta</label>
-          <input type="date" name="end_date" id="end_date" value="{{ parametros.end_date or '' }}" class="form-input">
-        </div>
-      </div>
-    </div>
-    
-    <div>
-        <h3 class="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-2">Constructor de Bloques de Simulación</h3>
-        <div id="simulation-blocks-container" class="space-y-4"></div>
-        <button type="button" id="add-block-btn" class="mt-4 text-sm font-semibold text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 transition-colors">
-            <i class="bi bi-plus-circle-fill mr-1"></i> Agregar Bloque de Filtros
-        </button>
+    <div class="mt-8">
+      <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-3">
+        <i class="bi bi-bounding-box-circles text-sky-500"></i>
+        <span>Constructor de Bloques</span>
+      </h3>
+      <div id="simulation-blocks-container" class="space-y-4"></div>
+      <button type="button" id="add-block-btn" class="mt-4 text-sm font-semibold text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 transition-colors">
+          <i class="bi bi-plus-circle-fill mr-1"></i> Agregar Bloque de Filtros
+      </button>
     </div>
 
-    <div class="flex justify-end items-center gap-3 pt-6 border-t border-slate-200 dark:border-slate-700">
-      <a href="{{ url_for('reporte_proyecciones') }}" class="px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg transition-colors">Limpiar</a>
-      <button type="submit" class="px-6 py-2.5 text-sm font-semibold text-white bg-sky-500 hover:bg-sky-600 rounded-lg shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2">
+    <div class="flex justify-end items-center gap-3 pt-6 mt-8 border-t border-slate-200 dark:border-slate-700">
+      <a href="{{ url_for('reporte_proyecciones') }}" class="px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 rounded-lg transition-colors">Limpiar Filtros</a>
+      <button type="submit" class="px-8 py-2.5 text-sm font-semibold text-white bg-sky-500 hover:bg-sky-600 rounded-lg shadow-md hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 transform hover:scale-105">
         <i class="bi bi-bar-chart-line-fill mr-2"></i> Simular Proyección
       </button>
     </div>
@@ -101,56 +105,50 @@
   
   {% if simulacion_realizada %}
   <div class="space-y-6">
-    <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100">Resultados de la Simulación</h2>
+    <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Resultados de la Simulación</h2>
     
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 flex items-start gap-4">
-            <div class="p-3 bg-emerald-100 text-emerald-600 rounded-lg dark:bg-emerald-900 dark:text-emerald-400"><i class="bi bi-graph-up-arrow text-2xl"></i></div>
-            <div>
-                <div class="text-sm text-slate-500 dark:text-slate-400">Ingreso Proyectado</div>
-                <div class="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                  ${{ "{:,.2f}".format((proyecciones.resumen.ingresos_totales_proyectados or 0) | float) }}
-                </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-gradient-to-br from-emerald-500 to-emerald-400 text-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <i class="bi bi-graph-up-arrow text-4xl opacity-70"></i>
+                <span class="font-semibold">Ingreso Proyectado</span>
             </div>
+            <div class="text-4xl font-bold">${{ "{:,.2f}".format((proyecciones.resumen.ingresos_totales_proyectados or 0) | float) }}</div>
         </div>
-        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 flex items-start gap-4">
-            <div class="p-3 bg-cyan-100 text-cyan-600 rounded-lg dark:bg-cyan-900 dark:text-cyan-400"><i class="bi bi-people-fill text-2xl"></i></div>
-            <div>
-                <div class="text-sm text-slate-500 dark:text-slate-400">Clientes a Cobrar</div>
-                <div class="text-2xl font-bold text-slate-800 dark:text-slate-100">{{ proyecciones.clientes_a_cobrar|length }}</div>
+        <div class="bg-gradient-to-br from-cyan-500 to-cyan-400 text-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <i class="bi bi-people-fill text-4xl opacity-70"></i>
+                <span class="font-semibold">Clientes a Cobrar</span>
             </div>
+            <div class="text-4xl font-bold">{{ proyecciones.clientes_a_cobrar|length }}</div>
         </div>
-        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 flex items-start gap-4">
-            <div class="p-3 bg-rose-100 text-rose-600 rounded-lg dark:bg-rose-900 dark:text-rose-400"><i class="bi bi-graph-down-arrow text-2xl"></i></div>
-            <div>
-                <div class="text-sm text-slate-500 dark:text-slate-400">Gastos Programados</div>
-                <div class="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                  ${{ "{:,.2f}".format((gastos.totales.programado or 0) | float) }}
-                </div>
+        <div class="bg-gradient-to-br from-rose-500 to-rose-400 text-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <i class="bi bi-graph-down-arrow text-4xl opacity-70"></i>
+                <span class="font-semibold">Gastos Programados</span>
             </div>
+            <div class="text-4xl font-bold">${{ "{:,.2f}".format((gastos.totales.programado or 0) | float) }}</div>
         </div>
-        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 flex items-start gap-4">
-            <div class="p-3 bg-indigo-100 text-indigo-600 rounded-lg dark:bg-indigo-900 dark:text-indigo-400"><i class="bi bi-bank text-2xl"></i></div>
-            <div>
-                <div class="text-sm text-slate-500 dark:text-slate-400">Balance Neto</div>
-                <div class="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                  ${{ "{:,.2f}".format((proyecciones.resumen.balance_neto_proyectado or 0) | float) }}
-                </div>
+        <div class="bg-gradient-to-br from-indigo-500 to-indigo-400 text-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <i class="bi bi-bank text-4xl opacity-70"></i>
+                <span class="font-semibold">Balance Neto</span>
             </div>
+            <div class="text-4xl font-bold">${{ "{:,.2f}".format((proyecciones.resumen.balance_neto_proyectado or 0) | float) }}</div>
         </div>
     </div>
 
     <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm table-container" id="table-container">
         <div class="overflow-x-auto" id="table-scroll-wrapper">
           <table class="min-w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
-            <thead class="bg-slate-50 dark:bg-slate-700" id="original-thead">
+            <thead class="bg-slate-100 dark:bg-slate-700" id="original-thead">
               <tr>
-                <th class="py-3 px-4 text-left font-semibold text-slate-600 dark:text-slate-300">Cliente</th>
-                <th class="py-3 px-4 text-left font-semibold text-slate-600 dark:text-slate-300">Cédula</th>
-                <th class="py-3 px-4 text-left font-semibold text-slate-600 dark:text-slate-300">Estado / Condición</th>
-                <th class="py-3 px-4 text-left font-semibold text-slate-600 dark:text-slate-300"># Cuota</th>
-                <th class="py-3 px-4 text-left font-semibold text-slate-600 dark:text-slate-300">Fecha Pago</th>
-                <th class="py-3 px-4 text-right font-semibold text-slate-600 dark:text-slate-300">Monto USD</th>
+                <th class="py-3 px-4 text-left font-bold uppercase text-xs text-slate-600 dark:text-slate-300">Cliente</th>
+                <th class="py-3 px-4 text-left font-bold uppercase text-xs text-slate-600 dark:text-slate-300">Cédula</th>
+                <th class="py-3 px-4 text-left font-bold uppercase text-xs text-slate-600 dark:text-slate-300">Estado / Condición</th>
+                <th class="py-3 px-4 text-left font-bold uppercase text-xs text-slate-600 dark:text-slate-300"># Cuota</th>
+                <th class="py-3 px-4 text-left font-bold uppercase text-xs text-slate-600 dark:text-slate-300">Fecha Pago</th>
+                <th class="py-3 px-4 text-right font-bold uppercase text-xs text-slate-600 dark:text-slate-300">Monto USD</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
@@ -195,7 +193,6 @@
         <button type="button" class="remove-block-btn absolute top-2 right-2 text-slate-400 hover:text-rose-500 transition-colors" title="Quitar Bloque">
             <i class="bi bi-x-circle-fill"></i>
         </button>
-
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div class="lg:col-span-2">
                 <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Empresa</label>
@@ -217,7 +214,6 @@
                 </select>
             </div>
         </div>
-
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div class="lg:col-span-2">
                 <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Estatus Cliente</label>
@@ -245,14 +241,14 @@
 
 {% endblock %}
 
-{# -- SCRIPTS (LÓGICA DE INTERACTIVIDAD) -- #}
 {% block scripts_extra %}
 <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 
 <script>
+// El bloque de SCRIPT es idéntico al que ya tenías.
+// No necesita ningún cambio ya que se basa en los IDs que se han conservado.
 document.addEventListener('DOMContentLoaded', function () {
-    // --- Lógica del Constructor de Bloques ---
     const container = document.getElementById('simulation-blocks-container');
     const template = document.getElementById('block-template');
     const addBtn = document.getElementById('add-block-btn');
@@ -276,7 +272,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function setSelectValue(select, value) {
         if (!select) return;
-        // Limpia selección previa
         if (select.choices) {
             try { select.choices.removeActiveItems(); } catch(e){}
             if (Array.isArray(value)) {
@@ -343,54 +338,44 @@ document.addEventListener('DOMContentLoaded', function () {
                 excluir_rc: excluir ? !!excluir.checked : false
             };
 
-            // Evita bloques completamente vacíos (sin filtros ni fechas)
             const hasSomething = obj.empresa || obj.estado_plan.length || obj.condicion.length || obj.estatus_cliente.length || obj.fecha_inicio || obj.fecha_fin || obj.excluir_rc;
             if (hasSomething) bloques.push(obj);
         });
         return JSON.stringify(bloques);
     }
 
-    // Pre-población desde el backend:
     const bloquesIniciales = {{ (bloques_iniciales or []) | tojson }};
     if (Array.isArray(bloquesIniciales) && bloquesIniciales.length) {
         bloquesIniciales.forEach(b => addNewBlock(b));
     } else {
-        // Si no hay bloques iniciales, agrega uno por defecto
         addNewBlock();
     }
 
     addBtn.addEventListener('click', () => addNewBlock());
 
-    // Inserta bloques_json antes de enviar
     form.addEventListener('submit', (e) => {
         hiddenBloques.value = buildBloquesJSON();
-        // No bloquear envío: backend decide si simulación_realizada := bool(bloques_iniciales)
     });
 
-    // --- Sticky header (sin cambios relevantes) ---
     const tableContainer  = document.getElementById('table-container');
     if (tableContainer) {
         const theadOrig  = document.getElementById('original-thead');
         const scroller   = document.getElementById('table-scroll-wrapper');
-
         const clone = theadOrig.cloneNode(true);
         clone.id = '';
         clone.classList.add('thead-clone', 'dark:bg-slate-700', 'bg-slate-50');
         tableContainer.appendChild(clone);
-
         const sync = () => {
           const a = theadOrig.querySelectorAll('th');
           const b = clone.querySelectorAll('th');
           a.forEach((th,i)=>{ const w = th.getBoundingClientRect().width; if(b[i]){ b[i].style.minWidth=w+'px'; b[i].style.width=w+'px'; } });
           clone.style.width = theadOrig.getBoundingClientRect().width+'px';
         };
-
         const onScroll = () => {
           const trigger = tableContainer.offsetTop - 60;
           if (window.scrollY >= trigger){ tableContainer.classList.add('table-header-is-sticky'); theadOrig.style.visibility='hidden'; }
           else { tableContainer.classList.remove('table-header-is-sticky'); theadOrig.style.visibility='visible'; }
         };
-
         scroller.addEventListener('scroll', ()=>{ clone.style.transform = `translateY(0) translateX(-${scroller.scrollLeft}px)`; });
         window.addEventListener('resize', ()=>{ sync(); onScroll(); });
         window.addEventListener('scroll', onScroll);
@@ -399,7 +384,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-// --- Lógica Alpine: toggle de período ---
 document.addEventListener('alpine:init', () => {
     Alpine.data('simulationController', () => ({
         period_mode: '{{ (parametros.period_mode or "auto") | lower }}',

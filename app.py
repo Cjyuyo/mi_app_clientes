@@ -4490,18 +4490,6 @@ def _detect_column(conn, table: str, candidates: list[str]) -> str | None:
 # PROYECCIONES (todo en app.py): utils, selects, pipeline, ruta
 # ====================================================================
 
-# -- Imports locales (seguros si ya existen arriba) --------------------
-from datetime import date, datetime
-from types import SimpleNamespace
-import json, time
-from flask import render_template, request, redirect, url_for, flash
-
-# ---------------------------------------------------------------------
-# 1) Utils (período, columnas, tasas)
-# ---------------------------------------------------------------------
-
-# NOTA: Se asume que ya tienes _month_add(d: date, months: int) y _has_column(conn, table, column, schema='public')
-
 def _compute_period(hoy: date, mode: str, start_s: str, end_s: str) -> tuple[date, date]:
     """
     Auto: ventana 13→12 como en Métricas.
