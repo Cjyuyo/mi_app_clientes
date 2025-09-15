@@ -196,8 +196,8 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div class="lg:col-span-2">
                 <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Empresa</label>
-                <select name="empresa" class="form-select-choices">
-                    <option value="">Todas</option>
+                {# 👉 AHORA MULTI-SELECCIÓN (sin "Todas") #}
+                <select name="empresa" multiple class="form-select-choices">
                     {% for opt in empresas_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
                 </select>
             </div>
@@ -246,8 +246,8 @@
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 
 <script>
-// El bloque de SCRIPT es idéntico al que ya tenías.
-// No necesita ningún cambio ya que se basa en los IDs que se han conservado.
+// Ahora el script soporta multiselección de "Empresa"
+// y genera combinaciones (producto cartesiano) de filtros.
 document.addEventListener('DOMContentLoaded', function () {
     const container = document.getElementById('simulation-blocks-container');
     const template = document.getElementById('block-template');
@@ -295,7 +295,8 @@ document.addEventListener('DOMContentLoaded', function () {
         initChoices(newBlock);
 
         if (data && typeof data === 'object') {
-            setSelectValue(newBlock.querySelector('select[name="empresa"]'), data.empresa || '');
+            // empresa ahora puede venir como lista
+            setSelectValue(newBlock.querySelector('select[name="empresa"]'), data.empresa || []);
             setSelectValue(newBlock.querySelector('select[name="estado_plan"]'), data.estado_plan || data.estados || []);
             setSelectValue(newBlock.querySelector('select[name="condicion"]'), data.condicion || []);
             setSelectValue(newBlock.querySelector('select[name="estatus_cliente"]'), data.estatus_cliente || []);
@@ -309,41 +310,63 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Genera combinaciones de filtros por bloque
     function buildBloquesJSON() {
         const bloques = [];
-        container.querySelectorAll('.block-item').forEach(block => {
-            const empresa = block.querySelector('select[name="empresa"]');
-            const estado_plan = block.querySelector('select[name="estado_plan"]');
-            const condicion = block.querySelector('select[name="condicion"]');
-            const estatus_cliente = block.querySelector('select[name="estatus_cliente"]');
-            const fi = block.querySelector('input[name="fecha_inicio"]');
-            const ff = block.querySelector('input[name="fecha_fin"]');
-            const excluir = block.querySelector('input[name="excluir_rc"]');
+        const ALL = (arr) => (Array.isArray(arr) && arr.length ? arr : [null]);
 
+        container.querySelectorAll('.block-item').forEach(block => {
             const getValues = (select) => {
                 if (!select) return [];
                 if (select.choices) {
-                    return (select.choices.getValue(true) || []).filter(Boolean);
+                    const v = select.choices.getValue(true);
+                    return Array.isArray(v) ? v.filter(Boolean) : (v ? [v] : []);
                 }
-                return Array.from(select.selectedOptions).map(o => o.value).filter(Boolean);
+                if (select.multiple) {
+                    return Array.from(select.selectedOptions).map(o => o.value).filter(Boolean);
+                }
+                return select.value ? [select.value] : [];
             };
 
-            const obj = {
-                empresa: empresa ? empresa.value : '',
-                estado_plan: getValues(estado_plan),
-                condicion: getValues(condicion),
-                estatus_cliente: getValues(estatus_cliente),
-                fecha_inicio: fi && fi.value ? fi.value : null,
-                fecha_fin: ff && ff.value ? ff.value : null,
-                excluir_rc: excluir ? !!excluir.checked : false
-            };
+            const empresaSel   = block.querySelector('select[name="empresa"]');
+            const estadoSel    = block.querySelector('select[name="estado_plan"]');
+            const condicionSel = block.querySelector('select[name="condicion"]');
+            const estatusSel   = block.querySelector('select[name="estatus_cliente"]');
+            const fi           = block.querySelector('input[name="fecha_inicio"]');
+            const ff           = block.querySelector('input[name="fecha_fin"]');
+            const excluir      = block.querySelector('input[name="excluir_rc"]');
 
-            const hasSomething = obj.empresa || obj.estado_plan.length || obj.condicion.length || obj.estatus_cliente.length || obj.fecha_inicio || obj.fecha_fin || obj.excluir_rc;
-            if (hasSomething) bloques.push(obj);
+            const empresas    = ALL(getValues(empresaSel));
+            const estados     = ALL(getValues(estadoSel));
+            const condiciones = ALL(getValues(condicionSel));
+            const estatuses   = ALL(getValues(estatusSel));
+
+            for (const e of empresas) {
+              for (const es of estados) {
+                for (const co of condiciones) {
+                  for (const st of estatuses) {
+                    const obj = {
+                      empresa: e ? [e] : [],
+                      estado_plan: es ? [es] : [],
+                      condicion: co ? [co] : [],
+                      estatus_cliente: st ? [st] : [],
+                      fecha_inicio: fi && fi.value ? fi.value : null,
+                      fecha_fin: ff && ff.value ? ff.value : null,
+                      excluir_rc: excluir ? !!excluir.checked : false
+                    };
+                    const hasSomething =
+                      (obj.empresa.length || obj.estado_plan.length || obj.condicion.length || obj.estatus_cliente.length) ||
+                      obj.fecha_inicio || obj.fecha_fin || obj.excluir_rc;
+                    if (hasSomething) bloques.push(obj);
+                  }
+                }
+              }
+            }
         });
         return JSON.stringify(bloques);
     }
 
+    // Pre-población desde backend
     const bloquesIniciales = {{ (bloques_iniciales or []) | tojson }};
     if (Array.isArray(bloquesIniciales) && bloquesIniciales.length) {
         bloquesIniciales.forEach(b => addNewBlock(b));
@@ -353,10 +376,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     addBtn.addEventListener('click', () => addNewBlock());
 
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', () => {
         hiddenBloques.value = buildBloquesJSON();
     });
 
+    // Sticky header
     const tableContainer  = document.getElementById('table-container');
     if (tableContainer) {
         const theadOrig  = document.getElementById('original-thead');

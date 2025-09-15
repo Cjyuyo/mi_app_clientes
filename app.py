@@ -4716,24 +4716,24 @@ def _selector_opciones(conn) -> tuple[list[str], list[str], list[str], list[str]
 # 3) Pipeline de bloques (consulta + agregación)
 # ---------------------------------------------------------------------
 
+# --- reemplazar ---
 def _parse_bloques(args) -> list[dict]:
-    """
-    Lee bloques_json (JSON) desde querystring.
-    Devuelve lista de bloques [{...}] o [] si vacío/malformado.
-    """
     raw = (args.get('bloques_json') or '').strip()
     if not raw:
         return []
     try:
         data = json.loads(raw)
         if isinstance(data, list):
-            # sanea cada bloque para evitar claves inesperadas
             out = []
             for b in data:
                 if not isinstance(b, dict):
                     continue
+                # empresa ahora puede venir como lista o string
+                emp = b.get('empresa') or []
+                if isinstance(emp, str):
+                    emp = [emp] if emp.strip() else []
                 out.append({
-                    'empresa': b.get('empresa') or '',
+                    'empresa': emp,
                     'estado_plan': b.get('estado_plan') or [],
                     'condicion': b.get('condicion') or [],
                     'estatus_cliente': b.get('estatus_cliente') or [],
@@ -4746,19 +4746,9 @@ def _parse_bloques(args) -> list[dict]:
         pass
     return []
 
-
+# --- reemplazar ---
 def _build_block_where(bloque: dict) -> tuple[str, list]:
-    """
-    Traduce un bloque en WHERE + params.
-    - Rango fechas: c.fecha_pago BETWEEN %s AND %s (si vienen ambas)
-    - empresa: cl.empresa = %s
-    - estatus_cliente (lista): = ANY(%s)
-    - estados (lista): cl.estado_del_plan = ANY(%s)
-    - condicion (lista): COALESCE(cl.condicion_pago, cl.condicion) = ANY(%s)
-    - excluir_rc: cl.estado_del_plan NOT IN ('retirado','completado')
-    """
-    where = []
-    params = []
+    where, params = [], []
 
     fi = bloque.get('fecha_inicio')
     ff = bloque.get('fecha_fin')
@@ -4766,14 +4756,18 @@ def _build_block_where(bloque: dict) -> tuple[str, list]:
         where.append("c.fecha_pago BETWEEN %s AND %s")
         params.extend([fi, ff])
 
-    empresa = (bloque.get('empresa') or '').strip()
+    # empresa: ahora acepta lista
+    empresa = bloque.get('empresa') or []
+    if isinstance(empresa, str):
+        empresa = [empresa]
+    empresa = [e.strip() for e in empresa if (e or '').strip()]
     if empresa:
-        where.append("cl.empresa = %s")
+        where.append("cl.empresa = ANY(%s)")
         params.append(empresa)
 
     estados = bloque.get('estado_plan') or []
     if estados:
-        where.append("cl.estado_del_plan = ANY(%s)")
+        where.append("COALESCE(cl.estado_del_plan, cl.estado_plan) = ANY(%s)")
         params.append(estados)
 
     condiciones = bloque.get('condicion') or []
@@ -4789,10 +4783,7 @@ def _build_block_where(bloque: dict) -> tuple[str, list]:
     if bloque.get('excluir_rc'):
         where.append("COALESCE(cl.estado_del_plan, cl.estado_plan) NOT IN ('retirado','completado')")
 
-    if not where:
-        return "TRUE", []
-    return " AND ".join(where), params
-
+    return (" AND ".join(where) if where else "TRUE"), params
 
 def _run_block(conn, bloque: dict, idx: int) -> tuple[float, list]:
     """
