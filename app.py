@@ -4489,6 +4489,12 @@ def _detect_column(conn, table: str, candidates: list[str]) -> str | None:
 # ==================================================================
 # PROYECCIONES (todo en app.py): utils, selects, pipeline, ruta
 # ==================================================================
+def _month_add(d: date, months: int) -> date:
+    """Suma/resta meses conservando día cuando sea posible."""
+    y = d.year + (d.month - 1 + months) // 12
+    m = (d.month - 1 + months) % 12 + 1
+    last = monthrange(y, m)[1]
+    return date(y, m, min(d.day, last))
 
 def _compute_period(hoy: date, mode: str, start_s: str, end_s: str) -> tuple[date, date]:
     """
@@ -4619,7 +4625,6 @@ def _fetch_tasas_now(conn) -> dict:
         except Exception:
             pass
         return {'usd': None, 'eur': None, 'binance': None}
-
 
 # ---------------------------------------------------------------------
 # 2) Selectores (mismo comportamiento que Métricas)
