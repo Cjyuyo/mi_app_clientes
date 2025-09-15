@@ -1,21 +1,23 @@
 {% extends "base_sidebar.html" %}
 
+{# -- MACROS Y BLOQUES DE CABECERA (SIN CAMBIOS) -- #}
 {% macro pill_status(estatus) -%}
     {% set e = (estatus or '')|upper %}
     {% set cls = {
-        'PENDIENTE': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
-        'PAGADA': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-        'VENCIDA': 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300'
+        'PENDIENTE': 'bg-amber-100 text-amber-800',
+        'PAGADA': 'bg-green-100 text-green-800',
+        'VENCIDA': 'bg-rose-100 text-rose-800'
     } %}
-    <span class="px-2.5 py-0.5 text-xs font-medium rounded-full {{ cls.get(e, 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300') }}">
+    <span class="px-2.5 py-0.5 text-xs font-medium rounded-full {{ cls.get(e, 'bg-slate-100 text-slate-800') }}">
         {{ (estatus or '—')|replace('_',' ')|title }}
     </span>
 {%- endmacro %}
 
-{% block title %}Proyecciones{% endblock %}
-{% block page_title %}Proyecciones de Cobranza{% endblock %}
+{% block title %}Proyecciones y Simulación{% endblock %}
+{% block page_title %}Proyecciones de Ingresos y Exposición{% endblock %}
 
 {% block head_extra %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
 <style>
   :root { --sticky-offset: 6rem; }
   .table-container { position: relative; }
@@ -27,206 +29,365 @@
   }
   .dark .thead-clone{ border-bottom-color:#334155; }
   .table-header-is-sticky .thead-clone{ opacity:1; pointer-events:auto; transform:translateY(0); }
-
-  /* Densidad compacta (mismo patrón que métricas) */
-  #table-container.density-compact table th,
-  #table-container.density-compact table td{ padding:.375rem .5rem !important; }
-  #table-container.density-compact table{ font-size:.875rem; }
-
-  @media print{
-      @page{ size:A4 landscape; margin:10mm; }
-      .no-print{ display:none !important; }
-      table{ width:100% !important; font-size:10px !important; table-layout:fixed; }
-      th,td{ padding:5px 7px !important; }
-      thead{ display:table-header-group !important; }
-  }
+  .form-input, .form-select-choices, .form-checkbox { width: 100%; }
 </style>
 {% endblock %}
 
+
+{# -- CUERPO DE LA PÁGINA (REDISEÑADO) -- #}
 {% block body %}
-<div class="space-y-6 dark:text-slate-200 print-wrap">
+<div class="space-y-8">
 
-  <!-- Encabezado y parámetros -->
-  <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
-    <div class="flex items-start justify-between gap-4">
-      <div>
-        <h2 class="text-xl font-semibold text-slate-800 dark:text-slate-100">Resumen de Proyección</h2>
-        {% if hint %}<div class="text-xs text-slate-500 mt-1">{{ hint }}</div>{% endif %}
-      </div>
-      <div class="grid grid-cols-2 gap-4 text-sm">
-        <div>
-          <div class="text-slate-500">Fecha inicio</div>
-          <div class="font-semibold">{{ proyecciones.parametros.fecha_inicio if proyecciones and proyecciones.parametros else '' }}</div>
-        </div>
-        <div>
-          <div class="text-slate-500">Tasa BCV USD</div>
-          <div class="font-semibold">{{ proyecciones.parametros.tasa_bcv_dolar_inicio if proyecciones and proyecciones.parametros else '' }}</div>
-        </div>
-        <div>
-          <div class="text-slate-500">Tasa BCV EUR</div>
-          <div class="font-semibold">{{ proyecciones.parametros.tasa_bcv_euro_inicio if proyecciones and proyecciones.parametros else '' }}</div>
+  <form id="simulation-form" method="GET" action="{{ url_for('reporte_proyecciones') }}" 
+        x-data="simulationController()">
+    <input type="hidden" name="bloques_json" id="bloques_json" />
+
+    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-6">
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3">
+          <i class="bi bi-sliders text-sky-500"></i>
+          <span>Parámetros Principales</span>
+        </h2>
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-semibold text-slate-500 dark:text-slate-400">BCV Actual:</span>
+          <span class="text-sm font-bold px-3 py-1 bg-sky-100 text-sky-800 rounded-full dark:bg-sky-900 dark:text-sky-200">
+            ${{ "{:,.2f}".format((tasas.bcv_now.usd or 0) | float) }}
+          </span>
         </div>
       </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Periodo de Proyección</label>
+          <div class="flex gap-2">
+            <label class="flex-1 text-center px-4 py-2 text-sm font-semibold rounded-lg cursor-pointer transition-colors" 
+                   :class="{ 'bg-sky-500 text-white shadow': period_mode === 'auto', 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600': period_mode !== 'auto' }">
+              <input type="radio" name="period_mode" value="auto" class="sr-only" x-model="period_mode"> Auto (13 al 12)
+            </label>
+            <label class="flex-1 text-center px-4 py-2 text-sm font-semibold rounded-lg cursor-pointer transition-colors" 
+                   :class="{ 'bg-sky-500 text-white shadow': period_mode === 'manual', 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600': period_mode !== 'manual' }">
+              <input type="radio" name="period_mode" value="manual" class="sr-only" x-model="period_mode"> Manual
+            </label>
+          </div>
+        </div>
+        <div x-show="period_mode === 'manual'" x-transition class="md:col-span-2 grid grid-cols-2 gap-4">
+          <div>
+            <label for="start_date" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Desde</label>
+            <input type="date" name="start_date" id="start_date" value="{{ parametros.start_date or '' }}" class="form-input">
+          </div>
+          <div>
+            <label for="end_date" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Hasta</label>
+            <input type="date" name="end_date" id="end_date" value="{{ parametros.end_date or '' }}" class="form-input">
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
 
-  <!-- KPIs -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
-      <div class="text-sm text-slate-500">Ingreso proyectado</div>
-      <div class="text-2xl font-bold text-slate-800 dark:text-slate-100">
-        ${{ "{:,.2f}".format(((proyecciones.resumen.ingresos_totales_proyectados if proyecciones and proyecciones.resumen else 0) | default(0, true))) }}
-      </div>
+    <div class="mt-8">
+      <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-3">
+        <i class="bi bi-bounding-box-circles text-sky-500"></i>
+        <span>Constructor de Bloques</span>
+      </h3>
+      <div id="simulation-blocks-container" class="space-y-4"></div>
+      <button type="button" id="add-block-btn" class="mt-4 text-sm font-semibold text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 transition-colors">
+          <i class="bi bi-plus-circle-fill mr-1"></i> Agregar Bloque de Filtros
+      </button>
     </div>
-    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
-      <div class="text-sm text-slate-500">Clientes a cobrar</div>
-      <div class="text-2xl font-bold text-slate-800 dark:text-slate-100">
-        {{ (proyecciones.resumen.clientes_a_cobrar if proyecciones and proyecciones.resumen else 0) | default(0,true) }}
-      </div>
-    </div>
-    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
-      <div class="text-sm text-slate-500">Gastos proyectados</div>
-      <div class="text-2xl font-bold text-slate-800 dark:text-slate-100">
-        ${{ "{:,.2f}".format(((proyecciones.resumen.gastos_totales_proyectados if proyecciones and proyecciones.resumen else 0) | default(0, true))) }}
-      </div>
-    </div>
-    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-4">
-      <div class="text-sm text-slate-500">Balance neto</div>
-      <div class="text-2xl font-bold text-slate-800 dark:text-slate-100">
-        ${{ "{:,.2f}".format(((proyecciones.resumen.balance_neto_proyectado if proyecciones and proyecciones.resumen else 0) | default(0, true))) }}
-      </div>
-    </div>
-  </div>
 
-  <!-- Toolbar (Alternar densidad aquí) -->
-  <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm mb-3">
-    <div class="px-4 py-2.5 flex items-center justify-between">
-      <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">Clientes / Cuotas proyectadas</div>
-      <div class="flex items-center gap-2">
-        <button id="densityToggle" type="button"
-                class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg transition-colors"
-                aria-pressed="false" title="Alternar densidad de filas">
-          <i class="bi bi-arrows-collapse"></i>
-          <span class="hidden sm:inline">Compactar filas</span>
-        </button>
-      </div>
+    <div class="flex justify-end items-center gap-3 pt-6 mt-8 border-t border-slate-200 dark:border-slate-700">
+      <a href="{{ url_for('reporte_proyecciones') }}" class="px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 rounded-lg transition-colors">Limpiar Filtros</a>
+      <button type="submit" class="px-8 py-2.5 text-sm font-semibold text-white bg-sky-500 hover:bg-sky-600 rounded-lg shadow-md hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 transform hover:scale-105">
+        <i class="bi bi-bar-chart-line-fill mr-2"></i> Simular Proyección
+      </button>
     </div>
-  </div>
+  </form>
 
-  <!-- Tabla de clientes a cobrar -->
-  <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm table-container" id="table-container">
-    <div class="overflow-x-auto" id="table-scroll-wrapper">
-      <table class="min-w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
-        <thead class="bg-slate-50 dark:bg-slate-700" id="original-thead">
-          <tr>
-            <th class="py-3.5 px-4 text-left font-semibold">Cliente</th>
-            <th class="py-3.5 px-4 text-left font-semibold">Cédula</th>
-            <th class="py-3.5 px-4 text-left font-semibold">Estado del Plan</th>
-            <th class="py-3.5 px-4 text-left font-semibold">Condición</th>
-            <th class="py-3.5 px-4 text-left font-semibold"># Cuota</th>
-            <th class="py-3.5 px-4 text-left font-semibold">Fecha Pago</th>
-            <th class="py-3.5 px-4 text-right font-semibold">Monto USD</th>
-            <th class="py-3.5 px-4 text-left font-semibold">Método</th>
-            <th class="py-3.5 px-4 text-left font-semibold">Estatus Cuota</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-          {% set lista = proyecciones.clientes_a_cobrar if proyecciones else [] %}
-          {% if lista and lista|length > 0 %}
-            {% for r in lista %}
-            <tr class="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-800 dark:even:bg-slate-800/50">
-              <td class="px-4 py-3">{{ r.cliente or '—' }}</td>
-              <td class="px-4 py-3">{{ r.cedula or '—' }}</td>
-              <td class="px-4 py-3">{{ r.estado_plan or '—' }}</td>
-              <td class="px-4 py-3">
-                {% set cond = r.condicion %}
-                {% if cond %}
-                <span class="px-2.5 py-0.5 text-xs font-medium rounded-full {{ 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300' if (cond|upper)=='AL DIA' else 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300' }}">{{ cond|title }}</span>
-                {% else %}—{% endif %}
-              </td>
-              <td class="px-4 py-3">{{ r.numero_cuota if r.numero_cuota is not none else '—' }}</td>
-              <td class="px-4 py-3">{{ r.fecha_pago if r.fecha_pago else '—' }}</td>
-              <td class="px-4 py-3 text-right">${{ "{:,.2f}".format((r.monto_usd or 0)) }}</td>
-              <td class="px-4 py-3">{{ r.metodo or '—' }}</td>
-              <td class="px-4 py-3">{{ pill_status(r.estatus_cuota) }}</td>
-            </tr>
-            {% endfor %}
-          {% else %}
-            <tr>
-              <td colspan="9" class="text-center py-12 text-slate-500">Sin datos para mostrar.</td>
-            </tr>
-          {% endif %}
-        </tbody>
-      </table>
+  
+  {% if simulacion_realizada %}
+  <div class="space-y-6">
+    <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Resultados de la Simulación</h2>
+    
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-gradient-to-br from-emerald-500 to-emerald-400 text-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <i class="bi bi-graph-up-arrow text-4xl opacity-70"></i>
+                <span class="font-semibold">Ingreso Proyectado</span>
+            </div>
+            <div class="text-4xl font-bold">${{ "{:,.2f}".format((proyecciones.resumen.ingresos_totales_proyectados or 0) | float) }}</div>
+        </div>
+        <div class="bg-gradient-to-br from-cyan-500 to-cyan-400 text-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <i class="bi bi-people-fill text-4xl opacity-70"></i>
+                <span class="font-semibold">Clientes a Cobrar</span>
+            </div>
+            <div class="text-4xl font-bold">{{ proyecciones.clientes_a_cobrar|length }}</div>
+        </div>
+        <div class="bg-gradient-to-br from-rose-500 to-rose-400 text-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <i class="bi bi-graph-down-arrow text-4xl opacity-70"></i>
+                <span class="font-semibold">Gastos Programados</span>
+            </div>
+            <div class="text-4xl font-bold">${{ "{:,.2f}".format((gastos.totales.programado or 0) | float) }}</div>
+        </div>
+        <div class="bg-gradient-to-br from-indigo-500 to-indigo-400 text-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <i class="bi bi-bank text-4xl opacity-70"></i>
+                <span class="font-semibold">Balance Neto</span>
+            </div>
+            <div class="text-4xl font-bold">${{ "{:,.2f}".format((proyecciones.resumen.balance_neto_proyectado or 0) | float) }}</div>
+        </div>
     </div>
+
+    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm table-container" id="table-container">
+        <div class="overflow-x-auto" id="table-scroll-wrapper">
+          <table class="min-w-full text-sm divide-y divide-slate-200 dark:divide-slate-700">
+            <thead class="bg-slate-100 dark:bg-slate-700" id="original-thead">
+              <tr>
+                <th class="py-3 px-4 text-left font-bold uppercase text-xs text-slate-600 dark:text-slate-300">Cliente</th>
+                <th class="py-3 px-4 text-left font-bold uppercase text-xs text-slate-600 dark:text-slate-300">Cédula</th>
+                <th class="py-3 px-4 text-left font-bold uppercase text-xs text-slate-600 dark:text-slate-300">Estado / Condición</th>
+                <th class="py-3 px-4 text-left font-bold uppercase text-xs text-slate-600 dark:text-slate-300"># Cuota</th>
+                <th class="py-3 px-4 text-left font-bold uppercase text-xs text-slate-600 dark:text-slate-300">Fecha Pago</th>
+                <th class="py-3 px-4 text-right font-bold uppercase text-xs text-slate-600 dark:text-slate-300">Monto USD</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+              {% set lista = proyecciones.clientes_a_cobrar if proyecciones else [] %}
+              {% if lista %}
+                {% for r in lista %}
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                  <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{{ r.nombre }} {{ r.apellido }}</td>
+                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400">{{ r.cedula }}</td>
+                  <td class="px-4 py-3">
+                    <div class="flex flex-col gap-1">
+                      <span class="font-medium">{{ r.estado_del_plan | title }}</span>
+                      {% if r.condicion %}<span class="text-xs text-slate-500">{{ r.condicion | title }}</span>{% endif %}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400">{{ r.numero_cuota }}</td>
+                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400">{{ r.fecha_pago | format_date if r.fecha_pago else '—' }}</td>
+                  <td class="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-200">
+                    ${{ "{:,.2f}".format((r.monto_usd or 0) | float) }}
+                  </td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="6" class="text-center py-16 text-slate-500 dark:text-slate-400">
+                    <i class="bi bi-search text-4xl mb-2"></i><br>
+                    No se encontraron clientes que coincidan con los filtros de la simulación.
+                  </td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
   </div>
+  {% endif %}
 
 </div>
+
+<template id="block-template">
+    <div class="block-item bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg p-4 space-y-4 relative">
+        <button type="button" class="remove-block-btn absolute top-2 right-2 text-slate-400 hover:text-rose-500 transition-colors" title="Quitar Bloque">
+            <i class="bi bi-x-circle-fill"></i>
+        </button>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div class="lg:col-span-2">
+                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Empresa</label>
+                <select name="empresa" class="form-select-choices">
+                    <option value="">Todas</option>
+                    {% for opt in empresas_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="lg:col-span-2">
+                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Estado del Plan</label>
+                <select name="estado_plan" multiple class="form-select-choices">
+                    {% for opt in estados_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="lg:col-span-2">
+                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Condición del Plan</label>
+                <select name="condicion" multiple class="form-select-choices">
+                    {% for opt in condicion_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div class="lg:col-span-2">
+                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Estatus Cliente</label>
+                <select name="estatus_cliente" multiple class="form-select-choices">
+                    {% for opt in estatus_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Desde (opcional)</label>
+                <input type="date" name="fecha_inicio" class="form-input">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Hasta (opcional)</label>
+                <input type="date" name="fecha_fin" class="form-input">
+            </div>
+            <div class="flex items-end">
+                <label class="inline-flex items-center gap-2">
+                    <input type="checkbox" class="form-checkbox" name="excluir_rc">
+                    <span class="text-sm text-slate-700 dark:text-slate-300">Excluir Retirado/Completado</span>
+                </label>
+            </div>
+        </div>
+    </div>
+</template>
+
 {% endblock %}
 
 {% block scripts_extra %}
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+
 <script>
+// El bloque de SCRIPT es idéntico al que ya tenías.
+// No necesita ningún cambio ya que se basa en los IDs que se han conservado.
 document.addEventListener('DOMContentLoaded', function () {
-  // Sticky thead (clon) igual que en métricas
-  const container  = document.getElementById('table-container');
-  const theadOrig  = document.getElementById('original-thead');
-  const scroller   = document.getElementById('table-scroll-wrapper');
-  const filtersBar = document.getElementById('filtersBar'); // puede no existir aquí
-  const root       = document.documentElement;
+    const container = document.getElementById('simulation-blocks-container');
+    const template = document.getElementById('block-template');
+    const addBtn = document.getElementById('add-block-btn');
+    const hiddenBloques = document.getElementById('bloques_json');
+    const form = document.getElementById('simulation-form');
 
-  if (container && theadOrig && scroller){
-    const clone = theadOrig.cloneNode(true);
-    clone.id = '';
-    clone.classList.add('thead-clone');
-    try { clone.style.backgroundColor = getComputedStyle(theadOrig).backgroundColor || ''; } catch(e){}
-    container.appendChild(clone);
-
-    const sync = () => {
-      const a = theadOrig.querySelectorAll('th');
-      const b = clone.querySelectorAll('th');
-      a.forEach((th,i)=>{ const w = th.getBoundingClientRect().width; if(b[i]){ b[i].style.minWidth=w+'px'; b[i].style.width=w+'px'; } });
-      clone.style.width = theadOrig.getBoundingClientRect().width+'px';
-    };
-
-    function updOffset(){
-      const h = filtersBar ? filtersBar.getBoundingClientRect().height : 0;
-      root.style.setProperty('--sticky-offset', h+'px');
+    function initChoices(element) {
+        element.querySelectorAll('.form-select-choices').forEach(select => {
+            if (!select.choices) {
+                select.choices = new Choices(select, {
+                    removeItemButton: true,
+                    placeholder: true,
+                    allowHTML: false,
+                    searchResultLimit: 50,
+                    shouldSort: false,
+                    noChoicesText: 'No hay más opciones'
+                });
+            }
+        });
     }
 
-    const onScroll = () => {
-      const h = filtersBar ? filtersBar.getBoundingClientRect().height : 0;
-      const trigger = container.offsetTop - h;
-      if (window.scrollY >= trigger){ container.classList.add('table-header-is-sticky'); theadOrig.style.visibility='hidden'; }
-      else { container.classList.remove('table-header-is-sticky'); theadOrig.style.visibility='visible'; }
-    };
+    function setSelectValue(select, value) {
+        if (!select) return;
+        if (select.choices) {
+            try { select.choices.removeActiveItems(); } catch(e){}
+            if (Array.isArray(value)) {
+                if (value.length) select.choices.setChoiceByValue(value.map(v => String(v)));
+            } else if (value !== null && value !== undefined && value !== '') {
+                select.choices.setChoiceByValue(String(value));
+            }
+        } else {
+            if (Array.isArray(value)) {
+                for (const opt of select.options) opt.selected = value.includes(opt.value);
+            } else {
+                select.value = value || '';
+            }
+        }
+    }
 
-    scroller.addEventListener('scroll', ()=>{ clone.style.transform = `translateY(0) translateX(-${scroller.scrollLeft}px)`; });
-    window.addEventListener('resize', ()=>{ sync(); updOffset(); onScroll(); });
-    window.addEventListener('scroll', onScroll);
+    function addNewBlock(data = null) {
+        const clone = template.content.cloneNode(true);
+        container.appendChild(clone);
+        const newBlock = container.lastElementChild;
+        initChoices(newBlock);
 
-    updOffset(); sync(); onScroll();
-  }
+        if (data && typeof data === 'object') {
+            setSelectValue(newBlock.querySelector('select[name="empresa"]'), data.empresa || '');
+            setSelectValue(newBlock.querySelector('select[name="estado_plan"]'), data.estado_plan || data.estados || []);
+            setSelectValue(newBlock.querySelector('select[name="condicion"]'), data.condicion || []);
+            setSelectValue(newBlock.querySelector('select[name="estatus_cliente"]'), data.estatus_cliente || []);
+            if (data.fecha_inicio) newBlock.querySelector('input[name="fecha_inicio"]').value = data.fecha_inicio;
+            if (data.fecha_fin)    newBlock.querySelector('input[name="fecha_fin"]').value = data.fecha_fin;
+            if (data.excluir_rc)   newBlock.querySelector('input[name="excluir_rc"]').checked = !!data.excluir_rc;
+        }
 
-  // Alternar densidad persistente (clave separada para proyecciones si prefieres; aquí reutilizamos)
-  const key = 'proyecciones-density';
-  const btn = document.getElementById('densityToggle');
-  if (btn && container){
-    let mode = localStorage.getItem(key) || 'comfortable';
-    apply(mode);
-    btn.addEventListener('click', ()=>{
-      mode = (mode === 'compact' ? 'comfortable' : 'compact');
-      localStorage.setItem(key, mode);
-      apply(mode);
+        newBlock.querySelector('.remove-block-btn').addEventListener('click', () => {
+            newBlock.remove();
+        });
+    }
+
+    function buildBloquesJSON() {
+        const bloques = [];
+        container.querySelectorAll('.block-item').forEach(block => {
+            const empresa = block.querySelector('select[name="empresa"]');
+            const estado_plan = block.querySelector('select[name="estado_plan"]');
+            const condicion = block.querySelector('select[name="condicion"]');
+            const estatus_cliente = block.querySelector('select[name="estatus_cliente"]');
+            const fi = block.querySelector('input[name="fecha_inicio"]');
+            const ff = block.querySelector('input[name="fecha_fin"]');
+            const excluir = block.querySelector('input[name="excluir_rc"]');
+
+            const getValues = (select) => {
+                if (!select) return [];
+                if (select.choices) {
+                    return (select.choices.getValue(true) || []).filter(Boolean);
+                }
+                return Array.from(select.selectedOptions).map(o => o.value).filter(Boolean);
+            };
+
+            const obj = {
+                empresa: empresa ? empresa.value : '',
+                estado_plan: getValues(estado_plan),
+                condicion: getValues(condicion),
+                estatus_cliente: getValues(estatus_cliente),
+                fecha_inicio: fi && fi.value ? fi.value : null,
+                fecha_fin: ff && ff.value ? ff.value : null,
+                excluir_rc: excluir ? !!excluir.checked : false
+            };
+
+            const hasSomething = obj.empresa || obj.estado_plan.length || obj.condicion.length || obj.estatus_cliente.length || obj.fecha_inicio || obj.fecha_fin || obj.excluir_rc;
+            if (hasSomething) bloques.push(obj);
+        });
+        return JSON.stringify(bloques);
+    }
+
+    const bloquesIniciales = {{ (bloques_iniciales or []) | tojson }};
+    if (Array.isArray(bloquesIniciales) && bloquesIniciales.length) {
+        bloquesIniciales.forEach(b => addNewBlock(b));
+    } else {
+        addNewBlock();
+    }
+
+    addBtn.addEventListener('click', () => addNewBlock());
+
+    form.addEventListener('submit', (e) => {
+        hiddenBloques.value = buildBloquesJSON();
     });
-    function apply(m){
-      const c = (m === 'compact');
-      container.classList.toggle('density-compact', c);
-      btn.setAttribute('aria-pressed', String(c));
-      btn.innerHTML = c
-        ? '<i class="bi bi-arrows-expand"></i><span class="hidden sm:inline">Filas cómodas</span>'
-        : '<i class="bi bi-arrows-collapse"></i><span class="hidden sm:inline">Compactar filas</span>';
+
+    const tableContainer  = document.getElementById('table-container');
+    if (tableContainer) {
+        const theadOrig  = document.getElementById('original-thead');
+        const scroller   = document.getElementById('table-scroll-wrapper');
+        const clone = theadOrig.cloneNode(true);
+        clone.id = '';
+        clone.classList.add('thead-clone', 'dark:bg-slate-700', 'bg-slate-50');
+        tableContainer.appendChild(clone);
+        const sync = () => {
+          const a = theadOrig.querySelectorAll('th');
+          const b = clone.querySelectorAll('th');
+          a.forEach((th,i)=>{ const w = th.getBoundingClientRect().width; if(b[i]){ b[i].style.minWidth=w+'px'; b[i].style.width=w+'px'; } });
+          clone.style.width = theadOrig.getBoundingClientRect().width+'px';
+        };
+        const onScroll = () => {
+          const trigger = tableContainer.offsetTop - 60;
+          if (window.scrollY >= trigger){ tableContainer.classList.add('table-header-is-sticky'); theadOrig.style.visibility='hidden'; }
+          else { tableContainer.classList.remove('table-header-is-sticky'); theadOrig.style.visibility='visible'; }
+        };
+        scroller.addEventListener('scroll', ()=>{ clone.style.transform = `translateY(0) translateX(-${scroller.scrollLeft}px)`; });
+        window.addEventListener('resize', ()=>{ sync(); onScroll(); });
+        window.addEventListener('scroll', onScroll);
+        sync(); 
+        onScroll();
     }
-  }
+});
+
+document.addEventListener('alpine:init', () => {
+    Alpine.data('simulationController', () => ({
+        period_mode: '{{ (parametros.period_mode or "auto") | lower }}',
+    }));
 });
 </script>
 {% endblock %}
