@@ -4487,224 +4487,53 @@ def _detect_column(conn, table: str, candidates: list[str]) -> str | None:
 # =========================
 # REPORTE: PROYECCIONES
 # ==================================================================
-# PROYECCIONES (todo en app.py): utils, selects, pipeline, ruta
-# ==================================================================
-def _month_add(d: date, months: int) -> date:
-    """Suma/resta meses conservando día cuando sea posible."""
-    y = d.year + (d.month - 1 + months) // 12
-    m = (d.month - 1 + months) % 12 + 1
-    last = monthrange(y, m)[1]
-    return date(y, m, min(d.day, last))
-
-def _compute_period(hoy: date, mode: str, start_s: str, end_s: str) -> tuple[date, date]:
-    """
-    Auto: ventana 13→12 como en Métricas.
-    Manual: parsea fechas (YYYY-MM-DD); si vienen invertidas, swapea.
-    """
-    if (mode or '').lower() != 'manual':
-        # 13 -> 12
-        if hoy.day >= 13:
-            start = hoy.replace(day=13)
-            # fin = 12 del mes siguiente
-            next_m = _month_add(hoy.replace(day=1), 1)
-            # día 12 del mes siguiente
-            end = next_m.replace(day=12)
-        else:
-            # inicio: 13 del mes anterior
-            prev_m = _month_add(hoy.replace(day=1), -1)
-            start = prev_m.replace(day=13)
-            end = hoy.replace(day=12)
-        return (start, end)
-
-    # Manual
-    def _parse(s):
-        try:
-            return datetime.strptime(s, "%Y-%m-%d").date()
-        except Exception:
-            return None
-
-    start = _parse(start_s)
-    end   = _parse(end_s)
-    if not start or not end:
-        # Fallback a auto si algo vino mal
-        return _compute_period(hoy, 'auto', '', '')
-    if start > end:
-        start, end = end, start
-    return (start, end)
-
-
-def _collect_union(conn, specs: list[tuple[str, str]], schema: str = 'public') -> list[str]:
-    """
-    Construye un UNION SELECT DISTINCT TRIM(col) sobre columnas candidatas,
-    ignorando columnas/tablas que no existan y valores vacíos.
-    specs: [(table, column), ...]
-    """
-    parts = []
-    for table, column in specs:
-        if _has_column(conn, table, column, schema=schema):
-            parts.append(f"SELECT DISTINCT TRIM({column}) AS v FROM {schema}.{table} WHERE {column} IS NOT NULL AND TRIM({column}) <> ''")
-
-    if not parts:
-        return []
-
-    sql = " UNION ".join(parts) + " ORDER BY v"
-    out = []
-    with conn.cursor() as cur:
-        cur.execute(sql)
-        rows = cur.fetchall()
-        for r in rows:
-            # r puede ser tupla o dict
-            if isinstance(r, dict):
-                out.append(r.get('v'))
-            else:
-                out.append(r[0])
-    return out
-
-
-def _fetch_bcv_anchor(conn, anchor_date: date) -> dict:
-    """
-    Obtiene la fila de tasas con fecha <= anchor_date (más reciente).
-    Tolera columna opcional tasa_binance y hace rollback seguro en error.
-    Retorna: {'usd': float|None, 'eur': float|None, 'binance': float|None}
-    """
-    try:
-        with conn.cursor() as cur:
-            # Preferimos la fila más cercana hacia atrás
-            cur.execute("""
-                SELECT tasa, tasa_euro, 
-                       CASE WHEN EXISTS (
-                         SELECT 1 FROM information_schema.columns
-                         WHERE table_schema='public' AND table_name='historial_tasas_bcv' AND column_name='tasa_binance'
-                       )
-                       THEN tasa_binance ELSE NULL END AS tasa_binance
-                FROM public.historial_tasas_bcv
-                WHERE fecha <= %s
-                ORDER BY fecha DESC
-                LIMIT 1
-            """, (anchor_date,))
-            row = cur.fetchone()
-        if not row:
-            return {'usd': None, 'eur': None, 'binance': None}
-        if isinstance(row, dict):
-            return {'usd': row.get('tasa'), 'eur': row.get('tasa_euro'), 'binance': row.get('tasa_binance')}
-        return {'usd': row[0], 'eur': row[1], 'binance': row[2]}
-    except Exception:
-        try:
-            conn.rollback()
-        except Exception:
-            pass
-        return {'usd': None, 'eur': None, 'binance': None}
-
-
-def _fetch_tasas_now(conn) -> dict:
-    """
-    Última fila de historial_tasas_bcv. Tolerante a tasa_binance. Rollback seguro.
-    """
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT tasa, tasa_euro,
-                       CASE WHEN EXISTS (
-                         SELECT 1 FROM information_schema.columns
-                         WHERE table_schema='public' AND table_name='historial_tasas_bcv' AND column_name='tasa_binance'
-                       )
-                       THEN tasa_binance ELSE NULL END AS tasa_binance
-                FROM public.historial_tasas_bcv
-                ORDER BY fecha DESC
-                LIMIT 1
-            """)
-            row = cur.fetchone()
-        if not row:
-            return {'usd': None, 'eur': None, 'binance': None}
-        if isinstance(row, dict):
-            return {'usd': row.get('tasa'), 'eur': row.get('tasa_euro'), 'binance': row.get('tasa_binance')}
-        return {'usd': row[0], 'eur': row[1], 'binance': row[2]}
-    except Exception:
-        try:
-            conn.rollback()
-        except Exception:
-            pass
-        return {'usd': None, 'eur': None, 'binance': None}
-
-# ---------------------------------------------------------------------
-# 2) Selectores (mismo comportamiento que Métricas)
-# ---------------------------------------------------------------------
-
 def _selector_opciones(conn) -> tuple[list[str], list[str], list[str], list[str]]:
     """
-    Devuelve (empresas, estados, condicion, estatus) con lógica robusta:
-    - Empresa: clientes.empresa
-    - Estado del Plan: clientes.estado_del_plan UNION clientes.estado_plan (UPPER/TRIM)
-    - Condición: clientes.condicion_pago UNION clientes.condicion UNION cuotas.condicion UNION planes.condicion
-      (UPPER/TRIM; si queda vacío, ['SIN CONDICION'])
-    - Estatus: clientes.estatus_cliente UNION clientes.estatus (normaliza variantes de 'PENDIENTE POR ENTREGA'
-      y garantiza incluir 'PENDIENTE POR ENTREGA')
+    Devuelve (empresas, estados, condicion, estatus) combinando columnas/tablas existentes:
+    - Empresa: clientes.empresa (sin UPPER, para mostrar “bonito”)
+    - Estado del Plan: UNION de clientes.estado_del_plan y clientes.estado_plan (UPPER/TRIM)
+    - Condición: UNION de clientes.condicion_pago, clientes.condicion, cuotas.condicion, planes.condicion (UPPER/TRIM)
+    - Estatus: UNION de clientes.estatus_cliente y clientes.estatus con normalización ('PENDIENTE POR ENTREGA')
     """
-    def _run_list(sql, params=None):
-        out = []
-        with conn.cursor() as cur:
-            cur.execute(sql, params or [])
-            rows = cur.fetchall() or []
-            for r in rows:
-                out.append(r[0] if not isinstance(r, dict) else list(r.values())[0])
-        return [x for x in out if x is not None and str(x).strip() != ""]
+    # Empresa (mantén casing original)
+    empresas = _collect_union(conn, [('clientes', 'empresa')], upper=False)
 
-    # Empresa
-    empresas = _run_list("""
-        SELECT DISTINCT TRIM(empresa) AS v
-        FROM public.clientes
-        WHERE empresa IS NOT NULL AND TRIM(empresa) <> ''
-        ORDER BY 1
-    """)
+    # Estados (UPPER)
+    estados = _collect_union(conn, [
+        ('clientes', 'estado_del_plan'),
+        ('clientes', 'estado_plan'),
+    ], upper=True)
 
-    # Estado del plan (UPPER/TRIM + UNION)
-    estados = _run_list("""
-        SELECT DISTINCT UPPER(TRIM(estado)) FROM (
-            SELECT estado_del_plan AS estado FROM public.clientes WHERE estado_del_plan IS NOT NULL AND TRIM(estado_del_plan) <> ''
-            UNION
-            SELECT estado_plan     AS estado FROM public.clientes WHERE estado_plan     IS NOT NULL AND TRIM(estado_plan)     <> ''
-        ) x
-        ORDER BY 1
-    """)
-
-    # Condición (preferir condicion_pago pero unimos todas las fuentes)
-    condicion = _run_list("""
-        SELECT DISTINCT UPPER(TRIM(v)) FROM (
-            SELECT condicion_pago AS v FROM public.clientes WHERE condicion_pago IS NOT NULL AND TRIM(condicion_pago) <> ''
-            UNION SELECT condicion AS v FROM public.clientes WHERE condicion IS NOT NULL AND TRIM(condicion) <> ''
-            UNION SELECT condicion AS v FROM public.cuotas    WHERE condicion IS NOT NULL AND TRIM(condicion) <> ''
-            UNION SELECT condicion AS v FROM public.planes    WHERE condicion IS NOT NULL AND TRIM(condicion) <> ''
-        ) t
-        ORDER BY 1
-    """)
+    # Condición (UPPER) – incluye varias fuentes
+    condicion = _collect_union(conn, [
+        ('clientes', 'condicion_pago'),
+        ('clientes', 'condicion'),
+        ('cuotas',   'condicion'),
+        ('planes',   'condicion'),
+    ], upper=True)
     if not condicion:
         condicion = ['SIN CONDICION']
 
-    # Estatus (normaliza todas las variantes a 'PENDIENTE POR ENTREGA' y lo garantiza)
-    estatus = _run_list("""
-        SELECT estatus FROM (
-          SELECT DISTINCT
-            CASE
-              WHEN e IS NULL OR e = '' THEN NULL
-              WHEN regexp_replace(e,'\\s+',' ','g') IN
-                   ('ENTREGA PENDIENTE','PENDIENTE DE ENTREGA','PENDIENTE ENTREGA','PENDIEN POR ENTREGA')
-                   OR (e LIKE '%PENDIENT%' AND e LIKE '%ENTREG%')
-                THEN 'PENDIENTE POR ENTREGA'
-              ELSE regexp_replace(e,'\\s+',' ','g')
-            END AS estatus
-          FROM (
-            SELECT UPPER(TRIM(estatus_cliente)) AS e FROM public.clientes
-            UNION
-            SELECT UPPER(TRIM(estatus))         AS e FROM public.clientes
-          ) z
-          WHERE e IS NOT NULL AND e <> ''
-          UNION
-          SELECT 'PENDIENTE POR ENTREGA'
-        ) x
-        ORDER BY 1
-    """)
-    # dedup/limpieza final
-    estatus = sorted(list(dict.fromkeys([s for s in estatus if s])))
+    # Estatus (normalización especial)
+    estatus_parts = []
+    with conn.cursor() as cur:
+        # arma sub-selects según existan
+        for table, col in [('clientes','estatus_cliente'), ('clientes','estatus')]:
+            if _has_column(conn, table, col):
+                base = f"TRIM(UPPER({col}))"
+                norm = _estatus_normalize_case(base)
+                estatus_parts.append(f"SELECT {norm} AS v FROM public.{table}")
+
+        # siempre garantizamos incluir 'PENDIENTE POR ENTREGA'
+        estatus_parts.append("SELECT 'PENDIENTE POR ENTREGA' AS v")
+
+        if estatus_parts:
+            sql = "SELECT DISTINCT v FROM (\n  " + "\n  UNION ALL\n  ".join(estatus_parts) + "\n) z WHERE v IS NOT NULL AND v <> '' ORDER BY 1"
+            cur.execute(sql)
+            rows = cur.fetchall() or []
+            estatus = [r[0] if not isinstance(r, dict) else list(r.values())[0] for r in rows]
+        else:
+            estatus = ['PENDIENTE POR ENTREGA']
 
     app.logger.info(
         "proyecciones/selects -> empresas:%d estados:%d condicion:%d estatus:%d",
@@ -4875,19 +4704,9 @@ def _procesar_bloques(conn, bloques: list[dict], start: date, end: date) -> tupl
     return ingresos_totales, resultados, clientes
 
 
-# ---------------------------------------------------------------------
-# 4) Conexiones con el ecosistema (egresos, etc.)
-#     - _get_egresos_totales_periodo(conn, start, end): se deja tal cual (cascada de firmas).
-# ---------------------------------------------------------------------
-
 
 # ---------------------------------------------------------------------
-# 5) Bandera de simulación (política recomendada en la ruta)
-# ---------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------
-# 6) Ruta /reportes/proyecciones (contrato estable)
+# Ruta /reportes/proyecciones (contrato estable)
 # ---------------------------------------------------------------------
 
 @app.route('/reportes/proyecciones', methods=['GET', 'POST'])
@@ -4899,25 +4718,120 @@ def reporte_proyecciones():
         flash("Error de conexión a la base de datos.", "danger")
         return redirect(url_for('gestion_administrativa'))
 
-    # --- Fallback local para verificar columnas (evita NameError de _has_column) ---
+    # ----------------- Helpers locales (auto-contenidos) -----------------
     def __hascol(table: str, col: str, schema: str = 'public') -> bool:
+        """Verifica si existe la columna en information_schema.columns."""
         try:
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT EXISTS(
-                      SELECT 1
-                      FROM information_schema.columns
+                      SELECT 1 FROM information_schema.columns
                       WHERE table_schema=%s AND table_name=%s AND column_name=%s
                     ) AS ok
                 """, (schema, table, col))
                 row = cur.fetchone()
-                if not row:
-                    return False
                 return bool(row[0] if not isinstance(row, dict) else (row.get('ok') or row.get('exists')))
         except Exception:
             try: conn.rollback()
             except Exception: pass
             return False
+
+    def __collect_union(specs, upper: bool = True) -> list[str]:
+        """
+        Construye un UNION DISTINCT dinámico sobre columnas candidatas (TRIM y no vacías).
+        specs: lista de (tabla, columna[, schema]).
+        """
+        norm_specs = []
+        for s in specs:
+            if len(s) == 2:
+                norm_specs.append((s[0], s[1], 'public'))
+            else:
+                norm_specs.append((s[0], s[1], s[2] or 'public'))
+
+        selects = []
+        for t, c, sch in norm_specs:
+            if __hascol(t, c, sch):
+                expr = f"TRIM({c})"
+                if upper:
+                    expr = f"UPPER({expr})"
+                selects.append(
+                    f"SELECT {expr} AS v FROM {sch}.{t} WHERE {c} IS NOT NULL AND TRIM({c}) <> ''"
+                )
+
+        if not selects:
+            return []
+
+        sql = "SELECT DISTINCT v FROM (\n  " + "\n  UNION ALL\n  ".join(selects) + "\n) u WHERE v IS NOT NULL AND v <> '' ORDER BY 1"
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            rows = cur.fetchall() or []
+
+        out = []
+        for r in rows:
+            out.append(r[0] if not isinstance(r, dict) else list(r.values())[0])
+        return out
+
+    def __estatus_normalize_case(base_expr: str) -> str:
+        """CASE SQL que normaliza variantes a 'PENDIENTE POR ENTREGA' y colapsa espacios."""
+        return (
+            "CASE "
+            f"WHEN {base_expr} IS NULL OR {base_expr}='' THEN NULL "
+            f"WHEN regexp_replace({base_expr}, '\\s+', ' ', 'g') IN "
+            "('ENTREGA PENDIENTE','PENDIENTE DE ENTREGA','PENDIENTE ENTREGA','PENDIEN POR ENTREGA') "
+            f"OR ({base_expr} LIKE '%PENDIENT%' AND {base_expr} LIKE '%ENTREG%') "
+            "THEN 'PENDIENTE POR ENTREGA' "
+            f"ELSE regexp_replace({base_expr}, '\\s+', ' ', 'g') END"
+        )
+
+    def __selector_opciones(conn) -> tuple[list[str], list[str], list[str], list[str]]:
+        """
+        Devuelve (empresas, estados, condicion, estatus) combinando columnas/tablas existentes:
+        - Empresa: clientes.empresa (sin UPPER)
+        - Estado del Plan: UNION de clientes.estado_del_plan y clientes.estado_plan (UPPER/TRIM)
+        - Condición: UNION de clientes.condicion_pago, clientes.condicion, cuotas.condicion, planes.condicion (UPPER/TRIM)
+        - Estatus: UNION de clientes.estatus_cliente y clientes.estatus con normalización ('PENDIENTE POR ENTREGA')
+        """
+        # Empresa (mantener casing “bonito”)
+        empresas = __collect_union([('clientes', 'empresa')], upper=False)
+
+        # Estados
+        estados = __collect_union([
+            ('clientes', 'estado_del_plan'),
+            ('clientes', 'estado_plan'),
+        ], upper=True)
+
+        # Condición
+        condicion = __collect_union([
+            ('clientes', 'condicion_pago'),
+            ('clientes', 'condicion'),
+            ('cuotas',   'condicion'),
+            ('planes',   'condicion'),
+        ], upper=True)
+        if not condicion:
+            condicion = ['SIN CONDICION']
+
+        # Estatus
+        estatus_parts = []
+        with conn.cursor() as cur:
+            for table, col in [('clientes','estatus_cliente'), ('clientes','estatus')]:
+                if __hascol(table, col):
+                    base = f"TRIM(UPPER({col}))"
+                    norm = __estatus_normalize_case(base)
+                    estatus_parts.append(f"SELECT {norm} AS v FROM public.{table}")
+            # garantiza 'PENDIENTE POR ENTREGA'
+            estatus_parts.append("SELECT 'PENDIENTE POR ENTREGA' AS v")
+
+            sql = "SELECT DISTINCT v FROM (\n  " + "\n  UNION ALL\n  ".join(estatus_parts) + "\n) z WHERE v IS NOT NULL AND v <> '' ORDER BY 1"
+            cur.execute(sql)
+            rows = cur.fetchall() or []
+            estatus = [r[0] if not isinstance(r, dict) else list(r.values())[0] for r in rows]
+
+        app.logger.info(
+            "proyecciones/selects -> empresas:%d estados:%d condicion:%d estatus:%d",
+            len(empresas), len(estados), len(condicion), len(estatus)
+        )
+        return empresas, estados, condicion, estatus
+    # --------------------------------------------------------------------
 
     # Fuente de parámetros (POST preferido para evitar URLs largas)
     src = request.form if request.method == 'POST' else request.args
@@ -4929,14 +4843,14 @@ def reporte_proyecciones():
     start_s = (src.get('start_date') or '').strip()
     end_s   = (src.get('end_date') or '').strip()
 
-    # otros potenciales (guardamos por si UI los usa luego)
+    # otros potenciales (por si UI los usa luego)
     dev_target_pct = src.get('dev_target_pct')  # opcional
     fijada         = src.get('fijada')          # opcional
 
     # Bloques (constructor dinámico desde la UI)
     bloques_iniciales = _parse_bloques(src)
 
-    # Política de simulación: firme y simple
+    # Política de simulación (firme y simple)
     simulacion_realizada = bool(bloques_iniciales)
 
     # ---- Período ----
@@ -4947,93 +4861,9 @@ def reporte_proyecciones():
     tasas_anchor = _fetch_bcv_anchor(conn, start_date)
     tasas_now    = _fetch_tasas_now(conn)
 
-    # ---- Selectores (alineados a MÉTRICAS) ----
-    def _val(row, key_or_idx=0):
-        if isinstance(row, dict):
-            return row.get(key_or_idx)
-        return row[key_or_idx]
-
+    # ---- Selectores (robustos por UNION) ----
     try:
-        with conn.cursor() as cur:
-            # Empresa
-            cur.execute("""
-                SELECT DISTINCT TRIM(empresa) AS empresa
-                FROM public.clientes
-                WHERE empresa IS NOT NULL AND TRIM(empresa) <> ''
-                ORDER BY 1
-            """)
-            rows = cur.fetchall() or []
-            empresas_opciones = [_val(r, 'empresa') if isinstance(r, dict) else _val(r, 0) for r in rows]
-
-            # Estado del plan (detecta columnas y normaliza UPPER/TRIM)
-            has_estado_del_plan = __hascol('clientes', 'estado_del_plan')
-            has_estado_plan     = __hascol('clientes', 'estado_plan')
-            estados_opciones = []
-            if has_estado_del_plan or has_estado_plan:
-                if has_estado_del_plan and has_estado_plan:
-                    estado_expr = "UPPER(TRIM(COALESCE(c.estado_del_plan, c.estado_plan)))"
-                elif has_estado_del_plan:
-                    estado_expr = "UPPER(TRIM(c.estado_del_plan))"
-                else:
-                    estado_expr = "UPPER(TRIM(c.estado_plan))"
-                cur.execute(f"""
-                    SELECT DISTINCT {estado_expr} AS estado
-                    FROM public.clientes c
-                    WHERE {estado_expr} IS NOT NULL AND {estado_expr} <> ''
-                    ORDER BY 1
-                """)
-                rows = cur.fetchall() or []
-                estados_opciones = [_val(r, 'estado') if isinstance(r, dict) else _val(r, 0) for r in rows]
-
-            # Estatus (preferir estatus_cliente; si no existe, estatus; normaliza y fuerza 'PENDIENTE POR ENTREGA')
-            has_estatus_cliente = __hascol('clientes', 'estatus_cliente')
-            has_estatus         = __hascol('clientes', 'estatus')
-            estatus_opciones = []
-            if has_estatus_cliente or has_estatus:
-                base = "TRIM(UPPER(NULLIF(c.estatus_cliente,'')))" if has_estatus_cliente else "TRIM(UPPER(NULLIF(c.estatus,'')))"
-                estatus_norm = (
-                    "CASE "
-                    f"WHEN {base} IS NULL OR {base}='' THEN NULL "
-                    f"WHEN regexp_replace({base}, '\\s+', ' ', 'g') IN "
-                    "('ENTREGA PENDIENTE','PENDIENTE DE ENTREGA','PENDIENTE ENTREGA','PENDIEN POR ENTREGA') "
-                    f"OR ({base} LIKE '%PENDIENT%' AND {base} LIKE '%ENTREG%') "
-                    "THEN 'PENDIENTE POR ENTREGA' "
-                    f"ELSE regexp_replace({base}, '\\s+', ' ', 'g') END"
-                )
-                cur.execute(f"""
-                    SELECT estatus FROM (
-                        SELECT DISTINCT {estatus_norm} AS estatus
-                        FROM public.clientes c
-                        WHERE {estatus_norm} IS NOT NULL AND {estatus_norm} <> ''
-                        UNION
-                        SELECT 'PENDIENTE POR ENTREGA'
-                    ) x
-                    ORDER BY 1
-                """)
-                rows = cur.fetchall() or []
-                estatus_opciones = [_val(r, 'estatus') if isinstance(r, dict) else _val(r, 0) for r in rows]
-            else:
-                estatus_opciones = ['PENDIENTE POR ENTREGA']
-
-            # Condición (preferir condicion_pago; si no existe, condicion; si ninguna, 'SIN CONDICION')
-            has_condicion_pago = __hascol('clientes', 'condicion_pago')
-            has_condicion      = __hascol('clientes', 'condicion')
-            if has_condicion_pago or has_condicion:
-                col = 'condicion_pago' if has_condicion_pago else 'condicion'
-                cur.execute(f"""
-                    SELECT DISTINCT UPPER(TRIM(COALESCE(NULLIF(c.{col},''),'SIN CONDICION'))) AS condicion
-                    FROM public.clientes c
-                    ORDER BY 1
-                """)
-                rows = cur.fetchall() or []
-                condicion_opciones = [_val(r, 'condicion') if isinstance(r, dict) else _val(r, 0) for r in rows]
-            else:
-                condicion_opciones = ['SIN CONDICION']
-
-        app.logger.info(
-            "proyecciones/selects -> empresas:%d estados:%d condicion:%d estatus:%d",
-            len(empresas_opciones), len(estados_opciones), len(condicion_opciones), len(estatus_opciones)
-        )
+        empresas_opciones, estados_opciones, condicion_opciones, estatus_opciones = __selector_opciones(conn)
     except Exception as e:
         try: conn.rollback()
         except Exception: pass
@@ -5046,7 +4876,9 @@ def reporte_proyecciones():
 
     if simulacion_realizada:
         try:
-            ingresos_totales, resultados_por_bloque, clientes_a_cobrar = _procesar_bloques(conn, bloques_iniciales, start_date, end_date)
+            ingresos_totales, resultados_por_bloque, clientes_a_cobrar = _procesar_bloques(
+                conn, bloques_iniciales, start_date, end_date
+            )
 
             # Gastos programados del período (cascada de firmas existente)
             try:
