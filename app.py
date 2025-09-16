@@ -4721,6 +4721,8 @@ def reporte_proyecciones():
     # ----------------- Helpers locales (auto-contenidos) -----------------
     from datetime import date as _date, timedelta as _timedelta
     from calendar import monthrange as _monthrange
+    from types import SimpleNamespace
+    import json
 
     def __month_add(d: _date, months: int) -> _date:
         y = d.year + (d.month - 1 + months) // 12
@@ -4732,12 +4734,10 @@ def reporte_proyecciones():
         if not s:
             return None
         try:
-            parts = [int(x) for x in s.strip().split('-')]
-            if len(parts) == 3:
-                return _date(parts[0], parts[1], parts[2])
+            y, m, d = (int(x) for x in s.strip().split('-'))
+            return _date(y, m, d)
         except Exception:
-            pass
-        return None
+            return None
 
     def __compute_period(hoy: _date, mode: str, start_s: str, end_s: str) -> tuple[_date, _date]:
         mode = (mode or 'auto').lower()
@@ -4745,13 +4745,12 @@ def reporte_proyecciones():
             a = __parse_date(start_s)
             b = __parse_date(end_s)
             if a and b:
-                # si inversión, swapea
                 return (b, a) if a > b else (a, b)
             if a and not b:
                 return (a, a)
             if b and not a:
                 return (b, b)
-            # si ambos faltan o inválidos → cae a auto
+            # si no hay entradas válidas, cae a auto
         # AUTO: periodo 13→12
         if hoy.day >= 13:
             start = _date(hoy.year, hoy.month, 13)
@@ -4779,6 +4778,10 @@ def reporte_proyecciones():
             return False
 
     def __collect_union(specs, upper: bool = True) -> list[str]:
+        """
+        UNION DISTINCT dinámico sobre columnas candidatas (TRIM y no vacías).
+        specs: lista de (tabla, columna[, schema]).
+        """
         norm_specs = []
         for s in specs:
             if len(s) == 2:
@@ -4799,7 +4802,11 @@ def reporte_proyecciones():
         if not selects:
             return []
 
-        sql = "SELECT DISTINCT v FROM (\n  " + "\n  UNION ALL\n  ".join(selects) + "\n) u WHERE v IS NOT NULL AND v <> '' ORDER BY 1"
+        sql = (
+            "SELECT DISTINCT v FROM (\n  " +
+            "\n  UNION ALL\n  ".join(selects) +
+            "\n) u WHERE v IS NOT NULL AND v <> '' ORDER BY 1"
+        )
         with conn.cursor() as cur:
             cur.execute(sql)
             rows = cur.fetchall() or []
@@ -4821,18 +4828,21 @@ def reporte_proyecciones():
         )
 
     def __selector_opciones(conn) -> tuple[list[str], list[str], list[str], list[str]]:
+        # Empresa (mantener casing “bonito”)
         empresas = __collect_union([('clientes', 'empresa')], upper=False)
+        # Estados (UPPER)
         estados = __collect_union([
             ('clientes', 'estado_del_plan'),
             ('clientes', 'estado_plan'),
         ], upper=True)
+        # Condición (varias fuentes)
         condicion = __collect_union([
             ('clientes', 'condicion_pago'),
             ('clientes', 'condicion'),
             ('cuotas',   'condicion'),
             ('planes',   'condicion'),
         ], upper=True) or ['SIN CONDICION']
-
+        # Estatus (normalizado)
         with conn.cursor() as cur:
             parts = []
             for table, col in [('clientes','estatus_cliente'), ('clientes','estatus')]:
@@ -4840,6 +4850,7 @@ def reporte_proyecciones():
                     base = f"TRIM(UPPER({col}))"
                     norm = __estatus_normalize_case(base)
                     parts.append(f"SELECT {norm} AS v FROM public.{table}")
+            # garantizar incluir 'PENDIENTE POR ENTREGA'
             parts.append("SELECT 'PENDIENTE POR ENTREGA' AS v")
             sql = "SELECT DISTINCT v FROM (\n  " + "\n  UNION ALL\n  ".join(parts) + "\n) z WHERE v IS NOT NULL AND v <> '' ORDER BY 1"
             cur.execute(sql)
@@ -4851,8 +4862,88 @@ def reporte_proyecciones():
             len(empresas), len(estados), len(condicion), len(estatus)
         )
         return empresas, estados, condicion, estatus
+
+    # Wrappers seguros para no fallar si faltan utilidades globales
+    def __safe_call(global_name: str, *args, **kwargs):
+        fn = globals().get(global_name)
+        if callable(fn):
+            try:
+                return fn(*args, **kwargs)
+            except Exception as e:
+                try: conn.rollback()
+                except Exception: pass
+                app.logger.exception("proyecciones/%s error: %s", global_name, e)
+        return None
+
+    def __fetch_bcv_anchor_safe(conn, anchor_date):
+        res = __safe_call('_fetch_bcv_anchor', conn, anchor_date)
+        if isinstance(res, dict):
+            return res
+        # fallback seguro
+        return {'usd': 0.0, 'fecha': anchor_date}
+
+    def __fetch_tasas_now_safe(conn):
+        res = __safe_call('_fetch_tasas_now', conn)
+        if isinstance(res, dict):
+            return res
+        # fallback seguro
+        return {'usd': 0.0, 'fecha': None}
+
+    def __procesar_bloques_safe(conn, bloques, start_date, end_date):
+        fn = globals().get('_procesar_bloques')
+        if callable(fn):
+            try:
+                return fn(conn, bloques, start_date, end_date)
+            except Exception as e:
+                try: conn.rollback()
+                except Exception: pass
+                app.logger.exception("proyecciones/_procesar_bloques error: %s", e)
+        # fallback: sin errores
+        return (0.0, [], [])
+
+    def __get_egresos_totales_periodo_safe(conn, start_date, end_date):
+        fn = globals().get('_get_egresos_totales_periodo')
+        if callable(fn):
+            try:
+                return fn(conn, start_date, end_date)
+            except Exception as e:
+                try: conn.rollback()
+                except Exception: pass
+                app.logger.exception("proyecciones/_get_egresos_totales_periodo error: %s", e)
+        # fallback: totales en 0
+        return {'totales': {'programado': 0.0}}
+
+    def __parse_bloques_local(src_mapping) -> list[dict]:
+        """
+        Lee 'bloques_json' del mapping (args o form), valida y devuelve lista de bloques.
+        """
+        raw = src_mapping.get('bloques_json') if hasattr(src_mapping, 'get') else None
+        if not raw:
+            return []
+        try:
+            arr = json.loads(raw)
+            if isinstance(arr, list):
+                # sanea claves esperadas
+                out = []
+                for b in arr:
+                    if not isinstance(b, dict):
+                        continue
+                    out.append({
+                        'empresa': b.get('empresa') or [],
+                        'estado_plan': b.get('estado_plan') or b.get('estados') or [],
+                        'condicion': b.get('condicion') or [],
+                        'estatus_cliente': b.get('estatus_cliente') or [],
+                        'fecha_inicio': b.get('fecha_inicio') or None,
+                        'fecha_fin': b.get('fecha_fin') or None,
+                        'excluir_rc': bool(b.get('excluir_rc')),
+                    })
+                return out
+        except Exception as e:
+            app.logger.exception("proyecciones/parse_bloques error: %s", e)
+        return []
     # --------------------------------------------------------------------
 
+    # Fuente de parámetros (POST preferido para evitar URLs largas)
     src = request.form if request.method == 'POST' else request.args
     hoy = get_venezuela_current_date()
 
@@ -4863,19 +4954,19 @@ def reporte_proyecciones():
     dev_target_pct = src.get('dev_target_pct')
     fijada         = src.get('fijada')
 
-    # Bloques
-    bloques_iniciales = _parse_bloques(src)
+    # Bloques (usa local, sin depender de util global)
+    bloques_iniciales = __parse_bloques_local(src)
     simulacion_realizada = bool(bloques_iniciales)
 
-    # ---- Período (usa helper local; evita NameError) ----
+    # ---- Período ----
     start_date, end_date = __compute_period(hoy, period_mode, start_s, end_s)
     period_key = f"{start_date.isoformat()}_{end_date.isoformat()}"
 
-    # ---- Tasas ----
-    tasas_anchor = _fetch_bcv_anchor(conn, start_date)
-    tasas_now    = _fetch_tasas_now(conn)
+    # ---- Tasas (seguras) ----
+    tasas_anchor = __fetch_bcv_anchor_safe(conn, start_date)
+    tasas_now    = __fetch_tasas_now_safe(conn)
 
-    # ---- Selectores ----
+    # ---- Selectores (robustos por UNION) ----
     try:
         empresas_opciones, estados_opciones, condicion_opciones, estatus_opciones = __selector_opciones(conn)
     except Exception as e:
@@ -4889,45 +4980,25 @@ def reporte_proyecciones():
     gastos = {'totales': {'programado': 0.0}}
 
     if simulacion_realizada:
-        try:
-            ingresos_totales, resultados_por_bloque, clientes_a_cobrar = _procesar_bloques(
-                conn, bloques_iniciales, start_date, end_date
-            )
-            try:
-                g = _get_egresos_totales_periodo(conn, start_date, end_date)
-                if isinstance(g, dict):
-                    gastos = g
-            except Exception as e:
-                try: conn.rollback()
-                except Exception: pass
-                app.logger.exception("proyecciones/egresos error: %s", e)
+        ingresos_totales, resultados_por_bloque, clientes_a_cobrar = __procesar_bloques_safe(
+            conn, bloques_iniciales, start_date, end_date
+        )
 
-            balance = ingresos_totales - float(((gastos or {}).get('totales') or {}).get('programado') or 0)
-            proyecciones = {
-                'resumen': {
-                    'ingresos_totales_proyectados': ingresos_totales,
-                    'balance_neto_proyectado': balance,
-                    'period_key': period_key,
-                },
-                'resultados_por_bloque': resultados_por_bloque,
-                'clientes_a_cobrar': clientes_a_cobrar,
-            }
-        except Exception as e:
-            try: conn.rollback()
-            except Exception: pass
-            app.logger.exception("proyecciones/procesamiento error: %s", e)
-            proyecciones = {
-                'resumen': {
-                    'ingresos_totales_proyectados': 0.0,
-                    'balance_neto_proyectado': 0.0,
-                    'period_key': period_key,
-                },
-                'resultados_por_bloque': [],
-                'clientes_a_cobrar': [],
-            }
+        # Gastos programados del período
+        gastos = __get_egresos_totales_periodo_safe(conn, start_date, end_date)
+
+        balance = float(ingresos_totales or 0) - float(((gastos or {}).get('totales') or {}).get('programado') or 0)
+        proyecciones = {
+            'resumen': {
+                'ingresos_totales_proyectados': float(ingresos_totales or 0),
+                'balance_neto_proyectado': float(balance),
+                'period_key': period_key,
+            },
+            'resultados_por_bloque': resultados_por_bloque or [],
+            'clientes_a_cobrar': clientes_a_cobrar or [],
+        }
 
     # ---- Empaquetado para Jinja ----
-    from types import SimpleNamespace
     def _ns(obj):
         if isinstance(obj, dict):
             return SimpleNamespace(**{k: _ns(v) for k, v in obj.items()})
