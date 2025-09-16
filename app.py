@@ -4890,7 +4890,7 @@ def _procesar_bloques(conn, bloques: list[dict], start: date, end: date) -> tupl
 # 6) Ruta /reportes/proyecciones (contrato estable)
 # ---------------------------------------------------------------------
 
-@app.route('/reportes/proyecciones', methods=['GET'])
+@app.route('/reportes/proyecciones', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
 def reporte_proyecciones():
@@ -4919,19 +4919,22 @@ def reporte_proyecciones():
             except Exception: pass
             return False
 
+    # Fuente de parámetros (POST preferido para evitar URLs largas)
+    src = request.form if request.method == 'POST' else request.args
+
     hoy = get_venezuela_current_date()
 
-    # ---- Parámetros / Querystring ----
-    period_mode = (request.args.get('period_mode') or 'auto').lower()
-    start_s = (request.args.get('start_date') or '').strip()
-    end_s   = (request.args.get('end_date') or '').strip()
+    # ---- Parámetros ----
+    period_mode = (src.get('period_mode') or 'auto').lower()
+    start_s = (src.get('start_date') or '').strip()
+    end_s   = (src.get('end_date') or '').strip()
 
     # otros potenciales (guardamos por si UI los usa luego)
-    dev_target_pct = request.args.get('dev_target_pct')  # opcional
-    fijada         = request.args.get('fijada')          # opcional
+    dev_target_pct = src.get('dev_target_pct')  # opcional
+    fijada         = src.get('fijada')          # opcional
 
     # Bloques (constructor dinámico desde la UI)
-    bloques_iniciales = _parse_bloques(request.args)
+    bloques_iniciales = _parse_bloques(src)
 
     # Política de simulación: firme y simple
     simulacion_realizada = bool(bloques_iniciales)
