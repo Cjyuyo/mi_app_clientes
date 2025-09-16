@@ -4719,13 +4719,55 @@ def reporte_proyecciones():
         return redirect(url_for('gestion_administrativa'))
 
     # ----------------- Helpers locales (auto-contenidos) -----------------
+    from datetime import date as _date, timedelta as _timedelta
+    from calendar import monthrange as _monthrange
+
+    def __month_add(d: _date, months: int) -> _date:
+        y = d.year + (d.month - 1 + months) // 12
+        m = (d.month - 1 + months) % 12 + 1
+        last = _monthrange(y, m)[1]
+        return _date(y, m, min(d.day, last))
+
+    def __parse_date(s: str | None):
+        if not s:
+            return None
+        try:
+            parts = [int(x) for x in s.strip().split('-')]
+            if len(parts) == 3:
+                return _date(parts[0], parts[1], parts[2])
+        except Exception:
+            pass
+        return None
+
+    def __compute_period(hoy: _date, mode: str, start_s: str, end_s: str) -> tuple[_date, _date]:
+        mode = (mode or 'auto').lower()
+        if mode == 'manual':
+            a = __parse_date(start_s)
+            b = __parse_date(end_s)
+            if a and b:
+                # si inversión, swapea
+                return (b, a) if a > b else (a, b)
+            if a and not b:
+                return (a, a)
+            if b and not a:
+                return (b, b)
+            # si ambos faltan o inválidos → cae a auto
+        # AUTO: periodo 13→12
+        if hoy.day >= 13:
+            start = _date(hoy.year, hoy.month, 13)
+            end = __month_add(start, 1) - _timedelta(days=1)  # 12 del mes siguiente
+        else:
+            end = _date(hoy.year, hoy.month, 12)
+            start = __month_add(end, -1) + _timedelta(days=1)  # 13 del mes anterior
+        return (start, end)
+
     def __hascol(table: str, col: str, schema: str = 'public') -> bool:
-        """Verifica si existe la columna en information_schema.columns."""
         try:
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT EXISTS(
-                      SELECT 1 FROM information_schema.columns
+                      SELECT 1
+                      FROM information_schema.columns
                       WHERE table_schema=%s AND table_name=%s AND column_name=%s
                     ) AS ok
                 """, (schema, table, col))
@@ -4737,10 +4779,6 @@ def reporte_proyecciones():
             return False
 
     def __collect_union(specs, upper: bool = True) -> list[str]:
-        """
-        Construye un UNION DISTINCT dinámico sobre columnas candidatas (TRIM y no vacías).
-        specs: lista de (tabla, columna[, schema]).
-        """
         norm_specs = []
         for s in specs:
             if len(s) == 2:
@@ -4772,7 +4810,6 @@ def reporte_proyecciones():
         return out
 
     def __estatus_normalize_case(base_expr: str) -> str:
-        """CASE SQL que normaliza variantes a 'PENDIENTE POR ENTREGA' y colapsa espacios."""
         return (
             "CASE "
             f"WHEN {base_expr} IS NULL OR {base_expr}='' THEN NULL "
@@ -4784,44 +4821,27 @@ def reporte_proyecciones():
         )
 
     def __selector_opciones(conn) -> tuple[list[str], list[str], list[str], list[str]]:
-        """
-        Devuelve (empresas, estados, condicion, estatus) combinando columnas/tablas existentes:
-        - Empresa: clientes.empresa (sin UPPER)
-        - Estado del Plan: UNION de clientes.estado_del_plan y clientes.estado_plan (UPPER/TRIM)
-        - Condición: UNION de clientes.condicion_pago, clientes.condicion, cuotas.condicion, planes.condicion (UPPER/TRIM)
-        - Estatus: UNION de clientes.estatus_cliente y clientes.estatus con normalización ('PENDIENTE POR ENTREGA')
-        """
-        # Empresa (mantener casing “bonito”)
         empresas = __collect_union([('clientes', 'empresa')], upper=False)
-
-        # Estados
         estados = __collect_union([
             ('clientes', 'estado_del_plan'),
             ('clientes', 'estado_plan'),
         ], upper=True)
-
-        # Condición
         condicion = __collect_union([
             ('clientes', 'condicion_pago'),
             ('clientes', 'condicion'),
             ('cuotas',   'condicion'),
             ('planes',   'condicion'),
-        ], upper=True)
-        if not condicion:
-            condicion = ['SIN CONDICION']
+        ], upper=True) or ['SIN CONDICION']
 
-        # Estatus
-        estatus_parts = []
         with conn.cursor() as cur:
+            parts = []
             for table, col in [('clientes','estatus_cliente'), ('clientes','estatus')]:
                 if __hascol(table, col):
                     base = f"TRIM(UPPER({col}))"
                     norm = __estatus_normalize_case(base)
-                    estatus_parts.append(f"SELECT {norm} AS v FROM public.{table}")
-            # garantiza 'PENDIENTE POR ENTREGA'
-            estatus_parts.append("SELECT 'PENDIENTE POR ENTREGA' AS v")
-
-            sql = "SELECT DISTINCT v FROM (\n  " + "\n  UNION ALL\n  ".join(estatus_parts) + "\n) z WHERE v IS NOT NULL AND v <> '' ORDER BY 1"
+                    parts.append(f"SELECT {norm} AS v FROM public.{table}")
+            parts.append("SELECT 'PENDIENTE POR ENTREGA' AS v")
+            sql = "SELECT DISTINCT v FROM (\n  " + "\n  UNION ALL\n  ".join(parts) + "\n) z WHERE v IS NOT NULL AND v <> '' ORDER BY 1"
             cur.execute(sql)
             rows = cur.fetchall() or []
             estatus = [r[0] if not isinstance(r, dict) else list(r.values())[0] for r in rows]
@@ -4833,35 +4853,29 @@ def reporte_proyecciones():
         return empresas, estados, condicion, estatus
     # --------------------------------------------------------------------
 
-    # Fuente de parámetros (POST preferido para evitar URLs largas)
     src = request.form if request.method == 'POST' else request.args
-
     hoy = get_venezuela_current_date()
 
     # ---- Parámetros ----
     period_mode = (src.get('period_mode') or 'auto').lower()
     start_s = (src.get('start_date') or '').strip()
     end_s   = (src.get('end_date') or '').strip()
+    dev_target_pct = src.get('dev_target_pct')
+    fijada         = src.get('fijada')
 
-    # otros potenciales (por si UI los usa luego)
-    dev_target_pct = src.get('dev_target_pct')  # opcional
-    fijada         = src.get('fijada')          # opcional
-
-    # Bloques (constructor dinámico desde la UI)
+    # Bloques
     bloques_iniciales = _parse_bloques(src)
-
-    # Política de simulación (firme y simple)
     simulacion_realizada = bool(bloques_iniciales)
 
-    # ---- Período ----
-    start_date, end_date = _compute_period(hoy, period_mode, start_s, end_s)
+    # ---- Período (usa helper local; evita NameError) ----
+    start_date, end_date = __compute_period(hoy, period_mode, start_s, end_s)
     period_key = f"{start_date.isoformat()}_{end_date.isoformat()}"
 
     # ---- Tasas ----
     tasas_anchor = _fetch_bcv_anchor(conn, start_date)
     tasas_now    = _fetch_tasas_now(conn)
 
-    # ---- Selectores (robustos por UNION) ----
+    # ---- Selectores ----
     try:
         empresas_opciones, estados_opciones, condicion_opciones, estatus_opciones = __selector_opciones(conn)
     except Exception as e:
@@ -4872,15 +4886,13 @@ def reporte_proyecciones():
 
     # ---- Proyecciones / Gastos ----
     proyecciones = {}
-    gastos = {'totales': {'programado': 0.0}}  # placeholder robusto
+    gastos = {'totales': {'programado': 0.0}}
 
     if simulacion_realizada:
         try:
             ingresos_totales, resultados_por_bloque, clientes_a_cobrar = _procesar_bloques(
                 conn, bloques_iniciales, start_date, end_date
             )
-
-            # Gastos programados del período (cascada de firmas existente)
             try:
                 g = _get_egresos_totales_periodo(conn, start_date, end_date)
                 if isinstance(g, dict):
@@ -4891,7 +4903,6 @@ def reporte_proyecciones():
                 app.logger.exception("proyecciones/egresos error: %s", e)
 
             balance = ingresos_totales - float(((gastos or {}).get('totales') or {}).get('programado') or 0)
-
             proyecciones = {
                 'resumen': {
                     'ingresos_totales_proyectados': ingresos_totales,
@@ -4915,7 +4926,7 @@ def reporte_proyecciones():
                 'clientes_a_cobrar': [],
             }
 
-    # ---- Empaquetado seguro para Jinja (atributo-style) ----
+    # ---- Empaquetado para Jinja ----
     from types import SimpleNamespace
     def _ns(obj):
         if isinstance(obj, dict):
