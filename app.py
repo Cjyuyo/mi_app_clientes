@@ -17,6 +17,9 @@ from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from functools import wraps
 from types import SimpleNamespace
 
+# >>> NUEVO: import local de la función de proyección
+from proyeccion import calcular_proyeccion
+
 # Terceros
 import boto3
 import pandas as pd
@@ -5069,6 +5072,153 @@ def reporte_proyecciones():
                 'resultados_por_bloque': [], 'clientes_a_cobrar': [],
             }
 
+    # =============== NUEVO: Proyección financiera (escenarios) ===============
+    def __to_float(v, default=0.0) -> float:
+        try:
+            if v is None or (isinstance(v, str) and not v.strip()):
+                return float(default)
+            return float(v)
+        except Exception:
+            return float(default)
+
+    def __getlist(name: str) -> list[str]:
+        return src.getlist(name) if hasattr(src, 'getlist') else []
+
+    proyeccion_financiera = None
+    proyeccion_error = None
+
+    try:
+        # 1) Ingresos
+        ingresos = {
+            "solv_imp": {
+                "efectivo": __to_float(src.get("ing_efectivo", 0)),
+                "euro":     __to_float(src.get("ing_euro", 0)),
+                "usdt":     __to_float(src.get("ing_usdt", 0)),
+                "nequi":    __to_float(src.get("ing_nequi", 0)),
+                "bs_sc":    __to_float(src.get("ing_bs_sc", 0)),
+                "bs_cc":    __to_float(src.get("ing_bs_cc", 0)),
+            },
+            "mora": {
+                "efectivo": __to_float(src.get("mora_efectivo", 0)),
+                "bs_sc":    __to_float(src.get("mora_bs_sc", 0)),
+                "bs_cc":    __to_float(src.get("mora_bs_cc", 0)),
+            },
+        }
+
+        # 2) Egresos en USD por clave:
+        egresos_divisas = {}
+        # Opción A: JSON en oculto
+        eg_json = src.get("eg_divisas_json")
+        if eg_json:
+            try:
+                parsed = json.loads(eg_json)
+                if isinstance(parsed, dict):
+                    egresos_divisas = {str(k): __to_float(v, 0.0) for k, v in parsed.items()}
+            except Exception:
+                pass
+        # Opción B: pares clave/monto
+        if not egresos_divisas:
+            keys = __getlist("eg_div_key[]")
+            vals = __getlist("eg_div_monto[]")
+            for i, k in enumerate(keys or []):
+                k = (k or "").strip()
+                if not k:
+                    continue
+                v = __to_float(vals[i]) if i < len(vals) else 0.0
+                if v != 0.0:
+                    egresos_divisas[k] = v
+
+        # 3) Ítems del carril 225→247 (preferir JSON oculto `carril_json`)
+        carril_items = []
+        carril_raw = (src.get("carril_json") or "").strip()
+        if carril_raw:
+            try:
+                parsed = json.loads(carril_raw)
+                if isinstance(parsed, list):
+                    for it in parsed:
+                        if not isinstance(it, dict): 
+                            continue
+                        concepto = str(it.get("concepto", "")).strip()
+                        monto    = __to_float(it.get("monto_usd", 0))
+                        venta    = __to_float(it.get("venta", 0))
+                        recompra = __to_float(it.get("recompra", 0))
+                        if concepto and monto > 0 and venta > 0 and recompra > 0:
+                            carril_items.append({
+                                "concepto": concepto, "monto_usd": monto, "venta": venta, "recompra": recompra
+                            })
+            except Exception:
+                # si hay error en JSON, caemos al modo arrays
+                carril_items = []
+
+        if not carril_items:
+            # fallback arrays del form
+            carril_conceptos = __getlist("carril_concepto[]")
+            carril_montos    = __getlist("carril_monto_usd[]")
+            carril_ventas    = __getlist("carril_venta[]")
+            carril_recompras = __getlist("carril_recompra[]")
+            for i in range(len(carril_conceptos or [])):
+                c = (carril_conceptos[i] or "").strip()
+                if not c:
+                    continue
+                monto = __to_float(carril_montos[i]) if i < len(carril_montos) else 0.0
+                venta = __to_float(carril_ventas[i]) if i < len(carril_ventas) else 0.0
+                recompra = __to_float(carril_recompras[i]) if i < len(carril_recompras) else 0.0
+                if monto > 0 and venta > 0 and recompra > 0:
+                    carril_items.append({
+                        "concepto": c, "monto_usd": monto, "venta": venta, "recompra": recompra
+                    })
+
+        # 4) Egresos en Bs directos (USD-eq)
+        egresos = {
+            "divisas": egresos_divisas,
+            "carril_225_247_items": carril_items,  # modo MANUAL (lista de items)
+            "bs_bcv":      __to_float(src.get("eg_bs_bcv", 0)),
+            "bs_euro_bcv": __to_float(src.get("eg_bs_euro_bcv", 0)),
+            "variables_bs": {
+                "devoluciones_bs": __to_float(src.get("eg_dev_bs", 0)),
+                "registro":        __to_float(src.get("eg_registro_bs", 0)),
+            },
+            "variables_usd": {
+                "devoluciones_usd": __to_float(src.get("eg_dev_usd", 0)),
+            },
+        }
+
+        # 5) Tasas del mes
+        usd_bcv = __to_float(src.get("usd_bcv", None), tasas_now.get('usd') or tasas_anchor.get('usd') or 0.0)
+        eur_bcv = __to_float(src.get("eur_bcv", None), usd_bcv)  # fallback simple si no envías EUR
+        tasas = {
+            "usd_bcv": usd_bcv,
+            "eur_bcv": eur_bcv,
+            "binance_actual": __to_float(src.get("binance_actual", None), tasas_now.get('usd') or 0.0),
+            "binance_prevision": __to_float(src.get("binance_prevision", 0), 0.0),
+            "venta_usd": __to_float(src.get("venta_usd_global", 0)),
+            "recompra_usd": __to_float(src.get("recompra_usd_global", 0)),
+        }
+
+        # 6) Parámetros de la proyección
+        parametros = {
+            "colchon_pct": __to_float(src.get("colchon_pct", 0.20), 0.20),
+            # Estas listas se mantienen por compatibilidad; tu lógica manual ignora 'pagan_por_225_247_keys'
+            "bloque_directo_keys": [x.strip() for x in __getlist("bloque_directo_keys[]") if (x or "").strip()],
+            "pagan_por_225_247_keys": [x.strip() for x in __getlist("pagan_por_225_247_keys[]") if (x or "").strip()],
+        }
+
+        # 7) ¿Disparamos el cálculo?
+        has_any_input = any([
+            src.get("ing_efectivo"), src.get("ing_usdt"), src.get("ing_bs_sc"), src.get("mora_efectivo"),
+            src.get("eg_dev_usd"), src.get("eg_bs_bcv"), src.get("venta_usd_global"),
+            egresos_divisas, carril_items
+        ])
+        force_run = (src.get("run_proyeccion") == "1")
+
+        if has_any_input or force_run:
+            proyeccion_financiera = calcular_proyeccion(ingresos, egresos, tasas, parametros)
+
+    except Exception as e:
+        proyeccion_error = str(e)
+        app.logger.exception("proyecciones/proyeccion_financiera error: %s", e)
+    # =============== FIN NUEVO bloque ===============
+
     # Empaquetado para Jinja
     tasas = _ns({'bcv_anchor': tasas_anchor, 'bcv_now': tasas_now})
     proyecciones_ns = _ns(proyecciones) if proyecciones else None
@@ -5093,7 +5243,10 @@ def reporte_proyecciones():
         estatus_opciones=estatus_opciones,
         simulacion_realizada=simulacion_realizada,
         parametros=parametros,
-        bloques_iniciales=bloques_iniciales
+        bloques_iniciales=bloques_iniciales,
+        # -------- NUEVO: salida de escenarios ----------
+        proyeccion_financiera=proyeccion_financiera,
+        proyeccion_error=proyeccion_error,
     )
 
 # =========================

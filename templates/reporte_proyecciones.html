@@ -30,6 +30,8 @@
   .dark .thead-clone{ border-bottom-color:#334155; }
   .table-header-is-sticky .thead-clone{ opacity:1; pointer-events:auto; transform:translateY(0); }
   .form-input, .form-select-choices, .form-checkbox { width: 100%; }
+  /* NUEVO: estilos mínimos de tablas chicas */
+  .mini-table th, .mini-table td { padding: .5rem .6rem; }
 </style>
 {% endblock %}
 
@@ -38,9 +40,11 @@
 {% block body %}
 <div class="space-y-8">
 
-  <form id="simulation-form" method="GET" action="{{ url_for('reporte_proyecciones') }}" 
+  <form id="simulation-form" method="POST" action="{{ url_for('reporte_proyecciones') }}" 
         x-data="simulationController()">
     <input type="hidden" name="bloques_json" id="bloques_json" />
+    <!-- NUEVO: json del carril manual -->
+    <input type="hidden" name="carril_json" id="carril_json" />
 
     <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-6">
       <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -76,7 +80,7 @@
             <input type="date" name="start_date" id="start_date" value="{{ parametros.start_date or '' }}" class="form-input">
           </div>
           <div>
-            <label for="end_date" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Hasta</label>
+            <label for "end_date" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Hasta</label>
             <input type="date" name="end_date" id="end_date" value="{{ parametros.end_date or '' }}" class="form-input">
           </div>
         </div>
@@ -93,6 +97,124 @@
           <i class="bi bi-plus-circle-fill mr-1"></i> Agregar Bloque de Filtros
       </button>
     </div>
+
+    <!-- NUEVO: BASE DE CÁLCULO — PROYECCIÓN FINANCIERA -->
+    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-6 mt-8 space-y-6">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3">
+          <i class="bi bi-cash-coin text-sky-500"></i>
+          <span>Base de Cálculo — Proyección Financiera</span>
+        </h3>
+        <label class="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" name="run_proyeccion" value="1" checked class="form-checkbox">
+          <span>Calcular escenarios financieros</span>
+        </label>
+      </div>
+
+      <!-- INGRESOS -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+          <h4 class="font-semibold mb-3 text-slate-700 dark:text-slate-200">Ingresos (Solventes + Impuntuales)</h4>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="text-sm">Efectivo USD <input name="ing_efectivo" type="number" step="0.01" class="form-input"></label>
+            <label class="text-sm">EUR <input name="ing_euro" type="number" step="0.01" class="form-input"></label>
+            <label class="text-sm">USDT <input name="ing_usdt" type="number" step="0.01" class="form-input"></label>
+            <label class="text-sm">Nequi <input name="ing_nequi" type="number" step="0.01" class="form-input"></label>
+            <label class="text-sm">Bs S/C <input name="ing_bs_sc" type="number" step="0.01" class="form-input"></label>
+            <label class="text-sm">Bs C/C <input name="ing_bs_cc" type="number" step="0.01" class="form-input"></label>
+          </div>
+        </div>
+        <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+          <h4 class="font-semibold mb-3 text-slate-700 dark:text-slate-200">Ingresos de Mora (eventual)</h4>
+          <div class="grid grid-cols-3 gap-3">
+            <label class="text-sm">Efectivo USD <input name="mora_efectivo" type="number" step="0.01" class="form-input"></label>
+            <label class="text-sm">Bs S/C <input name="mora_bs_sc" type="number" step="0.01" class="form-input"></label>
+            <label class="text-sm">Bs C/C <input name="mora_bs_cc" type="number" step="0.01" class="form-input"></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- EGRESOS USD por clave -->
+      <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h4 class="font-semibold text-slate-700 dark:text-slate-200">Egresos en USD por clave</h4>
+          <button type="button" id="add-egreso-usd" class="text-sm text-sky-600 hover:text-sky-800">
+            <i class="bi bi-plus-circle me-1"></i> Añadir fila
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm mini-table">
+            <thead class="text-slate-500">
+              <tr>
+                <th class="text-left">Clave</th>
+                <th class="text-right">Monto USD</th>
+                <th class="w-10"></th>
+              </tr>
+            </thead>
+            <tbody id="egresos-usd-rows"></tbody>
+          </table>
+        </div>
+        <p class="text-xs text-slate-500 mt-2">Ej.: alquiler, devoluciones_usd, etc.</p>
+      </div>
+
+      <!-- CARRIL 225→247 por ítem -->
+      <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h4 class="font-semibold text-slate-700 dark:text-slate-200">Carril 225→247 (por ítem del mes)</h4>
+          <button type="button" id="add-carril-item" class="text-sm text-sky-600 hover:text-sky-800">
+            <i class="bi bi-plus-circle me-1"></i> Añadir ítem
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm mini-table">
+            <thead class="text-slate-500">
+              <tr>
+                <th class="text-left">Concepto</th>
+                <th class="text-right">Monto USD</th>
+                <th class="text-right">Venta</th>
+                <th class="text-right">Recompra</th>
+                <th class="w-10"></th>
+              </tr>
+            </thead>
+            <tbody id="carril-rows"></tbody>
+          </table>
+        </div>
+        <p class="text-xs text-slate-500 mt-2">Si no agregas ítems, se usa el modo por claves con tasas globales.</p>
+      </div>
+
+      <!-- EGRESOS Bs + variables -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+          <h4 class="font-semibold mb-3 text-slate-700 dark:text-slate-200">Egresos en Bs (USD-equivalente)</h4>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="text-sm">Fijos Bs BCV (USD-eq) <input name="eg_bs_bcv" type="number" step="0.01" class="form-input"></label>
+            <label class="text-sm">Fijos Bs Euro BCV (USD-eq) <input name="eg_bs_euro_bcv" type="number" step="0.01" class="form-input"></label>
+          </div>
+          <div class="grid grid-cols-2 gap-3 mt-3">
+            <label class="text-sm">Devoluciones Bs (USD-eq) <input name="eg_dev_bs" type="number" step="0.01" class="form-input"></label>
+            <label class="text-sm">Registro (USD-eq) <input name="eg_registro_bs" type="number" step="0.01" class="form-input"></label>
+          </div>
+        </div>
+        <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+          <h4 class="font-semibold mb-3 text-slate-700 dark:text-slate-200">Variables y Tasas</h4>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="text-sm">Devoluciones USD <input name="eg_dev_usd" type="number" step="0.01" class="form-input"></label>
+            <label class="text-sm">Colchón % <input name="colchon_pct" type="number" step="0.01" value="0.20" class="form-input"></label>
+          </div>
+          <div class="grid grid-cols-3 gap-3 mt-3">
+            <label class="text-sm">USD BCV <input name="usd_bcv" type="number" step="0.0001" class="form-input"></label>
+            <label class="text-sm">EUR BCV <input name="eur_bcv" type="number" step="0.0001" class="form-input"></label>
+            <label class="text-sm">Binance Actual <input name="binance_actual" type="number" step="0.0001" class="form-input"></label>
+          </div>
+          <div class="grid grid-cols-3 gap-3 mt-3">
+            <label class="text-sm">Binance Previsión <input name="binance_prevision" type="number" step="0.0001" class="form-input"></label>
+            <label class="text-sm">Venta (global) <input name="venta_usd_global" type="number" step="0.0001" class="form-input"></label>
+            <label class="text-sm">Recompra (global) <input name="recompra_usd_global" type="number" step="0.0001" class="form-input"></label>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /NUEVO -->
 
     <div class="flex justify-end items-center gap-3 pt-6 mt-8 border-t border-slate-200 dark:border-slate-700">
       <a href="{{ url_for('reporte_proyecciones') }}" class="px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 rounded-lg transition-colors">Limpiar Filtros</a>
@@ -186,6 +308,145 @@
   </div>
   {% endif %}
 
+  <!-- NUEVO: RESULTADOS DE PROYECCIÓN FINANCIERA (ESCENARIOS) -->
+  {% if proyeccion_error %}
+    <div class="bg-rose-50 border border-rose-200 text-rose-700 rounded-lg p-4">
+      <strong>Error de proyección:</strong> {{ proyeccion_error }}
+    </div>
+  {% endif %}
+
+  {% if proyeccion_financiera %}
+    <div class="space-y-6">
+      <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Proyección Financiera — Escenarios</h2>
+
+      <!-- TASA & MÁRGENES -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+          <h4 class="font-semibold text-slate-700 dark:text-slate-200 mb-2">Tasas</h4>
+          {% set t = proyeccion_financiera.tasas_y_margenes.tasas %}
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div class="flex justify-between"><span>USD BCV:</span><span>${{ t.usd_bcv }}</span></div>
+            <div class="flex justify-between"><span>EUR BCV:</span><span>${{ t.eur_bcv }}</span></div>
+            <div class="flex justify-between"><span>Binance Actual:</span><span>${{ t.binance_actual }}</span></div>
+            <div class="flex justify-between"><span>Binance Previsión:</span><span>${{ t.binance_prevision }}</span></div>
+          </div>
+        </div>
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+          <h4 class="font-semibold text-slate-700 dark:text-slate-200 mb-2">Márgenes de Tolerancia</h4>
+          {% set m = proyeccion_financiera.tasas_y_margenes.margenes %}
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div class="flex justify-between"><span>USD tolerancia:</span><span>${{ m.usd_tol }}</span></div>
+            <div class="flex justify-between"><span>EUR tolerancia:</span><span>${{ m.eur_tol }}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESUMEN POR ESCENARIO -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {% for nombre, esc in proyeccion_financiera.escenarios.items() %}
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="font-bold text-slate-700 dark:text-slate-100">{{ nombre|replace('_',' ')|upper }}</h4>
+            <span class="text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">Colchón: ${{ esc.colchon_total }}</span>
+          </div>
+          <div class="space-y-1 text-sm">
+            <div class="flex justify-between"><span>Saldo divisas final:</span><span>${{ esc.saldos.divisas_final_usd }}</span></div>
+            <div class="flex justify-between"><span>Saldo Bs final (USD-eq):</span><span>${{ esc.saldos.bs_final_usd_eq }}</span></div>
+            <div class="flex justify-between"><span>Saldo neto:</span><span>${{ esc.saldos.neto_usd_eq }}</span></div>
+            <div class="flex justify-between font-semibold"><span>Saldo líquido:</span><span>${{ esc.saldos.liquido_usd_eq }}</span></div>
+            <div class="flex justify-between text-slate-500"><span>Déficit USD cubierto en Bs:</span><span>${{ esc.deficit_usd_cubierto_en_bs }}</span></div>
+            <div class="flex justify-between text-slate-500"><span>Penalidad 225→247:</span><span>${{ esc.penalidad_225_247_usd_eq }}</span></div>
+          </div>
+          <details class="mt-3">
+            <summary class="cursor-pointer text-sky-600 text-sm">Ver detalle</summary>
+            <div class="mt-3 grid grid-cols-1 gap-3 text-sm">
+              <div>
+                <div class="font-semibold mb-1">Ingresos por bucket</div>
+                <table class="w-full mini-table">
+                  <tbody>
+                    {% for k,v in esc.ingresos_por_bucket.items() %}
+                      <tr><td class="text-slate-500">{{ k }}</td><td class="text-right">${{ v }}</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              <div>
+                <div class="font-semibold mb-1">Egresos divisas (directo)</div>
+                <table class="w-full mini-table">
+                  <thead><tr><th class="text-left">Concepto</th><th class="text-right">USD</th></tr></thead>
+                  <tbody>
+                    {% if esc.egresos_divisas_directo %}
+                      {% for it in esc.egresos_divisas_directo %}
+                        <tr><td>{{ it.concepto }}</td><td class="text-right">${{ it.monto_usd }}</td></tr>
+                      {% endfor %}
+                    {% else %}
+                      <tr><td colspan="2" class="text-slate-400">—</td></tr>
+                    {% endif %}
+                  </tbody>
+                </table>
+              </div>
+              <div>
+                <div class="font-semibold mb-1">Egresos por carril 225→247</div>
+                <table class="w-full mini-table">
+                  <thead>
+                    <tr>
+                      <th class="text-left">Concepto</th>
+                      <th class="text-right">USD</th>
+                      <th class="text-right">Venta</th>
+                      <th class="text-right">Recompra</th>
+                      <th class="text-right">Penalidad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% if esc.egresos_divisas_225_247 %}
+                      {% for it in esc.egresos_divisas_225_247 %}
+                        <tr>
+                          <td>{{ it.concepto }}</td>
+                          <td class="text-right">${{ it.monto_usd }}</td>
+                          <td class="text-right">{{ it.venta or '—' }}</td>
+                          <td class="text-right">{{ it.recompra or '—' }}</td>
+                          <td class="text-right">{{ it.penalidad_usd_eq or '—' }}</td>
+                        </tr>
+                      {% endfor %}
+                    {% else %}
+                      <tr><td colspan="5" class="text-slate-400">—</td></tr>
+                    {% endif %}
+                  </tbody>
+                </table>
+              </div>
+              <div>
+                <div class="font-semibold mb-1">Egresos Bs (USD-eq)</div>
+                <table class="w-full mini-table">
+                  <thead><tr><th class="text-left">Concepto</th><th class="text-right">USD-eq</th></tr></thead>
+                  <tbody>
+                    {% if esc.egresos_bs_directo %}
+                      {% for it in esc.egresos_bs_directo %}
+                        <tr><td>{{ it.concepto }}</td><td class="text-right">${{ it.monto_usd_eq }}</td></tr>
+                      {% endfor %}
+                    {% else %}
+                      <tr><td colspan="2" class="text-slate-400">—</td></tr>
+                    {% endif %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </details>
+        </div>
+        {% endfor %}
+      </div>
+
+      <details class="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+        <summary class="cursor-pointer font-semibold">Glosario</summary>
+        <div class="mt-2 text-sm text-slate-600 dark:text-slate-300 grid grid-cols-1 md:grid-cols-2 gap-2">
+          {% for k,v in proyeccion_financiera.glosario.items() %}
+            <div><span class="font-semibold">{{ k }}:</span> {{ v }}</div>
+          {% endfor %}
+        </div>
+      </details>
+    </div>
+  {% endif %}
+  <!-- /NUEVO -->
+
 </div>
 
 <template id="block-template">
@@ -196,7 +457,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div class="lg:col-span-2">
                 <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Empresa</label>
-                {# 👉 AHORA MULTI-SELECCIÓN (sin "Todas") #}
+                {# MULTI-SELECCIÓN #}
                 <select name="empresa" multiple class="form-select-choices">
                     {% for opt in empresas_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
                 </select>
@@ -246,14 +507,15 @@
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 
 <script>
-// Ahora el script soporta multiselección de "Empresa"
-// y genera combinaciones (producto cartesiano) de filtros.
 document.addEventListener('DOMContentLoaded', function () {
     const container = document.getElementById('simulation-blocks-container');
     const template = document.getElementById('block-template');
     const addBtn = document.getElementById('add-block-btn');
     const hiddenBloques = document.getElementById('bloques_json');
     const form = document.getElementById('simulation-form');
+
+    // NUEVO: refs del carril manual
+    const carrilHidden = document.getElementById('carril_json');
 
     function initChoices(element) {
         element.querySelectorAll('.form-select-choices').forEach(select => {
@@ -295,7 +557,6 @@ document.addEventListener('DOMContentLoaded', function () {
         initChoices(newBlock);
 
         if (data && typeof data === 'object') {
-            // empresa ahora puede venir como lista
             setSelectValue(newBlock.querySelector('select[name="empresa"]'), data.empresa || []);
             setSelectValue(newBlock.querySelector('select[name="estado_plan"]'), data.estado_plan || data.estados || []);
             setSelectValue(newBlock.querySelector('select[name="condicion"]'), data.condicion || []);
@@ -310,7 +571,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Genera combinaciones de filtros por bloque
+    // Genera combinaciones y reduce payload enviado (solo 'bloques_json')
     function buildBloquesJSON() {
         const bloques = [];
         const ALL = (arr) => (Array.isArray(arr) && arr.length ? arr : [null]);
@@ -376,8 +637,64 @@ document.addEventListener('DOMContentLoaded', function () {
 
     addBtn.addEventListener('click', () => addNewBlock());
 
+    // ===== NUEVO: Dinámica de tablas pequeñas =====
+    function addEgresoUSDRow(k='', v='') {
+      const tb = document.getElementById('egresos-usd-rows');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input name="eg_div_key[]"   class="form-input" placeholder="ej. alquiler" value="${k}"></td>
+        <td><input name="eg_div_monto[]" class="form-input text-right" type="number" step="0.01" value="${v}"></td>
+        <td class="text-right"><button type="button" class="text-rose-600 hover:text-rose-700 remove-row" title="Quitar"><i class="bi bi-x-circle"></i></button></td>
+      `;
+      tb.appendChild(tr);
+      tr.querySelector('.remove-row').addEventListener('click', ()=> tr.remove());
+    }
+    function addCarrilRow(c='', m='', ve='', re='') {
+      const tb = document.getElementById('carril-rows');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input name="carril_concepto[]"  class="form-input" placeholder="publicidad" value="${c}"></td>
+        <td><input name="carril_monto_usd[]" class="form-input text-right" type="number" step="0.01" value="${m}"></td>
+        <td><input name="carril_venta[]"     class="form-input text-right" type="number" step="0.0001" value="${ve}"></td>
+        <td><input name="carril_recompra[]"  class="form-input text-right" type="number" step="0.0001" value="${re}"></td>
+        <td class="text-right"><button type="button" class="text-rose-600 hover:text-rose-700 remove-row" title="Quitar"><i class="bi bi-x-circle"></i></button></td>
+      `;
+      tb.appendChild(tr);
+      tr.querySelector('.remove-row').addEventListener('click', ()=> tr.remove());
+    }
+    document.getElementById('add-egreso-usd')?.addEventListener('click', ()=> addEgresoUSDRow());
+    document.getElementById('add-carril-item')?.addEventListener('click', ()=> addCarrilRow());
+
+    // Fila inicial para comodidad
+    addEgresoUSDRow();
+    addCarrilRow();
+
+    // ===== NUEVO: serializar carril a JSON para backend =====
+    function buildCarrilJSON() {
+      const rows = [];
+      const tb = document.getElementById('carril-rows');
+      tb.querySelectorAll('tr').forEach(tr => {
+        const inputs = tr.querySelectorAll('input');
+        const concepto = (inputs[0]?.value || '').trim();
+        const monto = parseFloat(inputs[1]?.value || '0');
+        const venta = parseFloat(inputs[2]?.value || '0');
+        const recompra = parseFloat(inputs[3]?.value || '0');
+        if (concepto && monto > 0 && venta > 0 && recompra > 0) {
+          rows.push({ concepto, monto_usd: monto, venta, recompra });
+        }
+      });
+      return JSON.stringify(rows);
+    }
+
     form.addEventListener('submit', () => {
+        // 1) Serializa bloques a JSON
         hiddenBloques.value = buildBloquesJSON();
+        // 2) Serializa carril a JSON
+        carrilHidden.value = buildCarrilJSON();
+        // 3) Evita enviar todos los selects/inputs del constructor (reducimos el payload)
+        container.querySelectorAll('.block-item select[name], .block-item input[name]').forEach(el => {
+            if (el.name !== 'bloques_json') el.disabled = true;
+        });
     });
 
     // Sticky header
